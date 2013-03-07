@@ -32,6 +32,6 @@ NZ=$3
 for file in *.mpiio
 do
   echo "processing file $file"
-  echo -e ${NX} \\n${NY} \\n${NZ} \\n${file%%.mpiio} \\n"                            "\\n | convert2.out
+  convert2.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
 done
 
