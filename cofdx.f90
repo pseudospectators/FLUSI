@@ -1,3 +1,4 @@
+! this routine is actually mood
 subroutine cofdx (fk)
 !---------------------------------------------------------------
 !     calculation of d/dx in the fourier-space ==> *ik

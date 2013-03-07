@@ -32,8 +32,7 @@ program FLUSI
     write(*,'(A)') '*** info: Reading input data...'
   endif
 
-  call params (tdrag, ifield, infile, tsave, &
-       ismth, tstart, nt)
+  call params (tdrag, ifield, infile, tsave, ismth, tstart, nt)
 
   !---- Step forward in time
   if (mpirank == 0) then
@@ -43,8 +42,7 @@ program FLUSI
   endif
   
   t1 = MPI_wtime()
-  call time_step (tdrag, ifield, tsave, &
-       tstart, nt)
+  call time_step (tdrag, ifield, tsave, tstart, nt)
   t2 = MPI_wtime() - t1
   
   if (mpirank ==0) then
