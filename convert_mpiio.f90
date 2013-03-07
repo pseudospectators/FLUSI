@@ -30,28 +30,23 @@ program convert_mpiio
   real (kind=pr_out), dimension (:,:,:), allocatable :: field
   real (kind=4), dimension (:,:,:), allocatable :: field2
   real (kind=pr_in) :: time
-  character (len=16) :: fname
-  character (len=80) :: ddname, basename
-  character (len=16) :: endian_type
+  character (len=40) :: fname
 
-  write (*,*) '--------------------------------------'
+
+  write (*,*) '----------------begin----------------------'
   
   read *, nx
   read *, ny
   read *, nz
-  read *, time
-  read *, basename
-  read *, endian_type
+  read (*,'(A)') fname  
+  write(*,*) fname
 
-  print *, 'Start collect at t=', time
-
-  write (fname, '(es10.4)') time
 
   call MPI_INIT (mpicode)
 
   allocate ( field(0:(nx-1),0:(ny-1),0:(nz-1)) )
 
-  call MPI_FILE_OPEN (MPI_COMM_WORLD,basename(1:len_trim(basename))//'mpiio_'//fname,MPI_MODE_RDONLY,MPI_INFO_NULL,filedesc,mpicode)
+  call MPI_FILE_OPEN (MPI_COMM_WORLD,trim(fname)//'.mpiio',MPI_MODE_RDONLY,MPI_INFO_NULL,filedesc,mpicode)
   call MPI_FILE_READ_ORDERED (filedesc,field,nx*ny*nz,mpireal,mpistatus,mpicode)
   call MPI_FILE_CLOSE (filedesc,mpicode)
 
@@ -66,30 +61,28 @@ program convert_mpiio
   ! ------------------------------------
   ! Write *,binary file (for vapor et al)
   ! ------------------------------------
-  write (fname, '(es10.4)') time
   inquire (iolength=record_length) field
-  open (12, file = 'old_'//basename(1:len_trim(basename))//trim(fname), form='unformatted', status='new')
+  open (12, file = trim(fname)//".binary", form='unformatted', status='new')
   write (12) (((field2 (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
   close (12)
 
-  ! ------------------------------------
-  ! Write *,ascii file (for matlab)
-  ! ------------------------------------
-  open (11, file = basename(1:len_trim(basename))//trim(fname)//'.ascii', form='formatted', status='new')
-  do ix = 0,nx-1
-  do iy = 0,ny-1
-  do iz = 0,nz-1
-  write (11,'(es15.8)') field2 (ix,iy,iz) !es15.8 defines output precision
-  enddo
-  enddo
-  enddo
-  close (11)
+!   ! ------------------------------------
+!   ! Write *,ascii file (for matlab)
+!   ! ------------------------------------
+!   open (11, file = basename(1:len_trim(basename))//trim(fname)//'.ascii', form='formatted', status='new')
+!   do ix = 0,nx-1
+!   do iy = 0,ny-1
+!   do iz = 0,nz-1
+!   write (11,'(es15.8)') field2 (ix,iy,iz) !es15.8 defines output precision
+!   enddo
+!   enddo
+!   enddo
+!   close (11)
 
   deallocate ( field )
 
-  print *, 'File ','full_'//basename(1:len_trim(basename))//fname, ' written'
   
-  write (*,*) '--------------------------------------'
+  write (*,*) '-----------------end---------------------'
   
   call MPI_FINALIZE (mpicode)
 

@@ -182,9 +182,9 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
     !-- SaveVelocity
     !----------------------------------------------- 
     if (iSaveVelocity == 1) then
-      call SaveFile ( 'ux_mpiio_'//trim(adjustl(name)) , u(:,:,:,1) )
-      call SaveFile ( 'uy_mpiio_'//trim(adjustl(name)) , u(:,:,:,2) )
-      call SaveFile ( 'uz_mpiio_'//trim(adjustl(name)) , u(:,:,:,3) )
+      call SaveFile ( 'ux_'//trim(adjustl(name))//'.mpiio' , u(:,:,:,1) )
+      call SaveFile ( 'uy_'//trim(adjustl(name))//'.mpiio' , u(:,:,:,2) )
+      call SaveFile ( 'uz_'//trim(adjustl(name))//'.mpiio' , u(:,:,:,3) )
     endif
 
     if ((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
@@ -210,9 +210,9 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
       !-- Save Vorticity
       !----------------------------------------------- 
       if (iSaveVorticity == 1) then
-	call SaveFile ( 'vorx_mpiio_'//trim(adjustl(name)) , vort(:,:,:,1) )
-	call SaveFile ( 'vory_mpiio_'//trim(adjustl(name)) , vort(:,:,:,2) )
-	call SaveFile ( 'vorz_mpiio_'//trim(adjustl(name)) , vort(:,:,:,3) )
+	call SaveFile ( 'vorx_'//trim(adjustl(name))//'.mpiio' , vort(:,:,:,1) )
+	call SaveFile ( 'vory_'//trim(adjustl(name))//'.mpiio' , vort(:,:,:,2) )
+	call SaveFile ( 'vorz_'//trim(adjustl(name))//'.mpiio' , vort(:,:,:,3) )
       endif   
 	
       if (iSavePress == 1) then  
@@ -259,7 +259,7 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
 	call cofitxyz(nlk(:,:,:,1), work)
 	! work contains total pressure, remove kinetic energy to get "physical" pressure
 	work = work - 0.5d0*( u(:,:,:,1)*u(:,:,:,1) + u(:,:,:,2)*u(:,:,:,2) + u(:,:,:,3)*u(:,:,:,3) )
-	call SaveFile ( 'p_mpiio_'//trim(adjustl(name)) , work(:,:,:) )
+	call SaveFile ( 'p_'//trim(adjustl(name))//'.mpiio' , work(:,:,:) )
       
       endif
     endif  
@@ -269,7 +269,7 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   !-- Save Mask
   !-----------------------------------------------   
   if (iSaveMask ==1) then
-    call SaveFile ( 'mask_mpiio_'//trim(adjustl(name)) , mask )
+    call SaveFile ( 'mask_'//trim(adjustl(name))//'.mpiio' , mask )
   endif
   
 end subroutine
