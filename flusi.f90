@@ -21,6 +21,7 @@ program FLUSI
     write(*,'(A)') '		FLUSI'
     write(*,'(A)') '--------------------------------------'
     write(*,'("Running on ",i3," CPUs")') mpisize
+    call system('mkdir fields')
   endif
 
   mpiinteger 	= MPI_INTEGER

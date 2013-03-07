@@ -82,13 +82,13 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
      !---------------------------------------------------------------------------------
      !--				Output (after tsave)
      !---------------------------------------------------------------------------------
-!      if( modulo (time - tstart, tsave) <= dt1 ) then
-! 	! note: we can safely delete nlk(:,:,:,1:3,n0). for RK2 it never matters, 
-! 	! and for AB2 this is the one to be overwritten in the next step.
-! 	! this frees 3 complex arrays
-! 	call save_fields_new ( time, dt1, uk, u, vort, nlk(:,:,:,:,n0), work)
-! 	call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
-!      endif
+     if( modulo (time - tstart, tsave) <= dt1 ) then
+	! note: we can safely delete nlk(:,:,:,1:3,n0). for RK2 it never matters, 
+	! and for AB2 this is the one to be overwritten in the next step.
+	! this frees 3 complex arrays
+	call save_fields_new ( time, dt1, uk, u, vort, nlk(:,:,:,:,n0), work)
+	call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
+     endif
 
   end do
 

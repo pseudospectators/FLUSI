@@ -163,8 +163,9 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   end subroutine                                                         
   end interface
 
-  !--Set up file name base
-  write (name, '(a6,es10.4)') 'mpiio_', time
+  !--Set up file name base 
+  !--the following hack enables us to get 000.40 and 001.55 as filenames, so they can actually be ordered
+  write(name,'(F6.2,TL8,I3.3)') time, floor(time) ! this is really really dirty ( from http://drj11.wordpress.com/2008/08/28/fortran-cant-get-no-leading-zero/ )
   
   if ( mpirank == 0 ) then 
     write(*,'("*** info: Saving data.... time= ",es8.2,1x," saveflags= ",3(i1))') time, iSaveVelocity, iSaveVorticity, iSavePress
@@ -181,9 +182,9 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
     !-- SaveVelocity
     !----------------------------------------------- 
     if (iSaveVelocity == 1) then
-      call SaveFile ( 'ux_'//name , u(:,:,:,1) )
-      call SaveFile ( 'uy_'//name , u(:,:,:,2) )
-      call SaveFile ( 'uz_'//name , u(:,:,:,3) )
+      call SaveFile ( 'ux_mpiio_'//trim(adjustl(name)) , u(:,:,:,1) )
+      call SaveFile ( 'uy_mpiio_'//trim(adjustl(name)) , u(:,:,:,2) )
+      call SaveFile ( 'uz_mpiio_'//trim(adjustl(name)) , u(:,:,:,3) )
     endif
 
     if ((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
@@ -209,9 +210,9 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
       !-- Save Vorticity
       !----------------------------------------------- 
       if (iSaveVorticity == 1) then
-	call SaveFile ( 'vorx_'//name , vort(:,:,:,1) )
-	call SaveFile ( 'vory_'//name , vort(:,:,:,2) )
-	call SaveFile ( 'vorz_'//name , vort(:,:,:,3) )
+	call SaveFile ( 'vorx_mpiio_'//trim(adjustl(name)) , vort(:,:,:,1) )
+	call SaveFile ( 'vory_mpiio_'//trim(adjustl(name)) , vort(:,:,:,2) )
+	call SaveFile ( 'vorz_mpiio_'//trim(adjustl(name)) , vort(:,:,:,3) )
       endif   
 	
       if (iSavePress == 1) then  
@@ -258,7 +259,7 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
 	call cofitxyz(nlk(:,:,:,1), work)
 	! work contains total pressure, remove kinetic energy to get "physical" pressure
 	work = work - 0.5d0*( u(:,:,:,1)*u(:,:,:,1) + u(:,:,:,2)*u(:,:,:,2) + u(:,:,:,3)*u(:,:,:,3) )
-	call SaveFile ( 'p_'//name , work(:,:,:) )
+	call SaveFile ( 'p_mpiio_'//trim(adjustl(name)) , work(:,:,:) )
       
       endif
     endif  
@@ -268,7 +269,7 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   !-- Save Mask
   !-----------------------------------------------   
   if (iSaveMask ==1) then
-    call SaveFile ( 'mask_'//name , mask )
+    call SaveFile ( 'mask_mpiio_'//trim(adjustl(name)) , mask )
   endif
   
 end subroutine
@@ -290,8 +291,9 @@ subroutine SaveFile (filename, field_out)
   integer :: filedesc, mpicode
   integer, dimension(MPI_STATUS_SIZE) :: mpistatus
   
-  call MPI_FILE_DELETE(filename, MPI_INFO_NULL, mpicode)
-  call MPI_FILE_OPEN (MPI_COMM_WORLD,filename,MPI_MODE_WRONLY+MPI_MODE_CREATE,MPI_INFO_NULL,filedesc,mpicode)
+  ! modified: automatically stores in subfolder fields
+  call MPI_FILE_DELETE('./fields/'//filename, MPI_INFO_NULL, mpicode)
+  call MPI_FILE_OPEN (MPI_COMM_WORLD,'./fields/'//filename,MPI_MODE_WRONLY+MPI_MODE_CREATE,MPI_INFO_NULL,filedesc,mpicode)
   call MPI_FILE_WRITE_ORDERED (filedesc,field_out,product(rs),mpireal_out,mpistatus,mpicode)
   call MPI_FILE_CLOSE (filedesc,mpicode)    
   

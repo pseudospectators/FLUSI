@@ -22,8 +22,8 @@ BPurple='\e[1;35m'      # Purple
 BCyan='\e[1;36m'        # Cyan
 BWhite='\e[1;37m'       # White
 
-nproc="1"
-params="PARAMSs.test"
+nproc="2"
+params="PARAMSs.ring"
 
 echo -e ${BBlue} "deleting main..." ${Color_Off}
 rm main
