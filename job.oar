@@ -1,0 +1,19 @@
+#!/bin/bash
+#OAR -n FLUSI_A
+#OAR -p cluster
+#OAR -l core=12
+#OAR -q development
+#OAR -O FLUSI.%jobid%.output
+#OAR -E FLUSI.%jobid%.ERROR
+#OAR --project 13b016
+#cat $OAR_NODEFILE
+module load intel/12.1 openmpi/intel/1.4.5
+
+MPI_ARCH_PATH=/softs/openmpi/intel/1.4.5
+/softs/openmpi/intel/1.4.5/bin/mpirun -machinefile $OAR_NODEFILE -n 12 ./main < PARAMSs.test
+
+
+#------------------------------------
+# run: oarsub -S ./job.oar
+# note job.oar must be executable
+#------------------------------------

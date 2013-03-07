@@ -1,0 +1,16 @@
+#PBS -N test_ns
+#PBS -S /bin/bash
+#PBS -l cput=00:30:00
+#PBS -l nodes=1:full:ppn=8
+#PBS -j oe
+
+mpdboot
+
+cd $PBS_O_WORKDIR
+ulimit -s10000000
+
+/Softs/intel/impi/3.1/bin64/mpiexec -n 8 ./main < PARAMSs
+
+sleep 2s
+mpdallexit
+sleep 2s
