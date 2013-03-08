@@ -87,7 +87,7 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
 	! and for AB2 this is the one to be overwritten in the next step.
 	! this frees 3 complex arrays
 	call save_fields_new ( time, dt1, uk, u, vort, nlk(:,:,:,:,n0), work)
-	call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
+! 	call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
      endif
 
   end do
