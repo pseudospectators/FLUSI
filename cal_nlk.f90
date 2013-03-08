@@ -1,4 +1,4 @@
-subroutine cal_nlk (dt1, nlk, uk, u , vort, work )
+subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   ! -------------------------------------------------------------------------------------------
   ! 		VERSION 5 / mars / 2013
   ! - no allocating, all work arrays passed as arguments
@@ -16,7 +16,7 @@ subroutine cal_nlk (dt1, nlk, uk, u , vort, work )
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (in) :: uk
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (out):: nlk
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: vort, u
+  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: work_vort, work_u
   real (kind=pr), intent (out) :: dt1
   real (kind=pr) :: u_max_w, divu, divumax, t1=0.d0,t2=0.d0,t3=0.d0,t4=0.d0,t5=0.d0,t6=0.d0
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
@@ -29,9 +29,9 @@ subroutine cal_nlk (dt1, nlk, uk, u , vort, work )
   !-----------------------------------------------
   !--Calculate ux and uy in physical space
   !-----------------------------------------------
-  call cofitxyz (uk(:,:,:,1), u(:,:,:,1))
-  call cofitxyz (uk(:,:,:,2), u(:,:,:,2))
-  call cofitxyz (uk(:,:,:,3), u(:,:,:,3))
+  call cofitxyz (uk(:,:,:,1), work_u(:,:,:,1))
+  call cofitxyz (uk(:,:,:,2), work_u(:,:,:,2))
+  call cofitxyz (uk(:,:,:,3), work_u(:,:,:,3))
 
   !-----------------------------------------------
   !-- compute vorticity
@@ -48,9 +48,9 @@ subroutine cal_nlk (dt1, nlk, uk, u , vort, work )
 	enddo
     enddo
   enddo
-  call cofitxyz (nlk(:,:,:,1), vort(:,:,:,1)) ! Transform it to physical space
-  call cofitxyz (nlk(:,:,:,2), vort(:,:,:,2)) ! Transform it to physical space
-  call cofitxyz (nlk(:,:,:,3), vort(:,:,:,3)) ! Transform it to physical space
+  call cofitxyz (nlk(:,:,:,1), work_vort(:,:,:,1)) ! Transform it to physical space
+  call cofitxyz (nlk(:,:,:,2), work_vort(:,:,:,2)) ! Transform it to physical space
+  call cofitxyz (nlk(:,:,:,3), work_vort(:,:,:,3)) ! Transform it to physical space
  
       
   !-------------------------------------------------------------
@@ -59,23 +59,23 @@ subroutine cal_nlk (dt1, nlk, uk, u , vort, work )
   !-------------------------------------------------------------
   if ( iobst > 0 ) then
      ! -- x component
-     work = u(:,:,:,2) * vort(:,:,:,3) - u(:,:,:,3) * vort(:,:,:,2) - u(:,:,:,1)*mask
+     work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2) - work_u(:,:,:,1)*mask
      call coftxyz (work, nlk(:,:,:,1))
      ! -- y component
-     work = u(:,:,:,3) * vort(:,:,:,1) - u(:,:,:,1) * vort(:,:,:,3) - u(:,:,:,2)*mask
+     work = work_u(:,:,:,3) * work_vort(:,:,:,1) - work_u(:,:,:,1) * work_vort(:,:,:,3) - work_u(:,:,:,2)*mask
      call coftxyz (work, nlk(:,:,:,2))
      ! -- z component
-     work = u(:,:,:,1) * vort(:,:,:,2) - u(:,:,:,2) * vort(:,:,:,1) - u(:,:,:,3)*mask
+     work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1) - work_u(:,:,:,3)*mask
      call coftxyz (work, nlk(:,:,:,3))
   else
      ! -- x component
-     work = u(:,:,:,2) * vort(:,:,:,3) - u(:,:,:,3) * vort(:,:,:,2)
+     work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2)
      call coftxyz (work, nlk(:,:,:,1))
      ! -- y component
-     work = u(:,:,:,3) * vort(:,:,:,1) - u(:,:,:,1) * vort(:,:,:,3)
+     work = work_u(:,:,:,3) * work_vort(:,:,:,1) - work_u(:,:,:,1) * work_vort(:,:,:,3)
      call coftxyz (work, nlk(:,:,:,2))
      ! -- z component
-     work = u(:,:,:,1) * vort(:,:,:,2) - u(:,:,:,2) * vort(:,:,:,1)
+     work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1)
      call coftxyz (work, nlk(:,:,:,3))  
   endif  
   
@@ -112,9 +112,9 @@ subroutine cal_nlk (dt1, nlk, uk, u , vort, work )
   !-------------------------------------------------------------
   !--Calculate maximum velocity + TIME STEP
   !-------------------------------------------------------------
-  u_loc(1) = maxval(abs(u(:,:,:,1)))  ! local maximum of x-velocity magnitude
-  u_loc(2) = maxval(abs(u(:,:,:,2)))  ! local maximum of y-velocity magnitude
-  u_loc(3) = maxval(abs(u(:,:,:,3)))  ! local maximum of z-velocity magnitude
+  u_loc(1) = maxval(abs(work_u(:,:,:,1)))  ! local maximum of x-velocity magnitude
+  u_loc(2) = maxval(abs(work_u(:,:,:,2)))  ! local maximum of y-velocity magnitude
+  u_loc(3) = maxval(abs(work_u(:,:,:,3)))  ! local maximum of z-velocity magnitude
   
   call MPI_REDUCE (u_loc, u_max, 3, mpireal, MPI_MAX, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
 

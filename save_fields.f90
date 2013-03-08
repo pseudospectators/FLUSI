@@ -213,6 +213,8 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
 	call SaveFile ( 'vorx_'//trim(adjustl(name))//'.mpiio' , vort(:,:,:,1) )
 	call SaveFile ( 'vory_'//trim(adjustl(name))//'.mpiio' , vort(:,:,:,2) )
 	call SaveFile ( 'vorz_'//trim(adjustl(name))//'.mpiio' , vort(:,:,:,3) )
+	work = sqrt( vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
+	call SaveFile ( 'vorabs_'//trim(adjustl(name))//'.mpiio' , work )
       endif   
 	
       if (iSavePress == 1) then  

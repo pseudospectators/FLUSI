@@ -8,8 +8,8 @@ program convert_mpiio
   use mpi
   implicit none
 
-  integer, parameter :: pr_in = 8, pr_out = 8 ! precision for input and output (INPUT PRECISION MUST BE KNOWN!!!)
-  integer, parameter :: mpireal = MPI_DOUBLE_PRECISION  ! double precision array for output
+  integer, parameter :: pr_in = 8, pr_out = 4 ! precision for input and output (INPUT PRECISION MUST BE KNOWN!!!)
+  integer, parameter :: mpireal = MPI_DOUBLE_PRECISION  ! double precision array for input
   integer, dimension(MPI_STATUS_SIZE) :: mpistatus
   integer :: nx, ny, nz, filedesc, mpicode
   integer :: ix, iy, iz, iSaveAscii
@@ -86,7 +86,7 @@ program convert_mpiio
   write(*,'("Min:Max=",es12.4,":",es12.4,1x,"nx:ny:nz=",i3,":",i3,":",i3)') minval (field_in), maxval (field_in),nx,ny,nz
   write(*,'("Converting ",A,".mpiio  -> ",A,".binary")') trim(fname), trim(fname)
   
-  field_out = field_in
+  field_out = real(field_in, kind=pr_out)
   ! ------------------------------------
   ! Write *,binary file (for vapor et al)
   ! ------------------------------------

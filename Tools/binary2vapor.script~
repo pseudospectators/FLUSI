@@ -1,7 +1,7 @@
 #!/bin/bash
 
 VDFNAM="flusi.vdf"
-vdfcreate -dimension 64x64x64 -numts 25 -level 10 -varnames ux:uy:uz:vorx:vory:vorz:p ${VDFNAM}
+vdfcreate -dimension 64x64x64 -numts 49 -level 10 -varnames ux:uy:uz:vorx:vory:vorz:p ${VDFNAM}
 
 
 for PRE in {'ux','uy','uz','p','vorx','vory','vorz'}
@@ -13,7 +13,8 @@ do
     do
 	echo ${N}
 	echo ${FICH}
-	raw2vdf -ts ${N} -varname ${VNAM} ${VDFNAM} ${FICH}
+	raw2vdf -ts ${N} -varname ${VNAM} ${VDFNAM} ${FICH} 
 	N=$((N+1))
     done
 done
+
