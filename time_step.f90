@@ -10,7 +10,7 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
   integer :: nbackup = 0  ! 0 - backup to file runtime_backup0, 1 - to runtime_backup1, 2 - no backup 
   integer :: mpicode
   real (kind=pr), intent (in) :: tdrag, tsave, tstart
-  real (kind=pr) :: time, v_rms, v_rms_loc, dt0, dt1
+  real (kind=pr) :: time, v_rms, v_rms_loc, dt0, dt1,t1,t2
   real (kind=pr), 	dimension (:,:,:), allocatable :: workvis  
   real (kind=pr), 	dimension (:,:,:,:), allocatable :: u, vort
   complex (kind=pr), 	dimension (:,:,:,:), allocatable :: uk
@@ -55,9 +55,9 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
   !---------------------------------------------------------
   !     LOOP OVER TIME STEPS
   !---------------------------------------------------------
+  t2=0.d0
   
-  
-  
+  t1=MPI_wtime()
   do while ((time<=tmax).and.(it<=nt))
      dt0 = dt1
    
@@ -66,6 +66,11 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
      !-----------------------------
      call FluidTimeStep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, it )
      
+!      if (imask == 555) then
+!      call create_mask(time)
+     
+!      endif
+!      dt1=2.e-2
      !--Switch time levels
      inter = n1 ; n1 = n0 ; n0 = inter
      !--Advance in time: at this point, uk contains the velocity field at time 'time' 
@@ -88,6 +93,10 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
 	! this frees 3 complex arrays
 	call save_fields_new ( time, dt1, uk, u, vort, nlk(:,:,:,:,n0), work)
 ! 	call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
+	t2= MPI_wtime() - t1
+	if (mpirank==0) then
+	write(*,'("time left: ",f7.2,"min")') (((tmax-time)/dt1)*(t2/dble(it)))/60.d0
+	endif
      endif
 
   end do

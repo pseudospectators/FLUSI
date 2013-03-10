@@ -32,6 +32,6 @@ NZ=$3
 for file in *.mpiio
 do
   echo "processing file $file"
-  convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
+  covert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
 done
 

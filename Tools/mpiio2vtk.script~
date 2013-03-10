@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# convert files from mpi format to a Fortran-readable format
+# convert files from mpi format to a PARAVIEW readable format
 
 # usage: 
 # convert_mpiio_duke.script <NX> <NY> <NZ>
@@ -29,9 +29,11 @@ NY=$2
 NZ=$3
 
 
-for file in *.mpiio
+for file in ux_*.mpiio
 do
-  echo "processing file $file"
-  convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
+  base=${file%%.mpiio} # remove trailing .mpiio
+  base=${base##ux_}    # remove leading ux_
+  echo "processing file" ${base}
+  convert_mpiio2vtk.out ${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio"
 done
 

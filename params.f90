@@ -162,8 +162,8 @@ subroutine params (tdrag, ifield, infile, tsave, ismth, &
   
   iSaveVelocity  = ifield(1)
   iSaveVorticity = ifield(2)
-  iSavePress  = ifield(3)
-  iSaveMask 	 = 0
+  iSavePress     = ifield(3)
+  iSaveMask 	 = 1
 
   if (inicond == 3) then
      if ( mpirank == 0 ) then

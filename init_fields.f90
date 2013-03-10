@@ -34,7 +34,8 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	!--------------------------------------------------
 	r00 = yl/8.d0
 	a   = 0.4131d0 * r00 
-	gamma0 = 4.0d0
+	a   = 0.82d0 * r00 
+	gamma0 = 12.0d0
 	x00 = 0.5d0 * xl
 	
     

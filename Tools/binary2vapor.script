@@ -1,10 +1,10 @@
 #!/bin/bash
 
 VDFNAM="flusi.vdf"
-vdfcreate -dimension 64x64x64 -numts 49 -level 10 -varnames ux:uy:uz:vorx:vory:vorz:vorabs:p ${VDFNAM}
+vdfcreate -dimension 64x192x64 -numts 51 -level 10 -varnames ux:uy:uz:vorx:vory:vorz:vorabs:p:mask ${VDFNAM}
 
 
-for PRE in {'ux','uy','uz','p','vorx','vory','vorz','vorabs'}
+for PRE in {'ux','uy','uz','p','vorx','vory','vorz','vorabs','mask'}
 do
     VNAM=${PRE}
     FLIST=$( ls ${VNAM}_*.binary )

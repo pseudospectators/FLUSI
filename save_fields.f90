@@ -160,12 +160,23 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   integer, parameter :: mpireal_out = MPI_DOUBLE_PRECISION ! double precision array for output
   character (len=*), intent(in) :: filename
   real(kind=pr_out),dimension (:,:,:), intent(in) :: field_out                                    
-  end subroutine                                                         
+  end subroutine                                    
+  
+  subroutine SaveVTK(fname,u,vort,p) 
+    use share_vars
+    implicit none
+    real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (in) :: p
+    real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (in) :: vort, u 
+    character(len=*),intent(in)    :: fname
+  end subroutine
+  
   end interface
 
   !--Set up file name base 
   !--the following hack enables us to get 000.40 and 001.55 as filenames, so they can actually be ordered
-  write(name,'(F6.2,TL8,I3.3)') time, floor(time) ! this is really really dirty ( from http://drj11.wordpress.com/2008/08/28/fortran-cant-get-no-leading-zero/ )
+!   write(name,'(F6.2,TL8,I3.3)') time, floor(time) ! this is really really dirty ( from http://drj11.wordpress.com/2008/08/28/fortran-cant-get-no-leading-zero/ )
+  
+  write(name,'(i5.5)') floor(time*100.d0)
   
   if ( mpirank == 0 ) then 
     write(*,'("*** info: Saving data.... time= ",es8.2,1x," saveflags= ",3(i1))') time, iSaveVelocity, iSaveVorticity, iSavePress
@@ -274,6 +285,8 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
     call SaveFile ( 'mask_'//trim(adjustl(name))//'.mpiio' , mask )
   endif
   
+!   call SaveVTK(trim(adjustl(name)),u,vort,work)
+  
 end subroutine
 
 
@@ -302,3 +315,80 @@ subroutine SaveFile (filename, field_out)
 end subroutine 
 
 
+
+subroutine SaveVTK(fname,u,vort,p) 
+    use share_vars
+    implicit none
+    real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (in) :: p
+    real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (in) :: vort, u  
+    character(len=*),intent(in)    :: fname
+    character(len=4)	 :: str
+    integer              :: ix,iy,iz
+    integer, save 	 :: isave = 0
+    integer              :: nunit
+
+    write(str,'("a",i3.3)') isave
+    
+    nunit = 11
+    open (nunit, file = './fields/'//trim(str)//".vtk", form='formatted', status='replace')
+
+
+    write(unit=nunit,fmt="('# vtk DataFile Version 2.0')")
+    write(unit=nunit,fmt="('flusi-data')")
+    write(unit=nunit,fmt="('ASCII')")
+    write(unit=nunit,fmt="('DATASET STRUCTURED_GRID')")
+    write(unit=nunit,fmt="('DIMENSIONS ',3I8)")nx,ny,nz
+    write(unit=nunit,fmt="('POINTS',I8,A6)")nx*ny*nz,"float"
+
+    do iz=0,nz-1
+	do iy=0,ny-1
+	  do ix=0,nx-1
+	      write(unit=nunit,fmt='(3G16.6)') real(ix)*dx,real(iy)*dy,real(iz)*dz
+	  end do
+	end do
+    end do
+
+    write(unit=nunit,fmt="('POINT_DATA',I8)")nx*ny*nz
+    write(unit=nunit,fmt="('SCALARS p FLOAT')")
+    write(unit=nunit,fmt="('LOOKUP_TABLE default')")
+    do iz=0,nz-1
+	do iy=0,ny-1
+	  do ix=0,nx-1
+	      write(unit=nunit,fmt='(G13.6)') p(ix,iy,iz)
+	  end do
+	end do
+    end do
+    
+    write(unit=nunit,fmt="('SCALARS mask FLOAT')")
+    write(unit=nunit,fmt="('LOOKUP_TABLE default')")
+    do iz=0,nz-1
+	do iy=0,ny-1
+	  do ix=0,nx-1
+	      write(unit=nunit,fmt='(G13.6)') mask(ix,iy,iz)
+	  end do
+	end do
+    end do
+
+
+    write(unit=nunit,fmt="('VECTORS u FLOAT')")
+    do iz=0,nz-1
+	do iy=0,ny-1
+	  do ix=0,nx-1
+	      write(unit=nunit,fmt='(3G16.6)')u(ix,iy,iz,1),u(ix,iy,iz,2),u(ix,iy,iz,3)
+	  end do
+	end do
+    end do
+    
+    write(unit=nunit,fmt="('VECTORS vor FLOAT')")
+    do iz=0,nz-1
+	do iy=0,ny-1
+	  do ix=0,nx-1
+	      write(unit=nunit,fmt='(3G16.6)')vort(ix,iy,iz,1),vort(ix,iy,iz,2),vort(ix,iy,iz,3)
+	  end do
+	end do
+    end do
+
+    close(unit=nunit)
+    isave = isave + 1
+
+end subroutine 
