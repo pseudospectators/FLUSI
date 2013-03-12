@@ -136,7 +136,7 @@ program convert_mpiio
   do iz=0,nz-1
       do iy=0,ny-1
 	do ix=0,nx-1
-	    write(unit=nunit,fmt='(3G16.6)') real(ix),real(iy),real(iz)
+	    write(unit=nunit,fmt='(3(es12.5,1x))') real(ix),real(iy),real(iz)
 	end do
       end do
   end do
@@ -150,7 +150,7 @@ program convert_mpiio
     do iz=0,nz-1
 	do iy=0,ny-1
 	  do ix=0,nx-1
-	      write(unit=nunit,fmt='(G13.6)') field_out(ix,iy,iz)
+	      write(unit=nunit,fmt='(es12.5)') field_out(ix,iy,iz)
 	  end do
 	end do
     end do  
@@ -164,7 +164,7 @@ program convert_mpiio
     do iz=0,nz-1
 	do iy=0,ny-1
 	  do ix=0,nx-1
-	      write(unit=nunit,fmt='(G13.6)') field_out(ix,iy,iz)
+	      write(unit=nunit,fmt='(es12.5)') field_out(ix,iy,iz)
 	  end do
 	end do
     end do  
@@ -183,7 +183,7 @@ program convert_mpiio
       do iz=0,nz-1
 	  do iy=0,ny-1
 	    do ix=0,nx-1
-		write(unit=nunit,fmt='(3G16.6)')&
+		write(unit=nunit,fmt='(3(es12.5,1x))')&
 		ux(ix,iy,iz),uy(ix,iy,iz),uz(ix,iy,iz)
 	    end do
 	  end do
@@ -205,7 +205,7 @@ program convert_mpiio
       do iz=0,nz-1
 	  do iy=0,ny-1
 	    do ix=0,nx-1
-		write(unit=nunit,fmt='(3G16.6)')&
+		write(unit=nunit,fmt='(3(es12.5,1x))')&
 		ux(ix,iy,iz),uy(ix,iy,iz),uz(ix,iy,iz)
 	    end do
 	  end do
@@ -215,6 +215,7 @@ program convert_mpiio
   endif
 
   close(unit=nunit)
+  
   
   deallocate ( field_out )  
   call MPI_FINALIZE (mpicode)

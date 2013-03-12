@@ -22,7 +22,7 @@ BPurple='\e[1;35m'      # Purple
 BCyan='\e[1;36m'        # Cyan
 BWhite='\e[1;37m'       # White
 
-nproc="1"
+nproc="4"
 params="PARAMSs.test"
 
 echo -e ${BBlue} "deleting main..." ${Color_Off}
@@ -36,9 +36,8 @@ make sugiton
 
 if [ -f main ]
 then
-cp main Test/
-cd Test/
-rm *mpiio*
+cp main Plate/
+cd Plate/
 echo "-----------"
 echo -e ${BCyan} "mpirun -n" ${nproc} "./main <" ${params} ${Color_Off}
 echo "-----------"

@@ -1,20 +1,96 @@
 #!/bin/bash
 
-VDFNAM="flusi.vdf"
-vdfcreate -dimension 64x192x64 -numts 51 -level 10 -varnames ux:uy:uz:vorx:vory:vorz:vorabs:p:mask ${VDFNAM}
+# convert files from binary format to format readable by vapor.
+# see README for more information.
 
+USAGE="convert_mpiio_duke.script <NX> <NY> <NZ>"
 
-for PRE in {'ux','uy','uz','p','vorx','vory','vorz','vorabs','mask'}
+if [ "$1" == "" ]; then
+    echo "need to specify NX"
+    echo $USAGE
+    exit 1
+fi
+if [ "$2" == "" ]; then
+    echo "need to specify NY"
+    echo $USAGE
+    exit 1
+fi
+if [ "$3" == "" ]; then
+    echo "need to specify NZ"
+    echo $USAGE
+    exit 1
+fi
+
+nx=$1
+ny=$2
+nz=$3
+
+N=0
+list=""
+
+# look through all the files whose names start with binary_ and put
+# them in the items array, as well as in the list, where file names
+# are separated with colons. N is the number of items in the list.
+lastp=""
+for F in `ls *.binary`
 do
-    VNAM=${PRE}
-    FLIST=$( ls ${VNAM}_*.binary )
-    N=0
-    for FICH in ${FLIST}
-    do
-	echo ${N}
-	echo ${FICH}
-	raw2vdf -ts ${N} -varname ${VNAM} ${VDFNAM} ${FICH} 
+    # as is the file name with everything after 
+    p=$(echo ${F}  | sed 's/_[^_]*$//')_ 
+    p=${p%%_}
+    if [ "$p" != "$lastp" ] ; then
+	list=${list}:${p}
+	lastp=$p
+	items[$N]=$p
 	N=$((N+1))
-    done
+    fi
+done
+# remove the first colong from the list (format should be "a:b:c", not
+# ":a:b:c").
+list=$(echo $list | sed 's/^.//g')
+
+# output the file names, if you want
+# echo $list
+for (( i=0; i<N; i++ ))
+do
+   p=${items[i]}
+   echo ${p}
 done
 
+########################################################################################
+# determine number of time-steps by counting files matching a prefix
+p=${items[0]}
+FLIST=$( ls ${p}*.binary )
+nts=0
+for F in ${FLIST}
+do
+    nts=$((nts+1))
+done
+
+echo "time steps" ${nts}
+echo "prefixes" ${list}
+########################################################################################
+
+# run vdfcreate on ${list}, the list of colon-separated files
+VDFNAM="mhd3Dvar.vdf"
+vdfcreate -dimension ${nx}x${ny}x${nz} -numts ${nts} -level 10 -varnames ${list} ${VDFNAM}
+
+# loop throug the prefixes and process the files one-by-one
+# for each prefix in the items array
+for (( i=0; i<N; i++ ))
+do
+    # the prefix
+    p=${items[i]}
+
+    # find the files that start with the prefix
+    FLIST=$( ls ${p}*.binary )
+
+    # loop over the files starting with the prefix and process with raw2vdf
+    j=0
+    for F in ${FLIST}
+    do
+	echo ${j}
+	echo ${F}
+	raw2vdf -ts ${j} -varname ${p} ${VDFNAM} ${F}
+	j=$((j+1))
+    done
+done

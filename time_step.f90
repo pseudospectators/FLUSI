@@ -64,13 +64,14 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
      !-----------------------------
      !     do a fluid time step
      !-----------------------------
+     if (imask == 555) then
+      call create_mask ( time )      
+     endif
+     
      call FluidTimeStep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, it )
      
-!      if (imask == 555) then
-!      call create_mask(time)
+
      
-!      endif
-!      dt1=2.e-2
      !--Switch time levels
      inter = n1 ; n1 = n0 ; n0 = inter
      !--Advance in time: at this point, uk contains the velocity field at time 'time' 
@@ -95,7 +96,7 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
 ! 	call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
 	t2= MPI_wtime() - t1
 	if (mpirank==0) then
-	write(*,'("time left: ",f7.2,"min")') (((tmax-time)/dt1)*(t2/dble(it)))/60.d0
+	write(*,'("time left: ",f7.2,"min dt=",es7.1)') (((tmax-time)/dt1)*(t2/dble(it)))/60.d0 , dt1
 	endif
      endif
 

@@ -34,6 +34,6 @@ do
   base=${file%%.mpiio} # remove trailing .mpiio
   base=${base##ux_}    # remove leading ux_
   echo "processing file" ${base}
-  convert_mpiio2vtk.out ${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio"
+  convert_mpiio2vtk.out para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio"
 done
 

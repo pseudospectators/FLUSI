@@ -27,7 +27,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   
 
   !-----------------------------------------------
-  !--Calculate ux and uy in physical space
+  !-- Calculate ux and uy in physical space
   !-----------------------------------------------
   call cofitxyz (uk(:,:,:,1), work_u(:,:,:,1))
   call cofitxyz (uk(:,:,:,2), work_u(:,:,:,2))
@@ -42,9 +42,9 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
 	kx = scalex*dble(ix)                
 	do iz = ca(1),cb(1)		! kz : 0..nz/2-1 ,then, -nz/2..-1           
 	  kz = scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-	  nlk(iz,ix,iy,1) = dcmplx(0d0,1d0)*( ky*uk(iz,ix,iy,3) - kz*uk(iz,ix,iy,2) )
-	  nlk(iz,ix,iy,2) = dcmplx(0d0,1d0)*( kz*uk(iz,ix,iy,1) - kx*uk(iz,ix,iy,3) )
-	  nlk(iz,ix,iy,3) = dcmplx(0d0,1d0)*( kx*uk(iz,ix,iy,2) - ky*uk(iz,ix,iy,1) )
+	  nlk(iz,ix,iy,1) = dcmplx(0d0,1d0) * ( ky*uk(iz,ix,iy,3) - kz*uk(iz,ix,iy,2) )
+	  nlk(iz,ix,iy,2) = dcmplx(0d0,1d0) * ( kz*uk(iz,ix,iy,1) - kx*uk(iz,ix,iy,3) )
+	  nlk(iz,ix,iy,3) = dcmplx(0d0,1d0) * ( kx*uk(iz,ix,iy,2) - ky*uk(iz,ix,iy,1) )
 	enddo
     enddo
   enddo
@@ -110,7 +110,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   
 
   !-------------------------------------------------------------
-  !--Calculate maximum velocity + TIME STEP
+  !-- Calculate maximum velocity + TIME STEP
   !-------------------------------------------------------------
   u_loc(1) = maxval(abs(work_u(:,:,:,1)))  ! local maximum of x-velocity magnitude
   u_loc(2) = maxval(abs(work_u(:,:,:,2)))  ! local maximum of y-velocity magnitude
@@ -131,6 +131,10 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   
 end subroutine cal_nlk
 
+
+
+
+
 subroutine truncate(a,b)
   use share_vars
   implicit none
@@ -139,29 +143,7 @@ subroutine truncate(a,b)
 
   write (str,'(es7.1)') a
   read (str,*) b
-  ! write (*,'(2(es15.8,1x))') a,b
+
+  end subroutine
 
 
-end subroutine
-
-
-  !-------------------------------------------------------------
-  ! compute divergence at the old time step
-  !-------------------------------------------------------------
-
-!   work2k = vxk
-!   call cofdx (work2k)
-!   work1k = vyk
-!   call cofdy (work1k)
-!   work1k = work1k + work2k
-!   work2k = vzk
-!   call cofdz (work2k)
-!   work1k = work1k + work2k
-!   ! work1k now contains the divergence
-!   call cofitxyz (work1k, work)
-!   ! work now contains the divergence in physical space
-!   divu = maxval(abs(work))
-!   call MPI_REDUCE (divu, divumax, 1, mpireal, MPI_MAX, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
-!   if ( mpirank == 0) then
-!    write(*,'("div(u)=",es12.4)') divumax
-!   endif

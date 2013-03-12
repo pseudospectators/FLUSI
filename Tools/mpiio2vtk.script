@@ -29,11 +29,12 @@ NY=$2
 NZ=$3
 
 
-for file in ux_*.mpiio
+for file in ux_*.mpiio # note I suppose that you saved the velocity
 do
   base=${file%%.mpiio} # remove trailing .mpiio
   base=${base##ux_}    # remove leading ux_
   echo "processing file" ${base}
+  # note program also works if one or more files are not present
   convert_mpiio2vtk.out para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio"
 done
 
