@@ -8,62 +8,102 @@ subroutine create_mask (time)
   implicit none
   real(kind=pr), intent(in) :: time
   integer :: irad, iradmax, ix, iy, iz, ix0, iy0, iz0, kx, ky, kz
-  integer :: ixmax, ixmin, iymax, iymin, izmax, izmin
-  real (kind=pr) :: x, y, z, xs,ys,zs, alpha,x00,y00,z00, L,B,H, y_tmp, z_tmp
+  integer :: ixmax, ixmin, iymax, iymin, izmax, izmin  
+  real (kind=pr) :: t_star, R, alpha_t, un, alpha_max
+  real (kind=pr) :: x, y, z, xs,ys,zs, alpha,x00,y00,z00, L,B,H, y_tmp, z_tmp, tmp,N, eps_inv
+  eps_inv=1.d0/eps
+  
+  alpha_max = 30.d0*pi/180.d0
+  alpha   = alpha_max*dsin(time*2.d0*pi)
+  alpha_t = (2.d0*pi)*alpha_max*dcos(time*2.d0*pi)
+  
+  y00=1.d0
+  z00=1.d0
+  
+  L= 1.d0
+  H= 0.0625
 
-  alpha = 30.d0*pi/180.d0*sin(time*2.d0*pi)
-  
-  x00=0.5d0*xl
-  y00=0.25d0*yl
-  z00=0.5d0*zl
-  
-  L= 1.d0!0.5d0*yl
-  H= 3.d0*dz
-  B= 0.5d0*xl
-  
+  ! initialize fields
   mask = 0.d0
+  us = 0.d0
+   
+  N=3.0 ! smoothing coefficient
   
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
-	x = xl*dble(ix)/dble(nx) - x00
-	y = yl*dble(iy)/dble(ny) - y00
-	z = zl*dble(iz)/dble(nz) - z00
+	y = dble(iy)*dy - y00
+	z = dble(iz)*dz - z00
 	
 	! transformed
-	xs = x
-	ys = dcos(alpha)*y - dsin(alpha)*z
-	zs = dsin(alpha)*y + dcos(alpha)*z
-
-	if (dabs(zs)<H-dz) then
-	  z_tmp = 1.d0
-	elseif ( (abs(zs)>= H-dz).and.(abs(zs)<H+dz) ) then
-	  z_tmp = 1.d0 - (abs(zs) - (H-dz) ) / (2.d0*dz)
-	else
-	  z_tmp = 0.d0	
-	endif
+	ys =  dcos(alpha)*y + dsin(alpha)*z
+	zs = -dsin(alpha)*y + dcos(alpha)*z
 	
-	if ( (ys>= dz).and.(ys<L-dz) ) then
-	  y_tmp = 1.d0
-	elseif ( (ys>=L-dz).and.(ys<=L+dz) ) then
-	  y_tmp = 1.d0 - (ys - (L-dz) ) / (2.d0*dz)
-	elseif ((ys>=-dz ).and.(ys<=dz)) then 
-	  y_tmp = (ys+dz)/(2.d0*dz)
-	else
-	  y_tmp = 0.d0
+	if ( (ys>=0.d0) .and. (ys<=L) )  then
+	  
+	  call SmoothStep (tmp, abs(zs), H, N*max(dx,dy,dz))
+	  mask(:,iy,iz) = tmp*eps_inv
+	  
+	  if (dabs(zs)<=2.d0*H) then
+	    R = dsqrt( y**2 + z**2  )
+	    un = R*alpha_t
+	    us(:,iy,iz,2) = -dsin(alpha)*un
+	    us(:,iy,iz,3) = +dcos(alpha)*un
+	  endif
+	  
 	endif
-	
-	if ( (xs>=-0.5d0*B).and.(xs<=0.5d0*B) ) then
-	mask(ix,iy,iz) = z_tmp*y_tmp/eps
-	endif
-	
-      enddo
     enddo
   enddo 
 
+  ! draw the endpoints
+  do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+	  y = dble(iy)*dy - y00
+	  z = dble(iz)*dz - z00
+	  
+	  ! origin
+	  if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
+	    R = dsqrt( y**2 + z**2 )
+	    call SmoothStep (tmp, R, H, N*max(dx,dy,dz))
+	    if (mask(1,iy,iz)<tmp) then
+	      mask(:,iy,iz) = tmp*eps_inv
+	      
+	      R = dsqrt( y**2 + z**2  )
+	      un = R*alpha_t
+	      us(:,iy,iz,2) = -dsin(alpha)*un
+	      us(:,iy,iz,3) = +dcos(alpha)*un
+	    endif
+	  endif
+	  
+	  
+	  
+	  y = dble(iy)*dy - (y00 + L*dcos(alpha))
+	  z = dble(iz)*dz - (z00 + L*dsin(alpha))
+	  
+	  if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
+	    R = dsqrt( y**2 + z**2 )
+	    call SmoothStep (tmp, R, H, N*max(dx,dy,dz))
+	    if (mask(1,iy,iz)<tmp) then
+	      mask(:,iy,iz) = tmp*eps_inv
+
+	      y = dble(iy)*dy - y00
+	      z = dble(iz)*dz - z00
+	      R = dsqrt( y**2 + z**2  )
+	      un = R*alpha_t
+	      us(:,iy,iz,2) = -dsin(alpha)*un
+	      us(:,iy,iz,3) = +dcos(alpha)*un
+	    endif
+	  endif
+	  
+      enddo
+  enddo  
+    
+!     write (*,*) maxval(mask)
   
   
 end subroutine
+
+
+
 
 
 subroutine obst_mask 
@@ -176,3 +216,48 @@ subroutine obst_mask
   mask = mask/eps
   
 end subroutine obst_mask
+
+
+
+
+subroutine SmoothStep (f,x,t,h)
+  use share_vars
+  implicit none
+  !-----------------------------------------------------------------
+  !-- This subroutine returns the value f of a smooth step function
+  !-- The sharp step function would be 1 if x<=t and 0 if x>t
+  !-- h is the semi-size of the smoothing area, so
+  !-- f is 1 if x<=t-h
+  !-- f is 0 if x>t+h
+  !-- f is variable (smooth) in between
+  !-----------------------------------------------------------------
+  real (kind=pr), intent (out) :: f
+  real (kind=pr), intent (in)  :: x,t,h
+  real (kind=pr) :: a,b,c,d, delta, GradientERF!, SmoothStep
+  !--polynomial coefficients:
+!   a =  1.0 / (4.0*(h**3))
+!   b = -3.0*t / (4.0*(h**3))
+!   c =  3.0*(t+h)*(t-h)/(4.0*(h**3))
+!   d =  ((t+h)**2)*(2.0*h-t)/(4.0*(h**3))
+
+!  if (x<=t-h) then
+!    f = 1.0
+!  elseif (((t-h)<x).and.(x<(t+h))) then
+! !     f = a*(x**3) + b*(x**2) + c*x + d
+! !     f = 1.0 - (x-t+h)/(2.0*h)
+!    f = 0.5*(1.+cos((x-t+h)*pi/(2.0*h)) )
+!  else
+!    f = 0.0
+!  endif
+
+  !-----------------------------------
+  ! version 14 - error function as non-oscilatory shape
+  !-----------------------------------
+  ! h - delta (gradient thickness)
+  ! t - thickness (radius)
+  GradientERF = abs( ( exp(-(2.0*1.0)**2)  - 1.0 )/sqrt(pi) )
+  delta = h*GradientERF
+  f = 0.5*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
+
+
+end subroutine SmoothStep

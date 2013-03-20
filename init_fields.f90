@@ -101,7 +101,12 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	! read from backup
 	!--------------------------------------------------  
 	call Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, work_nlk, workvis)
-    
+  elseif (inicond == 5) then 
+	!--------------------------------------------------
+	! fluid at rest
+	!--------------------------------------------------  
+	uk = dcmplx(0.0d0,0.0d0)
+        
   else
 	if (mpirank == 0) then
 	    write (*,'(A)') '??? ERROR: Invalid initial condition'

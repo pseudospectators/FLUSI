@@ -283,6 +283,10 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   !-----------------------------------------------   
   if (iSaveMask ==1) then
     call SaveFile ( 'mask_'//trim(adjustl(name))//'.mpiio' , mask )
+    call SaveFile ( 'usx_'//trim(adjustl(name))//'.mpiio' , us(:,:,:,1) )
+    call SaveFile ( 'usy_'//trim(adjustl(name))//'.mpiio' , us(:,:,:,2) )
+    call SaveFile ( 'usz_'//trim(adjustl(name))//'.mpiio' , us(:,:,:,3) )
+    
   endif
   
 !   call SaveVTK(trim(adjustl(name)),u,vort,work)

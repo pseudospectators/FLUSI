@@ -23,6 +23,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   real (kind=pr), dimension (3) :: u_max, u_loc
   integer :: mpicode,ix,iy,iz
   complex (kind=pr) :: qk
+  character (len=7) :: str
 
   
 
@@ -59,13 +60,13 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   !-------------------------------------------------------------
   if ( iobst > 0 ) then
      ! -- x component
-     work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2) - work_u(:,:,:,1)*mask
+     work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2) - mask*(work_u(:,:,:,1) - us(:,:,:,1))
      call coftxyz (work, nlk(:,:,:,1))
      ! -- y component
-     work = work_u(:,:,:,3) * work_vort(:,:,:,1) - work_u(:,:,:,1) * work_vort(:,:,:,3) - work_u(:,:,:,2)*mask
+     work = work_u(:,:,:,3) * work_vort(:,:,:,1) - work_u(:,:,:,1) * work_vort(:,:,:,3) - mask*(work_u(:,:,:,2) - us(:,:,:,2))
      call coftxyz (work, nlk(:,:,:,2))
      ! -- z component
-     work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1) - work_u(:,:,:,3)*mask
+     work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1) - mask*(work_u(:,:,:,3) - us(:,:,:,3))
      call coftxyz (work, nlk(:,:,:,3))
   else
      ! -- x component
@@ -121,9 +122,16 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   !--Adjust time step at 0th process
   if ( mpirank == 0 ) then
      u_max_w = max ( u_max(1)/dx, u_max(2)/dy, u_max(3)/dz )
-     dt1 = cfl / u_max_w        
-     call truncate(dt1,dt1) ! round time step to one digit: saves time because no need to remocompute cal_vis
-     if (iobst > 0 .and. dt1 >= eps) dt1 = 0.99*eps ! time step is smaller than eps (Dmitry, 26 feb 08)  
+     if (abs(u_max_w) >= 1.0d-8) then
+	dt1 = cfl / u_max_w        
+     else
+	dt1 = 1.0d-2
+     endif
+     ! fix time setp
+     dt1 = min(1.d-4, dt1)
+    
+     call truncate(dt1,dt1) ! round time step to one digit: saves time because no need to recompute cal_vis
+     if (iobst > 0 .and. dt1 >= eps) dt1 = 0.99*eps ! time step is smaller than eps 
   endif 
 
   !-- Broadcast time step to all processes

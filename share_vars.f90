@@ -15,6 +15,7 @@ module share_vars
   real (kind=pr), save :: x0, y0, z0, x2, y2, z2, anglex2, angley2, anglez2, &
                     vx2, vy2, vz2, omx2, omy2, omz2, vx2t, vy2t, vz2t, omx2t, omy2t, omz2t
   real (kind=pr), dimension (:,:,:), allocatable, save :: dealiase, mask
+  real (kind=pr), dimension (:,:,:,:), allocatable, save :: us
 
 end module share_vars
 

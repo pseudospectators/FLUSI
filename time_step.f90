@@ -43,6 +43,7 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
   !---------------------------------------------------------------
   if (iobst>0) then 
     allocate ( mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+    allocate ( us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3) )
     call obst_mask()
   endif
   
@@ -115,7 +116,7 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
   deallocate ( u, uk, nlk)
   
   if ( iobst > 0 ) then
-     deallocate ( mask )
+     deallocate ( mask, us )
   endif
 !---------------------------------------------------------
 !     END LOOP OVER TIME STEPS
