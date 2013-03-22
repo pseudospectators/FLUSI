@@ -127,12 +127,12 @@ subroutine obst_mask
 !---------------------------------------------------------------
   if (imask == 1) then
 
-     ixmin = int( ( x0 - size/2.0 ) * real(nx)/xl )
-     ixmax = int( ( x0 + size/2.0 ) * real(nx)/xl )
-     iymin = int( ( y0 - size/2.0 ) * real(ny)/yl )
-     iymax = int( ( y0 + size/2.0 ) * real(ny)/yl )
-     izmin = int( ( z0 - size/2.0 ) * real(nz)/zl )
-     izmax = int( ( z0 + size/2.0 ) * real(nz)/zl )
+     ixmin = int( ( x0 - length/2.0 ) * real(nx)/xl )
+     ixmax = int( ( x0 + length/2.0 ) * real(nx)/xl )
+     iymin = int( ( y0 - length/2.0 ) * real(ny)/yl )
+     iymax = int( ( y0 + length/2.0 ) * real(ny)/yl )
+     izmin = int( ( z0 - length/2.0 ) * real(nz)/zl )
+     izmax = int( ( z0 + length/2.0 ) * real(nz)/zl )
 
      do iz = ra(3), rb(3)
        do iy = ra(2), rb(2)
@@ -154,7 +154,7 @@ subroutine obst_mask
      ix0 = int( x0 * real(nx)/xl )
      iy0 = int( y0 * real(ny)/yl )
      iz0 = int( z0 * real(nz)/zl )
-     iradmax = int( size/2.0 * real(nx)/xl )
+     iradmax = int( length/2.0 * real(nx)/xl )
 
      do iz = ra(3), rb(3)
        do iy = ra(2), rb(2)
@@ -176,7 +176,7 @@ subroutine obst_mask
   if (imask == 4) then
      ix0 = int( x0 * real(nx)/xl )
      iy0 = int( y0 * real(ny)/yl )
-     iradmax = int( size/2.0 * real(nx)/xl )
+     iradmax = int( length/2.0 * real(nx)/xl )
      do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
            irad = int( sqrt( real( (ix-ix0)**2 + (iy-iy0)**2 ) ) )

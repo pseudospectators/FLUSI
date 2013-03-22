@@ -46,6 +46,12 @@ subroutine get_params (paramsfile)
     x0=0.0
     y0=0.0
     z0=0.0
+    Ux=0.0
+    Uy=0.0
+    Uz=0.0
+    Ax=0.0
+    Ay=0.0
+    Az=0.0
     iMeanFlow=1
     tsave=999999999.99
     tdrag=999999999.99
@@ -65,6 +71,7 @@ subroutine get_params (paramsfile)
     if (tmp .ne. '') read (tmp, *) ny
     call GetValue(PARAMS,i,"Resolution","nz",tmp)
     if (tmp .ne. '') read (tmp, *) nz
+    
     call GetValue(PARAMS,i,"Time","Tmax",tmp)
     if (tmp .ne. '') read (tmp, *) Tmax
     call GetValue(PARAMS,i,"Time","nt",tmp)
@@ -72,13 +79,15 @@ subroutine get_params (paramsfile)
     call GetValue(PARAMS,i,"Time","iTimeMethodFluid",tmp)
     if (tmp .ne. '') read (tmp, *) iTimeMethodFluid   
     call GetValue(PARAMS,i,"Time","CFL",tmp)
-    if (tmp .ne. '') read (tmp, *) CFL       
+    if (tmp .ne. '') read (tmp, *) CFL    
+    
     call GetValue(PARAMS,i,"ReynoldsNumber","nu",tmp)
     if (tmp .ne. '') read (tmp, *) nu
     call GetValue(PARAMS,i,"InitialCondition","inicond",tmp)
     if (tmp .ne. '') read (tmp, *) nu    
     call GetValue(PARAMS,i,"Dealiasing","iDealias",tmp)
-    if (tmp .ne. '') read (tmp, *) iDealias      
+    if (tmp .ne. '') read (tmp, *) iDealias 
+    
     call GetValue(PARAMS,i,"Penalization","iPenalization",tmp)
     if (tmp .ne. '') read (tmp, *) iPenalization        
     call GetValue(PARAMS,i,"Penalization","iMoving",tmp)
@@ -87,6 +96,7 @@ subroutine get_params (paramsfile)
     if (tmp .ne. '') read (tmp, *) iMask    
     call GetValue(PARAMS,i,"Penalization","eps",tmp)
     if (tmp .ne. '') read (tmp, *) eps
+    
     call GetValue(PARAMS,i,"Geometry","xl",tmp)
     if (tmp .ne. '') read (tmp, *) xl
     call GetValue(PARAMS,i,"Geometry","yl",tmp)
@@ -98,9 +108,25 @@ subroutine get_params (paramsfile)
     call GetValue(PARAMS,i,"Geometry","y0",tmp)
     if (tmp .ne. '') read (tmp, *) y0
     call GetValue(PARAMS,i,"Geometry","z0",tmp)
-    if (tmp .ne. '') read (tmp, *) z0   
+    if (tmp .ne. '') read (tmp, *) z0  
+    call GetValue(PARAMS,i,"Geometry","length",tmp)
+    if (tmp .ne. '') read (tmp, *) length
+    
     call GetValue(PARAMS,i,"MeanFlow","iMeanFlow",tmp)
     if (tmp .ne. '') read (tmp, *) iMeanFlow 
+    call GetValue(PARAMS,i,"MeanFlow","ux",tmp)
+    if (tmp .ne. '') read (tmp, *) ux
+    call GetValue(PARAMS,i,"MeanFlow","uy",tmp)
+    if (tmp .ne. '') read (tmp, *) uy
+    call GetValue(PARAMS,i,"MeanFlow","uz",tmp)
+    if (tmp .ne. '') read (tmp, *) uz
+    call GetValue(PARAMS,i,"MeanFlow","ax",tmp)
+    if (tmp .ne. '') read (tmp, *) ax
+    call GetValue(PARAMS,i,"MeanFlow","ay",tmp)
+    if (tmp .ne. '') read (tmp, *) ay
+    call GetValue(PARAMS,i,"MeanFlow","az",tmp)
+    if (tmp .ne. '') read (tmp, *) az
+    
     call GetValue(PARAMS,i,"Saving","tsave",tmp)
     if (tmp .ne. '') read (tmp, *) tsave     
     call GetValue(PARAMS,i,"Saving","tdrag",tmp)
@@ -200,12 +226,12 @@ subroutine get_params (paramsfile)
      if (iPenalization > 0) then 
         write (*,*) 'with obstacle'
         write (*, '(" x0 = ", f6.2, 1x, "y0 = ", f6.2, 1x, "z0 = ", f6.2, 1x, &
-            & "size = ", f6.2)') x0, y0, z0, size
+            & "size = ", f6.2)') x0, y0, z0, length
         write (*, '(" epsilon_eff   = ", es11.4)') eps * xl / real (nx)
         write (*, '(" epsilon       = ", es11.4)') eps
         write (*, '(" Ux = ", f6.2, " Uy = ", f6.2, " Uz = ", f6.2)') Ux, Uy, Uz
         write (*, '(" Ax = ", f6.2, " Ay = ", f6.2, " Az = ", f6.2)') Ax, Ay, Az
-        write (*, '(" Re = ", es11.4)') sqrt(Ux**2+Uy**2+Uz**2) * size / nu
+        write (*, '(" Re = ", es11.4)') sqrt(Ux**2+Uy**2+Uz**2) * length / nu
      else
         write (*,*) 'without obstacle'
      end if
@@ -214,7 +240,6 @@ subroutine get_params (paramsfile)
      write (*,*) ' '
   endif
   
-  stop "hhaha"
   
 end subroutine get_params
 
