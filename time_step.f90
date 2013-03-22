@@ -1,15 +1,12 @@
-subroutine time_step (tdrag, ifield, tsave, tstart, nt)
+subroutine time_step 
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   implicit none
 
-  integer, intent (in) :: nt
-  integer, dimension (3), intent (in) :: ifield
   integer :: inter, it, inicond1,ix,iy,iz,vis_tmp
   integer :: n0 = 0, n1 = 1
   integer :: nbackup = 0  ! 0 - backup to file runtime_backup0, 1 - to runtime_backup1, 2 - no backup 
   integer :: mpicode
-  real (kind=pr), intent (in) :: tdrag, tsave, tstart
   real (kind=pr) :: time, v_rms, v_rms_loc, dt0, dt1,t1,t2
   real (kind=pr), 	dimension (:,:,:), allocatable :: workvis  
   real (kind=pr), 	dimension (:,:,:,:), allocatable :: u, vort
@@ -41,7 +38,7 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
   !---------------------------------------------------------------
   ! Create obstacle mask
   !---------------------------------------------------------------
-  if (iobst>0) then 
+  if (iPenalization>0) then 
     allocate ( mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
     allocate ( us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3) )
     call obst_mask()
@@ -115,7 +112,7 @@ subroutine time_step (tdrag, ifield, tsave, tstart, nt)
   deallocate ( vort, work )
   deallocate ( u, uk, nlk)
   
-  if ( iobst > 0 ) then
+  if ( iPenalization > 0 ) then
      deallocate ( mask, us )
   endif
 !---------------------------------------------------------

@@ -12,19 +12,18 @@ subroutine FluidTimestep( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvi
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: vort, u
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (inout) :: workvis
-  integer :: TimeMarchingMethod = 1 ! 1=AB2 2=RK2 3=EE1
+    
   
-  
-  if (TimeMarchingMethod == 2) then  
+  if (iTimeMethodFluid == 2) then  
     call RungeKutta2 ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )    
-  elseif ((TimeMarchingMethod == 1).and.(it==0)) then  
+  elseif ((iTimeMethodFluid == 1).and.(it==0)) then  
     call Euler_startup ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )
     if (mpirank ==0) then
     write(*,'(A)') "*** info: did startup euler............"
     endif
-  elseif (TimeMarchingMethod == 1) then  
+  elseif (iTimeMethodFluid == 1) then  
     call AdamsBashforth ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )  
-  elseif (TimeMarchingMethod == 3) then  
+  elseif (iTimeMethodFluid == 3) then  
     call Euler ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )      
   endif   
   
@@ -245,7 +244,6 @@ subroutine AdamsBashforth ( time, dt0, dt1, n0,n1, u, uk, nlk, vort, work, workv
   t1 = MPI_wtime()
   if (dt1 .ne. dt0) then
     call cal_vis(dt1, workvis)
-!     write (*,'("dt0=",es12.4," dt1=",es12.4," -> cal_vis")') dt0, dt1
   endif
   t3 = MPI_wtime() - t1 + t3
     

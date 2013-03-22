@@ -40,7 +40,7 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   call MPI_FILE_WRITE_ORDERED (filedesc,uk,product(cs)*3,mpicomplex,mpistatus,mpicode)
   call MPI_FILE_WRITE_ORDERED (filedesc,nlk,product(cs)*6,mpicomplex,mpistatus,mpicode)     
   call MPI_FILE_WRITE_ORDERED (filedesc,workvis,product(rs),mpireal,mpistatus,mpicode)     
-  if (iobst > 0) then
+  if (iPenalization > 0) then
       call MPI_FILE_WRITE_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
   endif
 
@@ -104,7 +104,7 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
 	  call MPI_FILE_READ_ORDERED (filedesc,uk,product(cs)*3,mpicomplex,mpistatus,mpicode)
 	  call MPI_FILE_READ_ORDERED (filedesc,nlk,product(cs)*6,mpicomplex,mpistatus,mpicode)
 	  call MPI_FILE_READ_ORDERED (filedesc,workvis,product(rs),mpireal,mpistatus,mpicode)
-	  if (iobst > 0) then
+	  if (iPenalization > 0) then
 	      call MPI_FILE_READ_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
 	  endif
       endif
@@ -233,7 +233,7 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
 	!-- Calculate omega x u (cross-product)
 	!-- and transform the result into Fourier space 
 	!-------------------------------------------------------------
-	if ( iobst > 0 ) then
+	if ( iPenalization > 0 ) then
 	  work = u(:,:,:,2) * vort(:,:,:,3) - u(:,:,:,3) * vort(:,:,:,2) - u(:,:,:,1)*mask
 	  call coftxyz (work, nlk(:,:,:,1))
 	  work = u(:,:,:,3) * vort(:,:,:,1) - u(:,:,:,1) * vort(:,:,:,3) - u(:,:,:,2)*mask

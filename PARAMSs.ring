@@ -20,10 +20,7 @@
 111       = imask      (1=cube, 2=sph, 3=chan, 4=cyl, 6=from file)
 0       = ismth      (0 = no smoothing, 1 = smoothing)
 0       = imove      (0 = no moving, 1 = moving, 2 = moving ver.2007)
-1.0e-2  = eps        (D'Arcy parameter)
-2.5     = x0         (x-coordinate of centre of obstacle)
-2.5     = y0         (y-coordinate of centre of obstacle)
-2.5     = z0         (z-coordinate of centre of obstacle)
+
 1.0     = size       (length of obstacle)
 1.0     = Ux         (speed of mean flow in x)
 0.0     = Uy         (speed of mean flow in y)

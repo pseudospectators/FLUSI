@@ -4,10 +4,9 @@ program FLUSI
   use share_vars
   implicit none
 
-  integer                :: isave, ismth, istart, nt 
   integer                :: mpicode
   integer, dimension (3) :: ifield
-  real (kind=pr)         :: tdrag, tsave, tstart,t1,t2
+  real (kind=pr)         :: t1,t2
   character (len=80)     :: infile
 
   !---- Initialize MPI, get size and rank, create mpi data types
@@ -33,7 +32,8 @@ program FLUSI
     write(*,'(A)') '*** info: Reading input data...'
   endif
 
-  call params (tdrag, ifield, infile, tsave, ismth, tstart, nt)
+  call get_command_argument(1, infile)
+  call get_params (infile)
 
   !---- Step forward in time
   if (mpirank == 0) then
@@ -43,7 +43,7 @@ program FLUSI
   endif
   
   t1 = MPI_wtime()
-  call time_step (tdrag, ifield, tsave, tstart, nt)
+  call time_step ()
   t2 = MPI_wtime() - t1
   
   if (mpirank ==0) then

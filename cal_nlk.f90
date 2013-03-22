@@ -18,7 +18,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: work_vort, work_u
   real (kind=pr), intent (out) :: dt1
-  real (kind=pr) :: u_max_w, divu, divumax, t1=0.d0,t2=0.d0,t3=0.d0,t4=0.d0,t5=0.d0,t6=0.d0
+  real (kind=pr) :: u_max_w, divu, divumax
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
   real (kind=pr), dimension (3) :: u_max, u_loc
   integer :: mpicode,ix,iy,iz
@@ -58,7 +58,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   !-- Calculate omega x u (cross-product)
   !-- and transform the result into Fourier space 
   !-------------------------------------------------------------
-  if ( iobst > 0 ) then
+  if ( iPenalization > 0 ) then
      ! -- x component
      work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2) - mask*(work_u(:,:,:,1) - us(:,:,:,1))
      call coftxyz (work, nlk(:,:,:,1))
@@ -131,7 +131,8 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
      dt1 = min(1.d-4, dt1)
     
      call truncate(dt1,dt1) ! round time step to one digit: saves time because no need to recompute cal_vis
-     if (iobst > 0 .and. dt1 >= eps) dt1 = 0.99*eps ! time step is smaller than eps 
+     ! stability for penalty term: do it after truncating to get the largest posisble value, which will be constant anyways
+     if (iPenalization > 0 .and. dt1 >= eps) dt1 = 0.99*eps ! time step is smaller than eps 
   endif 
 
   !-- Broadcast time step to all processes
@@ -152,6 +153,6 @@ subroutine truncate(a,b)
   write (str,'(es7.1)') a
   read (str,*) b
 
-  end subroutine
+end subroutine
 
 
