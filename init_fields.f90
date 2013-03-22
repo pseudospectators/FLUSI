@@ -64,7 +64,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
     
     
-  elseif (inicond == 99) then
+  elseif (inicond == 2) then
 	!--------------------------------------------------
 	! random vorticity
 	!--------------------------------------------------
@@ -85,23 +85,23 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
 
 
-  elseif (inicond == 2) then
+  elseif (inicond == 0) then
 	!--------------------------------------------------
 	! mean flow only
 	!--------------------------------------------------
 	uk = dcmplx(0.0d0,0.0d0)
 	if ( ( ca(1) == 0 ) .and. ( ca(2) == 0 ) .and. ( ca(3) == 0 ) ) then
-	    uk(0, 0, 0, 1) = Ux + Ax * time;                
+	    uk(0, 0, 0,1) = Ux + Ax * time;                
 	    uk(0, 0, 0,2) = Uy + Ay * time;               
 	    uk(0, 0, 0,3) = Uz + Az * time;              
 	endif
 
-  elseif (inicond == 4) then 
+  elseif (inicond == 99) then 
 	!--------------------------------------------------
 	! read from backup
 	!--------------------------------------------------  
 	call Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, work_nlk, workvis)
-  elseif (inicond == 5) then 
+  elseif (inicond == 3) then 
 	!--------------------------------------------------
 	! fluid at rest
 	!--------------------------------------------------  
