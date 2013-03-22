@@ -32,7 +32,9 @@ program FLUSI
     write(*,'(A)') '*** info: Reading input data...'
   endif
 
-  call get_command_argument(1, infile)
+  ! get filename of PARAMS file from command line
+  call get_command_argument (1, infile)
+  ! read all parameters from that file
   call get_params (infile)
 
   !---- Step forward in time

@@ -91,7 +91,8 @@ subroutine time_step
 	! and for AB2 this is the one to be overwritten in the next step.
 	! this frees 3 complex arrays
 	call save_fields_new ( time, dt1, uk, u, vort, nlk(:,:,:,:,n0), work)
-! 	call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
+	! Backup if that's specified in the PARAMS.ini file
+	if (iDoBackup==1) call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
 	t2= MPI_wtime() - t1
 	if (mpirank==0) then
 	write(*,'("time left: ",f7.2,"min dt=",es7.1)') (((tmax-time)/dt1)*(t2/dble(it)))/60.d0 , dt1

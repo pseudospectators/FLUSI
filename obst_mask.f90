@@ -10,18 +10,18 @@ subroutine create_mask (time)
   integer :: irad, iradmax, ix, iy, iz, ix0, iy0, iz0, kx, ky, kz
   integer :: ixmax, ixmin, iymax, iymin, izmax, izmin  
   real (kind=pr) :: t_star, R, alpha_t, un, alpha_max
-  real (kind=pr) :: x, y, z, xs,ys,zs, alpha,x00,y00,z00, L,B,H, y_tmp, z_tmp, tmp,N, eps_inv
+  real (kind=pr) :: x, y, z, xs,ys,zs, alpha,L,B,H, y_tmp, z_tmp, tmp,N, eps_inv
   eps_inv=1.d0/eps
   
   alpha_max = 30.d0*pi/180.d0
-  alpha   = alpha_max*dsin(time*2.d0*pi)
+  alpha   =           alpha_max*dsin(time*2.d0*pi)
   alpha_t = (2.d0*pi)*alpha_max*dcos(time*2.d0*pi)
   
-  y00=1.d0
-  z00=1.d0
+  y0 = 1.d0
+  z0 = 1.d0
   
-  L= 1.d0
-  H= 0.0625
+  L = 1.d0
+  H = 0.0625
 
   ! initialize fields
   mask = 0.d0
@@ -31,8 +31,8 @@ subroutine create_mask (time)
   
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
-	y = dble(iy)*dy - y00
-	z = dble(iz)*dz - z00
+	y = dble(iy)*dy - y0
+	z = dble(iz)*dz - z0
 	
 	! transformed
 	ys =  dcos(alpha)*y + dsin(alpha)*z
@@ -57,8 +57,8 @@ subroutine create_mask (time)
   ! draw the endpoints
   do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
-	  y = dble(iy)*dy - y00
-	  z = dble(iz)*dz - z00
+	  y = dble(iy)*dy - y0
+	  z = dble(iz)*dz - z0
 	  
 	  ! origin
 	  if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
@@ -76,8 +76,8 @@ subroutine create_mask (time)
 	  
 	  
 	  
-	  y = dble(iy)*dy - (y00 + L*dcos(alpha))
-	  z = dble(iz)*dz - (z00 + L*dsin(alpha))
+	  y = dble(iy)*dy - (y0 + L*dcos(alpha))
+	  z = dble(iz)*dz - (z0 + L*dsin(alpha))
 	  
 	  if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
 	    R = dsqrt( y**2 + z**2 )
@@ -85,8 +85,8 @@ subroutine create_mask (time)
 	    if (mask(1,iy,iz)<tmp) then
 	      mask(:,iy,iz) = tmp*eps_inv
 
-	      y = dble(iy)*dy - y00
-	      z = dble(iz)*dz - z00
+	      y = dble(iy)*dy - y0
+	      z = dble(iz)*dz - z0
 	      R = dsqrt( y**2 + z**2  )
 	      un = R*alpha_t
 	      us(:,iy,iz,2) = -dsin(alpha)*un

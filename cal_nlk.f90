@@ -121,18 +121,29 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
 
   !--Adjust time step at 0th process
   if ( mpirank == 0 ) then
+     !--------
+     ! CFL
+     !--------
      u_max_w = max ( u_max(1)/dx, u_max(2)/dy, u_max(3)/dz )
      if (abs(u_max_w) >= 1.0d-8) then
 	dt1 = cfl / u_max_w        
      else
 	dt1 = 1.0d-2
      endif
-     ! fix time setp
-     dt1 = min(1.d-4, dt1)
-    
+     !--------
+     ! fixed time step?
+     !--------
+     if (dt_fixed>0.0) then
+     dt1 = min(dt_fixed, dt1)
+     endif
+     !--------
+     ! round it to save cal_vis
+     !--------
      call truncate(dt1,dt1) ! round time step to one digit: saves time because no need to recompute cal_vis
+     !--------
      ! stability for penalty term: do it after truncating to get the largest posisble value, which will be constant anyways
-     if (iPenalization > 0 .and. dt1 >= eps) dt1 = 0.99*eps ! time step is smaller than eps 
+     !--------
+     if (iPenalization > 0) dt1 = min(0.99*eps,dt1) ! time step is smaller than eps 
   endif 
 
   !-- Broadcast time step to all processes

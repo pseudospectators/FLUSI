@@ -12,7 +12,7 @@ module share_vars
   integer, dimension (:,:), allocatable, save :: ra_table, rb_table
   real (kind=pr), save :: tmax, cfl, nu, eps, pi, scalex, scaley, scalez, length, xl, yl, zl, dx, dy ,dz
   real (kind=pr), save :: Ux, Uy, Uz, Ax, Ay, Az, tstart, tsave, tdrag
-  real (kind=pr), save :: x0, y0, z0
+  real (kind=pr), save :: x0, y0, z0, dt_fixed
   real (kind=pr), dimension (:,:,:), allocatable, save :: dealiase, mask
   real (kind=pr), dimension (:,:,:,:), allocatable, save :: us
 

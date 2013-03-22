@@ -1,3 +1,10 @@
+!-----------------------------------------------------------------------
+! Read parameters from an ini file (version 03/2013)
+!
+!-----------------------------------------------------------------------
+
+
+
 subroutine get_params (paramsfile)
   use mpi_header ! Module incapsulates mpif.
   use share_vars
@@ -52,7 +59,9 @@ subroutine get_params (paramsfile)
     Ax=0.0
     Ay=0.0
     Az=0.0
-    iMeanFlow=1
+    dt_fixed=0.0
+    iMeanFlow=0
+    iTimeMethodFluid=1
     tsave=999999999.99
     tdrag=999999999.99
     iDoBackup=1
@@ -267,8 +276,11 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   foundsection = .false.
   value = ''
 
+  !------------------------------------------------------------------
   do i=1, actual_lines					! loop over the lines of PARAMS.ini file
-  if (PARAMS(i)(1:1) .ne. '#') then			! ignore commented lines compleetly
+  if ((PARAMS(i)(1:1).ne.'#').and.&
+      (PARAMS(i)(1:1).ne.';').and.&
+      (PARAMS(i)(1:1).ne.'!')) then			! ignore commented lines compleetly
   
   
       if (PARAMS(i)(1:1) == '[') then			! the first char would have to be '['
@@ -304,6 +316,7 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
       
   endif
   enddo
+  !------------------------------------------------------------------
   
   if (value =='') then
     write(*,'(A)') "??? WARNING: No value found for "//trim(keyword)//" in section "//trim(section)//" ----> using default value!"

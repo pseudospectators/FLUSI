@@ -280,13 +280,14 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   
   !-----------------------------------------------
   !-- Save Mask
-  !-----------------------------------------------   
-  if (iSaveMask ==1) then
+  !----------------------------------------------- 
+  if ((iSaveMask==1).and.(iPenalization==1)) then
     call SaveFile ( 'mask_'//trim(adjustl(name))//'.mpiio' , mask )
+  endif
+  if ((iSaveSolidVelocity==1).and.(iPenalization==1).and.(iMoving==1)) then
     call SaveFile ( 'usx_'//trim(adjustl(name))//'.mpiio' , us(:,:,:,1) )
     call SaveFile ( 'usy_'//trim(adjustl(name))//'.mpiio' , us(:,:,:,2) )
     call SaveFile ( 'usz_'//trim(adjustl(name))//'.mpiio' , us(:,:,:,3) )
-    
   endif
   
 !   call SaveVTK(trim(adjustl(name)),u,vort,work)

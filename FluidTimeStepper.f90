@@ -25,7 +25,11 @@ subroutine FluidTimestep( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvi
     call AdamsBashforth ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )  
   elseif (iTimeMethodFluid == 3) then  
     call Euler ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )      
-  endif   
+  endif 
+  
+  if (iDealias==1) then
+    call dealiase_velocity (uk)
+  endif
   
 end subroutine
 
@@ -275,3 +279,39 @@ subroutine AdamsBashforth ( time, dt0, dt1, n0,n1, u, uk, nlk, vort, work, workv
 !   endif
 
 end subroutine
+
+
+
+subroutine dealiase_velocity (uk)
+  ! Matthieu 21/07/2011 !  Elliptical dealiasing (truncation 2/3 rule)
+  ! with STRIDE-1 ordering (X,Y,Z)_physical->(Z,X,Y)_Fourier
+  ! Thomas 22/03/2013, modified to use no work array
+  use mpi_header ! Module incapsulates mpif.
+  use share_vars
+  implicit none
+  integer :: ix, iy, iz
+  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (inout) :: uk
+  real(kind=pr) :: kx2, ky2, kz2, kx_trunc, ky_trunc, kz_trunc
+
+
+  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
+  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
+  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)
+
+  do iz = ca(1), cb(1)
+     kz2=dble(modulo(iz+nz/2,nz)-nz/2)/kz_trunc
+     kz2=kz2*kz2
+     do iy = ca(3), cb(3)
+        ky2=dble(modulo(iy+ny/2,ny)-ny/2)/ky_trunc
+        ky2=ky2*ky2
+        do ix = ca(2), cb(2)
+           kx2=dble(ix)/kx_trunc
+           kx2=kx2*kx2
+           if (kx2 + ky2 + kz2  .ge. 1.d0) then
+              uk(iz, ix, iy, 1:3) = dcmplx(0.d0,0.d0)
+           endif
+        enddo
+     enddo
+  enddo
+
+end subroutine dealiase_velocity
