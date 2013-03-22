@@ -58,7 +58,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   !-- Calculate omega x u (cross-product)
   !-- and transform the result into Fourier space 
   !-------------------------------------------------------------
-  if ( iPenalization > 0 ) then
+  if ((iPenalization==1).and.(iMoving==1)) then
      ! -- x component
      work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2) - mask*(work_u(:,:,:,1) - us(:,:,:,1))
      call coftxyz (work, nlk(:,:,:,1))
@@ -67,6 +67,16 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
      call coftxyz (work, nlk(:,:,:,2))
      ! -- z component
      work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1) - mask*(work_u(:,:,:,3) - us(:,:,:,3))
+     call coftxyz (work, nlk(:,:,:,3))
+  elseif ((iPenalization==1).and.(iMoving==0)) then
+     ! -- x component
+     work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2) - mask*work_u(:,:,:,1)
+     call coftxyz (work, nlk(:,:,:,1))
+     ! -- y component
+     work = work_u(:,:,:,3) * work_vort(:,:,:,1) - work_u(:,:,:,1) * work_vort(:,:,:,3) - mask*work_u(:,:,:,2)
+     call coftxyz (work, nlk(:,:,:,2))
+     ! -- z component
+     work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1) - mask*work_u(:,:,:,3)
      call coftxyz (work, nlk(:,:,:,3))
   else
      ! -- x component
