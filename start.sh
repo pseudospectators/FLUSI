@@ -23,9 +23,9 @@ BCyan='\e[1;36m'        # Cyan
 BWhite='\e[1;37m'       # White
 
 #---------------------------------------------------------------------
-nproc="2"
+nproc="3"
 params="PARAMS_test.ini"
-DIR="VortexRing/"
+DIR="Dealias/"
 #---------------------------------------------------------------------
 
 echo -e ${BBlue} "deleting main..." ${Color_Off}
