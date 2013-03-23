@@ -17,11 +17,10 @@ subroutine get_params (paramsfile)
   character PARAMS(nlines)*256	! this array will contain the ascii-params file
  
  
-
+  !-----------------------------------------------------------
+  ! read in the params file (root)
+  !-----------------------------------------------------------
   if (mpirank==0) then
-    !-----------------------------------------------------------
-    ! read in the params file (root)
-    !-----------------------------------------------------------
     write (*,'(A,i3)') "*** info: reading params from "//trim(paramsfile)//" rank=", mpirank
     i = 1
     open ( unit=14, file=paramsfile, action='read', status='old' )    
@@ -33,6 +32,9 @@ subroutine get_params (paramsfile)
     i = i-1 ! counted one too far
   endif
 
+  !------------------------------------------------------
+  ! read in parameters ans broadcast them to all procs
+  !------------------------------------------------------  
   call GetValue_Int (PARAMS,i,"Resolution","nx",nx, 4)
   call GetValue_Int (PARAMS,i,"Resolution","ny",ny, 4)
   call GetValue_Int (PARAMS,i,"Resolution","nz",nz, 4)
@@ -41,17 +43,15 @@ subroutine get_params (paramsfile)
   call GetValue_Int (PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid, 1)  
   call GetValue_Real (PARAMS,i,"Time","Tmax",Tmax, 1.d9)
   call GetValue_Real (PARAMS,i,"Time","CFL",cfl, 0.1d0)
-  call GetValue_Real (PARAMS,i,"Time","dt_fixed",dt_fixed, 0.1d0)
+  call GetValue_Real (PARAMS,i,"Time","dt_fixed",dt_fixed, 0.d0)
   
-  call GetValue_Real (PARAMS,i,"ReynoldsNumber","nu",nu, 1.d-2)
+  call GetValue_Real (PARAMS,i,"ReynoldsNumber","nu",nu, 1.d-2)  
+  call GetValue_Int (PARAMS,i,"InitialCondition","inicond",inicond, 3)  
+  call GetValue_Int (PARAMS,i,"Dealiasing","iDealias",iDealias, 1)
   
-  call GetValue_Int (PARAMS,i,"InitialCondition","inicond",inicond, 3)
-  
-  call GetValue_Int (PARAMS,i,"Dealiasing","iDealias",iDealias, 3)
-  
-  call GetValue_Int (PARAMS,i,"Penalization","iPenalization",iPenalization, 3)
-  call GetValue_Int (PARAMS,i,"Penalization","iMoving",iMoving, 3)
-  call GetValue_Int (PARAMS,i,"Penalization","iMask",iMask, 3)
+  call GetValue_Int (PARAMS,i,"Penalization","iPenalization",iPenalization, 0)
+  call GetValue_Int (PARAMS,i,"Penalization","iMoving",iMoving, 0)
+  call GetValue_Int (PARAMS,i,"Penalization","iMask",iMask, 0)
   call GetValue_Real (PARAMS,i,"Penalization","eps",eps, 1.d-2)
   
   call GetValue_Real (PARAMS,i,"Geometry","xl",xl, 1.d0)
@@ -71,14 +71,15 @@ subroutine get_params (paramsfile)
   call GetValue_Real (PARAMS,i,"MeanFlow","az",az, 0.d0)
   
   
-  call GetValue_Int (PARAMS,i,"Saving","iDoBackup",iDoBackup, 3)
-  call GetValue_Int (PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 3) 
-  call GetValue_Int (PARAMS,i,"Saving","iSavePress",iSavePress, 3)
-  call GetValue_Int (PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 3)  
-  call GetValue_Int (PARAMS,i,"Saving","iSaveMask",iSaveMask, 3)
-  call GetValue_Int (PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity, 3)
+  call GetValue_Int (PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
+  call GetValue_Int (PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 
+  call GetValue_Int (PARAMS,i,"Saving","iSavePress",iSavePress, 0)
+  call GetValue_Int (PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 1)  
+  call GetValue_Int (PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
+  call GetValue_Int (PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity, 0)
   call GetValue_Real (PARAMS,i,"Saving","tsave",tsave, 9.d9)
   call GetValue_Real (PARAMS,i,"Saving","tdrag",tdrag, 9.d9)
+  
   !-------------------------------------------------------
   ! set other parameters
   !-------------------------------------------------------  
@@ -86,9 +87,9 @@ subroutine get_params (paramsfile)
   scalex = 2.d0*pi / xl
   scaley = 2.d0*pi / yl
   scalez = 2.d0*pi / zl  
-  dx = xl / dble (nx)
-  dy = yl / dble (ny)
-  dz = zl / dble (nz) 
+  dx 	 = xl / dble (nx)
+  dy 	 = yl / dble (ny)
+  dz 	 = zl / dble (nz) 
   tstart = 0.d0
   
   

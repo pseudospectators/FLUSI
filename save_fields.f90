@@ -186,7 +186,8 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   write(name,'(i5.5)') floor(time*100.d0)
   
   if ( mpirank == 0 ) then 
-    write(*,'("*** info: Saving data.... time= ",es8.2,1x," saveflags= ",3(i1))') time, iSaveVelocity, iSaveVorticity, iSavePress
+    write(*,'("*** info: Saving data.... time= ",es8.2,1x," saveflags= ",5(i1))')&
+    time, iSaveVelocity, iSaveVorticity, iSavePress, iSaveMask, iSaveSolidVelocity
   endif
   
   if ((iSaveVelocity.ne.0).or.(iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then

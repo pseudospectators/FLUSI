@@ -2,7 +2,6 @@ subroutine time_step
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   implicit none
-
   integer :: inter, it, inicond1,ix,iy,iz,vis_tmp
   integer :: n0 = 0, n1 = 1
   integer :: nbackup = 0  ! 0 - backup to file runtime_backup0, 1 - to runtime_backup1, 2 - no backup 
@@ -13,16 +12,6 @@ subroutine time_step
   complex (kind=pr), 	dimension (:,:,:,:), allocatable :: uk
   complex (kind=pr), 	dimension (:,:,:,:,:), allocatable :: nlk  
   real (kind=pr), 	dimension (:,:,:), allocatable :: work
-  
-
-  interface                                                                
-     function vis (dt)                                                     
-       use share_vars                                                      
-       real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) :: vis
-       real (kind=pr), intent (in) :: dt                                     
-     end function vis                                                        
-  end interface
-
   dt0 = 1.0 ! useful to trigger cal_vis
 
   !---------------------------------------------------------------
@@ -98,7 +87,6 @@ subroutine time_step
 	call save_fields_new ( time, dt1, uk, u, vort, nlk(:,:,:,:,n0), work)
 	! Backup if that's specified in the PARAMS.ini file
 	if (iDoBackup==1) call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
-
      endif
 
   end do

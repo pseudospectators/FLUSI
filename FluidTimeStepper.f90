@@ -32,7 +32,6 @@ subroutine FluidTimestep( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvi
   !-----------------------------------------------------------------------------------
   ! Force zero mode for mean flow
   !-----------------------------------------------------------------------------------
-  ! Force zero mode for mean flow
   if ( (iMeanFlow == 1).and.((ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0)) ) then
     uk(0, 0, 0, 1) = Ux + Ax * time
     uk(0, 0, 0, 2) = Uy + Ay * time

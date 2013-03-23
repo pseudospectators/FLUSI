@@ -2,10 +2,10 @@
 ## Build on Babel, Octopus or Duke
 
 MOD_FILES = share_vars.f90
-SUB_FILES = FluidTimeStepper.f90 cof_p3dfft.f90 cofdx.f90 cofdy.f90 cofdz.f90 cal_vis.f90 poisson.f90 params.f90\
+SUB_FILES = FluidTimeStepper.f90 cof_p3dfft.f90 cal_vis.f90 params.f90\
 time_step.f90 cal_nlk.f90 init_fields.f90 save_fields.f90 obst_mask.f90\
-save_dd.f90 subtr.f90 trextents.f90 ## obst_pos.f90 move_mask.f90 channel.f90 
-PROG_FILE = flusi.f90
+save_dd.f90 subtr.f90 trextents.f90 
+PROG_FILE = FLUSI.f90
 
 #------------------------------------------------------------------------------------------------
 ifeq ($(CONF),mesocentre)
