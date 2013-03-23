@@ -82,7 +82,6 @@ subroutine RungeKutta2 ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis
   !-----------------------------------------------------------------------------------
   if (dt1 .ne. dt0) then
     call cal_vis (dt1, workvis)
-!     write (*,'("dt0=",es12.4," dt1=",es12.4," -> cal_vis")') dt0, dt1
   endif
 
   !-----------------------------------------------------------------------------------
@@ -140,7 +139,6 @@ subroutine Euler ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )
   !-----------------------------------------------------------------------------------
   if (dt1 .ne. dt0) then
     call cal_vis (dt1, workvis)
-!     write (*,'("dt0=",es12.4," dt1=",es12.4," -> cal_vis")') dt0, dt1
   endif
   
   !-----------------------------------------------------------------------------------
@@ -182,7 +180,6 @@ subroutine Euler_startup ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workv
   !-----------------------------------------------------------------------------------
   if (dt1 .ne. dt0) then
     call cal_vis (dt1, workvis)
-!     write (*,'("dt0=",es12.4," dt1=",es12.4," -> cal_vis")') dt0, dt1
   endif
   
   !-----------------------------------------------------------------------------------
@@ -211,14 +208,12 @@ subroutine AdamsBashforth ( time, dt0, dt1, n0,n1, u, uk, nlk, vort, work, workv
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: vort, u
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (inout) :: workvis
-  real (kind=pr) :: b10,b11,t1,t2,t3,t4
+  real (kind=pr) :: b10,b11
 
   !-----------------------------------------------------------------------------------
   !--Calculate fourier coeffs of nonlinear rhs and forcing
   !-----------------------------------------------------------------------------------
-  t1 = MPI_wtime()
   call cal_nlk ( dt1, nlk(:,:,:,:,n0), uk, u, vort, work )
-  t2 = MPI_wtime() - t1 + t2
     
   !-----------------------------------------------------------------------------------
   !--Calculate velocity at new time step 
@@ -230,30 +225,19 @@ subroutine AdamsBashforth ( time, dt0, dt1, n0,n1, u, uk, nlk, vort, work, workv
   !-----------------------------------------------------------------------------------
   ! compute integrating factor, if necesssary
   !-----------------------------------------------------------------------------------
-  t1 = MPI_wtime()
   if (dt1 .ne. dt0) then
     call cal_vis(dt1, workvis)
   endif
-  t3 = MPI_wtime() - t1 + t3
     
   !-----------------------------------------------------------------------------------
   ! Multiply be integrating factor (always!)
   !-----------------------------------------------------------------------------------
-  t1 = MPI_wtime()  
   uk(:,:,:,1) = (uk(:,:,:,1) + b10*nlk(:,:,:,1,n0) + b11*nlk(:,:,:,1,n1)) * workvis
   uk(:,:,:,2) = (uk(:,:,:,2) + b10*nlk(:,:,:,2,n0) + b11*nlk(:,:,:,2,n1)) * workvis
   uk(:,:,:,3) = (uk(:,:,:,3) + b10*nlk(:,:,:,3,n0) + b11*nlk(:,:,:,3,n1)) * workvis
   nlk (:,:,:,1,n0) = nlk (:,:,:,1,n0) * workvis
   nlk (:,:,:,2,n0) = nlk (:,:,:,2,n0) * workvis
   nlk (:,:,:,3,n0) = nlk (:,:,:,3,n0) * workvis
-  t4 = MPI_wtime() - t1 + t4
-
-  
-  
-!   if (mpirank ==0) then
-!     write (*,'("cal_nlk=",es12.4,1x,i2"% cal_vis=",es12.4,1x,i2"% AB2=",es12.4,1x,i2,"%")') &
-!     t2, nint(100.*t2/(t2+t3+t4)),t3, nint(100.*t3/(t2+t3+t4)),t4, nint(100.*t4/(t2+t3+t4))
-!   endif
 
 end subroutine
 

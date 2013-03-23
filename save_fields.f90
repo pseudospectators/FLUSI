@@ -36,21 +36,20 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   
   call MPI_FILE_CLOSE (filedesc,mpicode) ! close file (I really don't yet know why)
 
-  
   call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,MPI_MODE_WRONLY+MPI_MODE_APPEND,MPI_INFO_NULL,filedesc,mpicode)
 
   ! notes: product(cs) is the total size of an 3D complex array, and we store 3 of them
   call MPI_FILE_WRITE_ORDERED (filedesc,uk,product(cs)*3,mpicomplex,mpistatus,mpicode)
   call MPI_FILE_WRITE_ORDERED (filedesc,nlk,product(cs)*6,mpicomplex,mpistatus,mpicode)     
   call MPI_FILE_WRITE_ORDERED (filedesc,workvis,product(rs),mpireal,mpistatus,mpicode)     
-  if (iPenalization > 0) then
+  call MPI_barrier (MPI_COMM_world, mpicode)
+  if (iPenalization == 1) then
       call MPI_FILE_WRITE_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
   endif
 
   call MPI_FILE_CLOSE (filedesc,mpicode)
   nbackup = 1 - nbackup
   
-write (*,*) "done", mpirank
 
   time_bckp = time_bckp + MPI_wtime() -t1
 end subroutine Dump_Runtime_Backup
