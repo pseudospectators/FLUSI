@@ -47,7 +47,7 @@ P3DFFT_LOC = $(P3DFFT_ROOT)/lib
 P3DFFT_INC = $(P3DFFT_ROOT)/include
 FFT_LOC = /home/tommy/fftw/lib
 FFT_INC = /home/tommy/fftw/include
-FFLAGS = -g
+FFLAGS = -g  
 MPI_HEADER = mpi_duke_header.f90
 
 endif

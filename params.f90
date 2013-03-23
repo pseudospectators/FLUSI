@@ -34,84 +34,51 @@ subroutine get_params (paramsfile)
   endif
 
   call GetValue_Int (PARAMS,i,"Resolution","nx",nx, 4)
-  call MPI_BCAST( nx, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )
   call GetValue_Int (PARAMS,i,"Resolution","ny",ny, 4)
-  call MPI_BCAST( ny, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )
   call GetValue_Int (PARAMS,i,"Resolution","nz",nz, 4)
-  call MPI_BCAST( nz, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )
   
   call GetValue_Int (PARAMS,i,"Time","nt",nt, 9999999)
-  call MPI_BCAST( nt, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )
-  call GetValue_Int (PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid, 1)
-  call MPI_BCAST( iTimeMethodFluid, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
+  call GetValue_Int (PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid, 1)  
   call GetValue_Real (PARAMS,i,"Time","Tmax",Tmax, 1.d9)
-  call MPI_BCAST( Tmax, 1, mpireal, 0, MPI_COMM_WORLD, mpicode )
   call GetValue_Real (PARAMS,i,"Time","CFL",cfl, 0.1d0)
-  call MPI_BCAST( cfl, 1, mpireal, 0, MPI_COMM_WORLD, mpicode )  
+  call GetValue_Real (PARAMS,i,"Time","dt_fixed",dt_fixed, 0.1d0)
   
   call GetValue_Real (PARAMS,i,"ReynoldsNumber","nu",nu, 1.d-2)
-  call MPI_BCAST( nu, 1, mpireal, 0, MPI_COMM_WORLD, mpicode )  
   
   call GetValue_Int (PARAMS,i,"InitialCondition","inicond",inicond, 3)
-  call MPI_BCAST( inicond, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )
   
   call GetValue_Int (PARAMS,i,"Dealiasing","iDealias",iDealias, 3)
-  call MPI_BCAST( iDealias, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
   
   call GetValue_Int (PARAMS,i,"Penalization","iPenalization",iPenalization, 3)
-  call MPI_BCAST( iPenalization, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
   call GetValue_Int (PARAMS,i,"Penalization","iMoving",iMoving, 3)
-  call MPI_BCAST( iMoving, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
   call GetValue_Int (PARAMS,i,"Penalization","iMask",iMask, 3)
-  call MPI_BCAST( iMask, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
   call GetValue_Real (PARAMS,i,"Penalization","eps",eps, 1.d-2)
-  call MPI_BCAST( eps, 1, mpireal, 0, MPI_COMM_WORLD, mpicode )  
   
   call GetValue_Real (PARAMS,i,"Geometry","xl",xl, 1.d0)
-  call MPI_BCAST( xl, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   call GetValue_Real (PARAMS,i,"Geometry","yl",yl, 1.d0)
-  call MPI_BCAST( yl, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   call GetValue_Real (PARAMS,i,"Geometry","zl",zl, 1.d0)
-  call MPI_BCAST( zl, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   call GetValue_Real (PARAMS,i,"Geometry","x0",x0, 0.d0)
-  call MPI_BCAST( x0, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   call GetValue_Real (PARAMS,i,"Geometry","y0",y0, 0.d0)
-  call MPI_BCAST( y0, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   call GetValue_Real (PARAMS,i,"Geometry","z0",z0, 0.d0)
-  call MPI_BCAST( z0, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   
   
-  call GetValue_Int (PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)
-  call MPI_BCAST( iMeanFlow, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
-  call GetValue_Real (PARAMS,i,"MeanFlow","ux",ux, 1.d0)
-  call MPI_BCAST( ux, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
-  call GetValue_Real (PARAMS,i,"MeanFlow","uy",uy, 1.d0)
-  call MPI_BCAST( uy, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
-  call GetValue_Real (PARAMS,i,"MeanFlow","uz",uz, 1.d0)
-  call MPI_BCAST( uz, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
+  call GetValue_Int (PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
+  call GetValue_Real (PARAMS,i,"MeanFlow","ux",ux, 1.d0) 
+  call GetValue_Real (PARAMS,i,"MeanFlow","uy",uy, 1.d0) 
+  call GetValue_Real (PARAMS,i,"MeanFlow","uz",uz, 1.d0) 
   call GetValue_Real (PARAMS,i,"MeanFlow","ax",ax, 0.d0)
-  call MPI_BCAST( ax, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   call GetValue_Real (PARAMS,i,"MeanFlow","ay",ay, 0.d0)
-  call MPI_BCAST( ay, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   call GetValue_Real (PARAMS,i,"MeanFlow","az",az, 0.d0)
-  call MPI_BCAST( az, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
+  
   
   call GetValue_Int (PARAMS,i,"Saving","iDoBackup",iDoBackup, 3)
-  call MPI_BCAST( iDoBackup, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
-  call GetValue_Int (PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 3)
-  call MPI_BCAST( iSaveVelocity, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
+  call GetValue_Int (PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 3) 
   call GetValue_Int (PARAMS,i,"Saving","iSavePress",iSavePress, 3)
-  call MPI_BCAST( iSavePress, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
-  call GetValue_Int (PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 3)
-  call MPI_BCAST( iSaveVorticity, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
+  call GetValue_Int (PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 3)  
   call GetValue_Int (PARAMS,i,"Saving","iSaveMask",iSaveMask, 3)
-  call MPI_BCAST( iSaveMask, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
   call GetValue_Int (PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity, 3)
-  call MPI_BCAST( iSaveSolidVelocity, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
   call GetValue_Real (PARAMS,i,"Saving","tsave",tsave, 9.d9)
-  call MPI_BCAST( tsave, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   call GetValue_Real (PARAMS,i,"Saving","tdrag",tdrag, 9.d9)
-  call MPI_BCAST( tdrag, 1, mpireal, 0, MPI_COMM_WORLD, mpicode )   
   !-------------------------------------------------------
   ! set other parameters
   !-------------------------------------------------------  
@@ -201,7 +168,8 @@ subroutine GetValue_Int (PARAMS, actual_lines, section, keyword, params_int, def
     params_int = defaultvalue
   endif
   endif
-
+  
+  call MPI_BCAST( params_int, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
   
 end subroutine
 
@@ -232,6 +200,7 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, d
   endif
   endif
 
+  call MPI_BCAST( params_real, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
   
 end subroutine
 
