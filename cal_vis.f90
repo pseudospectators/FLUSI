@@ -6,11 +6,14 @@ subroutine cal_vis (dt, vis)
   !  its global size is 0:nz-1, 0:nx/2, 0:ny-1
   !---------------------------------------------------------------
   use share_vars
+  use mpi_header
   implicit none
   integer :: ix, iy, iz
   real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),intent(out)::vis
   real(kind=pr),intent(in) :: dt
-  real(kind=pr) :: kx, ky, kz
+  real(kind=pr) :: kx, ky, kz, t1
+  t1 = MPI_wtime()
+  
   
   do iy = ca(3), cb(3)
      ! ky - y-wavenumber: 0..ny/2-1 ,then, -ny/2..-1
@@ -25,4 +28,5 @@ subroutine cal_vis (dt, vis)
      enddo
   enddo
 
+  time_vis = time_vis + MPI_wtime() - t1
 end subroutine cal_vis

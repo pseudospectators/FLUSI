@@ -9,8 +9,9 @@ subroutine create_mask (time)
   real(kind=pr), intent(in) :: time
   integer :: irad, iradmax, ix, iy, iz, ix0, iy0, iz0, kx, ky, kz
   integer :: ixmax, ixmin, iymax, iymin, izmax, izmin  
-  real (kind=pr) :: t_star, R, alpha_t, un, alpha_max
+  real (kind=pr) :: t_star, R, alpha_t, un, alpha_max, t1
   real (kind=pr) :: x, y, z, xs,ys,zs, alpha,L,B,H, y_tmp, z_tmp, tmp,N, eps_inv
+  t1 = MPI_wtime()
   eps_inv=1.d0/eps
   
   alpha_max = 30.d0*pi/180.d0
@@ -99,6 +100,7 @@ subroutine create_mask (time)
     
 !     write (*,*) maxval(mask)
   
+  time_mask = time_mask + MPI_wtime() - t1
   
 end subroutine
 
@@ -117,8 +119,8 @@ subroutine obst_mask
 
   integer :: irad, iradmax, ix, iy, iz, ix0, iy0, iz0, kx, ky, kz
   integer :: ixmax, ixmin, iymax, iymin, izmax, izmin
-  real (kind=pr) :: x, y, z
-
+  real (kind=pr) :: x, y, z, t1
+  t1 = MPI_wtime()
 
   mask = 0.d0
 
@@ -215,6 +217,9 @@ subroutine obst_mask
 
   mask = mask/eps
   
+  
+  
+  time_mask = time_mask + MPI_wtime() - t1  
 end subroutine obst_mask
 
 

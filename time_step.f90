@@ -40,7 +40,9 @@ subroutine time_step
   !---------------------------------------------------------------
   if (iPenalization>0) then 
     allocate ( mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+    if (iMoving==1) then
     allocate ( us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3) )
+    endif
     call obst_mask()
   endif
   
@@ -79,9 +81,12 @@ subroutine time_step
      !---------------------------------------------------------------------------------
      !--				Output (after tdrag)
      !---------------------------------------------------------------------------------
-!      if ( modulo (it,1000) == 0 ) then
-! 
-!      endif
+     if ( modulo (it,300) == 0 ) then
+	t2= MPI_wtime() - t1
+	if (mpirank==0) then
+	write(*,'("time left: ",f7.2,"min dt=",es7.1)') (((tmax-time)/dt1)*(t2/dble(it)))/60.d0 , dt1
+	endif
+     endif
      
      !---------------------------------------------------------------------------------
      !--				Output (after tsave)
@@ -93,10 +98,7 @@ subroutine time_step
 	call save_fields_new ( time, dt1, uk, u, vort, nlk(:,:,:,:,n0), work)
 	! Backup if that's specified in the PARAMS.ini file
 	if (iDoBackup==1) call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
-	t2= MPI_wtime() - t1
-	if (mpirank==0) then
-	write(*,'("time left: ",f7.2,"min dt=",es7.1)') (((tmax-time)/dt1)*(t2/dble(it)))/60.d0 , dt1
-	endif
+
      endif
 
   end do
@@ -104,8 +106,10 @@ subroutine time_step
 
 
 
+  if (mpirank==0) then
   v_rms = dsqrt ( sum( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)  )
   write(*,'("u_rms=",es15.8," max=",es15.8)') v_rms, maxval( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+  endif
 
 
   !-- Deallocate memory
@@ -113,8 +117,9 @@ subroutine time_step
   deallocate ( vort, work )
   deallocate ( u, uk, nlk)
   
-  if ( iPenalization > 0 ) then
-     deallocate ( mask, us )
+  if ( iPenalization == 1 ) then
+     deallocate ( mask )
+     if (iMoving == 1) deallocate (us)
   endif
 !---------------------------------------------------------
 !     END LOOP OVER TIME STEPS

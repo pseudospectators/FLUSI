@@ -19,24 +19,29 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: work_vort, work_u
   real (kind=pr), intent (out) :: dt1
   real (kind=pr) :: u_max_w, divu, divumax
-  real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
+  real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2, t1, t0
   real (kind=pr), dimension (3) :: u_max, u_loc
   integer :: mpicode,ix,iy,iz
   complex (kind=pr) :: qk
   character (len=7) :: str
-
+  t0 = MPI_wtime()
+  time_fft2 =0.0
+  time_ifft2=0.0
   
 
   !-----------------------------------------------
   !-- Calculate ux and uy in physical space
   !-----------------------------------------------
+  t1 = MPI_wtime()
   call cofitxyz (uk(:,:,:,1), work_u(:,:,:,1))
   call cofitxyz (uk(:,:,:,2), work_u(:,:,:,2))
   call cofitxyz (uk(:,:,:,3), work_u(:,:,:,3))
+  time_u = time_u + MPI_wtime() - t1
 
   !-----------------------------------------------
   !-- compute vorticity
   !-----------------------------------------------
+  t1 = MPI_wtime()
   do iy = ca(3), cb(3)  		! ky : 0..ny/2-1 ,then, -ny/2..-1     
     ky = scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
     do ix = ca(2), cb(2)		! kx : 0..nx/2
@@ -52,43 +57,45 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   call cofitxyz (nlk(:,:,:,1), work_vort(:,:,:,1)) ! Transform it to physical space
   call cofitxyz (nlk(:,:,:,2), work_vort(:,:,:,2)) ! Transform it to physical space
   call cofitxyz (nlk(:,:,:,3), work_vort(:,:,:,3)) ! Transform it to physical space
- 
+  time_vor = time_vor + MPI_wtime() - t1
       
   !-------------------------------------------------------------
   !-- Calculate omega x u (cross-product)
   !-- and transform the result into Fourier space 
   !-------------------------------------------------------------
+  t1 = MPI_wtime()
   if ((iPenalization==1).and.(iMoving==1)) then
      ! -- x component
-     work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2) - mask*(work_u(:,:,:,1) - us(:,:,:,1))
+     work = work_u(:,:,:,2)*work_vort(:,:,:,3) - work_u(:,:,:,3)*work_vort(:,:,:,2) - mask*(work_u(:,:,:,1) - us(:,:,:,1))
      call coftxyz (work, nlk(:,:,:,1))
      ! -- y component
-     work = work_u(:,:,:,3) * work_vort(:,:,:,1) - work_u(:,:,:,1) * work_vort(:,:,:,3) - mask*(work_u(:,:,:,2) - us(:,:,:,2))
+     work = work_u(:,:,:,3)*work_vort(:,:,:,1) - work_u(:,:,:,1)*work_vort(:,:,:,3) - mask*(work_u(:,:,:,2) - us(:,:,:,2))
      call coftxyz (work, nlk(:,:,:,2))
      ! -- z component
-     work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1) - mask*(work_u(:,:,:,3) - us(:,:,:,3))
+     work = work_u(:,:,:,1)*work_vort(:,:,:,2) - work_u(:,:,:,2)*work_vort(:,:,:,1) - mask*(work_u(:,:,:,3) - us(:,:,:,3))
      call coftxyz (work, nlk(:,:,:,3))
   elseif ((iPenalization==1).and.(iMoving==0)) then
      ! -- x component
-     work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2) - mask*work_u(:,:,:,1)
+     work = work_u(:,:,:,2)*work_vort(:,:,:,3) - work_u(:,:,:,3)*work_vort(:,:,:,2) - mask*work_u(:,:,:,1)
      call coftxyz (work, nlk(:,:,:,1))
      ! -- y component
-     work = work_u(:,:,:,3) * work_vort(:,:,:,1) - work_u(:,:,:,1) * work_vort(:,:,:,3) - mask*work_u(:,:,:,2)
+     work = work_u(:,:,:,3)*work_vort(:,:,:,1) - work_u(:,:,:,1)*work_vort(:,:,:,3) - mask*work_u(:,:,:,2)
      call coftxyz (work, nlk(:,:,:,2))
      ! -- z component
-     work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1) - mask*work_u(:,:,:,3)
+     work = work_u(:,:,:,1)*work_vort(:,:,:,2) - work_u(:,:,:,2)*work_vort(:,:,:,1) - mask*work_u(:,:,:,3)
      call coftxyz (work, nlk(:,:,:,3))
   else
      ! -- x component
-     work = work_u(:,:,:,2) * work_vort(:,:,:,3) - work_u(:,:,:,3) * work_vort(:,:,:,2)
+     work = work_u(:,:,:,2)*work_vort(:,:,:,3) - work_u(:,:,:,3)*work_vort(:,:,:,2)
      call coftxyz (work, nlk(:,:,:,1))
      ! -- y component
-     work = work_u(:,:,:,3) * work_vort(:,:,:,1) - work_u(:,:,:,1) * work_vort(:,:,:,3)
+     work = work_u(:,:,:,3)*work_vort(:,:,:,1) - work_u(:,:,:,1)*work_vort(:,:,:,3)
      call coftxyz (work, nlk(:,:,:,2))
      ! -- z component
-     work = work_u(:,:,:,1) * work_vort(:,:,:,2) - work_u(:,:,:,2) * work_vort(:,:,:,1)
+     work = work_u(:,:,:,1)*work_vort(:,:,:,2) - work_u(:,:,:,2)*work_vort(:,:,:,1)
      call coftxyz (work, nlk(:,:,:,3))  
   endif  
+  time_curl = time_curl + MPI_wtime() - t1
   
 
   ! add this place, we will one day compute drag/lift forces, if required. they are nothing but the sum of the penalty term
@@ -99,6 +106,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   !-- p = (i*kx*sxk + i*ky*syk + i*kz*szk) / k**2
   !-- note: we use rotational formulation: p is NOT the physical pressure
   !------------------------------------------------------------- 
+  t1 = MPI_wtime()
   do iy = ca(3), cb(3)  		! ky : 0..ny/2-1 ,then, -ny/2..-1     
     ky = scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
     ky2 = ky*ky
@@ -118,6 +126,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
 	enddo
     enddo
   enddo  
+  time_p = time_p + MPI_wtime() - t1
   
 
   !-------------------------------------------------------------
@@ -159,6 +168,8 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   !-- Broadcast time step to all processes
   call MPI_BCAST (dt1, 1, mpireal, 0, MPI_COMM_WORLD, mpicode)
   
+  time_nlk_fft = time_nlk_fft + time_fft2 + time_ifft2
+  time_nlk = time_nlk + MPI_wtime() - t0
 end subroutine cal_nlk
 
 

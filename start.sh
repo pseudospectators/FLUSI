@@ -24,8 +24,8 @@ BWhite='\e[1;37m'       # White
 
 #---------------------------------------------------------------------
 nproc="4"
-params="PARAMSs.test"
-DIR="Plate/"
+params="PARAMS_test.ini"
+DIR="VortexRing/"
 #---------------------------------------------------------------------
 
 echo -e ${BBlue} "deleting main..." ${Color_Off}
@@ -48,7 +48,7 @@ cd ${DIR}
 echo "-----------"
 echo -e ${BCyan} "mpirun -n" ${nproc} "./main <" ${params} ${Color_Off}
 echo "-----------"
-mpirun -n ${nproc} ./main < ${params}
+mpirun -n ${nproc} ./main ${params}
 
 else
 echo -e ${BRed} "MAKE FAILED!" ${Color_Off}

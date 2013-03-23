@@ -10,15 +10,18 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (in):: nlk
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent(in) :: workvis
   integer :: filedesc, mpicode
+  real (kind=pr) :: t1
   integer, dimension(MPI_STATUS_SIZE) :: mpistatus
   character (len=17) :: name
   character (len=1) :: name1
+  t1 = MPI_wtime()
   
   if (mpirank ==0) then
     write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1," to disk....")') time, nbackup
   endif
   
   write (name1, '(I1)') nbackup
+  
 
   call MPI_FILE_DELETE('runtime_backup'//name1, MPI_INFO_NULL, mpicode)
   call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,MPI_MODE_WRONLY+MPI_MODE_CREATE,MPI_INFO_NULL,filedesc,mpicode)
@@ -46,7 +49,10 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
 
   call MPI_FILE_CLOSE (filedesc,mpicode)
   nbackup = 1 - nbackup
+  
+write (*,*) "done", mpirank
 
+  time_bckp = time_bckp + MPI_wtime() -t1
 end subroutine Dump_Runtime_Backup
 
 
@@ -147,7 +153,7 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
   real (kind=pr), dimension (3) :: u_max, u_loc
   complex (kind=pr) :: qk
-  
+    
   ! -------------------------------------------------------
   ! - interface for SaveFile subroutine
   ! -------------------------------------------------------
@@ -172,6 +178,8 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   
   end interface
 
+  t1 = MPI_wtime()
+    
   !--Set up file name base 
   !--the following hack enables us to get 000.40 and 001.55 as filenames, so they can actually be ordered
 !   write(name,'(F6.2,TL8,I3.3)') time, floor(time) ! this is really really dirty ( from http://drj11.wordpress.com/2008/08/28/fortran-cant-get-no-leading-zero/ )
@@ -291,7 +299,7 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   endif
   
 !   call SaveVTK(trim(adjustl(name)),u,vort,work)
-  
+  time_save = time_save + MPI_wtime() - t1
 end subroutine
 
 

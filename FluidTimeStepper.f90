@@ -12,7 +12,8 @@ subroutine FluidTimestep( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvi
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: vort, u
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (inout) :: workvis
-    
+  real (kind=pr) :: t1
+  t1 = MPI_wtime()
   
   if (iTimeMethodFluid == 2) then  
     call RungeKutta2 ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )    
@@ -27,10 +28,25 @@ subroutine FluidTimestep( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvi
     call Euler ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )      
   endif 
   
+  
+  !-----------------------------------------------------------------------------------
+  ! Force zero mode for mean flow
+  !-----------------------------------------------------------------------------------
+  ! Force zero mode for mean flow
+  if ( (iMeanFlow == 1).and.((ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0)) ) then
+    uk(0, 0, 0, 1) = Ux + Ax * time
+    uk(0, 0, 0, 2) = Uy + Ay * time
+    uk(0, 0, 0, 3) = Uz + Az * time
+  endif
+  
+  !-----------------------------------
+  ! dealiasing
+  !-----------------------------------
   if (iDealias==1) then
     call dealiase_velocity (uk)
   endif
   
+  time_fluid = time_fluid + MPI_wtime() - t1
 end subroutine
 
 
@@ -93,17 +109,6 @@ subroutine RungeKutta2 ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis
   uk(:,:,:,2) = uk(:,:,:,2) + 0.5*dt1*( -nlk(:,:,:,2,0) + nlk(:,:,:,2,1) )
   uk(:,:,:,3) = uk(:,:,:,3) + 0.5*dt1*( -nlk(:,:,:,3,0) + nlk(:,:,:,3,1) )   
 
-  !-----------------------------------------------------------------------------------
-  ! Force zero mode for mean flow
-  !-----------------------------------------------------------------------------------
-  ! Force zero mode for mean flow
-  if ( (iMeanFlow == 1).and.((ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0)) ) then
-    uk(0, 0, 0, 1) = Ux + Ax * time
-    uk(0, 0, 0, 2) = Uy + Ay * time
-    uk(0, 0, 0, 3) = Uz + Az * time
-  endif
-  
-  
 end subroutine
 
 
@@ -144,16 +149,6 @@ subroutine Euler ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis )
   uk(:,:,:,1) = (uk(:,:,:,1) + dt1 * nlk (:,:,:,1,1)) * workvis
   uk(:,:,:,2) = (uk(:,:,:,2) + dt1 * nlk (:,:,:,2,1)) * workvis
   uk(:,:,:,3) = (uk(:,:,:,3) + dt1 * nlk (:,:,:,3,1)) * workvis
-  
-  !-----------------------------------------------------------------------------------
-  ! Force zero mode for mean flow
-  !-----------------------------------------------------------------------------------
-  ! Force zero mode for mean flow
-  if ( (iMeanFlow == 2).and.((ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0)) ) then
-    uk(0, 0, 0, 1) = Ux + Ax * time
-    uk(0, 0, 0, 2) = Uy + Ay * time
-    uk(0, 0, 0, 3) = Uz + Az * time
-  endif
 
 end subroutine
 
@@ -200,16 +195,6 @@ subroutine Euler_startup ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workv
   nlk (:,:,:,2,n0) = nlk (:,:,:,2,n0) * workvis
   nlk (:,:,:,3,n0) = nlk (:,:,:,3,n0) * workvis
 
-  !-----------------------------------------------------------------------------------
-  ! Force zero mode for mean flow
-  !-----------------------------------------------------------------------------------
-  ! Force zero mode for mean flow
-  if ( (iMeanFlow == 2).and.((ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0)) ) then
-    uk(0, 0, 0, 1) = Ux + Ax * time
-    uk(0, 0, 0, 2) = Uy + Ay * time
-    uk(0, 0, 0, 3) = Uz + Az * time
-  endif
-
 
 end subroutine
 
@@ -232,7 +217,7 @@ subroutine AdamsBashforth ( time, dt0, dt1, n0,n1, u, uk, nlk, vort, work, workv
   !--Calculate fourier coeffs of nonlinear rhs and forcing
   !-----------------------------------------------------------------------------------
   t1 = MPI_wtime()
-  call cal_nlk (dt1, nlk(:,:,:,:,n0), uk, u, vort, work )
+  call cal_nlk ( dt1, nlk(:,:,:,:,n0), uk, u, vort, work )
   t2 = MPI_wtime() - t1 + t2
     
   !-----------------------------------------------------------------------------------
@@ -263,14 +248,6 @@ subroutine AdamsBashforth ( time, dt0, dt1, n0,n1, u, uk, nlk, vort, work, workv
   nlk (:,:,:,3,n0) = nlk (:,:,:,3,n0) * workvis
   t4 = MPI_wtime() - t1 + t4
 
-  !-----------------------------------------------------------------------------------
-  ! Force zero mode for mean flow
-  !-----------------------------------------------------------------------------------
-  if ( (iMeanFlow == 2).and.((ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0)) ) then
-    uk(0, 0, 0, 1) = Ux + Ax * time
-    uk(0, 0, 0, 2) = Uy + Ay * time
-    uk(0, 0, 0, 3) = Uz + Az * time
-  endif
   
   
 !   if (mpirank ==0) then
