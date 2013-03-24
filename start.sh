@@ -23,9 +23,9 @@ BCyan='\e[1;36m'        # Cyan
 BWhite='\e[1;37m'       # White
 
 #---------------------------------------------------------------------
-nproc="3"
-params="PARAMS_test.ini"
-DIR="Dealias/"
+nproc=$3
+params=$2
+DIR=$1
 #---------------------------------------------------------------------
 
 echo -e ${BBlue} "deleting main..." ${Color_Off}
@@ -46,7 +46,7 @@ then
 cp main ${DIR}
 cd ${DIR}
 echo "-----------"
-echo -e ${BCyan} "mpirun -n" ${nproc} "./main <" ${params} ${Color_Off}
+echo -e ${BCyan} "mpirun -n" ${nproc} "./main " ${params} ${Color_Off}
 echo "-----------"
 mpirun -n ${nproc} ./main ${params}
 

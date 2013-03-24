@@ -28,6 +28,8 @@ program FLUSI
   mpireal 	= MPI_DOUBLE_PRECISION
   mpicomplex 	= MPI_DOUBLE_COMPLEX
 
+  
+  
   !---- Read input parameters
   if (mpirank == 0) then
     write(*,'(A)') '*** info: Reading input data...'
@@ -44,6 +46,13 @@ program FLUSI
     write(*,'(A)') '*** info: Starting time iterations...'
     write(*,'(A)') '--------------------------------------'
   endif
+  
+  ! overwrite drag_data file
+  if ((inicond .ne. 99).and.(mpirank==0)) then
+  open  (14, file = 'drag_data', status = 'replace')
+  close (14)
+  endif
+  
   
   t1 = MPI_wtime()
   call time_step ()

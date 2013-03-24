@@ -42,13 +42,12 @@ subroutine cal_vis (dt, vis)
 	   if ((kx2 + ky2 + kz2  .ge. 1.d0).and.(iDealias==1)) then
               vis(iz,ix,iy) = dcmplx(0.d0,0.d0)
 	   else
-	      vis(iz,ix,iy) = dexp(-dt*nu*(kx +ky +kz))
+	      vis(iz,ix,iy) = dexp( -dt*nu*(kx+ky+kz) )
            endif        
            
         enddo
      enddo
   enddo
 
-  time_vis = time_vis + MPI_wtime() - t1
- 
+  time_vis = time_vis + MPI_wtime() - t1 
 end subroutine cal_vis

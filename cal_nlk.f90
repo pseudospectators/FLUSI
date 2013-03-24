@@ -1,4 +1,4 @@
-subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
+subroutine cal_nlk ( time,it, dt1, nlk, uk, work_u , work_vort, work, GlobIntegrals )
   ! -------------------------------------------------------------------------------------------
   ! 		VERSION 5 / mars / 2013
   ! - no allocating, all work arrays passed as arguments
@@ -17,13 +17,22 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (out):: nlk
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: work_vort, work_u
+!   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) :: temp
   real (kind=pr), intent (out) :: dt1
-  real (kind=pr) :: u_max_w, divu, divumax
+  integer, intent(in) :: it
+  real (kind=pr), intent (in) :: time
+  real (kind=pr) :: u_max_w, divu, divumax, E
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2, t1, t0
   real (kind=pr), dimension (3) :: u_max, u_loc
   integer :: mpicode,ix,iy,iz
   complex (kind=pr) :: qk
   character (len=7) :: str
+  type(Integrals), intent (out) :: GlobIntegrals
+  logical :: TimeForDrag 
+  
+  TimeForDrag = .false.  
+  if (modulo(it,itdrag)==0) TimeForDrag = .true. ! is it time for save global quantities?
+  
   t0 = MPI_wtime()
   time_fft2 =0.0
   time_ifft2=0.0
@@ -37,6 +46,8 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   call cofitxyz (uk(:,:,:,2), work_u(:,:,:,2))
   call cofitxyz (uk(:,:,:,3), work_u(:,:,:,3))
   time_u = time_u + MPI_wtime() - t1
+  
+
 
   !-----------------------------------------------
   !-- compute vorticity
@@ -58,47 +69,59 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
   call cofitxyz (nlk(:,:,:,2), work_vort(:,:,:,2)) ! Transform it to physical space
   call cofitxyz (nlk(:,:,:,3), work_vort(:,:,:,3)) ! Transform it to physical space
   time_vor = time_vor + MPI_wtime() - t1
+  
+  
+  !-----------------------------------------------
+  !-- compute kinetic energy and dissipation rate
+  !-----------------------------------------------  
+  if ((TimeForDrag).and.(iKinDiss==1)) call Energy_Dissipation ( GlobIntegrals, work_u, work_vort )
       
+
   !-------------------------------------------------------------
   !-- Calculate omega x u (cross-product)
+  !-- add penalization term
   !-- and transform the result into Fourier space 
   !-------------------------------------------------------------
   t1 = MPI_wtime()
-  if ((iPenalization==1).and.(iMoving==1)) then
-     ! -- x component
-     work = work_u(:,:,:,2)*work_vort(:,:,:,3) - work_u(:,:,:,3)*work_vort(:,:,:,2) - mask*(work_u(:,:,:,1) - us(:,:,:,1))
+  if (iPenalization==1) then
+     !------------------------------------
+     !--x component
+     !------------------------------------
+     call Penalize ( work, work_u, 1, TimeForDrag, GlobIntegrals )
+     work = work_u(:,:,:,2)*work_vort(:,:,:,3) - work_u(:,:,:,3)*work_vort(:,:,:,2) + work
      call coftxyz (work, nlk(:,:,:,1))
-     ! -- y component
-     work = work_u(:,:,:,3)*work_vort(:,:,:,1) - work_u(:,:,:,1)*work_vort(:,:,:,3) - mask*(work_u(:,:,:,2) - us(:,:,:,2))
+     !------------------------------------
+     !--y component
+     !------------------------------------
+     call Penalize ( work, work_u, 2, TimeForDrag, GlobIntegrals )
+     work = work_u(:,:,:,3)*work_vort(:,:,:,1) - work_u(:,:,:,1)*work_vort(:,:,:,3) + work
      call coftxyz (work, nlk(:,:,:,2))
-     ! -- z component
-     work = work_u(:,:,:,1)*work_vort(:,:,:,2) - work_u(:,:,:,2)*work_vort(:,:,:,1) - mask*(work_u(:,:,:,3) - us(:,:,:,3))
-     call coftxyz (work, nlk(:,:,:,3))
-  elseif ((iPenalization==1).and.(iMoving==0)) then
-     ! -- x component
-     work = work_u(:,:,:,2)*work_vort(:,:,:,3) - work_u(:,:,:,3)*work_vort(:,:,:,2) - mask*work_u(:,:,:,1)
-     call coftxyz (work, nlk(:,:,:,1))
-     ! -- y component
-     work = work_u(:,:,:,3)*work_vort(:,:,:,1) - work_u(:,:,:,1)*work_vort(:,:,:,3) - mask*work_u(:,:,:,2)
-     call coftxyz (work, nlk(:,:,:,2))
-     ! -- z component
-     work = work_u(:,:,:,1)*work_vort(:,:,:,2) - work_u(:,:,:,2)*work_vort(:,:,:,1) - mask*work_u(:,:,:,3)
-     call coftxyz (work, nlk(:,:,:,3))
-  else
-     ! -- x component
+     !------------------------------------
+     !--z component
+     !------------------------------------
+     call Penalize ( work, work_u, 3, TimeForDrag, GlobIntegrals )
+     work = work_u(:,:,:,1)*work_vort(:,:,:,2) - work_u(:,:,:,2)*work_vort(:,:,:,1) + work
+     call coftxyz (work, nlk(:,:,:,3))     
+  else ! no penalization  
+     !------------------
+     !--x component
+     !------------------
      work = work_u(:,:,:,2)*work_vort(:,:,:,3) - work_u(:,:,:,3)*work_vort(:,:,:,2)
      call coftxyz (work, nlk(:,:,:,1))
-     ! -- y component
+     !------------------
+     !--y component
+     !------------------
      work = work_u(:,:,:,3)*work_vort(:,:,:,1) - work_u(:,:,:,1)*work_vort(:,:,:,3)
      call coftxyz (work, nlk(:,:,:,2))
-     ! -- z component
+     !------------------
+     !--z component
+     !------------------
      work = work_u(:,:,:,1)*work_vort(:,:,:,2) - work_u(:,:,:,2)*work_vort(:,:,:,1)
      call coftxyz (work, nlk(:,:,:,3))  
   endif  
   time_curl = time_curl + MPI_wtime() - t1
   
 
-  ! add this place, we will one day compute drag/lift forces, if required. they are nothing but the sum of the penalty term
 
   
   !-------------------------------------------------------------
@@ -127,6 +150,7 @@ subroutine cal_nlk (dt1, nlk, uk, work_u , work_vort, work )
     enddo
   enddo  
   time_p = time_p + MPI_wtime() - t1
+  
   
 
   !-------------------------------------------------------------
@@ -174,17 +198,68 @@ end subroutine cal_nlk
 
 
 
+subroutine Penalize ( work, work_u, iDir, TimeForDrag, GlobIntegrals )    
+  use share_vars
+  implicit none
+  integer, intent (in) :: iDir
+  logical, intent (in) :: TimeForDrag
+  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (out) :: work
+  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (in) :: work_u
+  type(Integrals), intent (out) :: GlobIntegrals
+  
+  ! compute penalization term
+  if (iMoving == 1) then
+    work = -mask*(work_u(:,:,:,iDir) - us(:,:,:,iDir))  
+  else
+    work = -mask*(work_u(:,:,:,iDir))
+  endif
+  
+  ! if its time, compute drag forces
+  if ((TimeForDrag).and.(iDrag==1)) then
+    call IntegralForce ( GlobIntegrals, work, iDir ) 
+  endif
+end subroutine
+
 
 
 subroutine truncate(a,b)
+  ! rounds time step (from 1.246262e-2 to 1.2e-2)
   use share_vars
   implicit none
   real(kind=pr) :: a,b
   character (len=7) :: str
-
   write (str,'(es7.1)') a
   read (str,*) b
-
 end subroutine
 
 
+subroutine IntegralForce ( GlobIntegrals, work, iDirection ) 
+  use share_vars
+  use mpi_header
+  implicit none
+  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
+  type(Integrals), intent (out) :: GlobIntegrals
+  integer, intent (in) :: iDirection
+  integer :: mpicode
+  real (kind=pr) :: Force_local
+  
+  Force_local  = dx*dy*dz*sum( work )  
+  call MPI_REDUCE (Force_local, GlobIntegrals%Force(iDirection), 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process  
+end subroutine
+
+
+subroutine Energy_Dissipation ( GlobIntegrals, u, vort )
+  use share_vars
+  use mpi_header
+  implicit none
+  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (in) :: vort, u
+  type(Integrals), intent (out) :: GlobIntegrals
+  real (kind=pr) :: E_kin_local, Dissip_local
+  integer :: mpicode
+  
+  E_kin_local  = 0.5d0*dx*dy*dz*sum( u*u )
+  Dissip_local = -nu*dx*dy*dz*sum( vort*vort )
+  
+  call MPI_REDUCE (E_kin_local, GlobIntegrals%E_kin, 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
+  call MPI_REDUCE (Dissip_local, GlobIntegrals%Dissip, 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
+end subroutine

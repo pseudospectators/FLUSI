@@ -95,7 +95,6 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	    uk(0, 0, 0,2) = Uy + Ay * time;               
 	    uk(0, 0, 0,3) = Uz + Az * time;              
 	endif
-
   elseif (inicond == 99) then 
 	!--------------------------------------------------
 	! read from backup
@@ -105,8 +104,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	!--------------------------------------------------
 	! fluid at rest
 	!--------------------------------------------------  
-	uk = dcmplx(0.0d0,0.0d0)
-        
+	uk = dcmplx(0.0d0,0.0d0)        
   else
 	if (mpirank == 0) then
 	    write (*,'(A)') '??? ERROR: Invalid initial condition'

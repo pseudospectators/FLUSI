@@ -180,9 +180,6 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
   t1 = MPI_wtime()
     
   !--Set up file name base 
-  !--the following hack enables us to get 000.40 and 001.55 as filenames, so they can actually be ordered
-!   write(name,'(F6.2,TL8,I3.3)') time, floor(time) ! this is really really dirty ( from http://drj11.wordpress.com/2008/08/28/fortran-cant-get-no-leading-zero/ )
-  
   write(name,'(i5.5)') floor(time*100.d0)
   
   if ( mpirank == 0 ) then 

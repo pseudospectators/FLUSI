@@ -152,7 +152,7 @@ subroutine obst_mask
 ! Spherical obstacle
 !---------------------------------------------------------------
   if (imask == 2) then
-
+  
      ix0 = int( x0 * real(nx)/xl )
      iy0 = int( y0 * real(ny)/yl )
      iz0 = int( z0 * real(nz)/zl )
@@ -163,8 +163,33 @@ subroutine obst_mask
          do ix = ra(1), rb(1)
               irad = int( sqrt( real( (ix-ix0)**2 + (iy-iy0)**2 + (iz-iz0)**2 ) ) )
               if ( irad <= iradmax ) then
-                 mask (ix, iy, iz) = 1.0
+                 mask (ix, iy, iz) = 1.d0
               endif
+         enddo
+       enddo
+     enddo
+
+  endif
+  
+  if (imask == 22) then
+  us = 0.d0
+  
+     ix0 = int( x0 * real(nx)/xl )
+     iy0 = int( y0 * real(ny)/yl )
+     iz0 = int( z0 * real(nz)/zl )
+     iradmax = int( length/2.0 * real(nx)/xl )
+
+     do iz = ra(3), rb(3)
+       do iy = ra(2), rb(2)
+         do ix = ra(1), rb(1)
+              irad = int( sqrt( real( (ix-ix0)**2 + (iy-iy0)**2 + (iz-iz0)**2 ) ) )
+              if ( irad <= iradmax ) then
+                 mask (ix, iy, iz) = 1.d0
+              endif              
+              if ( ix <= 8  ) then
+		mask (ix, iy, iz) = 1.d0
+		us(ix,iy,iz,1)=1.d0
+	      endif         
          enddo
        enddo
      enddo

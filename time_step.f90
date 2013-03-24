@@ -12,7 +12,12 @@ subroutine time_step
   complex (kind=pr), 	dimension (:,:,:,:), allocatable :: uk
   complex (kind=pr), 	dimension (:,:,:,:,:), allocatable :: nlk  
   real (kind=pr), 	dimension (:,:,:), allocatable :: work
-  dt0 = 1.0 ! useful to trigger cal_vis
+  type(Integrals) :: GlobIntegrals
+  GlobIntegrals%E_kin  = 0.d0
+  GlobIntegrals%Dissip = 0.d0
+  GlobIntegrals%Force  = 0.d0
+  
+  dt0 = 1.0d0 ! useful to trigger cal_vis
 
   !---------------------------------------------------------------
   !-- Allocate memory
@@ -57,10 +62,9 @@ subroutine time_step
       call create_mask ( time )      
      endif
      
-     call FluidTimeStep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, it )
+     call FluidTimeStep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, it, GlobIntegrals )
      
 
-     
      !--Switch time levels
      inter = n1 ; n1 = n0 ; n0 = inter
      !--Advance in time: at this point, uk contains the velocity field at time 'time' 
@@ -70,9 +74,19 @@ subroutine time_step
      !---------------------------------------------------------------------------------
      !--				Output (after tdrag)
      !---------------------------------------------------------------------------------
-     if ( modulo (it,300) == 0 ) then
-	t2= MPI_wtime() - t1
+     if ( modulo (it,itdrag) == 0 ) then
+       if (mpirank==0) then
+	open  (14, file = 'drag_data', status = 'unknown', access = 'append')
+	write (14, '(6(es12.4,1x))')  time, GlobIntegrals%E_kin, &
+	GlobIntegrals%Dissip,  GlobIntegrals%Force(1),&
+	GlobIntegrals%Force(2),GlobIntegrals%Force(3)
+	close (14)
+	endif
+     endif
+       
+     if ( modulo (it,300) == 0 ) then     
 	if (mpirank==0) then
+	t2= MPI_wtime() - t1
 	write(*,'("time left: ",f7.2,"min dt=",es7.1)') (((tmax-time)/dt1)*(t2/dble(it)))/60.d0 , dt1
 	endif
      endif
@@ -97,6 +111,7 @@ subroutine time_step
   if (mpirank==0) then
   v_rms = dsqrt ( sum( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)  )
   write(*,'("u_rms=",es15.8," max=",es15.8)') v_rms, maxval( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+  write(*,'("did it=",i5," time steps")') it
   endif
 
 

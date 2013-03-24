@@ -60,6 +60,7 @@ subroutine get_params (paramsfile)
   call GetValue_Real (PARAMS,i,"Geometry","x0",x0, 0.d0)
   call GetValue_Real (PARAMS,i,"Geometry","y0",y0, 0.d0)
   call GetValue_Real (PARAMS,i,"Geometry","z0",z0, 0.d0)
+  call GetValue_Real (PARAMS,i,"Geometry","Size",length, 0.d0)
   
   
   call GetValue_Int (PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
@@ -78,7 +79,9 @@ subroutine get_params (paramsfile)
   call GetValue_Int (PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
   call GetValue_Int (PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity, 0)
   call GetValue_Real (PARAMS,i,"Saving","tsave",tsave, 9.d9)
-  call GetValue_Real (PARAMS,i,"Saving","tdrag",tdrag, 9.d9)
+  call GetValue_int (PARAMS,i,"Saving","itdrag",itdrag, 99999)
+  call GetValue_int (PARAMS,i,"Saving","iDrag",iDrag, 0)
+  call GetValue_int (PARAMS,i,"Saving","iKinDiss",iKinDiss, 0)
   
   !-------------------------------------------------------
   ! set other parameters
@@ -117,7 +120,7 @@ subroutine get_params (paramsfile)
      write (*, '(" tmax = ", f6.2)') tmax
      write (*, '(" viscosity = ", es11.4)') nu
      write (*,*) '--------------------------------------------'
-     write (*, '(" calculate drag every", es11.4, " time steps")') tdrag
+     write (*, '(" calculate drag every", i4, " time steps")') itdrag
      write (*, '(" save fields every   ", es11.4)') tsave
      if (iSavePress == 1) write (*,*) 'save pressure'
      if (iSaveVelocity == 1) write (*,*) 'save velocity'
