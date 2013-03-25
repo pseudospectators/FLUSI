@@ -10,14 +10,15 @@ program convert_mpiio
 
   integer, parameter :: pr_in = 8, pr_out = 4 ! precision for input and output (INPUT PRECISION MUST BE KNOWN!!!)
   integer, parameter :: mpireal = MPI_DOUBLE_PRECISION  ! double precision array for input
-  integer, dimension(MPI_STATUS_SIZE) :: mpistatus
-  integer :: nx, ny, nz, filedesc, mpicode
+  MPI_INTEGER, dimension(MPI_STATUS_SIZE) :: mpistatus
+  integer :: nx, ny, nz
+  MPI_INTEGER :: mpicode, filedesc
   integer :: ix, iy, iz, iSaveAscii
   real (kind=pr_in ), dimension (:,:,:), allocatable :: field_in
   real (kind=pr_out), dimension (:,:,:), allocatable :: field_out
   character (len=128) :: fname, nx_str, ny_str, nz_str, ascii_str
   logical :: file_exists
-
+  call MPI_INIT (mpicode)
   !--------------------------------------------------
   ! read in command line arguments
   !--------------------------------------------------  
@@ -78,7 +79,7 @@ program convert_mpiio
   !--------------------------------------------------
   ! read MPI data
   !-------------------------------------------------- 
-  call MPI_INIT (mpicode)
+  
   call MPI_FILE_OPEN (MPI_COMM_WORLD,trim(fname)//'.mpiio',MPI_MODE_RDONLY,MPI_INFO_NULL,filedesc,mpicode)
   call MPI_FILE_READ_ORDERED (filedesc,field_in,nx*ny*nz,mpireal,mpistatus,mpicode)
   call MPI_FILE_CLOSE (filedesc,mpicode)

@@ -65,6 +65,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
     
     
   elseif (inicond == 2) then
+	write (*,*) " turbulence (random vorticity) initial condition"
 	!--------------------------------------------------
 	! random vorticity
 	!--------------------------------------------------
