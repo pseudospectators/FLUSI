@@ -29,9 +29,15 @@ NY=$2
 NZ=$3
 
 
-for file in *.mpiio
-do
-  echo "processing file $file"
+ for file in *.mpiio
+ do
+#  echo "processing file $file"
   convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
-done
+ done
 
+echo "launch binary2vapor???"
+read ask
+
+if [ "$ask" == "y" ]; then
+    binary2vapor.script ${NX} ${NY} ${NZ}
+fi

@@ -182,7 +182,7 @@ N_smooth = 2.d0
 		 call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
                  mask (ix,iy,iz) = tmp
               endif
-              if ( ix <= 8  ) then
+              if ( ix <= 12  ) then
 		mask  (ix,iy,iz) = 1.d0
 		us    (ix,iy,iz,1) = 1.d0
 	      endif  

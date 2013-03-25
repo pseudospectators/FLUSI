@@ -83,8 +83,9 @@ program convert_mpiio
   call MPI_FILE_READ_ORDERED (filedesc,field_in,nx*ny*nz,mpireal,mpistatus,mpicode)
   call MPI_FILE_CLOSE (filedesc,mpicode)
 
-  write(*,'("Min:Max=",es12.4,":",es12.4,1x,"nx:ny:nz=",i3,":",i3,":",i3)') minval (field_in), maxval (field_in),nx,ny,nz
-  write(*,'("Converting ",A,".mpiio  -> ",A,".binary")') trim(fname), trim(fname)
+  write(*,'("Converting ",A,".mpiio  -> ",A,".binary Min:Max=",es12.4,":",es12.4,1x,"nx:ny:nz=",i3,":",i3,":",i3)') &
+  trim(fname), trim(fname), minval (field_in), maxval (field_in),nx,ny,nz
+  
   
   field_out = real(field_in, kind=pr_out)  ! convert field to output precision
   ! ------------------------------------
