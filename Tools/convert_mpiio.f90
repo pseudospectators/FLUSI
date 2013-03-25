@@ -10,9 +10,9 @@ program convert_mpiio
 
   integer, parameter :: pr_in = 8, pr_out = 4 ! precision for input and output (INPUT PRECISION MUST BE KNOWN!!!)
   integer, parameter :: mpireal = MPI_DOUBLE_PRECISION  ! double precision array for input
-  MPI_INTEGER, dimension(MPI_STATUS_SIZE) :: mpistatus
+  integer, dimension(MPI_STATUS_SIZE) :: mpistatus
   integer :: nx, ny, nz
-  MPI_INTEGER :: mpicode, filedesc
+  integer :: mpicode, filedesc
   integer :: ix, iy, iz, iSaveAscii
   real (kind=pr_in ), dimension (:,:,:), allocatable :: field_in
   real (kind=pr_out), dimension (:,:,:), allocatable :: field_out
