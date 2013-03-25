@@ -17,7 +17,7 @@ subroutine cal_nlk ( time,it, dt1, nlk, uk, work_u , work_vort, work, GlobIntegr
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (out):: nlk
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: work_vort, work_u
-!   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) :: temp
+  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) :: temp
   real (kind=pr), intent (out) :: dt1
   integer, intent(in) :: it
   real (kind=pr), intent (in) :: time
@@ -151,7 +151,6 @@ subroutine cal_nlk ( time,it, dt1, nlk, uk, work_u , work_vort, work, GlobIntegr
   enddo  
   time_p = time_p + MPI_wtime() - t1
   
-  
 
   !-------------------------------------------------------------
   !-- Calculate maximum velocity + TIME STEP
@@ -196,7 +195,7 @@ subroutine cal_nlk ( time,it, dt1, nlk, uk, work_u , work_vort, work, GlobIntegr
   time_nlk = time_nlk + MPI_wtime() - t0
 end subroutine cal_nlk
 
-
+!-------------------------------------------------------------------------------------------------------------------------------------------------
 
 subroutine Penalize ( work, work_u, iDir, TimeForDrag, GlobIntegrals )    
   use share_vars
@@ -220,7 +219,7 @@ subroutine Penalize ( work, work_u, iDir, TimeForDrag, GlobIntegrals )
   endif
 end subroutine
 
-
+!-------------------------------------------------------------------------------------------------------------------------------------------------
 
 subroutine truncate(a,b)
   ! rounds time step (from 1.246262e-2 to 1.2e-2)
@@ -232,6 +231,7 @@ subroutine truncate(a,b)
   read (str,*) b
 end subroutine
 
+!-------------------------------------------------------------------------------------------------------------------------------------------------
 
 subroutine IntegralForce ( GlobIntegrals, work, iDirection ) 
   use share_vars
@@ -247,6 +247,7 @@ subroutine IntegralForce ( GlobIntegrals, work, iDirection )
   call MPI_REDUCE (Force_local, GlobIntegrals%Force(iDirection), 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process  
 end subroutine
 
+!-------------------------------------------------------------------------------------------------------------------------------------------------
 
 subroutine Energy_Dissipation ( GlobIntegrals, u, vort )
   use share_vars

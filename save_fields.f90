@@ -238,12 +238,19 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
 	!-- Calculate omega x u (cross-product)
 	!-- and transform the result into Fourier space 
 	!-------------------------------------------------------------
-	if ( iPenalization > 0 ) then
+	if ((iPenalization == 1).and.(iMoving==0)) then
 	  work = u(:,:,:,2) * vort(:,:,:,3) - u(:,:,:,3) * vort(:,:,:,2) - u(:,:,:,1)*mask
 	  call coftxyz (work, nlk(:,:,:,1))
 	  work = u(:,:,:,3) * vort(:,:,:,1) - u(:,:,:,1) * vort(:,:,:,3) - u(:,:,:,2)*mask
 	  call coftxyz (work, nlk(:,:,:,2))
 	  work = u(:,:,:,1) * vort(:,:,:,2) - u(:,:,:,2) * vort(:,:,:,1) - u(:,:,:,3)*mask
+	  call coftxyz (work, nlk(:,:,:,3))
+	elseif ((iPenalization==1).and.(iMoving==1)) then
+	  work = u(:,:,:,2) * vort(:,:,:,3) - u(:,:,:,3) * vort(:,:,:,2) - (u(:,:,:,1)-us(:,:,:,1))*mask
+	  call coftxyz (work, nlk(:,:,:,1))
+	  work = u(:,:,:,3) * vort(:,:,:,1) - u(:,:,:,1) * vort(:,:,:,3) - (u(:,:,:,2)-us(:,:,:,2))*mask
+	  call coftxyz (work, nlk(:,:,:,2))
+	  work = u(:,:,:,1) * vort(:,:,:,2) - u(:,:,:,2) * vort(:,:,:,1) - (u(:,:,:,3)-us(:,:,:,3))*mask
 	  call coftxyz (work, nlk(:,:,:,3))
 	else
 	  work = u(:,:,:,2) * vort(:,:,:,3) - u(:,:,:,3) * vort(:,:,:,2)

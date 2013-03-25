@@ -119,7 +119,7 @@ subroutine obst_mask
 
   integer :: irad, iradmax, ix, iy, iz, ix0, iy0, iz0, kx, ky, kz
   integer :: ixmax, ixmin, iymax, iymin, izmax, izmin
-  real (kind=pr) :: x, y, z, t1
+  real (kind=pr) :: x, y, z, t1, tmp, R, N_smooth
   t1 = MPI_wtime()
 
   mask = 0.d0
@@ -151,49 +151,44 @@ subroutine obst_mask
 !---------------------------------------------------------------
 ! Spherical obstacle
 !---------------------------------------------------------------
+N_smooth = 2.d0
   if (imask == 2) then
-  
-     ix0 = int( x0 * real(nx)/xl )
-     iy0 = int( y0 * real(ny)/yl )
-     iz0 = int( z0 * real(nz)/zl )
-     iradmax = int( length/2.0 * real(nx)/xl )
-
      do iz = ra(3), rb(3)
        do iy = ra(2), rb(2)
          do ix = ra(1), rb(1)
-              irad = int( sqrt( real( (ix-ix0)**2 + (iy-iy0)**2 + (iz-iz0)**2 ) ) )
-              if ( irad <= iradmax ) then
-                 mask (ix, iy, iz) = 1.d0
+	      x = dble(ix)*dx
+	      y = dble(iy)*dy
+	      z = dble(iz)*dz
+	      R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
+              if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
+		 call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
+                 mask (ix, iy, iz) = tmp
               endif
          enddo
        enddo
      enddo
-
   endif
   
   if (imask == 22) then
-  us = 0.d0
-  
-     ix0 = int( x0 * real(nx)/xl )
-     iy0 = int( y0 * real(ny)/yl )
-     iz0 = int( z0 * real(nz)/zl )
-     iradmax = int( length/2.0 * real(nx)/xl )
-
+    us = 0.d0
      do iz = ra(3), rb(3)
        do iy = ra(2), rb(2)
          do ix = ra(1), rb(1)
-              irad = int( sqrt( real( (ix-ix0)**2 + (iy-iy0)**2 + (iz-iz0)**2 ) ) )
-              if ( irad <= iradmax ) then
-                 mask (ix, iy, iz) = 1.d0
-              endif              
+	      x = dble(ix)*dx
+	      y = dble(iy)*dy
+	      z = dble(iz)*dz
+	      R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
+              if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
+		 call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
+                 mask (ix,iy,iz) = tmp
+              endif
               if ( ix <= 8  ) then
-		mask (ix, iy, iz) = 1.d0
-		us(ix,iy,iz,1)=1.d0
-	      endif         
+		mask  (ix,iy,iz) = 1.d0
+		us    (ix,iy,iz,1) = 1.d0
+	      endif  
          enddo
        enddo
      enddo
-
   endif
 
 
