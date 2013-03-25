@@ -68,7 +68,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	!--------------------------------------------------
 	! random vorticity
 	!--------------------------------------------------
-
+	call random_seed
 	do iz = ra(3), rb(3)
 	  do iy = ra(2), rb(2)
 	    do ix = ra(1), rb(1)
