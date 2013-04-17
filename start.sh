@@ -37,8 +37,8 @@ make clean
 echo -e ${BBlue} "make sugiton..." ${Color_Off}
 make sugiton
 
-echo -e ${BBlue} "cleaning" ${Color_Off}
-rm -r ${DIR}fields/
+# echo -e ${BBlue} "cleaning" ${Color_Off}
+# rm -r ${DIR}fields/
 
 
 if [ -f main ]

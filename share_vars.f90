@@ -28,6 +28,8 @@ module share_vars
     real(kind=pr) :: time
     real(kind=pr) :: E_Kin
     real(kind=pr) :: Dissip
+    real(kind=pr) :: Divergence
+    real(kind=pr) :: Volume
     real(kind=pr), dimension(1:3) :: Force
   end type
   

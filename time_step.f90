@@ -45,11 +45,12 @@ subroutine time_step
   !---------------------------------------------------------------
   call init_fields (n1, time, it,  dt0, dt1, uk, nlk, vort, workvis )
   n0 = 1 - n1
-
+  
   !---------------------------------------------------------
   !     LOOP OVER TIME STEPS
   !---------------------------------------------------------
   t2=0.d0
+  
   
   t1=MPI_wtime()
   do while ((time<=tmax).and.(it<=nt))
@@ -59,7 +60,9 @@ subroutine time_step
      !     do a fluid time step
      !-----------------------------
      if (imask == 555) then
-      call create_mask ( time )      
+      call create_mask ( time )  
+     elseif (imask == 666) then
+      call Draw_Jerry( time )
      endif
      
      call FluidTimeStep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, it, GlobIntegrals )
@@ -79,7 +82,8 @@ subroutine time_step
 	open  (14, file = 'drag_data', status = 'unknown', access = 'append')
 	write (14, '(6(es12.4,1x))')  time, GlobIntegrals%E_kin, &
 	GlobIntegrals%Dissip,  GlobIntegrals%Force(1),&
-	GlobIntegrals%Force(2),GlobIntegrals%Force(3)
+	GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
+	GlobIntegrals%Volume
 	close (14)
 	endif
      endif

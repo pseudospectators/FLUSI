@@ -302,6 +302,36 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
     call SaveFile ( 'usz_'//trim(adjustl(name))//'.mpiio' , us(:,:,:,3) )
   endif
   
+  
+  
+  
+  
+  
+  !------------------------------------------------
+  ! TEMP::: compute divergence
+  !-----------------------------------------------
+  ! compute max val of {|div(.)|/|.|} over entire domain
+!   do iz=ca(1),cb(1)
+!     kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
+!     do iy=ca(3),cb(3)
+! 	ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
+! 	do ix=ca(2),cb(2)
+! 	  kx=scalex*ix
+! 	  ! divergence of velocity field
+! 	  nlk(iz,ix,iy,1) = dcmplx(0.d0,1.d0)*(kx*uk(iz,ix,iy,1)+ky*uk(iz,ix,iy,2)+kz*uk(iz,ix,iy,3))
+! 	enddo
+!     enddo
+!   enddo
+!   ! now nlk(:,:,:,1) contains divergence field
+!   call cofitxyz(nlk(:,:,:,1),work)
+! 
+!   write(name,'(i5.5)') floor(time*100.d0)
+!   call SaveFile ( 'divu_'//trim(adjustl(name))//'.mpiio' , work )
+
+  
+  
+  
+  
 !   call SaveVTK(trim(adjustl(name)),u,vort,work)
   time_save = time_save + MPI_wtime() - t1
 end subroutine

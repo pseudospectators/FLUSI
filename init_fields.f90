@@ -74,17 +74,33 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	  do iy = ra(2), rb(2)
 	    do ix = ra(1), rb(1)
 	    call RANDOM_NUMBER(r)
-	    vort (ix,iy,iz,1) = 50.d0*(2.0d0*r - 1.d0) * (1.d0-eps*mask(ix,iy,iz))
+	    vort (ix,iy,iz,1) = 50.d0*(2.0d0*r - 1.d0) !* (1.d0-eps*mask(ix,iy,iz))
 	    call RANDOM_NUMBER(r)
-	    vort (ix,iy,iz,2) = 50.d0*(2.0d0*r - 1.d0) * (1.d0-eps*mask(ix,iy,iz))
-	    call RANDOM_NUMBER(r)
-	    vort (ix,iy,iz,3) = 50.d0*(2.0d0*r - 1.d0) * (1.d0-eps*mask(ix,iy,iz))
+	    vort (ix,iy,iz,2) = 50.d0*(2.0d0*r - 1.d0) !* (1.d0-eps*mask(ix,iy,iz))
+	    call RANDOM_NUMBER(r)!
+	    vort (ix,iy,iz,3) = 50.d0*(2.0d0*r - 1.d0) !* (1.d0-eps*mask(ix,iy,iz))
 	    end do
 	  end do
 	end do    
 
 	call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
 
+  elseif (inicond == 30) then
+	do iz=ra(3),rb(3)
+	    z=zl*(dble(iz)/dble(nz) -0.5d0)
+	    do iy=ra(2),rb(2)
+	      y=yl*(dble(iy)/dble(ny) -0.5d0)
+	      do ix=ra(1),rb(1)
+		  x=xl*(dble(ix)/dble(nx) -0.5d0)
+		  vort(ix,iy,iz,1)=-2.d0*dsin(y)	! vort is u in physical space
+		  vort(ix,iy,iz,2)=2.d0*dsin(x)
+		  vort(ix,iy,iz,3)=0.d0
+	      enddo
+	    enddo
+	enddo
+	call coftxyz(vort(:,:,:,1),uk(:,:,:,1))
+	call coftxyz(vort(:,:,:,2),uk(:,:,:,2))
+	call coftxyz(vort(:,:,:,3),uk(:,:,:,3))
 
   elseif (inicond == 0) then
 	!--------------------------------------------------

@@ -21,14 +21,15 @@ subroutine cal_nlk ( time,it, dt1, nlk, uk, work_u , work_vort, work, GlobIntegr
   real (kind=pr), intent (out) :: dt1
   integer, intent(in) :: it
   real (kind=pr), intent (in) :: time
-  real (kind=pr) :: u_max_w, divu, divumax, E
+  real (kind=pr) :: u_max_w, E, divu, am,bm, tempdiv
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2, t1, t0
   real (kind=pr), dimension (3) :: u_max, u_loc
   integer :: mpicode,ix,iy,iz
-  complex (kind=pr) :: qk
+  complex (kind=pr) :: qk, tempa, tempb
   character (len=7) :: str
   type(Integrals), intent (out) :: GlobIntegrals
   logical :: TimeForDrag 
+  character (len=17) :: name
   
   TimeForDrag = .false.  
   if (modulo(it,itdrag)==0) TimeForDrag = .true. ! is it time for save global quantities?
@@ -47,7 +48,34 @@ subroutine cal_nlk ( time,it, dt1, nlk, uk, work_u , work_vort, work, GlobIntegr
   call cofitxyz (uk(:,:,:,3), work_u(:,:,:,3))
   time_u = time_u + MPI_wtime() - t1
   
-
+  !------------------------------------------------
+  ! TEMP::: compute divergence
+  !-----------------------------------------------
+!   if (TimeForDrag) then
+!     ! compute max val of {|div(.)|/|.|} over entire domain
+!     do iz=ca(1),cb(1)
+!       kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
+!       do iy=ca(3),cb(3)
+! 	  ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
+! 	  do ix=ca(2),cb(2)
+! 	    kx=scalex*ix
+! 	    ! divergence of velocity field
+! 	    nlk(iz,ix,iy,1) = dcmplx(0.d0,1.d0)*(kx*uk(iz,ix,iy,1)+ky*uk(iz,ix,iy,2)+kz*uk(iz,ix,iy,3))
+! 	  enddo
+!       enddo
+!     enddo
+!     ! now nlk(:,:,:,1) contains divergence field
+!     call cofitxyz(nlk(:,:,:,1),work)
+!     call MPI_REDUCE (maxval(work), GlobIntegrals%Divergence, 1, mpireal, MPI_MAX, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process  
+!     
+!     call Energy_Dissipation ( GlobIntegrals, work_u, work_vort )
+!     
+!     if (mpirank ==0) then
+!     write (*,'("max{div(u)}=",es15.8,"max{div(u)}/||u||=",es15.8)') &
+!     GlobIntegrals%Divergence, GlobIntegrals%Divergence/(2.d0*GlobIntegrals%E_kin)
+!     endif
+! 
+!   endif
 
   !-----------------------------------------------
   !-- compute vorticity
@@ -72,10 +100,9 @@ subroutine cal_nlk ( time,it, dt1, nlk, uk, work_u , work_vort, work, GlobIntegr
   
   
   !-----------------------------------------------
-  !-- compute kinetic energy and dissipation rate
+  !-- compute kinetic energy and dissipation rate + mask volume
   !-----------------------------------------------  
   if ((TimeForDrag).and.(iKinDiss==1)) call Energy_Dissipation ( GlobIntegrals, work_u, work_vort )
-      
 
   !-------------------------------------------------------------
   !-- Calculate omega x u (cross-product)
@@ -255,12 +282,14 @@ subroutine Energy_Dissipation ( GlobIntegrals, u, vort )
   implicit none
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (in) :: vort, u
   type(Integrals), intent (out) :: GlobIntegrals
-  real (kind=pr) :: E_kin_local, Dissip_local
+  real (kind=pr) :: E_kin_local, Dissip_local, Volume_local
   integer :: mpicode
   
   E_kin_local  = 0.5d0*dx*dy*dz*sum( u*u )
   Dissip_local = -nu*dx*dy*dz*sum( vort*vort )
+  Volume_local = dx*dy*dz*sum( mask )*eps
   
   call MPI_REDUCE (E_kin_local, GlobIntegrals%E_kin, 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
   call MPI_REDUCE (Dissip_local, GlobIntegrals%Dissip, 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
+  call MPI_REDUCE (Volume_local, GlobIntegrals%Volume, 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
 end subroutine

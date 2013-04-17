@@ -32,7 +32,7 @@ NZ=$3
  for file in *.mpiio
  do
 #  echo "processing file $file"
-  convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
+  mpirun -n 1 convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
  done
 
 echo "launch binary2vapor???"
