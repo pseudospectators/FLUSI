@@ -80,7 +80,7 @@ subroutine time_step
      if ( modulo (it,itdrag) == 0 ) then
        if (mpirank==0) then
 	open  (14, file = 'drag_data', status = 'unknown', access = 'append')
-	write (14, '(6(es12.4,1x))')  time, GlobIntegrals%E_kin, &
+	write (14, '(7(es12.4,1x))')  time, GlobIntegrals%E_kin, &
 	GlobIntegrals%Dissip,  GlobIntegrals%Force(1),&
 	GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
 	GlobIntegrals%Volume
