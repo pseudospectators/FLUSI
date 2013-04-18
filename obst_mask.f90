@@ -96,11 +96,13 @@ subroutine Draw_Jerry (time)
 	  y_top = 0.d0
 	  y_bot = 0.d0
 	endif
+! 	y_top = b_top
+! 	y_bot =-b_bot
 	!--------------------------------------------
 	! WING
 	!--------------------------------------------
 	if ( ((xs>=0.d0-delta).and.(xs<=L_chord+delta)) &
-	      .and. (dabs(zs)<=2.d0*max(dx,dy,dz)+delta) &
+	      .and. (dabs(zs)<=3.d0*max(dx,dy,dz)+delta) &
 	      .and. ((ys>y_bot-delta).and.(ys<y_top+delta)) ) then !is it inside the rectangle?
 	    ! smooth length
 	    if (xs<0.d0) then  ! xs is chordlength coordinate		
@@ -110,7 +112,7 @@ subroutine Draw_Jerry (time)
 	    endif
 	    
 	    ! smooth height
-	    call SmoothStep ( z_tmp, dabs(zs), 2.d0*max(dx,dy,dz), N_smooth*max(dx,dy,dz) ) ! note we define 4px thickness of the wings here
+	    call SmoothStep ( z_tmp, dabs(zs), 3.d0*max(dx,dy,dz), N_smooth*max(dx,dy,dz) ) ! note we define 4px thickness of the wings here
 	       
 	    
 	    ! smooth shape
@@ -151,11 +153,13 @@ subroutine Draw_Jerry (time)
 	  y_top = 0.d0
 	  y_bot = 0.d0
 	endif
+! 	y_top = b_top
+! 	y_bot =-b_bot	
 	!--------------------------------------------
 	! WING
 	!--------------------------------------------
 	if ( ((xs>=0.d0-delta).and.(xs<=L_chord+delta)) &
-	      .and. (dabs(zs)<=2.d0*max(dx,dy,dz)+delta) &
+	      .and. (dabs(zs)<=3.d0*max(dx,dy,dz)+delta) &
 	      .and. ((ys>y_bot-delta).and.(ys<y_top+delta)) ) then !is it inside the rectangle?
 	    ! smooth length
 	    if (xs<0.d0) then  ! xs is chordlength coordinate		
@@ -165,7 +169,7 @@ subroutine Draw_Jerry (time)
 	    endif
 	    
 	    ! smooth height
-	    call SmoothStep ( z_tmp, dabs(zs), 2.d0*max(dx,dy,dz), N_smooth*max(dx,dy,dz) ) ! note we define 4px thickness of the wings here
+	    call SmoothStep ( z_tmp, dabs(zs), 3.d0*max(dx,dy,dz), N_smooth*max(dx,dy,dz) ) ! note we define 4px thickness of the wings here
 	       
 	    
 	    ! smooth shape
@@ -177,7 +181,7 @@ subroutine Draw_Jerry (time)
 	    mask(ix,iy,iz) = z_tmp*y_tmp*x_tmp;
 	    
 	    if (mask(ix,iy,iz) > 1.d-4) then
-	    us(ix,iy,iz,1) =    phi_dt*zz
+	    us(ix,iy,iz,1) =              -phi_dt*zz
 	    us(ix,iy,iz,2) = -alpha_dt*zz
 	    us(ix,iy,iz,3) =  alpha_dt*yy-phi_dt*xx
 	    endif

@@ -25,6 +25,21 @@ nx=$1
 ny=$2
 nz=$3
 
+if [ -f mhd3Dvar.vdf ]; then
+  echo "deleting old file..."
+  rm mhd3Dvar.vdf
+fi
+
+if [ -d mhd3Dvar_data ]; then
+  echo "found existing directory. deleting it..."
+#   read answer
+#   if [ ${answer} == 'y' ]; then
+#     echo "deleting..."
+    rm -r mhd3Dvar_data
+#   fi  
+fi
+
+
 N=0
 list=""
 
@@ -70,8 +85,10 @@ Color_Off='\e[0m'       # Text Reset
 BRed='\e[1;31m'         # Red
 BCyan='\e[1;36m'
 
+echo -e ${BCyan} "-----------------------------" ${Color_Off}
 echo -e ${BCyan} "time steps" ${nts} ${Color_Off}
 echo -e ${BCyan} "prefixes" ${list} ${Color_Off}
+echo -e ${BCyan} "-----------------------------" ${Color_Off}
 echo "any key to continue!"
 read dummy
 ########################################################################################
