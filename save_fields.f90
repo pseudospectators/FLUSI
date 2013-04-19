@@ -39,13 +39,13 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,MPI_MODE_WRONLY+MPI_MODE_APPEND,MPI_INFO_NULL,filedesc,mpicode)
 
   ! notes: product(cs) is the total size of an 3D complex array, and we store 3 of them
-  call MPI_FILE_WRITE_ORDERED (filedesc,uk,product(cs)*3,mpicomplex,mpistatus,mpicode)
-  call MPI_FILE_WRITE_ORDERED (filedesc,nlk,product(cs)*6,mpicomplex,mpistatus,mpicode)     
-  call MPI_FILE_WRITE_ORDERED (filedesc,workvis,product(rs),mpireal,mpistatus,mpicode)     
-  call MPI_barrier (MPI_COMM_world, mpicode)
-  if (iPenalization == 1) then
-      call MPI_FILE_WRITE_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
-  endif
+  call MPI_FILE_WRITE_ORDERED (filedesc,uk     ,product(cs)*3,mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,nlk    ,product(cs)*6,mpicomplex,mpistatus,mpicode)     
+  call MPI_FILE_WRITE_ORDERED (filedesc,workvis,product(rs)  ,mpireal   ,mpistatus,mpicode)     
+!   call MPI_barrier (MPI_COMM_world, mpicode)   
+!   if (iPenalization == 1) then
+!       call MPI_FILE_WRITE_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
+!   endif
 
   call MPI_FILE_CLOSE (filedesc,mpicode)
   nbackup = 1 - nbackup
@@ -73,8 +73,10 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
   character (len=17) :: name
   character (len=1) :: name1
   
+  time = 0.d0
   
   if (mpirank==0) then
+    write(*,'("---------")')
     write (*,'(A)') "!!! warning: trying to resume a backup file"
   endif
   
@@ -101,17 +103,35 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
 	  call MPI_FILE_READ_ALL (filedesc,dt0,1,mpireal,mpistatus,mpicode)
 	  call MPI_FILE_READ_ALL (filedesc,dt1,1,mpireal,mpistatus,mpicode)
 
+	  if (mpirank == 0) then
+	    write (*,'("*** read n1=",i1," it=",i5," dt0=",es12.4," dt1=",es12.4)') n1,it,dt0,dt1
+	  endif
 
 	  call MPI_FILE_GET_POSITION (filedesc,mpioffset,mpicode)
 
 	  call MPI_FILE_SET_VIEW(filedesc,mpioffset,MPI_INTEGER,MPI_INTEGER,"native",MPI_INFO_NULL,mpicode)
 
 	  call MPI_FILE_READ_ORDERED (filedesc,uk,product(cs)*3,mpicomplex,mpistatus,mpicode)
-	  call MPI_FILE_READ_ORDERED (filedesc,nlk,product(cs)*6,mpicomplex,mpistatus,mpicode)
-	  call MPI_FILE_READ_ORDERED (filedesc,workvis,product(rs),mpireal,mpistatus,mpicode)
-	  if (iPenalization > 0) then
-	      call MPI_FILE_READ_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
+	  if (mpirank == 0) then
+	    write (*,'("*** read uk")')
 	  endif
+	  
+	  call MPI_FILE_READ_ORDERED (filedesc,nlk,product(cs)*6,mpicomplex,mpistatus,mpicode)
+	  if (mpirank == 0) then
+	    write (*,'("*** read nlk")')
+	  endif
+	  
+	  call MPI_FILE_READ_ORDERED (filedesc,workvis,product(rs),mpireal,mpistatus,mpicode)
+	  if (mpirank == 0) then
+	    write (*,'("*** read workvis")')
+	  endif
+	  
+! 	  if (iPenalization == 1) then
+! ! 	      call MPI_FILE_READ_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
+! 	  endif
+! 	  if (mpirank == 0) then
+! 	    write (*,'("*** read mask")')
+! 	  endif
       endif
     endif
     call MPI_FILE_CLOSE (filedesc,mpicode)
@@ -125,6 +145,10 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
     stop
   endif
      
+ if (mpirank == 0) then
+    write (*,'("!!! DONE READING BACKUP (succes!)")') 
+    write(*,'("---------")')
+ endif    
 
 
 end subroutine Read_Runtime_Backup

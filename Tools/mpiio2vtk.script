@@ -28,6 +28,8 @@ NX=$1
 NY=$2
 NZ=$3
 
+echo "If a vtk file already exists, do you want to proceed and overwrite it or do you want to skip it? (o/s)"
+read skip
 
 for file in mask_*.mpiio # note I suppose that you saved the velocity
 do
@@ -35,6 +37,19 @@ do
   base=${base##mask_}    # remove leading ux_
   echo "processing file" ${base}
   # note program also works if one or more files are not present
-  convert_mpiio2vtk.out para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio" "usx_"${base}".mpiio" "usy_"${base}".mpiio" "usz_"${base}".mpiio"
+  if [ ${skip}=="s" ]
+  then
+    
+    if [ -f para_${base}.vtk ]
+    then
+      echo "file para_"${base}".vtk exists. skipping..."
+    else
+      convert_mpiio2vtk.out para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio" "usx_"${base}".mpiio" "usy_"${base}".mpiio" "usz_"${base}".mpiio"
+    fi
+    
+  else
+      convert_mpiio2vtk.out para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio" "usx_"${base}".mpiio" "usy_"${base}".mpiio" "usz_"${base}".mpiio"
+  fi
+  
 done
 

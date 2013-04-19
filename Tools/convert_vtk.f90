@@ -397,4 +397,6 @@ logical function check(fname)
     write (*,'("ERROR!! File ",A," NOT found -------> skipping")') trim(fname)
   endif	  
   
+  check = file_exists
+  
 end function
