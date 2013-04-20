@@ -39,7 +39,8 @@ program convert_mpiio
     read (nx_str, *) nx
   else
     call help
-    stop "nx not specified!"
+    write(*,*) "nx not specified!"
+    stop
   endif
   
   
@@ -48,7 +49,8 @@ program convert_mpiio
     read (ny_str, *) ny
   else
     call help
-    stop "ny not specified!"
+    write (*,*) "ny not specified!"
+    stop
   endif
   
   
@@ -57,14 +59,16 @@ program convert_mpiio
     read (nz_str, *) nz
   else
     call help
-    stop "nz not specified!" 
+    write(*,*) "nz not specified!" 
+    stop
   endif
   
   
   call get_command_argument(4, modus)
   if  (len_trim(modus)==0) then
     call help
-    stop "you forgot to set the modus, either -scalar or -vector?"
+    write (*,*) "you forgot to set the modus, either -scalar or -vector?"
+    stop
   endif
   
   
@@ -79,7 +83,10 @@ program convert_mpiio
       ! get filename (only one in this case)
       !-------------------------------------------
       call get_command_argument( 5, fname )        
-      if (len_trim(fname)==0) stop ("no file given")
+      if (len_trim(fname)==0) then 
+	write(*,*) ("no file given")
+	stop
+      endif
       call check(fname)
       
       ! fetch variable name "mask_00010.mpiio"
@@ -138,15 +145,24 @@ program convert_mpiio
       ! get filenames (three files in this case)
       !-------------------------------------------
       call get_command_argument( 5, fname_x )        
-      if (len_trim(fname_x)==0) stop ("no x-file given")
+      if (len_trim(fname_x)==0) then
+	write (*,*) "no x-file given"
+	stop
+      endif
       call check(fname_x)
       
       call get_command_argument( 6, fname_y )        
-      if (len_trim(fname_y)==0) stop ("no y-file given")
+      if (len_trim(fname_y)==0) then
+	write (*,*) "no y-file given"
+	stop
+      endif
       call check(fname_x)
       
       call get_command_argument( 7, fname_z )        
-      if (len_trim(fname_z)==0) stop ("no z-file given")
+      if (len_trim(fname_z)==0) then
+	write (*,*) "no z-file given"
+	stop
+      endif
       call check(fname_x)
       
       ! fetch variable name "vorx_00010.mpiio" "vory_00010.mpiio" "vorz_00010.mpiio"
