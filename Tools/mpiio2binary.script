@@ -70,10 +70,22 @@ do
       if [ "${skip}" == "s" ]; then
 	echo -e $Green "File " ${file%%.mpiio}"binary already exists, skipping."
       else
-	mpirun -n 1 convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
+	convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
       fi 
   else
       # file does not exist
-      mpirun -n 1 convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
+      convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
   fi  
 done
+
+#----------------------------------------------------------------------
+# if desired, directl convert everthing to vapor.
+#----------------------------------------------------------------------
+echo -e ${Cyan} "launch binary2vapor?" ${Color_Off}
+read answer
+if [ "${answer}" == "" ]; then
+  answer="y"
+fi
+if [ "${answer}" == "y" ]; then
+  binary2vapor.script ${NX} ${NY} ${NZ}
+fi
