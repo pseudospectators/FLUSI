@@ -92,7 +92,7 @@ list=$(echo $list | sed 's/^.//g')
 
 p=${items[0]}
 FLIST=$( ls ${p}*.binary )
-nts=1
+nts=0
 for F in ${FLIST}
 do
     nts=$((nts+1))
