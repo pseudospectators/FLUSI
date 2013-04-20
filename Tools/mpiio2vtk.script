@@ -217,7 +217,7 @@ else #--------------------------------------------------------------------------
 	      # if you shouldn't skip it, overwrite it.
 	      if [ "${skip}" != "s" ]; then
 		echo -e $Green "file vtk/"${vtk} "exists, overwriting." $Color_Off
-		convert_mpiio2vtk.out ${NX} ${NY} ${NZ} -scalar ${F}
+		mpirun -np 1 convert_mpiio2vtk.out ${NX} ${NY} ${NZ} -scalar ${F}
 		# currently, convert_mpiio2vtk.out creates the vtk file in the same directory. so move it.
 		mv ${vtk} vtk/
 	      else
@@ -226,7 +226,7 @@ else #--------------------------------------------------------------------------
 	      fi
 	  else
 	    # file does not exist, go for it.
-	    convert_mpiio2vtk.out ${NX} ${NY} ${NZ} -scalar ${F}
+	    mpirun -np 1 convert_mpiio2vtk.out ${NX} ${NY} ${NZ} -scalar ${F}
 	    # currently, convert_mpiio2vtk.out creates the vtk file in the same directory. so move it.
 	    mv ${vtk} vtk/  
 	  fi
