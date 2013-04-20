@@ -1,6 +1,6 @@
 !=========================================================
 !      Collect the data from files
-!      produced with HIVE parallel code
+!      produced with FLUSI parallel code
 !      and save them in a binary file
 !=========================================================
 
@@ -18,7 +18,11 @@ program convert_mpiio
   real (kind=pr_out), dimension (:,:,:), allocatable :: field_out
   character (len=128) :: fname, nx_str, ny_str, nz_str, ascii_str
   logical :: file_exists
+  
+  
   call MPI_INIT (mpicode)
+  
+  
   !--------------------------------------------------
   ! read in command line arguments
   !--------------------------------------------------  
@@ -56,13 +60,6 @@ program convert_mpiio
     stop    
   endif
   
-  call get_command_argument(5, ascii_str)
-  if  (len_trim(ascii_str).ne.0) then
-    read (ascii_str, *) iSaveAscii
-  else
-    write (*,*) "As you didn't tell me whether or not to write a *.ascii file also, I've decided not to do it."
-    iSaveAscii = 0
-  endif
   
   
   !--------------------------------------------------
@@ -96,21 +93,6 @@ program convert_mpiio
   write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
   close (12)
 
-  ! ------------------------------------
-  ! Write *,ascii file (for matlab)
-  ! ------------------------------------
-  if (iSaveAscii ==1) then
-      write(*,'("Converting ",A,".mpiio  -> ",A,".ascii")') trim(fname), trim(fname)
-      open (11, file = trim(fname)//".ascii", form='formatted', status='replace')
-      do ix = 0,nx-1
-      do iy = 0,ny-1
-      do iz = 0,nz-1
-      write (11,'(es15.8)') field_out (ix,iy,iz) !es15.8 defines output precision
-      enddo
-      enddo
-      enddo
-      close (11)
-  endif
 
   deallocate ( field_in, field_out )
 
@@ -123,14 +105,12 @@ end program convert_mpiio
 subroutine help
   write (*,*) "--------------------------------------------------------------"
   write (*,*) "		converter "
-  write (*,*) " *.mpiio -> *.binary and/or *.ascii"
+  write (*,*) " *.mpiio -> *.binary"
   write (*,*) "--------------------------------------------------------------"
-  write (*,*) "  usage: ./convert_mpiio filename nx ny nz iAscii"
+  write (*,*) "  usage: ./convert_mpiio filename nx ny nz "
   write (*,*) ""
   write (*,*) " [filename]: the base file name WITHOUT the .mpiio suffix"
   write (*,*) " [nx, ny, nz] is the resolution"
-  write (*,*) " [iAscii] : 0=Don't save *.ascii, 1= do so"
-  write (*,*) "  iascii is optional"
   write (*,*) "--------------------------------------------------------------"
 
 end subroutine
