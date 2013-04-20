@@ -133,11 +133,10 @@ else #--------------------------------------------------------------------------
     #------------------------------------------------------------------------------------
     # find prefixes
     #------------------------------------------------------------------------------------
-    # look through all the files whose names start with binary_ and put
+    # look through all the files whose names end with *.mpiio and put
     # them in the items array, as well as in the list, where file names
     # are separated with colons. N is the number of items in the list.
     N=0
-    list=""
     lastp=""
     for F in `ls *.mpiio`
     do
@@ -145,7 +144,6 @@ else #--------------------------------------------------------------------------
 	p=$(echo ${F}  | sed 's/_[^_]*$//')_ 
 	p=${p%%_}
 	if [ "$p" != "$lastp" ] ; then
-	    list=${list}:${p}
 	    lastp=$p
 	    items[$N]=$p
 	    N=$((N+1))
@@ -155,6 +153,12 @@ else #--------------------------------------------------------------------------
     #-----------------------------------------------------------------------------------
     # indentify vectors and scalars from the prefixes
     #-----------------------------------------------------------------------------------
+    # look through all prefixed in array items[]
+    # if a prefix ends with "x", it's assumed to be the x-component of a vector.
+    # the next 2 indices then will contain "y" and "z" component. we remove them from the list items[]
+    # the prefix ending with "x" is then converted to its root (remove the trailing "x")
+    # and added to the list of vectors[]
+    # otherwise, we add the prefix to the list of scalars[]
     N2=0
     N3=0
     for (( i=0; i<N; i++ ))
@@ -177,6 +181,7 @@ else #--------------------------------------------------------------------------
       fi
     done
     
+    # print summary
     echo -e "in prefixes  : " ${Cyan} ${items[@]} ${Color_Off}
     echo -e "found scalars: " ${Cyan} ${scalars[@]} ${Color_Off}
     echo -e "found vectors: " ${Cyan} ${vectors[@]} ${Color_Off}
