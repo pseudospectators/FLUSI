@@ -40,17 +40,33 @@ program FLUSI
   ! read all parameters from that file
   call get_params (infile)
 
-  !---- Step forward in time
-  if (mpirank == 0) then
-    write(*,'(A)') '--------------------------------------'
-    write(*,'(A)') '*** info: Starting time iterations...'
-    write(*,'(A)') '--------------------------------------'
-  endif
+
   
   ! overwrite drag_data file
   if ((inicond .ne. 99).and.(mpirank==0)) then
   open  (14, file = 'drag_data', status = 'replace')
   close (14)
+  endif
+  
+  ! print domain decomposition
+  if (mpirank == 0) then
+    write(*,'(A)') '--------------------------------------'
+    write(*,'(A)') '*** domain decomposition...'
+    write(*,'(A)') '--------------------------------------'
+  endif
+  call MPI_barrier (MPI_COMM_world, mpicode)
+  write (*,'("mpirank=",i3," x-space=",i4,":",i4," ",i4,":",i4," ",i4,":",i4,&
+  " k-space=",i4,":",i4," ",i4,":",i4," ",i4,":",i4)') &
+  mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
+  call MPI_barrier (MPI_COMM_world, mpicode)
+  
+  
+  
+  !---- Step forward in time
+  if (mpirank == 0) then
+    write(*,'(A)') '--------------------------------------'
+    write(*,'(A)') '*** info: Starting time iterations...'
+    write(*,'(A)') '--------------------------------------'
   endif
   
   

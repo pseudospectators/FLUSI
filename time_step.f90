@@ -107,7 +107,7 @@ subroutine time_step
 	! this frees 3 complex arrays
 	call save_fields_new ( time, dt1, uk, u, vort, nlk(:,:,:,:,n0), work)
 	! Backup if that's specified in the PARAMS.ini file
-	if (iDoBackup==1) call Dump_Runtime_Backup ( time, dt0, dt1, n1,it,  nbackup, uk, nlk, workvis)
+	if (iDoBackup==1) call Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvis)
 	if (mpirank==0) write (*,'("*** info: done saving, returning to time loop")')
      endif
 
@@ -115,10 +115,13 @@ subroutine time_step
 
 
 
-
   if (mpirank==0) then
-  v_rms = dsqrt ( sum( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)  )
-  write(*,'("u_rms=",es15.8," max=",es15.8)') v_rms, maxval( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+  write(*,*) "control values for debugging:"
+  write(*,'("Ekin=",es15.8," Dissip=",es15.8," F1=",es15.8," F2=",es15.8," F3=",es15.8," Vol=",es15.8)')&
+	    GlobIntegrals%E_kin, &
+	    GlobIntegrals%Dissip,  GlobIntegrals%Force(1),&
+	    GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
+	    GlobIntegrals%Volume
   write(*,'("did it=",i5," time steps")') it
   endif
 

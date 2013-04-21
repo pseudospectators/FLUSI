@@ -7,13 +7,14 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   real (kind=pr), intent (in) :: time, dt1, dt0
   integer, intent (inout) :: n1, nbackup,it
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (in) :: uk
-  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (in):: nlk
+  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1), intent (in):: nlk
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent(in) :: workvis
   integer :: filedesc, mpicode
-  real (kind=pr) :: t1
+  real (kind=pr) :: t1, tmp, tmp_local
   integer, dimension(MPI_STATUS_SIZE) :: mpistatus
   character (len=17) :: name
   character (len=1) :: name1
+ 
   t1 = MPI_wtime()
   
   if (mpirank ==0) then
@@ -22,7 +23,9 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   
   write (name1, '(I1)') nbackup
   
-
+  ! ---------------------------------------------------------------------------------
+  ! first part: delete existing file, create new one, and save scalars
+  ! ---------------------------------------------------------------------------------
   call MPI_FILE_DELETE('runtime_backup'//name1, MPI_INFO_NULL, mpicode)
   call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,MPI_MODE_WRONLY+MPI_MODE_CREATE,MPI_INFO_NULL,filedesc,mpicode)
 
@@ -32,22 +35,32 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   call MPI_FILE_WRITE_ALL (filedesc,n1,1,mpiinteger,mpistatus,mpicode)
   call MPI_FILE_WRITE_ALL (filedesc,it,1,mpiinteger,mpistatus,mpicode)
   ! dump a few other parameters
-  call MPI_FILE_WRITE_ALL (filedesc,(/dt0,dt1/),2,mpireal,mpistatus,mpicode)
-  
+  call MPI_FILE_WRITE_ALL (filedesc,(/dt0,dt1/),2,mpireal,mpistatus,mpicode)  
   call MPI_FILE_CLOSE (filedesc,mpicode) ! close file (I really don't yet know why)
 
+  
+  !-----------------------------------------------------------------------------------
+  ! 2nd part: open file again and read all the fields, one by one.
+  ! NOTE: you cannot store uk(:,:,:,1:3) directly, since the ordering won't match if you use different
+  ! #cpu for writing and reading
+  !-----------------------------------------------------------------------------------
+  
   call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,MPI_MODE_WRONLY+MPI_MODE_APPEND,MPI_INFO_NULL,filedesc,mpicode)
 
-  ! notes: product(cs) is the total size of an 3D complex array, and we store 3 of them
-  call MPI_FILE_WRITE_ORDERED (filedesc,uk     ,product(cs)*3,mpicomplex,mpistatus,mpicode)
-  call MPI_FILE_WRITE_ORDERED (filedesc,nlk    ,product(cs)*6,mpicomplex,mpistatus,mpicode)     
-  call MPI_FILE_WRITE_ORDERED (filedesc,workvis,product(rs)  ,mpireal   ,mpistatus,mpicode)     
-!   call MPI_barrier (MPI_COMM_world, mpicode)   
-!   if (iPenalization == 1) then
-!       call MPI_FILE_WRITE_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
-!   endif
+  call MPI_FILE_WRITE_ORDERED (filedesc,uk(:,:,:,1),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,uk(:,:,:,2),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,uk(:,:,:,3),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,nlk(:,:,:,1,0),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,nlk(:,:,:,2,0),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,nlk(:,:,:,3,0),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,nlk(:,:,:,1,1),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,nlk(:,:,:,2,1),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,nlk(:,:,:,3,1),product(cs),mpicomplex,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ORDERED (filedesc,workvis,product(cs)  ,mpireal   ,mpistatus,mpicode)     
 
   call MPI_FILE_CLOSE (filedesc,mpicode)
+  
+  
   nbackup = 1 - nbackup
   
 
@@ -64,14 +77,15 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
   real (kind=pr), intent (out) :: time, dt1, dt0
   integer, intent (out) :: n1, it
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (out) :: uk
-  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (out):: nlk
+  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1), intent (out):: nlk
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent(out) :: workvis
-  integer :: filedesc, mpicode, ibackup
-  real (kind=pr) :: time1
+  integer :: filedesc, mpicode, ibackup, kx,ky,kz
+  real (kind=pr) :: time1, tmp,tmp_local
   integer, dimension(MPI_STATUS_SIZE) :: mpistatus
   integer (kind=MPI_OFFSET_KIND) :: mpioffset
   character (len=17) :: name
   character (len=1) :: name1
+
   
   time = 0.d0
   
@@ -111,32 +125,22 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
 
 	  call MPI_FILE_SET_VIEW(filedesc,mpioffset,MPI_INTEGER,MPI_INTEGER,"native",MPI_INFO_NULL,mpicode)
 
-	  call MPI_FILE_READ_ORDERED (filedesc,uk,product(cs)*3,mpicomplex,mpistatus,mpicode)
-	  if (mpirank == 0) then
-	    write (*,'("*** read uk")')
-	  endif
+	  call MPI_FILE_READ_ORDERED (filedesc,uk(:,:,:,1),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,uk(:,:,:,2),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,uk(:,:,:,3),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,1,0),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,2,0),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,3,0),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,1,1),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,2,1),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,3,1),product(cs),mpicomplex,mpistatus,mpicode)
+	  call MPI_FILE_READ_ORDERED (filedesc,workvis,product(cs)  ,mpireal   ,mpistatus,mpicode)
 	  
-	  call MPI_FILE_READ_ORDERED (filedesc,nlk,product(cs)*6,mpicomplex,mpistatus,mpicode)
-	  if (mpirank == 0) then
-	    write (*,'("*** read nlk")')
-	  endif
-	  
-	  call MPI_FILE_READ_ORDERED (filedesc,workvis,product(rs),mpireal,mpistatus,mpicode)
-	  if (mpirank == 0) then
-	    write (*,'("*** read workvis")')
-	  endif
-	  
-! 	  if (iPenalization == 1) then
-! ! 	      call MPI_FILE_READ_ORDERED (filedesc,mask,product(rs),mpireal,mpistatus,mpicode)
-! 	  endif
-! 	  if (mpirank == 0) then
-! 	    write (*,'("*** read mask")')
-! 	  endif
       endif
     endif
     call MPI_FILE_CLOSE (filedesc,mpicode)
   enddo
-  
+
   
   if (time1 == 0) then
     if (mpirank == 0) then
@@ -149,7 +153,6 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
     write (*,'("!!! DONE READING BACKUP (succes!)")') 
     write(*,'("---------")')
  endif    
-
 
 end subroutine Read_Runtime_Backup
 
