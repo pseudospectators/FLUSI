@@ -55,6 +55,7 @@ echo "this script will use the subdirectory ./vtk/ as output directory."
 echo -e $Cyan "any key to continue" $Color_Off
 read dummy
 
+asktoskip="yes"
 if [ -d vtk/ ]
 then
     echo "subdirectory already exists"
@@ -65,20 +66,26 @@ then
       echo -e ${Red} "deleting" ${Color_Off}
       rm -r vtk
       mkdir vtk
+      asktoskip="no"
     fi  
 else
     echo "creating subdirectory..."
     mkdir vtk
+    asktoskip="no"
 fi
 
 #------------------------------------------------------------------------------------
 # ask what to do with existing *.vtk files
 #------------------------------------------------------------------------------------
-echo "If a vtk file already exists, do you want to proceed and overwrite it or do you want to skip it?"
-echo -e ${Cyan} "[ [s] for skipping, anyting else for overwriting]" ${Color_Off}
-echo -e ${Cyan} "[enter for skipping]" ${Color_Off}
-read skip
-if [ "${skip}" == "" ]; then
+if [ "${asktoskip}" == "yes" ]; then
+  echo "If a vtk file already exists, do you want to proceed and overwrite it or do you want to skip it?"
+  echo -e ${Cyan} "[ [s] for skipping, anyting else for overwriting]" ${Color_Off}
+  echo -e ${Cyan} "[enter for skipping]" ${Color_Off}
+  read skip
+  if [ "${skip}" == "" ]; then
+    skip="s"
+  fi
+else
   skip="s"
 fi
 
@@ -94,6 +101,17 @@ if [ "${modus}" == "" ]; then
   modus="hello"
 fi
 
+#------------------------------------------------------------------------------------
+# ask what file ending to expect
+#------------------------------------------------------------------------------------
+echo "What type of source files to you want to convert?"
+echo "*.binary or *.mpiio"
+echo -e ${Cyan} "[binary for *.binary, mpiio for *.mpiio]" ${Color_Off}
+echo -e ${Cyan} "[enter for mpiio]" ${Color_Off}
+read ending
+if [ "${ending}" == "" ]; then
+  ending="mpiio"
+fi
 
 #------------------------------------------------------------------------------------
 # GO
@@ -109,9 +127,9 @@ then #--------------------------------------------------------------------------
   echo -e ${Cyan} "ONE vtk file modus" ${Color_Off}
   echo -e ${Cyan} "-----------------------" ${Color_Off}
   
-  for file in mask_*.mpiio # note I suppose that you saved the mask
+  for file in mask_*.${ending} # note I suppose that you saved the mask
   do
-    base=${file%%.mpiio}   # remove trailing .mpiio
+    base=${file%%.${ending}}   # remove trailing .mpiio
     base=${base##mask_}    # remove leading ux_
 
     echo "processing file" ${base}
@@ -122,10 +140,10 @@ then #--------------------------------------------------------------------------
       then
 	echo "file ./vtk/para_"${base}".vtk exists. skipping..."
       else
-	convert_mpiio2vtk_ALL.out ./vtk/para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio" "usx_"${base}".mpiio" "usy_"${base}".mpiio" "usz_"${base}".mpiio"
+	convert_mpiio2vtk_ALL.out ./vtk/para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}"."${ending} "uy_"${base}"."${ending} "uz_"${base}"."${ending} "vorx_"${base}"."${ending} "vory_"${base}"."${ending} "vorz_"${base}"."${ending} "p_"${base}"."${ending} "mask_"${base}"."${ending} "usx_"${base}"."${ending} "usy_"${base}"."${ending} "usz_"${base}"."${ending}
       fi      
     else
-	convert_mpiio2vtk_ALL.out ./vtk/para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}".mpiio" "uy_"${base}".mpiio" "uz_"${base}".mpiio" "vorx_"${base}".mpiio" "vory_"${base}".mpiio" "vorz_"${base}".mpiio" "p_"${base}".mpiio" "mask_"${base}".mpiio" "usx_"${base}".mpiio" "usy_"${base}".mpiio" "usz_"${base}".mpiio"
+	convert_mpiio2vtk_ALL.out ./vtk/para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}"."${ending} "uy_"${base}"."${ending} "uz_"${base}"."${ending} "vorx_"${base}"."${ending} "vory_"${base}"."${ending} "vorz_"${base}"."${ending} "p_"${base}"."${ending} "mask_"${base}"."${ending} "usx_"${base}"."${ending} "usy_"${base}"."${ending} "usz_"${base}"."${ending}
     fi    
   done
 
@@ -148,7 +166,7 @@ else #--------------------------------------------------------------------------
     # are separated with colons. N is the number of items in the list.
     N=0
     lastp=""
-    for F in `ls *.mpiio`
+    for F in `ls *.${ending}`
     do
 	# as is the file name with everything after 
 	p=$(echo ${F}  | sed 's/_[^_]*$//')_ 
@@ -206,12 +224,12 @@ else #--------------------------------------------------------------------------
       # the prefix
       p=${scalars[i]}
       # find the files that start with the prefix
-      FLIST=$( ls ${p}*.mpiio )
+      FLIST=$( ls ${p}*.${ending} )
 
       # loop over the files starting with the prefix and process
       for F in ${FLIST}
       do
-	  vtk=${F%%mpiio}vtk
+	  vtk=${F%%${ending}}vtk
 	  # check if target file exists in vtk/
 	  if [ -f vtk/${vtk} ]; then
 	      # if you shouldn't skip it, overwrite it.
@@ -241,13 +259,13 @@ else #--------------------------------------------------------------------------
       # the prefix
       p=${vectors[i]}
       # find the files that start with the prefix + x-component
-      FLIST=$( ls ${p}x*.mpiio )
+      FLIST=$( ls ${p}x*.${ending} )
 
       # loop over the files starting with the prefix and process with raw2vdf
       for F in ${FLIST}
       do
 	  vtk=${p}${F##${p}x}  # F=vorx_00010.mpiio vtk=vor_00010.mpiio
-	  vtk=${vtk%%mpiio}vtk # vtk=vor_00010.vtk
+	  vtk=${vtk%%${ending}}vtk # vtk=vor_00010.vtk
 	  
 	  # check if target file exists in vtk/
 	  if [ -f vtk/${vtk} ]; then

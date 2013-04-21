@@ -11,6 +11,8 @@
 !	./convert_vtk.out nx ny nz -vector ux_00010.mpiio uy_00010.mpiio uz_00010.mpiio
 !	this creates ONE file u_00010.vtk
 !
+! PROGRAM ALSO WORKS WITH *.BINARY FILES!
+!
 !=========================================================
 ! THOMAS ENGELS, Aix-Marseille Université and Technische Universität Berlin
 ! APRIL 2013
@@ -268,27 +270,39 @@ subroutine ReadMPIIO (nx, ny, nz, mpicode, fname, field_out)
   integer, intent(in) :: nx,ny,nz
   integer, intent(inout) :: mpicode
   integer, dimension(MPI_STATUS_SIZE) :: mpistatus
-  integer :: filedesc
+  integer :: filedesc, j1,j2
   real(kind=4), intent(out) :: field_out (0:nx-1, 0:ny-1, 0:nz-1)
   real(kind=8), dimension(:,:,:), allocatable :: field_in
   integer, parameter :: mpireal = MPI_DOUBLE_PRECISION  ! double precision array for input
-   
+  
+  j1=index(fname,".")
+  j2=len_trim(fname)
   
   !--------------------------------------------------
-  ! read MPI data
+  ! read MPI data or BINARY data
   !-------------------------------------------------- 
-  allocate ( field_in(0:nx-1, 0:ny-1, 0:nz-1) )
-  call MPI_FILE_OPEN (MPI_COMM_WORLD,trim(fname),MPI_MODE_RDONLY,MPI_INFO_NULL,filedesc,mpicode)
-  call MPI_FILE_READ_ORDERED (filedesc,field_in,nx*ny*nz,mpireal,mpistatus,mpicode)
-  call MPI_FILE_CLOSE (filedesc,mpicode)
+  
+  
+  if ( fname(j1:j2) == ".mpiio") then
+    allocate ( field_in(0:nx-1, 0:ny-1, 0:nz-1) )
+    call MPI_FILE_OPEN (MPI_COMM_WORLD,trim(fname),MPI_MODE_RDONLY,MPI_INFO_NULL,filedesc,mpicode)
+    call MPI_FILE_READ_ORDERED (filedesc,field_in,nx*ny*nz,mpireal,mpistatus,mpicode)
+    call MPI_FILE_CLOSE (filedesc,mpicode)
+    field_out = real(field_in, kind=4)  ! convert field to output precision
+    deallocate (field_in)
+  elseif ( fname(j1:j2) == ".binary") then 
+    open (14, file=trim(fname), status='old', action='read', form='unformatted')
+    read (14) field_out
+    close(14)
+  endif
 
   write(*,'("Reading ",A,"... Min:Max=",es12.4,":",es12.4,1x,"nx:ny:nz=",i3,":",i3,":",i3)') &
-  trim(fname),minval (field_in), maxval (field_in),nx,ny,nz
+  trim(fname),minval (field_out), maxval (field_out),nx,ny,nz
   
   
-  field_out = real(field_in, kind=4)  ! convert field to output precision  
   
-  deallocate (field_in)
+  
+  
 end subroutine 
 
 

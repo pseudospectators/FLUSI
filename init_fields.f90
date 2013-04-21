@@ -29,6 +29,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 
 
   if (inicond == 1) then
+	if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
 	!--------------------------------------------------
 	! Vortex ring
 	!--------------------------------------------------
@@ -65,7 +66,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
     
     
   elseif (inicond == 2) then
-	write (*,*) " turbulence (random vorticity) initial condition"
+	if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
 	!--------------------------------------------------
 	! random vorticity
 	!--------------------------------------------------
@@ -103,14 +104,17 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	call coftxyz(vort(:,:,:,3),uk(:,:,:,3))
 
   elseif (inicond == 0) then
+	if (mpirank==0) write (*,*) "*** inicond: mean flow"
 	!--------------------------------------------------
 	! mean flow only
 	!--------------------------------------------------
 	uk = dcmplx(0.0d0,0.0d0)
+	if ( iMeanFlow == 1) then
 	if ( ( ca(1) == 0 ) .and. ( ca(2) == 0 ) .and. ( ca(3) == 0 ) ) then
 	    uk(0, 0, 0,1) = Ux + Ax * time;                
 	    uk(0, 0, 0,2) = Uy + Ay * time;               
 	    uk(0, 0, 0,3) = Uz + Az * time;              
+	endif
 	endif
   elseif (inicond == 99) then 
 	!--------------------------------------------------
@@ -118,6 +122,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	!--------------------------------------------------  
 	call Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, work_nlk, workvis)
   elseif (inicond == 3) then 
+	if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
 	!--------------------------------------------------
 	! fluid at rest
 	!--------------------------------------------------  

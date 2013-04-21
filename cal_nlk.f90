@@ -270,8 +270,10 @@ subroutine IntegralForce ( GlobIntegrals, work, iDirection )
   integer :: mpicode
   real (kind=pr) :: Force_local
   
+
   Force_local  = dx*dy*dz*sum( work )  
   call MPI_REDUCE (Force_local, GlobIntegrals%Force(iDirection), 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process  
+
 end subroutine
 
 !-------------------------------------------------------------------------------------------------------------------------------------------------
@@ -287,7 +289,12 @@ subroutine Energy_Dissipation ( GlobIntegrals, u, vort )
   
   E_kin_local  = 0.5d0*dx*dy*dz*sum( u*u )
   Dissip_local = -nu*dx*dy*dz*sum( vort*vort )
-  Volume_local = dx*dy*dz*sum( mask )*eps
+  
+  if (iPenalization==1) then
+    Volume_local = dx*dy*dz*sum( mask )*eps
+  else
+    Volume_local = 0.d0
+  endif
   
   call MPI_REDUCE (E_kin_local, GlobIntegrals%E_kin, 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
   call MPI_REDUCE (Dissip_local, GlobIntegrals%Dissip, 1, mpireal, MPI_SUM, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process
