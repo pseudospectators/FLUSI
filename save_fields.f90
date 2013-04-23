@@ -28,12 +28,14 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   ! ---------------------------------------------------------------------------------
   call MPI_FILE_DELETE('runtime_backup'//name1, MPI_INFO_NULL, mpicode)
   call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,MPI_MODE_WRONLY+MPI_MODE_CREATE,MPI_INFO_NULL,filedesc,mpicode)
-
   ! dump time 
   call MPI_FILE_WRITE_ALL (filedesc,time,1,mpireal,mpistatus,mpicode)
   ! dump n1 (important when running AB2 scheme!!)
   call MPI_FILE_WRITE_ALL (filedesc,n1,1,mpiinteger,mpistatus,mpicode)
   call MPI_FILE_WRITE_ALL (filedesc,it,1,mpiinteger,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ALL (filedesc,nx,1,mpiinteger,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ALL (filedesc,ny,1,mpiinteger,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ALL (filedesc,nz,1,mpiinteger,mpistatus,mpicode)
   ! dump a few other parameters
   call MPI_FILE_WRITE_ALL (filedesc,(/dt0,dt1/),2,mpireal,mpistatus,mpicode)  
   call MPI_FILE_CLOSE (filedesc,mpicode) ! close file (I really don't yet know why)
@@ -46,7 +48,6 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   !-----------------------------------------------------------------------------------
   
   call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,MPI_MODE_WRONLY+MPI_MODE_APPEND,MPI_INFO_NULL,filedesc,mpicode)
-
   call MPI_FILE_WRITE_ORDERED (filedesc,uk(:,:,:,1),product(cs),mpicomplex,mpistatus,mpicode)
   call MPI_FILE_WRITE_ORDERED (filedesc,uk(:,:,:,2),product(cs),mpicomplex,mpistatus,mpicode)
   call MPI_FILE_WRITE_ORDERED (filedesc,uk(:,:,:,3),product(cs),mpicomplex,mpistatus,mpicode)
@@ -57,13 +58,10 @@ subroutine Dump_Runtime_Backup ( time, dt0, dt1, n1,it, nbackup, uk, nlk, workvi
   call MPI_FILE_WRITE_ORDERED (filedesc,nlk(:,:,:,2,1),product(cs),mpicomplex,mpistatus,mpicode)
   call MPI_FILE_WRITE_ORDERED (filedesc,nlk(:,:,:,3,1),product(cs),mpicomplex,mpistatus,mpicode)
   call MPI_FILE_WRITE_ORDERED (filedesc,workvis,product(cs)  ,mpireal   ,mpistatus,mpicode)     
-
   call MPI_FILE_CLOSE (filedesc,mpicode)
   
   
   nbackup = 1 - nbackup
-  
-
   time_bckp = time_bckp + MPI_wtime() -t1
 end subroutine Dump_Runtime_Backup
 
@@ -79,14 +77,12 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent (out) :: uk
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1), intent (out):: nlk
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent(out) :: workvis
-  integer :: filedesc, mpicode, ibackup, kx,ky,kz
-  real (kind=pr) :: time1, tmp,tmp_local
+  integer :: filedesc, mpicode, ibackup, nx_file,ny_file,nz_file
+  real (kind=pr) :: time1
   integer, dimension(MPI_STATUS_SIZE) :: mpistatus
   integer (kind=MPI_OFFSET_KIND) :: mpioffset
   character (len=17) :: name
-  character (len=1) :: name1
-
-  
+  character (len=1) :: name1 
   time = 0.d0
   
   if (mpirank==0) then
@@ -101,10 +97,11 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
     call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,MPI_MODE_RDONLY,MPI_INFO_NULL,filedesc,mpicode)
 
     if (mpicode == 0) then
-
       ! read time from backup file
       call MPI_FILE_READ_ALL (filedesc,time1,1,mpireal,mpistatus,mpicode)
-
+      !------------------------------------
+      ! if the backup is newer, read it
+      !------------------------------------
       if (time1 > time) then
 	  time = time1
 	  if (mpirank == 0) then
@@ -112,19 +109,28 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
 	  endif
 
 	  call MPI_FILE_READ_ALL (filedesc,n1,1,mpiinteger,mpistatus,mpicode)
-	  call MPI_FILE_READ_ALL (filedesc,it,1,mpiinteger,mpistatus,mpicode)
-	  
+	  call MPI_FILE_READ_ALL (filedesc,it,1,mpiinteger,mpistatus,mpicode)	  
+	  call MPI_FILE_READ_ALL (filedesc,nx_file,1,mpiinteger,mpistatus,mpicode)
+	  call MPI_FILE_READ_ALL (filedesc,ny_file,1,mpiinteger,mpistatus,mpicode)
+	  call MPI_FILE_READ_ALL (filedesc,nz_file,1,mpiinteger,mpistatus,mpicode)
 	  call MPI_FILE_READ_ALL (filedesc,dt0,1,mpireal,mpistatus,mpicode)
 	  call MPI_FILE_READ_ALL (filedesc,dt1,1,mpireal,mpistatus,mpicode)
 
+	  if ( (nx_file/=nx).or.(ny_file/=ny).or.(nz_file/=nz) ) then
+	    call MPI_FILE_CLOSE (filedesc,mpicode)
+	    if (mpirank==0) write(*,*) "resolution of backup file and PARAMS.ini file do not match."
+	    stop
+	  endif
+	  
 	  if (mpirank == 0) then
 	    write (*,'("*** read n1=",i1," it=",i5," dt0=",es12.4," dt1=",es12.4)') n1,it,dt0,dt1
 	  endif
 
 	  call MPI_FILE_GET_POSITION (filedesc,mpioffset,mpicode)
-
 	  call MPI_FILE_SET_VIEW(filedesc,mpioffset,MPI_INTEGER,MPI_INTEGER,"native",MPI_INFO_NULL,mpicode)
-
+	  !----------------------------
+	  ! read all the fields
+	  !----------------------------	  
 	  call MPI_FILE_READ_ORDERED (filedesc,uk(:,:,:,1),product(cs),mpicomplex,mpistatus,mpicode)
 	  call MPI_FILE_READ_ORDERED (filedesc,uk(:,:,:,2),product(cs),mpicomplex,mpistatus,mpicode)
 	  call MPI_FILE_READ_ORDERED (filedesc,uk(:,:,:,3),product(cs),mpicomplex,mpistatus,mpicode)
@@ -134,8 +140,7 @@ subroutine Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, nlk, workvis)
 	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,1,1),product(cs),mpicomplex,mpistatus,mpicode)
 	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,2,1),product(cs),mpicomplex,mpistatus,mpicode)
 	  call MPI_FILE_READ_ORDERED (filedesc,nlk(:,:,:,3,1),product(cs),mpicomplex,mpistatus,mpicode)
-	  call MPI_FILE_READ_ORDERED (filedesc,workvis,product(cs)  ,mpireal   ,mpistatus,mpicode)
-	  
+	  call MPI_FILE_READ_ORDERED (filedesc,workvis,product(cs)  ,mpireal   ,mpistatus,mpicode)	  
       endif
     endif
     call MPI_FILE_CLOSE (filedesc,mpicode)
@@ -355,11 +360,7 @@ subroutine save_fields_new ( time, dt1, uk, u, vort, nlk, work)
 !   write(name,'(i5.5)') floor(time*100.d0)
 !   call SaveFile ( 'divu_'//trim(adjustl(name))//'.mpiio' , work )
 
-  
-  
-  
-  
-!   call SaveVTK(trim(adjustl(name)),u,vort,work)
+
   time_save = time_save + MPI_wtime() - t1
 end subroutine
 
@@ -388,81 +389,3 @@ subroutine SaveFile (filename, field_out)
   
 end subroutine 
 
-
-
-subroutine SaveVTK(fname,u,vort,p) 
-    use share_vars
-    implicit none
-    real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (in) :: p
-    real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (in) :: vort, u  
-    character(len=*),intent(in)    :: fname
-    character(len=4)	 :: str
-    integer              :: ix,iy,iz
-    integer, save 	 :: isave = 0
-    integer              :: nunit
-
-    write(str,'("a",i3.3)') isave
-    
-    nunit = 11
-    open (nunit, file = './fields/'//trim(str)//".vtk", form='formatted', status='replace')
-
-
-    write(unit=nunit,fmt="('# vtk DataFile Version 2.0')")
-    write(unit=nunit,fmt="('flusi-data')")
-    write(unit=nunit,fmt="('ASCII')")
-    write(unit=nunit,fmt="('DATASET STRUCTURED_GRID')")
-    write(unit=nunit,fmt="('DIMENSIONS ',3I8)")nx,ny,nz
-    write(unit=nunit,fmt="('POINTS',I8,A6)")nx*ny*nz,"float"
-
-    do iz=0,nz-1
-	do iy=0,ny-1
-	  do ix=0,nx-1
-	      write(unit=nunit,fmt='(3G16.6)') real(ix)*dx,real(iy)*dy,real(iz)*dz
-	  end do
-	end do
-    end do
-
-    write(unit=nunit,fmt="('POINT_DATA',I8)")nx*ny*nz
-    write(unit=nunit,fmt="('SCALARS p FLOAT')")
-    write(unit=nunit,fmt="('LOOKUP_TABLE default')")
-    do iz=0,nz-1
-	do iy=0,ny-1
-	  do ix=0,nx-1
-	      write(unit=nunit,fmt='(G13.6)') p(ix,iy,iz)
-	  end do
-	end do
-    end do
-    
-    write(unit=nunit,fmt="('SCALARS mask FLOAT')")
-    write(unit=nunit,fmt="('LOOKUP_TABLE default')")
-    do iz=0,nz-1
-	do iy=0,ny-1
-	  do ix=0,nx-1
-	      write(unit=nunit,fmt='(G13.6)') mask(ix,iy,iz)
-	  end do
-	end do
-    end do
-
-
-    write(unit=nunit,fmt="('VECTORS u FLOAT')")
-    do iz=0,nz-1
-	do iy=0,ny-1
-	  do ix=0,nx-1
-	      write(unit=nunit,fmt='(3G16.6)')u(ix,iy,iz,1),u(ix,iy,iz,2),u(ix,iy,iz,3)
-	  end do
-	end do
-    end do
-    
-    write(unit=nunit,fmt="('VECTORS vor FLOAT')")
-    do iz=0,nz-1
-	do iy=0,ny-1
-	  do ix=0,nx-1
-	      write(unit=nunit,fmt='(3G16.6)')vort(ix,iy,iz,1),vort(ix,iy,iz,2),vort(ix,iy,iz,3)
-	  end do
-	end do
-    end do
-
-    close(unit=nunit)
-    isave = isave + 1
-
-end subroutine 
