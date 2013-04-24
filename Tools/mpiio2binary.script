@@ -72,8 +72,10 @@ fi
 # loop over all *.mpiio files and call the converter
 #-----------------------------------------------------------------
 for file in *.mpiio
-do  
+do
+
   target_file=${file%%mpiio}binary
+  
   if [ -f $target_file ]; then
       # file does already exist
       if [ "${skip}" == "s" ]; then
@@ -81,28 +83,34 @@ do
       else
 	convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
 	# check if binary file now exists
-	if [ "${delete}" == "y" ]; then
 	if [ -f $target_file ]; then
+	if [ "${delete}" == "y" ]; then
 	  echo "succes, deleting *.mpiio file" ${file}
 	  rm ${file}
 	fi
-	fi
+	else
+	echo -e $Red "Error! convert_mpiio2binary didn't produce a binary file. exit."
+	exit 1
+	fi      
       fi 
   else
       # file does not exist
       convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
       # check if binary file now exists
-      if [ "${delete}" == "y" ]; then
       if [ -f $target_file ]; then
+      if [ "${delete}" == "y" ]; then
 	echo "succes, deleting *.mpiio file" ${file}
 	rm ${file}
       fi
+      else
+      echo -e $Red "Error! convert_mpiio2binary didn't produce a binary file. exit."
+      exit 1
       fi      
   fi  
 done
 
 #----------------------------------------------------------------------
-# if desired, directl convert everthing to vapor.
+# if desired, directly convert everything to vapor.
 #----------------------------------------------------------------------
 echo -e ${Cyan} "launch binary2vapor?" ${Color_Off}
 read answer

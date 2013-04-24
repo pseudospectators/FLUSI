@@ -5,8 +5,8 @@ subroutine time_step
   integer :: inter, it, inicond1,ix,iy,iz,vis_tmp
   integer :: n0 = 0, n1 = 1
   integer :: nbackup = 0  ! 0 - backup to file runtime_backup0, 1 - to runtime_backup1, 2 - no backup 
-  integer :: mpicode
-  real (kind=pr) :: time, v_rms, v_rms_loc, dt0, dt1,t1,t2
+  integer :: mpicode, it_start
+  real (kind=pr) :: time, v_rms, v_rms_loc, dt0, dt1,t1,t2, time_left
   real (kind=pr), 	dimension (:,:,:), allocatable :: workvis  
   real (kind=pr), 	dimension (:,:,:,:), allocatable :: u, vort
   complex (kind=pr), 	dimension (:,:,:,:), allocatable :: uk
@@ -45,7 +45,7 @@ subroutine time_step
   !---------------------------------------------------------------
   call init_fields (n1, time, it,  dt0, dt1, uk, nlk, vort, workvis )
   n0 = 1 - n1
-  
+  it_start = it
   !---------------------------------------------------------
   !     LOOP OVER TIME STEPS
   !---------------------------------------------------------
@@ -90,11 +90,15 @@ subroutine time_step
 	close (14)
 	endif
      endif
+     
        
      if ( modulo (it,300) == 0 ) then     
-	if (mpirank==0) then
-	t2= MPI_wtime() - t1
-	write(*,'("time left: ",f7.2,"min dt=",es7.1)') (((tmax-time)/dt1)*(t2/dble(it)))/60.d0 , dt1
+	if (mpirank==0) then	
+	  t2= MPI_wtime() - t1
+	  time_left = (((tmax-time)/dt1)*(t2/dble(it-it_start)))
+	  write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &
+	  floor(time_left/(24.*3600.))   ,floor(mod(time_left,24.*3600.)/3600.),&
+	  floor(mod(time_left,3600.)/60.),floor(mod(mod(time_left,3600.),60.)), dt1
 	endif
      endif
      

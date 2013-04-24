@@ -298,11 +298,7 @@ subroutine ReadMPIIO (nx, ny, nz, mpicode, fname, field_out)
 
   write(*,'("Reading ",A,"... Min:Max=",es12.4,":",es12.4,1x,"nx:ny:nz=",i3,":",i3,":",i3)') &
   trim(fname),minval (field_out), maxval (field_out),nx,ny,nz
-  
-  
-  
-  
-  
+   
 end subroutine 
 
 

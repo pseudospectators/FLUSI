@@ -55,7 +55,7 @@ echo "this script will use the subdirectory ./vtk/ as output directory."
 echo -e $Cyan "any key to continue" $Color_Off
 read dummy
 
-asktoskip="yes"
+ask_to_skip="yes"
 if [ -d vtk/ ]
 then
     echo "subdirectory already exists"
@@ -66,27 +66,25 @@ then
       echo -e ${Red} "deleting" ${Color_Off}
       rm -r vtk
       mkdir vtk
-      asktoskip="no"
+      ask_to_skip="no"
     fi  
 else
     echo "creating subdirectory..."
     mkdir vtk
-    asktoskip="no"
+    ask_to_skip="no"
 fi
 
 #------------------------------------------------------------------------------------
 # ask what to do with existing *.vtk files
 #------------------------------------------------------------------------------------
-if [ "${asktoskip}" == "yes" ]; then
-  echo "If a vtk file already exists, do you want to proceed and overwrite it or do you want to skip it?"
-  echo -e ${Cyan} "[ [s] for skipping, anyting else for overwriting]" ${Color_Off}
-  echo -e ${Cyan} "[enter for skipping]" ${Color_Off}
+if [ "${ask_to_skip}" == "yes" ]; then
+  echo -e ${Cyan} "If a vtk file already exists, do you want to skip it? ([y],n)" ${Color_Off}
   read skip
   if [ "${skip}" == "" ]; then
-    skip="s"
+    skip="y"
   fi
 else
-  skip="s"
+  skip="y"
 fi
 
 #------------------------------------------------------------------------------------
@@ -94,30 +92,57 @@ fi
 #------------------------------------------------------------------------------------
 echo "You can either save all variables to ONE *.vtk file"
 echo "or you can save each scalar to one file and all vector components to one file"
-echo -e ${Cyan} "[ONE for ALL IN ONE file, anything else for ONE-2-ONE]" ${Color_Off}
-echo -e ${Cyan} "[enter for one-on-one]" ${Color_Off}
+echo -e ${Cyan} "Do you want to use the several vtk-files mode? ([y],n)" ${Color_Off}
 read modus
 if [ "${modus}" == "" ]; then
-  modus="hello"
+  modus="y"
 fi
 
 #------------------------------------------------------------------------------------
 # ask what file ending to expect
 #------------------------------------------------------------------------------------
-echo "What type of source files to you want to convert?"
-echo "*.binary or *.mpiio"
-echo -e ${Cyan} "[binary for *.binary, mpiio for *.mpiio]" ${Color_Off}
-echo -e ${Cyan} "[enter for mpiio]" ${Color_Off}
+echo -e ${Cyan} "What type of source files to you want to convert, *.binary or *.mpiio? (b,[m])" ${Color_Off}
 read ending
-if [ "${ending}" == "" ]; then
+if [ "${ending}" == "b" ]; then
+  ending="binary"
+else
   ending="mpiio"
 fi
+
+
+
+#------------------------------------------------------------------------------------
+# find prefixes
+#------------------------------------------------------------------------------------
+# look through all the files whose names end with *.mpiio and put
+# them in the items array, as well as in the list, where file names
+# are separated with colons. N is the number of items in the list.
+N=0
+lastp=""
+for F in `ls *.${ending}`
+do
+    # as is the file name with everything after 
+    p=$(echo ${F}  | sed 's/_[^_]*$//')_ 
+    p=${p%%_}
+    if [ "$p" != "$lastp" ] ; then
+	lastp=$p
+	items[$N]=$p
+	N=$((N+1))
+    fi
+done
+
+echo -e "prefixes  : " ${Blue} ${items[@]} ${Color_Off}
+
+
+
+
+
 
 #------------------------------------------------------------------------------------
 # GO
 #------------------------------------------------------------------------------------
 
-if [ "${modus}" == "ONE" ]
+if [ "${modus}" == "n" ]
 then #-------------------------------------------------------------------------------------------------------------------------
 
 
@@ -126,24 +151,24 @@ then #--------------------------------------------------------------------------
   echo -e ${Cyan} "-----------------------" ${Color_Off}
   echo -e ${Cyan} "ONE vtk file modus" ${Color_Off}
   echo -e ${Cyan} "-----------------------" ${Color_Off}
+  lead_prefix=${items[0]}"_"
   
-  for file in mask_*.${ending} # note I suppose that you saved the mask
+  for file in ${lead_prefix}*.${ending} # note I suppose that you saved the mask
   do
     base=${file%%.${ending}}   # remove trailing .mpiio
-    base=${base##mask_}    # remove leading ux_
+    base=${base##${lead_prefix}}    # remove leading ux_
 
-    echo "processing file" ${base}
     # note program also works if one or more files are not present
-    if [ ${skip}=="s" ]
+    if [ ${skip}=="y" ]
     then      
       if [ -f ./vtk/para_${base}.vtk ]
       then
 	echo "file ./vtk/para_"${base}".vtk exists. skipping..."
       else
-	convert_mpiio2vtk_ALL.out ./vtk/para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}"."${ending} "uy_"${base}"."${ending} "uz_"${base}"."${ending} "vorx_"${base}"."${ending} "vory_"${base}"."${ending} "vorz_"${base}"."${ending} "p_"${base}"."${ending} "mask_"${base}"."${ending} "usx_"${base}"."${ending} "usy_"${base}"."${ending} "usz_"${base}"."${ending}
+ 	convert_mpiio2vtk_ALL.out ./vtk/para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}"."${ending} "uy_"${base}"."${ending} "uz_"${base}"."${ending} "vorx_"${base}"."${ending} "vory_"${base}"."${ending} "vorz_"${base}"."${ending} "p_"${base}"."${ending} "mask_"${base}"."${ending} "usx_"${base}"."${ending} "usy_"${base}"."${ending} "usz_"${base}"."${ending}
       fi      
     else
-	convert_mpiio2vtk_ALL.out ./vtk/para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}"."${ending} "uy_"${base}"."${ending} "uz_"${base}"."${ending} "vorx_"${base}"."${ending} "vory_"${base}"."${ending} "vorz_"${base}"."${ending} "p_"${base}"."${ending} "mask_"${base}"."${ending} "usx_"${base}"."${ending} "usy_"${base}"."${ending} "usz_"${base}"."${ending}
+ 	convert_mpiio2vtk_ALL.out ./vtk/para_${base}.vtk ${NX} ${NY} ${NZ} "ux_"${base}"."${ending} "uy_"${base}"."${ending} "uz_"${base}"."${ending} "vorx_"${base}"."${ending} "vory_"${base}"."${ending} "vorz_"${base}"."${ending} "p_"${base}"."${ending} "mask_"${base}"."${ending} "usx_"${base}"."${ending} "usy_"${base}"."${ending} "usz_"${base}"."${ending}
     fi    
   done
 
@@ -158,25 +183,6 @@ else #--------------------------------------------------------------------------
     echo -e ${Cyan} "-----------------------" ${Color_Off}
     echo -e ${Cyan} "SEVERAL vtk files modus" ${Color_Off}
     echo -e ${Cyan} "-----------------------" ${Color_Off}
-    #------------------------------------------------------------------------------------
-    # find prefixes
-    #------------------------------------------------------------------------------------
-    # look through all the files whose names end with *.mpiio and put
-    # them in the items array, as well as in the list, where file names
-    # are separated with colons. N is the number of items in the list.
-    N=0
-    lastp=""
-    for F in `ls *.${ending}`
-    do
-	# as is the file name with everything after 
-	p=$(echo ${F}  | sed 's/_[^_]*$//')_ 
-	p=${p%%_}
-	if [ "$p" != "$lastp" ] ; then
-	    lastp=$p
-	    items[$N]=$p
-	    N=$((N+1))
-	fi
-    done
     
     #-----------------------------------------------------------------------------------
     # indentify vectors and scalars from the prefixes
@@ -210,7 +216,6 @@ else #--------------------------------------------------------------------------
     done
     
     # print summary
-    echo -e "in prefixes  : " ${Cyan} ${items[@]} ${Color_Off}
     echo -e "found scalars: " ${Cyan} ${scalars[@]} ${Color_Off}
     echo -e "found vectors: " ${Cyan} ${vectors[@]} ${Color_Off}
     echo -e $Cyan "any key to continue" $Color_Off
@@ -233,7 +238,7 @@ else #--------------------------------------------------------------------------
 	  # check if target file exists in vtk/
 	  if [ -f vtk/${vtk} ]; then
 	      # if you shouldn't skip it, overwrite it.
-	      if [ "${skip}" != "s" ]; then
+	      if [ "${skip}" != "y" ]; then
 		echo -e $Green "file vtk/"${vtk} "exists, overwriting." $Color_Off
 		convert_mpiio2vtk.out ${NX} ${NY} ${NZ} -scalar ${F}
 		# currently, convert_mpiio2vtk.out creates the vtk file in the same directory. so move it.
@@ -270,7 +275,7 @@ else #--------------------------------------------------------------------------
 	  # check if target file exists in vtk/
 	  if [ -f vtk/${vtk} ]; then
 	      # if you shouldn't skip it, overwrite it.
-	      if [ "${skip}" != "s" ]; then
+	      if [ "${skip}" != "y" ]; then
 		echo -e $Green "file vtk/"${vtk} "exists, overwriting." $Color_Off
 		convert_mpiio2vtk.out ${NX} ${NY} ${NZ} -vector ${F} ${p}y${F##${p}x} ${p}z${F##${p}x}
 		# currently, convert_mpiio2vtk.out creates the vtk file in the same directory. so move it.
