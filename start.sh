@@ -22,8 +22,11 @@ BPurple='\e[1;35m'      # Purple
 BCyan='\e[1;36m'        # Cyan
 BWhite='\e[1;37m'       # White
 
-nproc="4"
-params="PARAMSs.test"
+#---------------------------------------------------------------------
+nproc=$3
+params=$2
+DIR=$1
+#---------------------------------------------------------------------
 
 echo -e ${BBlue} "deleting main..." ${Color_Off}
 rm main
@@ -34,14 +37,18 @@ make clean
 echo -e ${BBlue} "make sugiton..." ${Color_Off}
 make sugiton
 
+# echo -e ${BBlue} "cleaning" ${Color_Off}
+# rm -r ${DIR}fields/
+
+
 if [ -f main ]
 then
-cp main Plate/
-cd Plate/
+cp main ${DIR}
+cd ${DIR}
 echo "-----------"
-echo -e ${BCyan} "mpirun -n" ${nproc} "./main <" ${params} ${Color_Off}
+echo -e ${BCyan} "mpirun -n" ${nproc} "./main " ${params} ${Color_Off}
 echo "-----------"
-mpirun -n ${nproc} ./main < ${params}
+mpirun -n ${nproc} ./main ${params}
 
 else
 echo -e ${BRed} "MAKE FAILED!" ${Color_Off}

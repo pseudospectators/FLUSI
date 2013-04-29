@@ -29,6 +29,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 
 
   if (inicond == 1) then
+	if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
 	!--------------------------------------------------
 	! Vortex ring
 	!--------------------------------------------------
@@ -64,44 +65,68 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
 	call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
     
     
-  elseif (inicond == 99) then
+  elseif (inicond == 2) then
+	if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
 	!--------------------------------------------------
 	! random vorticity
 	!--------------------------------------------------
-
+	call random_seed
 	do iz = ra(3), rb(3)
 	  do iy = ra(2), rb(2)
 	    do ix = ra(1), rb(1)
 	    call RANDOM_NUMBER(r)
-	    vort (ix,iy,iz,1) = 50.d0*(2.0d0*r - 1.d0)
+	    vort (ix,iy,iz,1) = 50.d0*(2.0d0*r - 1.d0) !* (1.d0-eps*mask(ix,iy,iz))
 	    call RANDOM_NUMBER(r)
-	    vort (ix,iy,iz,2) = 50.d0*(2.0d0*r - 1.d0)
-	    call RANDOM_NUMBER(r)
-	    vort (ix,iy,iz,3) = 50.d0*(2.0d0*r - 1.d0)
+	    vort (ix,iy,iz,2) = 50.d0*(2.0d0*r - 1.d0) !* (1.d0-eps*mask(ix,iy,iz))
+	    call RANDOM_NUMBER(r)!
+	    vort (ix,iy,iz,3) = 50.d0*(2.0d0*r - 1.d0) !* (1.d0-eps*mask(ix,iy,iz))
 	    end do
 	  end do
 	end do    
 
 	call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
 
+  elseif (inicond == 30) then
+	do iz=ra(3),rb(3)
+	    z=zl*(dble(iz)/dble(nz) -0.5d0)
+	    do iy=ra(2),rb(2)
+	      y=yl*(dble(iy)/dble(ny) -0.5d0)
+	      do ix=ra(1),rb(1)
+		  x=xl*(dble(ix)/dble(nx) -0.5d0)
+		  vort(ix,iy,iz,1)=-2.d0*dsin(y)	! vort is u in physical space
+		  vort(ix,iy,iz,2)=2.d0*dsin(x)
+		  vort(ix,iy,iz,3)=0.d0
+	      enddo
+	    enddo
+	enddo
+	call coftxyz(vort(:,:,:,1),uk(:,:,:,1))
+	call coftxyz(vort(:,:,:,2),uk(:,:,:,2))
+	call coftxyz(vort(:,:,:,3),uk(:,:,:,3))
 
-  elseif (inicond == 2) then
+  elseif (inicond == 0) then
+	if (mpirank==0) write (*,*) "*** inicond: mean flow"
 	!--------------------------------------------------
 	! mean flow only
 	!--------------------------------------------------
 	uk = dcmplx(0.0d0,0.0d0)
+	if ( iMeanFlow == 1) then
 	if ( ( ca(1) == 0 ) .and. ( ca(2) == 0 ) .and. ( ca(3) == 0 ) ) then
-	    uk(0, 0, 0, 1) = Ux + Ax * time;                
+	    uk(0, 0, 0,1) = Ux + Ax * time;                
 	    uk(0, 0, 0,2) = Uy + Ay * time;               
 	    uk(0, 0, 0,3) = Uz + Az * time;              
 	endif
-
-  elseif (inicond == 4) then 
+	endif
+  elseif (inicond == 99) then 
 	!--------------------------------------------------
 	! read from backup
 	!--------------------------------------------------  
 	call Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, work_nlk, workvis)
-    
+  elseif (inicond == 3) then 
+	if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
+	!--------------------------------------------------
+	! fluid at rest
+	!--------------------------------------------------  
+	uk = dcmplx(0.0d0,0.0d0)        
   else
 	if (mpirank == 0) then
 	    write (*,'(A)') '??? ERROR: Invalid initial condition'

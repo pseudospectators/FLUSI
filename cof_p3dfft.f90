@@ -164,15 +164,18 @@ subroutine coftxyz (f,fk)
 
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (in) ::  f
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (out) ::  fk
-!   real (kind=pr), save :: t1,t2=0.d0
-! t1 = MPI_wtime()
+  real (kind=pr), save :: t1
+
+  t1 = MPI_wtime()
   ! Compute forward FFT
   call p3dfft_ftran_r2c(f,fk)
 
   ! Normalize
   fk(:,:,:) = fk(:,:,:) / dble(nx*ny*nz)
-! t2 = t2 + MPI_wtime() - t1
-! write (*,'("accumulated coftxyz=",es12.4)'), t2
+
+  time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
+  time_fft2 = time_fft2 + MPI_wtime() - t1  ! for % FFT in cal_nlk only
+
 
   ! Filter Nyquist frequency
   !if ( (ca(2)<=nx/2) .and. (cb(2)>=nx/2) ) then
@@ -201,12 +204,15 @@ subroutine cofitxyz (fk,f)
 
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (in) ::  fk
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (out) ::  f
-!   real (kind=pr), save :: t1,t2=0.d0
-! t1 = MPI_wtime()
+  real (kind=pr), save :: t1
+  t1 = MPI_wtime()
+  
   ! Compute backward FFT
   call p3dfft_btran_c2r(fk,f)
-! t2 = t2 + MPI_wtime() - t1
-! write (*,'("accumulated cofitxyz=",es12.4)'), t2
+  
+  
+  time_ifft  = time_ifft  + MPI_wtime() - t1
+  time_ifft2 = time_ifft2 + MPI_wtime() - t1
 end subroutine cofitxyz
 
 
