@@ -179,7 +179,7 @@ subroutine cal_nlk(time,it,dt1,nlk,uk,work_u,work_vort,work,GlobIntegrals)
            kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
            kz2=kz*kz
            k2=kx2+ky2+kz2
-           if (abs(k2) .ne. 0.0) then  
+           if (k2 .ne. 0.0) then  
               qk=(kx*nlk(iz,ix,iy,1) +ky*nlk(iz,ix,iy,2) +kz*nlk(iz,ix,iy,3))/k2
               ! add gradient of pressure
               nlk(iz,ix,iy,1)=nlk(iz,ix,iy,1) - kx*qk 	
