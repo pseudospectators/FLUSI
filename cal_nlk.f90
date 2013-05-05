@@ -37,9 +37,10 @@ subroutine cal_nlk(time,it,dt1,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   if (modulo(it,itdrag)==0) TimeForDrag = .true. 
   ! is it time for save global quantities?
   
+  ! performance measurement in global variables
   t0 = MPI_wtime()
-  time_fft2 =0.0
-  time_ifft2=0.0
+  time_fft2 =0.0 ! time_fft2 is the time spend on ffts during cal_nlk only
+  time_ifft2=0.0 ! time_ifft2 is the time spend on iffts during cal_nlk only
   
 
   !-----------------------------------------------
@@ -244,6 +245,10 @@ end subroutine cal_nlk
 !-------------------------------------------------------------------------------
 
 subroutine Penalize(work,work_u,iDir,TimeForDrag,GlobIntegrals )    
+  ! we outsource the actual penalization (even though its a fairly simple process)
+  ! to remove some lines in the actual cal_nlk
+  ! also, at this occasion, we directly compute the integral hydrodynamic forces,
+  ! if its time to do so.
   use share_vars
   implicit none
   integer, intent (in) :: iDir
@@ -301,6 +306,8 @@ end subroutine
 
 !-------------------------------------------------------------------------------
 subroutine Energy_Dissipation ( GlobIntegrals, u, vort )
+  ! computes kinetic energy, dissipation rate and mask volume
+  ! stores all these in the structure GlobIntegrals (definition see share_vars)
   use share_vars
   use mpi_header
   implicit none
@@ -320,9 +327,9 @@ subroutine Energy_Dissipation ( GlobIntegrals, u, vort )
   endif
   
   call MPI_REDUCE(E_kin_local,GlobIntegrals%E_kin,1,mpireal,MPI_SUM,0,&
-       MPI_COMM_WORLD,mpicode)  ! max at 0th process
+       MPI_COMM_WORLD,mpicode)  ! sum at 0th process
   call MPI_REDUCE(Dissip_local,GlobIntegrals%Dissip,1,mpireal,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)  ! max at 0th process
+       0,MPI_COMM_WORLD,mpicode)  ! sum at 0th process
   call MPI_REDUCE(Volume_local,GlobIntegrals%Volume,1,mpireal,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)  ! max at 0th process
+       0,MPI_COMM_WORLD,mpicode)  ! sum at 0th process
 end subroutine
