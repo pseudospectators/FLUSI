@@ -2,25 +2,7 @@
 ## 			Makefile for FLUSI
 ###########################################################################
 
-# note that FFT_ROOT, P3DFFT_ROOT, and FFLAGS must be set in the shell
-# (e.g. in .bashrc).
-
-# --------------------------------------------------------------------
-# Duke (thomas)
-# 	export FFT_ROOT=/Softs/fftw/
-# 	export P3DFFT_ROOT=/home/dkolom/P3DFFT/p3dfft.2.3.2
-# 	export FFLAGS="-O3 -xW -fpp -r8"
-# --------------------------------------------------------------------
-# Sugiton (thomas)
-# 	export FFT_ROOT="/home/tommy/fftw"
-# 	export P3DFFT_ROOT="/home/tommy/Documents/Research/src/p3dfft.2.3.2_fixed"
-# 	export FFLAGS="-g"
-# --------------------------------------------------------------------
-# Mesocentre (thomas)
-#       export P3DFFT_ROOT="/home/ethomas/p3dfft.2.3.2_fixed"
-# 	export FFTW_ROOT="/home/ethomas/fftw"
-# 	export FFLAGS=""
-# --------------------------------------------------------------------
+# see README for documentation regarding setting environment variables.
 
 # the program file
 PROG_FILE = FLUSI.f90
@@ -31,14 +13,34 @@ FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
 	time_step.f90 trextents.f90
 OBJS := $(FFILES:%.f90=%.o)
 
+FC = mpif90
+
+PPFLAG = -cpp
+
+## set the default compiler if it's not already set, make sure it's not F77.
+ifndef FC
+FC = mpif90
+endif
+ifeq ($(FC),f77)
+FC = mpif90
+endif
+
+# pre-processor flag
+PPFLAG= -cpp
+
+# define variables for the intel compiler
+ifort:=$(shell $(FC) --version | head -c 5)
+ifeq ($(ifort),ifort)
+PPFLAG= -fpp
+DIFORT= -DIFORT
+FFLAGS += -vec_report0
+endif
+
+
 # this seems to be the only one in use.
 MPI_HEADER = mpi_duke_header.f90
 
 PROGRAMS = main
-
-FC = mpif90
-
-PPFLAG = -cpp
 
 FFT_LIB = $(FFT_ROOT)/lib
 FFT_INC = $(FFT_ROOT)/include

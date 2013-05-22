@@ -1,1 +1,23 @@
 To do: write a README file
+
+
+notes from the makefile:
+# note that FFT_ROOT, P3DFFT_ROOT, and FFLAGS must be set in the shell
+# (e.g. in .bashrc).
+
+# --------------------------------------------------------------------
+# Duke (thomas)
+# 	export FFT_ROOT=/Softs/fftw/
+# 	export P3DFFT_ROOT=/home/dkolom/P3DFFT/p3dfft.2.3.2
+# 	export FFLAGS="-O3 -xW -fpp -r8"
+# --------------------------------------------------------------------
+# Sugiton (thomas)
+# 	export FFT_ROOT="/home/tommy/fftw"
+# 	export P3DFFT_ROOT="/home/tommy/Documents/Research/src/p3dfft.2.3.2_fixed"
+# 	export FFLAGS="-g"
+# --------------------------------------------------------------------
+# Mesocentre (thomas)
+#       export P3DFFT_ROOT="/home/ethomas/p3dfft.2.3.2_fixed"
+# 	export FFTW_ROOT="/home/ethomas/fftw"
+# 	export FFLAGS=""
+# --------------------------------------------------------------------
