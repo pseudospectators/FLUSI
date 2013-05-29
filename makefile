@@ -13,25 +13,23 @@ FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
 	time_step.f90 trextents.f90
 OBJS := $(FFILES:%.f90=%.o)
 
-PPFLAG = -cpp
-
 ## set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
 FC = mpif90
 endif
-ifeq ($(FC),f77)
+ifeq ($(FC),f77) # sometimes FC gets defined as f77, which is bad.
 FC = mpif90
 endif
 
-# pre-processor flag
+# pre-processor flag for gnu compiler
 PPFLAG= -cpp
 
 # define variables for the intel compiler
 ifort:=$(shell $(FC) --version | head -c 5)
 ifeq ($(ifort),ifort)
 PPFLAG= -fpp
-DIFORT= -DIFORT
-FFLAGS += -vec_report0
+DIFORT= -DIFORT # defined IFORT for preprocessing
+FFLAGS += -vec_report0 # suppress messages about vectorization
 endif
 
 
@@ -54,7 +52,6 @@ all: main
 # compile main program, with dependencies:
 main: $(PROG_FILE) $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
 	$(FC) -o $@ $^ $(LDFLAGS)
-
 
 # compile modules:
 mpi_header.o: $(MPI_HEADER)
