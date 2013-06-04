@@ -18,7 +18,7 @@ subroutine get_params (paramsfile)
  
  
   !-----------------------------------------------------------
-  ! read in the params file (root)
+  ! read in the params file (root only)
   !-----------------------------------------------------------
   if (mpirank==0) then
     write (*,'(A,i3)') "*** info: reading params from "//trim(paramsfile)//" rank=", mpirank
@@ -51,7 +51,7 @@ subroutine get_params (paramsfile)
   
   call GetValue_Int (PARAMS,i,"Penalization","iPenalization",iPenalization, 0)
   call GetValue_Int (PARAMS,i,"Penalization","iMoving",iMoving, 0)
-  call GetValue_Int (PARAMS,i,"Penalization","iMask",iMask, 0)
+  call GetValue_String (PARAMS,i,"Penalization","iMask",iMask, "none")
   call GetValue_Real (PARAMS,i,"Penalization","eps",eps, 1.d-2)
   
   call GetValue_Real (PARAMS,i,"Geometry","xl",xl, 1.d0)
@@ -84,7 +84,7 @@ subroutine get_params (paramsfile)
   call GetValue_int (PARAMS,i,"Saving","iKinDiss",iKinDiss, 0)
   
   !-------------------------------------------------------
-  ! set other parameters
+  ! set other parameters (all procs)
   !-------------------------------------------------------  
   pi     = 4.d0 * datan (1.d0)
   scalex = 2.d0*pi / xl
@@ -162,6 +162,9 @@ subroutine GetValue_Int (PARAMS, actual_lines, section, keyword, params_int, def
   integer params_int, actual_lines, defaultvalue
   integer mpicode
   
+  !------------------
+  ! root rank fetches value from PARAMS.ini file (which is in PARAMS)
+  !------------------
   if (mpirank==0) then
   call GetValue(PARAMS, actual_lines, section, keyword, value)
   if (value .ne. '') then
@@ -173,6 +176,9 @@ subroutine GetValue_Int (PARAMS, actual_lines, section, keyword, params_int, def
   endif
   endif
   
+  !-----------------
+  ! and then broadcast
+  !-----------------
   call MPI_BCAST( params_int, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
   
 end subroutine
@@ -193,6 +199,9 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, d
   integer actual_lines
   integer mpicode
   
+  !------------------
+  ! root rank fetches value from PARAMS.ini file (which is in PARAMS)
+  !------------------  
   if (mpirank==0) then
   call GetValue(PARAMS, actual_lines, section, keyword, value)
   if (value .ne. '') then
@@ -204,7 +213,47 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, d
   endif
   endif
 
+  !-----------------
+  ! and then broadcast
+  !-----------------
   call MPI_BCAST( params_real, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
+  
+end subroutine
+
+!--------------------------------------------------------
+
+
+subroutine GetValue_string (PARAMS, actual_lines, section, keyword, params_string, defaultvalue)
+  use share_vars
+  use mpi_header
+  implicit none
+  character section*(*)			! what section do you look for? for example [Resolution]
+  character keyword*(*)			! what keyword do you look for? for example nx=128
+  character (len=80)  value  		! returns the value
+  character PARAMS(nlines)*256		! this is the complete PARAMS.ini file
+  character (len=80), intent (out) :: params_string
+  character (len=80), intent (in) :: defaultvalue 
+  integer actual_lines
+  integer mpicode
+  
+  !------------------
+  ! root rank fetches value from PARAMS.ini file (which is in PARAMS)
+  !------------------  
+  if (mpirank==0) then
+  call GetValue(PARAMS, actual_lines, section, keyword, value)
+  if (value .ne. '') then
+    read (value, *) params_string       
+  else
+    write(*,'(A,es12.4)') &
+    "??? WARNING: No value found for "//trim(keyword)//" in section "//trim(section)//" ----> default=", defaultvalue
+    params_string = defaultvalue
+  endif
+  endif
+
+  !-----------------
+  ! and then broadcast
+  !-----------------
+  call MPI_BCAST( params_string, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, mpicode ) 
   
 end subroutine
 
@@ -212,6 +261,7 @@ end subroutine
 !--------------------------------------------------------
 
 subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
+  ! this routine extracts a value from the PARAMS.ini file, which is in "section" and which is named "keyword"
   use share_vars
   use mpi_header
   implicit none
@@ -220,7 +270,7 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   character value*(*)			! returns the value
   character PARAMS(nlines)*256		! this is the complete PARAMS.ini file
   integer actual_lines			! how many lines did you actually read?  
-  integer :: maxline = 256			! how many characters per line?
+  integer :: maxline = 256		! how many characters per line?
   integer i, j,k
   character line*256
   logical foundsection

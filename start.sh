@@ -35,7 +35,7 @@ echo -e ${BBlue} "make clean..." ${Color_Off}
 make clean
 
 echo -e ${BBlue} "make sugiton..." ${Color_Off}
-make sugiton
+make
 
 # echo -e ${BBlue} "cleaning" ${Color_Off}
 # rm -r ${DIR}fields/

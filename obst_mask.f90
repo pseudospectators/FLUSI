@@ -1,3 +1,54 @@
+subroutine Create_Mask (time)
+  !--------------------------------------------------
+  ! wrapper for different (possibly time-dependend) mask functions 
+  !--------------------------------------------------
+  use mpi_header ! Module incapsulates mpif.
+  use share_vars
+  implicit none
+  real(kind=pr), intent(in) :: time
+  real(kind=pr) :: eps_inv, t1
+  
+  t1 = MPI_wtime() 
+   
+  ! -------------------------------------------------
+  ! attention: mask is reset here (and not in subroutines)
+  ! ------------------------------------------------
+  mask = 0.d0
+  
+  ! ------------------------------------------------
+  ! actual mask functions
+  ! ------------------------------------------------ 
+  
+  select case (iMask)
+    case ("sphere")
+      call Draw_Sphere()
+    case ("Jerry")      
+      call Draw_Jerry ( time )      
+    case ("Flapper")    
+      call Flapper ( time )    
+    case default    
+      if (mpirank == 0) then
+        write (*,*) "iMask not properly set. Suicide!"
+        stop
+      endif      
+  end select
+  
+  ! -------------------
+  ! attention: division by eps is done here, not in subroutines.
+  ! -------------------
+  eps_inv = 1.d0 / eps
+  mask = mask * eps_inv
+  
+  ! -- for global timing.
+  time_mask = time_mask + MPI_wtime() - t1
+  
+end subroutine Create_Mask
+
+
+
+
+
+
 subroutine Draw_Jerry (time)
   !--------------------------------------------------
   ! Draws Jerry, the first insect with rigid wings.
@@ -15,9 +66,8 @@ subroutine Draw_Jerry (time)
   real (kind=pr) :: x, y, z, xs, ys, zs, L_body, a_body, b_body, x0_body, y0_body, z0_body, x0_head,y0_head,z0_head
   real (kind=pr) :: R_head, R_eye, x0_eye, y0_eye, z0_eye
   real (kind=pr) :: b_top, b_bot, xx,yy, zz, cos_a, sin_a, cos_p, sin_p,&
-                    L_chord, delta, N_smooth, eps_inv, R, R_limit, tmp, t1, x_tmp, y_tmp, z_tmp, y_bot,y_top
-  t1 = MPI_wtime()
-  eps_inv=1.d0/eps
+                    L_chord, delta, N_smooth, R, R_limit, tmp, x_tmp, y_tmp, z_tmp, y_bot,y_top
+  
   
   ! parameters for motion protocoll
   phi_max     = 60.d0*pi/180.d0 	! phi is up/down angle (flapping)
@@ -262,15 +312,12 @@ subroutine Draw_Jerry (time)
     enddo
   enddo
   
-  mask = mask * eps_inv
-  
-  time_mask = time_mask + MPI_wtime() - t1
-  
+ 
 end subroutine
 
 
 
-subroutine create_mask (time)
+subroutine Flapper (time)
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   implicit none
@@ -279,8 +326,6 @@ subroutine create_mask (time)
   integer :: ixmax, ixmin, iymax, iymin, izmax, izmin  
   real (kind=pr) :: t_star, R, alpha_t, un, alpha_max, t1
   real (kind=pr) :: x, y, z, xs,ys,zs, alpha,L,B,H, y_tmp, z_tmp, tmp,N, eps_inv
-  t1 = MPI_wtime()
-  eps_inv=1.d0/eps
   
   alpha_max = 30.d0*pi/180.d0
   alpha   =           alpha_max*dsin(time*2.d0*pi)
@@ -366,9 +411,6 @@ subroutine create_mask (time)
       enddo
   enddo  
     
-!     write (*,*) maxval(mask)
-  
-  time_mask = time_mask + MPI_wtime() - t1
   
 end subroutine
 
@@ -376,139 +418,36 @@ end subroutine
 
 
 
-subroutine obst_mask 
-!---------------------------------------------------------------
-!     Sets up obstacle mask (with optional boundary 
-!     smoothing), size is the object's diameter or length
-!---------------------------------------------------------------
+subroutine Draw_Sphere 
+  !---------------------------------------------------------------
+  ! Spherical obstacle
+  !---------------------------------------------------------------
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   implicit none
-
-  integer :: irad, iradmax, ix, iy, iz, ix0, iy0, iz0, kx, ky, kz
-  integer :: ixmax, ixmin, iymax, iymin, izmax, izmin
-  real (kind=pr) :: x, y, z, t1, tmp, R, N_smooth
-  t1 = MPI_wtime()
-
-  mask = 0.d0
-
-!---------------------------------------------------------------
-! Cubic obstacle
-!---------------------------------------------------------------
-  if (imask == 1) then
-
-     ixmin = int( ( x0 - length/2.0 ) * real(nx)/xl )
-     ixmax = int( ( x0 + length/2.0 ) * real(nx)/xl )
-     iymin = int( ( y0 - length/2.0 ) * real(ny)/yl )
-     iymax = int( ( y0 + length/2.0 ) * real(ny)/yl )
-     izmin = int( ( z0 - length/2.0 ) * real(nz)/zl )
-     izmax = int( ( z0 + length/2.0 ) * real(nz)/zl )
-
-     do iz = ra(3), rb(3)
-       do iy = ra(2), rb(2)
-         do ix = ra(1), rb(1)
-           if ( (ix>=ixmin).and.(ix<=ixmax) .and. (iy>=iymin).and.(iy<=iymax) .and. (iz>=izmin).and.(iz<=izmax) ) then
-             mask (ix, iy, iz) = 1.0
-           endif
-         enddo
-       enddo
-     enddo
-
-  endif
-
-!---------------------------------------------------------------
-! Spherical obstacle
-!---------------------------------------------------------------
-N_smooth = 2.d0
-  if (imask == 2) then
-     do iz = ra(3), rb(3)
-       do iy = ra(2), rb(2)
-         do ix = ra(1), rb(1)
-	      x = dble(ix)*dx
-	      y = dble(iy)*dy
-	      z = dble(iz)*dz
-	      R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
-              if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
-		 call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
-                 mask (ix, iy, iz) = tmp
-              endif
-         enddo
-       enddo
-     enddo
-  endif
-  
-  if (imask == 22) then
-    us = 0.d0
-     do iz = ra(3), rb(3)
-       do iy = ra(2), rb(2)
-         do ix = ra(1), rb(1)
-	      x = dble(ix)*dx
-	      y = dble(iy)*dy
-	      z = dble(iz)*dz
-	      R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
-              if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
-		 call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
-                 mask (ix,iy,iz) = tmp
-              endif
-              if ( ix <= 12  ) then
-		mask  (ix,iy,iz) = 1.d0
-		us    (ix,iy,iz,1) = 1.d0
-	      endif  
-         enddo
-       enddo
-     enddo
-  endif
+  integer :: ix, iy, iz
+  real (kind=pr) :: x, y, z,  tmp, R, N_smooth
 
 
-!---------------------------------------------------------------
-! Cylinder
-!---------------------------------------------------------------
-  if (imask == 4) then
-     ix0 = int( x0 * real(nx)/xl )
-     iy0 = int( y0 * real(ny)/yl )
-     iradmax = int( length/2.0 * real(nx)/xl )
-     do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
-           irad = int( sqrt( real( (ix-ix0)**2 + (iy-iy0)**2 ) ) )
-           if ( irad <= iradmax ) then
-              mask (ix, iy, :) = 1.0
-           endif
-        enddo
-     enddo
-  endif
+  N_smooth = 2.d0
 
-
-!---------------------------------------------------------------
-! dipole-wall first version
-!---------------------------------------------------------------
- 
-  if (imask == 111) then
-
-      do iz = ra(3), rb(3)
-       do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
-         x = dble(ix)*dx
-         y = dble(iy)*dy
-         z = dble(iz)*dz
-         if ( x > xl-12.d0*dx  ) then
-            mask (ix, iy, iz) = 1.0
-         endif
-        enddo
-       enddo
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+	  x = dble(ix)*dx
+	  y = dble(iy)*dy
+	  z = dble(iz)*dz
+	  R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
+	  if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
+	      call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
+	      mask (ix, iy, iz) = tmp
+	  endif
       enddo
-  endif
+    enddo
+  enddo
 
 
-
-
-
-
-  mask = mask/eps
-  
-  
-  
-  time_mask = time_mask + MPI_wtime() - t1  
-end subroutine obst_mask
+end subroutine Draw_Sphere
 
 
 

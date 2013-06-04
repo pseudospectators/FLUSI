@@ -13,6 +13,9 @@ subroutine time_step
   complex (kind=pr), 	dimension (:,:,:,:,:), allocatable :: nlk  
   real (kind=pr), 	dimension (:,:,:), allocatable :: work
   type(Integrals) :: GlobIntegrals
+  
+  time = 0.0
+  
   GlobIntegrals%E_kin  = 0.d0
   GlobIntegrals%Dissip = 0.d0
   GlobIntegrals%Force  = 0.d0
@@ -33,11 +36,14 @@ subroutine time_step
   ! Create obstacle mask
   !---------------------------------------------------------------
   if (iPenalization>0) then 
+    ! you need the mask field only if you want to actually do penalization
     allocate ( mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
     if (iMoving==1) then
+    ! if your obstacle moves, you'll need this field for its velocity field
     allocate ( us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3) )
     endif
-    call obst_mask()
+    ! create mask (this one call can be redundant, but who cares.)
+    call Create_Mask( time )
   endif
   
   !---------------------------------------------------------------
@@ -49,25 +55,22 @@ subroutine time_step
   !---------------------------------------------------------
   !     LOOP OVER TIME STEPS
   !---------------------------------------------------------
-  t2=0.d0
-  
-
-  
-  
-  
   t1=MPI_wtime()
+  
+  
   do while ((time<=tmax).and.(it<=nt))
      dt0 = dt1
    
      !-----------------------------
-     !     do a fluid time step
+     ! if the mask is time-dependend, we create it here
      !-----------------------------
-     if (imask == 555) then
-      call create_mask ( time )  
-     elseif (imask == 666) then
-      call Draw_Jerry( time )
+     if ( iMoving == 1 ) then
+      call Create_Mask ( time )  
      endif
      
+     !-----------------------------
+     ! do a fluid time step
+     !-----------------------------     
      call FluidTimeStep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, it, GlobIntegrals )
      
 
