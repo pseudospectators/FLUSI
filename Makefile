@@ -9,7 +9,7 @@ PROG_FILE = FLUSI.f90
 
 # the other Fortran files
 FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
-	obst_mask.f90 params.f90 save_dd.f90 save_fields.f90 subtr.f90 \
+	create_mask.f90 params.f90 save_dd.f90 save_fields.f90 subtr.f90 \
 	time_step.f90 trextents.f90
 OBJS := $(FFILES:%.f90=%.o)
 
