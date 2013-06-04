@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # convert files from mpi format to a Fortran-readable format
-#-----------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 # usage: 
 # convert_mpiio_duke.script <NX> <NY> <NZ>
@@ -48,24 +48,25 @@ echo -e $Green "**      mpiio2binary      **" $Color_Off
 echo -e $Green "****************************" $Color_Off
 
 
-#------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # ask what to do with existing *.binary files
-#------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 echo "If a binary file already exists, do you want to proceed and overwrite it or do you want to skip it?"
 echo -e ${Cyan} "[ [s] for skipping, anyting else for overwriting]" ${Color_Off}
 echo -e ${Cyan} "[enter for skipping]" ${Color_Off}
 read skip
 if [ "${skip}" == "" ]; then
-  skip="s"
+    skip="s"
 fi
 
-#------------------------------------------------------------------------------------
-# ask whether to keep original *.mpiio files. note we can also convert *.binary->*.vtk
-#------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+# ask whether to keep original *.mpiio files. note we can also convert
+# *.binary->*.vtk
+# ------------------------------------------------------------------------------
 echo -e $Cyan "Do you want to delete *.mpiio files after converting? (y,[n])" $Color_Off
 read delete
 if [ "${delete}" == "" ]; then
-  delete="n"
+    delete="n"
 fi
 
 #-----------------------------------------------------------------
@@ -73,40 +74,40 @@ fi
 #-----------------------------------------------------------------
 for file in *.mpiio
 do
-
-  target_file=${file%%mpiio}binary
-  
-  if [ -f $target_file ]; then
+    
+    target_file=${file%%mpiio}binary
+    
+    if [ -f $target_file ]; then
       # file does already exist
-      if [ "${skip}" == "s" ]; then
-	echo -e $Green "File " ${file%%.mpiio}"binary already exists, skipping."
-      else
-	convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
-	# check if binary file now exists
-	if [ -f $target_file ]; then
-	if [ "${delete}" == "y" ]; then
-	  echo "succes, deleting *.mpiio file" ${file}
-	  rm ${file}
-	fi
+	if [ "${skip}" == "s" ]; then
+	    echo -e $Green "File " ${file%%.mpiio}"binary already exists, skipping."
 	else
-	echo -e $Red "Error! convert_mpiio2binary didn't produce a binary file. exit."
-	exit 1
-	fi      
-      fi 
-  else
+	    ./convert_mpiio2binary ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
+	# check if binary file now exists
+	    if [ -f $target_file ]; then
+		if [ "${delete}" == "y" ]; then
+		    echo "succes, deleting *.mpiio file" ${file}
+		    rm ${file}
+		fi
+	    else
+		echo -e $Red "Error! convert_mpiio2binary didn't produce a binary file. exit."
+		exit 1
+	    fi      
+	fi 
+    else
       # file does not exist
-      convert_mpiio2binary.out ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
+	./convert_mpiio2binary ${file%%.mpiio} ${NX} ${NY} ${NZ} 0
       # check if binary file now exists
-      if [ -f $target_file ]; then
-      if [ "${delete}" == "y" ]; then
-	echo "succes, deleting *.mpiio file" ${file}
-	rm ${file}
-      fi
-      else
-      echo -e $Red "Error! convert_mpiio2binary didn't produce a binary file. exit."
-      exit 1
-      fi      
-  fi  
+	if [ -f $target_file ]; then
+	    if [ "${delete}" == "y" ]; then
+		echo "succes, deleting *.mpiio file" ${file}
+		rm ${file}
+	    fi
+	else
+	    echo -e $Red "Error! convert_mpiio2binary didn't produce a binary file. exit."
+	    exit 1
+	fi      
+    fi  
 done
 
 #----------------------------------------------------------------------
@@ -115,8 +116,8 @@ done
 echo -e ${Cyan} "launch binary2vapor?" ${Color_Off}
 read answer
 if [ "${answer}" == "" ]; then
-  answer="y"
+    answer="y"
 fi
 if [ "${answer}" == "y" ]; then
-  binary2vapor.script ${NX} ${NY} ${NZ}
+    binary2vapor.script ${NX} ${NY} ${NZ}
 fi

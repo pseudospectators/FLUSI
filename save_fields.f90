@@ -2,46 +2,46 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
   use mpi_header 
   use share_vars
   implicit none
-  real (kind=pr),intent (in) :: time,dt1,dt0
-  integer,intent (inout) :: n1,nbackup,it
-  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent (in) :: uk
-  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
-       intent (in):: nlk
-  real (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
+  real(kind=pr),intent(in) :: time,dt1,dt0
+  integer,intent(inout) :: n1,nbackup,it
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
+       intent(in) :: uk
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
+       intent(in):: nlk
+  real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
        intent(in) :: workvis
   integer :: filedesc,mpicode
-  real (kind=pr) :: t1,tmp,tmp_local
+  real(kind=pr) :: t1,tmp,tmp_local
   integer,dimension(MPI_STATUS_SIZE) :: mpistatus
-  character (len=17) :: name
-  character (len=1) :: name1
+  character(len=17) :: name
+  character(len=1) :: name1
 
   t1=MPI_wtime()
 
-  if (mpirank ==0) then
+  if(mpirank ==0) then
      write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1," to disk....")') time,nbackup
   endif
 
-  write (name1,'(I1)') nbackup
+  write(name1,'(I1)') nbackup
 
   ! ---------------------------------------------------------------------------
   ! first part: delete existing file, create new one, and save scalars
   ! ----------------------------------------------------------------------------
   call MPI_FILE_DELETE('runtime_backup'//name1,MPI_INFO_NULL,mpicode)
-  call MPI_FILE_OPEN (MPI_COMM_WORLD,'runtime_backup'//name1,&
+  call MPI_FILE_OPEN(MPI_COMM_WORLD,'runtime_backup'//name1,&
        MPI_MODE_WRONLY+MPI_MODE_CREATE,MPI_INFO_NULL,filedesc,mpicode)
   ! dump time 
-  call MPI_FILE_WRITE_ALL (filedesc,time,1,mpireal,mpistatus,mpicode)
-  ! dump n1 (important when running AB2 scheme!!)
-  call MPI_FILE_WRITE_ALL (filedesc,n1,1,mpiinteger,mpistatus,mpicode)
-  call MPI_FILE_WRITE_ALL (filedesc,it,1,mpiinteger,mpistatus,mpicode)
-  call MPI_FILE_WRITE_ALL (filedesc,nx,1,mpiinteger,mpistatus,mpicode)
-  call MPI_FILE_WRITE_ALL (filedesc,ny,1,mpiinteger,mpistatus,mpicode)
-  call MPI_FILE_WRITE_ALL (filedesc,nz,1,mpiinteger,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ALL(filedesc,time,1,mpireal,mpistatus,mpicode)
+  ! dump n1(important when running AB2 scheme!!)
+  call MPI_FILE_WRITE_ALL(filedesc,n1,1,mpiinteger,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ALL(filedesc,it,1,mpiinteger,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ALL(filedesc,nx,1,mpiinteger,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ALL(filedesc,ny,1,mpiinteger,mpistatus,mpicode)
+  call MPI_FILE_WRITE_ALL(filedesc,nz,1,mpiinteger,mpistatus,mpicode)
   ! dump a few other parameters
-  call MPI_FILE_WRITE_ALL (filedesc,(/dt0,dt1/),2,mpireal,mpistatus,mpicode)  
-  call MPI_FILE_CLOSE (filedesc,mpicode) 
-  ! close file (I really don't yet know why)
+  call MPI_FILE_WRITE_ALL(filedesc,(/dt0,dt1/),2,mpireal,mpistatus,mpicode)  
+  call MPI_FILE_CLOSE(filedesc,mpicode) 
+  ! close file(I really don't yet know why)
 
 
   !-----------------------------------------------------------------------------

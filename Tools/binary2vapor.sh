@@ -1,11 +1,11 @@
 #!/bin/bash
 
-#------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # convert files from binary format to format readable by vapor.
 # see README for more information.
-#------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
-USAGE="convert_mpiio_duke.script <NX> <NY> <NZ>"
+USAGE="convert_mpiio_duke.sh <NX> <NY> <NZ> <NAME>"
 
 if [ "$1" == "" ]; then
     echo "need to specify NX"
@@ -19,6 +19,11 @@ if [ "$2" == "" ]; then
 fi
 if [ "$3" == "" ]; then
     echo "need to specify NZ"
+    echo $USAGE
+    exit 1
+fi
+if [ "$4" == "" ]; then
+    echo "need to specify name of program (flusi or mhd3d)"
     echo $USAGE
     exit 1
 fi
@@ -44,25 +49,25 @@ echo -e $Green "****************************" $Color_Off
 echo -e $Green "**      binary2vapor      **" $Color_Off
 echo -e $Green "****************************" $Color_Off
 
-#------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # check if data collection already exists and if so, delete it.
-#------------------------------------------------------------------------------------
-if [ -f FLUSI.vdf ]; then
+#-------------------------------------------------------------------------------
+if [ -f $4.vdf ]; then
   echo -e $Cyan "deleting old file..." $Color_Off
-  rm FLUSI.vdf
+  rm $4.vdf
 fi
 
-if [ -d FLUSI_data ]; then
+if [ -d $4_data ]; then
   echo -e $Cyan "found existing directory. deleting it..." $Color_Off
-  rm -r FLUSI_data
+  rm -r $4_data
 fi
 
 
 
 
-#------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # find prefixes
-#------------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # look through all the files whose names start with binary_ and put
 # them in the items array, as well as in the list, where file names
 # are separated with colons. N is the number of items in the list.
@@ -86,9 +91,9 @@ list=$(echo $list | sed 's/^.//g')
 
 
 
-#----------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # determine number of time-steps by counting files matching a prefix
-#----------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 p=${items[0]}
 FLIST=$( ls ${p}*.binary )
@@ -99,24 +104,24 @@ do
 done
 
 
-#----------------------------------------------------------------------------------
-# output findings and give possibility to abort if failed
-#----------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
+#put findings and give possibility to abort if failed
+#-------------------------------------------------------------------------------
 echo -e ${Cyan} "-----------------------------" ${Color_Off}
 echo -e ${Cyan} "time steps" ${nts} ${Color_Off}
 echo -e ${Cyan} "prefixes" ${list} ${Color_Off}
 echo -e ${Cyan} "-----------------------------" ${Color_Off}
-echo -e $Green "any key to continue!" $Color_Off
-read dummy
+#echo -e $Green "any key to continue!" $Color_Off
+#read dummy
 
 
-#----------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 # call vapor convert for the *.binary files 
-#----------------------------------------------------------------------------------
+#-------------------------------------------------------------------------------
 
 # run vdfcreate on ${list}, the list of colon-separated files
 # create the vapor-data file
-VDFNAM="FLUSI.vdf"
+VDFNAM="$4.vdf"
 vdfcreate -dimension ${nx}x${ny}x${nz} -numts ${nts} -level 10 -varnames ${list} ${VDFNAM}
 
 # loop throug the prefixes and process the files one-by-one
