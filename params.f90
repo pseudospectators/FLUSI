@@ -40,7 +40,8 @@ subroutine get_params (paramsfile)
   call GetValue_Int (PARAMS,i,"Resolution","nz",nz, 4)
   
   call GetValue_Int (PARAMS,i,"Time","nt",nt, 9999999)
-  call GetValue_Int (PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid, 1)  
+  iTimeMethodFluid = "AB2" ! this is the default value. ifort complains when just putting it in the call
+  call GetValue_String (PARAMS,i,"Time","iTimeMethodFluid", iTimeMethodFluid, iTimeMethodFluid)  
   call GetValue_Real (PARAMS,i,"Time","Tmax",Tmax, 1.d9)
   call GetValue_Real (PARAMS,i,"Time","CFL",cfl, 0.1d0)
   call GetValue_Real (PARAMS,i,"Time","dt_fixed",dt_fixed, 0.d0)
@@ -51,7 +52,8 @@ subroutine get_params (paramsfile)
   
   call GetValue_Int (PARAMS,i,"Penalization","iPenalization",iPenalization, 0)
   call GetValue_Int (PARAMS,i,"Penalization","iMoving",iMoving, 0)
-  call GetValue_String (PARAMS,i,"Penalization","iMask",iMask, "none")
+  imask="none"
+  call GetValue_String (PARAMS,i,"Penalization","iMask",iMask, iMask)
   call GetValue_Real (PARAMS,i,"Penalization","eps",eps, 1.d-2)
   
   call GetValue_Real (PARAMS,i,"Geometry","xl",xl, 1.d0)
@@ -140,6 +142,7 @@ subroutine get_params (paramsfile)
      else
         write (*,*) 'without obstacle'
      end if
+     write (*,*) 'Time stepping fluid:', iTimeMethodFluid
      write (*,*) ' '
      write (*,*) '--------------------------------------------'
      write (*,*) ' '

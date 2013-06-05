@@ -21,19 +21,19 @@ subroutine FluidTimestep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workv
   !-----------------------------------------------------------------------------------
   ! call fluid advancement subroutines
   !-----------------------------------------------------------------------------------
-  if (iTimeMethodFluid == 2) then  
+  if (iTimeMethodFluid == "RK2") then  
   
     call RungeKutta2    ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )    
     
-  elseif ((iTimeMethodFluid == 1).and.(it==0)) then
+  elseif ((iTimeMethodFluid == "AB2").and.(it==0)) then
   
     call Euler_startup  ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )    
     
-  elseif (iTimeMethodFluid == 1) then  
+  elseif (iTimeMethodFluid == "AB2") then  
   
     call AdamsBashforth ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )  
     
-  elseif (iTimeMethodFluid == 3) then  
+  elseif (iTimeMethodFluid == "Euler") then  
   
     call Euler          ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )      
   endif 
