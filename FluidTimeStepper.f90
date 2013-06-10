@@ -36,6 +36,12 @@ subroutine FluidTimestep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workv
   elseif (iTimeMethodFluid == "Euler") then  
   
     call Euler          ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )      
+    
+  else
+    if (mpirank == 0) then
+      write(*,*) "Error! iTimeMethodFluid unknown. Suicide!"
+      stop
+    endif
   endif 
     
   !-----------------------------------------------------------------------------------

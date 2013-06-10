@@ -46,9 +46,9 @@ then
 cp main ${DIR}
 cd ${DIR}
 echo "-----------"
-echo -e ${BCyan} "mpirun -n" ${nproc} "./main " ${params} ${Color_Off}
+echo -e ${BCyan} "mpirun -n" ${nproc} -host localhost ./main ${params} ${Color_Off}
 echo "-----------"
-mpirun -n ${nproc} ./main ${params}
+mpirun -np ${nproc} -host localhost ./main ${params}
 
 else
 echo -e ${BRed} "MAKE FAILED!" ${Color_Off}
