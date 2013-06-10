@@ -18,6 +18,6 @@ notes from the makefile:
 # --------------------------------------------------------------------
 # Mesocentre (thomas)
 #       export P3DFFT_ROOT="/home/ethomas/p3dfft.2.3.2_fixed"
-# 	export FFTW_ROOT="/home/ethomas/fftw"
+# 	export FFT_ROOT="/home/ethomas/fftw"
 # 	export FFLAGS=""
 # --------------------------------------------------------------------
