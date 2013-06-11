@@ -43,9 +43,17 @@ FFT_INC = $(FFT_ROOT)/include
 P3DFFT_LIB = $(P3DFFT_ROOT)/lib
 P3DFFT_INC = $(P3DFFT_ROOT)/include
 
-HDF5_FLAGS = -I/LOGINSTO/softs/hdf5/intel/1.8.8/include/ -L/LOGINSTO/softs/hdf5/intel/1.8.8/lib/ -lhdf5_fortran -lhdf5 -lz
-LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -lfftw3 -lm  -L$(FFT_LIB)  $(HDF5_FLAGS)
-FFLAGS += -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
+# for mesocentre:
+# export HDF_ROOT=/LOGINSTO/softs/hdf5/intel/1.8.8/
+
+HDF_LIB = $(HDF_ROOT)/lib
+HDF_INC = $(HDF_ROOT)/include
+
+LDFLAGS = -L$(P3DFFT_LIB)  -lp3dfft -lfftw3 -lm  -L$(FFT_LIB)  $(HDF5_FLAGS)
+LDFLAGS += -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz
+
+FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
+
 
 # by default, compile all the programs.
 all: main
