@@ -22,7 +22,7 @@ subroutine time_step
   GlobIntegrals%Force=0.d0
 
   dt0=1.0d0 ! useful to trigger cal_vis
-  dt1=2.d0
+  dt1=2.d0  ! just add a comment to test branching...
 
   !---------------------------------------------------------------
   !-- Allocate memory
