@@ -1,4 +1,24 @@
-To do: write more in the README file
+Notes for FLUSI (with HDF5)
+
+on sugiton, I've had to install hdf5_mpich2 and hdf5_mpich2_devel, then I was able to link the FLUSI with LDFLAGS=... -lhdf5_fortran -lhdf5 -lz
+there was then no need to specify where HDF5 lives (-I/../../ and -L/../..)
+environment:
+export HDF_ROOT=””
+export FFT_ROOT="/home/tommy/fftw"
+export P3DFFT_ROOT="/home/tommy/Documents/Research/src/p3dfft.2.3.2_fixed"
+export FFLAGS="-g"
+
+
+on the mesocentre
+I had to recompile FFTW and P3DFFT first, because they were using openmpi, which seems not to work with HDF.
+So now modules:
+module load intel/12.1 mpich2/intel/1.4.1
+export P3DFFT_ROOT="/home/ethomas/p3dfft.2.3.2_fixed"
+export FFT_ROOT="/home/ethomas/fftw"
+export FFLAGS=""
+export HDF_ROOT=”/LOGINSTO/softs/hdf5/intel/1.8.8/”
+the modifications on the mesocentre are reflected in the makefile.
+
 
 
 notes from the makefile:
@@ -10,14 +30,4 @@ notes from the makefile:
 # 	export FFT_ROOT=/Softs/fftw/
 # 	export P3DFFT_ROOT=/home/dkolom/P3DFFT/p3dfft.2.3.2
 # 	export FFLAGS="-O3 -xW -fpp -r8"
-# --------------------------------------------------------------------
-# Sugiton (thomas)
-# 	export FFT_ROOT="/home/tommy/fftw"
-# 	export P3DFFT_ROOT="/home/tommy/Documents/Research/src/p3dfft.2.3.2_fixed"
-# 	export FFLAGS="-g"
-# --------------------------------------------------------------------
-# Mesocentre (thomas)
-#       export P3DFFT_ROOT="/home/ethomas/p3dfft.2.3.2_fixed"
-# 	export FFT_ROOT="/home/ethomas/fftw"
-# 	export FFLAGS=""
-# --------------------------------------------------------------------
+
