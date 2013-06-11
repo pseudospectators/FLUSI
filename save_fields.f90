@@ -27,11 +27,10 @@ subroutine SaveFileHDF5(field_out)
      INTEGER(HSSIZE_T), DIMENSION(rank) :: offset 
      INTEGER(HSIZE_T),  DIMENSION(rank) :: stride
      INTEGER(HSIZE_T),  DIMENSION(rank) :: block
-     INTEGER, ALLOCATABLE :: data (:,:,:)  ! Data to write
+     real (kind=pr), ALLOCATABLE :: data (:,:,:)  ! Data to write
      INTEGER :: error, error_n  ! Error flags
 
      !----------------------------------------------------------------------
-write (*,*) "here we gooooo"
      
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -45,13 +44,10 @@ write (*,*) "here we gooooo"
      dimensions_local(2) = rb(2)-ra(2) +1
      dimensions_local(3) = rb(3)-ra(3) +1
      
-     write (*,*) "rank", mpirank
-     write (*,*) "file", dimensions_file
-     write (*,*) "local", dimensions_local
-     
+    
      allocate ( data (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))  )
-     data = mpirank + 1
-     
+     data = dble(mpirank)
+     data = field_out
           !
      ! Each process defines dataset in memory and writes it to the hyperslab
      ! in the file. 
@@ -76,23 +72,10 @@ write (*,*) "here we gooooo"
      offset(2) = ra(2)
      offset(3) = ra(3)
      
-!      if (mpirank .EQ. 0) then
-!          offset(1) = 0
-!          offset(2) = 0
-!      endif
-!      if (mpirank .EQ. 1) then
-!          offset(1) = dimensions_local(1) 
-!          offset(2) = 0 
-!      endif
-!      if (mpirank .EQ. 2) then
-!          offset(1) = 0 
-!          offset(2) = dimensions_local(2) 
-!      endif
-!      if (mpirank .EQ. 3) then
-!          offset(1) = dimensions_local(1) 
-!          offset(2) = dimensions_local(2) 
-!      endif
+     write (*,'("mpirank=",i1," dims = ("i2,",",i2,",",i2,"), offset=(",i2,",",i2,",",i2,")"  )') &
+     mpirank, dimensions_local(1),dimensions_local(2),dimensions_local(3),offset(1),offset(2),offset(3)
      
+
      
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -134,18 +117,19 @@ write (*,*) "here we gooooo"
      !
      CALL H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
      CALL H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
-     CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, & ! double precision in memory...
+     CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, & ! double precision in memory...
                       dset_id, error, plist_id)
+!     CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, & ! double precision in memory...
+!                       dset_id, error, plist_id)
      CALL H5Sclose_f(filespace, error)
 
-     
      
      
      ! 
      ! Select hyperslab in the file.
      !
      CALL H5Dget_space_f(dset_id, filespace, error)
-     CALL H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error, &
+     CALL H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
                                  stride, block)
      ! 
      ! Initialize data buffer with trivial data.
@@ -161,7 +145,7 @@ write (*,*) "here we gooooo"
      !
      ! Write the dataset collectively. 
      !
-     CALL H5Dwrite_f(dset_id, H5T_NATIVE_REAL, data, dimensions_file, error, & ! but single precision on disk..
+     CALL H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, data, dimensions_file, error, & ! but single precision on disk..
                      file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
 
      ! Deallocate data buffer.
