@@ -1,3 +1,202 @@
+subroutine SaveFileHDF5(field_out)
+  use mpi_header ! Module incapsulates mpif.
+  use share_vars
+  use HDF5
+  implicit none
+  integer,parameter :: pr_out=8   ! double precision array for output
+  integer,parameter :: mpireal_out=MPI_DOUBLE_PRECISION 
+
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(in) :: field_out
+
+
+  integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
+  
+     CHARACTER(LEN=11), PARAMETER :: filename = "sds_chnk.h5"  ! File name
+     CHARACTER(LEN=8), PARAMETER :: dsetname = "IntArray" ! Dataset name
+
+     INTEGER(HID_T) :: file_id       ! File identifier 
+     INTEGER(HID_T) :: dset_id       ! Dataset identifier 
+     INTEGER(HID_T) :: filespace     ! Dataspace identifier in file 
+     INTEGER(HID_T) :: memspace      ! Dataspace identifier in memory
+     INTEGER(HID_T) :: plist_id      ! Property list identifier 
+
+     INTEGER(HSIZE_T), DIMENSION(rank) :: dimensions_file  ! Dataset dimensions in the file.
+     INTEGER(HSIZE_T), DIMENSION(rank) :: dimensions_local  ! Chunks dimensions
+
+     INTEGER(HSIZE_T),  DIMENSION(rank) :: count  
+     INTEGER(HSSIZE_T), DIMENSION(rank) :: offset 
+     INTEGER(HSIZE_T),  DIMENSION(rank) :: stride
+     INTEGER(HSIZE_T),  DIMENSION(rank) :: block
+     INTEGER, ALLOCATABLE :: data (:,:,:)  ! Data to write
+     INTEGER :: error, error_n  ! Error flags
+
+     !----------------------------------------------------------------------
+write (*,*) "here we gooooo"
+     
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     ! this first part is to tell HDF5 how our (real!) data is organized
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     
+     
+     dimensions_file = (/nx,ny,nz/)
+     dimensions_local(1) = rb(1)-ra(1) +1
+     dimensions_local(2) = rb(2)-ra(2) +1
+     dimensions_local(3) = rb(3)-ra(3) +1
+     
+     write (*,*) "rank", mpirank
+     write (*,*) "file", dimensions_file
+     write (*,*) "local", dimensions_local
+     
+     allocate ( data (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))  )
+     data = mpirank + 1
+     
+          !
+     ! Each process defines dataset in memory and writes it to the hyperslab
+     ! in the file. 
+     !
+     ! stride is spacing between elements, this is one here
+     stride(1) = 1 
+     stride(2) = 1 
+     stride(3) = 1
+     
+     ! how many blocks to select from dataspace
+     count(1) =  1 
+     count(2) =  1 
+     count(3) =  1 
+     
+     ! the block contains how many data points to store
+     block(1) = dimensions_local(1)
+     block(2) = dimensions_local(2)
+     block(3) = dimensions_local(3)
+     
+     
+     offset(1) = ra(1)
+     offset(2) = ra(2)
+     offset(3) = ra(3)
+     
+!      if (mpirank .EQ. 0) then
+!          offset(1) = 0
+!          offset(2) = 0
+!      endif
+!      if (mpirank .EQ. 1) then
+!          offset(1) = dimensions_local(1) 
+!          offset(2) = 0 
+!      endif
+!      if (mpirank .EQ. 2) then
+!          offset(1) = 0 
+!          offset(2) = dimensions_local(2) 
+!      endif
+!      if (mpirank .EQ. 3) then
+!          offset(1) = dimensions_local(1) 
+!          offset(2) = dimensions_local(2) 
+!      endif
+     
+     
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     ! now we call the HDF subroutines from the "chunks" example
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
+     
+     !
+     ! Initialize HDF5 library and Fortran interfaces.
+     !
+     CALL h5open_f(error) 
+
+     ! -----------------------------------------------------------
+     ! Setup file access property list with parallel I/O access.
+     ! -----------------------------------------------------------
+     ! this sets up a property list ("plist_id") with standard values for FILE_ACCESS
+     CALL H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+     ! this modifies the property list and stores MPI IO
+     ! comminucator information in the file access property list
+     CALL H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+
+
+     !
+     ! Create the file collectively.
+     ! 
+     CALL H5Fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
+     ! this closes the property list (we'll re-use it)
+     CALL H5Pclose_f(plist_id, error)
+     !
+     ! Create the data space for the  dataset. 
+     !
+     ! dataspace in the file: contains all data from all procs
+     CALL H5Screate_simple_f(rank, dimensions_file, filespace, error)
+     ! dataspace in memory: contains only local data
+     CALL H5Screate_simple_f(rank, dimensions_local, memspace, error)
+
+     !
+     ! Create chunked dataset.
+     !
+     CALL H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+     CALL H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
+     CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, & ! double precision in memory...
+                      dset_id, error, plist_id)
+     CALL H5Sclose_f(filespace, error)
+
+     
+     
+     
+     ! 
+     ! Select hyperslab in the file.
+     !
+     CALL H5Dget_space_f(dset_id, filespace, error)
+     CALL H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error, &
+                                 stride, block)
+     ! 
+     ! Initialize data buffer with trivial data.
+     !
+     
+     
+     !
+     ! Create property list for collective dataset write
+     !
+     CALL H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
+     CALL H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+     
+     !
+     ! Write the dataset collectively. 
+     !
+     CALL H5Dwrite_f(dset_id, H5T_NATIVE_REAL, data, dimensions_file, error, & ! but single precision on disk..
+                     file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
+
+     ! Deallocate data buffer.
+     !
+     DEALLOCATE(data)
+
+     !
+     ! Close dataspaces.
+     !
+     CALL H5Sclose_f(filespace, error)
+     CALL H5Sclose_f(memspace, error)
+     !
+     ! Close the dataset.
+     !
+     CALL H5Dclose_f(dset_id, error)
+     !
+     ! Close the property list.
+     !
+     CALL H5Pclose_f(plist_id, error)
+     !
+     ! Close the file.
+     !
+     CALL H5Fclose_f(file_id, error)
+
+     !
+     ! Close FORTRAN interfaces and HDF5 library.
+     !
+     CALL h5close_f(error)
+
+    stop
+
+end subroutine SaveFileHDF5
+
+
+
 subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
   use mpi_header 
   use share_vars
