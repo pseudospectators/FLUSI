@@ -1,4 +1,4 @@
-subroutine SaveFileHDF5 ( time,  filename, field_out )
+subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   use HDF5
@@ -7,7 +7,7 @@ subroutine SaveFileHDF5 ( time,  filename, field_out )
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename   ! file name
-  character(len=8), parameter :: dsetname = "mask" ! dataset name
+  character(len=*), intent (in) :: dsetname 
 
   integer(hid_t) :: file_id       ! file identifier 
   integer(hid_t) :: dset_id       ! dataset identifier 
@@ -22,16 +22,15 @@ subroutine SaveFileHDF5 ( time,  filename, field_out )
   integer(hssize_t), dimension(rank) :: offset 
   integer(hsize_t),  dimension(rank) :: stride
   integer(hsize_t),  dimension(rank) :: block
-  real (kind=pr), allocatable :: data (:,:,:)  ! data to write
   integer :: error, error_n  ! error flags
 
   !----------------------------------------------------------------------
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! this first part is to tell HDF5 how our (real!) data is organized
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
   dimensions_file = (/nx,ny,nz/)
@@ -39,13 +38,6 @@ subroutine SaveFileHDF5 ( time,  filename, field_out )
   dimensions_local(2) = rb(2)-ra(2) +1
   dimensions_local(3) = rb(3)-ra(3) +1
 
-
-  allocate ( data (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))  )
-  data = field_out
-
-  ! Each process defines dataset in memory and writes it to the hyperslab
-  ! in the file. 
-  !
   ! stride is spacing between elements, this is one here
   stride(1) = 1 
   stride(2) = 1 
@@ -61,7 +53,6 @@ subroutine SaveFileHDF5 ( time,  filename, field_out )
   block(2) = dimensions_local(2)
   block(3) = dimensions_local(3)
 
-
   offset(1) = ra(1)
   offset(2) = ra(2)
   offset(3) = ra(3)
@@ -71,11 +62,11 @@ subroutine SaveFileHDF5 ( time,  filename, field_out )
 
 
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! now we call the HDF subroutines from the "chunks" example
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
 
   !
   ! Initialize HDF5 library and Fortran interfaces.
@@ -125,9 +116,6 @@ subroutine SaveFileHDF5 ( time,  filename, field_out )
   CALL H5Dget_space_f(dset_id, filespace, error)
   CALL H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
        stride, block)
-  ! 
-  ! Initialize data buffer with trivial data.
-  !
 
 
   !
@@ -136,45 +124,162 @@ subroutine SaveFileHDF5 ( time,  filename, field_out )
   CALL H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
   CALL H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
-  !
+
   ! Write the dataset collectively. 
-  !
-  CALL H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, data, dimensions_file, error, & ! but single precision on disk..
+  CALL H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, error, & ! but single precision on disk..
        file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
 
-  ! Deallocate data buffer.
-  !
-  DEALLOCATE(data)
 
-  !
   ! Close dataspaces.
-  !
   CALL H5Sclose_f(filespace, error)
   CALL H5Sclose_f(memspace, error)
-  !
   ! Close the dataset.
-  !
   CALL H5Dclose_f(dset_id, error)
-  !
   ! Close the property list.
-  !
   CALL H5Pclose_f(plist_id, error)
-  !
   ! Close the file.
-  !
   CALL H5Fclose_f(file_id, error)
-
-  !
   ! Close FORTRAN interfaces and HDF5 library.
-  !
   CALL h5close_f(error)
 
   if (mpirank==0) then
      call WriteXML ( time, trim(adjustl(filename)) , trim(adjustl(dsetname)) )
   endif
 
-end subroutine SaveFileHDF5
+end subroutine Save_scalar_HDF5
 
+
+
+
+subroutine Save_vector_HDF5 ( time,  filename, field_out, dsetname )
+  use mpi_header ! Module incapsulates mpif.
+  use share_vars
+  use HDF5
+  implicit none
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent(in) :: field_out
+  integer, parameter :: rank = 4 ! data dimensionality (2D or 3D)
+  real (kind=pr), intent (in) :: time
+  character(len=*), intent (in) :: filename   ! file name
+  character(len=*), intent (in) :: dsetname 
+
+  integer(hid_t) :: file_id       ! file identifier 
+  integer(hid_t) :: dset_id       ! dataset identifier 
+  integer(hid_t) :: filespace     ! dataspace identifier in file 
+  integer(hid_t) :: memspace      ! dataspace identifier in memory
+  integer(hid_t) :: plist_id      ! property list identifier 
+
+  integer(hsize_t), dimension(rank) :: dimensions_file  ! dataset dimensions in the file.
+  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
+
+  integer(hsize_t),  dimension(rank) :: count  
+  integer(hssize_t), dimension(rank) :: offset 
+  integer(hsize_t),  dimension(rank) :: stride
+  integer(hsize_t),  dimension(rank) :: block
+  integer :: error, error_n  ! error flags
+
+  !----------------------------------------------------------------------
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! this first part is to tell HDF5 how our (real!) data is organized
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+  dimensions_file = (/nx,ny,nz,3/)
+  dimensions_local(1) = rb(1)-ra(1) +1
+  dimensions_local(2) = rb(2)-ra(2) +1
+  dimensions_local(3) = rb(3)-ra(3) +1
+  dimensions_local(4) = 3
+
+  ! stride is spacing between elements, this is one here
+  stride = 1
+  ! how many blocks to select from dataspace
+  count =  1 
+  
+  ! the block contains how many data points to store
+  block = dimensions_local
+
+  offset(1) = ra(1)
+  offset(2) = ra(2)
+  offset(3) = ra(3)
+  offset(4) = 0
+
+
+  ! Initialize HDF5 library and Fortran interfaces.
+  CALL h5open_f(error) 
+
+  ! -----------------------------------------------------------
+  ! Setup file access property list with parallel I/O access.
+  ! -----------------------------------------------------------
+  ! this sets up a property list ("plist_id") with standard values for FILE_ACCESS
+  CALL H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! this modifies the property list and stores MPI IO
+  ! comminucator information in the file access property list
+  CALL H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+
+  !
+  ! Create the file collectively.
+  ! 
+  CALL H5Fcreate_f ( trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
+  ! this closes the property list (we'll re-use it)
+  CALL H5Pclose_f(plist_id, error)
+  !
+  ! Create the data space for the  dataset. 
+  !
+  ! dataspace in the file: contains all data from all procs
+  CALL H5Screate_simple_f(rank, dimensions_file, filespace, error)
+  ! dataspace in memory: contains only local data
+  CALL H5Screate_simple_f(rank, dimensions_local, memspace, error)
+
+  !
+  ! Create chunked dataset.
+  !
+  CALL H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  CALL H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
+  CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, & ! double precision in memory...
+       dset_id, error, plist_id)
+  CALL H5Sclose_f(filespace, error)
+
+
+
+  ! 
+  ! Select hyperslab in the file.
+  !
+  CALL H5Dget_space_f(dset_id, filespace, error)
+  CALL H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
+       stride, block)
+
+
+  !
+  ! Create property list for collective dataset write
+  !
+  CALL H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
+  CALL H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+
+
+  ! Write the dataset collectively. 
+  CALL H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, error, & ! but single precision on disk..
+       file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
+
+
+  ! Close dataspaces.
+  CALL H5Sclose_f(filespace, error)
+  CALL H5Sclose_f(memspace, error)
+  ! Close the dataset.
+  CALL H5Dclose_f(dset_id, error)
+  ! Close the property list.
+  CALL H5Pclose_f(plist_id, error)
+  ! Close the file.
+  CALL H5Fclose_f(file_id, error)
+  ! Close FORTRAN interfaces and HDF5 library.
+  CALL h5close_f(error)
+
+!   if (mpirank==0) then
+!      call WriteXML ( time, trim(adjustl(filename)) , trim(adjustl(dsetname)) )
+!   endif
+
+end subroutine Save_vector_HDF5
 
 
 
@@ -184,43 +289,34 @@ subroutine WriteXML ( time, filename, dsetname )
   implicit none
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename, dsetname
-  character(len=128) :: tmp
+  character(len=128) :: tmp_time, tmp_nxyz
 
-  write(tmp,'(3(i4,1x))') nx,ny,nz
-
+  write(tmp_time,'(es15.8)') time
+  write(tmp_nxyz,'(3(i4,1x))') nx,ny,nz
 
   open (14, file=trim(adjustl(filename))//'.xmf', status='replace')
   write(14,'(A)') '<?xml version="1.0" ?>'
   write(14,'(A)') '<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>'
-  write(14,'(A)') '<Xdmf>'
+  write(14,'(A)') '<Xdmf Version="2.0">'
   write(14,'(A)') '<Domain>'
-  write(14,'(A)') '<Grid Name="FLUSI_cartesian_grid" GridType="Uniform">'
-  write(14,'(A)') '      '
-  write(14,'(A)') '<Topology TopologyType="3DCoRectMesh" Dimensions="'//trim(adjustl(tmp))//'">'
-  write(14,'(A)') '</Topology>'
-  write(14,'(A)') '      '
-  write(14,'(A)') '<Geometry GeometryType="Origin_DxDyDz">'
-  write(14,'(A)') '<DataItem Dimensions="3" NumberType="Float" Format="XML">'
-  write(14,'(A)') ' 0 0 0'
-  write(14,'(A)') '</DataItem>'
-  write(14,'(A)') '<DataItem Dimensions="3" NumberType="Float" Format="XML">'
-  write(14,'(3(g9.3,1x))') dx, dy, dz!          0.25 0.25 0.25
-  write(14,'(A)') '</DataItem>'
-  write(14,'(A)') '</Geometry>'
-  write(14,'(A)') '      '
-  write(14,'(A)') '      '
-  write(14,'(A)') '<Attribute Name="'//trim(adjustl(dsetname))//'" AttributeType="Scalar" Center="Node">'
-  write(14,'(A)') '<DataItem Dimensions="'//trim(adjustl(tmp))//'" NumberType="Float" Format="HDF">'
-  write(14,'(A)') trim(adjustl(filename))//'.h5:/'//trim(adjustl(dsetname))
-  write(14,'(A)') '</DataItem>'
-  write(14,'(A)') '</Attribute>'
-  write(14,'(A)') '      '
-  write(14,'(A)') '      '
-
-  write(tmp,'(g9.3)') time
-  write(14,'(A)') '<Time Value="'//trim(adjustl(tmp))//'" />'
-  write(14,'(A)') '      '
-  write(14,'(A)') '      '
+  write(14,'(A)') '<Grid Name="FLUSI_cartesian_grid" GridType="Uniform">'  
+  write(14,'(A)') '    <Time Value="'//trim(adjustl(tmp_time))//'" />'  
+  write(14,'(A)') '    <Topology TopologyType="3DCoRectMesh" Dimensions="'//trim(adjustl(tmp_nxyz))//'"/>'
+  write(14,'(A)') ' '
+  write(14,'(A)') '    <Geometry GeometryType="Origin_DxDyDz">'
+  write(14,'(A)') '    <DataItem Dimensions="3" NumberType="Float" Format="XML">'
+  write(14,'(A)') '    0 0 0'
+  write(14,'(A)') '    </DataItem>'
+  write(14,'(A)') '    <DataItem Dimensions="3" NumberType="Float" Format="XML">'
+  write(14,'(4x,3(es15.8,1x))') dx, dy, dz!          0.25 0.25 0.25
+  write(14,'(A)') '    </DataItem>'
+  write(14,'(A)') '    </Geometry>'
+  write(14,'(A)') ' '
+  write(14,'(A)') '    <Attribute Name="'//trim(adjustl(dsetname))//'" AttributeType="Scalar" Center="Node">'
+  write(14,'(A)') '    <DataItem Dimensions="'//trim(adjustl(tmp_nxyz))//'" NumberType="Float" Format="HDF">'
+  write(14,'(A)') '    '//trim(adjustl(filename))//'.h5:/'//trim(adjustl(dsetname))
+  write(14,'(A)') '    </DataItem>'
+  write(14,'(A)') '    </Attribute>'
   write(14,'(A)') '</Grid>'
   write(14,'(A)') '</Domain>'
   write(14,'(A)') '</Xdmf>'
@@ -632,7 +728,14 @@ subroutine save_fields_new(time,dt1,uk,u,vort,nlk,work)
   !----------------------------------------------- 
 
   if((iSaveMask==1).and.(iPenalization==1)) then
-     call SaveFileHDF5(time,'mask_'//trim(adjustl(name)),mask )
+     call Save_scalar_HDF5(time,'mask_'//trim(adjustl(name)),mask, "mask" )
+     
+     call Save_scalar_HDF5(time,'usx_'//trim(adjustl(name)),us(:,:,:,1), "usx" )
+     call Save_scalar_HDF5(time,'usy_'//trim(adjustl(name)),us(:,:,:,2), "usy" )
+     call Save_scalar_HDF5(time,'usz_'//trim(adjustl(name)),us(:,:,:,3), "usz" )
+     
+     
+     call Save_vector_HDF5(time,'b_'//trim(adjustl(name)),us(:,:,:,:), "b" )
   endif
   !   if((iSaveSolidVelocity==1).and.(iPenalization==1).and.(iMoving==1)) then
   !      call SaveFile('usx_'//trim(adjustl(name))//'.mpiio',us(:,:,:,1) )
