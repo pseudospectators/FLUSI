@@ -23,7 +23,15 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   integer(hsize_t),  dimension(rank) :: stride
   integer(hsize_t),  dimension(rank) :: block
   integer :: error, error_n  ! error flags
-
+  
+  ! what follows is for the attribute "time"
+  integer, parameter :: arank = 1
+  INTEGER(HSIZE_T), DIMENSION(1) :: adims = (/1/) ! Attribute dimension
+  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
+  integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
+  INTEGER(HID_T) :: attr_id       ! Attribute identifier
+  character(len=4) :: aname ! attribute name
+  character(len=11) :: aname2="domain_size" ! attribute name
   !----------------------------------------------------------------------
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -82,26 +90,22 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   ! comminucator information in the file access property list
   CALL H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
-  !
+  ! ----------------------------------
   ! Create the file collectively.
-  ! 
-  if (mpirank==0) then 
-     write (*,*) trim(adjustl(filename))
-  endif
+  ! ---------------------------------
   CALL H5Fcreate_f ( trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
   ! this closes the property list (we'll re-use it)
   CALL H5Pclose_f(plist_id, error)
-  !
+
+  ! -----------------------------------
   ! Create the data space for the  dataset. 
-  !
+  ! -----------------------------------
   ! dataspace in the file: contains all data from all procs
   CALL H5Screate_simple_f(rank, dimensions_file, filespace, error)
   ! dataspace in memory: contains only local data
   CALL H5Screate_simple_f(rank, dimensions_local, memspace, error)
 
-  !
   ! Create chunked dataset.
-  !
   CALL H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
   CALL H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
   CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, & ! double precision in memory...
@@ -109,18 +113,12 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   CALL H5Sclose_f(filespace, error)
 
 
-
-  ! 
   ! Select hyperslab in the file.
-  !
   CALL H5Dget_space_f(dset_id, filespace, error)
   CALL H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
        stride, block)
 
-
-  !
   ! Create property list for collective dataset write
-  !
   CALL H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
   CALL H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
@@ -129,7 +127,71 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   CALL H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, error, & ! but single precision on disk..
        file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
 
+       
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!     
+  ! now the data is written, we take care of the ATTRIBUTE
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! ------
+  ! time
+  ! ------
+  ! Create scalar data space for the attribute.
+  CALL h5screate_simple_f(arank, adims, aspace_id, error)
+  ! Create datatype for the attribute.
+  CALL h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error)  
+  ! Create dataset attribute.
+  aname = "time"
+  CALL h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
+  ! Write the attribute data.
+  CALL h5awrite_f(attr_id, atype_id, time, adims, error)  ! here the value of the attribute is "time"
+  ! Close the attribute.
+  CALL h5aclose_f(attr_id, error)
+  ! Terminate access to the data space.
+  CALL h5sclose_f(aspace_id, error)  
+  ! ------
+  ! eps
+  ! ------
+  ! Create scalar data space for the attribute.
+  CALL h5screate_simple_f(arank, adims, aspace_id, error)
+  ! Create datatype for the attribute.
+  CALL h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error) 
+  ! Create dataset attribute.
+  aname = "epsi"
+  CALL h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
+  ! Write the attribute data.
+  CALL h5awrite_f(attr_id, atype_id, eps, adims, error)  ! here the value of the attribute is "time"
+  ! Close the attribute.
+  CALL h5aclose_f(attr_id, error)
+  ! Terminate access to the data space.
+  CALL h5sclose_f(aspace_id, error)  
+  ! ------
+  ! domain size
+  ! ------
+  adims = (/3/)
+  ! Create scalar data space for the attribute.
+  CALL h5screate_simple_f(arank, adims, aspace_id, error)
+  ! Create datatype for the attribute.
+  CALL h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error) 
+  ! Create dataset attribute.
+  aname2 = "domain_size"
+  CALL h5acreate_f(dset_id, aname2, atype_id, aspace_id, attr_id, error)
+  ! Write the attribute data.
+  CALL h5awrite_f(attr_id, atype_id, (/xl, yl, zl/), adims, error)  ! here the value of the attribute is "time"
+  ! Close the attribute.
+  CALL h5aclose_f(attr_id, error)
+  ! Terminate access to the data space.
+  CALL h5sclose_f(aspace_id, error)   
+  
+  
+  
+  
+  
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! time to close everything
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
+  
+  
 
+  
   ! Close dataspaces.
   CALL H5Sclose_f(filespace, error)
   CALL H5Sclose_f(memspace, error)
