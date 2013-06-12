@@ -14,46 +14,46 @@ subroutine FluidTimestep ( time, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workv
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (inout) :: workvis
   type(Integrals), intent (out) :: GlobIntegrals
   real (kind=pr) :: t1
-  
+
   t1 = MPI_wtime()  
   ! note that in the new version, dealiasing is done in cal_vis  
-  
+
   !-----------------------------------------------------------------------------------
   ! call fluid advancement subroutines
   !-----------------------------------------------------------------------------------
   if (iTimeMethodFluid == "RK2") then  
-  
-    call RungeKutta2    ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )    
-    
+
+     call RungeKutta2    ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )    
+
   elseif ((iTimeMethodFluid == "AB2").and.(it==0)) then
-  
-    call Euler_startup  ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )    
-    
+
+     call Euler_startup  ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )    
+
   elseif (iTimeMethodFluid == "AB2") then  
-  
-    call AdamsBashforth ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )  
-    
+
+     call AdamsBashforth ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )  
+
   elseif (iTimeMethodFluid == "Euler") then  
-  
-    call Euler          ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )      
-    
+
+     call Euler          ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, GlobIntegrals )      
+
   else
-    if (mpirank == 0) then
-      write(*,*) "Error! iTimeMethodFluid unknown. Suicide!"
-      stop
-    endif
-  endif 
-    
+     if (mpirank == 0) then
+        write(*,*) "Error! iTimeMethodFluid unknown. Suicide!"
+        stop
+     endif
+  endif
+
   !-----------------------------------------------------------------------------------
   ! Force zero mode for mean flow
   !-----------------------------------------------------------------------------------
   if ( (iMeanFlow == 1).and.((ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0)) ) then
-    uk(0, 0, 0, 1) = Ux + Ax * time
-    uk(0, 0, 0, 2) = Uy + Ay * time
-    uk(0, 0, 0, 3) = Uz + Az * time
+     uk(0, 0, 0, 1) = Ux + Ax * time
+     uk(0, 0, 0, 2) = Uy + Ay * time
+     uk(0, 0, 0, 3) = Uz + Az * time
   endif
-  
- 
+
+
   time_fluid = time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
 
@@ -82,13 +82,13 @@ subroutine RungeKutta2 ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, wor
   nlk (:,:,:,1,0) = nlk (:,:,:,1,0) * workvis  
   nlk (:,:,:,2,0) = nlk (:,:,:,2,0) * workvis  
   nlk (:,:,:,3,0) = nlk (:,:,:,3,0) * workvis  
-  
-  
+
+
   !-----------------------------------------------------------------------------------
   ! compute integrating factor, only done if necessary (i.e. time step has changed)
   !-----------------------------------------------------------------------------------
   if (dt1 .ne. dt0) then
-    call cal_vis (dt1, workvis)
+     call cal_vis (dt1, workvis)
   endif
 
   !-----------------------------------------------------------------------------------
@@ -97,12 +97,12 @@ subroutine RungeKutta2 ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, wor
   uk(:,:,:,1) = (uk(:,:,:,1)*workvis + dt1 * nlk (:,:,:,1,0))
   uk(:,:,:,2) = (uk(:,:,:,2)*workvis + dt1 * nlk (:,:,:,2,0))
   uk(:,:,:,3) = (uk(:,:,:,3)*workvis + dt1 * nlk (:,:,:,3,0))
-  
+
   !-----------------------------------------------------------------------------------
   !-- RHS using the euler velocity
   !----------------------------------------------------------------------------------- 
   call cal_nlk (time,it, dt1, nlk(:,:,:,:,1), uk, u, vort, work ) 
-  
+
   !-----------------------------------------------------------------------------------
   !-- do the actual time step. note the minus sign!!
   !-- in the original formulation, it reads u^n+1 = u^n + dt/2 * ( N(u^n)*vis + N(u_euler) )
@@ -115,7 +115,7 @@ subroutine RungeKutta2 ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, wor
   uk(:,:,:,2) = uk(:,:,:,2) + 0.5*dt1*( -nlk(:,:,:,2,0) + nlk(:,:,:,2,1) )
   uk(:,:,:,3) = uk(:,:,:,3) + 0.5*dt1*( -nlk(:,:,:,3,0) + nlk(:,:,:,3,1) )   
 
-end subroutine
+end subroutine RungeKutta2
 
 
 
@@ -136,7 +136,7 @@ subroutine Euler ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, 
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (inout) :: workvis
   real (kind=pr) :: t1,t2,t3,t4
   type(Integrals), intent (out) :: GlobIntegrals
-  
+
   !-----------------------------------------------------------------------------------
   !--Calculate fourier coeffs of nonlinear rhs and forcing
   !-----------------------------------------------------------------------------------
@@ -146,9 +146,9 @@ subroutine Euler ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, 
   ! compute integrating factor, if necesssary
   !-----------------------------------------------------------------------------------
   if (dt1 .ne. dt0) then
-    call cal_vis (dt1, workvis)
+     call cal_vis (dt1, workvis)
   endif
-  
+
   !-----------------------------------------------------------------------------------
   ! Multiply be integrating factor (always!)
   !-----------------------------------------------------------------------------------
@@ -156,7 +156,7 @@ subroutine Euler ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, 
   uk(:,:,:,2) = (uk(:,:,:,2) + dt1 * nlk (:,:,:,2,1)) * workvis
   uk(:,:,:,3) = (uk(:,:,:,3) + dt1 * nlk (:,:,:,3,1)) * workvis
 
-end subroutine
+end subroutine Euler
 
 
 
@@ -178,7 +178,7 @@ subroutine Euler_startup ( time,it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, wo
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (inout) :: workvis
   real (kind=pr) :: t1,t2,t3,t4
   type(Integrals), intent (out) :: GlobIntegrals
-  
+
   !-----------------------------------------------------------------------------------
   !--Calculate fourier coeffs of nonlinear rhs and forcing
   !-----------------------------------------------------------------------------------
@@ -188,9 +188,9 @@ subroutine Euler_startup ( time,it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, wo
   ! compute integrating factor, if necesssary
   !-----------------------------------------------------------------------------------
   if (dt1 .ne. dt0) then
-    call cal_vis (dt1, workvis)
+     call cal_vis (dt1, workvis)
   endif
-  
+
   !-----------------------------------------------------------------------------------
   ! Multiply be integrating factor (always!)
   !-----------------------------------------------------------------------------------
@@ -200,10 +200,10 @@ subroutine Euler_startup ( time,it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, wo
   nlk (:,:,:,1,n0) = nlk (:,:,:,1,n0) * workvis
   nlk (:,:,:,2,n0) = nlk (:,:,:,2,n0) * workvis
   nlk (:,:,:,3,n0) = nlk (:,:,:,3,n0) * workvis
-  
-  
+
+
   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
-end subroutine
+end subroutine Euler_startup
 
 
 
@@ -225,7 +225,7 @@ subroutine AdamsBashforth ( time, it, dt0, dt1, n0,n1, u, uk, nlk, vort, work, w
   !--Calculate fourier coeffs of nonlinear rhs and forcing
   !-----------------------------------------------------------------------------------
   call cal_nlk ( time,it, dt1, nlk(:,:,:,:,n0), uk, u, vort, work, GlobIntegrals )
-    
+
   !-----------------------------------------------------------------------------------
   !--Calculate velocity at new time step 
   !--(2nd order Adams-Bashforth with exact integration of diffusion term)
@@ -237,9 +237,9 @@ subroutine AdamsBashforth ( time, it, dt0, dt1, n0,n1, u, uk, nlk, vort, work, w
   ! compute integrating factor, if necesssary
   !-----------------------------------------------------------------------------------
   if (dt1 .ne. dt0) then
-    call cal_vis(dt1, workvis)
+     call cal_vis(dt1, workvis)
   endif
-    
+
   !-----------------------------------------------------------------------------------
   ! Multiply be integrating factor (always!)
   !-----------------------------------------------------------------------------------
@@ -250,4 +250,4 @@ subroutine AdamsBashforth ( time, it, dt0, dt1, n0,n1, u, uk, nlk, vort, work, w
   nlk (:,:,:,2,n0) = nlk (:,:,:,2,n0) * workvis
   nlk (:,:,:,3,n0) = nlk (:,:,:,3,n0) * workvis
 
-end subroutine
+end subroutine AdamsBashforth

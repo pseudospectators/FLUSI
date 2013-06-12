@@ -5,7 +5,7 @@ subroutine time_step
   integer :: inter,it,inicond1,ix,iy,iz,vis_tmp
   integer :: n0=0,n1=1
   integer :: nbackup=0  ! 0 - backup to file runtime_backup0,1 - to
-                          ! runtime_backup1,2 - no backup
+  ! runtime_backup1,2 - no backup
   integer :: mpicode,it_start
   real(kind=pr) :: time,v_rms,v_rms_loc,dt0,dt1,t1,t2,time_left
   real(kind=pr),dimension(:,:,:),allocatable :: workvis  
@@ -31,9 +31,9 @@ subroutine time_step
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
   ! velocity in fourier space
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1))
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)) 		
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))   
   ! velocity in phy space
-  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)) 		
+  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))   
   ! vorticity in phy space
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
@@ -63,7 +63,7 @@ subroutine time_step
   t1=MPI_wtime()
 !!!!!!!!!!!!!!!!!!!!
   dt1 = eps!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!
+!!!!!!!!!!!!!!
 
   do while((time<=tmax).and.(it<=nt))
      dt0=dt1
@@ -72,15 +72,15 @@ subroutine time_step
      ! if the mask is time-dependend,we create it here
      !-----------------------------
      if(iMoving == 1) then
-     if (mpirank==0) write(*,*) time, "jerr"
+        if (mpirank==0) write(*,*) time, "jerr"
         call Create_Mask(time)  
      endif
 
      !-----------------------------
      ! do a fluid time step
      !-----------------------------     
-!      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
-!           GlobIntegrals)
+     !      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
+     !           GlobIntegrals)
 
 
      !--Switch time levels
@@ -91,7 +91,7 @@ subroutine time_step
      it=it + 1
 
      !--------------------------------------------------------------------------
-     !--				Output(after tdrag)
+     !--    Output(after tdrag)
      !--------------------------------------------------------------------------
      if(modulo(it,itdrag) == 0) then
         if(mpirank == 0) then
@@ -101,12 +101,12 @@ subroutine time_step
                 GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
                 GlobIntegrals%Volume
            close(14)
-	endif
+        endif
      endif
 
 
      if(modulo(it,300) == 0) then     
-	if(mpirank == 0) then	
+        if(mpirank == 0) then 
            t2= MPI_wtime() - t1
            time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
            write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &
@@ -114,20 +114,20 @@ subroutine time_step
                 floor(mod(time_left,24.*3600.)/3600.),&
                 floor(mod(time_left,3600.)/60.),floor(mod(mod(time_left,3600.),&
                 60.)),dt1
-	endif
+        endif
      endif
 
      !--------------------------------------------------------------------------
-     !--				Output(after tsave)
+     !--    Output(after tsave)
      !--------------------------------------------------------------------------
      if(modulo(time - tstart,tsave) <= dt1) then
-	! note: we can safely delete nlk(:,:,:,1:3,n0). for RK2 it
-	! never matters,and for AB2 this is the one to be overwritten
-	! in the next step.  this frees 3 complex arrays
-	call save_fields_new(time,dt1,uk,u,vort,nlk(:,:,:,:,n0),work)
- ! Backup if that's specified in the PARAMS.ini file
-	if(iDoBackup == 1) call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
-	if(mpirank ==0 ) write(*,'("*** info: done saving, returning to time loop")')
+        ! note: we can safely delete nlk(:,:,:,1:3,n0). for RK2 it
+        ! never matters,and for AB2 this is the one to be overwritten
+        ! in the next step.  this frees 3 complex arrays
+        call save_fields_new(time,dt1,uk,u,vort,nlk(:,:,:,:,n0),work)
+        ! Backup if that's specified in the PARAMS.ini file
+        if(iDoBackup == 1) call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
+        if(mpirank ==0 ) write(*,'("*** info: done saving, returning to time loop")')
      endif
 
   end do

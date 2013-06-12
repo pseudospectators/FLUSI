@@ -1,7 +1,7 @@
 subroutine save_dd (time)
-!====================================================================
-!     Save domain decomposition into a file
-!====================================================================
+  !====================================================================
+  !     Save domain decomposition into a file
+  !====================================================================
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   implicit none
@@ -19,7 +19,7 @@ subroutine save_dd (time)
 
      open (15, file = 'domain_dec_'//name, status = 'replace')
      write (15, '(19(1x,i6))') 0, (ra(j), j=1,3), (rb(j), j=1,3), (rs(j), j=1,3), &
-                                 (ca(j), j=1,3), (cb(j), j=1,3), (cs(j), j=1,3)
+          (ca(j), j=1,3), (cb(j), j=1,3), (cs(j), j=1,3)
      do irank = 1,mpisize-1
         call MPI_RECV (blocksizes, 18, mpiinteger, irank, 101, MPI_COMM_WORLD, mpistatus, mpicode)
         write (15, '(19(1x,i6))') irank, (blocksizes(j), j=1,18)

@@ -50,7 +50,7 @@ subroutine subtr ( idir, n, ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpico
      print *, 'tr2dplus: illegal idir'
      stop
   endif
-  
+
   write (*,*) "is this used?"
 
   !--Allocate temporary array
