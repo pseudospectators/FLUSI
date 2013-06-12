@@ -26,10 +26,10 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
-  INTEGER(HSIZE_T), DIMENSION(1) :: adims = (/1/) ! Attribute dimension
+  integer(hsize_t), DIMENSION(1) :: adims = (/1/) ! Attribute dimension
   integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
   integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
-  INTEGER(HID_T) :: attr_id       ! Attribute identifier
+  integer(hid_t) :: attr_id       ! Attribute identifier
   character(len=4) :: aname ! attribute name
   character(len=11) :: aname2="domain_size" ! attribute name
   !----------------------------------------------------------------------
@@ -180,7 +180,23 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   CALL h5aclose_f(attr_id, error)
   ! Terminate access to the data space.
   CALL h5sclose_f(aspace_id, error)   
-  
+  ! ------
+  ! domain size
+  ! ------
+  adims = (/3/)
+  ! Create scalar data space for the attribute.
+  CALL h5screate_simple_f(arank, adims, aspace_id, error)
+  ! Create datatype for the attribute.
+  CALL h5tcopy_f(H5T_NATIVE_INTEGER, atype_id, error) 
+  ! Create dataset attribute.
+  aname = "nxyz"
+  CALL h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
+  ! Write the attribute data.
+  CALL h5awrite_f(attr_id, atype_id, (/nx, ny, nz/), adims, error)  ! here the value of the attribute is "time"
+  ! Close the attribute.
+  CALL h5aclose_f(attr_id, error)
+  ! Terminate access to the data space.
+  CALL h5sclose_f(aspace_id, error)  
   
   
   
