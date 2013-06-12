@@ -21,17 +21,26 @@ ifeq ($(FC),f77) # sometimes FC gets defined as f77, which is bad.
 FC = mpif90
 endif
 
-# pre-processor flag for gnu compiler
-PPFLAG= -cpp
-
-# define variables for the intel compiler
-ifort:=$(shell $(FC) --version | head -c 5)
-ifeq ($(ifort),ifort)
-PPFLAG= -fpp
-DIFORT= -DIFORT # defined IFORT for preprocessing
-FFLAGS += -vec_report0 # suppress messages about vectorization
+# GNU compiler
+ifeq ($(shell $(FC) -v 2>&1 | tail -n 1 | head -c 3),gcc)
+FFLAGS += -Wall # warn for unused and uninitialzied variables 
+FFLAGS += -Wsurprising # warn if things might not behave as expected
+PPFLAG= -cpp #preprocessor flag
 endif
 
+# Intel compiler
+ifort:=$(shell $(FC) --version | head -c 5)
+ifeq ($(ifort),ifort)
+# We are using the Intel compiler
+PPFLAG= -fpp #preprocessor flag
+DIFORT= -DIFORT # define the IFORT variable 
+FFLAGS += -vec_report0
+endif
+
+#IBM compiler
+ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
+PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
+endif
 
 # this seems to be the only one in use.
 MPI_HEADER = mpi_duke_header.f90

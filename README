@@ -31,3 +31,14 @@ notes from the makefile:
 # 	export P3DFFT_ROOT=/home/dkolom/P3DFFT/p3dfft.2.3.2
 # 	export FFLAGS="-O3 -xW -fpp -r8"
 
+
+For the HDF5 MPI libraries, one must also specify HDF_ROOT
+
+It may be necessary to include the HDF lib directory in the
+LD_LIBRARY_PATH in order to avoid run-time errors for missing objects.
+For example, on ada.idris.fr using bash, include the following in your
+.bashrc :
+
+module load hdf5/mpi/1.8.9
+export HDF_ROOT=/smplocal/pub/HDF5/1.8.9/par/
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/smplocal/pub/HDF5/1.8.9/par/lib
