@@ -22,11 +22,11 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   integer(hssize_t), dimension(rank) :: offset 
   integer(hsize_t),  dimension(rank) :: stride
   integer(hsize_t),  dimension(rank) :: block
-  integer :: error, error_n  ! error flags
+  integer :: error  ! error flags
   
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
-  integer(hsize_t), DIMENSION(1) :: adims = (/1/) ! Attribute dimension
+  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
   integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
   integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
   integer(hid_t) :: attr_id       ! Attribute identifier
@@ -39,7 +39,7 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   ! this first part is to tell HDF5 how our (real!) data is organized
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+!   if (mpirank==0) write(*,*) "HDF:", filename," ", dsetname
 
   dimensions_file = (/nx,ny,nz/)
   dimensions_local(1) = rb(1)-ra(1) +1
@@ -47,26 +47,19 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   dimensions_local(3) = rb(3)-ra(3) +1
 
   ! stride is spacing between elements, this is one here
-  stride(1) = 1 
-  stride(2) = 1 
-  stride(3) = 1
-
+  stride = 1
   ! how many blocks to select from dataspace
-  count(1) =  1 
-  count(2) =  1 
-  count(3) =  1 
+  count =  1 
 
   ! the block contains how many data points to store
-  block(1) = dimensions_local(1)
-  block(2) = dimensions_local(2)
-  block(3) = dimensions_local(3)
+  block = dimensions_local
 
   offset(1) = ra(1)
   offset(2) = ra(2)
   offset(3) = ra(3)
 
-  write (*,'("mpirank=",i1," dims = ("i2,",",i2,",",i2,"), offset=(",i2,",",i2,",",i2,")"  )') &
-       mpirank, dimensions_local(1),dimensions_local(2),dimensions_local(3),offset(1),offset(2),offset(3)
+!   write (*,'("mpirank=",i1," dims = ("i2,",",i2,",",i2,"), offset=(",i2,",",i2,",",i2,")"  )') &
+!        mpirank, dimensions_local(1),dimensions_local(2),dimensions_local(3),offset(1),offset(2),offset(3)
 
 
 
@@ -76,55 +69,53 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
 
-  !
   ! Initialize HDF5 library and Fortran interfaces.
-  !
-  CALL h5open_f(error) 
+  call h5open_f(error) 
 
   ! -----------------------------------------------------------
   ! Setup file access property list with parallel I/O access.
   ! -----------------------------------------------------------
   ! this sets up a property list ("plist_id") with standard values for FILE_ACCESS
-  CALL H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
   ! this modifies the property list and stores MPI IO
   ! comminucator information in the file access property list
-  CALL H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
   ! ----------------------------------
   ! Create the file collectively.
   ! ---------------------------------
-  CALL H5Fcreate_f ( trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
+  call H5Fcreate_f ( trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
   ! this closes the property list (we'll re-use it)
-  CALL H5Pclose_f(plist_id, error)
+  call H5Pclose_f(plist_id, error)
 
   ! -----------------------------------
   ! Create the data space for the  dataset. 
   ! -----------------------------------
   ! dataspace in the file: contains all data from all procs
-  CALL H5Screate_simple_f(rank, dimensions_file, filespace, error)
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
   ! dataspace in memory: contains only local data
-  CALL H5Screate_simple_f(rank, dimensions_local, memspace, error)
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
 
   ! Create chunked dataset.
-  CALL H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  CALL H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
-  CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, & ! double precision in memory...
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
+  call H5Dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, & ! double precision in memory...
        dset_id, error, plist_id)
-  CALL H5Sclose_f(filespace, error)
+  call H5Sclose_f(filespace, error)
 
 
   ! Select hyperslab in the file.
-  CALL H5Dget_space_f(dset_id, filespace, error)
-  CALL H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
        stride, block)
 
   ! Create property list for collective dataset write
-  CALL H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
-  CALL H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
 
   ! Write the dataset collectively. 
-  CALL H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, error, & ! but single precision on disk..
+  call H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, error, & ! but single precision on disk..
        file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
 
        
@@ -134,69 +125,71 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   ! ------
   ! time
   ! ------
+  adims = (/1/) 
   ! Create scalar data space for the attribute.
-  CALL h5screate_simple_f(arank, adims, aspace_id, error)
+  call h5screate_simple_f(arank, adims, aspace_id, error)
   ! Create datatype for the attribute.
-  CALL h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error)  
+  call h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error)  
   ! Create dataset attribute.
   aname = "time"
-  CALL h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
+  call h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
   ! Write the attribute data.
-  CALL h5awrite_f(attr_id, atype_id, time, adims, error)  ! here the value of the attribute is "time"
+  call h5awrite_f(attr_id, atype_id, time, adims, error)  ! here the value of the attribute is "time"
   ! Close the attribute.
-  CALL h5aclose_f(attr_id, error)
+  call h5aclose_f(attr_id, error)
   ! Terminate access to the data space.
-  CALL h5sclose_f(aspace_id, error)  
+  call h5sclose_f(aspace_id, error)  
   ! ------
   ! eps
   ! ------
+  adims = (/1/) 
   ! Create scalar data space for the attribute.
-  CALL h5screate_simple_f(arank, adims, aspace_id, error)
+  call h5screate_simple_f(arank, adims, aspace_id, error)
   ! Create datatype for the attribute.
-  CALL h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error) 
+  call h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error) 
   ! Create dataset attribute.
   aname = "epsi"
-  CALL h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
+  call h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
   ! Write the attribute data.
-  CALL h5awrite_f(attr_id, atype_id, eps, adims, error)  ! here the value of the attribute is "time"
+  call h5awrite_f(attr_id, atype_id, eps, adims, error)  ! here the value of the attribute is "time"
   ! Close the attribute.
-  CALL h5aclose_f(attr_id, error)
+  call h5aclose_f(attr_id, error)
   ! Terminate access to the data space.
-  CALL h5sclose_f(aspace_id, error)  
+  call h5sclose_f(aspace_id, error)  
   ! ------
   ! domain size
   ! ------
   adims = (/3/)
   ! Create scalar data space for the attribute.
-  CALL h5screate_simple_f(arank, adims, aspace_id, error)
+  call h5screate_simple_f(arank, adims, aspace_id, error)
   ! Create datatype for the attribute.
-  CALL h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error) 
+  call h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error) 
   ! Create dataset attribute.
   aname2 = "domain_size"
-  CALL h5acreate_f(dset_id, aname2, atype_id, aspace_id, attr_id, error)
+  call h5acreate_f(dset_id, aname2, atype_id, aspace_id, attr_id, error)
   ! Write the attribute data.
-  CALL h5awrite_f(attr_id, atype_id, (/xl, yl, zl/), adims, error)  ! here the value of the attribute is "time"
+  call h5awrite_f(attr_id, atype_id, (/xl, yl, zl/), adims, error)  ! here the value of the attribute is "time"
   ! Close the attribute.
-  CALL h5aclose_f(attr_id, error)
+  call h5aclose_f(attr_id, error)
   ! Terminate access to the data space.
-  CALL h5sclose_f(aspace_id, error)   
+  call h5sclose_f(aspace_id, error)   
   ! ------
   ! domain size
   ! ------
   adims = (/3/)
   ! Create scalar data space for the attribute.
-  CALL h5screate_simple_f(arank, adims, aspace_id, error)
+  call h5screate_simple_f(arank, adims, aspace_id, error)
   ! Create datatype for the attribute.
-  CALL h5tcopy_f(H5T_NATIVE_INTEGER, atype_id, error) 
+  call h5tcopy_f(H5T_NATIVE_INTEGER, atype_id, error) 
   ! Create dataset attribute.
   aname = "nxyz"
-  CALL h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
+  call h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
   ! Write the attribute data.
-  CALL h5awrite_f(attr_id, atype_id, (/nx, ny, nz/), adims, error)  ! here the value of the attribute is "time"
+  call h5awrite_f(attr_id, atype_id, (/nx, ny, nz/), adims, error)  ! here the value of the attribute is "time"
   ! Close the attribute.
-  CALL h5aclose_f(attr_id, error)
+  call h5aclose_f(attr_id, error)
   ! Terminate access to the data space.
-  CALL h5sclose_f(aspace_id, error)  
+  call h5sclose_f(aspace_id, error)  
   
   
   
@@ -209,19 +202,19 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
 
   
   ! Close dataspaces.
-  CALL H5Sclose_f(filespace, error)
-  CALL H5Sclose_f(memspace, error)
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
   ! Close the dataset.
-  CALL H5Dclose_f(dset_id, error)
+  call H5Dclose_f(dset_id, error)
   ! Close the property list.
-  CALL H5Pclose_f(plist_id, error)
+  call H5Pclose_f(plist_id, error)
   ! Close the file.
-  CALL H5Fclose_f(file_id, error)
+  call H5Fclose_f(file_id, error)
   ! Close FORTRAN interfaces and HDF5 library.
-  CALL h5close_f(error)
+  call h5close_f(error)
 
   if (mpirank==0) then
-     call WriteXML ( time, trim(adjustl(filename)) , trim(adjustl(dsetname)) )
+     call WriteXMF ( time, trim(adjustl(filename)) , trim(adjustl(dsetname)) )
   endif
 
 end subroutine Save_scalar_HDF5
@@ -231,152 +224,13 @@ end subroutine Save_scalar_HDF5
 
 
 
-
-
-
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-! DEPRECATED: WON'T WORK OR BE USEFUL
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-subroutine Save_vector_HDF5 ( time,  filename, field_out, dsetname )
-  use mpi_header ! Module incapsulates mpif.
-  use share_vars
-  use HDF5
-  implicit none
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent(in) :: field_out
-  integer, parameter :: rank = 4 ! data dimensionality (2D or 3D)
-  real (kind=pr), intent (in) :: time
-  character(len=*), intent (in) :: filename   ! file name
-  character(len=*), intent (in) :: dsetname 
-
-  integer(hid_t) :: file_id       ! file identifier 
-  integer(hid_t) :: dset_id       ! dataset identifier 
-  integer(hid_t) :: filespace     ! dataspace identifier in file 
-  integer(hid_t) :: memspace      ! dataspace identifier in memory
-  integer(hid_t) :: plist_id      ! property list identifier 
-
-  integer(hsize_t), dimension(rank) :: dimensions_file  ! dataset dimensions in the file.
-  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
-
-  integer(hsize_t),  dimension(rank) :: count  
-  integer(hssize_t), dimension(rank) :: offset 
-  integer(hsize_t),  dimension(rank) :: stride
-  integer(hsize_t),  dimension(rank) :: block
-  integer :: error, error_n  ! error flags
-
-  !----------------------------------------------------------------------
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! this first part is to tell HDF5 how our (real!) data is organized
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-  dimensions_file = (/nx,ny,nz,3/)
-  dimensions_local(1) = rb(1)-ra(1) +1
-  dimensions_local(2) = rb(2)-ra(2) +1
-  dimensions_local(3) = rb(3)-ra(3) +1
-  dimensions_local(4) = 3
-
-  ! stride is spacing between elements, this is one here
-  stride = 1
-  ! how many blocks to select from dataspace
-  count =  1 
-  
-  ! the block contains how many data points to store
-  block = dimensions_local
-
-  offset(1) = ra(1)
-  offset(2) = ra(2)
-  offset(3) = ra(3)
-  offset(4) = 0
-
-
-  ! Initialize HDF5 library and Fortran interfaces.
-  CALL h5open_f(error) 
-
-  ! -----------------------------------------------------------
-  ! Setup file access property list with parallel I/O access.
-  ! -----------------------------------------------------------
-  ! this sets up a property list ("plist_id") with standard values for FILE_ACCESS
-  CALL H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
-  ! this modifies the property list and stores MPI IO
-  ! comminucator information in the file access property list
-  CALL H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
-
-  !
-  ! Create the file collectively.
-  ! 
-  CALL H5Fcreate_f ( trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
-  ! this closes the property list (we'll re-use it)
-  CALL H5Pclose_f(plist_id, error)
-  !
-  ! Create the data space for the  dataset. 
-  !
-  ! dataspace in the file: contains all data from all procs
-  CALL H5Screate_simple_f(rank, dimensions_file, filespace, error)
-  ! dataspace in memory: contains only local data
-  CALL H5Screate_simple_f(rank, dimensions_local, memspace, error)
-
-  !
-  ! Create chunked dataset.
-  !
-  CALL H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  CALL H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
-  CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, & ! double precision in memory...
-       dset_id, error, plist_id)
-  CALL H5Sclose_f(filespace, error)
-
-
-
-  ! 
-  ! Select hyperslab in the file.
-  !
-  CALL H5Dget_space_f(dset_id, filespace, error)
-  CALL H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
-       stride, block)
-
-
-  !
-  ! Create property list for collective dataset write
-  !
-  CALL H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
-  CALL H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
-
-
-  ! Write the dataset collectively. 
-  CALL H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, error, & ! but single precision on disk..
-       file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
-
-
-  ! Close dataspaces.
-  CALL H5Sclose_f(filespace, error)
-  CALL H5Sclose_f(memspace, error)
-  ! Close the dataset.
-  CALL H5Dclose_f(dset_id, error)
-  ! Close the property list.
-  CALL H5Pclose_f(plist_id, error)
-  ! Close the file.
-  CALL H5Fclose_f(file_id, error)
-  ! Close FORTRAN interfaces and HDF5 library.
-  CALL h5close_f(error)
-
-!   if (mpirank==0) then
-!      call WriteXML ( time, trim(adjustl(filename)) , trim(adjustl(dsetname)) )
-!   endif
-
-end subroutine Save_vector_HDF5
-
-
-
-
-subroutine WriteXML ( time, filename, dsetname )
+subroutine WriteXMF ( time, filename, dsetname )
+  !--------------------------------------------
+  ! this routine generates an XMF file for paraview
+  ! note: this is a single scalar field, no time-stepping or vectors
+  ! are available
+  ! but this allows to directly copy-paste a single field and load it into paraview without any effort.
+  !--------------------------------------------
   use share_vars
   implicit none
   real (kind=pr), intent (in) :: time
@@ -415,7 +269,7 @@ subroutine WriteXML ( time, filename, dsetname )
 
   close (14)
 
-end subroutine WriteXML
+end subroutine WriteXMF
 
 
 
@@ -434,9 +288,8 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
   real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
        intent(in) :: workvis
   integer :: filedesc,mpicode
-  real(kind=pr) :: t1,tmp,tmp_local
+  real(kind=pr) :: t1
   integer,dimension(MPI_STATUS_SIZE) :: mpistatus
-  character(len=17) :: name
   character(len=1) :: name1
 
   t1=MPI_wtime()
@@ -521,7 +374,6 @@ subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis)
   real(kind=pr) :: time1
   integer,dimension(MPI_STATUS_SIZE) :: mpistatus
   integer(kind=MPI_OFFSET_KIND) :: mpioffset
-  character(len=17) :: name
   character(len=1) :: name1 
   time=0.d0
 
@@ -637,42 +489,10 @@ subroutine save_fields_new(time,dt1,uk,u,vort,nlk,work)
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
        intent(inout) :: vort,u  
   integer :: ix,iy,iz
-  integer :: filedesc,mpicode
-  integer,dimension(MPI_STATUS_SIZE) :: mpistatus
   character(len=17) :: name
-  character(len=1) :: name1
-  real(kind=pr) :: u_max_w,divu,divumax,t1=0.d0,t2=0.d0,t3=0.d0,t4=0.d0,&
-       t5=0.d0,t6=0.d0
+  real(kind=pr) :: t1
   real(kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
-  real(kind=pr),dimension(3) :: u_max,u_loc
-  complex(kind=pr) :: qk
-
-  ! -------------------------------------------------------
-  ! - interface for SaveFile subroutine
-  ! -------------------------------------------------------
-  interface                                                                
-     subroutine SaveFile(filename,field_out)
-       use mpi_header ! Module incapsulates mpif.
-       use share_vars
-       implicit none
-       integer,parameter :: pr_out=8   ! double precision array for output
-       integer,parameter :: mpireal_out=MPI_DOUBLE_PRECISION 
-       ! double precision array for output
-       character(len=*),intent(in) :: filename
-       real(kind=pr_out),dimension(:,:,:),intent(in) :: field_out
-     end subroutine SaveFile
-
-     subroutine SaveVTK(fname,u,vort,p) 
-       use share_vars
-       implicit none
-       real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
-            intent(in) :: p
-       real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
-            intent(in) :: vort,u 
-       character(len=*),intent(in) :: fname
-     end subroutine SaveVTK
-
-  end interface
+  
 
   t1=MPI_wtime()
 
@@ -686,210 +506,150 @@ subroutine save_fields_new(time,dt1,uk,u,vort,nlk,work)
           iSaveSolidVelocity
   endif
 
-  !   if((iSaveVelocity.ne.0).or.(iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
-  !      !-----------------------------------------------
-  !      !--Calculate ux and uy in physical space
-  !      !-----------------------------------------------
-  !      call cofitxyz(uk(:,:,:,1),u(:,:,:,1))
-  !      call cofitxyz(uk(:,:,:,2),u(:,:,:,2))
-  !      call cofitxyz(uk(:,:,:,3),u(:,:,:,3))
-  !      !-----------------------------------------------
-  !      !-- SaveVelocity
-  !      !----------------------------------------------- 
-  !      if(iSaveVelocity == 1) then
-  !         call SaveFile('ux_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,1) )
-  !         call SaveFile('uy_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,2) )
-  !         call SaveFile('uz_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,3) )
-  !      endif
-  ! 
-  !      if((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
-  !         !-----------------------------------------------
-  !         !-- compute vorticity
-  !         !-----------------------------------------------
-  !         do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1     
-  !            ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-  !            do ix=ca(2),cb(2)  ! kx : 0..nx/2
-  !               kx=scalex*dble(ix)                
-  !               do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1           
-  !                  kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-  !                  nlk(iz,ix,iy,1)=dcmplx(0d0,1d0)*(ky*uk(iz,ix,iy,3) &
-  !                       - kz*uk(iz,ix,iy,2) )
-  !                  nlk(iz,ix,iy,2)=dcmplx(0d0,1d0)*(kz*uk(iz,ix,iy,1) &
-  !                       - kx*uk(iz,ix,iy,3) )
-  !                  nlk(iz,ix,iy,3)=dcmplx(0d0,1d0)*(kx*uk(iz,ix,iy,2) &
-  !                       - ky*uk(iz,ix,iy,1) )
-  !               enddo
-  !            enddo
-  !         enddo
-  !         ! Transform it to physical space
-  !         call cofitxyz(nlk(:,:,:,1),vort(:,:,:,1)) 
-  !         call cofitxyz(nlk(:,:,:,2),vort(:,:,:,2))
-  !         call cofitxyz(nlk(:,:,:,3),vort(:,:,:,3))
-  !         !-----------------------------------------------
-  !         !-- Save Vorticity
-  !         !----------------------------------------------- 
-  !         if(iSaveVorticity == 1) then
-  !            call SaveFile('vorx_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,1) )
-  !            call SaveFile('vory_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,2) )
-  !            call SaveFile('vorz_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,3) )
-  !            work=sqrt(vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
-  !            call SaveFile('vorabs_'//trim(adjustl(name))//'.mpiio',work )
-  !         endif
-  ! 
-  !         if(iSavePress == 1) then  
-  !            !-------------------------------------------------------------
-  !            !-- Calculate omega x u(cross-product)
-  !            !-- and transform the result into Fourier space 
-  !            !-------------------------------------------------------------
-  !            if((iPenalization == 1).and.(iMoving==0)) then
-  !               work=u(:,:,:,2)*vort(:,:,:,3)&
-  !                    -u(:,:,:,3)*vort(:,:,:,2)&
-  !                    -u(:,:,:,1)*mask
-  !               call coftxyz(work,nlk(:,:,:,1))
-  !               work=u(:,:,:,3)*vort(:,:,:,1)&
-  !                    -u(:,:,:,1)*vort(:,:,:,3)&
-  !                    -u(:,:,:,2)*mask
-  !               call coftxyz(work,nlk(:,:,:,2))
-  !               work=u(:,:,:,1)*vort(:,:,:,2)&
-  !                    -u(:,:,:,2)*vort(:,:,:,1)&
-  !                    -u(:,:,:,3)*mask
-  !               call coftxyz(work,nlk(:,:,:,3))
-  !            elseif((iPenalization==1).and.(iMoving==1)) then
-  !               work=u(:,:,:,2)*vort(:,:,:,3)&
-  !                    -u(:,:,:,3)*vort(:,:,:,2)&
-  !                    -(u(:,:,:,1)-us(:,:,:,1))*mask
-  !               call coftxyz(work,nlk(:,:,:,1))
-  !               work=u(:,:,:,3)*vort(:,:,:,1)&
-  !                    -u(:,:,:,1)*vort(:,:,:,3)&
-  !                    -(u(:,:,:,2)-us(:,:,:,2))*mask
-  !               call coftxyz(work,nlk(:,:,:,2))
-  !               work=u(:,:,:,1)*vort(:,:,:,2)&
-  !                    -u(:,:,:,2)*vort(:,:,:,1)&
-  !                    -(u(:,:,:,3)-us(:,:,:,3))*mask
-  !               call coftxyz(work,nlk(:,:,:,3))
-  !            else
-  !               work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-  !               call coftxyz(work,nlk(:,:,:,1))
-  !               work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-  !               call coftxyz(work,nlk(:,:,:,2))
-  !               work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-  !               call coftxyz(work,nlk(:,:,:,3))  
-  !            endif
-  !            !-------------------------------------------------------------
-  !            !-- add pressure, new version
-  !            !-- p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2
-  !            !-- note: we use rotational formulation: p is NOT the
-  !            !physical pressure
-  !            !-------------------------------------------------------------
-  !            do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-  !               ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-  !               ky2=ky*ky
-  !               do ix=ca(2),cb(2) ! kx : 0..nx/2
-  !                  kx=scalex*dble(ix)                
-  !                  kx2=kx*kx
-  !                  do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1           
-  !                     kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-  !                     kz2    =kz*kz
-  !                     k_abs_2=kx2+ky2+kz2
-  !                     if(abs(k_abs_2) .ne. 0.0) then  
-  !                        nlk(iz,ix,iy,1)=&
-  !                             (kx*nlk(iz,ix,iy,1)&
-  !                             +ky*nlk(iz,ix,iy,2)&
-  !                             +kz*nlk(iz,ix,iy,3)&
-  !                             )/k_abs_2
-  !                     endif
-  !                  enddo
-  !               enddo
-  !            enddo
-  !            call cofitxyz(nlk(:,:,:,1),work)
-  !            ! work contains total pressure, remove kinetic energy to
-  !            ! get "physical" pressure
-  !            work=work - 0.5d0*(&
-  !                 u(:,:,:,1)*u(:,:,:,1)&
-  !                 +u(:,:,:,2)*u(:,:,:,2)&
-  !                 +u(:,:,:,3)*u(:,:,:,3)&
-  !                 )
-  !            call SaveFile('p_'//trim(adjustl(name))//'.mpiio',work(:,:,:) )
-  ! 
-  !         endif
-  !      endif
-  !   endif
+  if((iSaveVelocity.ne.0).or.(iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
+       !-----------------------------------------------
+       !--Calculate ux and uy in physical space
+       !-----------------------------------------------
+       call cofitxyz(uk(:,:,:,1),u(:,:,:,1))
+       call cofitxyz(uk(:,:,:,2),u(:,:,:,2))
+       call cofitxyz(uk(:,:,:,3),u(:,:,:,3))
+       !-----------------------------------------------
+       !-- SaveVelocity
+       !----------------------------------------------- 
+       if(iSaveVelocity == 1) then
+          call Save_scalar_HDF5 ( time, './fields/ux_'//trim(adjustl(name)), u(:,:,:,1), "ux" )
+          call Save_scalar_HDF5 ( time, './fields/uy_'//trim(adjustl(name)), u(:,:,:,2), "uy" )
+          call Save_scalar_HDF5 ( time, './fields/uz_'//trim(adjustl(name)), u(:,:,:,3), "uz" )
+       endif
+  
+       if((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
+          !-----------------------------------------------
+          !-- compute vorticity
+          !-----------------------------------------------
+          do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1     
+             ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
+             do ix=ca(2),cb(2)  ! kx : 0..nx/2
+                kx=scalex*dble(ix)                
+                do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1           
+                   kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+                   nlk(iz,ix,iy,1)=dcmplx(0d0,1d0)*(ky*uk(iz,ix,iy,3) &
+                        - kz*uk(iz,ix,iy,2) )
+                   nlk(iz,ix,iy,2)=dcmplx(0d0,1d0)*(kz*uk(iz,ix,iy,1) &
+                        - kx*uk(iz,ix,iy,3) )
+                   nlk(iz,ix,iy,3)=dcmplx(0d0,1d0)*(kx*uk(iz,ix,iy,2) &
+                        - ky*uk(iz,ix,iy,1) )
+                enddo
+             enddo
+          enddo
+          ! Transform it to physical space
+          call cofitxyz(nlk(:,:,:,1),vort(:,:,:,1)) 
+          call cofitxyz(nlk(:,:,:,2),vort(:,:,:,2))
+          call cofitxyz(nlk(:,:,:,3),vort(:,:,:,3))
+          !-----------------------------------------------
+          !-- Save Vorticity
+          !----------------------------------------------- 
+          if(iSaveVorticity == 1) then
+             call Save_scalar_HDF5 ( time, './fields/vorx_'//trim(adjustl(name)), vort(:,:,:,1), "vorx" )
+             call Save_scalar_HDF5 ( time, './fields/vory_'//trim(adjustl(name)), vort(:,:,:,2), "vory" )
+             call Save_scalar_HDF5 ( time, './fields/vorz_'//trim(adjustl(name)), vort(:,:,:,3), "vorz" )
+
+             ! I don't think we'll keep this for very long:
+             work=sqrt(vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
+             call Save_scalar_HDF5 ( time, './fields/vorabs_'//trim(adjustl(name)), work, "vorabs" )
+          endif
+  
+          if(iSavePress == 1) then  
+             !-------------------------------------------------------------
+             !-- Calculate omega x u(cross-product)
+             !-- and transform the result into Fourier space 
+             !-------------------------------------------------------------
+             if((iPenalization == 1).and.(iMoving==0)) then
+                work=u(:,:,:,2)*vort(:,:,:,3)&
+                     -u(:,:,:,3)*vort(:,:,:,2)&
+                     -u(:,:,:,1)*mask
+                call coftxyz(work,nlk(:,:,:,1))
+                work=u(:,:,:,3)*vort(:,:,:,1)&
+                     -u(:,:,:,1)*vort(:,:,:,3)&
+                     -u(:,:,:,2)*mask
+                call coftxyz(work,nlk(:,:,:,2))
+                work=u(:,:,:,1)*vort(:,:,:,2)&
+                     -u(:,:,:,2)*vort(:,:,:,1)&
+                     -u(:,:,:,3)*mask
+                call coftxyz(work,nlk(:,:,:,3))
+             elseif((iPenalization==1).and.(iMoving==1)) then
+                work=u(:,:,:,2)*vort(:,:,:,3)&
+                     -u(:,:,:,3)*vort(:,:,:,2)&
+                     -(u(:,:,:,1)-us(:,:,:,1))*mask
+                call coftxyz(work,nlk(:,:,:,1))
+                work=u(:,:,:,3)*vort(:,:,:,1)&
+                     -u(:,:,:,1)*vort(:,:,:,3)&
+                     -(u(:,:,:,2)-us(:,:,:,2))*mask
+                call coftxyz(work,nlk(:,:,:,2))
+                work=u(:,:,:,1)*vort(:,:,:,2)&
+                     -u(:,:,:,2)*vort(:,:,:,1)&
+                     -(u(:,:,:,3)-us(:,:,:,3))*mask
+                call coftxyz(work,nlk(:,:,:,3))
+             else
+                work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
+                call coftxyz(work,nlk(:,:,:,1))
+                work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
+                call coftxyz(work,nlk(:,:,:,2))
+                work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
+                call coftxyz(work,nlk(:,:,:,3))  
+             endif
+             !-------------------------------------------------------------
+             !-- add pressure, new version
+             !-- p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2
+             !-- note: we use rotational formulation: p is NOT the
+             !physical pressure
+             !-------------------------------------------------------------
+             do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1     
+                ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
+                ky2=ky*ky
+                do ix=ca(2),cb(2) ! kx : 0..nx/2
+                   kx=scalex*dble(ix)                
+                   kx2=kx*kx
+                   do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1           
+                      kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+                      kz2    =kz*kz
+                      k_abs_2=kx2+ky2+kz2
+                      if(abs(k_abs_2) .ne. 0.0) then  
+                         nlk(iz,ix,iy,1)=&
+                              (kx*nlk(iz,ix,iy,1)&
+                              +ky*nlk(iz,ix,iy,2)&
+                              +kz*nlk(iz,ix,iy,3)&
+                              )/k_abs_2
+                      endif
+                   enddo
+                enddo
+             enddo
+             call cofitxyz(nlk(:,:,:,1),work)
+             ! work contains total pressure, remove kinetic energy to
+             ! get "physical" pressure
+             work=work - 0.5d0*(&
+                   u(:,:,:,1)*u(:,:,:,1)&
+                  +u(:,:,:,2)*u(:,:,:,2)&
+                  +u(:,:,:,3)*u(:,:,:,3)&
+                  )
+             call Save_scalar_HDF5 ( time, './fields/p_'//trim(adjustl(name)), work, "p" )
+          endif
+       endif
+    endif
 
   !-----------------------------------------------
   !-- Save Mask
   !----------------------------------------------- 
 
   if((iSaveMask==1).and.(iPenalization==1)) then
-     call Save_scalar_HDF5(time,'mask_'//trim(adjustl(name)),mask, "mask" )
-     
-     call Save_scalar_HDF5(time,'usx_'//trim(adjustl(name)),us(:,:,:,1), "usx" )
-     call Save_scalar_HDF5(time,'usy_'//trim(adjustl(name)),us(:,:,:,2), "usy" )
-     call Save_scalar_HDF5(time,'usz_'//trim(adjustl(name)),us(:,:,:,3), "usz" )
-     
-     
-     call Save_vector_HDF5(time,'b_'//trim(adjustl(name)),us(:,:,:,:), "b" )
+    call Save_scalar_HDF5(time,'./fields/mask_'//trim(adjustl(name)),mask, "mask" )
   endif
-  !   if((iSaveSolidVelocity==1).and.(iPenalization==1).and.(iMoving==1)) then
-  !      call SaveFile('usx_'//trim(adjustl(name))//'.mpiio',us(:,:,:,1) )
-  !      call SaveFile('usy_'//trim(adjustl(name))//'.mpiio',us(:,:,:,2) )
-  !      call SaveFile('usz_'//trim(adjustl(name))//'.mpiio',us(:,:,:,3) )
-  !   endif
-
-
-
-
-
-
-  !------------------------------------------------
-  ! TEMP::: compute divergence
-  !-----------------------------------------------
-  ! compute max val of {|div(.)|/|.|} over entire domain
-  !   do iz=ca(1),cb(1)
-  !     kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
-  !     do iy=ca(3),cb(3)
-  !  ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
-  !  do ix=ca(2),cb(2)
-  !    kx=scalex*ix
-  !    ! divergence of velocity field
-  !    nlk(iz,ix,iy,1)=dcmplx(0.d0,1.d0)*(kx*uk(iz,ix,iy,1)+ky*uk(iz,ix,iy,2)+kz*uk(iz,ix,iy,3))
-  !  enddo
-  !     enddo
-  !   enddo
-  !   ! now nlk(:,:,:,1) contains divergence field
-  !   call cofitxyz(nlk(:,:,:,1),work)
-  ! 
-  !   write(name,'(i5.5)') floor(time*100.d0)
-  !   call SaveFile ('divu_'//trim(adjustl(name))//'.mpiio' , work )
+  
+  if((iSaveSolidVelocity==1).and.(iPenalization==1).and.(iMoving==1)) then
+    call Save_scalar_HDF5(time,'./fields/usx_'//trim(adjustl(name)),us(:,:,:,1), "usx" )
+    call Save_scalar_HDF5(time,'./fields/usy_'//trim(adjustl(name)),us(:,:,:,2), "usy" )
+    call Save_scalar_HDF5(time,'./fields/usz_'//trim(adjustl(name)),us(:,:,:,3), "usz" )
+  endif
 
 
   time_save=time_save + MPI_wtime() - t1
 end subroutine save_fields_new
-
-
-
-
-
-
-
-subroutine SaveFile(filename,field_out)
-  use mpi_header ! Module incapsulates mpif.
-  use share_vars
-  implicit none
-  integer,parameter :: pr_out=8   ! double precision array for output
-  integer,parameter :: mpireal_out=MPI_DOUBLE_PRECISION 
-  ! double precision array for output
-  character(len=*),intent(in) :: filename
-  real(kind=pr_out),dimension(:,:,:),intent(in) :: field_out
-  integer :: filedesc,mpicode
-  integer,dimension(MPI_STATUS_SIZE) :: mpistatus
-
-  ! modified: automatically stores in subfolder fields
-  call MPI_FILE_DELETE('./fields/'//filename,MPI_INFO_NULL,mpicode)
-  call MPI_FILE_OPEN(MPI_COMM_WORLD,'./fields/'//filename,&
-       MPI_MODE_WRONLY+MPI_MODE_CREATE,MPI_INFO_NULL,filedesc,mpicode)
-  call MPI_FILE_WRITE_ORDERED(filedesc,field_out,product(rs),mpireal_out,&
-       mpistatus,mpicode)
-  call MPI_FILE_CLOSE(filedesc,mpicode)    
-
-end subroutine SaveFile
-
