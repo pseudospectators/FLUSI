@@ -95,12 +95,13 @@ subroutine time_step
      !--------------------------------------------------------------------------
      if(modulo(it,itdrag) == 0) then
         if(mpirank == 0) then
-           open (14,file='drag_data',status='unknown',access='append')
-           write(14,'(7(es12.4,1x))')  time,GlobIntegrals%E_kin,&
-                GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
-                GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
-                GlobIntegrals%Volume
-           close(14)
+!!!! FIXME: following lines do not compile on turing
+!!$           open (14,file='drag_data',status='unknown',access='append')
+!!$           write(14,'(7(es12.4,1x))')  time,GlobIntegrals%E_kin,&
+!!$                GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
+!!$                GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
+!!$                GlobIntegrals%Volume
+!!$           close(14)
         endif
      endif
 
@@ -110,10 +111,10 @@ subroutine time_step
            t2= MPI_wtime() - t1
            time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
            write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &
-                floor(time_left/(24.*3600.))   ,&
-                floor(mod(time_left,24.*3600.)/3600.),&
-                floor(mod(time_left,3600.)/60.),floor(mod(mod(time_left,3600.),&
-                60.)),dt1
+                floor(time_left/(24.d0*3600.d0))   ,&
+                floor(mod(time_left,24.*3600.d0)/3600.d0),&
+                floor(mod(time_left,3600.d0)/60.d0),&
+                floor(mod(mod(time_left,3600.d0),60.d0)),dt1
         endif
      endif
 
