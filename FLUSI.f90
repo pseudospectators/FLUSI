@@ -69,11 +69,14 @@ program FLUSI
     write(*,'(A)') '--------------------------------------'
   endif
   call MPI_barrier (MPI_COMM_world, mpicode)
+  
+  
+  
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  call create_mask (0.0)
-  call SaveFileHDF5(mask)
+!   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+!   call create_mask (0.0)
+!   call SaveFileHDF5(mask)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   

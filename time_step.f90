@@ -61,7 +61,9 @@ subroutine time_step
   !     LOOP OVER TIME STEPS
   !---------------------------------------------------------
   t1=MPI_wtime()
-
+!!!!!!!!!!!!!!!!!!!!
+  dt1 = eps!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!
 
   do while((time<=tmax).and.(it<=nt))
      dt0=dt1
@@ -70,14 +72,15 @@ subroutine time_step
      ! if the mask is time-dependend,we create it here
      !-----------------------------
      if(iMoving == 1) then
+     if (mpirank==0) write(*,*) time, "jerr"
         call Create_Mask(time)  
      endif
 
      !-----------------------------
      ! do a fluid time step
      !-----------------------------     
-     call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
-          GlobIntegrals)
+!      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
+!           GlobIntegrals)
 
 
      !--Switch time levels

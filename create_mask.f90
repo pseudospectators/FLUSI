@@ -442,6 +442,13 @@ subroutine Draw_Sphere
 	      call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
 	      mask (ix, iy, iz) = tmp
 	  endif
+	  
+	  if ((ix==0).and.(iy==0).and.(iz==0)) then
+	  mask (ix,iy,iz)=1.d0
+	  endif
+	  if ((ix==nx-1).and.(iy==ny-1).and.(iz==nz-1)) then
+	  mask (ix,iy,iz)=1.d0
+	  endif
       enddo
     enddo
   enddo

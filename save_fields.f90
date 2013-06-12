@@ -1,34 +1,29 @@
-subroutine SaveFileHDF5(field_out)
+subroutine SaveFileHDF5 ( time,  filename, field_out )
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   use HDF5
   implicit none
-  integer,parameter :: pr_out=8   ! double precision array for output
-  integer,parameter :: mpireal_out=MPI_DOUBLE_PRECISION 
-
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(in) :: field_out
-
-
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
-  
-     CHARACTER(LEN=11), PARAMETER :: filename = "sds_chnk.h5"  ! File name
-     CHARACTER(LEN=8), PARAMETER :: dsetname = "IntArray" ! Dataset name
+  real (kind=pr), intent (in) :: time
+  character(len=*), intent (in) :: filename   ! file name
+  character(len=8), parameter :: dsetname = "mask" ! dataset name
 
-     INTEGER(HID_T) :: file_id       ! File identifier 
-     INTEGER(HID_T) :: dset_id       ! Dataset identifier 
-     INTEGER(HID_T) :: filespace     ! Dataspace identifier in file 
-     INTEGER(HID_T) :: memspace      ! Dataspace identifier in memory
-     INTEGER(HID_T) :: plist_id      ! Property list identifier 
+  integer(hid_t) :: file_id       ! file identifier 
+  integer(hid_t) :: dset_id       ! dataset identifier 
+  integer(hid_t) :: filespace     ! dataspace identifier in file 
+  integer(hid_t) :: memspace      ! dataspace identifier in memory
+  integer(hid_t) :: plist_id      ! property list identifier 
 
-     INTEGER(HSIZE_T), DIMENSION(rank) :: dimensions_file  ! Dataset dimensions in the file.
-     INTEGER(HSIZE_T), DIMENSION(rank) :: dimensions_local  ! Chunks dimensions
+  integer(hsize_t), dimension(rank) :: dimensions_file  ! dataset dimensions in the file.
+  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
 
-     INTEGER(HSIZE_T),  DIMENSION(rank) :: count  
-     INTEGER(HSSIZE_T), DIMENSION(rank) :: offset 
-     INTEGER(HSIZE_T),  DIMENSION(rank) :: stride
-     INTEGER(HSIZE_T),  DIMENSION(rank) :: block
-     real (kind=pr), ALLOCATABLE :: data (:,:,:)  ! Data to write
-     INTEGER :: error, error_n  ! Error flags
+  integer(hsize_t),  dimension(rank) :: count  
+  integer(hssize_t), dimension(rank) :: offset 
+  integer(hsize_t),  dimension(rank) :: stride
+  integer(hsize_t),  dimension(rank) :: block
+  real (kind=pr), allocatable :: data (:,:,:)  ! data to write
+  integer :: error, error_n  ! error flags
 
      !----------------------------------------------------------------------
      
@@ -46,9 +41,8 @@ subroutine SaveFileHDF5(field_out)
      
     
      allocate ( data (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))  )
-     data = dble(mpirank)
      data = field_out
-          !
+
      ! Each process defines dataset in memory and writes it to the hyperslab
      ! in the file. 
      !
@@ -97,11 +91,13 @@ subroutine SaveFileHDF5(field_out)
      ! comminucator information in the file access property list
      CALL H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
-
      !
      ! Create the file collectively.
      ! 
-     CALL H5Fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
+     if (mpirank==0) then 
+     write (*,*) trim(adjustl(filename))
+     endif
+     CALL H5Fcreate_f ( trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
      ! this closes the property list (we'll re-use it)
      CALL H5Pclose_f(plist_id, error)
      !
@@ -119,8 +115,6 @@ subroutine SaveFileHDF5(field_out)
      CALL H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
      CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, & ! double precision in memory...
                       dset_id, error, plist_id)
-!     CALL H5Dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, & ! double precision in memory...
-!                       dset_id, error, plist_id)
      CALL H5Sclose_f(filespace, error)
 
      
@@ -175,9 +169,67 @@ subroutine SaveFileHDF5(field_out)
      !
      CALL h5close_f(error)
 
-    stop
+     if (mpirank==0) then
+     call WriteXML ( time, trim(adjustl(filename)) , trim(adjustl(dsetname)) )
+     endif
 
 end subroutine SaveFileHDF5
+
+
+
+
+
+subroutine WriteXML ( time, filename, dsetname )
+  use share_vars
+  implicit none
+  real (kind=pr), intent (in) :: time
+  character(len=*), intent (in) :: filename, dsetname
+  character(len=128) :: tmp
+  
+  write(tmp,'(3(i4,1x))') nx,ny,nz
+
+
+  open (14, file=trim(adjustl(filename))//'.xmf', status='replace')
+  write(14,'(A)') '<?xml version="1.0" ?>'
+  write(14,'(A)') '<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>'
+  write(14,'(A)') '<Xdmf>'
+  write(14,'(A)') '<Domain>'
+  write(14,'(A)') '<Grid Name="FLUSI_cartesian_grid" GridType="Uniform">'
+  write(14,'(A)') '      '
+  write(14,'(A)') '<Topology TopologyType="3DCoRectMesh" Dimensions="'//trim(adjustl(tmp))//'">'
+  write(14,'(A)') '</Topology>'
+  write(14,'(A)') '      '
+  write(14,'(A)') '<Geometry GeometryType="Origin_DxDyDz">'
+  write(14,'(A)') '<DataItem Dimensions="3" NumberType="Float" Format="XML">'
+  write(14,'(A)') ' 0 0 0'
+  write(14,'(A)') '</DataItem>'
+  write(14,'(A)') '<DataItem Dimensions="3" NumberType="Float" Format="XML">'
+  write(14,'(3(g9.3,1x))') dx, dy, dz!          0.25 0.25 0.25
+  write(14,'(A)') '</DataItem>'
+  write(14,'(A)') '</Geometry>'
+  write(14,'(A)') '      '
+  write(14,'(A)') '      '
+  write(14,'(A)') '<Attribute Name="'//trim(adjustl(dsetname))//'" AttributeType="Scalar" Center="Node">'
+  write(14,'(A)') '<DataItem Dimensions="'//trim(adjustl(tmp))//'" NumberType="Float" Format="HDF">'
+  write(14,'(A)') trim(adjustl(filename))//'.h5:/'//trim(adjustl(dsetname))
+  write(14,'(A)') '</DataItem>'
+  write(14,'(A)') '</Attribute>'
+  write(14,'(A)') '      '
+  write(14,'(A)') '      '
+  
+  write(tmp,'(g9.3)') time
+  write(14,'(A)') '<Time Value="'//trim(adjustl(tmp))//'" />'
+  write(14,'(A)') '      '
+  write(14,'(A)') '      '
+  write(14,'(A)') '</Grid>'
+  write(14,'(A)') '</Domain>'
+  write(14,'(A)') '</Xdmf>'
+  
+  close (14)
+  
+end subroutine
+
+
 
 
 
@@ -446,146 +498,147 @@ subroutine save_fields_new(time,dt1,uk,u,vort,nlk,work)
           iSaveSolidVelocity
   endif
 
-  if((iSaveVelocity.ne.0).or.(iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
-     !-----------------------------------------------
-     !--Calculate ux and uy in physical space
-     !-----------------------------------------------
-     call cofitxyz(uk(:,:,:,1),u(:,:,:,1))
-     call cofitxyz(uk(:,:,:,2),u(:,:,:,2))
-     call cofitxyz(uk(:,:,:,3),u(:,:,:,3))
-     !-----------------------------------------------
-     !-- SaveVelocity
-     !----------------------------------------------- 
-     if(iSaveVelocity == 1) then
-        call SaveFile('ux_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,1) )
-        call SaveFile('uy_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,2) )
-        call SaveFile('uz_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,3) )
-     endif
-
-     if((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
-        !-----------------------------------------------
-        !-- compute vorticity
-        !-----------------------------------------------
-        do iy=ca(3),cb(3)  		! ky : 0..ny/2-1 ,then,-ny/2..-1     
-           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-           do ix=ca(2),cb(2)		! kx : 0..nx/2
-              kx=scalex*dble(ix)                
-              do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1           
-                 kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-                 nlk(iz,ix,iy,1)=dcmplx(0d0,1d0)*(ky*uk(iz,ix,iy,3) &
-                      - kz*uk(iz,ix,iy,2) )
-                 nlk(iz,ix,iy,2)=dcmplx(0d0,1d0)*(kz*uk(iz,ix,iy,1) &
-                      - kx*uk(iz,ix,iy,3) )
-                 nlk(iz,ix,iy,3)=dcmplx(0d0,1d0)*(kx*uk(iz,ix,iy,2) &
-                      - ky*uk(iz,ix,iy,1) )
-              enddo
-           enddo
-        enddo
-        ! Transform it to physical space
-        call cofitxyz(nlk(:,:,:,1),vort(:,:,:,1)) 
-        call cofitxyz(nlk(:,:,:,2),vort(:,:,:,2))
-        call cofitxyz(nlk(:,:,:,3),vort(:,:,:,3))
-        !-----------------------------------------------
-        !-- Save Vorticity
-        !----------------------------------------------- 
-        if(iSaveVorticity == 1) then
-           call SaveFile('vorx_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,1) )
-           call SaveFile('vory_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,2) )
-           call SaveFile('vorz_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,3) )
-           work=sqrt(vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
-           call SaveFile('vorabs_'//trim(adjustl(name))//'.mpiio',work )
-        endif
-
-        if(iSavePress == 1) then  
-           !-------------------------------------------------------------
-           !-- Calculate omega x u(cross-product)
-           !-- and transform the result into Fourier space 
-           !-------------------------------------------------------------
-           if((iPenalization == 1).and.(iMoving==0)) then
-              work=u(:,:,:,2)*vort(:,:,:,3)&
-                   -u(:,:,:,3)*vort(:,:,:,2)&
-                   -u(:,:,:,1)*mask
-              call coftxyz(work,nlk(:,:,:,1))
-              work=u(:,:,:,3)*vort(:,:,:,1)&
-                   -u(:,:,:,1)*vort(:,:,:,3)&
-                   -u(:,:,:,2)*mask
-              call coftxyz(work,nlk(:,:,:,2))
-              work=u(:,:,:,1)*vort(:,:,:,2)&
-                   -u(:,:,:,2)*vort(:,:,:,1)&
-                   -u(:,:,:,3)*mask
-              call coftxyz(work,nlk(:,:,:,3))
-           elseif((iPenalization==1).and.(iMoving==1)) then
-              work=u(:,:,:,2)*vort(:,:,:,3)&
-                   -u(:,:,:,3)*vort(:,:,:,2)&
-                   -(u(:,:,:,1)-us(:,:,:,1))*mask
-              call coftxyz(work,nlk(:,:,:,1))
-              work=u(:,:,:,3)*vort(:,:,:,1)&
-                   -u(:,:,:,1)*vort(:,:,:,3)&
-                   -(u(:,:,:,2)-us(:,:,:,2))*mask
-              call coftxyz(work,nlk(:,:,:,2))
-              work=u(:,:,:,1)*vort(:,:,:,2)&
-                   -u(:,:,:,2)*vort(:,:,:,1)&
-                   -(u(:,:,:,3)-us(:,:,:,3))*mask
-              call coftxyz(work,nlk(:,:,:,3))
-           else
-              work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-              call coftxyz(work,nlk(:,:,:,1))
-              work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-              call coftxyz(work,nlk(:,:,:,2))
-              work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-              call coftxyz(work,nlk(:,:,:,3))  
-           endif
-           !-------------------------------------------------------------
-           !-- add pressure, new version
-           !-- p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2
-           !-- note: we use rotational formulation: p is NOT the
-           !physical pressure
-           !-------------------------------------------------------------
-           do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-              ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-              ky2=ky*ky
-              do ix=ca(2),cb(2)	! kx : 0..nx/2
-                 kx=scalex*dble(ix)                
-                 kx2=kx*kx
-                 do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1           
-                    kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-                    kz2    =kz*kz
-                    k_abs_2=kx2+ky2+kz2
-                    if(abs(k_abs_2) .ne. 0.0) then  
-                       nlk(iz,ix,iy,1)=&
-                            (kx*nlk(iz,ix,iy,1)&
-                            +ky*nlk(iz,ix,iy,2)&
-                            +kz*nlk(iz,ix,iy,3)&
-                            )/k_abs_2
-                    endif
-                 enddo
-              enddo
-           enddo
-           call cofitxyz(nlk(:,:,:,1),work)
-           ! work contains total pressure, remove kinetic energy to
-           ! get "physical" pressure
-           work=work - 0.5d0*(&
-                u(:,:,:,1)*u(:,:,:,1)&
-                +u(:,:,:,2)*u(:,:,:,2)&
-                +u(:,:,:,3)*u(:,:,:,3)&
-                )
-           call SaveFile('p_'//trim(adjustl(name))//'.mpiio',work(:,:,:) )
-
-        endif
-     endif
-  endif
+!   if((iSaveVelocity.ne.0).or.(iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
+!      !-----------------------------------------------
+!      !--Calculate ux and uy in physical space
+!      !-----------------------------------------------
+!      call cofitxyz(uk(:,:,:,1),u(:,:,:,1))
+!      call cofitxyz(uk(:,:,:,2),u(:,:,:,2))
+!      call cofitxyz(uk(:,:,:,3),u(:,:,:,3))
+!      !-----------------------------------------------
+!      !-- SaveVelocity
+!      !----------------------------------------------- 
+!      if(iSaveVelocity == 1) then
+!         call SaveFile('ux_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,1) )
+!         call SaveFile('uy_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,2) )
+!         call SaveFile('uz_'//trim(adjustl(name))//'.mpiio' ,u(:,:,:,3) )
+!      endif
+! 
+!      if((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
+!         !-----------------------------------------------
+!         !-- compute vorticity
+!         !-----------------------------------------------
+!         do iy=ca(3),cb(3)  		! ky : 0..ny/2-1 ,then,-ny/2..-1     
+!            ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
+!            do ix=ca(2),cb(2)		! kx : 0..nx/2
+!               kx=scalex*dble(ix)                
+!               do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1           
+!                  kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+!                  nlk(iz,ix,iy,1)=dcmplx(0d0,1d0)*(ky*uk(iz,ix,iy,3) &
+!                       - kz*uk(iz,ix,iy,2) )
+!                  nlk(iz,ix,iy,2)=dcmplx(0d0,1d0)*(kz*uk(iz,ix,iy,1) &
+!                       - kx*uk(iz,ix,iy,3) )
+!                  nlk(iz,ix,iy,3)=dcmplx(0d0,1d0)*(kx*uk(iz,ix,iy,2) &
+!                       - ky*uk(iz,ix,iy,1) )
+!               enddo
+!            enddo
+!         enddo
+!         ! Transform it to physical space
+!         call cofitxyz(nlk(:,:,:,1),vort(:,:,:,1)) 
+!         call cofitxyz(nlk(:,:,:,2),vort(:,:,:,2))
+!         call cofitxyz(nlk(:,:,:,3),vort(:,:,:,3))
+!         !-----------------------------------------------
+!         !-- Save Vorticity
+!         !----------------------------------------------- 
+!         if(iSaveVorticity == 1) then
+!            call SaveFile('vorx_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,1) )
+!            call SaveFile('vory_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,2) )
+!            call SaveFile('vorz_'//trim(adjustl(name))//'.mpiio',vort(:,:,:,3) )
+!            work=sqrt(vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
+!            call SaveFile('vorabs_'//trim(adjustl(name))//'.mpiio',work )
+!         endif
+! 
+!         if(iSavePress == 1) then  
+!            !-------------------------------------------------------------
+!            !-- Calculate omega x u(cross-product)
+!            !-- and transform the result into Fourier space 
+!            !-------------------------------------------------------------
+!            if((iPenalization == 1).and.(iMoving==0)) then
+!               work=u(:,:,:,2)*vort(:,:,:,3)&
+!                    -u(:,:,:,3)*vort(:,:,:,2)&
+!                    -u(:,:,:,1)*mask
+!               call coftxyz(work,nlk(:,:,:,1))
+!               work=u(:,:,:,3)*vort(:,:,:,1)&
+!                    -u(:,:,:,1)*vort(:,:,:,3)&
+!                    -u(:,:,:,2)*mask
+!               call coftxyz(work,nlk(:,:,:,2))
+!               work=u(:,:,:,1)*vort(:,:,:,2)&
+!                    -u(:,:,:,2)*vort(:,:,:,1)&
+!                    -u(:,:,:,3)*mask
+!               call coftxyz(work,nlk(:,:,:,3))
+!            elseif((iPenalization==1).and.(iMoving==1)) then
+!               work=u(:,:,:,2)*vort(:,:,:,3)&
+!                    -u(:,:,:,3)*vort(:,:,:,2)&
+!                    -(u(:,:,:,1)-us(:,:,:,1))*mask
+!               call coftxyz(work,nlk(:,:,:,1))
+!               work=u(:,:,:,3)*vort(:,:,:,1)&
+!                    -u(:,:,:,1)*vort(:,:,:,3)&
+!                    -(u(:,:,:,2)-us(:,:,:,2))*mask
+!               call coftxyz(work,nlk(:,:,:,2))
+!               work=u(:,:,:,1)*vort(:,:,:,2)&
+!                    -u(:,:,:,2)*vort(:,:,:,1)&
+!                    -(u(:,:,:,3)-us(:,:,:,3))*mask
+!               call coftxyz(work,nlk(:,:,:,3))
+!            else
+!               work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
+!               call coftxyz(work,nlk(:,:,:,1))
+!               work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
+!               call coftxyz(work,nlk(:,:,:,2))
+!               work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
+!               call coftxyz(work,nlk(:,:,:,3))  
+!            endif
+!            !-------------------------------------------------------------
+!            !-- add pressure, new version
+!            !-- p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2
+!            !-- note: we use rotational formulation: p is NOT the
+!            !physical pressure
+!            !-------------------------------------------------------------
+!            do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1     
+!               ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
+!               ky2=ky*ky
+!               do ix=ca(2),cb(2)	! kx : 0..nx/2
+!                  kx=scalex*dble(ix)                
+!                  kx2=kx*kx
+!                  do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1           
+!                     kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+!                     kz2    =kz*kz
+!                     k_abs_2=kx2+ky2+kz2
+!                     if(abs(k_abs_2) .ne. 0.0) then  
+!                        nlk(iz,ix,iy,1)=&
+!                             (kx*nlk(iz,ix,iy,1)&
+!                             +ky*nlk(iz,ix,iy,2)&
+!                             +kz*nlk(iz,ix,iy,3)&
+!                             )/k_abs_2
+!                     endif
+!                  enddo
+!               enddo
+!            enddo
+!            call cofitxyz(nlk(:,:,:,1),work)
+!            ! work contains total pressure, remove kinetic energy to
+!            ! get "physical" pressure
+!            work=work - 0.5d0*(&
+!                 u(:,:,:,1)*u(:,:,:,1)&
+!                 +u(:,:,:,2)*u(:,:,:,2)&
+!                 +u(:,:,:,3)*u(:,:,:,3)&
+!                 )
+!            call SaveFile('p_'//trim(adjustl(name))//'.mpiio',work(:,:,:) )
+! 
+!         endif
+!      endif
+!   endif
 
   !-----------------------------------------------
   !-- Save Mask
   !----------------------------------------------- 
+  
   if((iSaveMask==1).and.(iPenalization==1)) then
-     call SaveFile('mask_'//trim(adjustl(name))//'.mpiio',mask )
+     call SaveFileHDF5(time,'mask_'//trim(adjustl(name)),mask )
   endif
-  if((iSaveSolidVelocity==1).and.(iPenalization==1).and.(iMoving==1)) then
-     call SaveFile('usx_'//trim(adjustl(name))//'.mpiio',us(:,:,:,1) )
-     call SaveFile('usy_'//trim(adjustl(name))//'.mpiio',us(:,:,:,2) )
-     call SaveFile('usz_'//trim(adjustl(name))//'.mpiio',us(:,:,:,3) )
-  endif
+!   if((iSaveSolidVelocity==1).and.(iPenalization==1).and.(iMoving==1)) then
+!      call SaveFile('usx_'//trim(adjustl(name))//'.mpiio',us(:,:,:,1) )
+!      call SaveFile('usy_'//trim(adjustl(name))//'.mpiio',us(:,:,:,2) )
+!      call SaveFile('usz_'//trim(adjustl(name))//'.mpiio',us(:,:,:,3) )
+!   endif
 
 
 
