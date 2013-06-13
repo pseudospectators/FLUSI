@@ -115,7 +115,7 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
      !--------------------------------------------------
      ! read from backup
      !--------------------------------------------------  
-     call Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, work_nlk, workvis)
+     call Read_Runtime_Backup ( time, dt0, dt1, n1, it, uk, work_nlk, workvis, vort(:,:,:,1))
   elseif (inicond == 3) then 
      if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
      !--------------------------------------------------

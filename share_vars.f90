@@ -15,6 +15,7 @@ module share_vars
   real (kind=pr), save :: xl, yl, zl, dx, dy ,dz
   real (kind=pr), save :: Ux, Uy, Uz, Ax, Ay, Az, tstart, tsave
   real (kind=pr), save :: x0, y0, z0, dt_fixed
+  
   real (kind=pr), dimension (:,:,:), allocatable, save :: mask
   real (kind=pr), dimension (:,:,:,:), allocatable, save :: us
 

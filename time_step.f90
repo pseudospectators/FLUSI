@@ -126,7 +126,10 @@ subroutine time_step
         ! in the next step.  this frees 3 complex arrays
         call save_fields_new(time,dt1,uk,u,vort,nlk(:,:,:,:,n0),work)
         ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup == 1) call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
+        if(iDoBackup == 1) call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk, workvis, work)
+        
+        
+ 
         if(mpirank ==0 ) write(*,'("*** info: done saving, returning to time loop")')
      endif
 

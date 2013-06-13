@@ -32,14 +32,10 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   integer(hid_t) :: attr_id       ! Attribute identifier
   character(len=4) :: aname ! attribute name
   character(len=11) :: aname2="domain_size" ! attribute name
-  !----------------------------------------------------------------------
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  
+  ! -----------------------------------------------------------
   ! this first part is to tell HDF5 how our (real!) data is organized
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!   if (mpirank==0) write(*,*) "HDF:", filename," ", dsetname
+  ! -----------------------------------------------------------
 
   dimensions_file = (/nx,ny,nz/)
   dimensions_local(1) = rb(1)-ra(1) +1
@@ -57,18 +53,10 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   offset(1) = ra(1)
   offset(2) = ra(2)
   offset(3) = ra(3)
-
-!   write (*,'("mpirank=",i1," dims = ("i2,",",i2,",",i2,"), offset=(",i2,",",i2,",",i2,")"  )') &
-!        mpirank, dimensions_local(1),dimensions_local(2),dimensions_local(3),offset(1),offset(2),offset(3)
-
-
-
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! -----------------------------------------------------------
   ! now we call the HDF subroutines from the "chunks" example
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!    
-
+  ! -----------------------------------------------------------
+  
   ! Initialize HDF5 library and Fortran interfaces.
   call h5open_f(error) 
 
@@ -82,7 +70,7 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
   ! ----------------------------------
-  ! Create the file collectively.
+  ! Create the file collectively. (existing files are overwritten)
   ! ---------------------------------
   call H5Fcreate_f ( trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
   ! this closes the property list (we'll re-use it)
@@ -214,7 +202,7 @@ subroutine Save_scalar_HDF5 ( time,  filename, field_out, dsetname )
   call h5close_f(error)
 
   if (mpirank==0) then
-     call WriteXMF ( time, trim(adjustl(filename)) , trim(adjustl(dsetname)) )
+     call Write_XMF ( time, trim(adjustl(filename)) , trim(adjustl(dsetname)) )
   endif
 
 end subroutine Save_scalar_HDF5
@@ -224,7 +212,7 @@ end subroutine Save_scalar_HDF5
 
 
 
-subroutine WriteXMF ( time, filename, dsetname )
+subroutine Write_XMF ( time, filename, dsetname )
   !--------------------------------------------
   ! this routine generates an XMF file for paraview
   ! note: this is a single scalar field, no time-stepping or vectors
@@ -269,13 +257,419 @@ subroutine WriteXMF ( time, filename, dsetname )
 
   close (14)
 
-end subroutine WriteXMF
+end subroutine Write_XMF
 
 
 
 
+subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis,work)
+  use mpi_header 
+  use share_vars
+  use hdf5
+  implicit none
+  character(len=18) :: filename
+  real(kind=pr),intent(inout) :: time,dt1,dt0
+  integer,intent(inout) :: n1,nbackup,it
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent(inout) :: uk !!!!!!!!!!!!!!!!!!!!!!!!!!!!§§§§§§§§§§§§§§§§§§§§§§§fixme INOUT
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1), intent(inout):: nlk
+  real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),intent(inout) :: workvis
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),intent(inout) :: work
+  real(kind=pr) :: t1
+  
+  integer :: error  ! error flags  
+  integer(hid_t) :: file_id       ! file identifier 
+  integer(hid_t) :: plist_id      ! property list identifier 
+  
 
-subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
+  
+  t1=MPI_wtime()
+
+  if(mpirank ==0) then
+     write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1," to disk....")') time, nbackup
+  endif
+
+  ! create current filename
+  write(filename,'("runtime_backup",i1,".h5")') nbackup 
+
+  ! Initialize HDF5 library and Fortran interfaces.
+  call h5open_f(error) 
+  
+  ! -----------------------------------------------------------
+  ! Setup file access property list with parallel I/O access.
+  ! -----------------------------------------------------------
+  ! this sets up a property list ("plist_id") with standard values for FILE_ACCESS
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! this modifies the property list and stores MPI IO
+  ! comminucator information in the file access property list
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+
+  ! ----------------------------------
+  ! Create the file collectively. (existing files are overwritten)
+  ! ---------------------------------
+  call H5Fcreate_f ( filename, H5F_ACC_TRUNC_F, file_id, error, access_prp = plist_id)
+  ! this closes the property list (we'll re-use it)
+  call H5Pclose_f(plist_id, error)  
+  
+  
+  call cofitxyz ( uk(:,:,:,1), work)
+  call Dump_Field_Backup (work,"ux",time,dt0,dt1,n1,it,file_id  )  
+  call cofitxyz ( uk(:,:,:,2), work)
+  call Dump_Field_Backup (work,"uy",time,dt0,dt1,n1,it,file_id  )  
+  call cofitxyz ( uk(:,:,:,3), work)
+  call Dump_Field_Backup (work,"uz",time,dt0,dt1,n1,it,file_id  )
+  
+  call cofitxyz ( nlk(:,:,:,1,0), work)
+  call Dump_Field_Backup (work,"nlkx0",time,dt0,dt1,n1,it,file_id  )  
+  call cofitxyz ( nlk(:,:,:,2,0), work)
+  call Dump_Field_Backup (work,"nlky0",time,dt0,dt1,n1,it,file_id  )  
+  call cofitxyz ( nlk(:,:,:,3,0), work)
+  call Dump_Field_Backup (work,"nlkz0",time,dt0,dt1,n1,it,file_id  )
+  call cofitxyz ( nlk(:,:,:,1,1), work)
+  call Dump_Field_Backup (work,"nlkx1",time,dt0,dt1,n1,it,file_id  )  
+  call cofitxyz ( nlk(:,:,:,2,1), work)
+  call Dump_Field_Backup (work,"nlky1",time,dt0,dt1,n1,it,file_id  )  
+  call cofitxyz ( nlk(:,:,:,3,1), work)
+  call Dump_Field_Backup (work,"nlkz1",time,dt0,dt1,n1,it,file_id  )  
+  
+  ! Close the file.
+  call H5Fclose_f(file_id, error)
+  ! Close FORTRAN interfaces and HDF5 library.
+  call h5close_f(error)
+  
+  nbackup = 1 - nbackup
+  time_bckp=time_bckp + MPI_wtime() -t1
+  
+  
+  
+  if (mpirank==0) write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
+  
+end subroutine Dump_Runtime_Backup
+
+
+
+
+subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
+  use mpi_header
+  use share_vars
+  use hdf5
+  implicit none
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(in) :: field
+  integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
+  real (kind=pr), intent (in) :: time,dt1,dt0
+  character(len=*), intent (in) :: dsetname   
+  integer,intent(in) :: n1,it
+
+  integer(hid_t), intent(in) :: file_id       ! file identifier 
+  integer(hid_t) :: dset_id       ! dataset identifier 
+  integer(hid_t) :: filespace     ! dataspace identifier in file 
+  integer(hid_t) :: memspace      ! dataspace identifier in memory
+  integer(hid_t) :: plist_id      ! property list identifier 
+
+  integer(hsize_t), dimension(rank) :: dimensions_file  ! dataset dimensions in the file.
+  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
+
+  integer(hsize_t),  dimension(rank) :: count  
+  integer(hssize_t), dimension(rank) :: offset 
+  integer(hsize_t),  dimension(rank) :: stride
+  integer(hsize_t),  dimension(rank) :: block
+  integer :: error  ! error flags
+  
+  ! what follows is for the attribute "time"
+  integer, parameter :: arank = 1
+  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
+  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
+  integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
+  integer(hid_t) :: attr_id       ! Attribute identifier
+  character(len=4) :: aname ! attribute name
+  real (kind=pr), dimension (:), allocatable :: attributes
+ 
+  dimensions_file = (/nx,ny,nz/)
+  dimensions_local(1) = rb(1)-ra(1) +1
+  dimensions_local(2) = rb(2)-ra(2) +1
+  dimensions_local(3) = rb(3)-ra(3) +1
+
+  ! stride is spacing between elements, this is one here
+  stride = 1
+  ! how many blocks to select from dataspace
+  count =  1
+  ! the block contains how many data points to store
+  block = dimensions_local
+  ! offsets
+  offset(1) = ra(1)
+  offset(2) = ra(2)
+  offset(3) = ra(3)
+  
+  
+  ! -----------------------------------
+  ! Create the data space for the  dataset. 
+  ! -----------------------------------
+  ! dataspace in the file: contains all data from all procs
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
+  ! dataspace in memory: contains only local data
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)  
+  ! Create chunked dataset.
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
+  call H5Dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, & 
+       dset_id, error, plist_id)
+  call H5Sclose_f(filespace, error)
+
+  ! Select hyperslab in the file.
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
+       stride, block)
+
+  ! Create property list for collective dataset write
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+
+  ! Write the dataset collectively. 
+  call H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field, dimensions_file, error, & 
+       file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
+       
+  ! ------
+  ! attributes (we save everything in one, all double. to be converted when reading (to integer)
+  ! ------
+  adims = (/8/)
+  allocate (attributes(1:8))
+  attributes = (/time,dt1,dt0,dble(n1),dble(it),dble(nx),dble(ny),dble(nz)/)
+  ! Create scalar data space for the attribute.
+  call h5screate_simple_f(arank, adims, aspace_id, error)
+  ! Create datatype for the attribute.
+  call h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error) 
+  ! Create dataset attribute.
+  aname = "bckp"
+  call h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
+  ! Write the attribute data.
+  call h5awrite_f(attr_id, atype_id, attributes, adims, error)  ! here the value of the attribute is "time"
+  ! Close the attribute.
+  call h5aclose_f(attr_id, error)
+  ! Terminate access to the data space.
+  call h5sclose_f(aspace_id, error) 
+  
+  
+  ! Close dataspaces, dataset and property list
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
+  call H5Dclose_f(dset_id, error)
+  call H5Pclose_f(plist_id, error)
+  
+  
+  deallocate (attributes)
+end subroutine
+
+
+
+
+subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis, work)
+  use mpi_header 
+  use share_vars
+  use hdf5
+  implicit none
+  real(kind=pr),intent(out) :: time,dt1,dt0
+  integer,intent(out) :: n1,it
+  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),intent(out) :: uk
+  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),intent(out):: nlk
+  real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),intent(out) :: workvis
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),intent(inout) :: work
+  character(len=18) :: filename
+  
+  integer :: error  ! error flags  
+  integer(hid_t) :: file_id       ! file identifier 
+  integer(hid_t) :: plist_id      ! property list identifier 
+  integer(hid_t) :: dset_id       ! dataset identifier 
+  
+  if(mpirank==0) then
+     write(*,'("---------")')
+     write(*,'(A)') "!!! warning: trying to resume a backup file"
+  endif
+
+  
+  
+  filename = 'runtime_backup9.h5'
+  
+  ! Initialize HDF5 library and Fortran interfaces.
+  call h5open_f(error) 
+  
+  ! Setup file access property list with parallel I/O access.  
+  ! this sets up a property list ("plist_id") with standard values for FILE_ACCESS
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! this modifies the property list and stores MPI IO
+  ! comminucator information in the file access property list
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)   
+  ! open the file in parallel
+  call H5Fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
+  ! this closes the property list (we'll re-use it)
+  call H5Pclose_f(plist_id, error)
+  
+  
+  
+  
+  call Read_Field_Backup ( work,"ux",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, uk(:,:,:,1) )
+  call Read_Field_Backup ( work,"uy",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, uk(:,:,:,2) )
+  call Read_Field_Backup ( work,"uz",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, uk(:,:,:,3) )
+  
+  call Read_Field_Backup ( work,"nlkx0",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, nlk(:,:,:,1,0) )
+  call Read_Field_Backup ( work,"nlky0",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, nlk(:,:,:,2,0) )
+  call Read_Field_Backup ( work,"nlkz0",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, nlk(:,:,:,3,0) )
+  call Read_Field_Backup ( work,"nlkx1",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, nlk(:,:,:,1,1) )
+  call Read_Field_Backup ( work,"nlky1",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, nlk(:,:,:,2,1) )
+  call Read_Field_Backup ( work,"nlkz1",time,dt0,dt1,n1,it,file_id )
+  call coftxyz ( work, nlk(:,:,:,3,1) )
+  
+  call H5Fclose_f (file_id,error)
+  call H5close_f(error)
+ 
+
+  call cal_vis ( dt1, workvis )
+ 
+ 
+  if(mpirank == 0) then
+     write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
+     write(*,'("!!! DONE READING BACKUP (succes!)")') 
+     write(*,'("---------")')
+  endif
+
+end subroutine Read_Runtime_Backup
+
+
+
+
+subroutine Read_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
+  use mpi_header
+  use share_vars
+  use hdf5
+  implicit none
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(out) :: field
+  integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
+  real (kind=pr), intent (out)  :: time,dt1,dt0
+  character(len=*), intent (in) :: dsetname   
+  integer,intent(out)           :: n1,it
+  integer                       :: nx_file,ny_file,nz_file
+
+  integer(hid_t), intent(in) :: file_id       ! file identifier 
+  integer(hid_t) :: dset_id       ! dataset identifier 
+  integer(hid_t) :: filespace     ! dataspace identifier in file 
+  integer(hid_t) :: memspace      ! dataspace identifier in memory
+  integer(hid_t) :: plist_id      ! property list identifier 
+
+  integer(hsize_t), dimension(rank) :: dimensions_file  ! dataset dimensions in the file.
+  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
+
+  integer(hsize_t),  dimension(rank) :: count  
+  integer(hssize_t), dimension(rank) :: offset 
+  integer(hsize_t),  dimension(rank) :: stride
+  integer(hsize_t),  dimension(rank) :: block
+  integer :: error  ! error flags
+  
+  ! what follows is for the attribute "time"
+  integer, parameter :: arank = 1
+  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
+  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
+  integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
+  integer(hid_t) :: attr_id       ! Attribute identifier
+  character(len=4) :: aname ! attribute name
+  real (kind=pr), dimension (:), allocatable :: attributes
+ 
+  !----------------------------------------------------------------------------
+  ! definition of memory distribution
+  !----------------------------------------------------------------------------
+  dimensions_file = (/nx,ny,nz/)
+  dimensions_local(1) = rb(1)-ra(1) +1
+  dimensions_local(2) = rb(2)-ra(2) +1
+  dimensions_local(3) = rb(3)-ra(3) +1
+
+  ! stride is spacing between elements, this is one here
+  stride = 1
+  ! how many blocks to select from dataspace
+  count =  1
+  ! the block contains how many data points to store
+  block = dimensions_local
+  ! offsets
+  offset(1) = ra(1)
+  offset(2) = ra(2)
+  offset(3) = ra(3) 
+
+  
+  !----------------------------------------------------------------------------
+  ! read actual field from file (dataset)
+  !----------------------------------------------------------------------------
+  ! dataspace in the file: contains all data from all procs
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
+  ! dataspace in memory: contains only local data
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
+  
+  ! Create chunked dataset
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, dimensions_local, error)
+  
+  ! Open an existing dataset.
+  call H5Dopen_f(file_id, dsetname, dset_id, error)
+       
+  ! Select hyperslab in the file.
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
+       stride, block)
+
+  ! Create property list for collective dataset read
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+ 
+  call H5Dread_f ( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
+                   mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
+  
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error) 
+  call H5Pclose_f(plist_id, error) ! note the dataset remains opened
+  
+  !----------------------------------------------------------------------------
+  ! attributes (we save everything in one, all double. to be converted when reading (to integer)
+  !----------------------------------------------------------------------------
+  adims = (/8/)
+  allocate (attributes(1:8))
+  aname = "bckp"
+  call h5aopen_f(dset_id, aname, attr_id, error)
+  
+  ! Get dataspace and read
+  call h5aget_space_f(attr_id, aspace_id, error)
+  call h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attributes, adims, error)  
+  call h5aclose_f(attr_id, error) ! Close the attribute.
+  call h5sclose_f(aspace_id, error) ! Terminate access to the data space.
+  
+  time    = attributes(1)
+  dt1     = attributes(2)
+  dt0     = attributes(3)
+  n1      = int(attributes(4))
+  it      = int(attributes(5))
+  nx_file = int(attributes(6))
+  ny_file = int(attributes(7))
+  nz_file = int(attributes(8))
+  
+  if ( (nx_file.ne.nx).or.(nx_file.ne.nx).or.(nx_file.ne.nx)) then
+    write (*,'(A)') "!!! Thats odd...the backup you're trying to resume doesn't have the same nx,ny,nz"
+    write (*,'(A)') "I'll leave you crying and commit suicide here."
+    stop
+  endif
+  
+  deallocate (attributes)  
+  
+  
+  ! Close dataset
+  call H5Dclose_f(dset_id, error)
+  
+end subroutine
+
+
+
+subroutine Dump_Runtime_Backup_OLD(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
   use mpi_header 
   use share_vars
   implicit none
@@ -353,12 +747,12 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,workvis)
 
   nbackup=1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1
-end subroutine Dump_Runtime_Backup
+end subroutine Dump_Runtime_Backup_OLD
 
 
 
 
-subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis)
+subroutine Read_Runtime_Backup_OLD(time,dt0,dt1,n1,it,uk,nlk,workvis)
   use mpi_header 
   use share_vars
   implicit none
@@ -468,7 +862,7 @@ subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis)
      write(*,'("---------")')
   endif
 
-end subroutine Read_Runtime_Backup
+end subroutine Read_Runtime_Backup_OLD
 
 
 
