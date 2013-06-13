@@ -20,6 +20,7 @@ subroutine get_params (paramsfile)
   !-----------------------------------------------------------
   ! read in the params file (root only)
   !-----------------------------------------------------------
+  io_error = 0
   if (mpirank==0) then
      write (*,'(A,i3)') "*** info: reading params from "//trim(paramsfile)//" rank=", mpirank
      i = 1
