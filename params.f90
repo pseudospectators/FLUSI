@@ -247,8 +247,8 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, params_strin
      if (value .ne. '') then
         read (value, *) params_string       
      else
-        write(*,'(A,es12.4)') &
-             "??? WARNING: No value found for "//trim(keyword)//" in section "//trim(section)//" ----> default=", defaultvalue
+        write(*,'(A)') &
+             "??? WARNING: No value found for "//trim(keyword)//" in section "//trim(section)//" ----> default="// defaultvalue
         params_string = defaultvalue
      endif
   endif
