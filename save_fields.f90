@@ -30,8 +30,6 @@ subroutine Save_scalar_HDF5( time,  filename, field_out, dsetname )
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
   integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
-  character(len=4) :: aname ! attribute name
-  character(len=11) :: aname2="domain_size" ! attribute name
   
   ! -----------------------------------------------------------
   ! this first part is to tell HDF5 how our (real!) data is organized
@@ -119,17 +117,13 @@ subroutine Save_scalar_HDF5( time,  filename, field_out, dsetname )
 
   ! The attributes written are time, penalisation parameter,
   ! computational resolution, and physical domain size.
-  adims = (/1/) 
-  aname = "time"
-  call write_attribute_dble(adims,aname,(/time/),1,dset_id)
-  aname = "epsi"
-  call write_attribute_dble(adims,aname,(/eps/),1,dset_id)
-  adims = (/3/)
-  aname2 = "domain_size"
-  call write_attribute_dble(adims,aname2,(/xl,yl,zl/),3,dset_id)
-  adims = (/3/)
-  aname = "nxyz"
-  call write_attribute_int(adims,aname,(/nx,ny,nz/),3,dset_id)
+  adims = (/1/)   
+  call write_attribute_dble(adims,"time",(/time/),1,dset_id)  
+  call write_attribute_dble(adims,"epsi",(/eps/),1,dset_id)
+  
+  adims = (/3/)  
+  call write_attribute_dble(adims,"domain_size",(/xl,yl,zl/),3,dset_id)
+  call write_attribute_int(adims,"nxyz",(/nx,ny,nz/),3,dset_id)
   
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -993,6 +987,8 @@ subroutine save_fields_new(time,dt1,uk,u,vort,nlk,work)
   time_save=time_save + MPI_wtime() - t1
 end subroutine save_fields_new
 
+
+
 subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   use mpi_header
   use share_vars
@@ -1002,7 +998,7 @@ subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   integer, intent(in) :: dim
   integer(hsize_t), DIMENSION(dim), intent(in) :: adims  ! Attribute dimension
   real (kind=pr), DIMENSION(dim), intent (in) :: attribute
-  character(len=4), intent(in) :: aname ! attribute name
+  character(len=*), intent(in) :: aname ! attribute name
   integer(hid_t),intent(in) :: dset_id       ! dataset identifier 
   integer, parameter :: arank = 1
 
@@ -1024,6 +1020,9 @@ subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   
 end subroutine write_attribute_dble
 
+
+
+
 subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   use mpi_header
   use share_vars
@@ -1033,7 +1032,7 @@ subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   integer, intent(in) :: dim
   integer(hsize_t), DIMENSION(dim), intent(in) :: adims  ! Attribute dimension
   integer, DIMENSION(dim), intent (in) :: attribute
-  character(len=4), intent(in) :: aname ! attribute name
+  character(len=*), intent(in) :: aname ! attribute name
   integer(hid_t),intent(in) :: dset_id       ! dataset identifier 
   integer, parameter :: arank = 1
 
