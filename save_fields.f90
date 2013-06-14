@@ -386,22 +386,9 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   ! ------
   adims = (/8/)
   allocate (attributes(1:8))
-  attributes = (/time,dt1,dt0,dble(n1),dble(it),dble(nx),dble(ny),dble(nz)/)
-  ! Create scalar data space for the attribute.
-  call h5screate_simple_f(arank, adims, aspace_id, error)
-  ! Create datatype for the attribute.
-  call h5tcopy_f(H5T_NATIVE_DOUBLE, atype_id, error) 
-  ! Create dataset attribute.
   aname = "bckp"
-  call h5acreate_f(dset_id, aname, atype_id, aspace_id, attr_id, error)
-  ! Write the attribute data.
-  ! here the value of the attribute is "time"
-  call h5awrite_f(attr_id, atype_id, attributes, adims, error)  
-  ! Close the attribute.
-  call h5aclose_f(attr_id, error)
-  ! Terminate access to the data space.
-  call h5sclose_f(aspace_id, error) 
-  
+  attributes = (/time,dt1,dt0,dble(n1),dble(it),dble(nx),dble(ny),dble(nz)/)
+  call write_attribute_dble(adims,aname,attributes,8,dset_id)
   
   ! Close dataspaces, dataset and property list
   call H5Sclose_f(filespace, error)
