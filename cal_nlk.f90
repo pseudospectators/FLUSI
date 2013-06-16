@@ -29,7 +29,6 @@ subroutine cal_nlk(time,it,dt1,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   real (kind=pr), dimension (3) :: u_max, u_loc
   integer :: mpicode,ix,iy,iz
   complex (kind=pr) :: qk
-  character (len=7) :: str
   type(Integrals), intent (out) :: GlobIntegrals
   logical :: TimeForDrag 
 

@@ -2,12 +2,12 @@ subroutine time_step
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   implicit none
-  integer :: inter,it,inicond1,ix,iy,iz,vis_tmp
+  integer :: inter,it
   integer :: n0=0,n1=1
   integer :: nbackup=0  ! 0 - backup to file runtime_backup0,1 - to
   ! runtime_backup1,2 - no backup
-  integer :: mpicode,it_start
-  real(kind=pr) :: time,v_rms,v_rms_loc,dt0,dt1,t1,t2,time_left
+  integer :: it_start
+  real(kind=pr) :: time,dt0,dt1,t1,t2,time_left
   real(kind=pr),dimension(:,:,:),allocatable :: workvis  
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
@@ -124,9 +124,11 @@ subroutine time_step
         ! note: we can safely delete nlk(:,:,:,1:3,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  this frees 3 complex arrays
-        call save_fields_new(time,dt1,uk,u,vort,nlk(:,:,:,:,n0),work)
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
         ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup == 1) call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk, workvis, work)
+        if(iDoBackup == 1) then
+          call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+        endif
         
         
  

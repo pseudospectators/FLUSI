@@ -42,7 +42,6 @@ subroutine subtr ( idir, n, ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpico
   integer :: mpicode, mpirealsize, mpiblock
   integer, dimension(:), allocatable :: types, counts
   integer, dimension(:), allocatable :: displs
-  logical :: reorganization
   real (kind=kind(0.0)), dimension (:,:,:), allocatable :: datatemp
 
   !--Check direction

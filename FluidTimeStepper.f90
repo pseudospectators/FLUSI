@@ -134,7 +134,6 @@ subroutine Euler ( time, it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, workvis, 
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: vort, u
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (inout) :: workvis
-  real (kind=pr) :: t1,t2,t3,t4
   type(Integrals), intent (out) :: GlobIntegrals
 
   !-----------------------------------------------------------------------------------
@@ -176,7 +175,6 @@ subroutine Euler_startup ( time,it, dt0, dt1, n0, n1, u, uk, nlk, vort, work, wo
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent (inout) :: work
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent (inout) :: vort, u
   real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)), intent (inout) :: workvis
-  real (kind=pr) :: t1,t2,t3,t4
   type(Integrals), intent (out) :: GlobIntegrals
 
   !-----------------------------------------------------------------------------------

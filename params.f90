@@ -9,11 +9,8 @@ subroutine get_params (paramsfile)
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   implicit none
-  integer                              :: mpicode, io_error,i,icpu
-  integer, dimension (11)              :: comm_int
-  real (kind=pr), dimension (11)       :: comm_real
+  integer                              :: io_error,i  
   character (len=80)                   :: paramsfile ! this is the file we read the PARAMS from
-  character (len=80)                   :: tmp
   character PARAMS(nlines)*256 ! this array will contain the ascii-params file
 
 
@@ -235,8 +232,8 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, params_strin
   character keyword*(*)   ! what keyword do you look for? for example nx=128
   character (len=80)  value    ! returns the value
   character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
-  character (len=80), intent (out) :: params_string
-  character (len=80), intent (in) :: defaultvalue 
+  character (len=80), intent (inout) :: params_string
+  character (len=80), intent (inout) :: defaultvalue 
   integer actual_lines
   integer mpicode
 
@@ -276,7 +273,6 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   integer actual_lines   ! how many lines did you actually read?  
   integer :: maxline = 256  ! how many characters per line?
   integer i, j,k
-  character line*256
   logical foundsection
 
   foundsection = .false.

@@ -61,7 +61,6 @@ subroutine Draw_Jerry (time)
   implicit none
   real(kind=pr), intent(in) :: time
   integer :: ix, iy, iz
-  integer :: ixmax, ixmin, iymax, iymin, izmax, izmin  
   real (kind=pr) :: phi_max, alpha_max, phase,phi,phi_dt,alpha,alpha_dt, y0_wing, x0_wing, z0_wing
   real (kind=pr) :: x, y, z, xs, ys, zs, L_body, a_body, b_body, x0_body, y0_body, z0_body, x0_head,y0_head,z0_head
   real (kind=pr) :: R_head, R_eye, x0_eye, y0_eye, z0_eye
@@ -322,10 +321,9 @@ subroutine Flapper (time)
   use share_vars
   implicit none
   real(kind=pr), intent(in) :: time
-  integer :: irad, iradmax, ix, iy, iz, ix0, iy0, iz0, kx, ky, kz
-  integer :: ixmax, ixmin, iymax, iymin, izmax, izmin  
-  real (kind=pr) :: t_star, R, alpha_t, un, alpha_max, t1
-  real (kind=pr) :: x, y, z, xs,ys,zs, alpha,L,B,H, y_tmp, z_tmp, tmp,N, eps_inv
+  integer :: iy, iz
+  real (kind=pr) :: R, alpha_t, un, alpha_max
+  real (kind=pr) :: y, z, ys,zs, alpha,L,H, tmp,N, eps_inv
 
   alpha_max = 30.d0*pi/180.d0
   alpha   =           alpha_max*dsin(time*2.d0*pi)
@@ -472,7 +470,8 @@ subroutine SmoothStep (f,x,t,h)
   !-----------------------------------------------------------------
   real (kind=pr), intent (out) :: f
   real (kind=pr), intent (in)  :: x,t,h
-  real (kind=pr) :: a,b,c,d, delta, GradientERF!, SmoothStep
+  real (kind=pr) :: delta, GradientERF!, SmoothStep
+!   real (kind=pr) :: a,b,c,d
   !--polynomial coefficients:
   !   a =  1.0 / (4.0*(h**3))
   !   b = -3.0*t / (4.0*(h**3))
