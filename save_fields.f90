@@ -18,11 +18,8 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
        intent(inout) :: vort,u  
   integer :: ix,iy,iz
   character(len=17) :: name
-  real(kind=pr) :: t1
   real(kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
   
-
-  t1=MPI_wtime()
 
   !--Set up file name base 
   write(name,'(i5.5)') floor(time*100.d0)
@@ -35,133 +32,133 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   endif
 
   if((iSaveVelocity.ne.0).or.(iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
-       !-----------------------------------------------
-       !--Calculate ux and uy in physical space
-       !-----------------------------------------------
-       call cofitxyz(uk(:,:,:,1),u(:,:,:,1))
-       call cofitxyz(uk(:,:,:,2),u(:,:,:,2))
-       call cofitxyz(uk(:,:,:,3),u(:,:,:,3))
-       !-----------------------------------------------
-       !-- SaveVelocity
-       !----------------------------------------------- 
-       if(iSaveVelocity == 1) then
-          call Save_Field_HDF5 ( time, './fields/ux_'//trim(adjustl(name)), u(:,:,:,1), "ux" )
-          call Save_Field_HDF5 ( time, './fields/uy_'//trim(adjustl(name)), u(:,:,:,2), "uy" )
-          call Save_Field_HDF5 ( time, './fields/uz_'//trim(adjustl(name)), u(:,:,:,3), "uz" )
-       endif
-  
-       if((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
-          !-----------------------------------------------
-          !-- compute vorticity
-          !-----------------------------------------------
-          do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1     
-             ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-             do ix=ca(2),cb(2)  ! kx : 0..nx/2
-                kx=scalex*dble(ix)                
-                do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1           
-                   kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-                   nlk(iz,ix,iy,1)=dcmplx(0d0,1d0)*(ky*uk(iz,ix,iy,3) &
-                        - kz*uk(iz,ix,iy,2) )
-                   nlk(iz,ix,iy,2)=dcmplx(0d0,1d0)*(kz*uk(iz,ix,iy,1) &
-                        - kx*uk(iz,ix,iy,3) )
-                   nlk(iz,ix,iy,3)=dcmplx(0d0,1d0)*(kx*uk(iz,ix,iy,2) &
-                        - ky*uk(iz,ix,iy,1) )
-                enddo
-             enddo
-          enddo
-          ! Transform it to physical space
-          call cofitxyz(nlk(:,:,:,1),vort(:,:,:,1)) 
-          call cofitxyz(nlk(:,:,:,2),vort(:,:,:,2))
-          call cofitxyz(nlk(:,:,:,3),vort(:,:,:,3))
-          !-----------------------------------------------
-          !-- Save Vorticity
-          !----------------------------------------------- 
-          if(iSaveVorticity == 1) then
-             call Save_Field_HDF5 ( time, './fields/vorx_'//trim(adjustl(name)), vort(:,:,:,1), "vorx" )
-             call Save_Field_HDF5 ( time, './fields/vory_'//trim(adjustl(name)), vort(:,:,:,2), "vory" )
-             call Save_Field_HDF5 ( time, './fields/vorz_'//trim(adjustl(name)), vort(:,:,:,3), "vorz" )
+    !-----------------------------------------------
+    !--Calculate ux and uy in physical space
+    !-----------------------------------------------
+    call cofitxyz(uk(:,:,:,1),u(:,:,:,1))
+    call cofitxyz(uk(:,:,:,2),u(:,:,:,2))
+    call cofitxyz(uk(:,:,:,3),u(:,:,:,3))
+    !-----------------------------------------------
+    !-- SaveVelocity
+    !----------------------------------------------- 
+    if(iSaveVelocity == 1) then
+      call Save_Field_HDF5 ( time, './fields/ux_'//trim(adjustl(name)), u(:,:,:,1), "ux" )
+      call Save_Field_HDF5 ( time, './fields/uy_'//trim(adjustl(name)), u(:,:,:,2), "uy" )
+      call Save_Field_HDF5 ( time, './fields/uz_'//trim(adjustl(name)), u(:,:,:,3), "uz" )
+    endif
 
-             ! I don't think we'll keep this for very long:
-             work=sqrt(vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
-             call Save_Field_HDF5 ( time, './fields/vorabs_'//trim(adjustl(name)), work, "vorabs" )
+    if((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
+      !-----------------------------------------------
+      !-- compute vorticity
+      !-----------------------------------------------
+      do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1     
+          ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
+          do ix=ca(2),cb(2)  ! kx : 0..nx/2
+            kx=scalex*dble(ix)                
+            do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1           
+                kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+                nlk(iz,ix,iy,1)=dcmplx(0d0,1d0)*(ky*uk(iz,ix,iy,3) &
+                    - kz*uk(iz,ix,iy,2) )
+                nlk(iz,ix,iy,2)=dcmplx(0d0,1d0)*(kz*uk(iz,ix,iy,1) &
+                    - kx*uk(iz,ix,iy,3) )
+                nlk(iz,ix,iy,3)=dcmplx(0d0,1d0)*(kx*uk(iz,ix,iy,2) &
+                    - ky*uk(iz,ix,iy,1) )
+            enddo
+          enddo
+      enddo
+      ! Transform it to physical space
+      call cofitxyz(nlk(:,:,:,1),vort(:,:,:,1)) 
+      call cofitxyz(nlk(:,:,:,2),vort(:,:,:,2))
+      call cofitxyz(nlk(:,:,:,3),vort(:,:,:,3))
+      !-----------------------------------------------
+      !-- Save Vorticity
+      !----------------------------------------------- 
+      if(iSaveVorticity == 1) then
+          call Save_Field_HDF5 ( time, './fields/vorx_'//trim(adjustl(name)), vort(:,:,:,1), "vorx" )
+          call Save_Field_HDF5 ( time, './fields/vory_'//trim(adjustl(name)), vort(:,:,:,2), "vory" )
+          call Save_Field_HDF5 ( time, './fields/vorz_'//trim(adjustl(name)), vort(:,:,:,3), "vorz" )
+
+          ! I don't think we'll keep this for very long:
+          work=sqrt(vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
+          call Save_Field_HDF5 ( time, './fields/vorabs_'//trim(adjustl(name)), work, "vorabs" )
+      endif
+
+      if(iSavePress == 1) then  
+          !-------------------------------------------------------------
+          !-- Calculate omega x u(cross-product)
+          !-- and transform the result into Fourier space 
+          !-------------------------------------------------------------
+          if((iPenalization == 1).and.(iMoving==0)) then
+            work=u(:,:,:,2)*vort(:,:,:,3)&
+                  -u(:,:,:,3)*vort(:,:,:,2)&
+                  -u(:,:,:,1)*mask
+            call coftxyz(work,nlk(:,:,:,1))
+            work=u(:,:,:,3)*vort(:,:,:,1)&
+                  -u(:,:,:,1)*vort(:,:,:,3)&
+                  -u(:,:,:,2)*mask
+            call coftxyz(work,nlk(:,:,:,2))
+            work=u(:,:,:,1)*vort(:,:,:,2)&
+                  -u(:,:,:,2)*vort(:,:,:,1)&
+                  -u(:,:,:,3)*mask
+            call coftxyz(work,nlk(:,:,:,3))
+          elseif((iPenalization==1).and.(iMoving==1)) then
+            work=u(:,:,:,2)*vort(:,:,:,3)&
+                  -u(:,:,:,3)*vort(:,:,:,2)&
+                  -(u(:,:,:,1)-us(:,:,:,1))*mask
+            call coftxyz(work,nlk(:,:,:,1))
+            work=u(:,:,:,3)*vort(:,:,:,1)&
+                  -u(:,:,:,1)*vort(:,:,:,3)&
+                  -(u(:,:,:,2)-us(:,:,:,2))*mask
+            call coftxyz(work,nlk(:,:,:,2))
+            work=u(:,:,:,1)*vort(:,:,:,2)&
+                  -u(:,:,:,2)*vort(:,:,:,1)&
+                  -(u(:,:,:,3)-us(:,:,:,3))*mask
+            call coftxyz(work,nlk(:,:,:,3))
+          else
+            work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
+            call coftxyz(work,nlk(:,:,:,1))
+            work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
+            call coftxyz(work,nlk(:,:,:,2))
+            work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
+            call coftxyz(work,nlk(:,:,:,3))  
           endif
-  
-          if(iSavePress == 1) then  
-             !-------------------------------------------------------------
-             !-- Calculate omega x u(cross-product)
-             !-- and transform the result into Fourier space 
-             !-------------------------------------------------------------
-             if((iPenalization == 1).and.(iMoving==0)) then
-                work=u(:,:,:,2)*vort(:,:,:,3)&
-                     -u(:,:,:,3)*vort(:,:,:,2)&
-                     -u(:,:,:,1)*mask
-                call coftxyz(work,nlk(:,:,:,1))
-                work=u(:,:,:,3)*vort(:,:,:,1)&
-                     -u(:,:,:,1)*vort(:,:,:,3)&
-                     -u(:,:,:,2)*mask
-                call coftxyz(work,nlk(:,:,:,2))
-                work=u(:,:,:,1)*vort(:,:,:,2)&
-                     -u(:,:,:,2)*vort(:,:,:,1)&
-                     -u(:,:,:,3)*mask
-                call coftxyz(work,nlk(:,:,:,3))
-             elseif((iPenalization==1).and.(iMoving==1)) then
-                work=u(:,:,:,2)*vort(:,:,:,3)&
-                     -u(:,:,:,3)*vort(:,:,:,2)&
-                     -(u(:,:,:,1)-us(:,:,:,1))*mask
-                call coftxyz(work,nlk(:,:,:,1))
-                work=u(:,:,:,3)*vort(:,:,:,1)&
-                     -u(:,:,:,1)*vort(:,:,:,3)&
-                     -(u(:,:,:,2)-us(:,:,:,2))*mask
-                call coftxyz(work,nlk(:,:,:,2))
-                work=u(:,:,:,1)*vort(:,:,:,2)&
-                     -u(:,:,:,2)*vort(:,:,:,1)&
-                     -(u(:,:,:,3)-us(:,:,:,3))*mask
-                call coftxyz(work,nlk(:,:,:,3))
-             else
-                work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-                call coftxyz(work,nlk(:,:,:,1))
-                work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-                call coftxyz(work,nlk(:,:,:,2))
-                work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-                call coftxyz(work,nlk(:,:,:,3))  
-             endif
-             !-------------------------------------------------------------
-             !-- add pressure, new version
-             !-- p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2
-             !-- note: we use rotational formulation: p is NOT the
-             !physical pressure
-             !-------------------------------------------------------------
-             do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-                ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-                ky2=ky*ky
-                do ix=ca(2),cb(2) ! kx : 0..nx/2
-                   kx=scalex*dble(ix)                
-                   kx2=kx*kx
-                   do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
-                      kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-                      kz2    =kz*kz
-                      k_abs_2=kx2+ky2+kz2
-                      if(abs(k_abs_2) .ne. 0.0) then  
-                         nlk(iz,ix,iy,1)=&
-                              (kx*nlk(iz,ix,iy,1)&
-                              +ky*nlk(iz,ix,iy,2)&
-                              +kz*nlk(iz,ix,iy,3)&
-                              )/k_abs_2
-                      endif
-                   enddo
+          !-------------------------------------------------------------
+          !-- add pressure, new version
+          !-- p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2
+          !-- note: we use rotational formulation: p is NOT the
+          !physical pressure
+          !-------------------------------------------------------------
+          do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1     
+            ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
+            ky2=ky*ky
+            do ix=ca(2),cb(2) ! kx : 0..nx/2
+                kx=scalex*dble(ix)                
+                kx2=kx*kx
+                do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
+                  kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+                  kz2    =kz*kz
+                  k_abs_2=kx2+ky2+kz2
+                  if(abs(k_abs_2) .ne. 0.0) then  
+                      nlk(iz,ix,iy,1)=&
+                          (kx*nlk(iz,ix,iy,1)&
+                          +ky*nlk(iz,ix,iy,2)&
+                          +kz*nlk(iz,ix,iy,3)&
+                          )/k_abs_2
+                  endif
                 enddo
-             enddo
-             call cofitxyz(nlk(:,:,:,1),work)
-             ! work contains total pressure, remove kinetic energy to
-             ! get "physical" pressure
-             work=work - 0.5d0*(&
-                   u(:,:,:,1)*u(:,:,:,1)&
-                  +u(:,:,:,2)*u(:,:,:,2)&
-                  +u(:,:,:,3)*u(:,:,:,3)&
-                  )
-             call Save_Field_HDF5(time, './fields/p_'//trim(adjustl(name)), work, "p" )
-          endif
-       endif
+            enddo
+          enddo
+          call cofitxyz(nlk(:,:,:,1),work)
+          ! work contains total pressure, remove kinetic energy to
+          ! get "physical" pressure
+          work=work - 0.5d0*(&
+                u(:,:,:,1)*u(:,:,:,1)&
+               +u(:,:,:,2)*u(:,:,:,2)&
+               +u(:,:,:,3)*u(:,:,:,3)&
+              )
+          call Save_Field_HDF5(time, './fields/p_'//trim(adjustl(name)), work, "p" )
+      endif
+      endif
     endif
 
   !-----------------------------------------------
@@ -179,7 +176,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   endif
 
 
-  time_save=time_save + MPI_wtime() - t1
+  
 end subroutine save_fields_new
 
 
@@ -222,7 +219,8 @@ subroutine Save_Field_HDF5( time,  filename, field_out, dsetname )
   integer, parameter :: arank = 1
   integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
   integer :: mpierror, i
-  
+  real(kind=pr) :: t1
+  t1 = MPI_wtime()
   ! -----------------------------------------------------------
   ! this first part is to tell HDF5 how our  data is organized
   ! -----------------------------------------------------------
@@ -344,7 +342,7 @@ subroutine Save_Field_HDF5( time,  filename, field_out, dsetname )
      call Write_XMF ( time, trim(adjustl(filename(10:len(filename)))) , trim(adjustl(dsetname)) )
   endif
 
-
+  time_save=time_save + MPI_wtime() - t1
 end subroutine Save_Field_HDF5
 
 

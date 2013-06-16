@@ -63,7 +63,7 @@ subroutine Draw_Jerry (time)
   integer :: ix, iy, iz
   real (kind=pr) :: phi_max, alpha_max, phase,phi,phi_dt,alpha,alpha_dt, y0_wing, x0_wing, z0_wing
   real (kind=pr) :: x, y, z, xs, ys, zs, L_body, a_body, b_body, x0_body, y0_body, z0_body, x0_head,y0_head,z0_head
-  real (kind=pr) :: R_head, R_eye, x0_eye, y0_eye, z0_eye
+  real (kind=pr) :: R_head, R_eye, x0_eye, y0_eye, z0_eye, sin_45
   real (kind=pr) :: b_top, b_bot, xx,yy, zz, cos_a, sin_a, cos_p, sin_p,&
        L_chord, delta, N_smooth, R, R_limit, tmp, x_tmp, y_tmp, z_tmp, y_bot,y_top
 
@@ -72,6 +72,7 @@ subroutine Draw_Jerry (time)
   phi_max     = 60.d0*pi/180.d0  ! phi is up/down angle (flapping)
   alpha_max   = 45.d0*pi/180.d0  ! alpha is tethering
   phase       = 10.d0*pi/180.d0  ! phase shift between flapping and tethering
+  
   phi         = phi_max*dcos(time)
   phi_dt      =-phi_max*dsin(time)
   alpha       = alpha_max*dsin(time+phase)
@@ -102,7 +103,8 @@ subroutine Draw_Jerry (time)
   sin_a = dsin(alpha)
   cos_p = dcos(phi)
   sin_p = dsin(phi)
-
+  sin_45 = dsin(45.d0*pi/180.d0)
+  
   ! width of smoothing zone
   N_smooth = 2.0
   delta = 2.0*N_smooth*max(dx,dy,dz)  ! delta is the safety distance to account for smoothing layer
@@ -274,9 +276,9 @@ subroutine Draw_Jerry (time)
            !--------------------------------------------
            ! eye root point
            R_eye = 0.50d0*R_head;
-           x0_eye = x0_head + dsin(45.d0*pi/180.d0)*R_head*0.80d0 ! the 0.8 moves the eye into the head
-           y0_eye = y0_head + dsin(45.d0*pi/180.d0)*R_head*0.80d0
-           z0_eye = z0_head + dsin(45.d0*pi/180.d0)*R_head*0.80d0
+           x0_eye = x0_head + sin_45*R_head*0.80d0 ! the 0.8 moves the eye into the head
+           y0_eye = y0_head + sin_45*R_head*0.80d0
+           z0_eye = z0_head + sin_45*R_head*0.80d0
 
            if ( dabs(y-y0_eye) < R_eye+delta ) then
               R = dsqrt ( (x-x0_eye)**2 + (z-z0_eye)**2 + (y-y0_eye)**2 )
@@ -294,7 +296,7 @@ subroutine Draw_Jerry (time)
            !--------------------------------------------
            ! eye root point
            R_eye = 0.50d0*R_head;
-           x0_eye = x0_head - dsin(45.d0*pi/180.d0)*R_head*0.80d0 ! note sign change for symmetry
+           x0_eye = x0_head - sin_45*R_head*0.80d0 ! note sign change for symmetry
 
            if ( dabs(y-y0_eye) < R_eye+delta ) then
               R = dsqrt ( (x-x0_eye)**2 + (z-z0_eye)**2 + (y-y0_eye)**2 )
