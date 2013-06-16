@@ -75,15 +75,6 @@ program FLUSI
   call MPI_barrier (MPI_COMM_world, mpicode)
 
 
-
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  !   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  !   call create_mask (0.0)
-  !   call SaveFileHDF5(mask)
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
   t1 = MPI_wtime()
   call time_step ()
   t2 = MPI_wtime() - t1
@@ -92,7 +83,6 @@ program FLUSI
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize
   endif
 
-  !---- Deallocate memory
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '*** Timings'

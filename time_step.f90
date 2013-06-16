@@ -83,7 +83,7 @@ subroutine time_step
      !--Switch time levels
      inter=n1 ; n1=n0 ; n0=inter
      !--Advance in time: at this point,uk contains the velocity field
-     !--at time 'time'
+     !--at time 'time+dt1'
      time=time + dt1
      it=it + 1
 
@@ -127,9 +127,6 @@ subroutine time_step
         if(iDoBackup == 1) then
           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
         endif
-        
-        
- 
         if(mpirank ==0 ) write(*,'("<<< info: done saving, returning to time loop")')
      endif
 
