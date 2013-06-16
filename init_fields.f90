@@ -95,7 +95,6 @@ subroutine init_fields (n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
      !--------------------------------------------------  
      if (mpirank==0) write (*,*) "*** inicond: retaking backup " // inicond(9:len(inicond))
      call Read_Runtime_Backup ( inicond(9:len(inicond)), time, dt0, dt1, n1, it, uk, work_nlk, workvis, vort(:,:,:,1))
-     write (*,*) time, it, dt0, dt1
   elseif (inicond == "quiescent") then      
      !--------------------------------------------------
      ! fluid at rest

@@ -19,7 +19,9 @@ subroutine get_params (paramsfile)
   !-----------------------------------------------------------
   io_error = 0
   if (mpirank==0) then
-     write (*,'(A,i3)') "*** info: reading params from "//trim(paramsfile)//" rank=", mpirank
+     write (*,*) "*************************************************"
+     write (*,'(A,i3)') " *** info: reading params from "//trim(paramsfile)//" rank=", mpirank
+     write (*,*) "*************************************************"
      i = 1
      open ( unit=14, file=paramsfile, action='read', status='old' )    
      do while ((io_error==0).and.(i<=nlines))
@@ -84,6 +86,7 @@ subroutine get_params (paramsfile)
   call GetValue_int (PARAMS,i,"Saving","iDrag",iDrag, 0)
   call GetValue_int (PARAMS,i,"Saving","iKinDiss",iKinDiss, 0)
 
+  
   !-------------------------------------------------------
   ! set other parameters (all procs)
   !-------------------------------------------------------  
@@ -170,10 +173,13 @@ subroutine GetValue_Int (PARAMS, actual_lines, section, keyword, params_int, def
   if (mpirank==0) then
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
-        read (value, *) params_int         
+        read (value, *) params_int    
+        write (value,'(i7)') params_int
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
      else
-        write(*,'(A,i7)') &
-             "??? WARNING: No value found for "//trim(keyword)//" in section "//trim(section)//" ----> default=",defaultvalue
+        write (value,'(i7)') defaultvalue
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+        " (THIS IS THE DEFAULT VALUE!)"
         params_int = defaultvalue
      endif
   endif
@@ -207,14 +213,16 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, d
   if (mpirank==0) then
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
-        read (value, *) params_real        
+        read (value, *) params_real    
+        write (value,'(g10.3)') params_real
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
      else
-        write(*,'(A,es12.4)') &
-             "??? WARNING: No value found for "//trim(keyword)//" in section "//trim(section)//" ----> default=", defaultvalue
+        write (value,'(g10.3)') defaultvalue
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+        " (THIS IS THE DEFAULT VALUE!)"
         params_real = defaultvalue
      endif
   endif
-
   !-----------------
   ! and then broadcast
   !-----------------
@@ -244,14 +252,14 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, params_strin
   if (mpirank==0) then
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
-        read (value, *) params_string       
+        params_string = value
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
      else
-        write(*,'(A)') &
-             "??? WARNING: No value found for "//trim(keyword)//" in section "//trim(section)//" ----> default="// defaultvalue
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+        " (THIS IS THE DEFAULT VALUE!)"
         params_string = defaultvalue
      endif
   endif
-
   !-----------------
   ! and then broadcast
   !-----------------
