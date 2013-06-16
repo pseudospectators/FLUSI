@@ -61,9 +61,7 @@ subroutine time_step
   !     LOOP OVER TIME STEPS
   !---------------------------------------------------------
   t1=MPI_wtime()
-!!!!!!!!!!!!!!!!!!!!
-!   dt1 = eps!!!!!!!!!!!!!!
-!!!!!!!!!!!!!!
+
 
   do while((time<=tmax).and.(it<=nt))
      dt0=dt1
@@ -132,7 +130,7 @@ subroutine time_step
         
         
  
-        if(mpirank ==0 ) write(*,'("*** info: done saving, returning to time loop")')
+        if(mpirank ==0 ) write(*,'("<<< info: done saving, returning to time loop")')
      endif
 
   end do

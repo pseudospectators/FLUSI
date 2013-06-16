@@ -45,7 +45,8 @@ subroutine get_params (paramsfile)
   call GetValue_Real (PARAMS,i,"Time","dt_fixed",dt_fixed, 0.d0)
 
   call GetValue_Real (PARAMS,i,"ReynoldsNumber","nu",nu, 1.d-2)  
-  call GetValue_Int (PARAMS,i,"InitialCondition","inicond",inicond, 3)  
+  inicond = "none"
+  call GetValue_String (PARAMS,i,"InitialCondition","inicond",inicond, inicond)  
   call GetValue_Int (PARAMS,i,"Dealiasing","iDealias",iDealias, 1)
 
   call GetValue_Int (PARAMS,i,"Penalization","iPenalization",iPenalization, 0)

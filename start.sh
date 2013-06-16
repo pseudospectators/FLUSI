@@ -31,8 +31,8 @@ DIR=$1
 echo -e ${BBlue} "deleting main..." ${Color_Off}
 rm main
 
-echo -e ${BBlue} "make clean..." ${Color_Off}
-make clean
+#echo -e ${BBlue} "make clean..." ${Color_Off}
+#make clean
 
 echo -e ${BBlue} "make sugiton..." ${Color_Off}
 make

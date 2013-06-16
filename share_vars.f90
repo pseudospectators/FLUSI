@@ -4,7 +4,7 @@ module share_vars
   integer, parameter :: pr = 8
   integer, save :: nx, ny, nz, nt
   integer, save :: mpisize, mpirank, mpicommcart, mpiinteger, mpireal, mpicomplex
-  integer, save :: iDealias, inicond, itdrag
+  integer, save :: iDealias, itdrag
   integer, save :: iDrag, iKinDiss
   integer, save :: iSaveVelocity, iSaveVorticity, iSavePress, iSaveMask, iSaveSolidVelocity
   integer, save :: iMoving, iPenalization, iMeanFlow, iDoBackup
@@ -19,7 +19,7 @@ module share_vars
   real (kind=pr), dimension (:,:,:), allocatable, save :: mask
   real (kind=pr), dimension (:,:,:,:), allocatable, save :: us
 
-  character (len=80), save :: iMask, iTimeMethodFluid
+  character (len=80), save :: iMask, iTimeMethodFluid, inicond
 
   ! ------------------
   ! used in params.f90

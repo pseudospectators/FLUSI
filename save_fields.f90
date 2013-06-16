@@ -29,7 +29,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
 
   if(mpirank == 0 ) then 
      write(*,&
-          '("*** info: Saving data.... time= ",es8.2,1x," saveflags= ",5(i1))')&
+          '(">>> info: Saving data.... time= ",es8.2,1x," saveflags= ",5(i1))')&
           time,iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,&
           iSaveSolidVelocity
   endif
@@ -423,7 +423,7 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   t1=MPI_wtime()
 
   if(mpirank ==0) then
-     write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1," to disk....")') time, nbackup
+     write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1,".h5 to disk....")') time, nbackup
   endif
 
   ! create current filename
@@ -588,14 +588,13 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   call H5Dclose_f(dset_id, error)
   call H5Pclose_f(plist_id, error)
   
-  
   deallocate (attributes)
 end subroutine
 
 
 
 
-subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis, work)
+subroutine Read_Runtime_Backup( filename,time,dt0,dt1,n1,it,uk,nlk,workvis, work)
   use mpi_header 
   use share_vars
   use hdf5
@@ -606,7 +605,7 @@ subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis, work)
   complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),intent(out):: nlk
   real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),intent(out) :: workvis
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),intent(inout) :: work
-  character(len=18) :: filename
+  character(len=*) :: filename
   
   integer :: error  ! error flags  
   integer(hid_t) :: file_id       ! file identifier 
@@ -614,11 +613,10 @@ subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis, work)
     
   if(mpirank==0) then
      write(*,'("---------")')
-     write(*,'(A)') "!!! warning: trying to resume a backup file"
+     write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
   endif
   
-  filename = 'runtime_backup9.h5'
-  
+
   ! Initialize HDF5 library and Fortran interfaces.
   call h5open_f(error) 
   
@@ -658,7 +656,7 @@ subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis, work)
   call coftxyz ( work, nlk(:,:,:,3,1) )
   
   call H5Fclose_f (file_id,error)
-  call H5close_f(error)
+  call H5close_f (error)
  
 
   !-------------------------------------
@@ -671,7 +669,7 @@ subroutine Read_Runtime_Backup(time,dt0,dt1,n1,it,uk,nlk,workvis, work)
  
   if(mpirank == 0) then
      write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
-     write(*,'("!!! DONE READING BACKUP (succes!)")') 
+     write(*,'("!!! DONE READING BACKUP (thats good news!)")') 
      write(*,'("---------")')
   endif
 
@@ -807,7 +805,6 @@ subroutine Read_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   endif
   
   deallocate (attributes)  
-  
   
   ! Close dataset
   call H5Dclose_f(dset_id, error)

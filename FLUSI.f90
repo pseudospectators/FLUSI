@@ -42,7 +42,12 @@ program FLUSI
 
 
   ! overwrite drag_data file
-  if ((inicond .ne. 99).and.(mpirank==0)) then
+  if ( len(inicond) > 8) then  ! comparison will fail if string too short...
+  if ((inicond(1:8) .ne. "backup::").and.(mpirank==0)) then
+     open  (14, file = 'drag_data', status = 'replace')
+     close (14)
+  endif
+  else ! ... but if this is the case, we're not resuming a backup anyways
      open  (14, file = 'drag_data', status = 'replace')
      close (14)
   endif
