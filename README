@@ -16,7 +16,7 @@ module load intel/12.1 mpich2/intel/1.4.1
 export P3DFFT_ROOT="/home/ethomas/p3dfft.2.3.2_fixed"
 export FFT_ROOT="/home/ethomas/fftw"
 export FFLAGS=""
-export HDF_ROOT=”/LOGINSTO/softs/hdf5/intel/1.8.8/”
+export HDF_ROOT="/LOGINSTO/softs/hdf5/intel/1.8.8/"
 the modifications on the mesocentre are reflected in the makefile.
 
 
