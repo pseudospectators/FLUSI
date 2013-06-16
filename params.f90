@@ -113,43 +113,12 @@ subroutine get_params (paramsfile)
   !-------------------------------------------------------
   call fft_initialize 
 
-  !--------------------------------------------------------
-  ! HEADER
-  !--------------------------------------------------------
-  if ( mpirank == 0 ) then
-     write (*,*) '--------------------------------------------'
-     write (*, '(" nx = ",i4, 1x, "ny = ", i4, 1x, "nz = ", i4)') nx, ny, nz
-     write (*, '(" xl = ", f6.2, 1x, "yl = ", f6.2, 1x, "zl = ", f6.2)') xl, yl, zl
-     write (*, '(" nt = ", i6, 1x)') nt
-     write (*, '(" tmax = ", f6.2)') tmax
-     write (*, '(" viscosity = ", es11.4)') nu
-     write (*,*) '--------------------------------------------'
-     write (*, '(" calculate drag every", i4, " time steps")') itdrag
-     write (*, '(" save fields every   ", es11.4)') tsave
-     if (iSavePress == 1) write (*,*) 'save pressure'
-     if (iSaveVelocity == 1) write (*,*) 'save velocity'
-     if (iSaveVorticity == 1) write (*,*) 'save vorticity'
-     if (iSaveMask == 1) write (*,*) 'save mask'
-     if (iSaveSolidVelocity == 1) write (*,*) 'save mask velocity'
-     write (*,*) '--------------------------------------------'
-     if (iPenalization > 0) then 
-        write (*,*) 'with obstacle'
-        write (*, '(" x0 = ", f6.2, 1x, "y0 = ", f6.2, 1x, "z0 = ", f6.2, 1x, &
-             & "size = ", f6.2)') x0, y0, z0, length
-        write (*, '(" epsilon_eff   = ", es11.4)') eps * xl / real (nx)
-        write (*, '(" epsilon       = ", es11.4)') eps
-        write (*, '(" Ux = ", f6.2, " Uy = ", f6.2, " Uz = ", f6.2)') Ux, Uy, Uz
-        write (*, '(" Ax = ", f6.2, " Ay = ", f6.2, " Az = ", f6.2)') Ax, Ay, Az
-        write (*, '(" Re = ", es11.4)') sqrt(Ux**2+Uy**2+Uz**2) * length / nu
-     else
-        write (*,*) 'without obstacle'
-     end if
-     write (*,*) 'Time stepping fluid:', iTimeMethodFluid
-     write (*,*) ' '
-     write (*,*) '--------------------------------------------'
-     write (*,*) ' '
-  endif
 
+  if (mpirank==0) then
+     write (*,*) "*************************************************"
+     write (*,'(A,i3)') " *** DONE READING PARAMETERS"
+     write (*,*) "*************************************************"
+  endif
 
 end subroutine get_params
 
