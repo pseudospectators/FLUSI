@@ -8,14 +8,11 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   use share_vars
   implicit none
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent(in) :: uk
-  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent(out):: nlk
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
-       intent(inout) :: work
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
-       intent(inout) :: vort,u
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   integer :: ix,iy,iz
   character(len=17) :: name
   real(kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
@@ -169,9 +166,9 @@ subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   use share_vars
   use HDF5
   implicit none
-
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), &
-       intent(in) :: field_out ! the field to be written to disk
+  
+   ! the field to be written to disk
+  real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename
