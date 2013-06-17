@@ -42,9 +42,12 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
     !-- SaveVelocity
     !----------------------------------------------- 
     if(iSaveVelocity == 1) then
-      call Save_Field_HDF5 ( time, './fields/ux_'//trim(adjustl(name)), u(:,:,:,1), "ux" )
-      call Save_Field_HDF5 ( time, './fields/uy_'//trim(adjustl(name)), u(:,:,:,2), "uy" )
-      call Save_Field_HDF5 ( time, './fields/uz_'//trim(adjustl(name)), u(:,:,:,3), "uz" )
+      call Save_Field_HDF5 ( time, './fields/ux_'//trim(adjustl(name)),&
+           u(:,:,:,1), "ux" )
+      call Save_Field_HDF5 ( time, './fields/uy_'//trim(adjustl(name)),&
+           u(:,:,:,2), "uy" )
+      call Save_Field_HDF5 ( time, './fields/uz_'//trim(adjustl(name)),&
+           u(:,:,:,3), "uz" )
     endif
 
     if((iSaveVorticity.ne.0).or.(iSavePress.ne.0)) then
@@ -74,13 +77,17 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
       !-- Save Vorticity
       !----------------------------------------------- 
       if(iSaveVorticity == 1) then
-          call Save_Field_HDF5 ( time, './fields/vorx_'//trim(adjustl(name)), vort(:,:,:,1), "vorx" )
-          call Save_Field_HDF5 ( time, './fields/vory_'//trim(adjustl(name)), vort(:,:,:,2), "vory" )
-          call Save_Field_HDF5 ( time, './fields/vorz_'//trim(adjustl(name)), vort(:,:,:,3), "vorz" )
+          call Save_Field_HDF5 ( time, './fields/vorx_'//trim(adjustl(name)),&
+               vort(:,:,:,1), "vorx" )
+          call Save_Field_HDF5 ( time, './fields/vory_'//trim(adjustl(name)),&
+               vort(:,:,:,2), "vory" )
+          call Save_Field_HDF5 ( time, './fields/vorz_'//trim(adjustl(name)),&
+               vort(:,:,:,3), "vorz" )
 
           ! I don't think we'll keep this for very long:
           work=sqrt(vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
-          call Save_Field_HDF5 ( time, './fields/vorabs_'//trim(adjustl(name)), work, "vorabs" )
+          call Save_Field_HDF5 ( time, './fields/vorabs_'//trim(adjustl(name)),&
+               work, "vorabs" )
       endif
 
       if(iSavePress == 1) then  
@@ -156,7 +163,8 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
                +u(:,:,:,2)*u(:,:,:,2)&
                +u(:,:,:,3)*u(:,:,:,3)&
               )
-          call Save_Field_HDF5(time, './fields/p_'//trim(adjustl(name)), work, "p" )
+          call Save_Field_HDF5(time, './fields/p_'//trim(adjustl(name)), work, &
+               "p" )
       endif
       endif
     endif
@@ -166,23 +174,19 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   !----------------------------------------------- 
 
   if((iSaveMask==1).and.(iPenalization==1)) then
-    call Save_Field_HDF5(time,'./fields/mask_'//trim(adjustl(name)),mask, "mask" )
+    call Save_Field_HDF5(time,'./fields/mask_'//trim(adjustl(name)),mask, &
+         "mask" )
   endif
   
   if((iSaveSolidVelocity==1).and.(iPenalization==1).and.(iMoving==1)) then
-    call Save_Field_HDF5(time,'./fields/usx_'//trim(adjustl(name)),us(:,:,:,1), "usx" )
-    call Save_Field_HDF5(time,'./fields/usy_'//trim(adjustl(name)),us(:,:,:,2), "usy" )
-    call Save_Field_HDF5(time,'./fields/usz_'//trim(adjustl(name)),us(:,:,:,3), "usz" )
+    call Save_Field_HDF5(time,'./fields/usx_'//trim(adjustl(name)),us(:,:,:,1),&
+         "usx" )
+    call Save_Field_HDF5(time,'./fields/usy_'//trim(adjustl(name)),us(:,:,:,2),&
+         "usy" )
+    call Save_Field_HDF5(time,'./fields/usz_'//trim(adjustl(name)),us(:,:,:,3),&
+         "usz" )
   endif
-
-
-  
 end subroutine save_fields_new
-
-
-
-
-
 
 
 subroutine Save_Field_HDF5( time,  filename, field_out, dsetname )
@@ -190,7 +194,8 @@ subroutine Save_Field_HDF5( time,  filename, field_out, dsetname )
   use share_vars
   use HDF5
   implicit none
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(in) :: field_out
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), &
+       intent(in) :: field_out
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename   ! file name
@@ -339,15 +344,12 @@ subroutine Save_Field_HDF5( time,  filename, field_out, dsetname )
 
   if (mpirank==0) then
      ! the filename contains a leading "./fields/" which we must remove
-     call Write_XMF ( time, trim(adjustl(filename(10:len(filename)))) , trim(adjustl(dsetname)) )
+     call Write_XMF ( time, trim(adjustl(filename(10:len(filename)))) , &
+          trim(adjustl(dsetname)) )
   endif
 
   time_save=time_save + MPI_wtime() - t1
 end subroutine Save_Field_HDF5
-
-
-
-
 
 
 subroutine Write_XMF ( time, filename, dsetname )
@@ -410,9 +412,12 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   character(len=18) :: filename
   real(kind=pr),intent(inout) :: time,dt1,dt0
   integer,intent(inout) :: n1,nbackup,it
-  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), intent(in) :: uk
-  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1), intent(in):: nlk
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),intent(inout) :: work
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), &
+       intent(in) :: uk
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
+       intent(in):: nlk
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
+       intent(inout) :: work
   real(kind=pr) :: t1  
   integer :: error  ! error flags  
   integer(hid_t) :: file_id       ! file identifier 
@@ -559,8 +564,8 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
 
   ! Select hyperslab in the file.
   call H5Dget_space_f(dset_id, filespace, error)
-  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, error , &
-       stride, dimensions_local)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+       error , stride, dimensions_local)
 
   ! Create property list for collective dataset write
   call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error) 
@@ -590,20 +595,23 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
 end subroutine
 
 
-
-
-subroutine Read_Runtime_Backup( filename,time,dt0,dt1,n1,it,uk,nlk,workvis, work)
+subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   use mpi_header 
   use share_vars
   use hdf5
   implicit none
+
+  character(len=*),intent(in) :: filename
   real(kind=pr),intent(out) :: time,dt1,dt0
   integer,intent(out) :: n1,it
-  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),intent(out) :: uk
-  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),intent(out):: nlk
-  real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),intent(out) :: workvis
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),intent(inout) :: work
-  character(len=*) :: filename
+  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
+       intent(out) :: uk
+  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
+       intent(out):: nlk
+  real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))&
+       ,intent(out) :: workvis
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
+       intent(inout) :: work
   
   integer :: error  ! error flags  
   integer(hid_t) :: file_id       ! file identifier 
@@ -630,9 +638,6 @@ subroutine Read_Runtime_Backup( filename,time,dt0,dt1,n1,it,uk,nlk,workvis, work
   ! this closes the property list (we'll re-use it)
   call H5Pclose_f(plist_id, error)
   
-  
-  
-  
   call Read_Field_Backup ( work,"ux",time,dt0,dt1,n1,it,file_id )
   call coftxyz ( work, uk(:,:,:,1) )
   call Read_Field_Backup ( work,"uy",time,dt0,dt1,n1,it,file_id )
@@ -656,15 +661,11 @@ subroutine Read_Runtime_Backup( filename,time,dt0,dt1,n1,it,uk,nlk,workvis, work
   call H5Fclose_f (file_id,error)
   call H5close_f (error)
  
-
-  !-------------------------------------
-  ! it is important to have workvis, because it won't
-  ! be initialized if both time steps dt0 and dt1 match
-  ! so we compute it here (TOMMY: are you sure about dt1???)
-  !-------------------------------------
+  ! it is important to have workvis, because it won't be initialized
+  ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
+  ! are you sure about dt1???)
   call cal_vis ( dt1, workvis )
- 
- 
+  
   if(mpirank == 0) then
      write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
      write(*,'("!!! DONE READING BACKUP (thats good news!)")') 
@@ -674,19 +675,16 @@ subroutine Read_Runtime_Backup( filename,time,dt0,dt1,n1,it,uk,nlk,workvis, work
 end subroutine Read_Runtime_Backup
 
 
-
-
-subroutine Read_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
-  !--------------------------------------------------------
+subroutine Read_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   ! This routine reads a single field "dsetname" from a backup file
   ! "file_id". the field has the attribute "attributes", which is an
   ! 8x1 array containing scalar backup information
-  !--------------------------------------------------------
   use mpi_header
   use share_vars
   use hdf5
   implicit none
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(out) :: field
+  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), &
+       intent(out) :: field
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr), intent (out)  :: time,dt1,dt0
   character(len=*), intent (in) :: dsetname   
@@ -810,8 +808,6 @@ subroutine Read_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
 end subroutine
 
 
-
-
 subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   use mpi_header
   use share_vars
@@ -822,28 +818,25 @@ subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   integer(hsize_t), DIMENSION(dim), intent(in) :: adims  ! Attribute dimension
   real (kind=pr), DIMENSION(dim), intent (in) :: attribute
   character(len=*), intent(in) :: aname ! attribute name
-  integer(hid_t),intent(in) :: dset_id       ! dataset identifier 
+  integer(hid_t),intent(in) :: dset_id  ! dataset identifier 
   integer, parameter :: arank = 1
 
   integer :: error  ! error flags
-  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
-  integer(hid_t) :: attr_id       ! Attribute identifier
+  integer(hid_t) :: aspace_id ! Attribute Dataspace identifier
+  integer(hid_t) :: attr_id   ! Attribute identifier
 
-  ! Determine the dataspace identifier ASPACE_ID
+  ! Determine the dataspace identifier aspace_id
   call h5screate_simple_f(arank,adims,aspace_id,error)
 
-  ! set attr_id, ie create an attribute attached to the object DSET_ID
+  ! set attr_id, ie create an attribute attached to the object dset_id
   call h5acreate_f(dset_id,aname,H5T_NATIVE_DOUBLE,aspace_id,attr_id,error)
   
-  ! Write the attribute data ATTRIBUTE to the attribute identifier ATTR_ID.
+  ! Write the attribute data attribute to the attribute identifierattr_id
   call h5awrite_f(attr_id, H5T_NATIVE_DOUBLE, attribute, adims, error)  
 
   call h5aclose_f(attr_id, error) ! Close the attribute.
   call h5sclose_f(aspace_id, error) ! Terminate access to the data space.
-  
 end subroutine write_attribute_dble
-
-
 
 
 subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
@@ -856,20 +849,22 @@ subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   integer(hsize_t), DIMENSION(dim), intent(in) :: adims  ! Attribute dimension
   integer, DIMENSION(dim), intent (in) :: attribute
   character(len=*), intent(in) :: aname ! attribute name
-  integer(hid_t),intent(in) :: dset_id       ! dataset identifier 
+  integer(hid_t),intent(in) :: dset_id  ! dataset identifier 
   integer, parameter :: arank = 1
 
   integer :: error  ! error flags
-  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
-  integer(hid_t) :: attr_id       ! Attribute identifier
+  integer(hid_t) :: aspace_id ! Attribute Dataspace identifier
+  integer(hid_t) :: attr_id   ! Attribute identifier
 
   ! Determine the dataspace identifier aspace_id
-  call h5screate_simple_f(arank, adims, aspace_id, error)
+  call h5screate_simple_f(arank,adims,aspace_id,error)
+
   ! set attr_id, ie create an attribute attached to the object dset_id
   call h5acreate_f(dset_id,aname,H5T_NATIVE_INTEGER,aspace_id,attr_id,error)
-  ! Write the attribute data ATTRIBUTE to the attribute identifier attr_id.
+
+  ! Write the attribute data attribute to the attribute identifier attr_id.
   call h5awrite_f(attr_id,H5T_NATIVE_INTEGER,attribute,adims,error)  
+
   call h5aclose_f(attr_id,error) ! Close the attribute.
   call h5sclose_f(aspace_id,error) ! Terminate access to the data space.
-  
 end subroutine write_attribute_int
