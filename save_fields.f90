@@ -313,8 +313,6 @@ subroutine Write_XMF ( time, filename, dsetname )
 
   write(tmp_time,'(es15.8)') time
   write(tmp_nxyz,'(3(i4,1x))') nx,ny,nz
-  tmp_time=trim(adjustl(tmp_time))
-  tmp_nxyz=trim(adjustl(tmp_nxyz))
 
   ! note the XMF file goes also in the fields/ directory
   open (14, file='./fields/'//trim(adjustl(filename))//'.xmf', status='replace')
@@ -324,21 +322,25 @@ subroutine Write_XMF ( time, filename, dsetname )
   write(14,'(A)') '<Xdmf Version="2.0">'
   write(14,'(A)') '<Domain>'
   write(14,'(A)') '<Grid Name="FLUSI_cartesian_grid" GridType="Uniform">'
-  write(14,'(A)') '    <Time Value="'//tmp_time//'" />'
-  write(14,'(A)') '    <Topology TopologyType="3DCoRectMesh" Dimensions="'//tmp_nxyz//'"/>'
+  write(14,'(A)') '    <Time Value="'//trim(adjustl(tmp_time))//'" />'
+  write(14,'(A)') '    <Topology TopologyType="3DCoRectMesh" Dimensions="'&
+                //trim(adjustl(tmp_nxyz))//'"/>'
   write(14,'(A)') ' '
   write(14,'(A)') '    <Geometry GeometryType="Origin_DxDyDz">'
   write(14,'(A)') '    <DataItem Dimensions="3" NumberType="Float" Format="XML">'
   write(14,'(A)') '    0 0 0'
   write(14,'(A)') '    </DataItem>'
   write(14,'(A)') '    <DataItem Dimensions="3" NumberType="Float" Format="XML">'
-  write(14,'(4x,3(es15.8,1x))') dx, dy, dz!          0.25 0.25 0.25
+  write(14,'(4x,3(es15.8,1x))') dx, dy, dz
   write(14,'(A)') '    </DataItem>'
   write(14,'(A)') '    </Geometry>'
   write(14,'(A)') ' '
-  write(14,'(A)') '    <Attribute Name="'//trim(adjustl(dsetname))//'" AttributeType="Scalar" Center="Node">'
-  write(14,'(A)') '    <DataItem Dimensions="'//tmp_nxyz//'" NumberType="Float" Format="HDF">'
-  write(14,'(A)') '    '//trim(adjustl(filename))//'.h5:/'//trim(adjustl(dsetname))
+  write(14,'(A)') '    <Attribute Name="'//trim(adjustl(dsetname)) &
+                //'" AttributeType="Scalar" Center="Node">'
+  write(14,'(A)') '    <DataItem Dimensions="'//tmp_nxyz&
+                //'" NumberType="Float" Format="HDF">'
+  write(14,'(A)') '    '//trim(adjustl(filename))//'.h5:/'&
+                //trim(adjustl(dsetname))
   write(14,'(A)') '    </DataItem>'
   write(14,'(A)') '    </Attribute>'
   write(14,'(A)') '</Grid>'
@@ -810,7 +812,7 @@ subroutine compute_vorticity(vortk,uk,vort)
   implicit none
   ! input: velocity field in Fourier space
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  ! work: vortk, (3 complex work arrays, output: vorticity in Fourier space)
+  ! work: vortk, (at output: vorticity in Fourier space)
   complex(kind=pr),intent(inout)::vortk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   ! output: vorticity
   real(kind=pr),intent(out) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
