@@ -40,7 +40,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
 
      if((iSaveVorticity.ne.0) .or. (iSavePress.ne.0)) then
         ! compute vorticity
-        call compute_vorticity(nlk,uk,vort)
+        call compute_vorticity(vort,nlk,uk)
         !-----------------------------------------------
         !-- Save Vorticity
         !-----------------------------------------------
@@ -731,7 +731,7 @@ end subroutine write_attribute_int
 
 ! Given the velocity in Fourier space and a work array vortk, compute
 ! the vorticity in phsycial space.  Arrays are 4-dimensional.
-subroutine compute_vorticity(vortk,uk,vort)
+subroutine compute_vorticity(vort,vortk,uk)
   use mpi_header
   use share_vars
   implicit none
