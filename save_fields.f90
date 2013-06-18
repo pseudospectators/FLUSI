@@ -1,22 +1,17 @@
+! Main save routine for fields. it computes missing values (such as p
+! and vorticity) and stores the fields in several HDF5 files.
 subroutine save_fields_new(time,uk,u,vort,nlk,work)
-  ! --------------------------------------------------------------
-  ! this is the main save routine for fields. it computes missing
-  ! values (such as p and vorticity) and stores the fields in several
-  ! HDF5 files.
-  ! --------------------------------------------------------------
   use mpi_header
   use share_vars
   implicit none
+
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  integer :: ix,iy,iz
   character(len=17) :: name
-  real(kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
-
 
   !--Set up file name base
   write(name,'(i5.5)') floor(time*100.d0)
@@ -50,11 +45,11 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
         !-- Save Vorticity
         !-----------------------------------------------
         if(iSaveVorticity == 1) then
-           call Save_Field_HDF5( time, './fields/vorx_'//name,vort(:,:,:,1),&
+           call Save_Field_HDF5(time, './fields/vorx_'//name,vort(:,:,:,1),&
                 "vorx")
-           call Save_Field_HDF5 ( time, './fields/vory_'//name,vort(:,:,:,2),&
+           call Save_Field_HDF5(time, './fields/vory_'//name,vort(:,:,:,2),&
                 "vory")
-           call Save_Field_HDF5 ( time, './fields/vorz_'//name,vort(:,:,:,3),&
+           call Save_Field_HDF5(time, './fields/vorz_'//name,vort(:,:,:,3),&
                 "vorz")
 
            ! I don't think we'll keep this for very long:
@@ -63,94 +58,28 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
         endif
 
         if(iSavePress == 1) then
-           !-------------------------------------------------------------
-           !-- Calculate omega x u(cross-product)
-           !-- and transform the result into Fourier space
-           !-------------------------------------------------------------
-           if((iPenalization == 1).and.(iMoving==0)) then
-              work=u(:,:,:,2)*vort(:,:,:,3)&
-                   -u(:,:,:,3)*vort(:,:,:,2)&
-                   -u(:,:,:,1)*mask
-              call coftxyz(work,nlk(:,:,:,1))
-              work=u(:,:,:,3)*vort(:,:,:,1)&
-                   -u(:,:,:,1)*vort(:,:,:,3)&
-                   -u(:,:,:,2)*mask
-              call coftxyz(work,nlk(:,:,:,2))
-              work=u(:,:,:,1)*vort(:,:,:,2)&
-                   -u(:,:,:,2)*vort(:,:,:,1)&
-                   -u(:,:,:,3)*mask
-              call coftxyz(work,nlk(:,:,:,3))
-           elseif((iPenalization==1).and.(iMoving==1)) then
-              work=u(:,:,:,2)*vort(:,:,:,3)&
-                   -u(:,:,:,3)*vort(:,:,:,2)&
-                   -(u(:,:,:,1)-us(:,:,:,1))*mask
-              call coftxyz(work,nlk(:,:,:,1))
-              work=u(:,:,:,3)*vort(:,:,:,1)&
-                   -u(:,:,:,1)*vort(:,:,:,3)&
-                   -(u(:,:,:,2)-us(:,:,:,2))*mask
-              call coftxyz(work,nlk(:,:,:,2))
-              work=u(:,:,:,1)*vort(:,:,:,2)&
-                   -u(:,:,:,2)*vort(:,:,:,1)&
-                   -(u(:,:,:,3)-us(:,:,:,3))*mask
-              call coftxyz(work,nlk(:,:,:,3))
+           ! Calculate omega x u(cross-product) in Fourier space
+           if((iPenalization == 1) .and. (iMoving == 0)) then
+              call omegacrossu_pen_nomove(nlk,work,u,vort)
+           elseif((iPenalization == 1) .and. (iMoving == 1)) then
+              call omegacrossu_pen_moving(nlk,work,u,vort)
            else
-              work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-              call coftxyz(work,nlk(:,:,:,1))
-              work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-              call coftxyz(work,nlk(:,:,:,2))
-              work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-              call coftxyz(work,nlk(:,:,:,3))
+              call omegacrossu_nopen(nlk,work,u,vort)
            endif
 
-           ! add pressure, new version 
-           ! p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
-           ! note: we use rotational formulation: p is NOT the
-           ! physical pressure
-           do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
-              ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-              ky2=ky*ky
-              do ix=ca(2),cb(2) ! kx : 0..nx/2
-                 kx=scalex*dble(ix)
-                 kx2=kx*kx
-                 do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
-                    kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-                    kz2=kz*kz
-                    k_abs_2=kx2+ky2+kz2
-                    if(abs(k_abs_2) .ne. 0.0) then
-                       ! contains the pressure in Fourier space
-                       nlk(iz,ix,iy,1)=&
-                            (kx*nlk(iz,ix,iy,1)&
-                            +ky*nlk(iz,ix,iy,2)&
-                            +kz*nlk(iz,ix,iy,3)&
-                            )/k_abs_2
-                    endif
-                 enddo
-              enddo
-           enddo
-           ! nlkk(...1) is the pressure in Fourier space, so work is
-           ! the total pressure in physical space. Then remove kinetic
-           ! energy to get "physical" pressure
-           call cofitxyz(nlk(:,:,:,1),work)
-           work=work-0.5d0*(&
-                u(:,:,:,1)*u(:,:,:,1)&
-                +u(:,:,:,2)*u(:,:,:,2)&
-                +u(:,:,:,3)*u(:,:,:,3)&
-                )
+           ! store the physical pressure in the work array
+           call compute_pressure(work,nlk,u)
            call Save_Field_HDF5(time,'./fields/p_'//name,work,"p")
         endif
      endif
   endif
 
-  !-----------------------------------------------
-  !-- Save Mask
-  !-----------------------------------------------
-
-  if((iSaveMask==1).and.(iPenalization==1)) then
-     call Save_Field_HDF5(time,'./fields/mask_'//name,mask, &
-          "mask" )
+  ! Save Mask
+  if((iSaveMask == 1).and.(iPenalization == 1)) then
+     call Save_Field_HDF5(time,'./fields/mask_'//name,mask,"mask")
   endif
 
-  if((iSaveSolidVelocity==1).and.(iPenalization==1).and.(iMoving==1)) then
+  if((iSaveSolidVelocity == 1).and.(iPenalization == 1).and.(iMoving == 1)) then
      call Save_Field_HDF5(time,'./fields/usx_'//name,us(:,:,:,1),"usx")
      call Save_Field_HDF5(time,'./fields/usy_'//name,us(:,:,:,2),"usy")
      call Save_Field_HDF5(time,'./fields/usz_'//name,us(:,:,:,3),"usz")
@@ -158,7 +87,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
 end subroutine save_fields_new
 
 
-! writhe the field field_out to file filename, saving the name of the
+! Write the field field_out to file filename, saving the name of the
 ! field, dsetname, (as well as time, eps, and resolution) to the
 ! metadata of the HDF file .
 subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
@@ -287,7 +216,7 @@ subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
 
   ! write the XMF data for all of the saved fields
-  if (mpirank==0) then
+  if (mpirank == 0) then
      ! the filename contains a leading "./fields/" which we must remove
      call Write_XMF ( time, trim(adjustl(filename(10:len(filename)))) , &
           trim(adjustl(dsetname)) )
@@ -348,7 +277,8 @@ subroutine Write_XMF ( time, filename, dsetname )
 end subroutine Write_XMF
 
 
-! Write the restart file. nlk(...,0) and nlk(...,1)  are saved, the time steps, 
+! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
+! time steps, and what else? FIXME: document what is saved.
 subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   use mpi_header
   use share_vars
@@ -370,7 +300,7 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
 
   t1=MPI_wtime() ! performance diagnostic
 
-  if(mpirank ==0) then
+  if(mpirank == 0) then
      write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1,".h5 to disk....")') time, nbackup
   endif
 
@@ -471,7 +401,7 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   offset(2) = ra(2)
   offset(3) = ra(3)
 
-  ! each process knows how much data it has and where to store it.
+  ! Each process knows how much data it has and where to store it.
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
   do i = 1, 3
@@ -550,7 +480,7 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   integer(hid_t) :: file_id       ! file identifier
   integer(hid_t) :: plist_id      ! property list identifier
 
-  if(mpirank==0) then
+  if(mpirank == 0) then
      write(*,'("---------")')
      write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
   endif
@@ -648,9 +578,7 @@ subroutine Read_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   character(len=4) :: aname ! attribute name
   real (kind=pr), dimension (:), allocatable :: attributes
 
-  !----------------------------------------------------------------------------
-  ! definition of memory distribution
-  !----------------------------------------------------------------------------
+  ! Definition of memory distribution
   dimensions_file = (/nx,ny,nz/)
   dimensions_local(1) = rb(1)-ra(1) +1
   dimensions_local(2) = rb(2)-ra(2) +1
@@ -660,7 +588,7 @@ subroutine Read_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   offset(2) = ra(2)
   offset(3) = ra(3)
 
-  ! each process knows how much data it has and where to store it.
+  ! Each process knows how much data it has and where to store it.
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
   do i = 1, 3
@@ -807,6 +735,7 @@ subroutine compute_vorticity(vortk,uk,vort)
   use mpi_header
   use share_vars
   implicit none
+
   ! input: velocity field in Fourier space
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   ! work: vortk, (at output: vorticity in Fourier space)
@@ -838,3 +767,112 @@ subroutine compute_vorticity(vortk,uk,vort)
   call cofitxyz(vortk(:,:,:,2),vort(:,:,:,2))
   call cofitxyz(vortk(:,:,:,3),vort(:,:,:,3))
 end subroutine compute_vorticity
+
+
+! Compute the pressure, 
+! p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
+! note: we use rotational formulation: p is NOT the physical pressure
+subroutine compute_pressure(p,nlk,u)
+  use mpi_header
+  use share_vars
+  implicit none
+
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,k2
+  real(kind=pr),intent(inout) :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+
+  do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
+     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+     do ix=ca(2),cb(2) ! kx : 0..nx/2
+        kx=scalex*dble(ix)
+        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
+           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+           k2=kx*kx+ky*ky+kz*kz
+           if(k2 .ne. 0.0) then
+              ! contains the pressure in Fourier space
+              nlk(iz,ix,iy,1)=&
+                   (kx*nlk(iz,ix,iy,1)&
+                   +ky*nlk(iz,ix,iy,2)&
+                   +kz*nlk(iz,ix,iy,3)&
+                   )/k2
+           endif
+        enddo
+     enddo
+  enddo
+  ! nlkk(...1) is the pressure in Fourier space, so p is
+  ! the total pressure in physical space. Then remove kinetic
+  ! energy to get "physical" pressure
+  call cofitxyz(nlk(:,:,:,1),p)
+  p=p-0.5d0*(&
+       u(:,:,:,1)*u(:,:,:,1) +u(:,:,:,2)*u(:,:,:,2) +u(:,:,:,3)*u(:,:,:,3)&
+       )
+end subroutine compute_pressure
+
+! Compute omega cross u with penalization and imoving=0
+subroutine omegacrossu_pen_nomove(nlk,work,u,vort)
+  use mpi_header
+  use share_vars
+  implicit none
+
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  
+  work=u(:,:,:,2)*vort(:,:,:,3)&
+       -u(:,:,:,3)*vort(:,:,:,2)&
+       -u(:,:,:,1)*mask
+  call coftxyz(work,nlk(:,:,:,1))
+  work=u(:,:,:,3)*vort(:,:,:,1)&
+       -u(:,:,:,1)*vort(:,:,:,3)&
+       -u(:,:,:,2)*mask
+  call coftxyz(work,nlk(:,:,:,2))
+  work=u(:,:,:,1)*vort(:,:,:,2)&
+       -u(:,:,:,2)*vort(:,:,:,1)&
+       -u(:,:,:,3)*mask
+  call coftxyz(work,nlk(:,:,:,3))
+end subroutine omegacrossu_pen_nomove
+
+! Compute omega cross u with penalization and imoving=1
+subroutine omegacrossu_pen_moving(nlk,work,u,vort)
+  use mpi_header
+  use share_vars
+  implicit none
+
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  
+  work=u(:,:,:,2)*vort(:,:,:,3) -u(:,:,:,3)*vort(:,:,:,2)&
+       -(u(:,:,:,1)-us(:,:,:,1))*mask
+  call coftxyz(work,nlk(:,:,:,1))
+  work=u(:,:,:,3)*vort(:,:,:,1) -u(:,:,:,1)*vort(:,:,:,3)&
+       -(u(:,:,:,2)-us(:,:,:,2))*mask
+  call coftxyz(work,nlk(:,:,:,2))
+  work=u(:,:,:,1)*vort(:,:,:,2) -u(:,:,:,2)*vort(:,:,:,1)&
+       -(u(:,:,:,3)-us(:,:,:,3))*mask
+  call coftxyz(work,nlk(:,:,:,3))
+endsubroutine omegacrossu_pen_moving
+
+! Compute omega cross u in the case of no penalization
+subroutine omegacrossu_nopen(nlk,work,u,vort)
+  use mpi_header
+  use share_vars
+  implicit none
+
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  
+  work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
+  call coftxyz(work,nlk(:,:,:,1))
+  work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
+  call coftxyz(work,nlk(:,:,:,2))
+  work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
+  call coftxyz(work,nlk(:,:,:,3))
+endsubroutine omegacrossu_nopen
+
