@@ -92,13 +92,15 @@ subroutine time_step
      !--------------------------------------------------------------------------
      if(modulo(it,itdrag) == 0) then
         if(mpirank == 0) then
-!!!! FIXME: following lines do not compile on turing
-!!$           open (14,file='drag_data',status='unknown',access='append')
-!!$           write(14,'(7(es12.4,1x))')  time,GlobIntegrals%E_kin,&
-!!$                GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
-!!$                GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
-!!$                GlobIntegrals%Volume
-!!$           close(14)
+           ! NB: the following line does not compile on turing
+           ! open (14,file='',status='unknown',access='append')
+           ! so I replaced it with:
+           open(14,file='drag_data',status='unknown',position='append')
+           write(14,'(7(es12.4,1x))')  time,GlobIntegrals%E_kin,&
+                GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
+                GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
+                GlobIntegrals%Volume
+           close(14)
         endif
      endif
 
