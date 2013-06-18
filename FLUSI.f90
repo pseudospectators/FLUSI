@@ -2,6 +2,7 @@ program FLUSI
   use mpi_header ! Module incapsulates mpif.
   use share_vars
   implicit none
+
   integer                :: mpicode
   real (kind=pr)         :: t1,t2, tmp
   character (len=80)     :: infile
@@ -27,9 +28,7 @@ program FLUSI
   mpireal  = MPI_DOUBLE_PRECISION
   mpicomplex  = MPI_DOUBLE_COMPLEX
 
-
-
-  !---- Read input parameters
+  ! Read input parameters
   if (mpirank == 0) then
      write(*,'(A)') '*** info: Reading input data...'
   endif
@@ -38,8 +37,6 @@ program FLUSI
   call get_command_argument (1, infile)
   ! read all parameters from that file
   call get_params (infile)
-
-
 
   ! overwrite drag_data file
   if ( len(inicond) > 8) then  ! comparison will fail if string too short...
@@ -64,8 +61,6 @@ program FLUSI
        mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
 
-
-
   !---- Step forward in time
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
@@ -73,7 +68,6 @@ program FLUSI
      write(*,'(A)') '--------------------------------------'
   endif
   call MPI_barrier (MPI_COMM_world, mpicode)
-
 
   t1 = MPI_wtime()
   call time_step ()
@@ -122,9 +116,6 @@ program FLUSI
   endif
 
   call fft_free 
-
-  !---- Finalize MPI
   call MPI_FINALIZE (mpicode)
-
 end program FLUSI
 

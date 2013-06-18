@@ -1,7 +1,8 @@
 subroutine time_step 
-  use mpi_header ! Module incapsulates mpif.
+  use mpi_header
   use share_vars
   implicit none
+
   integer :: inter,it
   integer :: n0=0,n1=1
   integer :: nbackup=0  ! 0 - backup to file runtime_backup0,1 - to
@@ -24,9 +25,7 @@ subroutine time_step
   dt0=1.0d0 ! useful to trigger cal_vis
   dt1=2.d0  ! just add a comment to test branching...
 
-  !---------------------------------------------------------------
-  !-- Allocate memory
-  !---------------------------------------------------------------
+  ! Allocate memory
   allocate(workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
   ! velocity in fourier space
@@ -37,9 +36,7 @@ subroutine time_step
   ! vorticity in phy space
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-  !---------------------------------------------------------------
   ! Create obstacle mask
-  !---------------------------------------------------------------
   if(iPenalization>0) then 
      ! you need the mask field only if you want to actually do penalization
      allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
@@ -51,34 +48,24 @@ subroutine time_step
      call Create_Mask(time)
   endif
 
-  !---------------------------------------------------------------
   ! Initialize vorticity or read values from a backup file
-  !---------------------------------------------------------------
-  call init_fields(n1,time,it, dt0,dt1,uk,nlk,vort,workvis)
+  call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,workvis)
   n0=1 - n1
   it_start=it
-  !---------------------------------------------------------
-  !     LOOP OVER TIME STEPS
-  !---------------------------------------------------------
+
+  ! Loop over time steps
   t1=MPI_wtime()
-
-
-  do while((time<=tmax).and.(it<=nt))
+  do while((time<=tmax) .and. (it<=nt))
      dt0=dt1
 
-     !-----------------------------
-     ! if the mask is time-dependend,we create it here
-     !-----------------------------
+     ! If the mask is time-dependend,we create it here
      if(iMoving == 1) then
         call Create_Mask(time)  
      endif
 
-     !-----------------------------
-     ! do a fluid time step
-     !-----------------------------     
+     ! Do a fluid time step
       call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
             GlobIntegrals)
-
 
      !--Switch time levels
      inter=n1 ; n1=n0 ; n0=inter
@@ -87,12 +74,10 @@ subroutine time_step
      time=time + dt1
      it=it + 1
 
-     !--------------------------------------------------------------------------
-     !--    Output(after tdrag)
-     !--------------------------------------------------------------------------
+     ! Output(after tdrag)
      if(modulo(it,itdrag) == 0) then
         if(mpirank == 0) then
-           ! NB: the following line does not compile on turing
+           ! NB: the following line does not compile on turing:
            ! open (14,file='',status='unknown',access='append')
            ! so I replaced it with:
            open(14,file='drag_data',status='unknown',position='append')
@@ -103,7 +88,6 @@ subroutine time_step
            close(14)
         endif
      endif
-
 
      if(modulo(it,300) == 0) then     
         if(mpirank == 0) then 
@@ -117,9 +101,7 @@ subroutine time_step
         endif
      endif
 
-     !--------------------------------------------------------------------------
-     !--    Output(after tsave)
-     !--------------------------------------------------------------------------
+     ! Output(after tsave)
      if(modulo(time - tstart,tsave) <= dt1) then
         ! note: we can safely delete nlk(:,:,:,1:3,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
@@ -129,12 +111,11 @@ subroutine time_step
         if(iDoBackup == 1) then
           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
         endif
-        if(mpirank ==0 ) write(*,'("<<< info: done saving, returning to time loop")')
+        if(mpirank ==0 ) then 
+           write(*,'("<<< info: done saving, returning to time loop")')
+        endif
      endif
-
   end do
-
-
 
   if(mpirank==0) then
      write(*,*) "control values for debugging:"
@@ -146,7 +127,6 @@ subroutine time_step
      write(*,'("did it=",i5," time steps")') it
   endif
 
-
   !-- Deallocate memory
   deallocate(workvis)
   deallocate(vort,work)
@@ -156,8 +136,6 @@ subroutine time_step
      deallocate(mask)
      if(iMoving == 1) deallocate(us)
   endif
-  !---------------------------------------------------------
-  !     END LOOP OVER TIME STEPS
-  !---------------------------------------------------------
+  ! End time-sepping loop.
 end subroutine time_step
 

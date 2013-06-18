@@ -10,15 +10,10 @@ subroutine Create_Mask (time)
 
   t1 = MPI_wtime() 
 
-  ! -------------------------------------------------
-  ! attention: mask is reset here (and not in subroutines)
-  ! ------------------------------------------------
+  ! Attention: mask is reset here (and not in subroutines)
   mask = 0.d0
 
-  ! ------------------------------------------------
-  ! actual mask functions
-  ! ------------------------------------------------ 
-
+  ! Actual mask functions:
   select case (iMask)
   case ("sphere")
      call Draw_Sphere()
@@ -33,9 +28,7 @@ subroutine Create_Mask (time)
      endif
   end select
 
-  ! -------------------
-  ! attention: division by eps is done here, not in subroutines.
-  ! -------------------
+  ! Attention: division by eps is done here, not in subroutines.
   eps_inv = 1.d0 / eps
   mask = mask * eps_inv
 
@@ -45,20 +38,15 @@ subroutine Create_Mask (time)
 end subroutine Create_Mask
 
 
-
-
-
-
+! Draws Jerry, the first insect with rigid wings.  Jerry is symmetric
+! w.r.t. the x-axis, but since we do MPI we currently do not take
+! advantage of this. (unlike the experimental matlab file) Jerry has
+! two wings, a body and a head with eyes.
 subroutine Draw_Jerry (time)
-  !--------------------------------------------------
-  ! Draws Jerry, the first insect with rigid wings.
-  ! Jerry is symmetric w.r.t. the x-axis, but since we do MPI
-  ! we currently do not take advantage of this. (unlike the experimental matlab file)
-  ! Jerry has two wings, a body and a head with eyes. 
-  !--------------------------------------------------
-  use mpi_header ! Module incapsulates mpif.
   use share_vars
+  use mpi_header
   implicit none
+
   real(kind=pr), intent(in) :: time
   integer :: ix, iy, iz
   real (kind=pr) :: phi_max, alpha_max, phase,phi,phi_dt,alpha,alpha_dt, y0_wing, x0_wing, z0_wing
@@ -66,7 +54,6 @@ subroutine Draw_Jerry (time)
   real (kind=pr) :: R_head, R_eye, x0_eye, y0_eye, z0_eye, sin_45
   real (kind=pr) :: b_top, b_bot, xx,yy, zz, cos_a, sin_a, cos_p, sin_p,&
        L_chord, delta, N_smooth, R, R_limit, tmp, x_tmp, y_tmp, z_tmp, y_bot,y_top
-
 
   ! parameters for motion protocoll
   phi_max     = 60.d0*pi/180.d0  ! phi is up/down angle (flapping)
@@ -121,9 +108,7 @@ subroutine Draw_Jerry (time)
            y = dble(iy)*dy
            z = dble(iz)*dz
 
-           !****************************************************************************************************************
-           ! FIRST WING
-           !****************************************************************************************************************|
+           !!! First wing !!!
            ! wing root point
            y0_wing = y0_body + 0.50*a_body ! wing root point can be off the center of the body
            x0_wing = x0_body + dsqrt(b_body**2 *(1.d0- ((y0_wing-y0_body)/a_body)**2 ) ) ! get the body thickness at this point
@@ -149,9 +134,8 @@ subroutine Draw_Jerry (time)
            endif
            !  y_top = b_top
            !  y_bot =-b_bot
-           !--------------------------------------------
+
            ! WING
-           !--------------------------------------------
            if ( ((xs>=0.d0-delta).and.(xs<=L_chord+delta)) &
                 .and. (dabs(zs)<=3.d0*max(dx,dy,dz)+delta) &
                 .and. ((ys>y_bot-delta).and.(ys<y_top+delta)) ) then !is it inside the rectangle?
@@ -182,9 +166,7 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
-           !****************************************************************************************************************
-           ! SECOND WING
-           !****************************************************************************************************************
+           !!! Second wing !!!
            ! wing root point
            x0_wing = x0_body - dsqrt(b_body**2 *(1.d0- ((y0_wing-y0_body)/a_body)**2 ) ) ! get the body thickness at this point
 
@@ -238,9 +220,7 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
-           !--------------------------------------------
-           ! BODY (ellipsoid)
-           !--------------------------------------------
+           ! Body (ellipsoid)
            if ( dabs(y-y0_body) < L_body/2.d0 + delta ) then ! are we possibly inside the body?
               ! radius
               R = dsqrt( (x-x0_body)**2 + (z-z0_body)**2 )     
@@ -257,9 +237,7 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
-           !--------------------------------------------
            ! Head (sphere)
-           !--------------------------------------------
            if ( dabs(y-y0_head) < R_head+delta ) then
               R = dsqrt ( (x-x0_head)**2 + (z-z0_head)**2 + (y-y0_head)**2 )
               if ( R < R_head + delta ) then
@@ -271,9 +249,7 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
-           !--------------------------------------------
-           ! eye 1 (sphere)
-           !--------------------------------------------
+           !!! eye 1 (sphere)
            ! eye root point
            R_eye = 0.50d0*R_head;
            x0_eye = x0_head + sin_45*R_head*0.80d0 ! the 0.8 moves the eye into the head
@@ -291,13 +267,10 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
-           !--------------------------------------------
-           ! eye 2 (sphere)
-           !--------------------------------------------
+           !!! eye 2 (sphere)
            ! eye root point
            R_eye = 0.50d0*R_head;
            x0_eye = x0_head - sin_45*R_head*0.80d0 ! note sign change for symmetry
-
            if ( dabs(y-y0_eye) < R_eye+delta ) then
               R = dsqrt ( (x-x0_eye)**2 + (z-z0_eye)**2 + (y-y0_eye)**2 )
               if ( R < R_eye + delta ) then
@@ -312,16 +285,14 @@ subroutine Draw_Jerry (time)
         enddo
      enddo
   enddo
-
-
 end subroutine Draw_Jerry
 
 
-
 subroutine Flapper (time)
-  use mpi_header ! Module incapsulates mpif.
+  use mpi_header
   use share_vars
   implicit none
+
   real(kind=pr), intent(in) :: time
   integer :: iy, iz
   real (kind=pr) :: R, alpha_t, un, alpha_max
@@ -388,8 +359,6 @@ subroutine Flapper (time)
            endif
         endif
 
-
-
         y = dble(iy)*dy - (y0 + L*dcos(alpha))
         z = dble(iz)*dz - (z0 + L*dsin(alpha))
 
@@ -410,21 +379,14 @@ subroutine Flapper (time)
 
      enddo
   enddo
-
-
 end subroutine Flapper
 
-
-
-
-
+! Spherical obstacle
 subroutine Draw_Sphere 
-  !---------------------------------------------------------------
-  ! Spherical obstacle
-  !---------------------------------------------------------------
-  use mpi_header ! Module incapsulates mpif.
+  use mpi_header
   use share_vars
   implicit none
+
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z,  tmp, R, N_smooth
 
@@ -452,24 +414,18 @@ subroutine Draw_Sphere
         enddo
      enddo
   enddo
-
-
 end subroutine Draw_Sphere
 
 
-
-
+! This subroutine returns the value f of a smooth step function
+! The sharp step function would be 1 if x<=t and 0 if x>t
+! h is the semi-size of the smoothing area, so
+! f is 1 if x<=t-h
+! f is 0 if x>t+h
+! f is variable (smooth) in between
 subroutine SmoothStep (f,x,t,h)
   use share_vars
   implicit none
-  !-----------------------------------------------------------------
-  !-- This subroutine returns the value f of a smooth step function
-  !-- The sharp step function would be 1 if x<=t and 0 if x>t
-  !-- h is the semi-size of the smoothing area, so
-  !-- f is 1 if x<=t-h
-  !-- f is 0 if x>t+h
-  !-- f is variable (smooth) in between
-  !-----------------------------------------------------------------
   real (kind=pr), intent (out) :: f
   real (kind=pr), intent (in)  :: x,t,h
   real (kind=pr) :: delta, GradientERF!, SmoothStep
@@ -498,6 +454,4 @@ subroutine SmoothStep (f,x,t,h)
   GradientERF = abs( ( exp(-(2.0*1.0)**2)  - 1.0 )/sqrt(pi) )
   delta = h*GradientERF
   f = 0.5*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
-
-
 end subroutine SmoothStep
