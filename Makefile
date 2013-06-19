@@ -56,7 +56,7 @@ HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
 
 LDFLAGS = -L$(P3DFFT_LIB)  -lp3dfft -lfftw3 -lm  -L$(FFT_LIB)  $(HDF5_FLAGS)
-LDFLAGS += -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz
+LDFLAGS += -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
 
 FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
