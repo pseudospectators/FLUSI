@@ -237,7 +237,7 @@ subroutine adjust_dt(dt1,u)
   real (kind=pr), intent (out) :: dt1
 
   if (dt_fixed>0.0) then
-     dt1=min(dt_fixed, dt1)
+     dt1=dt_fixed
   else
      ! Find the max velocity, computed for process 0.
      u_loc(1)=maxval(abs(u(:,:,:,1)))  ! local maximum of x-velocity magnitude
