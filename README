@@ -1,4 +1,4 @@
-Notes for FLUSI (with HDF5)
+Notes for FLUSI (with HDF5) (repository moved to group pseudospectators)
 
 on sugiton, I've had to install hdf5_mpich2 and hdf5_mpich2_devel, then I was able to link the FLUSI with LDFLAGS=... -lhdf5_fortran -lhdf5 -lz
 there was then no need to specify where HDF5 lives (-I/../../ and -L/../..)
