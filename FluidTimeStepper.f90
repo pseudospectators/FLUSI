@@ -268,3 +268,16 @@ subroutine adjust_dt(dt1,u)
      call MPI_BCAST(dt1,1,mpireal,0,MPI_COMM_WORLD,mpicode)
   endif
 end subroutine adjust_dt
+
+
+
+
+subroutine truncate(a,b)
+  ! rounds time step (from 1.246262e-2 to 1.2e-2)
+  use share_vars
+  implicit none
+  real(kind=pr) :: a,b
+  character (len=7) :: str
+  write (str,'(es7.1)') a
+  read (str,*) b
+end subroutine truncate

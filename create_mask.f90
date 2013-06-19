@@ -301,7 +301,8 @@ subroutine Flapper (time)
   alpha_max = 30.d0*pi/180.d0
   alpha   =           alpha_max*dsin(time*2.d0*pi)
   alpha_t = (2.d0*pi)*alpha_max*dcos(time*2.d0*pi)
-
+  eps_inv = 1.d0/eps
+  
   y0 = 1.d0
   z0 = 1.d0
 

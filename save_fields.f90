@@ -12,6 +12,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   character(len=17) :: name
+  type(Integrals) :: dummy_integrals
 
   !--Set up file name base
   write(name,'(i5.5)') floor(time*100.d0)
@@ -51,18 +52,14 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
                 "vory")
            call Save_Field_HDF5(time, './fields/vorz_'//name,vort(:,:,:,3),&
                 "vorz")
-
-           ! I don't think we'll keep this for very long:
-           work=sqrt(vort(:,:,:,1)**2 + vort(:,:,:,2)**2 +vort(:,:,:,3)**2 )
-           call Save_Field_HDF5(time,'./fields/vorabs_'//name,work,"vorabs")
         endif
 
         if(iSavePress == 1) then
            ! Calculate omega x u(cross-product) in Fourier space
-           if((iPenalization == 1) .and. (iMoving == 0)) then
-              call omegacrossu_pen_nomove(nlk,work,u,vort)
-           elseif((iPenalization == 1) .and. (iMoving == 1)) then
-              call omegacrossu_pen_moving(nlk,work,u,vort)
+           if (iPenalization == 1) then
+              ! note this subroutine can also compute drag, which we are not 
+              ! interested in here (therefore set.false.)
+              call omegacrossu_penalize(nlk,work,u,vort,.false.,dummy_integrals)
            else
               call omegacrossu_nopen(nlk,work,u,vort)
            endif

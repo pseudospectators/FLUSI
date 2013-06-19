@@ -94,54 +94,16 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
 end subroutine cal_nlk
 
 
-! we outsource the actual penalization (even though its a fairly
-! simple process) to remove some lines in the actual cal_nlk also, at
-! this occasion, we directly compute the integral hydrodynamic forces,
-! if its time to do so.
-subroutine Penalize(work,work_u,iDir,TimeForDrag,GlobIntegrals )    
-  use share_vars
-  implicit none
-
-  integer, intent (in) :: iDir
-  logical, intent (in) :: TimeForDrag
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
-       intent (out) :: work
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
-       intent (in) :: work_u
-  type(Integrals), intent (out) :: GlobIntegrals
-
-  ! compute penalization term
-  if (iMoving == 1) then
-     work=-mask*(work_u(:,:,:,iDir) - us(:,:,:,iDir))  
-  else
-     work=-mask*(work_u(:,:,:,iDir))
-  endif
-
-  ! if its time, compute drag forces
-  if ((TimeForDrag).and.(iDrag==1)) then
-     call IntegralForce ( GlobIntegrals, work, iDir ) 
-  endif
-end subroutine Penalize
-
-!------------------------------------------------------------------------------
-
-subroutine truncate(a,b)
-  ! rounds time step (from 1.246262e-2 to 1.2e-2)
-  use share_vars
-  implicit none
-  real(kind=pr) :: a,b
-  character (len=7) :: str
-  write (str,'(es7.1)') a
-  read (str,*) b
-end subroutine truncate
-
-
+! This subroutine takes one component of the penalization term (work)
+! computes the integral over it, which is the hydrodynamic force in
+! the direction iDirection. The force is stored in the GlobIntegrals
+! structure
 subroutine IntegralForce ( GlobIntegrals, work, iDirection ) 
   use share_vars
   use mpi_header
   implicit none
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
-       intent (inout) :: work
+       intent (in) :: work
   type(Integrals), intent (out) :: GlobIntegrals
   integer, intent (in) :: iDirection
   integer :: mpicode
@@ -227,7 +189,7 @@ subroutine add_grad_pressure(nlk)
 
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
-  complex (kind=pr) :: qk
+  complex(kind=pr) :: qk
   complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
 
   do iy=ca(3),cb(3) ! ky : 0..ny/2-1 ,then, -ny/2..-1     
@@ -284,30 +246,8 @@ subroutine compute_divergence()
 end subroutine compute_divergence
 
 
-! Compute omega cross u with penalization and imoving=1
-subroutine omegacrossu_pen_moving(nlk,work,u,vort)
-  use mpi_header
-  use share_vars
-  implicit none
-
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-
-  work=u(:,:,:,2)*vort(:,:,:,3) -u(:,:,:,3)*vort(:,:,:,2)&
-       -(u(:,:,:,1)-us(:,:,:,1))*mask
-  call coftxyz(work,nlk(:,:,:,1))
-  work=u(:,:,:,3)*vort(:,:,:,1) -u(:,:,:,1)*vort(:,:,:,3)&
-       -(u(:,:,:,2)-us(:,:,:,2))*mask
-  call coftxyz(work,nlk(:,:,:,2))
-  work=u(:,:,:,1)*vort(:,:,:,2) -u(:,:,:,2)*vort(:,:,:,1)&
-       -(u(:,:,:,3)-us(:,:,:,3))*mask
-  call coftxyz(work,nlk(:,:,:,3))
-endsubroutine omegacrossu_pen_moving
-
-
-! Compute omega cross u in the case of no penalization
+! Compute non-linear transport term (omega cross u) and transform it to Fourier
+! space. This is the case without penalization.
 subroutine omegacrossu_nopen(nlk,work,u,vort)
   use mpi_header
   use share_vars
@@ -327,33 +267,12 @@ subroutine omegacrossu_nopen(nlk,work,u,vort)
 endsubroutine omegacrossu_nopen
 
 
-! Compute omega cross u with penalization and imoving=0
-subroutine omegacrossu_pen_nomove(nlk,work,u,vort)
-  use mpi_header
-  use share_vars
-  implicit none
 
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  
-  work=u(:,:,:,2)*vort(:,:,:,3)&
-       -u(:,:,:,3)*vort(:,:,:,2)&
-       -u(:,:,:,1)*mask
-  call coftxyz(work,nlk(:,:,:,1))
-  work=u(:,:,:,3)*vort(:,:,:,1)&
-       -u(:,:,:,1)*vort(:,:,:,3)&
-       -u(:,:,:,2)*mask
-  call coftxyz(work,nlk(:,:,:,2))
-  work=u(:,:,:,1)*vort(:,:,:,2)&
-       -u(:,:,:,2)*vort(:,:,:,1)&
-       -u(:,:,:,3)*mask
-  call coftxyz(work,nlk(:,:,:,3))
-end subroutine omegacrossu_pen_nomove
-
-
-! Compute omega cross u with penalization 
+! Compute non-linear transport term (omega cross u) and transform it to Fourier
+! space. This is the case with penalization. Therefore we compute the penalty
+! term mask*(u-us) as well. This gives the occasion to compute the drag forces,
+! if it is time to do so (TimeForDrag=.true.). The drag is returned in 
+! GlobIntegrals.
 subroutine omegacrossu_penalize(nlk,work,u,vort,TimeForDrag,GlobIntegrals)
   use mpi_header
   use share_vars
@@ -368,17 +287,46 @@ subroutine omegacrossu_penalize(nlk,work,u,vort,TimeForDrag,GlobIntegrals)
   
   ! x component
   call Penalize ( work, u, 1, TimeForDrag, GlobIntegrals )
-  work=u(:,:,:,2)*vort(:,:,:,3)&
-       - u(:,:,:,3)*vort(:,:,:,2) + work
+  work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2) + work
   call coftxyz (work, nlk(:,:,:,1))
+  
   ! y component
   call Penalize ( work, u, 2, TimeForDrag, GlobIntegrals )
-  work=u(:,:,:,3)*vort(:,:,:,1)&
-       - u(:,:,:,1)*vort(:,:,:,3) + work
+  work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3) + work
   call coftxyz (work, nlk(:,:,:,2))
+  
   ! z component
   call Penalize ( work, u, 3, TimeForDrag, GlobIntegrals )
-  work=u(:,:,:,1)*vort(:,:,:,2)&
-       - u(:,:,:,2)*vort(:,:,:,1) + work
+  work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1) + work
   call coftxyz (work, nlk(:,:,:,3))     
 end subroutine omegacrossu_penalize
+
+
+! we outsource the actual penalization (even though its a fairly
+! simple process) to remove some lines in the actual cal_nlk also, at
+! this occasion, we directly compute the integral hydrodynamic forces,
+! if its time to do so (TimeForDrag=.true.)
+subroutine Penalize(work,work_u,iDir,TimeForDrag,GlobIntegrals )    
+  use share_vars
+  implicit none
+
+  integer, intent (in) :: iDir
+  logical, intent (in) :: TimeForDrag
+  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
+       intent (out) :: work
+  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
+       intent (in) :: work_u
+  type(Integrals), intent (out) :: GlobIntegrals
+
+  ! compute penalization term
+  if (iMoving == 1) then
+     work=-mask*(work_u(:,:,:,iDir) - us(:,:,:,iDir))  
+  else
+     work=-mask*(work_u(:,:,:,iDir))
+  endif
+
+  ! if its time, compute drag forces
+  if ((TimeForDrag).and.(iDrag==1)) then
+     call IntegralForce ( GlobIntegrals, work, iDir ) 
+  endif
+end subroutine Penalize
