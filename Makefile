@@ -66,7 +66,7 @@ all: main
 
 # compile main program, with dependencies:
 main: $(PROG_FILE) $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
-	$(FC) -o $@ $^ $(LDFLAGS)
+	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # compile modules:
 mpi_header.o: $(MPI_HEADER)
@@ -78,7 +78,7 @@ cof_p3dfft.o: cof_p3dfft.f90 share_vars.o mpi_header.o
 
 # compile remaining objects:
 %.o: %.f90 mpi_header.o share_vars.o cof_p3dfft.o
-	$(FC) $(FFLAGS) -c $<  $(LDFLAGS) -o $@
+	$(FC) $(FFLAGS) -o $@ -c $<  $(LDFLAGS)
 
 clean:
 	rm -f main *.o *.mod
