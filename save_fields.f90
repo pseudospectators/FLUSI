@@ -244,7 +244,8 @@ subroutine Write_XMF ( time, filename, dsetname )
   character(len=128) :: tmp_time, tmp_nxyz
 
   write(tmp_time,'(es15.8)') time
-  write(tmp_nxyz,'(3(i4,1x))') nx,ny,nz
+  ! note index changes. paraview requirement.
+  write(tmp_nxyz,'(3(i4,1x))') nz,ny,nx
 
   ! note the XMF file goes also in the fields/ directory
   open (14, file='./fields/'//trim(adjustl(filename))//'.xmf', status='replace')
