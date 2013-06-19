@@ -71,11 +71,13 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,&
   type(Integrals),intent (out) :: GlobIntegrals
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-  call cal_nlk (time,it,dt1,nlk(:,:,:,:,0),uk,u,vort,work,GlobIntegrals )
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,GlobIntegrals )
+  call adjust_dt(dt1,u)
+
   ! multiply the RHS with the viscosity
-  nlk (:,:,:,1,0)=nlk (:,:,:,1,0) * workvis  
-  nlk (:,:,:,2,0)=nlk (:,:,:,2,0) * workvis  
-  nlk (:,:,:,3,0)=nlk (:,:,:,3,0) * workvis  
+  nlk (:,:,:,1,0)=nlk(:,:,:,1,0) * workvis  
+  nlk (:,:,:,2,0)=nlk(:,:,:,2,0) * workvis  
+  nlk (:,:,:,3,0)=nlk(:,:,:,3,0) * workvis  
 
   ! Compute integrating factor, only done if necessary (i.e. time step
   ! has changed)
@@ -89,7 +91,8 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,&
   uk(:,:,:,3)=(uk(:,:,:,3)*workvis + dt1 * nlk (:,:,:,3,0))
 
   ! RHS using the euler velocity
-  call cal_nlk (time,it,dt1,nlk(:,:,:,:,1),uk,u,vort,work ) 
+  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work ) 
+  call adjust_dt(dt1,u)
 
   ! do the actual time step. note the minus sign!!
   ! in the original formulation, it reads 
@@ -124,7 +127,8 @@ subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,GlobIntegrals)
   type(Integrals),intent (out) :: GlobIntegrals
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk ( time,it,dt1,nlk(:,:,:,:,1),uk,u,vort,work,GlobIntegrals )
+  call cal_nlk( time,it,nlk(:,:,:,:,1),uk,u,vort,work,GlobIntegrals )
+  call adjust_dt(dt1,u)
 
   ! Compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
@@ -157,7 +161,8 @@ subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis,&
   type(Integrals),intent (out) :: GlobIntegrals
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk ( time,it,dt1,nlk(:,:,:,:,n0),uk,u,vort,work,GlobIntegrals )
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,GlobIntegrals )
+  call adjust_dt(dt1,u)
 
   ! Compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
@@ -195,7 +200,8 @@ subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,&
   type(Integrals),intent (out) :: GlobIntegrals
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,dt1,nlk(:,:,:,:,n0),uk,u,vort,work,GlobIntegrals )
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,GlobIntegrals )
+  call adjust_dt(dt1,u)
 
   ! Calculate velocity at new time step 
   ! (2nd order Adams-Bashforth with exact integration of diffusion term)
@@ -215,3 +221,50 @@ subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,&
   nlk (:,:,:,2,n0)=nlk (:,:,:,2,n0)*workvis
   nlk (:,:,:,3,n0)=nlk (:,:,:,3,n0)*workvis
 end subroutine AdamsBashforth
+
+
+! Set the time step based on the CFL condition penalization stability
+! contidion.
+subroutine adjust_dt(dt1,u)
+  use share_vars
+  use mpi_header
+  implicit none
+
+  real (kind=pr), intent (in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr), dimension (3) :: u_max,u_loc
+  real (kind=pr) :: u_max_w
+  integer :: mpicode
+  real (kind=pr), intent (out) :: dt1
+
+  if (dt_fixed>0.0) then
+     dt1=min(dt_fixed, dt1)
+  else
+     ! Find the max velocity, computed for process 0.
+     u_loc(1)=maxval(abs(u(:,:,:,1)))  ! local maximum of x-velocity magnitude
+     u_loc(2)=maxval(abs(u(:,:,:,2)))  ! local maximum of y-velocity magnitude
+     u_loc(3)=maxval(abs(u(:,:,:,3)))  ! local maximum of z-velocity magnitude
+     call MPI_REDUCE(u_loc,u_max,3,mpireal,MPI_MAX,0,MPI_COMM_WORLD,mpicode)
+
+     !--Adjust time step at 0th process
+     if ( mpirank == 0 ) then
+
+        ! Impose the CFL condition.
+        u_max_w=max ( u_max(1)/dx, u_max(2)/dy, u_max(3)/dz )
+        if (abs(u_max_w) >= 1.0d-8) then
+           dt1=cfl / u_max_w        
+        else
+           dt1=1.0d-2
+        endif
+
+        ! Round the time-step to one digit to reduce calls to cal_vis
+        call truncate(dt1,dt1) 
+
+        ! Impose penalty stability condition: dt cannot be less than 1/eps/
+        if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
+        ! time step is smaller than eps 
+     endif
+
+     ! Broadcast time step to all processes
+     call MPI_BCAST(dt1,1,mpireal,0,MPI_COMM_WORLD,mpicode)
+  endif
+end subroutine adjust_dt

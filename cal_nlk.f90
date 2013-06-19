@@ -1,4 +1,4 @@
-subroutine cal_nlk(time,it,dt1,nlk,uk,work_u,work_vort,work,GlobIntegrals)
+subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   ! ----------------------------------------------------------------------------
   !   VERSION 5 / mars / 2013
   ! - no allocating, all work arrays passed as arguments
@@ -20,13 +20,9 @@ subroutine cal_nlk(time,it,dt1,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), &
        intent (inout) :: work_vort, work_u
-  real (kind=pr), intent (out) :: dt1
   integer, intent(in) :: it
   real (kind=pr), intent (in) :: time
-  real (kind=pr) :: u_max_w
   real (kind=pr) :: t1,t0
-  real (kind=pr), dimension (3) :: u_max,u_loc
-  integer :: mpicode
   type(Integrals), intent (out) :: GlobIntegrals
   logical :: TimeForDrag
 
@@ -93,51 +89,6 @@ subroutine cal_nlk(time,it,dt1,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   call add_grad_pressure(nlk)
   time_p=time_p + MPI_wtime() - t1
 
-  !-------------------------------------------------------------
-  !-- Calculate maximum velocity + TIME STEP
-  !-------------------------------------------------------------
-  u_loc(1)=maxval(abs(work_u(:,:,:,1)))  ! local maximum of x-velocity magnitude
-  u_loc(2)=maxval(abs(work_u(:,:,:,2)))  ! local maximum of y-velocity magnitude
-  u_loc(3)=maxval(abs(work_u(:,:,:,3)))  ! local maximum of z-velocity magnitude
-
-  ! max at 0th process
-  call MPI_REDUCE(u_loc,u_max,3,mpireal,MPI_MAX,0,MPI_COMM_WORLD,mpicode)
-
-  !--Adjust time step at 0th process
-  if ( mpirank == 0 ) then
-     !--------
-     ! CFL
-     !--------
-     u_max_w=max ( u_max(1)/dx, u_max(2)/dy, u_max(3)/dz )
-     if (abs(u_max_w) >= 1.0d-8) then
-        dt1=cfl / u_max_w        
-     else
-        dt1=1.0d-2
-     endif
-     !--------
-     ! fixed time step?
-     !--------
-     if (dt_fixed>0.0) then
-        dt1=min(dt_fixed, dt1)
-     endif
-     !--------
-     ! round it to save cal_vis
-     !--------
-     call truncate(dt1,dt1) 
-     ! round time step to one digit: 
-     ! saves time because no need to recompute cal_vis
-     !--------
-     ! stability for penalty term: 
-     ! do it after truncating to get the largest posisble value, 
-     ! which will be constant anyways
-     !--------
-     if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
-     ! time step is smaller than eps 
-  endif
-
-  !-- Broadcast time step to all processes
-  call MPI_BCAST(dt1,1,mpireal,0,MPI_COMM_WORLD,mpicode)
-
   time_nlk_fft=time_nlk_fft + time_fft2 + time_ifft2
   time_nlk=time_nlk + MPI_wtime() - t0
 end subroutine cal_nlk
@@ -150,6 +101,7 @@ end subroutine cal_nlk
 subroutine Penalize(work,work_u,iDir,TimeForDrag,GlobIntegrals )    
   use share_vars
   implicit none
+
   integer, intent (in) :: iDir
   logical, intent (in) :: TimeForDrag
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
