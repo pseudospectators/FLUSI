@@ -68,7 +68,16 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
            endif
 
            ! store the physical pressure in the work array
-           call compute_pressure(work,nlk,u)
+           call compute_pressure(nlk(:,:,:,1),nlk)
+           ! nlkk(...1) is the pressure in Fourier space, so p is
+           ! the total pressure in physical space. Then remove kinetic
+           ! energy to get "physical" pressure
+           call cofitxyz(nlk(:,:,:,1),work)
+           work=work-0.5d0*(&
+                u(:,:,:,1)*u(:,:,:,1)&
+                +u(:,:,:,2)*u(:,:,:,2)&
+                +u(:,:,:,3)*u(:,:,:,3)&
+                )
            call Save_Field_HDF5(time,'./fields/p_'//name,work,"p")
         endif
      endif
@@ -767,112 +776,3 @@ subroutine compute_vorticity(vort,vortk,uk)
   call cofitxyz(vortk(:,:,:,2),vort(:,:,:,2))
   call cofitxyz(vortk(:,:,:,3),vort(:,:,:,3))
 end subroutine compute_vorticity
-
-
-! Compute the pressure, 
-! p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
-! note: we use rotational formulation: p is NOT the physical pressure
-subroutine compute_pressure(p,nlk,u)
-  use mpi_header
-  use share_vars
-  implicit none
-
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz,k2
-  real(kind=pr),intent(inout) :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-
-  do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-     do ix=ca(2),cb(2) ! kx : 0..nx/2
-        kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           k2=kx*kx+ky*ky+kz*kz
-           if(k2 .ne. 0.0) then
-              ! contains the pressure in Fourier space
-              nlk(iz,ix,iy,1)=&
-                   (kx*nlk(iz,ix,iy,1)&
-                   +ky*nlk(iz,ix,iy,2)&
-                   +kz*nlk(iz,ix,iy,3)&
-                   )/k2
-           endif
-        enddo
-     enddo
-  enddo
-  ! nlkk(...1) is the pressure in Fourier space, so p is
-  ! the total pressure in physical space. Then remove kinetic
-  ! energy to get "physical" pressure
-  call cofitxyz(nlk(:,:,:,1),p)
-  p=p-0.5d0*(&
-       u(:,:,:,1)*u(:,:,:,1) +u(:,:,:,2)*u(:,:,:,2) +u(:,:,:,3)*u(:,:,:,3)&
-       )
-end subroutine compute_pressure
-
-! Compute omega cross u with penalization and imoving=0
-subroutine omegacrossu_pen_nomove(nlk,work,u,vort)
-  use mpi_header
-  use share_vars
-  implicit none
-
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  
-  work=u(:,:,:,2)*vort(:,:,:,3)&
-       -u(:,:,:,3)*vort(:,:,:,2)&
-       -u(:,:,:,1)*mask
-  call coftxyz(work,nlk(:,:,:,1))
-  work=u(:,:,:,3)*vort(:,:,:,1)&
-       -u(:,:,:,1)*vort(:,:,:,3)&
-       -u(:,:,:,2)*mask
-  call coftxyz(work,nlk(:,:,:,2))
-  work=u(:,:,:,1)*vort(:,:,:,2)&
-       -u(:,:,:,2)*vort(:,:,:,1)&
-       -u(:,:,:,3)*mask
-  call coftxyz(work,nlk(:,:,:,3))
-end subroutine omegacrossu_pen_nomove
-
-! Compute omega cross u with penalization and imoving=1
-subroutine omegacrossu_pen_moving(nlk,work,u,vort)
-  use mpi_header
-  use share_vars
-  implicit none
-
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  
-  work=u(:,:,:,2)*vort(:,:,:,3) -u(:,:,:,3)*vort(:,:,:,2)&
-       -(u(:,:,:,1)-us(:,:,:,1))*mask
-  call coftxyz(work,nlk(:,:,:,1))
-  work=u(:,:,:,3)*vort(:,:,:,1) -u(:,:,:,1)*vort(:,:,:,3)&
-       -(u(:,:,:,2)-us(:,:,:,2))*mask
-  call coftxyz(work,nlk(:,:,:,2))
-  work=u(:,:,:,1)*vort(:,:,:,2) -u(:,:,:,2)*vort(:,:,:,1)&
-       -(u(:,:,:,3)-us(:,:,:,3))*mask
-  call coftxyz(work,nlk(:,:,:,3))
-endsubroutine omegacrossu_pen_moving
-
-! Compute omega cross u in the case of no penalization
-subroutine omegacrossu_nopen(nlk,work,u,vort)
-  use mpi_header
-  use share_vars
-  implicit none
-
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  
-  work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-  call coftxyz(work,nlk(:,:,:,1))
-  work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-  call coftxyz(work,nlk(:,:,:,2))
-  work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-  call coftxyz(work,nlk(:,:,:,3))
-endsubroutine omegacrossu_nopen
-
