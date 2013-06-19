@@ -13,22 +13,22 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   use share_vars
   implicit none
 
-  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent (in) :: uk
-  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent (out):: nlk
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), &
-       intent (inout) :: work_vort, work_u
+  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::work_vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::work_u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent (in) :: time
+  real(kind=pr) :: t1,t0
   integer, intent(in) :: it
-  real (kind=pr), intent (in) :: time
-  real (kind=pr) :: t1,t0
   type(Integrals), intent (out) :: GlobIntegrals
   logical :: TimeForDrag
 
-  TimeForDrag=.false.  
-  if (modulo(it,itdrag)==0) TimeForDrag=.true. 
   ! is it time for save global quantities?
+  TimeForDrag=.false.  
+  ! note we do this every itdrag time steps
+  if (modulo(it,itdrag)==0) TimeForDrag=.true. ! yes, indeed
+  
 
   ! performance measurement in global variables
   t0=MPI_wtime()
@@ -57,6 +57,7 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   !-----------------------------------------------
   t1=MPI_wtime()
   call compute_vorticity(work_vort,nlk,uk)
+  ! timing statistics
   time_vor=time_vor + MPI_wtime() - t1
 
   !-----------------------------------------------
@@ -78,6 +79,7 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   else ! no penalization
      call omegacrossu_nopen(nlk,work,work_u,work_vort)
   endif
+  ! timing statistics
   time_curl=time_curl + MPI_wtime() - t1
 
   !-------------------------------------------------------------
@@ -89,7 +91,10 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   call add_grad_pressure(nlk)
   time_p=time_p + MPI_wtime() - t1
 
+  ! this is for the timing statistics.
+  ! how much time was spend on ffts in cal_nlk?
   time_nlk_fft=time_nlk_fft + time_fft2 + time_ifft2
+  ! how much time was spend on cal_nlk
   time_nlk=time_nlk + MPI_wtime() - t0
 end subroutine cal_nlk
 
