@@ -20,28 +20,17 @@ subroutine time_step
   dt0=1.0d0 ! useful to trigger cal_vis
   dt1=2.d0  ! just add a comment to test branching...
 
-  ! Allocate memory
+  ! FIXME: move this somewhere else?
+  ! Allocate memory:
   allocate(workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
-  ! velocity in fourier space
-  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
+  ! velocity in Fourier space
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf,0:1))
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))   
-  ! velocity in phy space
-  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))   
-  ! vorticity in phy space
+  ! velocity in physical space
+  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf))   
+  ! vorticity in physical space
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-
-  ! Create obstacle mask
-  if(iPenalization>0) then 
-     ! you need the mask field only if you want to actually do penalization
-     allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-     if(iMoving == 1) then
-        ! if your obstacle moves,you'll need this field for its velocity field
-        allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
-     endif
-     ! create mask(this one call can be redundant,but who cares.)
-     call Create_Mask(time)
-  endif
 
   ! Initialize vorticity or read values from a backup file
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,workvis)
@@ -57,7 +46,7 @@ subroutine time_step
      if(iMoving == 1) call Create_Mask(time)  
 
      ! Do a fluid time step
-      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
+     call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
 
      !--Switch time levels
      inter=n1 ; n1=n0 ; n0=inter

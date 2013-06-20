@@ -57,6 +57,18 @@ program FLUSI
        mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
 
+  ! Create obstacle mask
+  if(iPenalization>0) then 
+     ! you need the mask field only if you want to actually do penalization
+     allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     if(iMoving == 1) then
+        ! if your obstacle moves,you'll need this field for its velocity field
+        allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+     endif
+     ! create mask(this one call can be redundant,but who cares.)
+     call Create_Mask(0.d0)
+  endif
+
   ! Step forward in time
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'

@@ -36,6 +36,8 @@ program MHD3d
     close (14)
   endif
 
+  ! FIXME: allocate memory here?
+
   ! Step forward in time
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
