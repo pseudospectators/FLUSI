@@ -1,9 +1,13 @@
 module share_vars
+  use mpi_header
   implicit none
 
   integer,parameter :: pr = 8
   integer,save :: nx,ny,nz,nt
-  integer,save :: mpisize,mpirank,mpicommcart,mpiinteger,mpireal,mpicomplex
+  integer,save :: mpisize,mpirank,mpicommcart
+  integer,parameter :: mpiinteger=MPI_INTEGER
+  integer,parameter :: mpireal=MPI_DOUBLE_PRECISION
+  integer,parameter :: mpicomplex=MPI_DOUBLE_COMPLEX
   integer,save :: iDealias,itdrag
   integer,save :: iDrag,iKinDiss
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,&
@@ -43,4 +47,3 @@ module share_vars
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
 end module share_vars
-

@@ -1,5 +1,5 @@
 program FLUSI
-  use mpi_header ! Module incapsulates mpif.
+  use mpi_header
   use share_vars
   implicit none
 
@@ -21,29 +21,28 @@ program FLUSI
      write(*,'(A)') '  FLUSI'
      write(*,'(A)') '--------------------------------------'
      write(*,'("Running on ",i3," CPUs")') mpisize
-     call system('mkdir fields')
   endif
-
-  mpiinteger  = MPI_INTEGER
-  mpireal  = MPI_DOUBLE_PRECISION
-  mpicomplex  = MPI_DOUBLE_COMPLEX
 
   ! Read input parameters
   if (mpirank == 0) then
      write(*,'(A)') '*** info: Reading input data...'
   endif
-
   ! get filename of PARAMS file from command line
   call get_command_argument (1, infile)
   ! read all parameters from that file
   call get_params (infile)
+  ! Initialize FFT
+  call fft_initialize 
 
-  ! overwrite drag_data file
+  !  Set up output directory
+  call system('mkdir fields')
+
+  ! Overwrite drag_data file
   if ( len(inicond) > 8) then  ! comparison will fail if string too short...
-  if ((inicond(1:8) .ne. "backup::").and.(mpirank==0)) then
-     open  (14, file = 'drag_data', status = 'replace')
-     close (14)
-  endif
+     if ((inicond(1:8) .ne. "backup::").and.(mpirank==0)) then
+        open  (14, file = 'drag_data', status = 'replace')
+        close (14)
+     endif
   else ! ... but if this is the case, we're not resuming a backup anyways
      open  (14, file = 'drag_data', status = 'replace')
      close (14)
@@ -68,15 +67,14 @@ program FLUSI
      write(*,'(A)') '--------------------------------------'
   endif
   call MPI_barrier (MPI_COMM_world, mpicode)
-
   t1 = MPI_wtime()
-  call time_step ()
+  call time_step() ! Actual time-stepping function
   t2 = MPI_wtime() - t1
-
   if (mpirank ==0) then
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize
   endif
 
+  !  Output information on where the algorithm spent the most time.
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '*** Timings'
@@ -116,6 +114,6 @@ program FLUSI
   endif
 
   call fft_free 
-  call MPI_FINALIZE (mpicode)
+  call MPI_FINALIZE(mpicode)
 end program FLUSI
 
