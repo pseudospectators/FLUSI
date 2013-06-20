@@ -71,7 +71,7 @@ main: $(PROG_FILE) $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
 # compile modules:
 mpi_header.o: $(MPI_HEADER)
 	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
-share_vars.o: share_vars.f90
+share_vars.o: share_vars.f90 mpi_header.o
 	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
 cof_p3dfft.o: cof_p3dfft.f90 share_vars.o mpi_header.o
 	$(FC) $(FFLAGS) -o $@ -c $< $(LDFLAGS)
