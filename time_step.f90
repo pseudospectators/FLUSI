@@ -18,10 +18,6 @@ subroutine time_step
 
   time=0.0
 
-  GlobIntegrals%E_kin=0.d0
-  GlobIntegrals%Dissip=0.d0
-  GlobIntegrals%Force=0.d0
-
   dt0=1.0d0 ! useful to trigger cal_vis
   dt1=2.d0  ! just add a comment to test branching...
 
