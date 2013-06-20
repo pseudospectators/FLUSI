@@ -1,15 +1,11 @@
+! Compute the nonlinear source term of the Navier-Stokes equation,
+! including penality term, in Fourier space. Seven real-valued
+! arrays are required for working memory.
+
+! FIXME: this does other things as well, like computing energy
+! dissipation.
 subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
-  ! ----------------------------------------------------------------------------
-  !   VERSION 5 / mars / 2013
-  ! - no allocating, all work arrays passed as arguments
-  ! - this version 7 real work arrays; I' afraid this is the minimum.
-  ! - cofdx..cofdz and poisson are replaced by more elegant loops to minimize
-  !   both comput. time and memory consumption.
-  !
-  ! ----------------------------
-  ! This routine computes the RHS of Navier-stokes eqn in fourier space.
-  ! ----------------------------------------------------------------------------
-  use mpi_header ! Module incapsulates mpif.
+  use mpi_header
   use share_vars
   implicit none
 
@@ -29,12 +25,10 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   ! note we do this every itdrag time steps
   if (modulo(it,itdrag)==0) TimeForDrag=.true. ! yes, indeed
   
-
   ! performance measurement in global variables
   t0=MPI_wtime()
   time_fft2 =0.0 ! time_fft2 is the time spend on ffts during cal_nlk only
   time_ifft2=0.0 ! time_ifft2 is the time spend on iffts during cal_nlk only
-
 
   !-----------------------------------------------
   !-- Calculate ux and uy in physical space
@@ -82,11 +76,6 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   ! timing statistics
   time_curl=time_curl + MPI_wtime() - t1
 
-  !-------------------------------------------------------------
-  ! add pressure, new version
-  ! p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2
-  ! note: we use rotational formulation: p is NOT the physical pressure
-  !------------------------------------------------------------- 
   t1=MPI_wtime()
   call add_grad_pressure(nlk)
   time_p=time_p + MPI_wtime() - t1
