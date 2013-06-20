@@ -1,4 +1,4 @@
-module share_vars
+module vars
   use mpi_header
   implicit none
 
@@ -42,8 +42,14 @@ module share_vars
   real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u
   real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
 
-  ! A derived datatype we use to make syntax easier.  Maybe name it
-  ! "statistics" if code gets more complex
+end module vars
+
+
+! Variables for fsi simulations
+module fsi_vars
+  use vars
+  implicit none
+
   type Integrals
      real(kind=pr) :: time
      real(kind=pr) :: E_Kin
@@ -52,4 +58,21 @@ module share_vars
      real(kind=pr) :: Volume
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
-end module share_vars
+end module fsi_vars
+
+
+! Variables for mhd simulations
+module mhd_vars
+  use vars
+  implicit none
+  
+  type Integrals
+     real(kind=pr) :: time
+     real(kind=pr) :: E_Kin
+     real(kind=pr) :: B_Kin
+     real(kind=pr) :: Dissip
+     real(kind=pr) :: Divergence
+     real(kind=pr) :: Volume
+     real(kind=pr),dimension(1:3) :: Force
+  end type Integrals
+end module mhd_vars

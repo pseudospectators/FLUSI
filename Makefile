@@ -42,7 +42,7 @@ endif
 # this seems to be the only one in use.
 MPI_HEADER = mpi_duke_header.f90
 
-PROGRAMS = main
+PROGRAMS = flusi mhd
 
 FFT_LIB = $(FFT_ROOT)/lib
 FFT_INC = $(FFT_ROOT)/include
@@ -62,10 +62,12 @@ FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
 
 # by default, compile all the programs.
-all: main
+all: $(PROGRAMS)
 
 # compile main program, with dependencies:
-main: $(PROG_FILE) $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
+flusi: FLUSI.f90 $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
+	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
+mhd: mhd.f90 $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # compile modules:
@@ -81,4 +83,4 @@ cof_p3dfft.o: cof_p3dfft.f90 share_vars.o mpi_header.o
 	$(FC) $(FFLAGS) -o $@ -c $<  $(LDFLAGS)
 
 clean:
-	rm -f main *.o *.mod
+	rm -f $(PROGRAMS) *.o *.mod

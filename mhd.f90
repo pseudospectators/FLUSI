@@ -1,6 +1,6 @@
-program FLUSI
+program MHD3d
   use mpi_header
-  use vars
+  use mhd_vars
   implicit none
 
   integer                :: mpicode
@@ -109,14 +109,11 @@ program FLUSI
 
   call fft_free 
   call MPI_FINALIZE(mpicode)
-end program FLUSI
-
+end program MHD3D
 
 ! Wrapper to read parameters from an ini file for fsi
 subroutine get_params(paramsfile) 
   ! this is the file we read the PARAMS from
   character (len=80) :: paramsfile
-  call get_params_fsi(paramsfile)
+  call get_params_mhd(paramsfile)
 end subroutine get_params
-
-

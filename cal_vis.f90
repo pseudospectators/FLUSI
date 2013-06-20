@@ -5,7 +5,7 @@
 !  because we round it to one digit.  also, dealiasing is done here
 !  (multiply aliased avenumbers by zero)
 subroutine cal_vis (dt, vis)
-  use share_vars
+  use fsi_vars
   use mpi_header
   implicit none
 

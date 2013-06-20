@@ -6,7 +6,7 @@
 ! FIXME: add documentation: which arguments are used for what?
 subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   use mpi_header
-  use share_vars
+  use fsi_vars
   implicit none
 
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
@@ -94,7 +94,7 @@ end subroutine cal_nlk
 ! the direction iDirection. The force is stored in the GlobIntegrals
 ! structure
 subroutine IntegralForce ( GlobIntegrals, work, iDirection ) 
-  use share_vars
+  use fsi_vars
   use mpi_header
   implicit none
   real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
@@ -112,9 +112,9 @@ end subroutine IntegralForce
 
 ! Compute the kinetic energy, dissipation rate and mask volume.  Store
 ! all these in the structure GlobIntegrals (definition see
-! share_vars).
+! fsi_vars).
 subroutine Energy_Dissipation ( GlobIntegrals, u, vort )
-  use share_vars
+  use fsi_vars
   use mpi_header
   implicit none
 
@@ -147,7 +147,7 @@ end subroutine Energy_Dissipation
 ! note: we use rotational formulation: p is NOT the physical pressure
 subroutine compute_pressure(pk,nlk)
   use mpi_header
-  use share_vars
+  use vars
   implicit none
 
   integer :: ix,iy,iz
@@ -179,7 +179,7 @@ end subroutine compute_pressure
 ! Add the gradient of the pressure to the nonlinear term.
 subroutine add_grad_pressure(nlk)
   use mpi_header
-  use share_vars
+  use vars
   implicit none
 
   integer :: ix,iy,iz
@@ -212,7 +212,7 @@ end subroutine add_grad_pressure
 !FIXME: temp code, removed from main cal_nlk
 subroutine compute_divergence()
   use mpi_header
-  use share_vars
+  use vars
   implicit none
 !!$  
 !!$  ! compute max val of {|div(.)|/|.|} over entire domain
@@ -245,7 +245,7 @@ end subroutine compute_divergence
 ! space. This is the case without penalization.
 subroutine omegacrossu_nopen(nlk,work,u,vort)
   use mpi_header
-  use share_vars
+  use fsi_vars
   implicit none
 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -262,7 +262,6 @@ subroutine omegacrossu_nopen(nlk,work,u,vort)
 endsubroutine omegacrossu_nopen
 
 
-
 ! Compute non-linear transport term (omega cross u) and transform it to Fourier
 ! space. This is the case with penalization. Therefore we compute the penalty
 ! term mask*(u-us) as well. This gives the occasion to compute the drag forces,
@@ -270,7 +269,7 @@ endsubroutine omegacrossu_nopen
 ! GlobIntegrals.
 subroutine omegacrossu_penalize(nlk,work,u,vort,TimeForDrag,GlobIntegrals)
   use mpi_header
-  use share_vars
+  use fsi_vars
   implicit none
 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -302,7 +301,7 @@ end subroutine omegacrossu_penalize
 ! this occasion, we directly compute the integral hydrodynamic forces,
 ! if its time to do so (TimeForDrag=.true.)
 subroutine Penalize(work,work_u,iDir,TimeForDrag,GlobIntegrals )    
-  use share_vars
+  use fsi_vars
   implicit none
 
   integer, intent (in) :: iDir

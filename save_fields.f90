@@ -2,7 +2,7 @@
 ! and vorticity) and stores the fields in several HDF5 files.
 subroutine save_fields_new(time,uk,u,vort,nlk,work)
   use mpi_header
-  use share_vars
+  use fsi_vars
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -98,7 +98,7 @@ end subroutine save_fields_new
 ! metadata of the HDF file .
 subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   use mpi_header
-  use share_vars
+  use vars
   use HDF5
   implicit none
   
@@ -237,7 +237,7 @@ end subroutine Save_Field_HDF5
 ! directly copy-paste a single field and load it into paraview without
 ! any effort.
 subroutine Write_XMF ( time, filename, dsetname )
-  use share_vars
+  use fsi_vars
   implicit none
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename, dsetname
@@ -288,7 +288,7 @@ end subroutine Write_XMF
 ! time steps, and what else? FIXME: document what is saved.
 subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   use mpi_header
-  use share_vars
+  use fsi_vars
   use hdf5
   implicit none
   character(len=18) :: filename
@@ -366,7 +366,7 @@ end subroutine Dump_Runtime_Backup
 ! "bckp" which contains 8 values
 subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   use mpi_header
-  use share_vars
+  use fsi_vars
   use hdf5
   implicit none
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(in) ::&
@@ -467,7 +467,7 @@ end subroutine Dump_Field_Backup
 ! load backup data from disk to initialize run for restart
 subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   use mpi_header
-  use share_vars
+  use fsi_vars
   use hdf5
   implicit none
 
@@ -549,7 +549,7 @@ end subroutine Read_Runtime_Backup
 ! array containing scalar backup information
 subroutine Read_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use mpi_header
-  use share_vars
+  use fsi_vars
   use hdf5
   implicit none
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), &
@@ -675,7 +675,7 @@ end subroutine Read_Field_Backup
 ! adims/dims to a given dataset identifier dset_id. Double version.
 subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   use mpi_header
-  use share_vars
+  use vars
   use HDF5
   implicit none
 
@@ -707,7 +707,7 @@ end subroutine write_attribute_dble
 ! adims/dims to a given dataset identifier dset_id. Integer version.
 subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   use mpi_header
-  use share_vars
+  use vars
   use HDF5
   implicit none
 
@@ -734,43 +734,3 @@ subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   call h5aclose_f(attr_id,error) ! Close the attribute.
   call h5sclose_f(aspace_id,error) ! Terminate access to the data space.
 end subroutine write_attribute_int
-
-
-! Given the velocity in Fourier space and a work array vortk, compute
-! the vorticity in phsycial space.  Arrays are 4-dimensional.
-subroutine compute_vorticity(vort,vortk,uk)
-  use mpi_header
-  use share_vars
-  implicit none
-
-  ! input: velocity field in Fourier space
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  ! work: vortk, (at output: vorticity in Fourier space)
-  complex(kind=pr),intent(inout)::vortk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  ! output: vorticity
-  real(kind=pr),intent(out) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  ! imaginary unit
-  complex(kind=pr) :: imag
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! comput vorticity in Fourier space:
-  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-     do ix=ca(2),cb(2)  ! kx : 0..nx/2
-        kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           vortk(iz,ix,iy,1)=imag*(ky*uk(iz,ix,iy,3)-kz*uk(iz,ix,iy,2))
-           vortk(iz,ix,iy,2)=imag*(kz*uk(iz,ix,iy,1)-kx*uk(iz,ix,iy,3))
-           vortk(iz,ix,iy,3)=imag*(kx*uk(iz,ix,iy,2)-ky*uk(iz,ix,iy,1))
-        enddo
-     enddo
-  enddo
-
-  ! Transform to physical space
-  call cofitxyz(vortk(:,:,:,1),vort(:,:,:,1))
-  call cofitxyz(vortk(:,:,:,2),vort(:,:,:,2))
-  call cofitxyz(vortk(:,:,:,3),vort(:,:,:,3))
-end subroutine compute_vorticity

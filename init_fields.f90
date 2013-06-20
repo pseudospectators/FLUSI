@@ -1,6 +1,6 @@
 subroutine init_fields(n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
   use mpi_header ! Module incapsulates mpif.
-  use share_vars
+  use fsi_vars
   implicit none
 
   integer, intent (inout) :: n1,it
@@ -131,7 +131,7 @@ subroutine Vorticity2Velocity (uk, work, vort)
   ! work is a work array
   !----------------------------------------------------------------
   use mpi_header ! Module incapsulates mpif.
-  use share_vars
+  use fsi_vars
   implicit none
 
   complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&

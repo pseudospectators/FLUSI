@@ -3,7 +3,7 @@ subroutine Create_Mask (time)
   ! wrapper for different (possibly time-dependend) mask functions 
   !--------------------------------------------------
   use mpi_header ! Module incapsulates mpif.
-  use share_vars
+  use fsi_vars
   implicit none
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: eps_inv, t1
@@ -43,7 +43,7 @@ end subroutine Create_Mask
 ! advantage of this. (unlike the experimental matlab file) Jerry has
 ! two wings, a body and a head with eyes.
 subroutine Draw_Jerry (time)
-  use share_vars
+  use fsi_vars
   use mpi_header
   implicit none
 
@@ -290,7 +290,7 @@ end subroutine Draw_Jerry
 
 subroutine Flapper (time)
   use mpi_header
-  use share_vars
+  use fsi_vars
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -385,7 +385,7 @@ end subroutine Flapper
 ! Spherical obstacle
 subroutine Draw_Sphere 
   use mpi_header
-  use share_vars
+  use fsi_vars
   implicit none
 
   integer :: ix, iy, iz
@@ -425,7 +425,7 @@ end subroutine Draw_Sphere
 ! f is 0 if x>t+h
 ! f is variable (smooth) in between
 subroutine SmoothStep (f,x,t,h)
-  use share_vars
+  use fsi_vars
   implicit none
   real (kind=pr), intent (out) :: f
   real (kind=pr), intent (in)  :: x,t,h
