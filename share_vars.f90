@@ -4,7 +4,7 @@ module vars
   implicit none
 
   character(len=3),save:: method
-  integer,parameter :: nf = 3 ! number of fields (3 for NS, 6 for MHD)
+  integer,save :: nf = 3 ! number of fields (3 for NS, 6 for MHD)
 
   integer,parameter :: pr = 8 ! precision of doubles
   integer,save :: nx,ny,nz,nt ! resolution and time-stepping
@@ -52,6 +52,7 @@ module fsi_vars
   use vars
   implicit none
 
+  ! The derived quantities for fluid-structure interactions.
   type Integrals
      real(kind=pr) :: time
      real(kind=pr) :: E_Kin
@@ -60,6 +61,8 @@ module fsi_vars
      real(kind=pr) :: Volume
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
+
+  type(Integrals),save :: GlobIntegrals
 end module fsi_vars
 
 
@@ -67,7 +70,8 @@ end module fsi_vars
 module mhd_vars
   use vars
   implicit none
-  
+
+  ! The derived quantities for mhd.  
   type Integrals
      real(kind=pr) :: time
      real(kind=pr) :: E_Kin
@@ -77,4 +81,6 @@ module mhd_vars
      real(kind=pr) :: Volume
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
+
+  type(Integrals),save :: GlobIntegrals
 end module mhd_vars

@@ -1,16 +1,17 @@
 program FLUSI
   use mpi_header
-  use vars
+  use fsi_vars
   implicit none
 
   integer                :: mpicode
   real (kind=pr)         :: t1,t2, tmp
   character (len=80)     :: infile
 
-  method="fsi"
+  ! Set method information in vars module:
+  method="fsi" ! We are doing fluid-structure interactions
+  nf=3 ! There are three velocity fields.
 
-
-  !---- Initialize MPI, get size and rank
+  ! Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
   call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
   call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
@@ -37,7 +38,6 @@ program FLUSI
 
   !  Set up output directory
   call system('mkdir -p fields')
-
   
   ! Overwrite drag_data file? only if we're not resuming a backup!
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 

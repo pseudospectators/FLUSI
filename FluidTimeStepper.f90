@@ -1,7 +1,6 @@
 ! Wrapper for different time marching methods
 ! FIXME: add documentation: which arguments are used for what?
-subroutine FluidTimestep (time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
-     GlobIntegrals )
+subroutine FluidTimestep (time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
   use mpi_header
   use fsi_vars
   implicit none
@@ -15,7 +14,6 @@ subroutine FluidTimestep (time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
   real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  type(Integrals),intent (out) :: GlobIntegrals
   real (kind=pr) :: t1
 
   t1=MPI_wtime()  
@@ -24,17 +22,15 @@ subroutine FluidTimestep (time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
   case("RK2")
-     call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,GlobIntegrals)
+     call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis)
   case("AB2")
      if(it == 0) then
-        call Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis,&
-             GlobIntegrals)
+        call Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis)
      else
-        call AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,&
-             GlobIntegrals)
+        call AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis)
      end if
   case("Euler")
-     call Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,GlobIntegrals)
+     call Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis)
   case default
      if (mpirank == 0) then
         write(*,*) "Error! iTimeMethodFluid unknown. Suicide!"
@@ -55,8 +51,7 @@ end subroutine FluidTimestep
 
 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,&
-     GlobIntegrals)
+subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis)
   use mpi_header
   use fsi_vars
   implicit none
@@ -70,10 +65,9 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,&
   real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  type(Integrals),intent (out) :: GlobIntegrals
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,GlobIntegrals )
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
   ! multiply the RHS with the viscosity
@@ -113,7 +107,7 @@ end subroutine RungeKutta2
 ! This is standard Euler-explicit time marching. It does not serve as
 ! startup scheme for AB2.
 ! FIXME: add documentation: which arguments are used for what?
-subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,GlobIntegrals)
+subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis)
   use mpi_header
   use fsi_vars
   implicit none
@@ -127,10 +121,9 @@ subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,GlobIntegrals)
   real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  type(Integrals),intent (out) :: GlobIntegrals
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk( time,it,nlk(:,:,:,:,1),uk,u,vort,work,GlobIntegrals )
+  call cal_nlk( time,it,nlk(:,:,:,:,1),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
   ! Compute integrating factor, if necesssary
@@ -147,8 +140,7 @@ end subroutine Euler
 
 ! Note this is not an optimized Euler. It only does things we need for AB2.
 ! FIXME: add documentation: which arguments are used for what?
-subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis,&
-     GlobIntegrals)
+subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis)
   use mpi_header
   use fsi_vars
   implicit none
@@ -162,10 +154,9 @@ subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis,&
   real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  type(Integrals),intent (out) :: GlobIntegrals
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,GlobIntegrals )
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
   ! Compute integrating factor, if necesssary
@@ -186,8 +177,7 @@ end subroutine Euler_startup
 
 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,&
-     GlobIntegrals)
+subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis)
   use mpi_header
   use fsi_vars
   implicit none
@@ -202,10 +192,9 @@ subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,&
   real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real (kind=pr) :: b10,b11
-  type(Integrals),intent (out) :: GlobIntegrals
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,GlobIntegrals )
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
   ! Calculate velocity at new time step 

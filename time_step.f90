@@ -14,7 +14,6 @@ subroutine time_step
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
   real(kind=pr),dimension(:,:,:),allocatable :: work
-  type(Integrals) :: GlobIntegrals
 
   time=0.0
 
@@ -55,13 +54,10 @@ subroutine time_step
      dt0=dt1
 
      ! If the mask is time-dependend,we create it here
-     if(iMoving == 1) then
-        call Create_Mask(time)  
-     endif
+     if(iMoving == 1) call Create_Mask(time)  
 
      ! Do a fluid time step
-      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
-            GlobIntegrals)
+      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
 
      !--Switch time levels
      inter=n1 ; n1=n0 ; n0=inter

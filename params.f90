@@ -378,10 +378,17 @@ end subroutine get_params_mhd
 subroutine get_params(paramsfile) 
   use vars
 
-  ! this is the file we read the PARAMS from
-  character (len=80) :: paramsfile
+  character (len=80) :: paramsfile  ! The file we read the PARAMS from
 
-  ! FIXME: should be a switch.
-  if(method(1:3) == "fsi") call get_params_fsi(paramsfile)
-  if(method(1:3) == "mhd") call get_params_mhd(paramsfile)
+  select case(method(1:3))
+     case("fsi") 
+        call get_params_fsi(paramsfile)
+     case("mhd") 
+        call get_params_mhd(paramsfile)
+  case default
+     if (mpirank == 0) then
+        write(*,*) "Error! Unkonwn method in get_params"
+        stop
+     end if
+  end select
 end subroutine get_params
