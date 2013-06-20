@@ -2,42 +2,48 @@ module share_vars
   use mpi_header
   implicit none
 
-  integer,parameter :: pr = 8
-  integer,save :: nx,ny,nz,nt
+  integer,parameter :: pr = 8 ! precision of doubles
+  integer,save :: nx,ny,nz,nt ! resolution and time-stepping
+  integer,parameter :: nf = 3 ! number of fields (3 for NS, 6 for MHD)
+
+  ! MPI and p3dfft variables and parameters
   integer,save :: mpisize,mpirank,mpicommcart
   integer,parameter :: mpiinteger=MPI_INTEGER
   integer,parameter :: mpireal=MPI_DOUBLE_PRECISION
   integer,parameter :: mpicomplex=MPI_DOUBLE_COMPLEX
+  integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
+  integer,dimension (:,:),allocatable,save :: ra_table,rb_table
+
+  ! used in params.f90
+  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
+  ! Variables set via the parameters file
   integer,save :: iDealias,itdrag
   integer,save :: iDrag,iKinDiss
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,&
        iSaveSolidVelocity
   integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup
-  integer,dimension (2),save :: mpidims,mpicoords,mpicommslab
-  integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
-  integer,dimension (:,:),allocatable,save :: ra_table,rb_table
   real (kind=pr),save :: tmax,cfl,nu,eps,pi,scalex,scaley,scalez,length
-  real (kind=pr),save :: xl,yl,zl,dx,dy ,dz
+  real (kind=pr),save :: xl,yl,zl,dx,dy,dz
   real (kind=pr),save :: Ux,Uy,Uz,Ax,Ay,Az,tstart,tsave
   real (kind=pr),save :: x0,y0,z0,dt_fixed
-  
-  real (kind=pr),dimension (:,:,:),allocatable,save :: mask
-  real (kind=pr),dimension (:,:,:,:),allocatable,save :: us
-
   character (len=80),save :: iMask,iTimeMethodFluid,inicond
+ 
+  ! Local array bounds
+  integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
 
-  ! used in params.f90
-  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
+  ! The mask array.  TODO: move out of shave_vars?
+  real (kind=pr),dimension (:,:,:),allocatable,save :: mask
+  ! Velocity field inside the solid.  TODO: move out of shave_vars?
+  real (kind=pr),allocatable,save :: us(:,:,:,:) 
 
-  ! This is used for timing statistics
-  ! they are global to simplify syntax
+  ! Vabiables timing statistics.  Global to simplify syntax
   real (kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2,&
        time_ifft2
   real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u
   real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
 
-  ! this is a derived datatype we use to make syntax easier.  maybe
-  ! name it "statistics" if code gets more complex
+  ! A derived datatype we use to make syntax easier.  Maybe name it
+  ! "statistics" if code gets more complex
   type Integrals
      real(kind=pr) :: time
      real(kind=pr) :: E_Kin
