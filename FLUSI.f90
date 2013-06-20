@@ -35,13 +35,11 @@ program FLUSI
   !  Set up output directory
   call system('mkdir -p fields')
 
-  ! Overwrite drag_data file?
-  if(mpirank==0) then
-     ! Comparison will fail if string too short, so check that.
-     if (len(inicond)>8 .and. inicond(1:8).ne."backup::") then 
-        open  (14, file = 'drag_data', status = 'replace')
-        close (14)
-     endif
+  
+  ! Overwrite drag_data file? only if we're not resuming a backup!
+  if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
+    open  (14, file = 'drag_data', status = 'replace')
+    close (14)
   endif
 
   ! Print domain decomposition
