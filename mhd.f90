@@ -7,6 +7,8 @@ program MHD3d
   real (kind=pr)         :: t1,t2, tmp
   character (len=80)     :: infile
 
+  method='mhd'
+
   !---- Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
   call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
@@ -16,12 +18,7 @@ program MHD3d
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
   time_bckp=0.0; time_save=0.0; time_total=0.0; time_u=0.0;
 
-  if (mpirank == 0) then
-     write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '  FLUSI'
-     write(*,'(A)') '--------------------------------------'
-     write(*,'("Running on ",i3," CPUs")') mpisize
-  endif
+  if (mpirank == 0) write(*,'(A)') 'Starting MHD3D'
 
   ! Read input parameters
   if (mpirank == 0) write(*,'(A)') '*** info: Reading input data...'
@@ -110,10 +107,3 @@ program MHD3d
   call fft_free 
   call MPI_FINALIZE(mpicode)
 end program MHD3D
-
-! Wrapper to read parameters from an ini file for fsi
-subroutine get_params(paramsfile) 
-  ! this is the file we read the PARAMS from
-  character (len=80) :: paramsfile
-  call get_params_mhd(paramsfile)
-end subroutine get_params

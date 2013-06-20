@@ -9,7 +9,7 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   use fsi_vars
   implicit none
 
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::&
@@ -324,3 +324,4 @@ subroutine Penalize(work,work_u,iDir,TimeForDrag,GlobIntegrals )
      call IntegralForce ( GlobIntegrals, work, iDir ) 
   endif
 end subroutine Penalize
+

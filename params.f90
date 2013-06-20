@@ -372,3 +372,16 @@ subroutine get_params_mhd (paramsfile)
      write (*,*) "*************************************************"
   endif
 end subroutine get_params_mhd
+
+
+! Wrapper to read parameters from an ini file for fsi
+subroutine get_params(paramsfile) 
+  use vars
+
+  ! this is the file we read the PARAMS from
+  character (len=80) :: paramsfile
+
+  ! FIXME: should be a switch.
+  if(method(1:3) == "fsi") call get_params_fsi(paramsfile)
+  if(method(1:3) == "mhd") call get_params_mhd(paramsfile)
+end subroutine get_params

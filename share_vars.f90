@@ -1,10 +1,13 @@
+! Variables for pseudospectral simnulations
 module vars
   use mpi_header
   implicit none
 
+  character(len=3),save:: method
+  integer,parameter :: nf = 3 ! number of fields (3 for NS, 6 for MHD)
+
   integer,parameter :: pr = 8 ! precision of doubles
   integer,save :: nx,ny,nz,nt ! resolution and time-stepping
-  integer,parameter :: nf = 3 ! number of fields (3 for NS, 6 for MHD)
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize,mpirank,mpicommcart
@@ -41,7 +44,6 @@ module vars
        time_ifft2
   real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u
   real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-
 end module vars
 
 

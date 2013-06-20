@@ -7,6 +7,9 @@ program FLUSI
   real (kind=pr)         :: t1,t2, tmp
   character (len=80)     :: infile
 
+  method="fsi"
+
+
   !---- Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
   call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
@@ -110,13 +113,3 @@ program FLUSI
   call fft_free 
   call MPI_FINALIZE(mpicode)
 end program FLUSI
-
-
-! Wrapper to read parameters from an ini file for fsi
-subroutine get_params(paramsfile) 
-  ! this is the file we read the PARAMS from
-  character (len=80) :: paramsfile
-  call get_params_fsi(paramsfile)
-end subroutine get_params
-
-
