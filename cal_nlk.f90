@@ -1,9 +1,9 @@
 ! Compute the nonlinear source term of the Navier-Stokes equation,
 ! including penality term, in Fourier space. Seven real-valued
 ! arrays are required for working memory.
-
 ! FIXME: this does other things as well, like computing energy
 ! dissipation.
+! FIXME: add documentation: which arguments are used for what?
 subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   use mpi_header
   use share_vars
@@ -12,7 +12,8 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::work_vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::&
+       work_vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr),intent(inout)::work_u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0
@@ -40,7 +41,7 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work,GlobIntegrals)
   time_u=time_u + MPI_wtime() - t1
 
   !------------------------------------------------
-  ! TEMP::: compute divergence
+  ! TEMP: compute divergence
   !-----------------------------------------------
   if (TimeForDrag) then
 !     call compute_divergence(FIXME)

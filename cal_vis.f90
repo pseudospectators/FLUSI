@@ -1,16 +1,14 @@
+!  Calculate visfusive term for time advancement,
+!  exp (-nu*k^2*dt)
+!  It is real valued, its global size is 0:nz-1, 0:nx/2, 0:ny-1 
+!  This is computed only if the time step changes. Is does rarely,
+!  because we round it to one digit.  also, dealiasing is done here
+!  (multiply aliased avenumbers by zero)
 subroutine cal_vis (dt, vis)
-  !---------------------------------------------------------------
-  !  Calculate visfusive term for time advancement
-  !  exp (-nu*k^2*dt)
-  !  It is real valued, 
-  !  its global size is 0:nz-1, 0:nx/2, 0:ny-1
-  !  In newer versions, this is computed only if the time step
-  !  changes. Is does so rarely, because we round it to one digit.
-  !  also, dealiasing is done here (multiply aliased avenumbers by zero)
-  !---------------------------------------------------------------
   use share_vars
   use mpi_header
   implicit none
+
   integer :: ix, iy, iz
   real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),intent(out)::vis
   real(kind=pr),intent(in) :: dt
@@ -38,7 +36,7 @@ subroutine cal_vis (dt, vis)
            kz2 = dble(modulo(iz+nz/2,nz)-nz/2)/kz_trunc
            kz2 = kz2*kz2
 
-           ! we can do dealiasing here, this is most efficient
+           ! Dealiasing is done here for reasons of efficiency
            if ((kx2 + ky2 + kz2  .ge. 1.d0).and.(iDealias==1)) then
               vis(iz,ix,iy) = 0.d0
            else

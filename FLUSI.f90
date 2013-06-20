@@ -112,4 +112,3 @@ program FLUSI
   call fft_free 
   call MPI_FINALIZE(mpicode)
 end program FLUSI
-

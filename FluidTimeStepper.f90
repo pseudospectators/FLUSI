@@ -1,4 +1,5 @@
 ! Wrapper for different time marching methods
+! FIXME: add documentation: which arguments are used for what?
 subroutine FluidTimestep (time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
      GlobIntegrals )
   use mpi_header
@@ -53,9 +54,10 @@ subroutine FluidTimestep (time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it,&
 end subroutine FluidTimestep
 
 
+! FIXME: add documentation: which arguments are used for what?
 subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,&
      GlobIntegrals)
-  use mpi_header ! Module incapsulates mpif.
+  use mpi_header
   use share_vars
   implicit none
 
@@ -108,10 +110,11 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,&
 end subroutine RungeKutta2
 
 
-! This is standard Euler-explicit time marching. does not serve as
+! This is standard Euler-explicit time marching. It does not serve as
 ! startup scheme for AB2.
+! FIXME: add documentation: which arguments are used for what?
 subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis,GlobIntegrals)
-  use mpi_header ! Module incapsulates mpif.
+  use mpi_header
   use share_vars
   implicit none
 
@@ -143,6 +146,7 @@ end subroutine Euler
 
 
 ! Note this is not an optimized Euler. It only does things we need for AB2.
+! FIXME: add documentation: which arguments are used for what?
 subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis,&
      GlobIntegrals)
   use mpi_header
@@ -181,6 +185,7 @@ subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis,&
 end subroutine Euler_startup
 
 
+! FIXME: add documentation: which arguments are used for what?
 subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,&
      GlobIntegrals)
   use mpi_header
@@ -223,8 +228,8 @@ subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,&
 end subroutine AdamsBashforth
 
 
-! Set the time step based on the CFL condition penalization stability
-! contidion.
+! Set the time step based on the CFL condition and penalization
+! stability contidion.
 subroutine adjust_dt(dt1,u)
   use share_vars
   use mpi_header
@@ -270,14 +275,15 @@ subroutine adjust_dt(dt1,u)
 end subroutine adjust_dt
 
 
-
-
+! FIXME: add documentation
 subroutine truncate(a,b)
   ! rounds time step (from 1.246262e-2 to 1.2e-2)
   use share_vars
   implicit none
+
   real(kind=pr) :: a,b
   character (len=7) :: str
+
   write (str,'(es7.1)') a
   read (str,*) b
 end subroutine truncate
