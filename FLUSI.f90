@@ -7,7 +7,7 @@ program FLUSI
   real (kind=pr)         :: t1,t2, tmp
   character (len=80)     :: infile
 
-  !---- Initialize MPI, get size and rank, create mpi data types
+  !---- Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
   call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
   call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
@@ -24,9 +24,7 @@ program FLUSI
   endif
 
   ! Read input parameters
-  if (mpirank == 0) then
-     write(*,'(A)') '*** info: Reading input data...'
-  endif
+  if (mpirank == 0) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
   call get_command_argument (1, infile)
   ! read all parameters from that file
@@ -35,23 +33,21 @@ program FLUSI
   call fft_initialize 
 
   !  Set up output directory
-  call system('mkdir fields')
+  call system('mkdir -p fields')
 
-  ! Overwrite drag_data file
-  if ( len(inicond) > 8) then  ! comparison will fail if string too short...
-     if ((inicond(1:8) .ne. "backup::").and.(mpirank==0)) then
+  ! Overwrite drag_data file?
+  if(mpirank==0) then
+     ! Comparison will fail if string too short, so check that.
+     if (len(inicond)>8 .and. inicond(1:8).ne."backup::") then 
         open  (14, file = 'drag_data', status = 'replace')
         close (14)
      endif
-  else ! ... but if this is the case, we're not resuming a backup anyways
-     open  (14, file = 'drag_data', status = 'replace')
-     close (14)
   endif
 
-  ! print domain decomposition
+  ! Print domain decomposition
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '*** domain decomposition...'
+     write(*,'(A)') '*** Domain decomposition:'
      write(*,'(A)') '--------------------------------------'
   endif
   call MPI_barrier (MPI_COMM_world, mpicode)
@@ -60,7 +56,7 @@ program FLUSI
        mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
 
-  !---- Step forward in time
+  ! Step forward in time
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '*** info: Starting time iterations...'
@@ -74,7 +70,7 @@ program FLUSI
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize
   endif
 
-  !  Output information on where the algorithm spent the most time.
+  ! Output information on where the algorithm spent the most time.
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '*** Timings'
@@ -109,7 +105,7 @@ program FLUSI
      write(*,'("local          : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
 
      write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '!!! warning: Finalizing computation...'
+     write(*,'(A)') 'Finalizing computation....'
      write(*,'(A)') '--------------------------------------'
   endif
 
