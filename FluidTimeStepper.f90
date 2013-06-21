@@ -1,8 +1,9 @@
 ! Wrapper for different time marching methods
-! FIXME: add documentation: which arguments are used for what?
-subroutine FluidTimestep (time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
+! FIXME: add documentation: which arguments are used for what?  What
+! are their dimensions?
+subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
   use mpi_header
-  use fsi_vars
+  use vars
   implicit none
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
@@ -32,10 +33,7 @@ subroutine FluidTimestep (time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
   case("Euler")
      call Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis)
   case default
-     if (mpirank == 0) then
-        write(*,*) "Error! iTimeMethodFluid unknown. Suicide!"
-        stop
-     end if
+     if (mpirank == 0) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
   end select
 
   ! Force zero mode for mean flow
@@ -71,9 +69,9 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis)
   call adjust_dt(dt1,u)
 
   ! multiply the RHS with the viscosity
-  nlk (:,:,:,1,0)=nlk(:,:,:,1,0) * workvis  
-  nlk (:,:,:,2,0)=nlk(:,:,:,2,0) * workvis  
-  nlk (:,:,:,3,0)=nlk(:,:,:,3,0) * workvis  
+  nlk (:,:,:,1,0)=nlk(:,:,:,1,0) * workvis
+  nlk (:,:,:,2,0)=nlk(:,:,:,2,0) * workvis
+  nlk (:,:,:,3,0)=nlk(:,:,:,3,0) * workvis
 
   ! Compute integrating factor, only done if necessary (i.e. time step
   ! has changed)

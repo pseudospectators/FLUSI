@@ -1,6 +1,32 @@
-! Main save routine for fields. it computes missing values (such as p
-! and vorticity) and stores the fields in several HDF5 files.
+! Wrapper for saving fields routine
 subroutine save_fields_new(time,uk,u,vort,nlk,work)
+  use vars
+  implicit none
+
+  real(kind=pr),intent(in) :: time
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+
+  select case(method(1:3))
+     case("fsi") 
+        call save_fields_new_fsi(time,uk,u,vort,nlk,work)
+     case("mhd") 
+        !call save_fields_new_mhd(time,uk,u,vort,nlk,work)
+        ! FIXME
+  case default
+     if (mpirank == 0) write(*,*) "Error! Unkonwn method in get_params"
+     call abort
+  end select
+end subroutine save_fields_new
+
+
+! Main save routine for fields for fsi. it computes missing values
+! (such as p and vorticity) and stores the fields in several HDF5
+! files.
+subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   use mpi_header
   use fsi_vars
   implicit none
@@ -90,7 +116,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
      call Save_Field_HDF5(time,'./fields/usy_'//name,us(:,:,:,2),"usy")
      call Save_Field_HDF5(time,'./fields/usz_'//name,us(:,:,:,3),"usz")
   endif
-end subroutine save_fields_new
+end subroutine save_fields_new_fsi
 
 
 ! Write the field field_out to file filename, saving the name of the
@@ -358,6 +384,8 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
 
   nbackup = 1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1 ! performance diagnostic
+
+  if(mpirank ==0 ) write(*,'("<<< info: done saving backup.")')
 end subroutine Dump_Runtime_Backup
 
 
@@ -734,3 +762,23 @@ subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   call h5aclose_f(attr_id,error) ! Close the attribute.
   call h5sclose_f(aspace_id,error) ! Terminate access to the data space.
 end subroutine write_attribute_int
+
+
+! Main save routine for fields for fsi. it computes missing values
+! (such as p and vorticity) and stores the fields in several HDF5
+! files.
+!!$subroutine save_fields_new_mhd(time,uk,u,vort,nlk,work)
+!!$  use mpi_header
+!!$  use mhd_vars
+!!$  implicit none
+!!$
+!!$  real(kind=pr),intent(in) :: time
+!!$  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+!!$  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+!!$  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+!!$  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+!!$  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+!!$  character(len=17) :: name
+!!$  type(Integrals) :: dummy_integrals
+!!$
+!!$end subroutine save_fields_new_mhd

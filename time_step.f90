@@ -1,36 +1,27 @@
-subroutine time_step 
+subroutine time_step(u,uk,nlk,vort,work,workvis)
   use mpi_header
   use fsi_vars
   implicit none
-
+  
   integer :: inter,it
   integer :: n0=0,n1=1
   integer :: nbackup=0  ! 0 - backup to file runtime_backup0,1 - to
   ! runtime_backup1,2 - no backup
   integer :: it_start
-  real(kind=pr) :: time,dt0,dt1,t1,t2,time_left
-  real(kind=pr),dimension(:,:,:),allocatable :: workvis  
-  real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
-  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
-  complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
-  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time,dt0,dt1,t1,t2
+  
+  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex (kind=pr),intent(inout)::&
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
+  real (kind=pr),intent (inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
   time=0.0
 
   dt0=1.0d0 ! useful to trigger cal_vis
   dt1=2.d0  ! just add a comment to test branching...
-
-  ! FIXME: move this somewhere else?
-  ! Allocate memory:
-  allocate(workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
-  ! velocity in Fourier space
-  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf,0:1))
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))   
-  ! velocity in physical space
-  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf))   
-  ! vorticity in physical space
-  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
   ! Initialize vorticity or read values from a backup file
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,workvis)
@@ -43,81 +34,41 @@ subroutine time_step
      dt0=dt1
 
      ! If the mask is time-dependend,we create it here
-     if(iMoving == 1) call Create_Mask(time)  
+     if(iMoving == 1) call Create_Mask(time)
 
      ! Do a fluid time step
      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
 
-     !--Switch time levels
+     ! Switch time levels
      inter=n1 ; n1=n0 ; n0=inter
-     !--Advance in time: at this point,uk contains the velocity field
-     !--at time 'time+dt1'
+     ! Advance in time so that uk contains the evolved field at time
+     ! 'time+dt1'
      time=time + dt1
      it=it + 1
 
-     ! Output(after tdrag)
-     if(modulo(it,itdrag) == 0) then
-        if(mpirank == 0) then
-           ! NB: the following line does not compile on turing:
-           ! open (14,file='',status='unknown',access='append')
-           ! so I replaced it with:
-           open(14,file='drag_data',status='unknown',position='append')
-           write(14,'(7(es12.4,1x))')  time,GlobIntegrals%E_kin,&
-                GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
-                GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
-                GlobIntegrals%Volume
-           close(14)
-        endif
-     endif
-
-     if(modulo(it,300) == 0) then     
-        if(mpirank == 0) then 
-           t2= MPI_wtime() - t1
-           time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
-           write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &
-                floor(time_left/(24.d0*3600.d0))   ,&
-                floor(mod(time_left,24.*3600.d0)/3600.d0),&
-                floor(mod(time_left,3600.d0)/60.d0),&
-                floor(mod(mod(time_left,3600.d0),60.d0)),dt1
-        endif
-     endif
+     ! Output of integrals after tdrag
+     ! FIXME: what does tdrag mean?
+     if(mpirank == 0 .and. modulo(it,itdrag) == 0) call write_integrals(time)
+     
+     ! Output how much time remains
+     if(mpirank == 0) call are_we_there_yet(it,it_start,time,t2,t1,dt1)
 
      ! Output(after tsave)
      if(modulo(time - tstart,tsave) <= dt1) then
-        ! note: we can safely delete nlk(:,:,:,1:3,n0). for RK2 it
+        ! Note: we can safely delete nlk(:,:,:,1:nf,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
-        ! in the next step.  this frees 3 complex arrays
+        ! in the next step.  This frees 3 complex arrays.
+        ! FIXME: why is the above comment important?
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+        
         ! Backup if that's specified in the PARAMS.ini file
         if(iDoBackup == 1) then
           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
         endif
-        if(mpirank ==0 ) then 
-           write(*,'("<<< info: done saving, returning to time loop")')
-        endif
      endif
   end do
 
-  if(mpirank==0) then
-     write(*,*) "control values for debugging:"
-     write(*,'("Ekin=",es15.8," Dissip=",es15.8," F1=",es15.8," F2=",es15.8," F3=",es15.8," Vol=",es15.8)')&
-          GlobIntegrals%E_kin,&
-          GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
-          GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
-          GlobIntegrals%Volume
-     write(*,'("did it=",i5," time steps")') it
-  endif
-
-  !-- Deallocate memory
-  deallocate(workvis)
-  deallocate(vort,work)
-  deallocate(u,uk,nlk)
-
-  if(iPenalization == 1) then
-     deallocate(mask)
-     if(iMoving == 1) deallocate(us)
-  endif
-  ! End time-sepping loop.
+  if(mpirank==0) write(*,'("Finished time step; did it=",i5," time steps")') it
 end subroutine time_step
 
 
@@ -159,3 +110,69 @@ subroutine compute_vorticity(vort,vortk,uk)
   call cofitxyz(vortk(:,:,:,2),vort(:,:,:,2))
   call cofitxyz(vortk(:,:,:,3),vort(:,:,:,3))
 end subroutine compute_vorticity
+
+
+! Output how much time remains in the simulation.
+subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
+  use vars
+  implicit none
+
+  real(kind=pr) :: time_left,time,t2,t1,dt1
+  integer :: it,it_start
+
+  if(modulo(it,300) == 0) then     
+     t2= MPI_wtime() - t1
+     time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
+     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &
+          floor(time_left/(24.d0*3600.d0))   ,&
+          floor(mod(time_left,24.*3600.d0)/3600.d0),&
+          floor(mod(time_left,3600.d0)/60.d0),&
+          floor(mod(mod(time_left,3600.d0),60.d0)),dt1
+  endif
+end subroutine are_we_there_yet
+
+
+! Wrapper for writing integral quantities to file
+subroutine write_integrals(time)
+  use vars
+  implicit none
+
+  real(kind=pr) :: time
+
+  select case(method(1:3))
+  case("fsi") 
+     call write_integrals_fsi(time)
+  case("mhd") 
+     call write_integrals_mhd(time)
+  case default
+     if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
+     call abort
+  end select
+end subroutine write_integrals
+
+
+! fsi version of writing integral quantities to disk
+subroutine write_integrals_fsi(time)
+  use fsi_vars
+  implicit none
+
+  real(kind=pr) :: time
+  
+  open(14,file='drag_data',status='unknown',position='append')
+  write(14,'(7(es12.4,1x))')  time,GlobIntegrals%E_kin,&
+       GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
+       GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
+       GlobIntegrals%Volume
+  close(14)
+end subroutine write_integrals_fsi
+
+
+! mhd version of writing integral quantities to disk
+subroutine write_integrals_mhd(time)
+  use mhd_vars
+  implicit none
+
+  real(kind=pr) :: time
+ 
+  !FIXME: do things here?
+end subroutine write_integrals_mhd

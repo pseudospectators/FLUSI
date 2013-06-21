@@ -1,5 +1,6 @@
+! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
 subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work)
-  use fsi_vars
+  use vars
   implicit none
 
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
@@ -9,9 +10,7 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work)
        work_vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent(inout)::work_u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent (in) :: time
-  real(kind=pr) :: t1,t0
   integer, intent(in) :: it
-  logical :: TimeForDrag
 
   select case(method(1:3))
      case("fsi") 
@@ -19,10 +18,8 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work)
      case("mhd") 
         call cal_nlk_mhd(time,it,nlk,uk,work_u,work_vort,work)
   case default
-     if (mpirank == 0) then
-        write(*,*) "Error! Unkonwn method in get_params"
-        stop
-     end if
+     if (mpirank == 0) write(*,*) "Error! Unkonwn method in get_params"
+     call abort
   end select
 end subroutine cal_nlk
 
@@ -49,7 +46,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   logical :: TimeForDrag
 
   ! is it time for save global quantities?
-  TimeForDrag=.false.  
+  TimeForDrag=.false.
   ! note we do this every itdrag time steps
   if (modulo(it,itdrag)==0) TimeForDrag=.true. ! yes, indeed
   
@@ -70,10 +67,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   !------------------------------------------------
   ! TEMP: compute divergence
   !-----------------------------------------------
-  if (TimeForDrag) then
-!     call compute_divergence(FIXME)
-  endif
-
+  ! if (TimeForDrag) call compute_divergence(FIXME)
+  
   !-----------------------------------------------
   !-- Compute vorticity
   !-----------------------------------------------
@@ -369,7 +364,13 @@ subroutine cal_nlk_mhd(time,it,nlk,uk,work_u,work_vort,work)
   integer, intent(in) :: it
   logical :: TimeForDrag
 
-
   ! FIXME: actually write the nonlinear term here, yo.
+  
+  ! u x omega + j x B
+
+!  call compute_vorticity(vort,vortk,uk(:,:,:,1:3))
+
+  ! ik x (u x B)
+
 
 end subroutine cal_nlk_mhd

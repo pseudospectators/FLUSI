@@ -22,7 +22,7 @@ program MHD3d
   ! Read input parameters
   call get_command_argument(1,infile) ! infile from command line
   if (mpirank == 0) write(*,'(A)') 'Reading parameters from'//infile
-  call get_params (infile)
+  call get_params(infile)
 
   ! Initialize FFT
   call fft_initialize 
@@ -36,16 +36,14 @@ program MHD3d
     close (14)
   endif
 
-  ! FIXME: allocate memory here?
+  ! FIXME: allocate memory here
 
   ! Step forward in time
-  if (mpirank == 0) then
-     write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '*** info: Starting time iterations...'
-     write(*,'(A)') '--------------------------------------'
-  endif
-  call MPI_barrier (MPI_COMM_world, mpicode)
+  if (mpirank == 0)  write(*,'(A)') 'Info: Starting time iterations.'
+  call MPI_barrier(MPI_COMM_world,mpicode)
   call time_step() ! Actual time-stepping function
+
+  ! FIXME: deallocate memory here
 
   ! Output information on where the algorithm spent the most time.
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'

@@ -7,6 +7,12 @@ program FLUSI
   real (kind=pr)         :: t1,t2
   character (len=80)     :: infile
 
+  real(kind=pr),dimension(:,:,:),allocatable :: workvis  
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+
   ! Set method information in vars module:
   method="fsi" ! We are doing fluid-structure interactions
   nf=3 ! There are three velocity fields.
@@ -30,9 +36,9 @@ program FLUSI
   ! Read input parameters
   if (mpirank == 0) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
-  call get_command_argument (1, infile)
+  call get_command_argument(1,infile)
   ! read all parameters from that file
-  call get_params (infile)
+  call get_params(infile)
   ! Initialize FFT
   call fft_initialize 
 
@@ -56,6 +62,20 @@ program FLUSI
        &") k-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
        mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
+
+  ! Allocate memory
+  
+  ! FIXME: move this to program area.
+  ! Allocate memory:
+  allocate(workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
+  ! velocity in Fourier space
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf,0:1))
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  ! velocity in physical space
+  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf))   
+  ! vorticity in physical space
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
   ! Create obstacle mask
   if(iPenalization>0) then 
@@ -81,6 +101,25 @@ program FLUSI
   t2 = MPI_wtime() - t1
   if (mpirank ==0) then
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize
+  endif
+
+  if(mpirank==0) then
+     write(*,*) "control values for debugging:"
+     write(*,'("Ekin=",es15.8," Dissip=",es15.8," F1=",es15.8," F2=",es15.8," F3=",es15.8," Vol=",es15.8)')&
+          GlobIntegrals%E_kin,&
+          GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
+          GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
+          GlobIntegrals%Volume
+  endif
+
+  ! Deallocate memory
+  deallocate(workvis)
+  deallocate(vort,work)
+  deallocate(u,uk,nlk)
+
+  if(iPenalization == 1) then
+     deallocate(mask)
+     if(iMoving == 1) deallocate(us)
   endif
 
   ! Show the breakdown of timing information
