@@ -108,7 +108,10 @@ subroutine Draw_Jerry (time)
            y = dble(iy)*dy
            z = dble(iz)*dz
 
+           !!!!!!!!!!!!!!!!!!
            !!! First wing !!!
+           !!!!!!!!!!!!!!!!!!
+           
            ! wing root point
            y0_wing = y0_body + 0.50*a_body ! wing root point can be off the center of the body
            x0_wing = x0_body + dsqrt(b_body**2 *(1.d0- ((y0_wing-y0_body)/a_body)**2 ) ) ! get the body thickness at this point
@@ -135,7 +138,7 @@ subroutine Draw_Jerry (time)
            !  y_top = b_top
            !  y_bot =-b_bot
 
-           ! WING
+           ! draw actual WING
            if ( ((xs>=0.d0-delta).and.(xs<=L_chord+delta)) &
                 .and. (dabs(zs)<=3.d0*max(dx,dy,dz)+delta) &
                 .and. ((ys>y_bot-delta).and.(ys<y_top+delta)) ) then !is it inside the rectangle?
@@ -166,7 +169,9 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
+           !!!!!!!!!!!!!!!!!!!
            !!! Second wing !!!
+           !!!!!!!!!!!!!!!!!!!
            ! wing root point
            x0_wing = x0_body - dsqrt(b_body**2 *(1.d0- ((y0_wing-y0_body)/a_body)**2 ) ) ! get the body thickness at this point
 
@@ -188,9 +193,8 @@ subroutine Draw_Jerry (time)
            endif
            !  y_top = b_top
            !  y_bot =-b_bot 
-           !--------------------------------------------
-           ! WING
-           !--------------------------------------------
+
+           ! actual WING
            if ( ((xs>=0.d0-delta).and.(xs<=L_chord+delta)) &
                 .and. (dabs(zs)<=3.d0*max(dx,dy,dz)+delta) &
                 .and. ((ys>y_bot-delta).and.(ys<y_top+delta)) ) then !is it inside the rectangle?
@@ -214,13 +218,15 @@ subroutine Draw_Jerry (time)
               mask(ix,iy,iz) = z_tmp*y_tmp*x_tmp;
 
               if (mask(ix,iy,iz) > 1.d-4) then
-                 us(ix,iy,iz,1) =              -phi_dt*zz
+                 us(ix,iy,iz,1) = -phi_dt*zz
                  us(ix,iy,iz,2) = -alpha_dt*zz
                  us(ix,iy,iz,3) =  alpha_dt*yy-phi_dt*xx
               endif
            endif
 
+           !!!!!!!!!!!!!!!!!!!!!!           
            ! Body (ellipsoid)
+           !!!!!!!!!!!!!!!!!!!!!
            if ( dabs(y-y0_body) < L_body/2.d0 + delta ) then ! are we possibly inside the body?
               ! radius
               R = dsqrt( (x-x0_body)**2 + (z-z0_body)**2 )     
@@ -237,7 +243,9 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
+           !!!!!!!!!!!!!!!!!!!!!!
            ! Head (sphere)
+           !!!!!!!!!!!!!!!!!!!!!!
            if ( dabs(y-y0_head) < R_head+delta ) then
               R = dsqrt ( (x-x0_head)**2 + (z-z0_head)**2 + (y-y0_head)**2 )
               if ( R < R_head + delta ) then
@@ -249,7 +257,9 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
+           !!!!!!!!!!!!!!!!!!!!!!!
            !!! eye 1 (sphere)
+           !!!!!!!!!!!!!!!!!!!!!!!
            ! eye root point
            R_eye = 0.50d0*R_head;
            x0_eye = x0_head + sin_45*R_head*0.80d0 ! the 0.8 moves the eye into the head
@@ -267,7 +277,9 @@ subroutine Draw_Jerry (time)
               endif
            endif
 
+           !!!!!!!!!!!!!!!!!!!!!!!
            !!! eye 2 (sphere)
+           !!!!!!!!!!!!!!!!!!!!!!
            ! eye root point
            R_eye = 0.50d0*R_head;
            x0_eye = x0_head - sin_45*R_head*0.80d0 ! note sign change for symmetry
@@ -296,12 +308,11 @@ subroutine Flapper (time)
   real(kind=pr), intent(in) :: time
   integer :: iy, iz
   real (kind=pr) :: R, alpha_t, un, alpha_max
-  real (kind=pr) :: y, z, ys,zs, alpha,L,H, tmp,N, eps_inv
+  real (kind=pr) :: y, z, ys,zs, alpha,L,H, tmp, N
 
   alpha_max = 30.d0*pi/180.d0
   alpha   =           alpha_max*dsin(time*2.d0*pi)
   alpha_t = (2.d0*pi)*alpha_max*dcos(time*2.d0*pi)
-  eps_inv = 1.d0/eps
   
   y0 = 1.d0
   z0 = 1.d0
@@ -327,7 +338,7 @@ subroutine Flapper (time)
         if ( (ys>=0.d0) .and. (ys<=L) )  then
 
            call SmoothStep (tmp, abs(zs), H, N*max(dx,dy,dz))
-           mask(:,iy,iz) = tmp*eps_inv
+           mask(:,iy,iz) = tmp
 
            if (dabs(zs)<=2.d0*H) then
               R = dsqrt( y**2 + z**2  )
