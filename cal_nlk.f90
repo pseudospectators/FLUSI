@@ -139,8 +139,8 @@ subroutine Energy_Dissipation (u, vort )
   use mpi_header
   implicit none
 
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf),&
-       intent (in) :: vort, u
+  real (kind=pr),intent (in) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real (kind=pr),intent (in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real (kind=pr) :: E_kin_local, Dissip_local, Volume_local
   integer :: mpicode
 
@@ -162,9 +162,13 @@ subroutine Energy_Dissipation (u, vort )
 end subroutine Energy_Dissipation
 
 
-! Compute the pressure, 
-! p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
+! Compute the pressure. It is given by the divergence of the non-linear
+! terms (nlk: intent(in)) divided by k**2.
+! so: p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
 ! note: we use rotational formulation: p is NOT the physical pressure
+
+! FIXME: I think there is the imaginary unit missing!! 
+
 subroutine compute_pressure(pk,nlk)
   use mpi_header
   use vars
@@ -173,7 +177,7 @@ subroutine compute_pressure(pk,nlk)
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
   complex(kind=pr),intent(out):: pk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(in):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
 
   do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
      ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
@@ -184,8 +188,7 @@ subroutine compute_pressure(pk,nlk)
            k2=kx*kx+ky*ky+kz*kz
            if(k2 .ne. 0.0) then
               ! contains the pressure in Fourier space
-              pk(iz,ix,iy)=&
-                   (kx*nlk(iz,ix,iy,1)&
+              pk(iz,ix,iy)=(kx*nlk(iz,ix,iy,1)&
                    +ky*nlk(iz,ix,iy,2)&
                    +kz*nlk(iz,ix,iy,3)&
                    )/k2
@@ -196,7 +199,9 @@ subroutine compute_pressure(pk,nlk)
 end subroutine compute_pressure
 
 
-! Add the gradient of the pressure to the nonlinear term.
+! Add the gradient of the pressure to the nonlinear term, which is the actual
+! projection scheme used in this code. The non-linear term comes in with NL and
+! penalization and leaves divergence free
 subroutine add_grad_pressure(nlk)
   use mpi_header
   use vars
@@ -215,10 +220,9 @@ subroutine add_grad_pressure(nlk)
            kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
            k2=kx*kx+ky*ky+kz*kz
            if (k2 .ne. 0.0) then  
-              qk=(kx*nlk(iz,ix,iy,1)&
-                   +ky*nlk(iz,ix,iy,2)&
-                   +kz*nlk(iz,ix,iy,3)&
-                   )/k2
+              ! qk is the Fourier coefficient of thr pressure
+              qk=(kx*nlk(iz,ix,iy,1)+ky*nlk(iz,ix,iy,2)+kz*nlk(iz,ix,iy,3))/k2
+              ! add the gradient to the non-linear terms
               nlk(iz,ix,iy,1)=nlk(iz,ix,iy,1) - kx*qk  
               nlk(iz,ix,iy,2)=nlk(iz,ix,iy,2) - ky*qk
               nlk(iz,ix,iy,3)=nlk(iz,ix,iy,3) - kz*qk

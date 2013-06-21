@@ -22,9 +22,8 @@ module vars
   ! Variables set via the parameters file
   integer,save :: iDealias,itdrag
   integer,save :: iDrag,iKinDiss
-  integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,&
-       iSaveSolidVelocity
-  integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup
+  integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
+  integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup,iSaveSolidVelocity
   real (kind=pr),save :: tmax,cfl,nu,eps,pi,scalex,scaley,scalez,length
   real (kind=pr),save :: xl,yl,zl,dx,dy,dz
   real (kind=pr),save :: Ux,Uy,Uz,Ax,Ay,Az,tstart,tsave
@@ -40,9 +39,8 @@ module vars
   real (kind=pr),allocatable,save :: us(:,:,:,:) 
 
   ! Vabiables timing statistics.  Global to simplify syntax
-  real (kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2,&
-       time_ifft2
-  real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u
+  real (kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2
+  real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
   real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
 end module vars
 
