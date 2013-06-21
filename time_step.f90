@@ -29,7 +29,7 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
   ! FIXME: move to FLUSI.f90 or mhd.f90?
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,workvis)
   n0=1 - n1
-  it_start=it
+  it_start=it ! FIXME: when moving the above, it would be nice to move this as well. 
 
   ! Loop over time steps
   t1=MPI_wtime()
@@ -49,8 +49,7 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
      time=time + dt1
      it=it + 1
 
-     ! Output of integrals after tdrag
-     ! FIXME: what does tdrag mean?
+     ! Output of integrals after itdrag
      if(mpirank == 0 .and. modulo(it,itdrag) == 0) call write_integrals(time)
      
      ! Output how much time remains
@@ -62,6 +61,8 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays.
         ! FIXME: why is the above comment important?
+        ! FIX: occasionally, I put comments that took me a while to understand
+        ! in the code. 
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
         
         ! Backup if that's specified in the PARAMS.ini file
@@ -122,9 +123,12 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   use vars
   implicit none
 
-  real(kind=pr) :: time_left,time,t2,t1,dt1
-  integer :: it,it_start
+  real(kind=pr), intent(in) :: time_left,time,t2,t1,dt1
+  integer, intent(in) :: it,it_start
 
+  ! this is done every 300 time steps, but it may happen that this is too seldom
+  ! or too oftern. in future versions, maybe we try doing it once in an hour or
+  ! so.
   if(modulo(it,300) == 0) then     
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
@@ -142,7 +146,7 @@ subroutine write_integrals(time)
   use vars
   implicit none
 
-  real(kind=pr) :: time
+  real(kind=pr), intent(in) :: time
 
   select case(method(1:3))
   case("fsi") 
@@ -161,7 +165,7 @@ subroutine write_integrals_fsi(time)
   use fsi_vars
   implicit none
 
-  real(kind=pr) :: time
+  real(kind=pr), intent(in) :: time
   
   open(14,file='drag_data',status='unknown',position='append')
   write(14,'(7(es12.4,1x))')  time,GlobIntegrals%E_kin,&
@@ -177,7 +181,7 @@ subroutine write_integrals_mhd(time)
   use mhd_vars
   implicit none
 
-  real(kind=pr) :: time
+  real(kind=pr), intent(in) :: time
  
   !FIXME: do things here?
 end subroutine write_integrals_mhd
