@@ -123,8 +123,9 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   use vars
   implicit none
 
-  real(kind=pr), intent(in) :: time_left,time,t2,t1,dt1
-  integer, intent(in) :: it,it_start
+  real(kind=pr),intent(inout) :: time,t2,t1,dt1
+  integer,intent(inout) :: it,it_start
+  real(kind=pr):: time_left
 
   ! this is done every 300 time steps, but it may happen that this is too seldom
   ! or too oftern. in future versions, maybe we try doing it once in an hour or
