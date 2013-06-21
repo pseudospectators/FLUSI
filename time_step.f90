@@ -18,12 +18,15 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
   real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
+  if (mpirank == 0) write(*,'(A)') 'Info: Starting time iterations.'
+
   time=0.0
 
   dt0=1.0d0 ! useful to trigger cal_vis
   dt1=2.d0  ! just add a comment to test branching...
-
+     
   ! Initialize vorticity or read values from a backup file
+  ! FIXME: move to FLUSI.f90 or mhd.f90?
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,workvis)
   n0=1 - n1
   it_start=it
@@ -63,12 +66,14 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
         
         ! Backup if that's specified in the PARAMS.ini file
         if(iDoBackup == 1) then
-          call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
         endif
      endif
   end do
 
-  if(mpirank==0) write(*,'("Finished time step; did it=",i5," time steps")') it
+  if(mpirank==0) then
+     write(*,'("Finished time stepping; did it=",i5," time steps")') it
+  endif
 end subroutine time_step
 
 

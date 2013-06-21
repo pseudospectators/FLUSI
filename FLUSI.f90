@@ -13,7 +13,7 @@ program FLUSI
   complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
   real(kind=pr),dimension(:,:,:),allocatable :: work
 
-  ! Set method information in vars module:
+  ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
   nf=3 ! There are three velocity fields.
 
@@ -63,15 +63,12 @@ program FLUSI
        mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
 
-  ! Allocate memory
-  
-  ! FIXME: move this to program area.
   ! Allocate memory:
   allocate(workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   ! velocity in Fourier space
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf,0:1))
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf))
   ! velocity in physical space
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf))   
   ! vorticity in physical space
@@ -90,14 +87,9 @@ program FLUSI
   endif
 
   ! Step forward in time
-  if (mpirank == 0) then
-     write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '*** info: Starting time iterations...'
-     write(*,'(A)') '--------------------------------------'
-  endif
   call MPI_barrier (MPI_COMM_world, mpicode)
   t1 = MPI_wtime()
-  call time_step() ! Actual time-stepping function
+  call time_step(u,uk,nlk,vort,work,workvis) ! Actual time-stepping function
   t2 = MPI_wtime() - t1
   if (mpirank ==0) then
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize

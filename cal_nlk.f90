@@ -13,15 +13,16 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work)
   integer, intent(in) :: it
 
   select case(method(1:3))
-     case("fsi") 
-        call cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
-     case("mhd") 
-        call cal_nlk_mhd(time,it,nlk,uk,work_u,work_vort,work)
+  case("fsi") 
+     call cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
+  case("mhd") 
+     call cal_nlk_mhd(time,it,nlk,uk,work_u,work_vort,work)
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in get_params"
      call abort
   end select
 end subroutine cal_nlk
+
 
 ! Compute the nonlinear source term of the Navier-Stokes equation,
 ! including penality term, in Fourier space. Seven real-valued

@@ -1,33 +1,62 @@
-subroutine init_fields(n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
-  use mpi_header ! Module incapsulates mpif.
+! Wrapper for init_fields
+subroutine init_fields(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+  use mpi_header
+  use vars
+  implicit none
+
+  integer,intent (inout) :: n1,it
+  real (kind=pr),intent (inout) :: time,dt1,dt0
+  complex (kind=pr), intent(inout) :: &
+       uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex (kind=pr),intent(inout) :: &
+       work_nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
+  real (kind=pr), intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+
+  if (mpirank == 0) write(*,*) "Initializating fields:"
+ 
+  select case(method(1:3))
+  case("fsi") 
+     call init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+  case("mhd")
+     !call init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+  case default
+     if (mpirank == 0) write(*,*) "Error! Unkonwn method in init_fields."
+     call abort
+  end select
+end subroutine init_fields
+
+
+! Set initial conditions for fsi code.
+subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+  use mpi_header
   use fsi_vars
   implicit none
 
-  integer, intent (inout) :: n1,it
-  real (kind=pr), intent (inout) :: time, dt1, dt0
-  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), &
-       intent (out) :: uk
-  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
-       intent (out) :: work_nlk
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
-       intent (inout) :: vort
-  real (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
+  integer,intent (inout) :: n1,it
+  real (kind=pr),intent (inout) :: time,dt1,dt0
+  complex (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf),&
+       intent(inout) :: uk
+  complex (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf,0:1),&
+       intent(inout) :: work_nlk
+  real (kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf),&
+       intent(inout) :: vort
+  real (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
        intent(inout) :: workvis
-  integer :: ix, iy, iz
-  real (kind=pr) :: x, y, z, r, a, gamma0, x00,r00, omega
+  integer :: ix,iy,iz
+  real (kind=pr) :: x,y,z,r,a,gamma0,x00,r00,omega
 
-
-  !-- Assign zero values
+  ! Assign zero values
   time=0.0d0
   dt1=0.0d0
   uk=dcmplx(0.0d0,0.0d0)
   work_nlk=dcmplx(0.0d0,0.0d0)
   workvis=0.0
-  it=0  
+  it=0
   vort=0.0d0
 
-
-  if (inicond == "VortexRing") then     
+  select case(inicond)
+  case("VortexRing")
      !--------------------------------------------------
      ! Vortex ring
      !--------------------------------------------------
@@ -37,7 +66,6 @@ subroutine init_fields(n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
      a  =0.82d0 * r00 
      gamma0=12.0d0
      x00=0.5d0 * xl
-
 
      ! define vorticity in phy space
      do iz=ra(3), rb(3)
@@ -62,7 +90,8 @@ subroutine init_fields(n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
         end do
      end do
      call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
-  elseif (inicond == "turbulence") then     
+
+  case("turbulence")
      !--------------------------------------------------
      ! random vorticity
      !--------------------------------------------------
@@ -84,7 +113,8 @@ subroutine init_fields(n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
         end do
      end do
      call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
-  elseif (inicond == "MeanFlow") then     
+
+  case("MeanFlow")
      !--------------------------------------------------
      ! mean flow only
      !--------------------------------------------------
@@ -97,39 +127,35 @@ subroutine init_fields(n1, time,it, dt0, dt1, uk, work_nlk, vort, workvis)
            uk(0, 0, 0,3)=Uz + Az * time;              
         endif
      endif
-  elseif (inicond(1:8) == "backup::") then       
-     !--------------------------------------------------
-     ! read from backup
-     !--------------------------------------------------  
-     if (mpirank==0) write (*,*) "*** inicond: retaking backup " // inicond(9:len(inicond))
-     call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
-          work_nlk,workvis,vort(:,:,:,1))
-  elseif (inicond == "quiescent") then
+
+  case("quiescent")
      !--------------------------------------------------
      ! fluid at rest
      !--------------------------------------------------  
      if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
-     uk=dcmplx(0.0d0,0.0d0)        
-  else
-     if (mpirank==0) write (*,*) inicond
-     if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
-     stop
-  endif
+     uk=dcmplx(0.0d0,0.0d0)
 
-end subroutine init_fields
+  case default
+     if(inicond(1:8) == "backup::") then
+        !--------------------------------------------------
+        ! read from backup
+        !--------------------------------------------------  
+        if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
+             inicond(9:len(inicond))
+        call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
+             work_nlk,workvis,vort(:,:,:,1))
+     else
+        if (mpirank==0) write (*,*) inicond
+        if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
+        call abort
+     endif
+  end select
+end subroutine init_fields_fsi
 
 
-
-
-
-
-
+! Computes the divergence-free velocity in Fourier space u given vort
+! in physical space.  work is a work array
 subroutine Vorticity2Velocity (uk, work, vort)
-  !----------------------------------------------------------------
-  ! computes the divergence-free velocity in Fourier space u
-  ! given vort in phys. space. 
-  ! work is a work array
-  !----------------------------------------------------------------
   use mpi_header ! Module incapsulates mpif.
   use fsi_vars
   implicit none
@@ -196,6 +222,26 @@ subroutine Vorticity2Velocity (uk, work, vort)
         enddo
      enddo
   enddo
-
-
 end subroutine Vorticity2Velocity
+
+
+!!$! FIXME
+!!$subroutine init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+!!$  use mpi_header
+!!$  use fsi_vars
+!!$  implicit none
+!!$
+!!$  integer,intent (inout) :: n1,it
+!!$  real (kind=pr),intent (inout) :: time,dt1,dt0
+!!$  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
+!!$       intent (out) :: uk
+!!$  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
+!!$       intent (out) :: work_nlk
+!!$  real (kind=pr),dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
+!!$       intent (inout) :: vort
+!!$  real (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
+!!$       intent(inout) :: workvis
+!!$  
+!!$  ! FIXME: add initial conditions
+!!$
+!!$end subroutine init_fields_mhd

@@ -37,12 +37,7 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
   end select
 
   ! Force zero mode for mean flow
-  if ( (iMeanFlow == 1) .and. &
-       ((ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0)) ) then
-     uk(0,0,0,1)=Ux + Ax * time
-     uk(0,0,0,2)=Uy + Ay * time
-     uk(0,0,0,3)=Uz + Az * time
-  endif
+  if(iMeanFlow == 1)  call set_mean_flow(uk,time)
 
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
@@ -274,3 +269,21 @@ subroutine truncate(a,b)
   write (str,'(es7.1)') a
   read (str,*) b
 end subroutine truncate
+
+
+! Force zero mode for mean flow
+subroutine set_mean_flow(uk,time)
+  use mpi_header
+  use vars
+  implicit none
+  
+  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real (kind=pr),intent (inout) :: time
+
+  ! Force zero mode for mean flow
+  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+     uk(0,0,0,1)=Ux + Ax * time
+     uk(0,0,0,2)=Uy + Ay * time
+     uk(0,0,0,3)=Uz + Az * time
+  endif
+end subroutine set_mean_flow
