@@ -4,7 +4,7 @@ program FLUSI
   implicit none
 
   integer                :: mpicode
-  real (kind=pr)         :: t1,t2, tmp
+  real (kind=pr)         :: t1,t2
   character (len=80)     :: infile
 
   ! Set method information in vars module:
@@ -83,45 +83,54 @@ program FLUSI
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize
   endif
 
-  ! Output information on where the algorithm spent the most time.
-  if (mpirank == 0) then
-     write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '*** Timings'
-     write(*,'(A)') '--------------------------------------'
-     write(*,'("of the total time ",es12.4,", FLUSI spend ",es12.4," (",f5.1,"%) on FFTS")') &
-          t2, time_fft+time_ifft,100.0*(time_fft+time_ifft)/t2 
-     write(*,'(A)') '--------------------------------------'
-     write(*,'("Time Stepping contributions:")')
-     write(*,'("Fluid      : ",es12.4," (",f5.1,"%)")') time_fluid, 100.0*time_fluid/t2
-     write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.0*time_mask/t2
-     write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.0*time_save/t2
-     write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.0*time_bckp/t2
-     tmp = t2 - (time_fluid + time_mask + time_save + time_bckp)
-     write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/t2
-     write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') "The time spend for the fluid decomposes into:"
-     write(*,'("cal_nlk: ",es12.4," (",f5.1,"%)")') time_nlk, 100.0*time_nlk/time_fluid
-     write(*,'("cal_vis: ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
-     tmp = time_fluid - time_nlk - time_vis
-     write(*,'("workvis: ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
-     write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') "cal_nlk decomposes into:"
-     write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk
-     write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.0*time_vor/time_nlk
-     write(*,'("vor x u - chi*u: ",es12.4," (",f5.1,"%)")') time_curl, 100.0*time_curl/time_nlk
-     write(*,'("projection     : ",es12.4," (",f5.1,"%)")') time_p, 100.0*time_p/time_nlk
-     tmp = time_nlk - time_u - time_vor - time_curl - time_p
-     write(*,'("Misc           : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
-     write (*,'(A)') "cal_nlk: FFTs and local operations:"
-     write(*,'("FFTs           : ",es12.4," (",f5.1,"%)")') time_nlk_fft, 100.0*time_nlk_fft/time_nlk
-     tmp = time_nlk-time_nlk_fft
-     write(*,'("local          : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
-
-     write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') 'Finalizing computation....'
-     write(*,'(A)') '--------------------------------------'
-  endif
+  ! Show the breakdown of timing information
+  if (mpirank == 0) call show_timings(t2)
 
   call fft_free 
   call MPI_FINALIZE(mpicode)
 end program FLUSI
+
+
+! Output information on where the algorithm spent the most time.
+subroutine show_timings(t2)
+  use fsi_vars
+  implicit none
+
+  real (kind=pr) :: t2,tmp
+
+  write(*,'(A)') '--------------------------------------'
+  write(*,'(A)') '*** Timings'
+  write(*,'(A)') '--------------------------------------'
+  write(*,'("of the total time ",es12.4,", FLUSI spend ",es12.4," (",f5.1,"%) on FFTS")') &
+       t2, time_fft+time_ifft,100.0*(time_fft+time_ifft)/t2 
+  write(*,'(A)') '--------------------------------------'
+  write(*,'("Time Stepping contributions:")')
+  write(*,'("Fluid      : ",es12.4," (",f5.1,"%)")') time_fluid, 100.0*time_fluid/t2
+  write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.0*time_mask/t2
+  write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.0*time_save/t2
+  write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.0*time_bckp/t2
+  tmp = t2 - (time_fluid + time_mask + time_save + time_bckp)
+  write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/t2
+  write(*,'(A)') '--------------------------------------'
+  write(*,'(A)') "The time spend for the fluid decomposes into:"
+  write(*,'("cal_nlk: ",es12.4," (",f5.1,"%)")') time_nlk, 100.0*time_nlk/time_fluid
+  write(*,'("cal_vis: ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
+  tmp = time_fluid - time_nlk - time_vis
+  write(*,'("workvis: ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
+  write(*,'(A)') '--------------------------------------'
+  write(*,'(A)') "cal_nlk decomposes into:"
+  write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk
+  write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.0*time_vor/time_nlk
+  write(*,'("vor x u - chi*u: ",es12.4," (",f5.1,"%)")') time_curl, 100.0*time_curl/time_nlk
+  write(*,'("projection     : ",es12.4," (",f5.1,"%)")') time_p, 100.0*time_p/time_nlk
+  tmp = time_nlk - time_u - time_vor - time_curl - time_p
+  write(*,'("Misc           : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
+  write (*,'(A)') "cal_nlk: FFTs and local operations:"
+  write(*,'("FFTs           : ",es12.4," (",f5.1,"%)")') time_nlk_fft, 100.0*time_nlk_fft/time_nlk
+  tmp = time_nlk-time_nlk_fft
+  write(*,'("local          : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
+
+  write(*,'(A)') '--------------------------------------'
+  write(*,'(A)') 'Finalizing computation....'
+  write(*,'(A)') '--------------------------------------'
+end subroutine show_timings
