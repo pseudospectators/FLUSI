@@ -310,6 +310,11 @@ subroutine Flapper (time)
   real (kind=pr) :: R, alpha_t, un, alpha_max
   real (kind=pr) :: y, z, ys,zs, alpha,L,H, tmp, N
 
+  real(kind=pr) :: eps_inv
+  
+  eps_inv = 1.d0 / eps
+
+
   alpha_max = 30.d0*pi/180.d0
   alpha   =           alpha_max*dsin(time*2.d0*pi)
   alpha_t = (2.d0*pi)*alpha_max*dcos(time*2.d0*pi)
