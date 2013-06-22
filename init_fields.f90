@@ -225,23 +225,54 @@ subroutine Vorticity2Velocity (uk, work, vort)
 end subroutine Vorticity2Velocity
 
 
-!!$! FIXME
-!!$subroutine init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
-!!$  use mpi_header
-!!$  use fsi_vars
-!!$  implicit none
-!!$
-!!$  integer,intent (inout) :: n1,it
-!!$  real (kind=pr),intent (inout) :: time,dt1,dt0
-!!$  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-!!$       intent (out) :: uk
-!!$  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
-!!$       intent (out) :: work_nlk
-!!$  real (kind=pr),dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
-!!$       intent (inout) :: vort
-!!$  real (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
-!!$       intent(inout) :: workvis
-!!$  
-!!$  ! FIXME: add initial conditions
-!!$
-!!$end subroutine init_fields_mhd
+! Initialize fields for mhd simulations
+subroutine init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+  use mpi_header
+  use fsi_vars
+  implicit none
+
+  integer,intent (inout) :: n1,it
+  real (kind=pr),intent (inout) :: time,dt1,dt0
+  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
+       intent (out) :: uk
+  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
+       intent (out) :: work_nlk
+  real (kind=pr),dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
+       intent (inout) :: vort
+  real (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
+       intent(inout) :: workvis
+  
+  ! Assign zero values
+  time=0.0d0
+  dt1=0.0d0
+  uk=dcmplx(0.0d0,0.0d0)
+  work_nlk=dcmplx(0.0d0,0.0d0)
+  workvis=0.0
+  it=0
+  vort=0.0d0
+
+  ! TODO: add more initial conditions
+  select case(inicond)
+  case("quiescent")
+     ! Set the velocity and magnetic fields to zero.
+     !--------------------------------------------------  
+     if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
+     uk=dcmplx(0.0d0,0.0d0)
+
+  case default
+     if(inicond(1:8) == "backup::") then
+        !--------------------------------------------------
+        ! read from backup
+        !--------------------------------------------------  
+        if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
+             inicond(9:len(inicond))
+        call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
+             work_nlk,workvis,vort(:,:,:,1))
+     else
+        if (mpirank==0) write (*,*) inicond
+        if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
+        call abort
+     endif
+  end select
+
+end subroutine init_fields_mhd

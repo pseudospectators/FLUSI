@@ -45,6 +45,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   real(kind=pr) :: t1,t0
   integer, intent(in) :: it
   logical :: TimeForDrag
+  integer i
 
   ! is it time for save global quantities?
   TimeForDrag=.false.
@@ -74,7 +75,12 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   !-- Compute vorticity
   !-----------------------------------------------
   t1=MPI_wtime()
-  call compute_vorticity(work_vort,nlk,uk)
+  !nlk is temporarily used for vortk
+  call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+       uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
+  do i=1,3
+     call cofitxyz(work_vort(:,:,:,i),nlk(:,:,:,i))
+  enddo
   ! timing statistics
   time_vor=time_vor + MPI_wtime() - t1
 
@@ -369,13 +375,58 @@ subroutine cal_nlk_mhd(time,it,nlk,uk,work_u,work_vort,work)
   integer, intent(in) :: it
   logical :: TimeForDrag
 
+  
   ! FIXME: actually write the nonlinear term here, yo.
   
+  ! compute u and B in physical space
+
+  ! compute vorticity and current density
+
   ! u x omega + j x B
 
-!  call compute_vorticity(vort,vortk,uk(:,:,:,1:3))
+!  call curl(vort(:,:,:,1:3),vortk(:,:,:,1:3),uk(:,:,:,1:3))
+!  call curl(vort(:,:,:,1),vortk(:,:,:,1),uk(:,:,:,1))
 
   ! ik x (u x B)
-
-
+  
 end subroutine cal_nlk_mhd
+
+
+! Given three components of an input fields in Fourier space, compute
+! the curl in physical space.  Arrays are 3-dimensional.
+subroutine curl(out1,out2,out3,in1,in2,in3)
+  use mpi_header
+  use vars
+  implicit none
+
+  ! input field in Fourier space
+  complex(kind=pr),intent(in)::in1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(in)::in2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(in)::in3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  ! output field in Fourier space
+  complex(kind=pr),intent(out)::out1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(out)::out2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(out)::out3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz
+  complex(kind=pr) :: imag   ! imaginary unit
+
+  imag = dcmplx(0.d0,1.d0)
+  
+  ! comput vorticity in Fourier space:
+  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
+     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+     do ix=ca(2),cb(2)  ! kx : 0..nx/2
+        kx=scalex*dble(ix)
+        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
+           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+           out1(iz,ix,iy)=imag*(ky*in3(iz,ix,iy)-kz*in2(iz,ix,iy))
+           out2(iz,ix,iy)=imag*(kz*in1(iz,ix,iy)-kx*in3(iz,ix,iy))
+           out3(iz,ix,iy)=imag*(kx*in2(iz,ix,iy)-ky*in1(iz,ix,iy))
+        enddo
+     enddo
+  enddo
+
+  ! Transform to physical space
+end subroutine curl

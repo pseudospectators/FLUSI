@@ -78,46 +78,6 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
 end subroutine time_step
 
 
-! Given the velocity in Fourier space and a work array vortk, compute
-! the vorticity in phsycial space.  Arrays are 4-dimensional.
-subroutine compute_vorticity(vort,vortk,uk)
-  use mpi_header
-  use fsi_vars
-  implicit none
-
-  ! input: velocity field in Fourier space
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  ! work: vortk, (at output: vorticity in Fourier space)
-  complex(kind=pr),intent(inout)::vortk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  ! output: vorticity
-  real(kind=pr),intent(out) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  ! imaginary unit
-  complex(kind=pr) :: imag
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! comput vorticity in Fourier space:
-  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-     do ix=ca(2),cb(2)  ! kx : 0..nx/2
-        kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           vortk(iz,ix,iy,1)=imag*(ky*uk(iz,ix,iy,3)-kz*uk(iz,ix,iy,2))
-           vortk(iz,ix,iy,2)=imag*(kz*uk(iz,ix,iy,1)-kx*uk(iz,ix,iy,3))
-           vortk(iz,ix,iy,3)=imag*(kx*uk(iz,ix,iy,2)-ky*uk(iz,ix,iy,1))
-        enddo
-     enddo
-  enddo
-
-  ! Transform to physical space
-  call cofitxyz(vortk(:,:,:,1),vort(:,:,:,1))
-  call cofitxyz(vortk(:,:,:,2),vort(:,:,:,2))
-  call cofitxyz(vortk(:,:,:,3),vort(:,:,:,3))
-end subroutine compute_vorticity
-
-
 ! Output how much time remains in the simulation.
 subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   use vars

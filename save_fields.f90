@@ -39,6 +39,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   character(len=17) :: name
   type(Integrals) :: dummy_integrals
+  integer :: i
 
   !--Set up file name base
   write(name,'(i5.5)') floor(time*100.d0)
@@ -67,7 +68,11 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
 
      if((iSaveVorticity.ne.0) .or. (iSavePress.ne.0)) then
         ! compute vorticity
-        call compute_vorticity(vort,nlk,uk)
+        call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+             uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
+        do i=1,3
+           call cofitxyz(vort(:,:,:,i),nlk(:,:,:,i))
+        enddo
         !-----------------------------------------------
         !-- Save Vorticity
         !-----------------------------------------------
