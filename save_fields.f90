@@ -55,9 +55,9 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   if((iSaveVelocity.ne.0) .or. (iSaveVorticity.ne.0) .or. (iSavePress.ne.0))&
        then
      ! Calculate ux and uy in physical space
-     call cofitxyz(uk(:,:,:,1),u(:,:,:,1))
-     call cofitxyz(uk(:,:,:,2),u(:,:,:,2))
-     call cofitxyz(uk(:,:,:,3),u(:,:,:,3))
+     call ifft(uk(:,:,:,1),u(:,:,:,1))
+     call ifft(uk(:,:,:,2),u(:,:,:,2))
+     call ifft(uk(:,:,:,3),u(:,:,:,3))
      
      ! SaveVelocity
      if(iSaveVelocity == 1) then
@@ -71,7 +71,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
         call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
              uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
         do i=1,3
-           call cofitxyz(vort(:,:,:,i),nlk(:,:,:,i))
+           call ifft(vort(:,:,:,i),nlk(:,:,:,i))
         enddo
         !-----------------------------------------------
         !-- Save Vorticity
@@ -100,7 +100,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
            ! nlkk(...1) is the pressure in Fourier space, so p is
            ! the total pressure in physical space. Then remove kinetic
            ! energy to get "physical" pressure
-           call cofitxyz(nlk(:,:,:,1),work)
+           call ifft(nlk(:,:,:,1),work)
            work=work-0.5d0*(&
                 u(:,:,:,1)*u(:,:,:,1)&
                 +u(:,:,:,2)*u(:,:,:,2)&
@@ -362,24 +362,24 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   ! Close the property list (we'll re-use it)
   call H5Pclose_f(plist_id, error)
 
-  call cofitxyz ( uk(:,:,:,1), work)
+  call ifft ( uk(:,:,:,1), work)
   call Dump_Field_Backup (work,"ux",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( uk(:,:,:,2), work)
+  call ifft ( uk(:,:,:,2), work)
   call Dump_Field_Backup (work,"uy",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( uk(:,:,:,3), work)
+  call ifft ( uk(:,:,:,3), work)
   call Dump_Field_Backup (work,"uz",time,dt0,dt1,n1,it,file_id  )
 
-  call cofitxyz ( nlk(:,:,:,1,0), work)
+  call ifft ( nlk(:,:,:,1,0), work)
   call Dump_Field_Backup (work,"nlkx0",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,2,0), work)
+  call ifft ( nlk(:,:,:,2,0), work)
   call Dump_Field_Backup (work,"nlky0",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,3,0), work)
+  call ifft ( nlk(:,:,:,3,0), work)
   call Dump_Field_Backup (work,"nlkz0",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,1,1), work)
+  call ifft ( nlk(:,:,:,1,1), work)
   call Dump_Field_Backup (work,"nlkx1",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,2,1), work)
+  call ifft ( nlk(:,:,:,2,1), work)
   call Dump_Field_Backup (work,"nlky1",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,3,1), work)
+  call ifft ( nlk(:,:,:,3,1), work)
   call Dump_Field_Backup (work,"nlkz1",time,dt0,dt1,n1,it,file_id  )
 
   ! Close the file.
@@ -541,24 +541,24 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   call H5Pclose_f(plist_id, error)
 
   call Read_Field_Backup ( work,"ux",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, uk(:,:,:,1) )
+  call fft ( work, uk(:,:,:,1) )
   call Read_Field_Backup ( work,"uy",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, uk(:,:,:,2) )
+  call fft ( work, uk(:,:,:,2) )
   call Read_Field_Backup ( work,"uz",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, uk(:,:,:,3) )
+  call fft ( work, uk(:,:,:,3) )
 
   call Read_Field_Backup ( work,"nlkx0",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,1,0) )
+  call fft ( work, nlk(:,:,:,1,0) )
   call Read_Field_Backup ( work,"nlky0",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,2,0) )
+  call fft ( work, nlk(:,:,:,2,0) )
   call Read_Field_Backup ( work,"nlkz0",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,3,0) )
+  call fft ( work, nlk(:,:,:,3,0) )
   call Read_Field_Backup ( work,"nlkx1",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,1,1) )
+  call fft ( work, nlk(:,:,:,1,1) )
   call Read_Field_Backup ( work,"nlky1",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,2,1) )
+  call fft ( work, nlk(:,:,:,2,1) )
   call Read_Field_Backup ( work,"nlkz1",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,3,1) )
+  call fft ( work, nlk(:,:,:,3,1) )
 
   call H5Fclose_f (file_id,error)
   call H5close_f (error)

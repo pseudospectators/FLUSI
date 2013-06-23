@@ -44,7 +44,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0
   integer, intent(in) :: it
-  logical :: TimeForDrag
+  logical :: TimeForDrag ! FIXME: move to time_step routine?
   integer i
 
   ! is it time for save global quantities?
@@ -61,9 +61,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   !-- Calculate ux and uy in physical space
   !-----------------------------------------------
   t1=MPI_wtime()
-  call cofitxyz (uk(:,:,:,1), work_u(:,:,:,1))
-  call cofitxyz (uk(:,:,:,2), work_u(:,:,:,2))
-  call cofitxyz (uk(:,:,:,3), work_u(:,:,:,3))
+  do i=1,nf
+     call ifft (uk(:,:,:,i), work_u(:,:,:,i))
+  enddo
   time_u=time_u + MPI_wtime() - t1
 
   !------------------------------------------------
@@ -79,7 +79,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
        uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
   do i=1,3
-     call cofitxyz(work_vort(:,:,:,i),nlk(:,:,:,i))
+     call ifft(work_vort(:,:,:,i),nlk(:,:,:,i))
   enddo
   ! timing statistics
   time_vor=time_vor + MPI_wtime() - t1
@@ -258,7 +258,7 @@ subroutine compute_divergence()
 !!$     enddo
 !!$  enddo
 !!$  ! now nlk(:,:,:,1) contains divergence field
-!!$  call cofitxyz(nlk(:,:,:,1),work)
+!!$  call ifft(nlk(:,:,:,1),work)
 !!$  call MPI_REDUCE (maxval(work), GlobIntegrals%Divergence, 1, mpireal, &
 !!$       MPI_MAX, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process  
 !!$
@@ -284,11 +284,11 @@ subroutine omegacrossu_nopen(nlk,work,u,vort)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   
   work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-  call coftxyz(work,nlk(:,:,:,1))
+  call fft(work,nlk(:,:,:,1))
   work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-  call coftxyz(work,nlk(:,:,:,2))
+  call fft(work,nlk(:,:,:,2))
   work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-  call coftxyz(work,nlk(:,:,:,3))
+  call fft(work,nlk(:,:,:,3))
 endsubroutine omegacrossu_nopen
 
 
@@ -311,17 +311,17 @@ subroutine omegacrossu_penalize(nlk,work,u,vort,TimeForDrag)
   ! x component
   call Penalize ( work, u, 1, TimeForDrag)
   work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2) + work
-  call coftxyz (work, nlk(:,:,:,1))
+  call fft (work, nlk(:,:,:,1))
   
   ! y component
   call Penalize ( work, u, 2, TimeForDrag)
   work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3) + work
-  call coftxyz (work, nlk(:,:,:,2))
+  call fft (work, nlk(:,:,:,2))
   
   ! z component
   call Penalize ( work, u, 3, TimeForDrag)
   work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1) + work
-  call coftxyz (work, nlk(:,:,:,3))     
+  call fft (work, nlk(:,:,:,3))     
 end subroutine omegacrossu_penalize
 
 
@@ -359,7 +359,7 @@ end subroutine Penalize
 ! Compute the nonlinear source term of the mhd equations,
 ! including penality term, in Fourier space. 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine cal_nlk_mhd(time,it,nlk,uk,work_u,work_vort,work)
+subroutine cal_nlk_mhd(time,it,nlk,uk,work_u,work_curl,work)
   use mpi_header
   use fsi_vars
   implicit none
@@ -368,27 +368,57 @@ subroutine cal_nlk_mhd(time,it,nlk,uk,work_u,work_vort,work)
   complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::&
-       work_vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+       work_curl(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent(inout)::work_u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0
   integer, intent(in) :: it
-  logical :: TimeForDrag
+  logical :: TimeForDrag ! FIXME: move to time_step routine?
+  integer i
 
+  ! Compute the vorticity and store the result in the first three 3D
+  ! arrays of nlk.
+  call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+       uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+
+
+  ! Compute the current density and store the result in the last three
+  ! 3D arrays of nlk.
+  call curl(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
+       uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
+
+  ! Transform vorcitity and current density to physical space, store
+  ! in work_curl
+  do i=1,nf
+     call ifft(work_curl(:,:,:,i),nlk(:,:,:,i))
+  enddo
+
+  ! Compute u and B in physical space
+  do i=1,nf
+     call ifft(work_u(:,:,:,i),uk(:,:,:,i))
+  enddo
   
-  ! FIXME: actually write the nonlinear term here, yo.
+  ! The source term for the fluid: is u x omega + j x B
+  ! FIXME
+  ! x-component is u_2 w_3 - u_3 w_2 + j_2 b_3 - j_3 b_2
+
+  ! FIXME: make this all into a loop, do it at the same time as the b_nlk
+!!$  work=work_u(:,:,:,2)*work_curl(:,:,:,3)-work_u(:,:,:,3)*work_curl(:,:,:,2)&
+!!$       +work_u(:,:,:,5)*work_curl(:,:,:,6)-work_u(:,:,:,6)*work_curl(:,:,:,6)
+!!$  call ifft(nlk(:,:,:,1),work)
+
+
+  ! The source term for the magnetic field is: ik x (u x B)
+  ! FIXME
+
+  ! Add the gradient of the pseudo-pressure to the source term of the
+  ! fluid.
+  ! FIXME
   
-  ! compute u and B in physical space
+  ! Make the source term for the magnetic field divergence-free via a
+  ! Helmholtz decomposition.
+  ! FIXME
 
-  ! compute vorticity and current density
-
-  ! u x omega + j x B
-
-!  call curl(vort(:,:,:,1:3),vortk(:,:,:,1:3),uk(:,:,:,1:3))
-!  call curl(vort(:,:,:,1),vortk(:,:,:,1),uk(:,:,:,1))
-
-  ! ik x (u x B)
-  
 end subroutine cal_nlk_mhd
 
 
@@ -427,6 +457,4 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
         enddo
      enddo
   enddo
-
-  ! Transform to physical space
 end subroutine curl

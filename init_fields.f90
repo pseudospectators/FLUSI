@@ -172,9 +172,9 @@ subroutine Vorticity2Velocity (uk, work, vort)
   !-------------------------------------------------
   ! compute vort in Fourier space
   !-------------------------------------------------
-  call coftxyz (vort(:,:,:,1), work(:,:,:,1))
-  call coftxyz (vort(:,:,:,2), work(:,:,:,2))
-  call coftxyz (vort(:,:,:,3), work(:,:,:,3)) 
+  call fft (vort(:,:,:,1), work(:,:,:,1))
+  call fft (vort(:,:,:,2), work(:,:,:,2))
+  call fft (vort(:,:,:,3), work(:,:,:,3)) 
 
   !-------------------------------------------------
   ! compute streamfunction in Fourier space

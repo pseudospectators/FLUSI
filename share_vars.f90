@@ -82,3 +82,29 @@ module mhd_vars
 
   type(Integrals),save :: GlobIntegrals
 end module mhd_vars
+
+
+! Compute the FFT of the real-valued 3D array inx and save the output
+! in the complex-valued 3D array outk.
+subroutine fft(outk,inx)
+    use mpi_header
+    use vars ! For precision specficiation and array sizes
+    
+    real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+
+    call coftxyz(inx,outk)
+end subroutine fft
+
+
+! Compute the inverse FFT of the complex-valued 3D array ink and save the
+! output in the real-valued 3D array outx.
+subroutine ifft(outx,ink)
+    use mpi_header
+    use vars ! For precision specficiation and array sizes
+    
+    real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+
+    call cofitxyz(ink,outx)
+end subroutine ifft
