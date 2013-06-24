@@ -359,66 +359,118 @@ end subroutine Penalize
 ! Compute the nonlinear source term of the mhd equations,
 ! including penality term, in Fourier space. 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine cal_nlk_mhd(time,it,nlk,uk,work_u,work_curl,work)
+subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   use mpi_header
   use fsi_vars
   implicit none
 
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::&
-       work_curl(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent(inout)::work_u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(out) :: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0
   integer, intent(in) :: it
   logical :: TimeForDrag ! FIXME: move to time_step routine?
-  integer i
-
+  integer :: i
+  integer :: ix, iy, iz
+  real(kind=pr) :: w1,w2,w3,j1,j2,j3
+  real(kind=pr) :: u1,u2,u3,b1,b2,b3
+  real(kind=pr) :: kx,ky,kz,k2
+  complex(kind=pr) :: qk
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-       uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
-
+       ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
 
   ! Compute the current density and store the result in the last three
   ! 3D arrays of nlk.
   call curl(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
-       uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
+       ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
 
   ! Transform vorcitity and current density to physical space, store
-  ! in work_curl
+  ! in wj
   do i=1,nf
-     call ifft(work_curl(:,:,:,i),nlk(:,:,:,i))
+     call ifft(wj(:,:,:,i),nlk(:,:,:,i))
   enddo
 
   ! Compute u and B in physical space
   do i=1,nf
-     call ifft(work_u(:,:,:,i),uk(:,:,:,i))
+     call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
+
+  ! Determine max velocity for CFL condition (???? Can we do this after?)
+  ! FIXME
   
-  ! The source term for the fluid: is u x omega + j x B
-  ! FIXME
-  ! x-component is u_2 w_3 - u_3 w_2 + j_2 b_3 - j_3 b_2
+  ! Put the x-space version of the nonlinear source term in wj.
+  do iy=ra(3),rb(3)
+     do ix=ra(2),rb(2)
+        do iz=ra(1),rb(1)
+           ! Loop-local variables for velocity and magnetic field:
+           u1=ub(iz,ix,iy,1)
+           u2=ub(iz,ix,iy,2)
+           u3=ub(iz,ix,iy,3)
+           b1=ub(iz,ix,iy,4)
+           b2=ub(iz,ix,iy,5)
+           b3=ub(iz,ix,iy,6)
 
-  ! FIXME: make this all into a loop, do it at the same time as the b_nlk
-!!$  work=work_u(:,:,:,2)*work_curl(:,:,:,3)-work_u(:,:,:,3)*work_curl(:,:,:,2)&
-!!$       +work_u(:,:,:,5)*work_curl(:,:,:,6)-work_u(:,:,:,6)*work_curl(:,:,:,6)
-!!$  call ifft(nlk(:,:,:,1),work)
+           ! Loop-local variables for vorticity and current density:
+           w1=wj(iz,ix,iy,1)
+           w2=wj(iz,ix,iy,2)
+           w3=wj(iz,ix,iy,3)
+           j1=wj(iz,ix,iy,4)
+           j2=wj(iz,ix,iy,5)
+           j3=wj(iz,ix,iy,6)
 
+            ! Nonlinear source term for fluid:
+            wj(iz,ix,iy,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2
+            wj(iz,ix,iy,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3
+            wj(iz,ix,iy,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1
 
-  ! The source term for the magnetic field is: ik x (u x B)
-  ! FIXME
+            ! Nonlinear source term for magnetic field (missing the curl):
+            wj(iz,ix,iy,4)=u2*b3 - u3*b2
+            wj(iz,ix,iy,5)=u3*b1 - u1*b3
+            wj(iz,ix,iy,6)=u1*b2 - u2*b1
+        enddo
+     enddo
+  enddo
+
+  ! Transform to Fourier space.  wj is no longer used (and contains
+  ! nothing useful).
+  do i=1,nf
+     call fft(nlk(:,:,:,i),wj(:,:,:,i))
+  enddo
 
   ! Add the gradient of the pseudo-pressure to the source term of the
   ! fluid.
-  ! FIXME
-  
+  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
+     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+     do ix=ca(2),cb(2)  ! kx : 0..nx/2
+        kx=scalex*dble(ix)
+        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
+           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+           
+           k2=kx*kx +ky*ky +kz*kz
+           
+           k2=kx*kx +ky*ky +kz*kz
+           if (k2 .ne. 0.0) then
+              qk=(kx*nlk(iz,ix,iy,1) +ky*nlk(iz,ix,iy,2) +kz*nlk(iz,ix,iy,2))/k2
+              ! add gradient of pressure
+              nlk(iz,ix,iy,1)=nlk(iz,ix,iy,1) - kx*qk
+              nlk(iz,ix,iy,2)=nlk(iz,ix,iy,2) - ky*qk
+              nlk(iz,ix,iy,3)=nlk(iz,ix,iy,3) - kz*qk
+           endif
+        enddo
+     enddo
+  enddo
+
+  ! Add the curl to the magnetic source term:
+  call curl_inplace(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
+
   ! Make the source term for the magnetic field divergence-free via a
   ! Helmholtz decomposition.
-  ! FIXME
-
+  call div_field_nul(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
 end subroutine cal_nlk_mhd
 
 
@@ -444,7 +496,7 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
 
   imag = dcmplx(0.d0,1.d0)
   
-  ! comput vorticity in Fourier space:
+  ! Compute curl of given field in Fourier space:
   do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
      ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
      do ix=ca(2),cb(2)  ! kx : 0..nx/2
@@ -458,3 +510,86 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
      enddo
   enddo
 end subroutine curl
+
+
+
+! Given three components of a fields in Fourier space, compute the
+! curl in physical space.  Arrays are 3-dimensional.
+subroutine curl_inplace(f1,f2,f3)
+  use mpi_header
+  use vars
+  implicit none
+
+  ! Field in Fourier space
+  complex(kind=pr),intent(inout)::f1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::f2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::f3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+
+  complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
+
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz
+  complex(kind=pr) :: imag   ! imaginary unit
+
+  imag = dcmplx(0.d0,1.d0)
+  
+  ! Compute curl of given field in Fourier space:
+  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
+     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+     do ix=ca(2),cb(2)  ! kx : 0..nx/2
+        kx=scalex*dble(ix)
+        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
+           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+           t1=f1(iz,ix,iy)
+           t2=f2(iz,ix,iy)
+           t3=f3(iz,ix,iy)
+
+           f1(iz,ix,iy)=imag*(ky*t3-kz*t2)
+           f2(iz,ix,iy)=imag*(kz*t1-kx*t3)
+           f3(iz,ix,iy)=imag*(kx*t2-ky*t1)
+        enddo
+     enddo
+  enddo
+end subroutine curl_inplace
+
+
+! Render the input field divergence-free via a Helmholtz
+! decomposition. The zero-mode is left untouched.
+subroutine div_field_nul(f1,f2,f3)
+  use mpi_header
+  use vars
+  implicit none
+
+  complex(kind=pr), intent(inout) :: f1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr), intent(inout) :: f2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr), intent(inout) :: f3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  integer :: ix, iy, iz
+  real(kind=pr) :: kx, ky, kz, k2
+  complex(kind=pr) :: val
+
+  do iy=ca(3), cb(3)
+     ! ky : 0..ny/2-1 ,then, -ny/2..-1
+     ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
+     do ix=ca(2),cb(2)
+        kx=scalex*dble(ix)
+        ! kx : 0..nx/2
+        do iz=ca(1),cb(1)
+           ! kz : 0..nz/2-1 ,then,-nz/2..-1
+           kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
+
+           k2=kx*kx +ky*ky +kz*kz
+
+           if(k2 /= 0.d0) then
+              ! val=(k \cdot{} f) / k^2
+              val=(kx*f1(iz,ix,iy)+ky*f2(iz,ix,iy)+kz*f3(iz,ix,iy))/k2
+
+              ! b <- b - k \cdot{} val
+              f1(iz,ix,iy) = f1(iz,ix,iy) -kx*val
+              f2(iz,ix,iy) = f1(iz,ix,iy) -ky*val
+              f3(iz,ix,iy) = f3(iz,ix,iy) -kz*val
+           endif
+        enddo
+     enddo
+  enddo
+  
+end subroutine div_field_nul
