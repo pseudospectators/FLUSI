@@ -155,30 +155,28 @@ end subroutine init_fields_fsi
 
 ! Computes the divergence-free velocity in Fourier space u given vort
 ! in physical space.  work is a work array
-subroutine Vorticity2Velocity (uk, work, vort)
-  use mpi_header ! Module incapsulates mpif.
+subroutine Vorticity2Velocity(uk,work,vort)
+  use mpi_header
   use fsi_vars
   implicit none
 
-  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent (out) :: uk
-  complex (kind=pr), dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent (inout) :: work
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
-       intent (in) :: vort
-  integer :: ix, iy, iz
+  complex (kind=pr),intent(out) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex (kind=pr),intent(inout)::work(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real (kind=pr), intent (in) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  integer :: ix, iy, iz, i
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
 
   !-------------------------------------------------
-  ! compute vort in Fourier space
+  ! Compute vorticity in Fourier space
   !-------------------------------------------------
-  call fft (vort(:,:,:,1), work(:,:,:,1))
-  call fft (vort(:,:,:,2), work(:,:,:,2))
-  call fft (vort(:,:,:,3), work(:,:,:,3)) 
+  do i=1,3
+     call fft(work(:,:,:,i),vort(:,:,:,i))
+  enddo
 
   !-------------------------------------------------
-  ! compute streamfunction in Fourier space
-  ! work(:,:,:,1:3, 1) will contain the three components of streamfunction
+  ! Compute streamfunction in Fourier space
+  ! work(:,:,:,1:3, 1) will contain the three components of
+  ! streamfunction
   !------------------------------------------------- 
 
   do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     

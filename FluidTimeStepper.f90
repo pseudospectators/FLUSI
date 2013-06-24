@@ -11,10 +11,10 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
   complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex (kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
-  real (kind=pr),intent (inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real (kind=pr) :: t1
 
   t1=MPI_wtime()  
@@ -54,10 +54,10 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis)
   complex (kind=pr),intent (inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex (kind=pr),intent (inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
-  real (kind=pr),intent (inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work)
@@ -110,10 +110,10 @@ subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workvis)
   complex (kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex (kind=pr),intent(inout):: &
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
-  real (kind=pr),intent (inout) :: work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr),intent(inout) :: work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk( time,it,nlk(:,:,:,:,1),uk,u,vort,work)
@@ -144,9 +144,9 @@ subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workvis)
   complex (kind=pr),intent(inout):: &
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
   real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
@@ -180,10 +180,10 @@ subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis)
   complex (kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex (kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
-  real (kind=pr),intent (inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real (kind=pr),intent(inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real (kind=pr) :: b10,b11
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing

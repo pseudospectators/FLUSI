@@ -19,9 +19,9 @@ program FLUSI
   nf=3 ! There are three velocity fields.
   
   ! Initialize MPI, get size and rank
-  call MPI_INIT (mpicode)
-  call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
-  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
+  call MPI_INIT(mpicode)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,mpisize,mpicode)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,mpirank,mpicode)
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
@@ -78,7 +78,7 @@ program FLUSI
   ! Create obstacle mask
   if(iPenalization>0) then
      ! you need the mask field only if you want to actually do penalization
-     allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))     
      if(iMoving == 1) then
         ! if your obstacle moves,you'll need this field for its velocity field
         allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))

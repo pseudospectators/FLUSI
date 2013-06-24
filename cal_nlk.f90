@@ -1,24 +1,23 @@
 ! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
-subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work)
+subroutine cal_nlk(time,it,nlk,uk,u,vort,work)
   use vars
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::&
-       work_vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent(inout)::work_u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent (in) :: time
+  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real(kind=pr),intent(in) :: time
   integer, intent(in) :: it
 
   select case(method(1:3))
   case("fsi") 
-     call cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
+     call cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   case("mhd") 
-     call cal_nlk_mhd(time,it,nlk,uk,work_u,work_vort,work)
+     call cal_nlk_mhd(time,it,nlk,uk,u,vort,work)
   case default
-     if (mpirank == 0) write(*,*) "Error! Unkonwn method in get_params"
+     if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
      call abort
   end select
 end subroutine cal_nlk
@@ -30,17 +29,16 @@ end subroutine cal_nlk
 ! FIXME: this does other things as well, like computing energy
 ! dissipation.
 ! FIXME: add documentation: which arguments are used for what?
-subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
+subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   use mpi_header
   use fsi_vars
   implicit none
 
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::&
-       work_vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent(inout)::work_u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  complex(kind=pr),intent(in):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0
   integer, intent(in) :: it
@@ -62,7 +60,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   !-----------------------------------------------
   t1=MPI_wtime()
   do i=1,nf
-     call ifft (uk(:,:,:,i), work_u(:,:,:,i))
+     call ifft(u(:,:,:,i),uk(:,:,:,i))
   enddo
   time_u=time_u + MPI_wtime() - t1
 
@@ -78,9 +76,11 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   !nlk is temporarily used for vortk
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
        uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
+
   do i=1,3
-     call ifft(work_vort(:,:,:,i),nlk(:,:,:,i))
+     call ifft(vort(:,:,:,i),nlk(:,:,:,i))
   enddo
+
   ! timing statistics
   time_vor=time_vor + MPI_wtime() - t1
 
@@ -88,9 +88,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   !-- Compute kinetic energy and dissipation rate + mask volume
   !-----------------------------------------------  
   if((TimeForDrag) .and. (iKinDiss==1)) then
-     call Energy_Dissipation (work_u, work_vort )
+     call Energy_Dissipation (u,vort)
   endif
-
+  
   !-------------------------------------------------------------
   !-- Calculate omega x u (cross-product)
   !-- add penalization term
@@ -98,9 +98,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,work_u,work_vort,work)
   !-------------------------------------------------------------
   t1=MPI_wtime()
   if (iPenalization==1) then
-     call omegacrossu_penalize(nlk,work,work_u,work_vort,TimeForDrag)
+     call omegacrossu_penalize(work,u,vort,TimeForDrag,nlk)
   else ! no penalization
-     call omegacrossu_nopen(nlk,work,work_u,work_vort)
+     call omegacrossu_nopen(work,u,vort,nlk)
   endif
   ! timing statistics
   time_curl=time_curl + MPI_wtime() - t1
@@ -262,7 +262,7 @@ subroutine compute_divergence()
 !!$  call MPI_REDUCE (maxval(work), GlobalIntegrals%Divergence, 1, mpireal, &
 !!$       MPI_MAX, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process  
 !!$
-!!$  call Energy_Dissipation ( GlobalIntegrals, work_u, work_vort )
+!!$  call Energy_Dissipation ( GlobalIntegrals, u, vort )
 !!$
 !!$  if (mpirank ==0) then
 !!$     write (*,'("max{div(u)}=",es15.8,"max{div(u)}/||u||=",es15.8)') &
@@ -273,22 +273,22 @@ end subroutine compute_divergence
 
 ! Compute non-linear transport term (omega cross u) and transform it to Fourier
 ! space. This is the case without penalization.
-subroutine omegacrossu_nopen(nlk,work,u,vort)
+subroutine omegacrossu_nopen(work,u,vort,nlk)
   use mpi_header
   use fsi_vars
   implicit none
 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(out) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   
   work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-  call fft(work,nlk(:,:,:,1))
+  call fft(nlk(:,:,:,1),work)
   work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-  call fft(work,nlk(:,:,:,2))
+  call fft(nlk(:,:,:,2),work)
   work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-  call fft(work,nlk(:,:,:,3))
+  call fft(nlk(:,:,:,3),work)
 endsubroutine omegacrossu_nopen
 
 
@@ -297,31 +297,31 @@ endsubroutine omegacrossu_nopen
 ! term mask*(u-us) as well. This gives the occasion to compute the drag forces,
 ! if it is time to do so (TimeForDrag=.true.). The drag is returned in 
 ! GlobalIntegrals.
-subroutine omegacrossu_penalize(nlk,work,u,vort,TimeForDrag)
+subroutine omegacrossu_penalize(work,u,vort,TimeForDrag,nlk)
   use mpi_header
   use fsi_vars
   implicit none
 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   logical,intent(in) :: TimeForDrag
   
   ! x component
-  call Penalize ( work, u, 1, TimeForDrag)
-  work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2) + work
-  call fft (work, nlk(:,:,:,1))
+  call Penalize(work,u,1,TimeForDrag)
+  work=work + u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
+  call fft(nlk(:,:,:,1),work)
   
   ! y component
-  call Penalize ( work, u, 2, TimeForDrag)
-  work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3) + work
-  call fft (work, nlk(:,:,:,2))
+  call Penalize(work,u,2,TimeForDrag)
+  work=work + u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
+  call fft(nlk(:,:,:,2),work)
   
   ! z component
-  call Penalize ( work, u, 3, TimeForDrag)
-  work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1) + work
-  call fft (work, nlk(:,:,:,3))     
+  call Penalize(work,u,3,TimeForDrag)
+  work=work + u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
+  call fft(nlk(:,:,:,3),work)
 end subroutine omegacrossu_penalize
 
 
@@ -329,23 +329,20 @@ end subroutine omegacrossu_penalize
 ! simple process) to remove some lines in the actual cal_nlk also, at
 ! this occasion, we directly compute the integral hydrodynamic forces,
 ! if its time to do so (TimeForDrag=.true.)
-subroutine Penalize(work,work_u,iDir,TimeForDrag)    
+subroutine Penalize(work,u,iDir,TimeForDrag)    
   use fsi_vars
   implicit none
 
-  integer, intent (in) :: iDir
-  logical, intent (in) :: TimeForDrag
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
-       intent (out) :: work
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf),&
-       intent (in) :: work_u
-
+  integer, intent(in) :: iDir
+  logical, intent(in) :: TimeForDrag
+  real (kind=pr), intent(out) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
 
   ! compute penalization term
   if (iMoving == 1) then
-     work=-mask*(work_u(:,:,:,iDir) - us(:,:,:,iDir))  
+     work=-mask*(u(:,:,:,iDir) - us(:,:,:,iDir))  
   else
-     work=-mask*(work_u(:,:,:,iDir))
+     work=-mask*(u(:,:,:,iDir))
   endif
 
   ! if its time, compute drag forces

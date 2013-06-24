@@ -55,9 +55,9 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   if((iSaveVelocity.ne.0) .or. (iSaveVorticity.ne.0) .or. (iSavePress.ne.0))&
        then
      ! Calculate ux and uy in physical space
-     call ifft(uk(:,:,:,1),u(:,:,:,1))
-     call ifft(uk(:,:,:,2),u(:,:,:,2))
-     call ifft(uk(:,:,:,3),u(:,:,:,3))
+     do i=1,3
+        call ifft(u(:,:,:,i),uk(:,:,:,i))
+     enddo
      
      ! SaveVelocity
      if(iSaveVelocity == 1) then
@@ -88,11 +88,11 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
         if(iSavePress == 1) then
            ! Calculate omega x u(cross-product) in Fourier space
            if (iPenalization == 1) then
-              ! note this subroutine can also compute drag, which we are not 
+              ! Note this subroutine can also compute drag, which we are not 
               ! interested in here (therefore set.false.)
-              call omegacrossu_penalize(nlk,work,u,vort,.false.,dummy_integrals)
+              call omegacrossu_penalize(work,u,vort,.false.,nlk)
            else
-              call omegacrossu_nopen(nlk,work,u,vort)
+              call omegacrossu_nopen(work,u,vort,nlk)
            endif
 
            ! store the physical pressure in the work array
@@ -100,7 +100,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
            ! nlkk(...1) is the pressure in Fourier space, so p is
            ! the total pressure in physical space. Then remove kinetic
            ! energy to get "physical" pressure
-           call ifft(nlk(:,:,:,1),work)
+           call ifft(work,nlk(:,:,:,1))
            work=work-0.5d0*(&
                 u(:,:,:,1)*u(:,:,:,1)&
                 +u(:,:,:,2)*u(:,:,:,2)&
@@ -362,24 +362,24 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   ! Close the property list (we'll re-use it)
   call H5Pclose_f(plist_id, error)
 
-  call ifft ( uk(:,:,:,1), work)
+  call ifft(work,uk(:,:,:,1))
   call Dump_Field_Backup (work,"ux",time,dt0,dt1,n1,it,file_id  )
-  call ifft ( uk(:,:,:,2), work)
+  call ifft(work,uk(:,:,:,2))
   call Dump_Field_Backup (work,"uy",time,dt0,dt1,n1,it,file_id  )
-  call ifft ( uk(:,:,:,3), work)
+  call ifft(work,uk(:,:,:,3))
   call Dump_Field_Backup (work,"uz",time,dt0,dt1,n1,it,file_id  )
 
-  call ifft ( nlk(:,:,:,1,0), work)
+  call ifft(work,nlk(:,:,:,1,0))
   call Dump_Field_Backup (work,"nlkx0",time,dt0,dt1,n1,it,file_id  )
-  call ifft ( nlk(:,:,:,2,0), work)
+  call ifft(work,nlk(:,:,:,2,0))
   call Dump_Field_Backup (work,"nlky0",time,dt0,dt1,n1,it,file_id  )
-  call ifft ( nlk(:,:,:,3,0), work)
+  call ifft(work,nlk(:,:,:,3,0))
   call Dump_Field_Backup (work,"nlkz0",time,dt0,dt1,n1,it,file_id  )
-  call ifft ( nlk(:,:,:,1,1), work)
+  call ifft(work,nlk(:,:,:,1,1))
   call Dump_Field_Backup (work,"nlkx1",time,dt0,dt1,n1,it,file_id  )
-  call ifft ( nlk(:,:,:,2,1), work)
+  call ifft(work,nlk(:,:,:,2,1))
   call Dump_Field_Backup (work,"nlky1",time,dt0,dt1,n1,it,file_id  )
-  call ifft ( nlk(:,:,:,3,1), work)
+  call ifft(work,nlk(:,:,:,3,1))
   call Dump_Field_Backup (work,"nlkz1",time,dt0,dt1,n1,it,file_id  )
 
   ! Close the file.
@@ -541,24 +541,24 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   call H5Pclose_f(plist_id, error)
 
   call Read_Field_Backup ( work,"ux",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, uk(:,:,:,1) )
+  call fft(uk(:,:,:,1),work)
   call Read_Field_Backup ( work,"uy",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, uk(:,:,:,2) )
+  call fft(uk(:,:,:,2),work)
   call Read_Field_Backup ( work,"uz",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, uk(:,:,:,3) )
+  call fft(uk(:,:,:,3),work)
 
   call Read_Field_Backup ( work,"nlkx0",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, nlk(:,:,:,1,0) )
+  call fft(nlk(:,:,:,1,0),work)
   call Read_Field_Backup ( work,"nlky0",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, nlk(:,:,:,2,0) )
+  call fft(nlk(:,:,:,2,0),work)
   call Read_Field_Backup ( work,"nlkz0",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, nlk(:,:,:,3,0) )
+  call fft(nlk(:,:,:,3,0),work)
   call Read_Field_Backup ( work,"nlkx1",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, nlk(:,:,:,1,1) )
+  call fft(nlk(:,:,:,1,1),work)
   call Read_Field_Backup ( work,"nlky1",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, nlk(:,:,:,2,1) )
+  call fft(nlk(:,:,:,2,1),work)
   call Read_Field_Backup ( work,"nlkz1",time,dt0,dt1,n1,it,file_id )
-  call fft ( work, nlk(:,:,:,3,1) )
+  call fft(nlk(:,:,:,3,1),work)
 
   call H5Fclose_f (file_id,error)
   call H5close_f (error)
@@ -566,7 +566,7 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   ! it is important to have workvis, because it won't be initialized
   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
   ! are you sure about dt1???)
-  call cal_vis ( dt1, workvis )
+  call cal_vis(dt1,workvis)
 
   if(mpirank == 0) then
      write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0

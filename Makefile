@@ -10,11 +10,11 @@ FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
 	create_mask.f90 params.f90 save_fields.f90 time_step.f90
 OBJS := $(FFILES:%.f90=%.o)
 
-## set the default compiler if it's not already set, make sure it's not F77.
+# Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
 FC = mpif90
 endif
-ifeq ($(FC),f77) # sometimes FC gets defined as f77, which is bad.
+ifeq ($(FC),f77) # Sometimes FC gets defined as f77, which is bad.
 FC = mpif90
 endif
 
@@ -23,6 +23,9 @@ ifeq ($(shell $(FC) -v 2>&1 | tail -n 1 | head -c 3),gcc)
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
 FFLAGS += -Wsurprising # warn if things might not behave as expected
 PPFLAG= -cpp #preprocessor flag
+
+# debug flags:
+#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
 
 # Intel compiler
