@@ -30,8 +30,8 @@ module vars
   integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup,iSaveSolidVelocity
   real (kind=pr),save :: tmax,cfl,nu,eps,pi,scalex,scaley,scalez,length
   real (kind=pr),save :: xl,yl,zl,dx,dy,dz
-  real (kind=pr),save :: Ux,Uy,Uz,Ax,Ay,Az,tstart,tsave
-  real (kind=pr),save :: x0,y0,z0,dt_fixed
+  real (kind=pr),save :: Ux,Uy,Uz,tstart,tsave
+  real (kind=pr),save :: dt_fixed
   character (len=80),save :: iMask,iTimeMethodFluid,inicond
  
   ! The mask array.  TODO: move out of shave_vars?
@@ -50,6 +50,8 @@ end module vars
 module fsi_vars
   use vars
   implicit none
+
+  real (kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
 
   ! The derived quantities for fluid-structure interactions.
   type Integrals

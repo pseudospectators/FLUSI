@@ -378,6 +378,7 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   real(kind=pr) :: u1,u2,u3,b1,b2,b3
   real(kind=pr) :: kx,ky,kz,k2
   complex(kind=pr) :: qk
+
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
@@ -440,6 +441,7 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
 
   ! Add the gradient of the pseudo-pressure to the source term of the
   ! fluid.
+  ! FIXME: use subroutine
   do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
      ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
      do ix=ca(2),cb(2)  ! kx : 0..nx/2
@@ -504,7 +506,6 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
      enddo
   enddo
 end subroutine curl
-
 
 
 ! Given three components of a fields in Fourier space, compute the

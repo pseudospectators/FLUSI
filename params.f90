@@ -22,7 +22,7 @@ subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
   if (mpirank==0) then
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
-        read (value, *) params_int    
+        read (value, *) params_int
         write (value,'(i7)') params_int
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
      else
@@ -236,9 +236,6 @@ subroutine get_params_fsi (paramsfile)
   call GetValue_Real (PARAMS,i,"MeanFlow","ux",ux, 1.d0) 
   call GetValue_Real (PARAMS,i,"MeanFlow","uy",uy, 1.d0) 
   call GetValue_Real (PARAMS,i,"MeanFlow","uz",uz, 1.d0) 
-  call GetValue_Real (PARAMS,i,"MeanFlow","ax",ax, 0.d0)
-  call GetValue_Real (PARAMS,i,"MeanFlow","ay",ay, 0.d0)
-  call GetValue_Real (PARAMS,i,"MeanFlow","az",az, 0.d0)
 
   call GetValue_Int (PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
   call GetValue_Int (PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 
@@ -302,7 +299,7 @@ subroutine get_params_mhd (paramsfile)
 
   !------------------------------------------------------
   ! Read in parameters and broadcast them to all procs
-  !------------------------------------------------------  
+  !------------------------------------------------------
   call GetValue_Int (PARAMS,i,"Resolution","nx",nx, 4)
   call GetValue_Int (PARAMS,i,"Resolution","ny",ny, 4)
   call GetValue_Int (PARAMS,i,"Resolution","nz",nz, 4)
@@ -330,18 +327,12 @@ subroutine get_params_mhd (paramsfile)
   call GetValue_Real (PARAMS,i,"Geometry","xl",xl, 1.d0)
   call GetValue_Real (PARAMS,i,"Geometry","yl",yl, 1.d0)
   call GetValue_Real (PARAMS,i,"Geometry","zl",zl, 1.d0)
-  call GetValue_Real (PARAMS,i,"Geometry","x0",x0, 0.d0)
-  call GetValue_Real (PARAMS,i,"Geometry","y0",y0, 0.d0)
-  call GetValue_Real (PARAMS,i,"Geometry","z0",z0, 0.d0)
   call GetValue_Real (PARAMS,i,"Geometry","Size",length, 0.d0)
 
   call GetValue_Int (PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
   call GetValue_Real (PARAMS,i,"MeanFlow","ux",ux, 1.d0) 
   call GetValue_Real (PARAMS,i,"MeanFlow","uy",uy, 1.d0) 
   call GetValue_Real (PARAMS,i,"MeanFlow","uz",uz, 1.d0) 
-  call GetValue_Real (PARAMS,i,"MeanFlow","ax",ax, 0.d0)
-  call GetValue_Real (PARAMS,i,"MeanFlow","ay",ay, 0.d0)
-  call GetValue_Real (PARAMS,i,"MeanFlow","az",az, 0.d0)
 
   call GetValue_Int (PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
   call GetValue_Int (PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 

@@ -282,8 +282,8 @@ subroutine set_mean_flow(uk,time)
 
   ! Force zero mode for mean flow
   if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-     uk(0,0,0,1)=Ux + Ax * time
-     uk(0,0,0,2)=Uy + Ay * time
-     uk(0,0,0,3)=Uz + Az * time
+     uk(0,0,0,1)=Ux
+     uk(0,0,0,2)=Uy
+     uk(0,0,0,3)=Uz
   endif
 end subroutine set_mean_flow

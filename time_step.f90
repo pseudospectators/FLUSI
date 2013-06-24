@@ -60,11 +60,8 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
      if(modulo(time - tstart,tsave) <= dt1) then
         ! Note: we can safely delete nlk(:,:,:,1:nf,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
-        ! in the next step.  This frees 3 complex arrays.
-        ! FIXME: why is the above comment important?
-        ! FIX: occasionally, I put comments that took me a while to understand
-        ! in the code. 
-        ! Are the complex arrays that are freed used in anything?
+        ! in the next step.  This frees 3 complex arrays, which are
+        ! then used in Dump_Runtime_Backup.
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
         
         ! Backup if that's specified in the PARAMS.ini file

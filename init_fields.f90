@@ -122,9 +122,9 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
      uk=dcmplx(0.0d0,0.0d0)
      if ( iMeanFlow == 1) then
         if ( ( ca(1) == 0 ) .and. ( ca(2) == 0 ) .and. ( ca(3) == 0 ) ) then
-           uk(0, 0, 0,1)=Ux + Ax * time;                
-           uk(0, 0, 0,2)=Uy + Ay * time;               
-           uk(0, 0, 0,3)=Uz + Az * time;              
+           uk(0, 0, 0,1)=Ux
+           uk(0, 0, 0,2)=Uy
+           uk(0, 0, 0,3)=Uz
         endif
      endif
 
