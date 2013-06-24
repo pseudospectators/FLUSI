@@ -76,7 +76,7 @@ program FLUSI
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
   ! Create obstacle mask
-  if(iPenalization>0) then 
+  if(iPenalization>0) then
      ! you need the mask field only if you want to actually do penalization
      allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
      if(iMoving == 1) then
@@ -99,10 +99,10 @@ program FLUSI
   if(mpirank==0) then
      write(*,*) "control values for debugging:"
      write(*,'("Ekin=",es15.8," Dissip=",es15.8," F1=",es15.8," F2=",es15.8," F3=",es15.8," Vol=",es15.8)')&
-          GlobIntegrals%E_kin,&
-          GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
-          GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
-          GlobIntegrals%Volume
+          GlobalIntegrals%E_kin,&
+          GlobalIntegrals%Dissip, GlobalIntegrals%Force(1),&
+          GlobalIntegrals%Force(2),GlobalIntegrals%Force(3),&
+          GlobalIntegrals%Volume
   endif
 
   ! Deallocate memory

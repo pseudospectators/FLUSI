@@ -3,8 +3,8 @@ subroutine cal_nlk(time,it,nlk,uk,work_u,work_vort,work)
   use vars
   implicit none
 
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::&
        work_vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
@@ -119,7 +119,7 @@ end subroutine cal_nlk_fsi
 
 ! This subroutine takes one component of the penalization term (work)
 ! computes the integral over it, which is the hydrodynamic force in
-! the direction iDirection. The force is stored in the GlobIntegrals
+! the direction iDirection. The force is stored in the GlobalIntegrals
 ! structure
 subroutine IntegralForce (work, iDirection ) 
   use fsi_vars
@@ -132,13 +132,13 @@ subroutine IntegralForce (work, iDirection )
   real (kind=pr) :: Force_local
 
   Force_local =dx*dy*dz*sum( work )  
-  call MPI_REDUCE (Force_local,GlobIntegrals%Force(iDirection),1,mpireal,&
+  call MPI_REDUCE (Force_local,GlobalIntegrals%Force(iDirection),1,mpireal,&
        MPI_SUM,0,MPI_COMM_WORLD,mpicode)  ! max at 0th process  
 end subroutine IntegralForce
 
 
 ! Compute the kinetic energy, dissipation rate and mask volume.  Store
-! all these in the structure GlobIntegrals (definition see
+! all these in the structure GlobalIntegrals (definition see
 ! fsi_vars).
 subroutine Energy_Dissipation (u, vort )
   use fsi_vars
@@ -159,11 +159,11 @@ subroutine Energy_Dissipation (u, vort )
      Volume_local=0.d0
   endif
 
-  call MPI_REDUCE(E_kin_local,GlobIntegrals%E_kin,1,mpireal,MPI_SUM,0,&
+  call MPI_REDUCE(E_kin_local,GlobalIntegrals%E_kin,1,mpireal,MPI_SUM,0,&
        MPI_COMM_WORLD,mpicode)  ! sum at 0th process
-  call MPI_REDUCE(Dissip_local,GlobIntegrals%Dissip,1,mpireal,MPI_SUM,&
+  call MPI_REDUCE(Dissip_local,GlobalIntegrals%Dissip,1,mpireal,MPI_SUM,&
        0,MPI_COMM_WORLD,mpicode)  ! sum at 0th process
-  call MPI_REDUCE(Volume_local,GlobIntegrals%Volume,1,mpireal,MPI_SUM,&
+  call MPI_REDUCE(Volume_local,GlobalIntegrals%Volume,1,mpireal,MPI_SUM,&
        0,MPI_COMM_WORLD,mpicode)  ! sum at 0th process
 end subroutine Energy_Dissipation
 
@@ -259,14 +259,14 @@ subroutine compute_divergence()
 !!$  enddo
 !!$  ! now nlk(:,:,:,1) contains divergence field
 !!$  call ifft(nlk(:,:,:,1),work)
-!!$  call MPI_REDUCE (maxval(work), GlobIntegrals%Divergence, 1, mpireal, &
+!!$  call MPI_REDUCE (maxval(work), GlobalIntegrals%Divergence, 1, mpireal, &
 !!$       MPI_MAX, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process  
 !!$
-!!$  call Energy_Dissipation ( GlobIntegrals, work_u, work_vort )
+!!$  call Energy_Dissipation ( GlobalIntegrals, work_u, work_vort )
 !!$
 !!$  if (mpirank ==0) then
 !!$     write (*,'("max{div(u)}=",es15.8,"max{div(u)}/||u||=",es15.8)') &
-!!$          GlobIntegrals%Divergence, GlobIntegrals%Divergence/(2.d0*GlobIntegrals%E_kin)
+!!$          GlobalIntegrals%Divergence, GlobalIntegrals%Divergence/(2.d0*GlobalIntegrals%E_kin)
 !!$  endif
 end subroutine compute_divergence
 
@@ -296,7 +296,7 @@ endsubroutine omegacrossu_nopen
 ! space. This is the case with penalization. Therefore we compute the penalty
 ! term mask*(u-us) as well. This gives the occasion to compute the drag forces,
 ! if it is time to do so (TimeForDrag=.true.). The drag is returned in 
-! GlobIntegrals.
+! GlobalIntegrals.
 subroutine omegacrossu_penalize(nlk,work,u,vort,TimeForDrag)
   use mpi_header
   use fsi_vars
@@ -355,7 +355,6 @@ subroutine Penalize(work,work_u,iDir,TimeForDrag)
 end subroutine Penalize
 
 
-
 ! Compute the nonlinear source term of the mhd equations,
 ! including penality term, in Fourier space. 
 ! FIXME: add documentation: which arguments are used for what?
@@ -364,13 +363,13 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   use fsi_vars
   implicit none
 
-  complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  complex(kind=pr),intent(out) :: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
   real(kind=pr),intent (in) :: time
-  real(kind=pr) :: t1,t0
+!  real(kind=pr) :: t1,t0
   integer, intent(in) :: it
   logical :: TimeForDrag ! FIXME: move to time_step routine?
   integer :: i
@@ -400,9 +399,6 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
 
-  ! Determine max velocity for CFL condition (???? Can we do this after?)
-  ! FIXME
-  
   ! Put the x-space version of the nonlinear source term in wj.
   do iy=ra(3),rb(3)
      do ix=ra(2),rb(2)
@@ -453,10 +449,8 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
            
            k2=kx*kx +ky*ky +kz*kz
            
-           k2=kx*kx +ky*ky +kz*kz
-           if (k2 .ne. 0.0) then
+           if (k2 .ne. 0.d0) then
               qk=(kx*nlk(iz,ix,iy,1) +ky*nlk(iz,ix,iy,2) +kz*nlk(iz,ix,iy,2))/k2
-              ! add gradient of pressure
               nlk(iz,ix,iy,1)=nlk(iz,ix,iy,1) - kx*qk
               nlk(iz,ix,iy,2)=nlk(iz,ix,iy,2) - ky*qk
               nlk(iz,ix,iy,3)=nlk(iz,ix,iy,3) - kz*qk
@@ -583,10 +577,10 @@ subroutine div_field_nul(f1,f2,f3)
               ! val=(k \cdot{} f) / k^2
               val=(kx*f1(iz,ix,iy)+ky*f2(iz,ix,iy)+kz*f3(iz,ix,iy))/k2
 
-              ! b <- b - k \cdot{} val
-              f1(iz,ix,iy) = f1(iz,ix,iy) -kx*val
-              f2(iz,ix,iy) = f1(iz,ix,iy) -ky*val
-              f3(iz,ix,iy) = f3(iz,ix,iy) -kz*val
+              ! f <- f - k \cdot{} val
+              f1(iz,ix,iy)=f1(iz,ix,iy) -kx*val
+              f2(iz,ix,iy)=f1(iz,ix,iy) -ky*val
+              f3(iz,ix,iy)=f3(iz,ix,iy) -kz*val
            endif
         enddo
      enddo

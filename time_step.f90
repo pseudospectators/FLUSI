@@ -29,7 +29,8 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
   ! FIXME: move to FLUSI.f90 or mhd.f90?
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,workvis)
   n0=1 - n1
-  it_start=it ! FIXME: when moving the above, it would be nice to move this as well. 
+  it_start=it 
+  ! FIXME: when moving the above, it would be nice to move this as well. 
 
   ! Loop over time steps
   t1=MPI_wtime()
@@ -63,6 +64,7 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
         ! FIXME: why is the above comment important?
         ! FIX: occasionally, I put comments that took me a while to understand
         ! in the code. 
+        ! Are the complex arrays that are freed used in anything?
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
         
         ! Backup if that's specified in the PARAMS.ini file
@@ -129,10 +131,10 @@ subroutine write_integrals_fsi(time)
   real(kind=pr), intent(in) :: time
   
   open(14,file='drag_data',status='unknown',position='append')
-  write(14,'(7(es12.4,1x))')  time,GlobIntegrals%E_kin,&
-       GlobIntegrals%Dissip, GlobIntegrals%Force(1),&
-       GlobIntegrals%Force(2),GlobIntegrals%Force(3),&
-       GlobIntegrals%Volume
+  write(14,'(7(es12.4,1x))')  time,GlobalIntegrals%E_kin,&
+       GlobalIntegrals%Dissip, GlobalIntegrals%Force(1),&
+       GlobalIntegrals%Force(2),GlobalIntegrals%Force(3),&
+       GlobalIntegrals%Volume
   close(14)
 end subroutine write_integrals_fsi
 

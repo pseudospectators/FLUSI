@@ -9,6 +9,9 @@ module vars
   integer,parameter :: pr = 8 ! precision of doubles
   integer,save :: nx,ny,nz,nt ! resolution and time-stepping
 
+  ! Local array bounds
+  integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
+
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize,mpirank,mpicommcart
   integer,parameter :: mpiinteger=MPI_INTEGER
@@ -19,6 +22,7 @@ module vars
 
   ! used in params.f90
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
+
   ! Variables set via the parameters file
   integer,save :: iDealias,itdrag
   integer,save :: iDrag,iKinDiss
@@ -30,15 +34,12 @@ module vars
   real (kind=pr),save :: x0,y0,z0,dt_fixed
   character (len=80),save :: iMask,iTimeMethodFluid,inicond
  
-  ! Local array bounds
-  integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
-
   ! The mask array.  TODO: move out of shave_vars?
   real (kind=pr),dimension (:,:,:),allocatable,save :: mask
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
   real (kind=pr),allocatable,save :: us(:,:,:,:) 
 
-  ! Vabiables timing statistics.  Global to simplify syntax
+  ! Vabiables timing statistics.  Global to simplify syntax.
   real (kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2
   real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
   real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
@@ -60,7 +61,7 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
 
-  type(Integrals),save :: GlobIntegrals
+  type(Integrals),save :: GlobalIntegrals
 end module fsi_vars
 
 
@@ -80,7 +81,7 @@ module mhd_vars
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
 
-  type(Integrals),save :: GlobIntegrals
+  type(Integrals),save :: GlobalIntegrals
 end module mhd_vars
 
 

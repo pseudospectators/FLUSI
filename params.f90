@@ -3,7 +3,7 @@
 
 
 ! FIXME: document
-subroutine GetValue_Int (PARAMS, actual_lines, section, keyword, params_int,&
+subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
      defaultvalue)
   use mpi_header
   use vars
