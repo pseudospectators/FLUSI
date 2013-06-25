@@ -148,10 +148,10 @@ subroutine get_params_fsi(PARAMS,i)
   integer,intent(in) :: i
   character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
 
-  ! FSIGeometry section
-  call GetValue_Real(PARAMS,i,"FSIGeometry","x0",x0, 0.d0)
-  call GetValue_Real(PARAMS,i,"FSIGeometry","y0",y0, 0.d0)
-  call GetValue_Real(PARAMS,i,"FSIGeometry","z0",z0, 0.d0)
+  ! Geometry section
+  call GetValue_Real(PARAMS,i,"Geometry","x0",x0, 0.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","y0",y0, 0.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","z0",z0, 0.d0)
   
   ! Saving section
   call GetValue_Int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
