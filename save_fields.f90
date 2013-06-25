@@ -38,7 +38,6 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   character(len=17) :: name
-  type(Integrals) :: dummy_integrals
   integer :: i
 
   !--Set up file name base

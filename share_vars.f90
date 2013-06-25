@@ -3,14 +3,12 @@ module vars
   use mpi_header
   implicit none
 
-  character(len=3),save:: method
-  integer,save :: nf = 3 ! number of fields (3 for NS, 6 for MHD)
+  ! Precision of doubles
+  integer,parameter :: pr = 8 
 
-  integer,parameter :: pr = 8 ! precision of doubles
-  integer,save :: nx,ny,nz,nt ! resolution and time-stepping
-
-  ! Local array bounds
-  integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
+  ! Method variables set in the program file:
+  character(len=3),save:: method ! mhd  or fsi
+  integer,save :: nf ! number of fields (3 for NS, 6 for MHD)
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize,mpirank,mpicommcart
@@ -19,9 +17,14 @@ module vars
   integer,parameter :: mpicomplex=MPI_DOUBLE_COMPLEX
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
   integer,dimension (:,:),allocatable,save :: ra_table,rb_table
+  ! Local array bounds
+  integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
 
-  ! used in params.f90
+  ! Used in params.f90
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
+
+  ! Resolution and time-stepping
+  integer,save :: nx,ny,nz,nt 
 
   ! Variables set via the parameters file
   integer,save :: iDealias,itdrag
@@ -33,16 +36,16 @@ module vars
   real (kind=pr),save :: Ux,Uy,Uz,tstart,tsave
   real (kind=pr),save :: dt_fixed
   character (len=80),save :: iMask,iTimeMethodFluid,inicond
- 
-  ! The mask array.  TODO: move out of shave_vars?
-  real (kind=pr),dimension (:,:,:),allocatable,save :: mask
-  ! Velocity field inside the solid.  TODO: move out of shave_vars?
-  real (kind=pr),allocatable,save :: us(:,:,:,:) 
 
   ! Vabiables timing statistics.  Global to simplify syntax.
   real (kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2
   real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
   real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
+
+  ! The mask array.  TODO: move out of shave_vars?
+  real (kind=pr),dimension (:,:,:),allocatable,save :: mask
+  ! Velocity field inside the solid.  TODO: move out of shave_vars?
+  real (kind=pr),allocatable,save :: us(:,:,:,:) 
 end module vars
 
 
@@ -53,7 +56,7 @@ module fsi_vars
 
   real (kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
 
-  ! The derived quantities for fluid-structure interactions.
+  ! The derived integral quantities for fluid-structure interactions.
   type Integrals
      real(kind=pr) :: time
      real(kind=pr) :: E_Kin
@@ -72,7 +75,11 @@ module mhd_vars
   use vars
   implicit none
 
-  ! The derived quantities for mhd.  
+  real(kind=pr),save :: eta ! magnetic diffusivity
+  real(kind=pr),save :: b0, bc ! Boundary condition parameters
+  real(kind=pr),save :: r1,r2 ! Parameters for boundary conditions
+
+  ! The derived integral quantities for mhd.  
   type Integrals
      real(kind=pr) :: time
      real(kind=pr) :: E_Kin
@@ -80,7 +87,6 @@ module mhd_vars
      real(kind=pr) :: Dissip
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume
-     real(kind=pr),dimension(1:3) :: Force
   end type Integrals
 
   type(Integrals),save :: GlobalIntegrals
