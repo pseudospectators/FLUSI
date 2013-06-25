@@ -36,12 +36,13 @@ subroutine read_params_file(PARAMS,i,paramsfile)
   use vars
   implicit none
   
-  integer, intent(out) :: i
+  integer,intent(out) :: i
   integer :: io_error
- ! this array will contain the ascii-params file
-  character, intent(inout) :: PARAMS(nlines)*256
-  character (len=80) :: paramsfile ! this is the file we read the PARAMS from
- 
+  ! This array will contain the ascii-params file
+  character,intent(inout) :: PARAMS(nlines)*256
+  character(len=80) :: paramsfile ! this is the file we read the PARAMS from
+
+
   ! Read in the params file (root only)
   io_error=0
   if (mpirank==0) then
@@ -153,6 +154,8 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Real(PARAMS,i,"FSIGeometry","y0",y0, 0.d0)
   call GetValue_Real(PARAMS,i,"FSIGeometry","z0",z0, 0.d0)
 
+  lin(1)=nu
+
   if (mpirank==0) then
      write (*,*) "*************************************************"
      write (*,'(A,i3)') " *** DONE READING PARAMETERS"
@@ -178,6 +181,9 @@ subroutine get_params_mhd(PARAMS,i)
   call GetValue_Real(PARAMS,i,"MHDGeometry","bc",bc,3.88888888888d0)
   call GetValue_Real(PARAMS,i,"MHDGeometry","r1",r1,1.d0)
   call GetValue_Real(PARAMS,i,"MHDGeometry","r2",r2,1.0681415d0)
+
+  lin(1)=nu
+  lin(2)=eta
 end subroutine get_params_mhd
 
 

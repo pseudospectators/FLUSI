@@ -10,11 +10,11 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   integer,intent (in) :: n0,n1,it
   complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real (kind=pr) :: t1
 
   t1=MPI_wtime()  
@@ -51,22 +51,25 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: it
-  complex (kind=pr),intent (inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex (kind=pr),intent (inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent (inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  integer :: i
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  integer :: i,j,l
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
   ! multiply the RHS with the viscosity
-  do i=1,3
-     nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis
+  do j=1,nf
+     do i=1,3
+        l=i+3*(j-1)
+        nlk(:,:,:,l,0)=nlk(:,:,:,l,0)*expvis(:,:,:,j)
+     enddo
   enddo
 
   ! Compute integrating factor, only done if necessary (i.e. time step
@@ -76,8 +79,11 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   endif
 
   !-- Do the actual euler step. note nlk is already multiplied by vis
-  do i=1,3
-     uk(:,:,:,i)=(uk(:,:,:,i)*expvis + dt1*nlk(:,:,:,i,0))
+  do j=1,nf
+     do i=1,3
+        l=i+3*(j-1)
+        uk(:,:,:,l)=(uk(:,:,:,l)*expvis(:,:,:,j) + dt1*nlk(:,:,:,l,0))
+     enddo
   enddo
 
   ! RHS using the euler velocity
@@ -92,7 +98,7 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   ! u^n+1=u_euler - dt*N(u^n)*vis + dt/2*( N(u^n)*vis + N(u_euler) )
   !-- which yields simply
   !-- u^n+1=u_euler + dt/2*( -N(u^n)*vis + N(u_euler) )
-  do i=1,3
+  do i=1,nd
      uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
   enddo
 end subroutine RungeKutta2
@@ -108,14 +114,14 @@ subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: it
-  complex (kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex (kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent(inout):: &
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real (kind=pr),intent(inout) :: work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  integer :: i
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  integer :: i,j,l
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work)
@@ -123,12 +129,15 @@ subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
 
   ! Compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
-     call cal_vis (dt1,expvis)
+     call cal_vis(dt1,expvis)
   endif
 
   ! Multiply be integrating factor (always!)
-  do i=1,3
-     uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,1))*expvis
+  do j=1,nf
+     do i=1,3
+        l=i+3*(j-1)
+        uk(:,:,:,l)=(uk(:,:,:,l) + dt1*nlk(:,:,:,l,1))*expvis(:,:,:,j)
+     enddo
   enddo
 end subroutine Euler
 
@@ -142,14 +151,14 @@ subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: n0,it
-  complex (kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  complex (kind=pr),intent(inout):: &
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
+  complex (kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex (kind=pr),intent(inout)::&
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  integer :: i
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  integer :: i,j,l
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
@@ -157,13 +166,16 @@ subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
 
   ! Compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
-     call cal_vis (dt1,expvis)
+     call cal_vis(dt1,expvis)
   endif
 
   ! Multiply be integrating factor (always!)
-  do i=1,3
-     uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk (:,:,:,i,n0))*expvis
-     nlk (:,:,:,i,n0)=nlk (:,:,:,i,n0)*expvis
+  do j=1,nf
+     do i=1,3
+        l=i+3*(j-1)
+        uk(:,:,:,l)=(uk(:,:,:,l) + dt1*nlk (:,:,:,l,n0))*expvis(:,:,:,j)
+        nlk(:,:,:,l,n0)=nlk (:,:,:,l,n0)*expvis(:,:,:,j)
+     enddo
   enddo
 
   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
@@ -178,15 +190,15 @@ subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: n0,n1,it
-  complex (kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex (kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real (kind=pr) :: b10,b11
-  integer :: i
+  integer :: i,j,l
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
@@ -203,9 +215,14 @@ subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   endif
 
   ! Multiply be integrating factor (always!)
-  do i=1,3
-     uk(:,:,:,i)=(uk(:,:,:,i) +b10*nlk(:,:,:,i,n0) +b11*nlk(:,:,:,i,n1))*expvis
-     nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis
+  do j=1,nf
+     do i=1,3
+        l=i+3*(j-1)
+        uk(:,:,:,l)=(&
+             uk(:,:,:,l) +b10*nlk(:,:,:,l,n0) +b11*nlk(:,:,:,l,n1)&
+             )*expvis(:,:,:,j)
+        nlk(:,:,:,l,n0)=nlk(:,:,:,l,n0)*expvis(:,:,:,j)
+     enddo
   enddo
 end subroutine AdamsBashforth
 
@@ -291,10 +308,12 @@ subroutine set_mean_flow(uk,time)
   use vars
   implicit none
   
-  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real (kind=pr),intent (inout) :: time
 
   ! Force zero mode for mean flow
+  ! TODO: this might not always select the proper mode; it could be
+  ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
   if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
      uk(0,0,0,1)=Ux
      uk(0,0,0,2)=Uy

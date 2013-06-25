@@ -32,11 +32,13 @@ module vars
   integer,save :: iDrag,iKinDiss
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
   integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup,iSaveSolidVelocity
-  real (kind=pr),save :: tmax,cfl,nu,eps,pi,scalex,scaley,scalez,length
-  real (kind=pr),save :: xl,yl,zl,dx,dy,dz
-  real (kind=pr),save :: Ux,Uy,Uz,tstart,tsave
-  real (kind=pr),save :: dt_fixed
-  character (len=80),save :: iMask,iTimeMethodFluid,inicond
+  real(kind=pr),save :: tmax,cfl,eps,pi,scalex,scaley,scalez,length,nu
+  real(kind=pr),save :: xl,yl,zl,dx,dy,dz
+  real(kind=pr),save :: Ux,Uy,Uz,tstart,tsave
+  real(kind=pr),save :: dt_fixed
+  character(len=80),save :: iMask,iTimeMethodFluid,inicond
+
+  real (kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
 
   ! Vabiables timing statistics.  Global to simplify syntax.
   real (kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2

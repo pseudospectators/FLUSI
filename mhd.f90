@@ -41,6 +41,7 @@ program MHD3D
   if (mpirank == 0) write(*,'(A)') 'Starting MHD3D'
 
   ! Read input parameters
+  allocate(lin(nf)) ! Set up the linear term
   call get_command_argument(1,infile) ! infile from command line
   if (mpirank == 0) write(*,'(A)') 'Reading parameters from'//infile
   call get_params(infile)
@@ -75,6 +76,7 @@ program MHD3D
   ! Output information on where the algorithm spent the most time.
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
   
+  deallocate(lin)
   deallocate(workvis)
   deallocate(ubk)
   deallocate(nlk)

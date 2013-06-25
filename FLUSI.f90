@@ -36,6 +36,7 @@ program FLUSI
   endif
 
   ! Read input parameters
+  allocate(lin(nf)) ! Set up the linear term
   if (mpirank == 0) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
@@ -107,10 +108,11 @@ program FLUSI
   endif
 
   ! Deallocate memory
+  deallocate(lin)
   deallocate(workvis)
   deallocate(vort,work)
   deallocate(u,uk,nlk)
-
+  
   if(iPenalization == 1) then
      deallocate(mask)
      if(iMoving == 1) deallocate(us)
