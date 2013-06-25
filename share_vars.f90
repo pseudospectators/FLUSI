@@ -8,7 +8,8 @@ module vars
 
   ! Method variables set in the program file:
   character(len=3),save:: method ! mhd  or fsi
-  integer,save :: nf ! number of fields (3 for NS, 6 for MHD)
+  integer,save :: nf ! number of fields (1 for NS, 2 for MHD)
+  integer,save :: nd ! number of fields (3 for NS, 6 for MHD)
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize,mpirank,mpicommcart

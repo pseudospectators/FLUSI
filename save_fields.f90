@@ -32,11 +32,11 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   implicit none
 
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   character(len=17) :: name
   integer :: i
 
@@ -60,14 +60,15 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
      
      ! SaveVelocity
      if(iSaveVelocity == 1) then
-        call Save_Field_HDF5 ( time, './fields/ux_'//name,u(:,:,:,1),"ux")
-        call Save_Field_HDF5 ( time, './fields/uy_'//name,u(:,:,:,2),"uy")
-        call Save_Field_HDF5 ( time, './fields/uz_'//name,u(:,:,:,3),"uz")
+        call Save_Field_HDF5(time,'./fields/ux_'//name,u(:,:,:,1),"ux")
+        call Save_Field_HDF5(time,'./fields/uy_'//name,u(:,:,:,2),"uy")
+        call Save_Field_HDF5(time,'./fields/uz_'//name,u(:,:,:,3),"uz")
      endif
 
      if((iSaveVorticity.ne.0) .or. (iSavePress.ne.0)) then
         ! compute vorticity
-        call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+        call curl(&
+             nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
              uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
         do i=1,3
            call ifft(vort(:,:,:,i),nlk(:,:,:,i))

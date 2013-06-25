@@ -3,11 +3,11 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work)
   use vars
   implicit none
 
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(in) :: time
   integer, intent(in) :: it
 
@@ -34,11 +34,11 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   use fsi_vars
   implicit none
 
-  complex(kind=pr),intent(in):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(in):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0
   integer, intent(in) :: it
@@ -59,7 +59,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-- Calculate ux and uy in physical space
   !-----------------------------------------------
   t1=MPI_wtime()
-  do i=1,nf
+  do i=1,nd
      call ifft(u(:,:,:,i),uk(:,:,:,i))
   enddo
   time_u=time_u + MPI_wtime() - t1
@@ -145,8 +145,8 @@ subroutine Energy_Dissipation (u, vort )
   use mpi_header
   implicit none
 
-  real (kind=pr),intent (in) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real (kind=pr),intent (in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real (kind=pr),intent (in) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent (in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: E_kin_local, Dissip_local, Volume_local
   integer :: mpicode
 
@@ -279,9 +279,9 @@ subroutine omegacrossu_nopen(work,u,vort,nlk)
   implicit none
 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(out) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent(out) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   
   work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
   call fft(nlk(:,:,:,1),work)
@@ -303,9 +303,9 @@ subroutine omegacrossu_penalize(work,u,vort,TimeForDrag,nlk)
   implicit none
 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   logical,intent(in) :: TimeForDrag
   
   ! x component
@@ -336,7 +336,7 @@ subroutine Penalize(work,u,iDir,TimeForDrag)
   integer, intent(in) :: iDir
   logical, intent(in) :: TimeForDrag
   real (kind=pr), intent(out) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real (kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
   ! compute penalization term
   if (iMoving == 1) then
@@ -360,11 +360,11 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   use fsi_vars
   implicit none
 
-  complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
-  real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf)
+  real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
 !  real(kind=pr) :: t1,t0
   integer, intent(in) :: it
@@ -388,12 +388,12 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
 
   ! Transform vorcitity and current density to physical space, store
   ! in wj
-  do i=1,nf
+  do i=1,nd
      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
   enddo
 
   ! Compute u and B in physical space
-  do i=1,nf
+  do i=1,nd
      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
 
@@ -432,7 +432,7 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
 
   ! Transform to Fourier space.  wj is no longer used (and contains
   ! nothing useful).
-  do i=1,nf
+  do i=1,nd
      call fft(nlk(:,:,:,i),wj(:,:,:,i))
   enddo
 

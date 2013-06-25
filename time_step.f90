@@ -58,7 +58,7 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
 
      ! Output(after tsave)
      if(modulo(time - tstart,tsave) <= dt1) then
-        ! Note: we can safely delete nlk(:,:,:,1:nf,n0). for RK2 it
+        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.

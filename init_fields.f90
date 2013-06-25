@@ -35,11 +35,11 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
 
   integer,intent (inout) :: n1,it
   real (kind=pr),intent (inout) :: time,dt1,dt0
-  complex (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf),&
+  complex (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd),&
        intent(inout) :: uk
-  complex (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf,0:1),&
+  complex (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1),&
        intent(inout) :: work_nlk
-  real (kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf),&
+  real (kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd),&
        intent(inout) :: vort
   real (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
        intent(inout) :: workvis

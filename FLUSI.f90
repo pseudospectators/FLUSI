@@ -16,7 +16,8 @@ program FLUSI
 
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
-  nf=3 ! There are three velocity fields.
+  nf=1 ! We are evolving one field.
+  nd=3*nf ! The one field has three components.
   
   ! Initialize MPI, get size and rank
   call MPI_INIT(mpicode)
@@ -67,11 +68,11 @@ program FLUSI
   ! Allocate memory:
   allocate(workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
   ! velocity in Fourier space
-  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
-  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf,0:1))
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   ! velocity in physical space
-  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nf))   
+  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
   ! vorticity in physical space
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 

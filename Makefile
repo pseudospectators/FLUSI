@@ -25,7 +25,7 @@ FFLAGS += -Wsurprising # warn if things might not behave as expected
 PPFLAG= -cpp #preprocessor flag
 
 # debug flags:
-#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
+FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
 
 # Intel compiler
