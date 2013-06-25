@@ -31,7 +31,7 @@ module vars
   integer,save :: iDealias,itdrag
   integer,save :: iDrag,iKinDiss
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
-  integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup,iSaveSolidVelocity
+  integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup
   real(kind=pr),save :: tmax,cfl,eps,pi,scalex,scaley,scalez,length,nu
   real(kind=pr),save :: xl,yl,zl,dx,dy,dz
   real(kind=pr),save :: Ux,Uy,Uz,tstart,tsave
@@ -59,6 +59,8 @@ module fsi_vars
 
   real (kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
 
+  integer,save :: iSaveSolidVelocity
+
   ! The derived integral quantities for fluid-structure interactions.
   type Integrals
      real(kind=pr) :: time
@@ -69,6 +71,7 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
 
+
   type(Integrals),save :: GlobalIntegrals
 end module fsi_vars
 
@@ -78,9 +81,13 @@ module mhd_vars
   use vars
   implicit none
 
+  ! Physical parameters
   real(kind=pr),save :: eta ! magnetic diffusivity
   real(kind=pr),save :: b0, bc ! Boundary condition parameters
   real(kind=pr),save :: r1,r2 ! Parameters for boundary conditions
+
+  ! Determine whether we save various fields
+  integer,save :: iSaveMagneticField,iSaveCurrent
 
   ! The derived integral quantities for mhd.  
   type Integrals

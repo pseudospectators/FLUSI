@@ -38,7 +38,7 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
      dt0=dt1
 
      ! If the mask is time-dependend,we create it here
-     if(iMoving == 1) call Create_Mask(time)
+     if(iMoving == 1 .and. iPenalization == 1) call Create_Mask(time)
 
      ! Do a fluid time step
      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)

@@ -4,21 +4,20 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   implicit none
 
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
   select case(method(1:3))
      case("fsi") 
         call save_fields_new_fsi(time,uk,u,vort,nlk,work)
      case("mhd") 
-        !call save_fields_new_mhd(time,uk,u,vort,nlk,work)
-        ! FIXME
-  case default
-     if (mpirank == 0) write(*,*) "Error! Unkonwn method in get_params"
-     call abort
+        call save_fields_new_mhd(time,uk,u,vort,nlk,work)
+     case default
+        if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields_new"
+        stop
   end select
 end subroutine save_fields_new
 
@@ -325,9 +324,9 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   character(len=18) :: filename
   real(kind=pr),intent(inout) :: time,dt1,dt0
   integer,intent(inout) :: n1,nbackup,it
-  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), &
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd), &
        intent(in) :: uk
-  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1),&
        intent(in):: nlk
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
        intent(inout) :: work
@@ -507,9 +506,9 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   character(len=*),intent(in) :: filename
   real(kind=pr),intent(out) :: time,dt1,dt0
   integer,intent(out) :: n1,it
-  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
+  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd),&
        intent(out) :: uk
-  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
+  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1),&
        intent(out):: nlk
   real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))&
        ,intent(out) :: workvis
@@ -772,18 +771,87 @@ end subroutine write_attribute_int
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
 ! files.
-!!$subroutine save_fields_new_mhd(time,uk,u,vort,nlk,work)
-!!$  use mpi_header
-!!$  use mhd_vars
-!!$  implicit none
-!!$
-!!$  real(kind=pr),intent(in) :: time
-!!$  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-!!$  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-!!$  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!!$  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-!!$  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-!!$  character(len=17) :: name
-!!$  type(Integrals) :: dummy_integrals
-!!$
-!!$end subroutine save_fields_new_mhd
+subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
+  use mpi_header
+  use mhd_vars
+  implicit none
+
+  real(kind=pr),intent(in) :: time
+  complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  character(len=17) :: name
+  integer :: i
+
+  !--Set up file name base
+  write(name,'(i5.5)') floor(time*100.d0)
+  name=trim(adjustl(name))
+
+  if(mpirank == 0 ) write(*,*) "Saving output fields..."
+
+  ! We need the velocity for saving the velocity and/or vorticity
+  if(iSaveVelocity == 1 .or. iSaveVorticity == 1) then
+     do i=1,3
+        call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+     enddo
+  endif
+    
+  ! We need the magnetic fields velocity for saving the magnetic field
+  ! and/or current density
+  if(iSaveMagneticField == 1  .or. iSaveCurrent == 1) then
+     do i=4,6
+        call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+     enddo
+  endif
+    
+  ! Save the velocity
+  if(iSaveVelocity == 1) then
+     call Save_Field_HDF5(time,'./fields/ux_'//name,ub(:,:,:,1),"ux")
+     call Save_Field_HDF5(time,'./fields/uy_'//name,ub(:,:,:,2),"uy")
+     call Save_Field_HDF5(time,'./fields/uz_'//name,ub(:,:,:,3),"uz")
+  endif
+  
+  ! Save the vorticity
+  if(iSaveVorticity == 1) then
+     ! compute vorticity
+     call curl(&
+          nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+          ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3)) 
+     do i=1,3
+        call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+     enddo
+     call Save_Field_HDF5(time,'./fields/vorx_'//name,wj(:,:,:,1),"vorx")
+     call Save_Field_HDF5(time,'./fields/vory_'//name,wj(:,:,:,2),"vory")
+     call Save_Field_HDF5(time,'./fields/vorz_'//name,wj(:,:,:,3),"vorz")
+  endif
+  
+  ! Save the magnetic field
+  if(iSaveMagneticField == 1) then
+     call Save_Field_HDF5(time,'./fields/bx_'//name,ub(:,:,:,4),"bx")
+     call Save_Field_HDF5(time,'./fields/by_'//name,ub(:,:,:,5),"by")
+     call Save_Field_HDF5(time,'./fields/bz_'//name,ub(:,:,:,6),"bz")
+  endif
+
+  ! Save the current density
+  if(iSaveCurrent == 1) then
+     call curl(&
+          nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
+          ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6)) 
+     do i=4,6
+        call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+     enddo
+     call Save_Field_HDF5(time,'./fields/vorx_'//name,wj(:,:,:,4),"jx")
+     call Save_Field_HDF5(time,'./fields/vory_'//name,wj(:,:,:,5),"jy")
+     call Save_Field_HDF5(time,'./fields/vorz_'//name,wj(:,:,:,6),"jz")
+  endif
+  
+  ! Save Mask
+  ! FIXME: for stationary masks, this should be done only once
+  if((iSaveMask == 1).and.(iPenalization == 1)) then
+     call Save_Field_HDF5(time,'./fields/mask_'//name,mask,"mask")
+  endif
+
+  if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."
+end subroutine save_fields_new_mhd

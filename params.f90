@@ -122,7 +122,6 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
   call GetValue_Int(PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 1)  
   call GetValue_Int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
-  call GetValue_Int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
   call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
   call GetValue_int(PARAMS,i,"Saving","itdrag",itdrag, 99999)
   call GetValue_int(PARAMS,i,"Saving","iDrag",iDrag, 0)
@@ -153,6 +152,9 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Real(PARAMS,i,"FSIGeometry","x0",x0, 0.d0)
   call GetValue_Real(PARAMS,i,"FSIGeometry","y0",y0, 0.d0)
   call GetValue_Real(PARAMS,i,"FSIGeometry","z0",z0, 0.d0)
+  
+  ! Saving section
+  call GetValue_Int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
 
   lin(1)=nu
 
@@ -181,6 +183,11 @@ subroutine get_params_mhd(PARAMS,i)
   call GetValue_Real(PARAMS,i,"MHDGeometry","bc",bc,3.88888888888d0)
   call GetValue_Real(PARAMS,i,"MHDGeometry","r1",r1,1.d0)
   call GetValue_Real(PARAMS,i,"MHDGeometry","r2",r2,1.0681415d0)
+
+  ! Saving section
+  call GetValue_Int(PARAMS,i,"Saving","iSaveMagneticField",&
+       iSaveMagneticField, 0)
+  call GetValue_Int(PARAMS,i,"Saving","iSaveCurrent",iSaveCurrent, 0)
 
   lin(1)=nu
   lin(2)=eta
