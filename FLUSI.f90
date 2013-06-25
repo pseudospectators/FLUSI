@@ -8,7 +8,7 @@ program FLUSI
   character (len=80)     :: infile
 
   ! Arrays needed for simulation
-  real(kind=pr),dimension(:,:,:),allocatable :: workvis  
+  real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
@@ -67,7 +67,7 @@ program FLUSI
   call MPI_barrier (MPI_COMM_world, mpicode)
 
   ! Allocate memory:
-  allocate(workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   ! velocity in Fourier space
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
@@ -92,7 +92,7 @@ program FLUSI
   ! Step forward in time
   call MPI_barrier (MPI_COMM_world, mpicode)
   t1 = MPI_wtime()
-  call time_step(u,uk,nlk,vort,work,workvis) ! Actual time-stepping function
+  call time_step(u,uk,nlk,vort,work,explin) ! Actual time-stepping function
   t2 = MPI_wtime() - t1
   if (mpirank ==0) then
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize
@@ -109,7 +109,7 @@ program FLUSI
 
   ! Deallocate memory
   deallocate(lin)
-  deallocate(workvis)
+  deallocate(explin)
   deallocate(vort,work)
   deallocate(u,uk,nlk)
   
@@ -151,7 +151,7 @@ subroutine show_timings(t2)
   write(*,'("cal_nlk: ",es12.4," (",f5.1,"%)")') time_nlk, 100.0*time_nlk/time_fluid
   write(*,'("cal_vis: ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
   tmp = time_fluid - time_nlk - time_vis
-  write(*,'("workvis: ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
+  write(*,'("explin: ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "cal_nlk decomposes into:"
   write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk

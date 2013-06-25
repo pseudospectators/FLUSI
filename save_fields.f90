@@ -497,7 +497,7 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
 end subroutine Dump_Field_Backup
 
 ! load backup data from disk to initialize run for restart
-subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
+subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   use mpi_header
   use fsi_vars
   use hdf5
@@ -511,7 +511,7 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1),&
        intent(out):: nlk
   real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)&
-       ,intent(out) :: workvis
+       ,intent(out) :: explin
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
        intent(inout) :: work
 
@@ -562,10 +562,10 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   call H5Fclose_f (file_id,error)
   call H5close_f (error)
 
-  ! it is important to have workvis, because it won't be initialized
+  ! it is important to have explin, because it won't be initialized
   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
   ! are you sure about dt1??? TODO) 
-  call cal_vis(dt1,workvis)
+  call cal_vis(dt1,explin)
 
   if(mpirank == 0) then
      write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0

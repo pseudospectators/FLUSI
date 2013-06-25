@@ -9,7 +9,7 @@ program MHD3D
   ! Arrays needed for simulation  
 
   ! FIXME: document, and is this the right size?
-  real(kind=pr),dimension(:,:,:),allocatable :: workvis  
+  real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
 
   ! ub and ubk, and nlk are 4-dimensional arrays, with the last index
   ! indicating the field.  The first three fields are for the
@@ -65,19 +65,19 @@ program MHD3D
   allocate(ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   allocate(wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))     
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
-  allocate(workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))) ! unused?
 
   ! Step forward in time
   if (mpirank == 0)  write(*,'(A)') 'Info: Starting time iterations.'
   call MPI_barrier(MPI_COMM_world,mpicode)
-  call time_step(ub,ubk,nlk,wj,work,workvis) ! Actual time-stepping function
+  call time_step(ub,ubk,nlk,wj,work,explin) ! Actual time-stepping function
 
   ! Output information on where the algorithm spent the most time.
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
   
   deallocate(lin)
-  deallocate(workvis)
+  deallocate(explin)
   deallocate(ubk)
   deallocate(nlk)
   deallocate(ub)

@@ -1,4 +1,4 @@
-subroutine time_step(u,uk,nlk,vort,work,workvis)
+subroutine time_step(u,uk,nlk,vort,work,explin)
   use mpi_header
   use fsi_vars
   implicit none
@@ -13,10 +13,10 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
   complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex (kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
-  real (kind=pr),intent (inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent (inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent (inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
 
   if (mpirank == 0) write(*,'(A)') 'Info: Starting time iterations.'
 
@@ -27,7 +27,7 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
      
   ! Initialize vorticity or read values from a backup file
   ! FIXME: move to FLUSI.f90 or mhd.f90?
-  call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,workvis)
+  call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
   n0=1 - n1
   it_start=it 
   ! FIXME: when moving the above, it would be nice to move this as well. 
@@ -41,7 +41,7 @@ subroutine time_step(u,uk,nlk,vort,work,workvis)
      if(iMoving == 1 .and. iPenalization == 1) call Create_Mask(time)
 
      ! Do a fluid time step
-     call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workvis,it)
+     call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
 
      ! Switch time levels
      inter=n1 ; n1=n0 ; n0=inter
