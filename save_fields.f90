@@ -510,7 +510,7 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
        intent(out) :: uk
   complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1),&
        intent(out):: nlk
-  real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))&
+  real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)&
        ,intent(out) :: workvis
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
        intent(inout) :: work
@@ -539,24 +539,24 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   ! this closes the property list (we'll re-use it)
   call H5Pclose_f(plist_id, error)
 
-  call Read_Field_Backup ( work,"ux",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"ux",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,1),work)
-  call Read_Field_Backup ( work,"uy",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"uy",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,2),work)
-  call Read_Field_Backup ( work,"uz",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"uz",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,3),work)
 
-  call Read_Field_Backup ( work,"nlkx0",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,1,0),work)
-  call Read_Field_Backup ( work,"nlky0",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,2,0),work)
-  call Read_Field_Backup ( work,"nlkz0",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,3,0),work)
-  call Read_Field_Backup ( work,"nlkx1",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,1,1),work)
-  call Read_Field_Backup ( work,"nlky1",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,2,1),work)
-  call Read_Field_Backup ( work,"nlkz1",time,dt0,dt1,n1,it,file_id )
+  call Read_Field_Backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,3,1),work)
 
   call H5Fclose_f (file_id,error)
@@ -564,7 +564,7 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
 
   ! it is important to have workvis, because it won't be initialized
   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
-  ! are you sure about dt1???)
+  ! are you sure about dt1??? TODO) 
   call cal_vis(dt1,workvis)
 
   if(mpirank == 0) then

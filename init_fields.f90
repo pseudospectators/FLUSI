@@ -1,5 +1,5 @@
 ! Wrapper for init_fields
-subroutine init_fields(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+subroutine init_fields(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   use mpi_header
   use vars
   implicit none
@@ -10,16 +10,16 @@ subroutine init_fields(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
        uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex (kind=pr),intent(inout) :: &
        work_nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
-  real (kind=pr), intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real (kind=pr),intent(inout) :: workvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real (kind=pr), intent(inout) ::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
 
   if (mpirank == 0) write(*,*) "Initializating fields:"
  
-  select case(method(1:3))
+  select case(method)
   case("fsi") 
-     call init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+     call init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   case("mhd")
-     !call init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+     call init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in init_fields."
      call abort
@@ -28,7 +28,7 @@ end subroutine init_fields
 
 
 ! Set initial conditions for fsi code.
-subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   use mpi_header
   use fsi_vars
   implicit none
@@ -42,7 +42,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
   real (kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd),&
        intent(inout) :: vort
   real (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
-       intent(inout) :: workvis
+       intent(inout) :: explin
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z,r,a,gamma0,x00,r00,omega
 
@@ -51,7 +51,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
   dt1=0.0d0
   uk=dcmplx(0.0d0,0.0d0)
   work_nlk=dcmplx(0.0d0,0.0d0)
-  workvis=0.0
+  explin=0.0
   it=0
   vort=0.0d0
 
@@ -89,7 +89,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
            end do
         end do
      end do
-     call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
+     call Vorticity2Velocity(uk, work_nlk(:,:,:,:,0), vort)
 
   case("turbulence")
      !--------------------------------------------------
@@ -143,7 +143,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
         if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
              inicond(9:len(inicond))
         call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
-             work_nlk,workvis,vort(:,:,:,1))
+             work_nlk,explin,vort(:,:,:,1))
      else
         if (mpirank==0) write (*,*) inicond
         if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
@@ -224,30 +224,30 @@ end subroutine Vorticity2Velocity
 
 
 ! Initialize fields for mhd simulations
-subroutine init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
+subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
   use mpi_header
   use fsi_vars
   implicit none
 
   integer,intent (inout) :: n1,it
   real (kind=pr),intent (inout) :: time,dt1,dt0
-  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent (out) :: uk
-  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
-       intent (out) :: work_nlk
-  real (kind=pr),dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3),&
-       intent (inout) :: vort
-  real (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
-       intent(inout) :: workvis
+  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd),&
+       intent (out) :: ubk
+  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1),&
+       intent (out) :: nlk
+  real (kind=pr),dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd),&
+       intent (inout) :: wj
+  real (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf),&
+       intent(inout) :: explin
   
   ! Assign zero values
   time=0.0d0
   dt1=0.0d0
-  uk=dcmplx(0.0d0,0.0d0)
-  work_nlk=dcmplx(0.0d0,0.0d0)
-  workvis=0.0
+  ubk=dcmplx(0.0d0,0.0d0)
+  nlk=dcmplx(0.0d0,0.0d0)
+  explin=0.0
   it=0
-  vort=0.0d0
+  wj=0.0d0
 
   ! TODO: add more initial conditions
   select case(inicond)
@@ -255,7 +255,7 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
      ! Set the velocity and magnetic fields to zero.
      !--------------------------------------------------  
      if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
-     uk=dcmplx(0.0d0,0.0d0)
+     ubk=dcmplx(0.0d0,0.0d0)
 
   case default
      if(inicond(1:8) == "backup::") then
@@ -264,8 +264,8 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,workvis)
         !--------------------------------------------------  
         if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
              inicond(9:len(inicond))
-        call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
-             work_nlk,workvis,vort(:,:,:,1))
+        call Read_Runtime_Backup(inicond(9:len(inicond)),&
+             time,dt0,dt1,n1,it,ubk,nlk,explin,wj(:,:,:,1))
      else
         if (mpirank==0) write (*,*) inicond
         if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'

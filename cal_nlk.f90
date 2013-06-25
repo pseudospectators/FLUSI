@@ -121,7 +121,7 @@ end subroutine cal_nlk_fsi
 ! computes the integral over it, which is the hydrodynamic force in
 ! the direction iDirection. The force is stored in the GlobalIntegrals
 ! structure
-subroutine IntegralForce (work, iDirection ) 
+subroutine IntegralForce(work,iDirection) 
   use fsi_vars
   use mpi_header
   implicit none
@@ -159,12 +159,13 @@ subroutine Energy_Dissipation(u,vort)
      Volume_local=0.d0
   endif
 
+   ! sum at 0th process
   call MPI_REDUCE(E_kin_local,GlobalIntegrals%E_kin,1,mpireal,MPI_SUM,0,&
-       MPI_COMM_WORLD,mpicode)  ! sum at 0th process
+       MPI_COMM_WORLD,mpicode) 
   call MPI_REDUCE(Dissip_local,GlobalIntegrals%Dissip,1,mpireal,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)  ! sum at 0th process
+       0,MPI_COMM_WORLD,mpicode)
   call MPI_REDUCE(Volume_local,GlobalIntegrals%Volume,1,mpireal,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)  ! sum at 0th process
+       0,MPI_COMM_WORLD,mpicode)
 end subroutine Energy_Dissipation
 
 
@@ -172,9 +173,6 @@ end subroutine Energy_Dissipation
 ! terms (nlk: intent(in)) divided by k**2.
 ! so: p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
 ! note: we use rotational formulation: p is NOT the physical pressure
-
-! FIXME: I think there is the imaginary unit missing!! 
-
 subroutine compute_pressure(pk,nlk)
   use mpi_header
   use vars
@@ -184,6 +182,9 @@ subroutine compute_pressure(pk,nlk)
   real(kind=pr) :: kx,ky,kz,k2
   complex(kind=pr),intent(out):: pk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(in):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr) :: imag   ! imaginary unit
+
+  imag = dcmplx(0.d0,1.d0)
 
   do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
      ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
@@ -194,7 +195,8 @@ subroutine compute_pressure(pk,nlk)
            k2=kx*kx+ky*ky+kz*kz
            if(k2 .ne. 0.0) then
               ! contains the pressure in Fourier space
-              pk(iz,ix,iy)=(kx*nlk(iz,ix,iy,1)&
+              pk(iz,ix,iy)=imag*(&
+                   kx*nlk(iz,ix,iy,1)&
                    +ky*nlk(iz,ix,iy,2)&
                    +kz*nlk(iz,ix,iy,3)&
                    )/k2
@@ -446,6 +448,8 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   ! Make the source term for the magnetic field divergence-free via a
   ! Helmholtz decomposition.
   call div_field_nul(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
+
+  ! FIXME: add penalziation.
 end subroutine cal_nlk_mhd
 
 

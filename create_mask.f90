@@ -36,7 +36,7 @@ subroutine Create_Mask_fsi(time)
   implicit none
 
   real(kind=pr), intent(in) :: time
-  real(kind=pr) :: eps_inv, t1
+  real(kind=pr) :: t1
 
   t1 = MPI_wtime() 
 
