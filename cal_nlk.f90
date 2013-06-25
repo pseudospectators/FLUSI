@@ -106,7 +106,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   time_curl=time_curl + MPI_wtime() - t1
 
   t1=MPI_wtime()
-  call add_grad_pressure(nlk)
+  call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,3),nlk(:,:,:,3))
   time_p=time_p + MPI_wtime() - t1
 
   ! this is for the timing statistics.
@@ -140,7 +140,7 @@ end subroutine IntegralForce
 ! Compute the kinetic energy, dissipation rate and mask volume.  Store
 ! all these in the structure GlobalIntegrals (definition see
 ! fsi_vars).
-subroutine Energy_Dissipation (u, vort )
+subroutine Energy_Dissipation(u,vort)
   use fsi_vars
   use mpi_header
   implicit none
@@ -208,7 +208,7 @@ end subroutine compute_pressure
 ! Add the gradient of the pressure to the nonlinear term, which is the actual
 ! projection scheme used in this code. The non-linear term comes in with NL and
 ! penalization and leaves divergence free
-subroutine add_grad_pressure(nlk)
+subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   use mpi_header
   use vars
   implicit none
@@ -216,7 +216,9 @@ subroutine add_grad_pressure(nlk)
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
   complex(kind=pr) :: qk
-  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(inout):: nlk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout):: nlk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout):: nlk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
   do iy=ca(3),cb(3) ! ky : 0..ny/2-1 ,then, -ny/2..-1     
      ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
@@ -227,11 +229,11 @@ subroutine add_grad_pressure(nlk)
            k2=kx*kx+ky*ky+kz*kz
            if (k2 .ne. 0.0) then  
               ! qk is the Fourier coefficient of thr pressure
-              qk=(kx*nlk(iz,ix,iy,1)+ky*nlk(iz,ix,iy,2)+kz*nlk(iz,ix,iy,3))/k2
+              qk=(kx*nlk1(iz,ix,iy)+ky*nlk2(iz,ix,iy)+kz*nlk3(iz,ix,iy))/k2
               ! add the gradient to the non-linear terms
-              nlk(iz,ix,iy,1)=nlk(iz,ix,iy,1) - kx*qk  
-              nlk(iz,ix,iy,2)=nlk(iz,ix,iy,2) - ky*qk
-              nlk(iz,ix,iy,3)=nlk(iz,ix,iy,3) - kz*qk
+              nlk1(iz,ix,iy)=nlk1(iz,ix,iy) - kx*qk  
+              nlk2(iz,ix,iy)=nlk2(iz,ix,iy) - ky*qk
+              nlk3(iz,ix,iy)=nlk3(iz,ix,iy) - kz*qk
            endif
         enddo
      enddo
@@ -373,8 +375,6 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   integer :: ix, iy, iz
   real(kind=pr) :: w1,w2,w3,j1,j2,j3
   real(kind=pr) :: u1,u2,u3,b1,b2,b3
-  real(kind=pr) :: kx,ky,kz,k2
-  complex(kind=pr) :: qk
 
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.
@@ -438,25 +438,7 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
 
   ! Add the gradient of the pseudo-pressure to the source term of the
   ! fluid.
-  ! FIXME: use subroutine
-  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-     do ix=ca(2),cb(2)  ! kx : 0..nx/2
-        kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           
-           k2=kx*kx +ky*ky +kz*kz
-           
-           if (k2 .ne. 0.d0) then
-              qk=(kx*nlk(iz,ix,iy,1) +ky*nlk(iz,ix,iy,2) +kz*nlk(iz,ix,iy,2))/k2
-              nlk(iz,ix,iy,1)=nlk(iz,ix,iy,1) - kx*qk
-              nlk(iz,ix,iy,2)=nlk(iz,ix,iy,2) - ky*qk
-              nlk(iz,ix,iy,3)=nlk(iz,ix,iy,3) - kz*qk
-           endif
-        enddo
-     enddo
-  enddo
+  call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,3),nlk(:,:,:,3))
 
   ! Add the curl to the magnetic source term:
   call curl_inplace(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))

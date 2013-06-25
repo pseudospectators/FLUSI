@@ -1,17 +1,44 @@
-subroutine Create_Mask (time)
-  !--------------------------------------------------
-  ! wrapper for different (possibly time-dependend) mask functions 
-  !--------------------------------------------------
-  use mpi_header ! Module incapsulates mpif.
+! FSI wrapper for different (possibly time-dependend) mask functions 
+subroutine Create_Mask(time)
+  use mpi_header
+  use vars
+  implicit none
+
+  real(kind=pr), intent(in) :: time
+  real(kind=pr) :: eps_inv
+
+  ! Attention: mask is reset here (and not in subroutines)
+  mask = 0.d0
+
+  ! Actual mask functions:
+  select case(method)
+  case("fsi")
+     call Create_Mask_fsi(time)
+  case("mhd")
+     call Create_Mask_mhd(time)
+  case default    
+     if(mpirank == 0) then
+        write (*,*) "Error: unkown method in Create_Mask.!"
+        stop
+     endif
+  end select
+
+  ! Attention: division by eps is done here, not in subroutines.
+  eps_inv=1.d0/eps
+  mask=mask*eps_inv
+end subroutine Create_Mask
+
+
+! FSI wrapper for different (possibly time-dependend) mask functions 
+subroutine Create_Mask_fsi(time)
+  use mpi_header
   use fsi_vars
   implicit none
+
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: eps_inv, t1
 
   t1 = MPI_wtime() 
-
-  ! Attention: mask is reset here (and not in subroutines)
-  mask = 0.d0
 
   ! Actual mask functions:
   select case (iMask)
@@ -28,14 +55,28 @@ subroutine Create_Mask (time)
      endif
   end select
 
-  ! Attention: division by eps is done here, not in subroutines.
-  eps_inv = 1.d0 / eps
-  mask = mask * eps_inv
-
   ! -- for global timing.
   time_mask = time_mask + MPI_wtime() - t1
+end subroutine Create_Mask_fsi
 
-end subroutine Create_Mask
+
+! MHD wrapper for different (possibly time-dependend) mask functions 
+subroutine Create_Mask_mhd(time)
+  use mpi_header
+  use mhd_vars
+  implicit none
+
+  real(kind=pr), intent(in) :: time
+
+  ! Actual mask functions:
+  select case (iMask)
+  case default    
+     if (mpirank == 0) then
+        write (*,*) "iMask not properly set. Suicide!"
+        stop
+     endif
+  end select
+end subroutine Create_Mask_mhd
 
 
 ! Draws Jerry, the first insect with rigid wings.  Jerry is symmetric
@@ -382,6 +423,7 @@ subroutine Flapper (time)
   enddo
 end subroutine Flapper
 
+
 ! Spherical obstacle
 subroutine Draw_Sphere 
   use mpi_header
@@ -390,7 +432,6 @@ subroutine Draw_Sphere
 
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z,  tmp, R, N_smooth
-
 
   N_smooth = 2.d0
 
