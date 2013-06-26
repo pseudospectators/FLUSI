@@ -842,9 +842,9 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
      do i=4,6
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
-     call Save_Field_HDF5(time,'./fields/vorx_'//name,wj(:,:,:,4),"jx")
-     call Save_Field_HDF5(time,'./fields/vory_'//name,wj(:,:,:,5),"jy")
-     call Save_Field_HDF5(time,'./fields/vorz_'//name,wj(:,:,:,6),"jz")
+     call Save_Field_HDF5(time,'./fields/jx_'//name,wj(:,:,:,4),"jx")
+     call Save_Field_HDF5(time,'./fields/jy_'//name,wj(:,:,:,5),"jy")
+     call Save_Field_HDF5(time,'./fields/jz_'//name,wj(:,:,:,6),"jz")
   endif
   
   ! Save Mask
