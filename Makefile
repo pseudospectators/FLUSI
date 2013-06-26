@@ -55,11 +55,10 @@ P3DFFT_INC = $(P3DFFT_ROOT)/include
 HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
 
-LDFLAGS = -L$(P3DFFT_LIB)  -lp3dfft -lfftw3 -lm  -L$(FFT_LIB) 
+LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 -lm  
 LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
 
 FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
-
 
 # Both programs are compiled by default.
 all: $(PROGRAMS)
@@ -73,15 +72,15 @@ mhd: mhd.f90 $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
 # Compile modules (module dependency must be specified by hand in
 # Fortran).
 mpi_header.o: $(MPI_HEADER)
-	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 share_vars.o: share_vars.f90 mpi_header.o
-	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 cof_p3dfft.o: cof_p3dfft.f90 share_vars.o mpi_header.o
-	$(FC) $(FFLAGS) -o $@ -c $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
 %.o: %.f90 mpi_header.o share_vars.o cof_p3dfft.o
-	$(FC) $(FFLAGS) -o $@ -c $<  $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $<  $(LDFLAGS)
 
 clean:
 	rm -f $(PROGRAMS) *.o *.mod
