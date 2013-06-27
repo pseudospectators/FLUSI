@@ -147,10 +147,10 @@ subroutine Energy_Dissipation(u,vort)
 
   real (kind=pr),intent (in) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent (in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr) :: E_kin_local, Dissip_local, Volume_local
+  real (kind=pr) :: Ekin_local, Dissip_local, Volume_local
   integer :: mpicode
 
-  E_kin_local =0.5d0*dx*dy*dz*sum( u*u )
+  Ekin_local =0.5d0*dx*dy*dz*sum( u*u )
   Dissip_local=-nu*dx*dy*dz*sum( vort*vort )
 
   if (iPenalization==1) then
@@ -160,7 +160,7 @@ subroutine Energy_Dissipation(u,vort)
   endif
 
    ! sum at 0th process
-  call MPI_REDUCE(E_kin_local,GlobalIntegrals%E_kin,1,mpireal,MPI_SUM,0,&
+  call MPI_REDUCE(Ekin_local,GlobalIntegrals%Ekin,1,mpireal,MPI_SUM,0,&
        MPI_COMM_WORLD,mpicode) 
   call MPI_REDUCE(Dissip_local,GlobalIntegrals%Dissip,1,mpireal,MPI_SUM,&
        0,MPI_COMM_WORLD,mpicode)
@@ -270,7 +270,7 @@ subroutine compute_divergence()
 !!$
 !!$  if (mpirank ==0) then
 !!$     write (*,'("max{div(u)}=",es15.8,"max{div(u)}/||u||=",es15.8)') &
-!!$          GlobalIntegrals%Divergence, GlobalIntegrals%Divergence/(2.d0*GlobalIntegrals%E_kin)
+!!$          GlobalIntegrals%Divergence, GlobalIntegrals%Divergence/(2.d0*GlobalIntegrals%Ekin)
 !!$  endif
 end subroutine compute_divergence
 
@@ -394,7 +394,7 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
   enddo
 
-  ! Compute u and B in physical space
+  ! Compute u and B to physical space
   do i=1,nd
      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo

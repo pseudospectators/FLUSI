@@ -85,7 +85,8 @@ subroutine get_params_common(PARAMS,i)
        iTimeMethodFluid)  
   call GetValue_Real(PARAMS,i,"Time","Tmax",Tmax, 1.d9)
   call GetValue_Real(PARAMS,i,"Time","CFL",cfl, 0.1d0)
-  call GetValue_Real(PARAMS,i,"Time","dt_fixed",dt_fixed, 0.d0)
+  call GetValue_Real(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
+
 
   ! Reynolds number section:
   call GetValue_Real(PARAMS,i,"ReynoldsNumber","nu",nu, 1.d-2)  
@@ -122,11 +123,12 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
   call GetValue_Int(PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 1)  
   call GetValue_Int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
-  call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
   call GetValue_int(PARAMS,i,"Saving","itdrag",itdrag, 99999)
   call GetValue_int(PARAMS,i,"Saving","iDrag",iDrag, 0)
   call GetValue_int(PARAMS,i,"Saving","iKinDiss",iKinDiss, 0)
-
+  call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
+  call GetValue_Real(PARAMS,i,"Saving","tingetral",tintegral,0.01d0)
+  
   ! Set other parameters (all procs)
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl

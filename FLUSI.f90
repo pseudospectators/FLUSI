@@ -101,7 +101,7 @@ program FLUSI
   if(mpirank==0) then
      write(*,*) "control values for debugging:"
      write(*,'("Ekin=",es15.8," Dissip=",es15.8," F1=",es15.8," F2=",es15.8," F3=",es15.8," Vol=",es15.8)')&
-          GlobalIntegrals%E_kin,&
+          GlobalIntegrals%Ekin,&
           GlobalIntegrals%Dissip, GlobalIntegrals%Force(1),&
           GlobalIntegrals%Force(2),GlobalIntegrals%Force(3),&
           GlobalIntegrals%Volume

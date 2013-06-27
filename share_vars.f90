@@ -33,8 +33,10 @@ module vars
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
   integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup
   real(kind=pr),save :: tmax,cfl,eps,pi,scalex,scaley,scalez,length,nu
+  real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: xl,yl,zl,dx,dy,dz
-  real(kind=pr),save :: Ux,Uy,Uz,tstart,tsave
+  real(kind=pr),save :: tsave ! Time between outpout of whole fields.
+  real(kind=pr),save :: Ux,Uy,Uz,tstart
   real(kind=pr),save :: dt_fixed
   character(len=80),save :: iMask,iTimeMethodFluid,inicond
 
@@ -64,7 +66,7 @@ module fsi_vars
   ! The derived integral quantities for fluid-structure interactions.
   type Integrals
      real(kind=pr) :: time
-     real(kind=pr) :: E_Kin
+     real(kind=pr) :: EKin
      real(kind=pr) :: Dissip
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume
@@ -90,16 +92,16 @@ module mhd_vars
   integer,save :: iSaveMagneticField,iSaveCurrent
 
   ! The derived integral quantities for mhd.  
-  type Integrals
+  type MHDIntegrals
      real(kind=pr) :: time
-     real(kind=pr) :: E_Kin
-     real(kind=pr) :: B_Kin
+     real(kind=pr) :: EKin
+     real(kind=pr) :: BKin
      real(kind=pr) :: Dissip
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume
-  end type Integrals
+  end type MHDIntegrals
 
-  type(Integrals),save :: GlobalIntegrals
+  type(MHDIntegrals),save :: integrals
 end module mhd_vars
 
 

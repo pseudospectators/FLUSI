@@ -52,11 +52,11 @@ program MHD3D
   !  Set up output directory
   call system('mkdir -p fields') ! NB: this does not work on turing.
   
-  ! FIXME: modify file names, etc, for mhd
-  ! Overwrite drag_data file? only if we're not resuming a backup!
-  if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
-    open  (14, file = 'drag_data', status = 'replace')
-    close (14)
+  ! Overwrite integral output file? only if we're not resuming a
+  ! backup!
+  if(mpirank == 0 .and. inicond(1:8).ne."backup::") then 
+     open(14,file='evt',status='replace')
+     close(14)
   endif
 
   ! Allocate memory:

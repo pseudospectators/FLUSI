@@ -10,7 +10,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   integer :: it_start
   real(kind=pr) :: time,dt0,dt1,t1,t2
   
-  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
   real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -28,6 +28,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   ! Initialize vorticity or read values from a backup file
   ! FIXME: move to FLUSI.f90 or mhd.f90?
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
+  
+  ! After init, output integral quantities.
+  call write_integrals(time,uk,u,vort,work)
+
   n0=1 - n1
   it_start=it 
   ! FIXME: when moving the above, it would be nice to move this as well. 
@@ -50,12 +54,14 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
      time=time + dt1
      it=it + 1
 
-     ! Output of integrals after itdrag
-     if(mpirank == 0 .and. modulo(it,itdrag) == 0) call write_integrals(time)
-     
+     ! Output of integrals after every tintegral time units
+     if(modulo(time - tstart,tintegral) <= dt1) then
+        call write_integrals(time,uk,u,vort,work)
+     endif
+
      ! Output how much time remains
      if(mpirank == 0) call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-
+        
      ! Output(after tsave)
      if(modulo(time - tstart,tsave) <= dt1) then
         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
@@ -99,49 +105,3 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
           floor(mod(mod(time_left,3600.d0),60.d0)),dt1
   endif
 end subroutine are_we_there_yet
-
-
-! Wrapper for writing integral quantities to file
-subroutine write_integrals(time)
-  use vars
-  implicit none
-
-  real(kind=pr), intent(in) :: time
-
-  select case(method(1:3))
-  case("fsi") 
-     call write_integrals_fsi(time)
-  case("mhd") 
-     call write_integrals_mhd(time)
-  case default
-     if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
-     call abort
-  end select
-end subroutine write_integrals
-
-
-! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time)
-  use fsi_vars
-  implicit none
-
-  real(kind=pr), intent(in) :: time
-  
-  open(14,file='drag_data',status='unknown',position='append')
-  write(14,'(7(es12.4,1x))')  time,GlobalIntegrals%E_kin,&
-       GlobalIntegrals%Dissip, GlobalIntegrals%Force(1),&
-       GlobalIntegrals%Force(2),GlobalIntegrals%Force(3),&
-       GlobalIntegrals%Volume
-  close(14)
-end subroutine write_integrals_fsi
-
-
-! mhd version of writing integral quantities to disk
-subroutine write_integrals_mhd(time)
-  use mhd_vars
-  implicit none
-
-  real(kind=pr), intent(in) :: time
- 
-  !FIXME: do things here?
-end subroutine write_integrals_mhd

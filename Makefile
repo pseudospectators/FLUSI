@@ -4,7 +4,7 @@
 # Non-module Fortran files to be compiled:
 FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
 	create_mask.f90 params.f90 save_fields.f90 time_step.f90 \
-	init_fields_mhd.f90 init_fields_fsi.f90
+	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90
 OBJS := $(FFILES:%.f90=%.o)
 
 # Set the default compiler if it's not already set, make sure it's not F77.

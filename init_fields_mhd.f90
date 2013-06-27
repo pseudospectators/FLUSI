@@ -6,13 +6,11 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
 
   integer,intent (inout) :: n1,it
   real (kind=pr),intent (inout) :: time,dt1,dt0
-  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd),&
-       intent (out) :: ubk
-  complex (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1),&
-       intent (out) :: nlk
+  complex (kind=pr),intent (out):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex (kind=pr),intent (out)::&
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real(kind=pr),intent (inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),dimension (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf),&
-       intent(inout) :: explin
+  real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   
   ! Assign zero values
   time=0.0d0
@@ -26,32 +24,32 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
   ! TODO: add more initial conditions
   select case(inicond)
   case("quiescent")
-     ! Set the velocity and magnetic fields to zero.
-     !--------------------------------------------------  
-     if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
      ubk=dcmplx(0.0d0,0.0d0)
-
+  case("constant")
+     call init_const(ubk,wj)
   case("orszagtang")
      call init_orszagtang(ubk,wj)
   case default
      if(inicond(1:8) == "backup::") then
-        !--------------------------------------------------
-        ! read from backup
-        !--------------------------------------------------  
-        if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
-             inicond(9:len(inicond))
         call Read_Runtime_Backup(inicond(9:len(inicond)),&
              time,dt0,dt1,n1,it,ubk,nlk,explin,wj(:,:,:,1))
      else
-        if (mpirank==0) write (*,*) inicond
-        if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
+        if (mpirank==0) then
+           write (*,*) inicond
+           write (*,*) '??? ERROR: Invalid initial condition'
+        endif
         call abort
      endif
   end select
 
+  ! Ensure that initial conditions are divergence-free by performing a
+  ! Helmholtz decomposition:
+  call div_field_nul(ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
+  call div_field_nul(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
 end subroutine init_fields_mhd
 
-! The Orszag-Tang initial conditions for MHD.
+
+! The Orszag-Tang initial conditions for mhd.
 subroutine init_orszagtang(ubk,wj)
   use mpi_header
   use mhd_vars
@@ -84,6 +82,23 @@ subroutine init_orszagtang(ubk,wj)
   do i=1,nd
      call fft(ubk(:,:,:,i),wj(:,:,:,i))
   enddo
-     
 end subroutine init_orszagtang
+
+
+! Constant initial conditions for MHD
+subroutine init_const(ubk,wj)
+  use mpi_header
+  use mhd_vars
+  implicit none
+
+  complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent (inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  integer :: i
+
+  wj=1.d0
+  
+  do i=1,nd
+     call fft(ubk(:,:,:,i),wj(:,:,:,i))
+  enddo
+end subroutine init_const
 
