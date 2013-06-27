@@ -358,7 +358,8 @@ end subroutine Penalize
 
 ! Compute the nonlinear source term of the mhd equations,
 ! including penality term, in Fourier space. 
-! FIXME: add documentation: which arguments are used for what?
+! FIXME: add documentation: which arguments are used for what?  What
+! values can be safely used after (like wj? ub?)
 subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   use mpi_header
   use fsi_vars
@@ -372,11 +373,14 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   real(kind=pr),intent (in) :: time
 !  real(kind=pr) :: t1,t0
   integer, intent(in) :: it
-  logical :: TimeForDrag ! FIXME: move to time_step routine?
-  integer :: i
-  integer :: ix, iy, iz
+  integer :: i,ix,iy,iz
   real(kind=pr) :: w1,w2,w3,j1,j2,j3
   real(kind=pr) :: u1,u2,u3,b1,b2,b3
+
+  ! Compute u and B to physical space
+  do i=1,nd
+     call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+  enddo
 
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.
@@ -392,11 +396,6 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
   ! in wj
   do i=1,nd
      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
-  enddo
-
-  ! Compute u and B to physical space
-  do i=1,nd
-     call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
 
   ! Put the x-space version of the nonlinear source term in wj.
@@ -440,14 +439,14 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
 
   ! Add the gradient of the pseudo-pressure to the source term of the
   ! fluid.
-  call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,3),nlk(:,:,:,3))
+  call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
 
   ! Add the curl to the magnetic source term:
-  call curl_inplace(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
+  call curl_inplace(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
 
   ! Make the source term for the magnetic field divergence-free via a
   ! Helmholtz decomposition.
-  call div_field_nul(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
+  call div_field_nul(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
 
   ! FIXME: add penalziation.
 end subroutine cal_nlk_mhd
