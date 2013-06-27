@@ -35,13 +35,14 @@ program MHD3D
   method="mhd" ! We are doing fluid-structure intergrep actions
   nf=2 ! We are evolving two fields: u and B.
   nd=3*nf ! Each field has three dimensions, for six total.
+  allocate(lin(nf)) ! Set up the linear term
 
   ! FIXME/TODO: initialize time integrals to zero
 
   if (mpirank == 0) write(*,'(A)') 'Starting MHD3D'
 
   ! Read input parameters
-  allocate(lin(nf)) ! Set up the linear term
+
   call get_command_argument(1,infile) ! infile from command line
   if (mpirank == 0) write(*,'(A)') 'Reading parameters from'//infile
   call get_params(infile)

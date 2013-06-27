@@ -64,7 +64,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,work)
   
   ! NB: integral quantities are defined in mhd_vars
   local%Ekin=0.d0
-  local%Bkin=0.d0
+  local%Emag=0.d0
   
   ! Compute u and B to physical space
   do i=1,nd
@@ -80,7 +80,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,work)
                 + ub(iz,ix,iy,1)*ub(iz,ix,iy,1)&
                 + ub(iz,ix,iy,2)*ub(iz,ix,iy,2)&
                 + ub(iz,ix,iy,3)*ub(iz,ix,iy,3)
-           local%Bkin=local%Bkin &
+           local%Emag=local%Emag &
                 + ub(iz,ix,iy,4)*ub(iz,ix,iy,4)&
                 + ub(iz,ix,iy,5)*ub(iz,ix,iy,5)&
                 + ub(iz,ix,iy,6)*ub(iz,ix,iy,6)
@@ -88,18 +88,18 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,work)
      enddo
   enddo
   local%Ekin=local%Ekin*dx*dy*dz
-  local%Bkin=local%Bkin*dx*dy*dz
+  local%Emag=local%Emag*dx*dy*dz
   
   call MPI_REDUCE(local%Ekin,integrals%Ekin,&
        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
        MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(local%Bkin,integrals%Bkin,&
+  call MPI_REDUCE(local%Emag,integrals%Emag,&
        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
        MPI_COMM_WORLD,mpicode)
   
   if(mpirank == 0) then
      open(14,file='evt',status='unknown',position='append')
-     write(14,97) time,integrals%Ekin,integrals%Bkin
+     write(14,97) time,integrals%Ekin,integrals%Emag
      close(14)
 97   format(1X,9(E14.7,' ')) ! Why must Fortran require this nonsense?
   endif

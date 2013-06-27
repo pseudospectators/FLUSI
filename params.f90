@@ -123,11 +123,8 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
   call GetValue_Int(PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 1)  
   call GetValue_Int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
-  call GetValue_int(PARAMS,i,"Saving","itdrag",itdrag, 99999)
-  call GetValue_int(PARAMS,i,"Saving","iDrag",iDrag, 0)
-  call GetValue_int(PARAMS,i,"Saving","iKinDiss",iKinDiss, 0)
   call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
-  call GetValue_Real(PARAMS,i,"Saving","tingetral",tintegral,0.01d0)
+  call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
   
   ! Set other parameters (all procs)
   pi=4.d0 *datan(1.d0)
@@ -149,6 +146,9 @@ subroutine get_params_fsi(PARAMS,i)
 
   integer,intent(in) :: i
   character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
+  call GetValue_int(PARAMS,i,"Saving","iDrag",iDrag, 0)
+  call GetValue_int(PARAMS,i,"Saving","itdrag",itdrag, 99999)
+  call GetValue_int(PARAMS,i,"Saving","iKinDiss",iKinDiss, 0)
 
   ! Geometry section
   call GetValue_Real(PARAMS,i,"Geometry","x0",x0, 0.d0)

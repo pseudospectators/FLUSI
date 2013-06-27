@@ -15,7 +15,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work)
   case("fsi") 
      call cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   case("mhd") 
-     call cal_nlk_mhd(time,it,nlk,uk,u,vort,work)
+     call cal_nlk_mhd(nlk,uk,u,vort)
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
      call abort
@@ -360,19 +360,17 @@ end subroutine Penalize
 ! including penality term, in Fourier space. 
 ! FIXME: add documentation: which arguments are used for what?  What
 ! values can be safely used after (like wj? ub?)
-subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
+subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   use mpi_header
   use fsi_vars
   implicit none
 
   complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent (in) :: time
-!  real(kind=pr) :: t1,t0
-  integer, intent(in) :: it
+!  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  !  real(kind=pr) :: t1,t0
   integer :: i,ix,iy,iz
   real(kind=pr) :: w1,w2,w3,j1,j2,j3
   real(kind=pr) :: u1,u2,u3,b1,b2,b3
@@ -437,12 +435,12 @@ subroutine cal_nlk_mhd(time,it,nlk,ubk,ub,wj,work)
      call fft(nlk(:,:,:,i),wj(:,:,:,i))
   enddo
 
+  ! Add the curl to the magnetic source term:
+  call curl_inplace(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
+
   ! Add the gradient of the pseudo-pressure to the source term of the
   ! fluid.
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-
-  ! Add the curl to the magnetic source term:
-  call curl_inplace(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
 
   ! Make the source term for the magnetic field divergence-free via a
   ! Helmholtz decomposition.
@@ -492,15 +490,15 @@ end subroutine curl
 
 ! Given three components of a fields in Fourier space, compute the
 ! curl in physical space.  Arrays are 3-dimensional.
-subroutine curl_inplace(f1,f2,f3)
+subroutine curl_inplace(fx,fy,fz)
   use mpi_header
   use vars
   implicit none
 
   ! Field in Fourier space
-  complex(kind=pr),intent(inout)::f1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::f2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::f3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
   complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
 
@@ -517,13 +515,13 @@ subroutine curl_inplace(f1,f2,f3)
         kx=scalex*dble(ix)
         do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
            kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           t1=f1(iz,ix,iy)
-           t2=f2(iz,ix,iy)
-           t3=f3(iz,ix,iy)
+           t1=fx(iz,ix,iy)
+           t2=fy(iz,ix,iy)
+           t3=fz(iz,ix,iy)
 
-           f1(iz,ix,iy)=imag*(ky*t3-kz*t2)
-           f2(iz,ix,iy)=imag*(kz*t1-kx*t3)
-           f3(iz,ix,iy)=imag*(kx*t2-ky*t1)
+           fx(iz,ix,iy)=imag*(ky*t3-kz*t2)
+           fy(iz,ix,iy)=imag*(kz*t1-kx*t3)
+           fz(iz,ix,iy)=imag*(kx*t2-ky*t1)
         enddo
      enddo
   enddo
@@ -532,14 +530,14 @@ end subroutine curl_inplace
 
 ! Render the input field divergence-free via a Helmholtz
 ! decomposition. The zero-mode is left untouched.
-subroutine div_field_nul(f1,f2,f3)
+subroutine div_field_nul(fx,fy,fz)
   use mpi_header
   use vars
   implicit none
 
-  complex(kind=pr), intent(inout) :: f1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr), intent(inout) :: f2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr), intent(inout) :: f3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr), intent(inout) :: fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr), intent(inout) :: fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr), intent(inout) :: fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   integer :: ix, iy, iz
   real(kind=pr) :: kx, ky, kz, k2
   complex(kind=pr) :: val
@@ -558,12 +556,12 @@ subroutine div_field_nul(f1,f2,f3)
 
            if(k2 /= 0.d0) then
               ! val=(k \cdot{} f) / k^2
-              val=(kx*f1(iz,ix,iy)+ky*f2(iz,ix,iy)+kz*f3(iz,ix,iy))/k2
+              val=(kx*fx(iz,ix,iy)+ky*fy(iz,ix,iy)+kz*fz(iz,ix,iy))/k2
 
               ! f <- f - k \cdot{} val
-              f1(iz,ix,iy)=f1(iz,ix,iy) -kx*val
-              f2(iz,ix,iy)=f1(iz,ix,iy) -ky*val
-              f3(iz,ix,iy)=f3(iz,ix,iy) -kz*val
+              fx(iz,ix,iy)=fx(iz,ix,iy) -kx*val
+              fy(iz,ix,iy)=fx(iz,ix,iy) -ky*val
+              fz(iz,ix,iy)=fz(iz,ix,iy) -kz*val
            endif
         enddo
      enddo

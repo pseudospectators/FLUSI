@@ -95,7 +95,7 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   ! this is done every 300 time steps, but it may happen that this is too seldom
   ! or too oftern. in future versions, maybe we try doing it once in an hour or
   ! so.
-  if(modulo(it,300) == 0) then     
+  if(modulo(it,300) == 0) then
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
      write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &

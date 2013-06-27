@@ -29,7 +29,7 @@ module vars
 
   ! Variables set via the parameters file
   integer,save :: iDealias,itdrag
-  integer,save :: iDrag,iKinDiss
+  integer,save :: iKinDiss
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
   integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup
   real(kind=pr),save :: tmax,cfl,eps,pi,scalex,scaley,scalez,length,nu
@@ -61,6 +61,7 @@ module fsi_vars
 
   real (kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
 
+  integer,save :: iDrag
   integer,save :: iSaveSolidVelocity
 
   ! The derived integral quantities for fluid-structure interactions.
@@ -72,7 +73,6 @@ module fsi_vars
      real(kind=pr) :: Volume
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
-
 
   type(Integrals),save :: GlobalIntegrals
 end module fsi_vars
@@ -94,8 +94,8 @@ module mhd_vars
   ! The derived integral quantities for mhd.  
   type MHDIntegrals
      real(kind=pr) :: time
-     real(kind=pr) :: EKin
-     real(kind=pr) :: BKin
+     real(kind=pr) :: Ekin
+     real(kind=pr) :: Emag
      real(kind=pr) :: Dissip
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume
