@@ -50,7 +50,7 @@ program MHD3D
   call fft_initialize
 
   !  Set up output directory
-  call system('mkdir -p fields')
+  call system('mkdir -p fields') ! NB: this does not work on turing.
   
   ! FIXME: modify file names, etc, for mhd
   ! Overwrite drag_data file? only if we're not resuming a backup!

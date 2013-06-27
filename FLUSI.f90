@@ -46,7 +46,7 @@ program FLUSI
   call fft_initialize 
 
   !  Set up output directory
-  call system('mkdir -p fields')
+  call system('mkdir -p fields') ! NB: this does not work on turing.
   
   ! Overwrite drag_data file? only if we're not resuming a backup!
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
