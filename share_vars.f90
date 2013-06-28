@@ -90,20 +90,6 @@ module mhd_vars
 
   ! Determine whether we save various fields
   integer,save :: iSaveMagneticField,iSaveCurrent
-
-  ! The derived integral quantities for mhd.  
-  type MHDIntegrals
-     real(kind=pr) :: time
-     real(kind=pr) :: Ekin
-     real(kind=pr) :: Emag
-     real(kind=pr) :: jmax ! max amplitude of current
-     real(kind=pr) :: jx,jy,jz ! mean current in each direction
-     real(kind=pr) :: Dissip
-     real(kind=pr) :: Divergence
-     real(kind=pr) :: Volume
-  end type MHDIntegrals
-
-  type(MHDIntegrals),save :: integrals
 end module mhd_vars
 
 

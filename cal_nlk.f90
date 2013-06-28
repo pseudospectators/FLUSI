@@ -540,7 +540,7 @@ subroutine div_field_nul(fx,fy,fz)
   complex(kind=pr), intent(inout) :: fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   integer :: ix, iy, iz
   real(kind=pr) :: kx, ky, kz, k2
-  complex(kind=pr) :: val
+  complex(kind=pr) :: val, vx,vy,vz
 
   do iy=ca(3), cb(3)
      ! ky : 0..ny/2-1 ,then, -ny/2..-1
@@ -556,12 +556,16 @@ subroutine div_field_nul(fx,fy,fz)
 
            if(k2 /= 0.d0) then
               ! val=(k \cdot{} f) / k^2
-              val=(kx*fx(iz,ix,iy)+ky*fy(iz,ix,iy)+kz*fz(iz,ix,iy))/k2
+              vx=fx(iz,ix,iy)
+              vy=fy(iz,ix,iy)
+              vz=fz(iz,ix,iy)
+
+              val=(kx*vx + ky*vy + kz*vz)/k2
 
               ! f <- f - k \cdot{} val
-              fx(iz,ix,iy)=fx(iz,ix,iy) -kx*val
-              fy(iz,ix,iy)=fx(iz,ix,iy) -ky*val
-              fz(iz,ix,iy)=fz(iz,ix,iy) -kz*val
+              fx(iz,ix,iy)=vx -kx*val
+              fy(iz,ix,iy)=vy -ky*val
+              fz(iz,ix,iy)=vz -kz*val
            endif
         enddo
      enddo

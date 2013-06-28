@@ -9,6 +9,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   ! runtime_backup1,2 - no backup
   integer :: it_start
   real(kind=pr) :: time,dt0,dt1,t1,t2
+  integer :: mpicode
   
   complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent(inout)::&
@@ -31,7 +32,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
   
   ! After init, output integral quantities.
-  call write_integrals(time,uk,u,vort,nlk)
+  call write_integrals(time,uk,u,vort,nlk,work)
 
   n0=1 - n1
   it_start=it 
@@ -57,7 +58,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
 
      ! Output of integrals after every tintegral time units
      if(modulo(time - tstart,tintegral) <= dt1) then
-        call write_integrals(time,uk,u,vort,nlk)
+        call write_integrals(time,uk,u,vort,nlk,work)
      endif
 
      ! Output how much time remains

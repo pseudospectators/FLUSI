@@ -8,8 +8,8 @@ program MHD3D
 
   ! Arrays needed for simulation  
 
-  ! FIXME: document, and is this the right size?
-  real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
+  ! 4D array (nf 3D arrays) for the implicit time-stepping routines.
+  real(kind=pr),dimension(:,:,:,:),allocatable :: explin 
 
   ! ub and ubk, and nlk are 4-dimensional arrays, with the last index
   ! indicating the field.  The first three fields are for the
@@ -23,7 +23,7 @@ program MHD3D
   ! three are the current density field.
   real(kind=pr),dimension(:,:,:,:),allocatable :: wj
 
-  ! work is a 3-dimensional array which is used for what? unused? FIXME
+  ! work is a 3-dimensional array. FIXME: what is it used in?
   real(kind=pr),dimension(:,:,:),allocatable :: work
   
   ! Initialize MPI, get size and rank
@@ -55,7 +55,9 @@ program MHD3D
   
   ! Overwrite integral output file? only if we're not resuming a
   ! backup!
-  if(mpirank == 0 .and. inicond(1:8).ne."backup::") then 
+  if(mpirank == 0 .and. inicond(1:8).ne."backup::") then
+     open(14,file='dvt',status='replace')
+     close(14)
      open(14,file='evt',status='replace')
      close(14)
      open(14,file='jvt',status='replace')
@@ -83,7 +85,7 @@ program MHD3D
   deallocate(nlk)
   deallocate(ub)
   deallocate(wj)
-  deallocate(work) ! unused?
+  deallocate(work)
 
   call fft_free 
   call MPI_FINALIZE(mpicode)
