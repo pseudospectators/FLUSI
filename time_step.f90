@@ -20,6 +20,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
 
   if (mpirank == 0) write(*,'(A)') 'Info: Starting time iterations.'
 
+  call MPI_barrier(MPI_COMM_world,mpicode)
   time=0.0
 
   dt0=1.0d0 ! useful to trigger cal_vis
@@ -30,7 +31,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
   
   ! After init, output integral quantities.
-  call write_integrals(time,uk,u,vort,work)
+  call write_integrals(time,uk,u,vort,nlk)
 
   n0=1 - n1
   it_start=it 
@@ -56,12 +57,12 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
 
      ! Output of integrals after every tintegral time units
      if(modulo(time - tstart,tintegral) <= dt1) then
-        call write_integrals(time,uk,u,vort,work)
+        call write_integrals(time,uk,u,vort,nlk)
      endif
 
      ! Output how much time remains
      if(mpirank == 0) call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-        
+     
      ! Output(after tsave)
      if(modulo(time - tstart,tsave) <= dt1) then
         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it

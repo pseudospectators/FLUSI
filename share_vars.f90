@@ -96,6 +96,8 @@ module mhd_vars
      real(kind=pr) :: time
      real(kind=pr) :: Ekin
      real(kind=pr) :: Emag
+     real(kind=pr) :: jmax ! max amplitude of current
+     real(kind=pr) :: jx,jy,jz ! mean current in each direction
      real(kind=pr) :: Dissip
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume

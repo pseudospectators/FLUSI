@@ -58,21 +58,21 @@ program MHD3D
   if(mpirank == 0 .and. inicond(1:8).ne."backup::") then 
      open(14,file='evt',status='replace')
      close(14)
+     open(14,file='jvt',status='replace')
+     close(14)
   endif
 
   ! Allocate memory:
-  ! FIXME: make sure that this is all the right dimension
   allocate(ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
   allocate(ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   allocate(wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))     
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
-  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))) ! unused?
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))) ! FIXME: unused?
 
   ! Step forward in time
   if (mpirank == 0)  write(*,'(A)') 'Info: Starting time iterations.'
-  call MPI_barrier(MPI_COMM_world,mpicode)
-  call time_step(ub,ubk,nlk,wj,work,explin) ! Actual time-stepping function
+  call time_step(ub,ubk,nlk,wj,work,explin)
 
   ! Output information on where the algorithm spent the most time.
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
