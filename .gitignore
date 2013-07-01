@@ -4,9 +4,8 @@ flusi
 mhd
 *~
 fields
-dvt
-ekvt
-ebvt
-jvt
+*vt
 *.eps
 *.pdf
+*.aux
+*.log

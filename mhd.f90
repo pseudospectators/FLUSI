@@ -58,29 +58,36 @@ program MHD3D
   ! Overwrite integral output file? only if we're not resuming a
   ! backup!
   if(mpirank == 0 .and. inicond(1:8).ne."backup::") then
-     ! ekvt
+     ! Formatting things for FORTRAN text output, including tabs.
+     ! Please, please kill me now.
+5    format(5A) ! 5 outputs, including tabs
+9    format(9A) ! 9 outputs, including tabs
+15   format(15A) ! 15 outputs, including tabs
+
+     ! ekvt: 9 outputs, including tabs
      open(14,file='ekvt',status='replace')
-10   format(19A)
-     write(14,10) "#time",tab,"Ekin",tab,"Ekinx",tab,"Ekiny",tab,"Ekinz"
+     write(14,9) "#time",tab,"Ekin",tab,"Ekinx",tab,"Ekiny",tab,"Ekinz"
      close(14)
 
-     ! ebvt
+     ! ebvt: 9 outputs, including tabs
      open(14,file='ebvt',status='replace')
-11   format(19A)
-     write(14,11) "#time",tab,"Emag",tab,"Emagx",tab,"Emagy",tab,"Emagz"
+     write(14,9) "#time",tab,"Emag",tab,"Emagx",tab,"Emagy",tab,"Emagz"
      close(14)
 
-     ! jvt
+     ! jvt: 15 outputs, including tabs
      open(14,file='jvt',status='replace')
-12   format(15A)
-     write(14,12) "#time",tab,"meanjx",tab,"meanjy",tab,"meanjz",tab,&
+     write(14,15) "#time",tab,"meanjx",tab,"meanjy",tab,"meanjz",tab,&
           "jmax",tab,"jxmax",tab,"jymax",tab,"jzmax"
      close(14) 
 
-     ! dvt
+     ! dissvt: 5 outputs, including tabs
+     open(14,file='dissvt',status='replace')
+     write(14,5) "#time",tab,"disskin",tab,"dissmag"
+     close(14)
+
+     ! dvt: 5 outputs, including tabs
      open(14,file='dvt',status='replace')    
-13   format(5A)
-     write(14,13) "#time",tab,"divu",tab,"divb"
+     write(14,5) "#time",tab,"divu",tab,"divb"
      close(14)
   endif
 

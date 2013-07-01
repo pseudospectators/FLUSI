@@ -77,6 +77,8 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   real(kind=pr) :: meanjx,meanjy,meanjz
   real(kind=pr) :: jmax,jxmax,jymax,jzmax
   real(kind=pr) :: divu,divb
+  real(kind=pr) :: dissu,dissb
+  real(kind=pr) :: fluid_volume
 
   !!! Make sure that we have the fields that we need in the space we need:
 
@@ -103,12 +105,15 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
 
   !!! Compute the integral quantities and output to disk:
 
-  ! Compute kinetic energies
+  ! Compute the fluid volume.
+  call compute_fluid_volume(fluid_volume)
+
+  ! Compute kinetic energies.
   call compute_energies(Ekin,Ekinx,Ekiny,Ekinz,&
        ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3))
   if(mpirank == 0) then
      open(14,file='ekvt',status='unknown',position='append')
-     ! 9 outputs
+     ! 9 outputs, including tabs
      write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
           time,tab,Ekin,tab,Ekinx,tab,Ekiny,tab,Ekinz
      close(14)
@@ -119,7 +124,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6))
   if(mpirank == 0) then
      open(14,file='ebvt',status='unknown',position='append')
-     ! 9 outputs
+     ! 9 outputs, including tabs
      write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
           time,tab,Emag,tab,Emagx,tab,Emagy,tab,Emagz
      close(14)
@@ -131,7 +136,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   call compute_max(jmax,jxmax,jymax,jzmax,wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
   if(mpirank == 0) then
      open(14,file='jvt',status='unknown',position='append')
-     ! 8 outputs
+     ! 15 outputs, including tabs
      write(14,&
           '(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)')&
           time,tab,meanjx,tab,meanjy,tab,meanjz,tab,jmax,tab,jxmax,tab,&
@@ -139,6 +144,20 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
      close(14)
   endif
   
+  ! Compute kinetic and magnetic energy dissipation
+  ! Kinetic energy dissipation is nu*< |vorticity| >
+  call compute_mean_norm(dissu,wj(:,:,:,1),wj(:,:,:,2),wj(:,:,:,3))
+  dissu=nu*dissu
+  ! Magnetic energy dissipation is eta*< |current density| >
+  call compute_mean_norm(dissb,wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
+  dissb=eta*dissb
+  if(mpirank == 0) then
+     open(14,file='dissvt',status='unknown',position='append')
+     ! 3 outputs
+     write(14,'(e12.6,A,e12.6,A,e12.6)') time,tab,dissu,tab,dissb
+     close(14)
+  endif
+
   ! Compute max divergence.
   call compute_max_div(divu,&
        ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),&
@@ -256,7 +275,6 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
   LCy=LCy*dx*dy*dz
   LCz=LCz*dx*dy*dz
   
-
   ! Sum over all MPI processes
   call MPI_REDUCE(LCx,Cx,&
        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
@@ -390,3 +408,77 @@ subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
        1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
        MPI_COMM_WORLD,mpicode)
 end subroutine compute_max
+
+
+! Compute the meannorm of the given field with x-space components f1, f2, f3.
+subroutine compute_mean_norm(mean,f1,f2,f3)
+  use mpi_header
+  use vars
+  implicit none
+
+  real(kind=pr),intent(out) :: mean
+  real(kind=pr),intent(in):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in):: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer :: ix,iy,iz,mpicode
+  real(kind=pr) :: v1,v2,v3
+  real(kind=pr) :: Lmean ! Process-local mean
+
+  Lmean=0.d0
+  
+  do ix=ra(1),rb(1)
+     do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)
+           v1=f1(ix,iy,iz)
+           v2=f2(ix,iy,iz)
+           v3=f3(ix,iy,iz)
+           
+           Lmean=Lmean + v1*v1 + v2*v2 + v3*v3
+        enddo
+     enddo
+  enddo
+  
+  Lmean=Lmean*dx*dy*dz
+  
+  call MPI_REDUCE(Lmean,mean,&
+       1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+       MPI_COMM_WORLD,mpicode)
+end subroutine compute_mean_norm
+
+
+! Compute the fluid volume.
+! NB: mask is a global!
+subroutine compute_fluid_volume(volume)
+  use mpi_header
+  use vars
+  implicit none
+
+  real(kind=pr),intent(out) :: volume
+  integer :: ix,iy,iz,mpicode
+  real(kind=pr) :: Lvolume ! Process-local volume
+
+  if(iPenalization == 0) then
+     volume=xl*yl*zl
+  else
+     Lvolume=0.d0
+     
+     if (mpirank == 0) then
+        write(*,*) "FIXME: please write the code for finding the volume with penalization.  Thanks a bunch, eh!"
+     endif
+     call abort
+     
+     do ix=ra(1),rb(1)
+        do iy=ra(2),rb(2)
+           do iz=ra(3),rb(3)
+              ! FIXME: compute stuff using the mask, eh?
+           enddo
+        enddo
+     enddo
+     
+     Lvolume=Lvolume*dx*dy*dz ! Probably necessary?
+     
+     call MPI_REDUCE(Lvolume,volume,&
+          1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+          MPI_COMM_WORLD,mpicode)
+  endif
+end subroutine compute_fluid_volume
