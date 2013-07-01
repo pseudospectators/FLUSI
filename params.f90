@@ -7,6 +7,14 @@ subroutine get_params(paramsfile)
   integer :: i  
   character PARAMS(nlines)*256 ! this array will contain the ascii-params file
 
+  if(mpirank == 0) then
+     if(paramsfile == "") then
+        write(*,*) "Please specify the params file!"
+        write(*,*) "eg: mhd PARAMS or flusi PARAMS"
+        stop
+     endif
+  endif
+  
   ! Read the paramsfile and put the length i and the text in PARAMS
   call read_params_file(PARAMS,i,paramsfile)
 
@@ -21,7 +29,7 @@ subroutine get_params(paramsfile)
         ! Get mhd-specific parameter values from PARAMS
         call get_params_mhd(PARAMS,i)
   case default
-     if (mpirank == 0) then
+     if(mpirank == 0) then
         write(*,*) "Error! Unkonwn method in get_params"
         stop
      end if
