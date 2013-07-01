@@ -37,9 +37,13 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr), intent(in) :: time
   
   ! FIXME: compute integral quantities
-  ! NB: consider using subroutines (eg: compute_max_div, compute_energies, etc)
+
+  ! NB: consider using subroutines (eg: compute_max_div,
+  ! compute_energies, etc): see mhd version.
 
   if(mpirank == 0) then
+     ! FIXME: see mhd integrals for an output format using tabs and
+     ! avoiding the empty space at the start of the line.
      open(14,file='drag_data',status='unknown',position='append')
      write(14,'(7(es12.4,1x))')  time,GlobalIntegrals%Ekin,&
           GlobalIntegrals%Dissip, GlobalIntegrals%Force(1),&
@@ -50,7 +54,11 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
 end subroutine write_integrals_fsi
 
 
-! mhd version of writing integral quantities to disk
+! The mhd version of writing integral quantities to disk.
+! In order to make the asy files useful for both hd and mhd codes,
+! please output velocity and magnetic fields quantities in separate
+! files, or (if there aren't too many columns) put all the
+! velocity-only quantities first.
 subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   use mpi_header
   use mhd_vars
@@ -69,6 +77,8 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   real(kind=pr) :: meanjx,meanjy,meanjz
   real(kind=pr) :: jmax,jxmax,jymax,jzmax
   real(kind=pr) :: divu,divb
+
+  !!! Make sure that we have the fields that we need in the space we need:
 
   ! Compute u and B to physical space
   do i=1,nd
@@ -91,7 +101,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
   enddo
 
-  ! FIXME: TODO: compute more integral quantities
+  !!! Compute the integral quantities and output to disk:
 
   ! Compute kinetic energies
   call compute_energies(Ekin,Ekinx,Ekiny,Ekinz,&
@@ -99,33 +109,37 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='ekvt',status='unknown',position='append')
      ! 9 outputs
-     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') time,tab,Ekin,tab,Ekinx,tab,Ekiny,tab,Ekinz
+     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
+          time,tab,Ekin,tab,Ekinx,tab,Ekiny,tab,Ekinz
      close(14)
   endif
 
-  ! Comptue magnetic energies
+  ! Comptue magnetic energies.
   call compute_energies(Emag,Emagx,Emagy,Emagz,&
        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6))
   if(mpirank == 0) then
      open(14,file='ebvt',status='unknown',position='append')
      ! 9 outputs
-     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') time,tab,Emag,tab,Emagx,tab,Emagy,tab,Emagz
+     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
+          time,tab,Emag,tab,Emagx,tab,Emagy,tab,Emagz
      close(14)
   endif
 
-  ! Compute current density values
+  ! Compute current density values.
   call compute_components(meanjx,meanjy,meanjz,&
        wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
   call compute_max(jmax,jxmax,jymax,jzmax,wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
   if(mpirank == 0) then
      open(14,file='jvt',status='unknown',position='append')
      ! 8 outputs
-     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') time,tab,&
-          meanjx,tab,meanjy,tab,meanjz,tab,jmax,tab,jxmax,tab,jymax,tab,jzmax
+     write(14,&
+          '(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)')&
+          time,tab,meanjx,tab,meanjy,tab,meanjz,tab,jmax,tab,jxmax,tab,&
+          jymax,tab,jzmax
      close(14)
   endif
   
-  ! Compute max normalized divergence
+  ! Compute max divergence.
   call compute_max_div(divu,&
        ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),&
        ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3),&
@@ -256,7 +270,8 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
 end subroutine compute_components
 
 
-! Compute the maximum divergence of the given 3D field
+! Compute the maximum non-normalized divergence of the given 3D field
+! fk1, fk2, fk3, 
 subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   use mpi_header
   use vars
@@ -272,7 +287,8 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   complex(kind=pr),intent(inout) ::divk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real(kind=pr),intent(inout):: div(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer :: ix,iy,iz,mpicode
-  real(kind=pr) :: kx, ky, kz, locmax, fnorm, v1,v2,v3,d
+  real(kind=pr) :: kx, ky, kz, locmax,  v1,v2,v3,d
+  ! real(kind=pr) fnorm ! Only used for normalized version.
   complex(kind=pr) :: imag ! imaginary unit
 
   imag = dcmplx(0.d0,1.d0)
@@ -302,9 +318,14 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
            v1=f1(ix,iy,iz)
            v2=f2(ix,iy,iz)
            v3=f3(ix,iy,iz)
+           
+           ! Normalized version:
+           ! fnorm=v1*v2 + v2*v2 + v3*v3 + 1d-8 ! avoid division by zero
+           ! d=abs(div(ix,iy,iz))/fnorm
 
-           fnorm=v1*v2 + v2*v2 + v3*v3 + 1d-8 ! avoid division by zero
-           d=abs(div(ix,iy,iz))/fnorm
+           ! Non-normalized version:
+           d=abs(div(ix,iy,iz))
+
            if(d > locmax) then
               locmax=d
            endif
@@ -319,7 +340,8 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
 end subroutine compute_max_div
 
 
-! Compute the maximum components of the given 3D field
+! Compute the maximum components of the given 3D field with
+! componennts f1, f2, f3.
 subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
   use mpi_header
   use vars
@@ -338,7 +360,8 @@ subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
   Lymax=0.d0
   Lzmax=0.d0
 
-  ! Find the (per-prod) max norm and max components in physical space
+  ! Find the (per-process) max norm and max components in physical
+  ! space
   do ix=ra(1),rb(1)
      do iy=ra(2),rb(2)
         do iz=ra(3),rb(3)
