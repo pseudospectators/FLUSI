@@ -21,8 +21,8 @@ FFLAGS += -Wall # warn for unused and uninitialzied variables
 FFLAGS += -Wsurprising # warn if things might not behave as expected
 PPFLAG= -cpp #preprocessor flag
 
-# Debug flags
-FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
+# Debug flags for gfortran
+#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
 
 # Intel compiler

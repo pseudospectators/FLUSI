@@ -41,6 +41,8 @@ program MHD3D
 
   if (mpirank == 0) write(*,'(A)') 'Starting MHD3D'
 
+  tab = char(9) ! set horizontal tab character (please kill me now)
+
   ! Read input parameters
 
   call get_command_argument(1,infile) ! infile from command line
@@ -56,11 +58,29 @@ program MHD3D
   ! Overwrite integral output file? only if we're not resuming a
   ! backup!
   if(mpirank == 0 .and. inicond(1:8).ne."backup::") then
-     open(14,file='dvt',status='replace')
+     ! ekvt
+     open(14,file='ekvt',status='replace')
+10   format(19A)
+     write(14,10) "#time",tab,"Ekin",tab,"Ekinx",tab,"Ekiny",tab,"Ekinz"
      close(14)
-     open(14,file='evt',status='replace')
+
+     ! ebvt
+     open(14,file='ebvt',status='replace')
+11   format(19A)
+     write(14,11) "#time",tab,"Emag",tab,"Emagx",tab,"Emagy",tab,"Emagz"
      close(14)
+
+     ! jvt
      open(14,file='jvt',status='replace')
+12   format(15A)
+     write(14,12) "#time",tab,"meanjx",tab,"meanjy",tab,"meanjz",tab,&
+          "jmax",tab,"jxmax",tab,"jymax",tab,"jzmax"
+     close(14) 
+
+     ! dvt
+     open(14,file='dvt',status='replace')    
+13   format(5A)
+     write(14,13) "#time",tab,"divu",tab,"divb"
      close(14)
   endif
 

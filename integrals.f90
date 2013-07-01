@@ -39,7 +39,6 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   ! FIXME: compute integral quantities
   ! NB: consider using subroutines (eg: compute_max_div, compute_energies, etc)
 
-
   if(mpirank == 0) then
      open(14,file='drag_data',status='unknown',position='append')
      write(14,'(7(es12.4,1x))')  time,GlobalIntegrals%Ekin,&
@@ -94,14 +93,23 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
 
   ! FIXME: TODO: compute more integral quantities
 
-  ! Compute magnetic and kinetic energies
+  ! Compute kinetic energies
   call compute_energies(Ekin,Ekinx,Ekiny,Ekinz,&
        ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3))
+  if(mpirank == 0) then
+     open(14,file='ekvt',status='unknown',position='append')
+     ! 9 outputs
+     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') time,tab,Ekin,tab,Ekinx,tab,Ekiny,tab,Ekinz
+     close(14)
+  endif
+
+  ! Comptue magnetic energies
   call compute_energies(Emag,Emagx,Emagy,Emagz,&
        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6))
   if(mpirank == 0) then
-     open(14,file='evt',status='unknown',position='append')
-     write(14,97) time,Ekin,Ekinx,Ekiny,Ekinz,Emag,Emagx,Emagy,Emagz
+     open(14,file='ebvt',status='unknown',position='append')
+     ! 9 outputs
+     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') time,tab,Emag,tab,Emagx,tab,Emagy,tab,Emagz
      close(14)
   endif
 
@@ -111,7 +119,9 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   call compute_max(jmax,jxmax,jymax,jzmax,wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
   if(mpirank == 0) then
      open(14,file='jvt',status='unknown',position='append')
-     write(14,97) time,meanjx,meanjy,meanjz,jmax,jxmax,jymax,jzmax
+     ! 8 outputs
+     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') time,tab,&
+          meanjx,tab,meanjy,tab,meanjz,tab,jmax,tab,jxmax,tab,jymax,tab,jzmax
      close(14)
   endif
   
@@ -126,9 +136,9 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
        work,nlk(:,:,:,1))
   if(mpirank == 0) then
      open(14,file='dvt',status='unknown',position='append')
-     write(14,97) time,divu,divb
+     ! 3 outputs
+     write(14,'(e12.6,A,e12.6,A,e12.6)') time,tab,divu,tab,divb
      close(14)
-97   format(1X,9(E14.7,' ')) ! Why must Fortran require this nonsense?
   endif
 end subroutine write_integrals_mhd
 
@@ -170,6 +180,11 @@ subroutine compute_energies(E,Ex,Ey,Ez,f1,f2,f3)
         enddo
      enddo
   enddo
+
+  LE=LE*dx*dy*dz
+  LEx=LEx*dx*dy*dz
+  LEy=LEy*dx*dy*dz
+  LEz=LEz*dx*dy*dz
 
   ! Sum over all MPI processes
   call MPI_REDUCE(LE,E,&
@@ -222,6 +237,11 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
         enddo
      enddo
   enddo
+
+  LCx=LCx*dx*dy*dz
+  LCy=LCy*dx*dy*dz
+  LCz=LCz*dx*dy*dz
+  
 
   ! Sum over all MPI processes
   call MPI_REDUCE(LCx,Cx,&
@@ -283,7 +303,7 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
            v2=f2(ix,iy,iz)
            v3=f3(ix,iy,iz)
 
-           fnorm=v1*v2 + v2*v2 + v3*v3 + 1d-16 ! avoid division by zero
+           fnorm=v1*v2 + v2*v2 + v3*v3 + 1d-8 ! avoid division by zero
            d=abs(div(ix,iy,iz))/fnorm
            if(d > locmax) then
               locmax=d

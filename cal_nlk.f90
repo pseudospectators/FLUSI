@@ -215,27 +215,34 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   use vars
   implicit none
 
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz,k2
-  complex(kind=pr) :: qk
   complex(kind=pr),intent(inout):: nlk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout):: nlk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout):: nlk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,k2
+  complex(kind=pr) :: qk, nlx,nly,nlz
+  complex(kind=pr) :: imag   ! imaginary unit
 
-  do iy=ca(3),cb(3) ! ky : 0..ny/2-1 ,then, -ny/2..-1     
+  imag = dcmplx(0.d0,1.d0)
+  
+  do iy=ca(3),cb(3)
      ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-     do ix=ca(2),cb(2) ! kx : 0..nx/2
+     do ix=ca(2),cb(2)
         kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1         
+        do iz=ca(1),cb(1)
            kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
            k2=kx*kx+ky*ky+kz*kz
            if (k2 .ne. 0.0) then  
+              nlx=nlk1(iz,ix,iy)
+              nly=nlk2(iz,ix,iy)
+              nlz=nlk3(iz,ix,iy)
+
               ! qk is the Fourier coefficient of thr pressure
-              qk=(kx*nlk1(iz,ix,iy)+ky*nlk2(iz,ix,iy)+kz*nlk3(iz,ix,iy))/k2
+              qk=(kx*nlx + ky*nly + kz*nlz)/k2
               ! add the gradient to the non-linear terms
-              nlk1(iz,ix,iy)=nlk1(iz,ix,iy) - kx*qk  
-              nlk2(iz,ix,iy)=nlk2(iz,ix,iy) - ky*qk
-              nlk3(iz,ix,iy)=nlk3(iz,ix,iy) - kz*qk
+              nlk1(iz,ix,iy)=nlx - kx*qk  
+              nlk2(iz,ix,iy)=nly - ky*qk
+              nlk3(iz,ix,iy)=nlz - kz*qk
            endif
         enddo
      enddo
@@ -519,9 +526,9 @@ subroutine curl_inplace(fx,fy,fz)
            t2=fy(iz,ix,iy)
            t3=fz(iz,ix,iy)
 
-           fx(iz,ix,iy)=imag*(ky*t3-kz*t2)
-           fy(iz,ix,iy)=imag*(kz*t1-kx*t3)
-           fz(iz,ix,iy)=imag*(kx*t2-ky*t1)
+           fx(iz,ix,iy)=imag*(ky*t3 - kz*t2)
+           fy(iz,ix,iy)=imag*(kz*t1 - kx*t3)
+           fz(iz,ix,iy)=imag*(kx*t2 - ky*t1)
         enddo
      enddo
   enddo
@@ -543,13 +550,10 @@ subroutine div_field_nul(fx,fy,fz)
   complex(kind=pr) :: val, vx,vy,vz
 
   do iy=ca(3), cb(3)
-     ! ky : 0..ny/2-1 ,then, -ny/2..-1
      ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
      do ix=ca(2),cb(2)
         kx=scalex*dble(ix)
-        ! kx : 0..nx/2
         do iz=ca(1),cb(1)
-           ! kz : 0..nz/2-1 ,then,-nz/2..-1
            kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
 
            k2=kx*kx +ky*ky +kz*kz
