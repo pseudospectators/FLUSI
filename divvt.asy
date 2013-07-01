@@ -2,7 +2,7 @@ import graph;
 import utils;
 
 size(200,150,IgnoreAspect);
-scale(Linear,Log);
+scale(Linear,Linear);
 
 // used to over-ride the normal legend
 // usage:
@@ -14,15 +14,13 @@ usersetting();
 bool myleg=((runlegs == "") ? false: true);
 string[] legends=set_legends(runlegs);
 
-string yvar=getstring("y variable: Emag,Emagx,Emagy,Emagz");
+string yvar=getstring("y variable: divu, divb");
 
 int ypos=0;
-if(yvar == "Emag") ypos=1;
-if(yvar == "Emagx") ypos=2;
-if(yvar == "Emagy") ypos=3;
-if(yvar == "Emagz") ypos=4;
+if(yvar == "divu") ypos=1;
+if(yvar == "divb") ypos=2;
 
-string datafile="ebvt";
+string datafile="dvt";
 
 
 if(ypos == 0) {
