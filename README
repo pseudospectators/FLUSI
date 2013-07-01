@@ -4,8 +4,8 @@ on sugiton, I've had to install hdf5_mpich2 and hdf5_mpich2_devel, then I was ab
 there was then no need to specify where HDF5 lives (-I/../../ and -L/../..)
 environment:
 export HDF_ROOT=””
-export FFT_ROOT="/home/tommy/fftw"
-export P3DFFT_ROOT="/home/tommy/Documents/Research/src/p3dfft.2.3.2_fixed"
+export FFT_ROOT="$HOME/fftw"
+export P3DFFT_ROOT="$HOME/Documents/Research/src/p3dfft.2.3.2_fixed"
 export FFLAGS="-g"
 
 
@@ -13,8 +13,8 @@ on the mesocentre
 I had to recompile FFTW and P3DFFT first, because they were using openmpi, which seems not to work with HDF.
 So now modules:
 module load intel/12.1 mpich2/intel/1.4.1
-export P3DFFT_ROOT="/home/ethomas/p3dfft.2.3.2_fixed"
-export FFT_ROOT="/home/ethomas/fftw"
+export P3DFFT_ROOT="$HOMEp3dfft.2.3.2_fixed"
+export FFT_ROOT="$HOME/fftw"
 export FFLAGS=""
 export HDF_ROOT="/LOGINSTO/softs/hdf5/intel/1.8.8/"
 the modifications on the mesocentre are reflected in the makefile.
