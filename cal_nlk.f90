@@ -45,6 +45,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   logical :: TimeForDrag ! FIXME: move to time_step routine?
   integer i
 
+  ! FIXME: move into write_integrals_fsi
   ! is it time for save global quantities?
   TimeForDrag=.false.
   ! note we do this every itdrag time steps
@@ -64,6 +65,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   enddo
   time_u=time_u + MPI_wtime() - t1
 
+  ! FIXME: move into write_integrals_fsi
   !------------------------------------------------
   ! TEMP: compute divergence
   !-----------------------------------------------
@@ -73,7 +75,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-- Compute vorticity
   !-----------------------------------------------
   t1=MPI_wtime()
-  !nlk is temporarily used for vortk
+  ! NB: nlk is temporarily used for vortk
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
        uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
 
@@ -81,9 +83,10 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
      call ifft(vort(:,:,:,i),nlk(:,:,:,i))
   enddo
 
-  ! timing statistics
+  ! Timing statistics
   time_vor=time_vor + MPI_wtime() - t1
 
+  ! FIXME: move into write_integrals_fsi
   !-----------------------------------------------
   !-- Compute kinetic energy and dissipation rate + mask volume
   !-----------------------------------------------  
@@ -303,11 +306,11 @@ subroutine omegacrossu_nopen(work,u,vort,nlk)
 endsubroutine omegacrossu_nopen
 
 
-! Compute non-linear transport term (omega cross u) and transform it to Fourier
-! space. This is the case with penalization. Therefore we compute the penalty
-! term mask*(u-us) as well. This gives the occasion to compute the drag forces,
-! if it is time to do so (TimeForDrag=.true.). The drag is returned in 
-! GlobalIntegrals.
+! Compute non-linear transport term (omega cross u) and transform it
+! to Fourier space. This is the case with penalization. Therefore we
+! compute the penalty term mask*(u-us) as well. This gives the
+! occasion to compute the drag forces, if it is time to do so
+! (TimeForDrag=.true.). The drag is returned in GlobalIntegrals.
 subroutine omegacrossu_penalize(work,u,vort,TimeForDrag,nlk)
   use mpi_header
   use fsi_vars
@@ -321,26 +324,42 @@ subroutine omegacrossu_penalize(work,u,vort,TimeForDrag,nlk)
   
   ! x component
   call Penalize(work,u,1,TimeForDrag)
+  ! FIXME: move into write_integrals_fsi?
+  ! if its time, compute drag forces
+  if ((TimeForDrag).and.(iDrag==1)) then
+     call IntegralForce (work,1) 
+  endif
   work=work + u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
   call fft(nlk(:,:,:,1),work)
   
   ! y component
   call Penalize(work,u,2,TimeForDrag)
+  ! FIXME: move into write_integrals_fsi?
+  ! if its time, compute drag forces
+  if ((TimeForDrag).and.(iDrag==1)) then
+     call IntegralForce (work,2) 
+  endif
   work=work + u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
   call fft(nlk(:,:,:,2),work)
   
   ! z component
   call Penalize(work,u,3,TimeForDrag)
+  ! FIXME: move into write_integrals_fsi?
+  ! if its time, compute drag forces
+  if ((TimeForDrag).and.(iDrag==1)) then
+     call IntegralForce (work,3) 
+  endif
   work=work + u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
   call fft(nlk(:,:,:,3),work)
 end subroutine omegacrossu_penalize
 
 
-! we outsource the actual penalization (even though its a fairly
-! simple process) to remove some lines in the actual cal_nlk also, at
+! The actual penalization (even though its a fairly simple process) is
+! done by this routine instead of in the computation of the nonlinear
+! term in order to remove some lines in the actual cal_nlk also, at
 ! this occasion, we directly compute the integral hydrodynamic forces,
 ! if its time to do so (TimeForDrag=.true.)
-subroutine Penalize(work,u,iDir,TimeForDrag)    
+subroutine Penalize(work,u,iDir,TimeForDrag)
   use fsi_vars
   implicit none
 
@@ -355,18 +374,23 @@ subroutine Penalize(work,u,iDir,TimeForDrag)
   else
      work=-mask*(u(:,:,:,iDir))
   endif
-
-  ! if its time, compute drag forces
-  if ((TimeForDrag).and.(iDrag==1)) then
-     call IntegralForce (work, iDir ) 
-  endif
 end subroutine Penalize
 
 
 ! Compute the nonlinear source term of the mhd equations,
 ! including penality term, in Fourier space. 
-! FIXME: add documentation: which arguments are used for what?  What
-! values can be safely used after (like wj? ub?)
+! Input: ubk, which is a 4D array containing the Fourier-space version
+! of the velocity and magnetic field.
+! Output: nlk is the (Fourier-space) nonlinear source term for both
+! the velocity and magnetic field. ub is the physical-space version of
+! the input velocity and magnetic field.
+! Work memory: wj is a 4D array which is used to compute the voriticy
+! and current density and other quantities, but doesn't contain anything
+! useful at the end of the subroutine.
+! Other (global) arrays: mask is 3D physical-space array containing
+! the mask function for both the velocity and magnetic field. us is a
+! 4D array containing the imposed velocity and magnetic field in
+! phsyical space.
 subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   use mpi_header
   use fsi_vars
@@ -376,16 +400,18 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-!  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  !  real(kind=pr) :: t1,t0
+   !  real(kind=pr) :: t1,t0
   integer :: i,ix,iy,iz
   real(kind=pr) :: w1,w2,w3,j1,j2,j3
   real(kind=pr) :: u1,u2,u3,b1,b2,b3
+  real(kind=pr) :: m,us1,us2,us3
 
   ! Compute u and B to physical space
   do i=1,nd
      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
+
+  ! FIXME: compute us, the imposed penalty field, here?
 
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.
@@ -423,12 +449,19 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
            j2=wj(iz,ix,iy,5)
            j3=wj(iz,ix,iy,6)
 
-            ! Nonlinear source term for fluid:
-            wj(iz,ix,iy,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2
-            wj(iz,ix,iy,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3
-            wj(iz,ix,iy,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1
+           ! Loop-local variables for mask and imposed velocity field:
+           m=mask(iz,ix,iy)
+           us1=us(iz,ix,iy,1)
+           us2=us(iz,ix,iy,2)
+           us3=us(iz,ix,iy,3)
 
-            ! Nonlinear source term for magnetic field (missing the curl):
+            ! Nonlinear source term for fluid, including penalization:
+            wj(iz,ix,iy,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
+            wj(iz,ix,iy,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
+            wj(iz,ix,iy,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
+
+            ! Nonlinear source term for magnetic field (missing the
+            ! curl and without penalization):
             wj(iz,ix,iy,4)=u2*b3 - u3*b2
             wj(iz,ix,iy,5)=u3*b1 - u1*b3
             wj(iz,ix,iy,6)=u1*b2 - u2*b1
@@ -436,14 +469,32 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
      enddo
   enddo
 
-  ! Transform to Fourier space.  wj is no longer used (and contains
-  ! nothing useful).
-  do i=1,nd
+  ! Transform B to Fourier space.  Keep the first three fields free so
+  ! that we can use it to store the penalization for the B field.
+  do i=4,nd
      call fft(nlk(:,:,:,i),wj(:,:,:,i))
   enddo
+  ! NB: the last three sub-arrays of wj are now free (and contain
+  ! nothing useful).
 
   ! Add the curl to the magnetic source term:
   call curl_inplace(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
+
+  ! Penalization for B-field:
+  if(iPenalization == 1) then
+     do i=4,nd
+        wj(:,:,:,4)=-mask*(ub(:,:,:,i) - us(:,:,:,i))
+        call fft(nlk(:,:,:,1),wj(:,:,:,4))
+        nlk(:,:,:,i)=nlk(:,:,:,i) + nlk(:,:,:,1)
+     enddo
+  endif
+  
+  ! Transform u to Fourier space:
+  do i=1,3
+     call fft(nlk(:,:,:,i),wj(:,:,:,i))
+  enddo
+
+  ! NB: wj is now completely free, and contains nothing useful.
 
   ! Add the gradient of the pseudo-pressure to the source term of the
   ! fluid.
@@ -452,8 +503,6 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! Make the source term for the magnetic field divergence-free via a
   ! Helmholtz decomposition.
   call div_field_nul(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
-
-  ! FIXME: add penalziation.
 end subroutine cal_nlk_mhd
 
 
@@ -559,7 +608,7 @@ subroutine div_field_nul(fx,fy,fz)
            k2=kx*kx +ky*ky +kz*kz
 
            if(k2 /= 0.d0) then
-              ! val=(k \cdot{} f) / k^2
+              ! val = (k \cdot{} f) / k^2
               vx=fx(iz,ix,iy)
               vy=fy(iz,ix,iy)
               vz=fz(iz,ix,iy)
