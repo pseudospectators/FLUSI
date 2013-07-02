@@ -21,7 +21,6 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
   it=0
   wj=0.0d0
 
-  ! TODO: add more initial conditions
   select case(inicond)
   case("quiescent")
      ubk=dcmplx(0.0d0,0.0d0)
@@ -29,6 +28,8 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
      call init_const(ubk,wj)
   case("orszagtang")
      call init_orszagtang(ubk,wj)
+  case("smc")
+     call init_smc(ubk,wj)
   case default
      if(inicond(1:8) == "backup::") then
         call Read_Runtime_Backup(inicond(9:len(inicond)),&
@@ -102,3 +103,178 @@ subroutine init_const(ubk,wj)
   enddo
 end subroutine init_const
 
+
+! The Sean-Montgomery-Chen initial conditions
+subroutine init_smc(ubk,ub)
+  use mpi_header
+  use mhd_vars
+  implicit none
+
+  complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  integer :: mpicode
+  integer :: i, ix,iy,iz
+  real(kind=pr) :: pekin,pfluidarea,fluidarea,ekin
+  real(kind=pr) :: ux,uy,uz
+  real(kind=pr) :: enorm
+  real(kind=pr) :: x,y,r
+
+  ! Create random initial conditions for the velocity:
+  call randgen3d(ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),ub(:,:,:,1))
+  
+  do i=1,3
+     call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+  enddo
+
+  ! compute energy
+  pekin=0.d0
+  pfluidarea=0.d0
+  do ix=ra(1),rb(1)
+     do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)
+           if(mask(ix,iy,iz) == 0.d0) then
+              ux=ub(ix,iy,iz,1)
+              uy=ub(ix,iy,iz,2)
+              uz=ub(ix,iy,iz,3)
+
+              pekin = pekin + ux*ux + uy*uy + uz*uz
+              pfluidarea = pfluidarea + 1.d0
+           endif
+        enddo
+     enddo
+  enddo
+
+  pekin = 0.5*pekin
+  
+  fluidarea=0.d0
+  ekin=0.d0
+
+  call MPI_REDUCE(pekin,ekin,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       0,MPI_COMM_WORLD,mpicode)
+  call MPI_REDUCE(pfluidarea,fluidarea,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       0,MPI_COMM_WORLD,mpicode)
+  
+  if(mpirank == 0) then
+     ! compute the normalization:
+     ekin = ekin/fluidarea
+  endif
+  call MPI_BCAST(ekin,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+
+  ! normalize energy to that used in Jorge's initialization file.
+  enorm=dsqrt(3.1017126d-07/ekin)
+  do i=1,3
+     ub(:,:,:,i)=ub(:,:,:,i)*enorm
+     call fft(ubk(:,:,:,i),ub(:,:,:,i))
+  enddo
+  
+  ! Set up the magnetic field
+  do iz=ra(3),rb(3)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+        do ix=ra(1),rb(1)
+           x=xl*(dble(ix)/dble(nx) -0.5d0)
+           
+           ub(ix,iy,iz,1)=-y*Bc/R1
+           ub(ix,iy,iz,2)= x*Bc/R1
+           ub(ix,iy,iz,3)=B0
+        enddo
+     enddo
+  enddo
+
+  do i=3,nd
+     call fft(ubk(:,:,:,i),ub(:,:,:,i))
+  enddo
+end subroutine init_smc
+
+
+! Create a random initial condition based with zero divergence in fk1,
+! fk2, fk3. w is a 3D real work array.
+! FIXME: please add more documentation.
+subroutine randgen3d(fk1,fk2,fk3,w)
+  use mpi_header
+  use vars
+  implicit none
+
+  complex(kind=pr),intent(inout):: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout):: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout):: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real(kind=pr),intent(inout) :: w(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr) :: ek
+  real(kind=pr) :: e1,e1x,e1y,e1z
+  real(kind=pr) :: e2,e2x,e2y,e2z
+  real(kind=pr) :: k0
+  real(kind=pr) :: rand1,rand2
+  real(kind=pr) :: kx,ky,kz,k
+  real(kind=pr) :: psi1,beta
+  integer :: ix,iy,iz
+
+  fk1=0.d0
+  fk2=0.d0
+  fk3=0.d0
+
+  k0=3.d0*sqrt(2.d0)*pi/4.d0
+
+  !-- generate 3D gaussian field 
+  do iz=ca(1),cb(1)
+     kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
+     do iy=ca(3),cb(3)
+        ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
+        do ix=ca(2),cb(2)
+           kx=scalex*dble(ix)
+           k=dsqrt(kx*kx +ky*ky +kz*kz)
+
+           !-- ek = sqrt(Ek/4pik^2), Ek imposed spectrum
+           if(k /= 0.d0) then
+              ek=dsqrt(1.d0/(4.d0*pi*k*k))
+           else
+              ek=0.d0
+           endif
+
+           e1=dsqrt(kx*kx+ky*ky)
+           e1x=ky/e1
+           e1y=-kx/e1
+           e1z=0.d0
+           e2=k*dsqrt(kx*kx+ky*ky)
+           e2x=kx*kz/e2
+           e2y=ky*kz/e2
+           e2z=-(kx*kx+ky*ky)/e2
+
+           if(kx.eq.0 .and. ky.eq.0) then
+              fk1(iz,ix,iy)=dcmplx(0.5d0*ek,0.5d0*ek)
+              fk2(iz,ix,iy)=dcmplx(0.5d0*ek,0.5d0*ek)
+              fk3(iz,ix,iy)=dcmplx(0.d0,0.d0)
+              if(kz.eq.0) then
+                 fk1(iz,ix,iy)=dcmplx(0.d0,0.d0)
+                 fk2(iz,ix,iy)=dcmplx(0.d0,0.d0)
+                 fk3(iz,ix,iy)=dcmplx(0.d0,0.d0)
+              endif
+           else
+              call random_number(rand1)
+              call random_number(rand2)
+              psi1=2.*pi*rand1
+              beta=2.*pi*rand2
+              fk1(iz,ix,iy)=dcmplx(&
+                   ek*dcos(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x),&
+                   ek*dsin(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x)&
+                   )
+              fk2(iz,ix,iy)=dcmplx(&
+                   ek*dcos(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y),&
+                   ek*dsin(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y)&
+                   )
+              fk3(iz,ix,iy)=dcmplx(&
+                   ek*dcos(psi1)*(dsin(beta)*e2z),&
+                   ek*dsin(psi1)*(dsin(beta)*e2z)&
+                   )
+           endif
+        enddo
+     enddo
+  enddo
+
+  ! Enforce Hermitian symmetry the lazy way:
+  call ifft(w,fk1)
+  call fft(fk1,w)
+  call ifft(w,fk2)
+  call fft(fk2,w)
+  call ifft(w,fk3)
+  call fft(fk3,w)
+end subroutine randgen3d
