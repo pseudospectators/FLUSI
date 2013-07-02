@@ -20,7 +20,7 @@ int ypos=0;
 if(yvar == "divu") ypos=1;
 if(yvar == "divb") ypos=2;
 
-string datafile="dvt";
+string datafile="d.t";
 
 
 if(ypos == 0) {

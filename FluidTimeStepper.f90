@@ -38,7 +38,7 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   end select
 
   ! Force zero mode for mean flow
-  if(iMeanFlow == 1) call set_mean_flow(uk,time)
+  if(method == "fsi") call set_mean_flow(uk,time)
 
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
@@ -303,19 +303,21 @@ end subroutine truncate
 ! Force zero mode for mean flow
 subroutine set_mean_flow(uk,time)
   use mpi_header
-  use vars
+  use fsi_vars
   implicit none
   
   complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real (kind=pr),intent (inout) :: time
 
-  ! Force zero mode for mean flow
-  ! TODO: this might not always select the proper mode; it could be
-  ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
-  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-     uk(0,0,0,1)=Ux
-     uk(0,0,0,2)=Uy
-     uk(0,0,0,3)=Uz
+  if(iMeanFlow == 1) then
+     ! Force zero mode for mean flow
+     ! TODO: this might not always select the proper mode; it could be
+     ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
+     if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+        uk(0,0,0,1)=Ux
+        uk(0,0,0,2)=Uy
+        uk(0,0,0,3)=Uz
+     endif
   endif
 end subroutine set_mean_flow
 

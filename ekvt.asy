@@ -22,7 +22,7 @@ if(yvar == "Ekinx") ypos=2;
 if(yvar == "Ekiny") ypos=3;
 if(yvar == "Ekinz") ypos=4;
 
-string datafile="ekvt";
+string datafile="ek.t";
 
 
 if(ypos == 0) {

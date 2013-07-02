@@ -21,7 +21,7 @@ if(yvar == "dissu") ypos=1;
 if(yvar == "dissb") ypos=2;
 if(yvar == "total") ypos=-1;
 
-string datafile="dissvt";
+string datafile="diss.t";
 
 
 if(ypos == 0) {

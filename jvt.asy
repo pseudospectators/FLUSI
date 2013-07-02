@@ -25,7 +25,7 @@ if(yvar == "jxmax") ypos=5;
 if(yvar == "jymax") ypos=6;
 if(yvar == "jzmax") ypos=7;
 
-string datafile="jvt";
+string datafile="jv.t";
 
 
 if(ypos == 0) {

@@ -80,7 +80,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   real(kind=pr) :: dissu,dissb
   real(kind=pr) :: fluid_volume
 
-  !!! Make sure that we have the fields that we need in the space we need:
+  ! Make sure that we have the fields that we need in the space we need:
 
   ! Compute u and B to physical space
   do i=1,nd
@@ -103,7 +103,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
   enddo
 
-  !!! Compute the integral quantities and output to disk:
+  ! Compute the integral quantities and output to disk:
 
   ! Compute the fluid volume.
   call compute_fluid_volume(fluid_volume)
@@ -112,7 +112,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   call compute_energies(Ekin,Ekinx,Ekiny,Ekinz,&
        ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3))
   if(mpirank == 0) then
-     open(14,file='ekvt',status='unknown',position='append')
+     open(14,file='ek.t',status='unknown',position='append')
      ! 9 outputs, including tabs
      write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
           time,tab,Ekin,tab,Ekinx,tab,Ekiny,tab,Ekinz
@@ -123,7 +123,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   call compute_energies(Emag,Emagx,Emagy,Emagz,&
        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6))
   if(mpirank == 0) then
-     open(14,file='ebvt',status='unknown',position='append')
+     open(14,file='eb.t',status='unknown',position='append')
      ! 9 outputs, including tabs
      write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
           time,tab,Emag,tab,Emagx,tab,Emagy,tab,Emagz
@@ -135,7 +135,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
        wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
   call compute_max(jmax,jxmax,jymax,jzmax,wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
   if(mpirank == 0) then
-     open(14,file='jvt',status='unknown',position='append')
+     open(14,file='j.t',status='unknown',position='append')
      ! 15 outputs, including tabs
      write(14,&
           '(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)')&
@@ -152,7 +152,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   call compute_mean_norm(dissb,wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
   dissb=eta*dissb
   if(mpirank == 0) then
-     open(14,file='dissvt',status='unknown',position='append')
+     open(14,file='diss.t',status='unknown',position='append')
      ! 3 outputs
      write(14,'(e12.6,A,e12.6,A,e12.6)') time,tab,dissu,tab,dissb
      close(14)
@@ -168,7 +168,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6),&
        work,nlk(:,:,:,1))
   if(mpirank == 0) then
-     open(14,file='dvt',status='unknown',position='append')
+     open(14,file='d.t',status='unknown',position='append')
      ! 3 outputs
      write(14,'(e12.6,A,e12.6,A,e12.6)') time,tab,divu,tab,divb
      close(14)
@@ -456,26 +456,23 @@ subroutine compute_fluid_volume(volume)
   real(kind=pr),intent(out) :: volume
   integer :: ix,iy,iz,mpicode
   real(kind=pr) :: Lvolume ! Process-local volume
+  real(kind=pr) :: dxyz ! Volume of pixel
 
   if(iPenalization == 0) then
      volume=xl*yl*zl
   else
      Lvolume=0.d0
-     
-     if (mpirank == 0) then
-        write(*,*) "FIXME: please write the code for finding the volume with penalization.  Thanks a bunch, eh!"
-     endif
-     call abort
-     
+     dxyz=dx*dy*dz
+
      do ix=ra(1),rb(1)
         do iy=ra(2),rb(2)
            do iz=ra(3),rb(3)
-              ! FIXME: compute stuff using the mask, eh?
+              if(mask(ix,iy,iz) /= 0.d0) then
+                 Lvolume=Lvolume +dxyz
+              endif
            enddo
         enddo
      enddo
-     
-     Lvolume=Lvolume*dx*dy*dz ! Probably necessary?
      
      call MPI_REDUCE(Lvolume,volume,&
           1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&

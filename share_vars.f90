@@ -33,12 +33,12 @@ module vars
   integer,save :: iDealias,itdrag
   integer,save :: iKinDiss
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
-  integer,save :: iMoving,iPenalization,iMeanFlow,iDoBackup
+  integer,save :: iMoving,iPenalization,iDoBackup
   real(kind=pr),save :: tmax,cfl,eps,pi,scalex,scaley,scalez,length,nu
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: xl,yl,zl,dx,dy,dz
   real(kind=pr),save :: tsave ! Time between outpout of whole fields.
-  real(kind=pr),save :: Ux,Uy,Uz,tstart
+  real(kind=pr),save :: tstart
   real(kind=pr),save :: dt_fixed
   character(len=80),save :: iMask,iTimeMethodFluid,inicond
 
@@ -62,7 +62,8 @@ module fsi_vars
   implicit none
 
   real (kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
-
+  real(kind=pr),save :: Ux,Uy,Uz
+  integer,save :: iMeanFlow
   integer,save :: iDrag
   integer,save :: iSaveSolidVelocity
 

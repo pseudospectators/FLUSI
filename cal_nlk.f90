@@ -406,12 +406,13 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   real(kind=pr) :: u1,u2,u3,b1,b2,b3
   real(kind=pr) :: m,us1,us2,us3
 
-  ! Compute u and B to physical space
+  ! Transform u and B into physical space:
   do i=1,nd
      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
 
-  ! FIXME: compute us, the imposed penalty field, here?
+  ! Compute us, the imposed penalty field:
+  call update_us(ub) ! TODO: only update when necessary
 
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.
@@ -598,13 +599,13 @@ subroutine div_field_nul(fx,fy,fz)
   real(kind=pr) :: kx, ky, kz, k2
   complex(kind=pr) :: val, vx,vy,vz
 
-  do iy=ca(3), cb(3)
-     ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
+  do iz=ca(1),cb(1)
+     kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
      do ix=ca(2),cb(2)
         kx=scalex*dble(ix)
-        do iz=ca(1),cb(1)
-           kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
-
+        do iy=ca(3), cb(3)
+           ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
+           
            k2=kx*kx +ky*ky +kz*kz
 
            if(k2 /= 0.d0) then

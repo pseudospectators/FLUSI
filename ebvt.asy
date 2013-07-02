@@ -22,7 +22,7 @@ if(yvar == "Emagx") ypos=2;
 if(yvar == "Emagy") ypos=3;
 if(yvar == "Emagz") ypos=4;
 
-string datafile="ebvt";
+string datafile="eb.t";
 
 
 if(ypos == 0) {

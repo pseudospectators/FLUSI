@@ -5,7 +5,6 @@ string[] set_legends(string runlegs)
 {
   string[] legends;
   bool myleg=((runlegs== "") ? false: true);
-  write(myleg);
   bool flag=true;
   int n=-1;
   int lastpos=0;

@@ -1,5 +1,5 @@
-! FSI wrapper for different (possibly time-dependend) mask functions 
-subroutine Create_Mask(time)
+! Wrapper for different (possibly time-dependend) mask functions
+subroutine create_mask(time)
   use mpi_header
   use vars
   implicit none
@@ -15,10 +15,10 @@ subroutine Create_Mask(time)
   case("fsi")
      call Create_Mask_fsi(time)
   case("mhd")
-     call Create_Mask_mhd(time)
+     call Create_Mask_mhd()
   case default    
      if(mpirank == 0) then
-        write (*,*) "Error: unkown method in Create_Mask.!"
+        write (*,*) "Error: unkown method in create_mask; stopping."
         stop
      endif
   end select
@@ -26,17 +26,39 @@ subroutine Create_Mask(time)
   ! Attention: division by eps is done here, not in subroutines.
   eps_inv=1.d0/eps
   mask=mask*eps_inv
-end subroutine Create_Mask
+end subroutine create_mask
+
+
+! Wrapper to set imposed velocity
+subroutine update_us(ub)
+  use mpi_header
+  use vars
+  implicit none
+
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+
+  select case(method)
+  case("fsi")
+     call update_us_fsi(ub)
+  case("mhd")
+     call update_us_mhd(ub)
+  case default    
+     if(mpirank == 0) then
+        write (*,*) "Error: unkown method in update_us; stopping."
+        stop
+     endif
+  end select
+end subroutine update_us
 
 
 ! Spherical obstacle
-subroutine Draw_Sphere 
+subroutine draw_sphere 
   use mpi_header
   use fsi_vars
   implicit none
 
   integer :: ix, iy, iz
-  real (kind=pr) :: x, y, z,  tmp, R, N_smooth
+  real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
   N_smooth = 2.d0
 
@@ -61,7 +83,7 @@ subroutine Draw_Sphere
         enddo
      enddo
   enddo
-end subroutine Draw_Sphere
+end subroutine draw_sphere
 
 
 ! This subroutine returns the value f of a smooth step function
@@ -70,7 +92,7 @@ end subroutine Draw_Sphere
 ! f is 1 if x<=t-h
 ! f is 0 if x>t+h
 ! f is variable (smooth) in between
-subroutine SmoothStep (f,x,t,h)
+subroutine smoothstep (f,x,t,h)
   use fsi_vars
   implicit none
   real (kind=pr), intent (out) :: f
@@ -101,4 +123,4 @@ subroutine SmoothStep (f,x,t,h)
   GradientERF = abs( ( exp(-(2.0*1.0)**2)  - 1.0 )/sqrt(pi) )
   delta = h*GradientERF
   f = 0.5*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
-end subroutine SmoothStep
+end subroutine smoothstep

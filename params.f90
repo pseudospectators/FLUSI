@@ -30,7 +30,7 @@ subroutine get_params(paramsfile)
         call get_params_mhd(PARAMS,i)
   case default
      if(mpirank == 0) then
-        write(*,*) "Error! Unkonwn method in get_params"
+        write(*,*) "Error! Unkonwn method in get_params; stopping."
         stop
      end if
   end select
@@ -95,7 +95,6 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Time","CFL",cfl, 0.1d0)
   call GetValue_Real(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
 
-
   ! Reynolds number section:
   call GetValue_Real(PARAMS,i,"ReynoldsNumber","nu",nu, 1.d-2)  
   inicond = "none"
@@ -119,11 +118,6 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Geometry","zl",zl, 1.d0)
   call GetValue_Real(PARAMS,i,"Geometry","Size",length, 0.d0)
 
-  ! MeanFlow section
-  call GetValue_Int(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
-  call GetValue_Real(PARAMS,i,"MeanFlow","ux",ux, 1.d0) 
-  call GetValue_Real(PARAMS,i,"MeanFlow","uy",uy, 1.d0) 
-  call GetValue_Real(PARAMS,i,"MeanFlow","uz",uz, 1.d0) 
 
   ! Saving section
   call GetValue_Int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
@@ -165,6 +159,12 @@ subroutine get_params_fsi(PARAMS,i)
   
   ! Saving section
   call GetValue_Int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
+
+  ! MeanFlow section
+  call GetValue_Int(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
+  call GetValue_Real(PARAMS,i,"MeanFlow","ux",ux, 1.d0) 
+  call GetValue_Real(PARAMS,i,"MeanFlow","uy",uy, 1.d0) 
+  call GetValue_Real(PARAMS,i,"MeanFlow","uz",uz, 1.d0) 
 
   lin(1)=nu
 

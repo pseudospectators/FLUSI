@@ -48,7 +48,7 @@ program MHD3D
   call get_command_argument(1,infile) ! infile from command line
   if (mpirank == 0) write(*,'(A)') 'Reading parameters from'//infile
   call get_params(infile)
-
+  
   ! Initialize FFT
   call fft_initialize
 
@@ -64,29 +64,29 @@ program MHD3D
 9    format(9A) ! 9 outputs, including tabs
 15   format(15A) ! 15 outputs, including tabs
 
-     ! ekvt: 9 outputs, including tabs
-     open(14,file='ekvt',status='replace')
+     ! ek.t: 9 outputs, including tabs
+     open(14,file='ek.t',status='replace')
      write(14,9) "#time",tab,"Ekin",tab,"Ekinx",tab,"Ekiny",tab,"Ekinz"
      close(14)
 
-     ! ebvt: 9 outputs, including tabs
-     open(14,file='ebvt',status='replace')
+     ! eb.t: 9 outputs, including tabs
+     open(14,file='eb.t',status='replace')
      write(14,9) "#time",tab,"Emag",tab,"Emagx",tab,"Emagy",tab,"Emagz"
      close(14)
 
-     ! jvt: 15 outputs, including tabs
-     open(14,file='jvt',status='replace')
+     ! j.t: 15 outputs, including tabs
+     open(14,file='j.t',status='replace')
      write(14,15) "#time",tab,"meanjx",tab,"meanjy",tab,"meanjz",tab,&
           "jmax",tab,"jxmax",tab,"jymax",tab,"jzmax"
      close(14) 
 
-     ! dissvt: 5 outputs, including tabs
-     open(14,file='dissvt',status='replace')
+     ! diss.t: 5 outputs, including tabs
+     open(14,file='diss.t',status='replace')
      write(14,5) "#time",tab,"disskin",tab,"dissmag"
      close(14)
 
-     ! dvt: 5 outputs, including tabs
-     open(14,file='dvt',status='replace')    
+     ! d.t: 5 outputs, including tabs
+     open(14,file='d.t',status='replace')    
      write(14,5) "#time",tab,"divu",tab,"divb"
      close(14)
   endif
@@ -97,21 +97,24 @@ program MHD3D
   allocate(wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))     
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
-  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))) ! FIXME: unused?
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
 
   ! Step forward in time
   if (mpirank == 0)  write(*,'(A)') 'Info: Starting time iterations.'
   call time_step(ub,ubk,nlk,wj,work,explin)
 
-  ! Output information on where the algorithm spent the most time.
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
   
-  deallocate(lin)
-  deallocate(explin)
   deallocate(ubk)
-  deallocate(nlk)
   deallocate(ub)
   deallocate(wj)
+  deallocate(nlk)
+  deallocate(explin)
+  deallocate(mask)
+  deallocate(us)
+  deallocate(lin)
   deallocate(work)
 
   call fft_free 

@@ -14,12 +14,12 @@ subroutine Create_Mask_fsi(time)
   case ("sphere")
      call Draw_Sphere()
   case ("Jerry")      
-     call Draw_Jerry ( time )      
+     call Draw_Jerry (time)      
   case ("Flapper")    
-     call Flapper ( time )    
+     call Flapper (time)    
   case default    
      if (mpirank == 0) then
-        write (*,*) "iMask not properly set. Suicide!"
+        write (*,*) "iMask not properly set; stopping."
         stop
      endif
   end select
@@ -27,6 +27,27 @@ subroutine Create_Mask_fsi(time)
   ! -- for global timing.
   time_mask = time_mask + MPI_wtime() - t1
 end subroutine Create_Mask_fsi
+
+
+! MHD wrapper for setting (possibly velocity-dependent) imposed field.
+subroutine update_us_fsi(ub)
+  use fsi_vars
+  implicit none
+
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+
+  ! NB: this is currently done in create_mask_fsi.
+  select case (iMask)
+  case ("sphere")
+  case ("Jerry")
+  case ("Flapper")
+  case default
+     if(mpirank == 0) then
+        write (*,*) "iMask not properly set for fsi; stopping."
+        stop
+     endif
+  end select
+end subroutine update_us_fsi
 
 
 ! Draws Jerry, the first insect with rigid wings.  Jerry is symmetric

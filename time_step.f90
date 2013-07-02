@@ -24,27 +24,29 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   call MPI_barrier(MPI_COMM_world,mpicode)
   time=0.0
 
-  dt0=1.0d0 ! useful to trigger cal_vis
-  dt1=2.d0  ! just add a comment to test branching...
+  ! Useful to trigger cal_vis
+  dt0=1.0d0
+  dt1=2.d0
      
   ! Initialize vorticity or read values from a backup file
-  ! FIXME: move to FLUSI.f90 or mhd.f90?
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
-  
+
+  ! Create mask function:
+  call create_mask(time)
+
   ! After init, output integral quantities.
   call write_integrals(time,uk,u,vort,nlk,work)
 
   n0=1 - n1
   it_start=it 
-  ! FIXME: when moving the above, it would be nice to move this as well. 
-
+  
   ! Loop over time steps
   t1=MPI_wtime()
   do while((time<=tmax) .and. (it<=nt))
      dt0=dt1
 
      ! If the mask is time-dependend,we create it here
-     if(iMoving == 1 .and. iPenalization == 1) call Create_Mask(time)
+     if(iMoving == 1 .and. iPenalization == 1) call create_mask(time)
 
      ! Do a fluid time step
      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
