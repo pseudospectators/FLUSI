@@ -117,7 +117,7 @@ subroutine init_smc(ubk,ub)
   real(kind=pr) :: pekin,pfluidarea,fluidarea,ekin
   real(kind=pr) :: ux,uy,uz
   real(kind=pr) :: enorm
-  real(kind=pr) :: x,y,r
+  real(kind=pr) :: x,y
 
   ! Create random initial conditions for the velocity:
   call randgen3d(ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),ub(:,:,:,1))
@@ -149,9 +149,11 @@ subroutine init_smc(ubk,ub)
   fluidarea=0.d0
   ekin=0.d0
 
-  call MPI_REDUCE(pekin,ekin,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  call MPI_REDUCE(pekin,ekin,&
+       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        0,MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(pfluidarea,fluidarea,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  call MPI_REDUCE(pfluidarea,fluidarea,&
+       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        0,MPI_COMM_WORLD,mpicode)
   
   if(mpirank == 0) then
@@ -174,9 +176,9 @@ subroutine init_smc(ubk,ub)
         do ix=ra(1),rb(1)
            x=xl*(dble(ix)/dble(nx) -0.5d0)
            
-           ub(ix,iy,iz,1)=-y*Bc/R1
-           ub(ix,iy,iz,2)= x*Bc/R1
-           ub(ix,iy,iz,3)=B0
+           ub(ix,iy,iz,4)=-y*Bc/R1
+           ub(ix,iy,iz,5)= x*Bc/R1
+           ub(ix,iy,iz,6)=B0
         enddo
      enddo
   enddo
@@ -273,8 +275,10 @@ subroutine randgen3d(fk1,fk2,fk3,w)
   ! Enforce Hermitian symmetry the lazy way:
   call ifft(w,fk1)
   call fft(fk1,w)
+
   call ifft(w,fk2)
   call fft(fk2,w)
+
   call ifft(w,fk3)
   call fft(fk3,w)
 end subroutine randgen3d
