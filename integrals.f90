@@ -214,10 +214,10 @@ subroutine compute_energies(E,Ex,Ey,Ez,f1,f2,f3)
      enddo
   enddo
 
-  LE=LE*dx*dy*dz
-  LEx=LEx*dx*dy*dz
-  LEy=LEy*dx*dy*dz
-  LEz=LEz*dx*dy*dz
+  LE=0.5*LE*dx*dy*dz
+  LEx=0.5*LEx*dx*dy*dz
+  LEy=0.5*LEy*dx*dy*dz
+  LEz=0.5*LEz*dx*dy*dz
 
   ! Sum over all MPI processes
   call MPI_REDUCE(LE,E,&
