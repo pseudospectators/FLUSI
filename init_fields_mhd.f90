@@ -117,7 +117,8 @@ subroutine init_smc(ubk,ub)
   real(kind=pr) :: pekin,pfluidarea,fluidarea,ekin
   real(kind=pr) :: ux,uy,uz
   real(kind=pr) :: enorm
-  real(kind=pr) :: x,y
+  real(kind=pr) :: x,y,r
+  real (kind=pr) :: a,b,c,d,k1,k2,h
 
   ! Create random initial conditions for the velocity:
   call randgen3d(ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),ub(:,:,:,1))
@@ -170,16 +171,41 @@ subroutine init_smc(ubk,ub)
   enddo
   
   ! Set up the magnetic field
-  do iz=ra(3),rb(3)
+
+  ub(:,:,:,4)=0.d0
+  ub(:,:,:,5)=0.d0
+
+  ub(:,:,:,6)=B0 ! bz set to B0 everywhere
+
+  k1=Bc*r2/r1
+  k2=Bc/r1
+  A=(2.d0*k1 -k2*(r2-r3))/(r3*r3*r3 -3.d0*r2*r3*r3 +3.d0*r2*r2*r3 -r2*r2*r2)
+  B=(k2 -3.d0*A*(r2*r2 -r3*r3))/(2.d0*r2 -2.d0*r3)
+  C=-3.d0*A*r3*r3 -2.d0*B*r3
+  D=2.d0*A*r3*r3*r3 +B*r3*r3
+
+  do ix=ra(1),rb(1)
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
-        do ix=ra(1),rb(1)
-           x=xl*(dble(ix)/dble(nx) -0.5d0)
-           
-           ub(ix,iy,iz,4)=-y*Bc/R1
-           ub(ix,iy,iz,5)= x*Bc/R1
-           ub(ix,iy,iz,6)=B0
-        enddo
+        
+        r=dsqrt(x*x + y*y)
+
+        if(r < r2) then
+           do iz=ra(3),rb(3)
+              ub(ix,iy,iz,4)=-y*Bc/R1
+              ub(ix,iy,iz,5)= x*Bc/R1
+           enddo
+        endif
+
+        if(r >= r2 .and. r <= r3) then
+           h=(A*r*r*r +B*r*r +C*r +D)
+           do iz = ra(3), rb(3)
+              ub(ix,iy,iz,4)= h*y/r
+              ub(ix,iy,iz,5)=-h*x/r
+           enddo
+        endif
+
      enddo
   enddo
 

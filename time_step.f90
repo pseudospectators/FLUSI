@@ -33,6 +33,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
 
   ! Create mask function:
   call create_mask(time)
+  call update_us(uk)
 
   ! After init, output integral quantities.
   call write_integrals(time,uk,u,vort,nlk,work)
@@ -61,6 +62,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
      ! Output of integrals after every tintegral time units
      if(modulo(time - tstart,tintegral) <= dt1) then
         call write_integrals(time,uk,u,vort,nlk,work)
+     endif
+
+     if(modulo(it,300) == 0) then
+        call write_integrals(time,uk,u,vort,nlk,work) ! FIXME: temp?
      endif
 
      ! Output how much time remains

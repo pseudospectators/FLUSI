@@ -138,13 +138,10 @@ subroutine smc_us_mhd(ub)
 
         if(r >= r1) then
            do iz = ra(3), rb(3)
-
               ! Velocity is no-slip:
               us(ix,iy,iz,1)=0.d0
               us(ix,iy,iz,2)=0.d0
               us(ix,iy,iz,3)=0.d0
-
-              us(ix,iy,iz,6)=B0
            enddo
         endif
         
@@ -157,11 +154,18 @@ subroutine smc_us_mhd(ub)
         endif
         
         ! Hermite profile:
-        if(r >= r1 .and. r <= r3) then
+        if(r >= r2 .and. r <= r3) then
            h=(A*r*r*r +B*r*r +C*r +D)
            do iz = ra(3), rb(3)
               us(ix,iy,iz,4)=ub(ix,iy,iz,4) + h*y/r
               us(ix,iy,iz,5)=ub(ix,iy,iz,5) - h*x/r
+           enddo
+        endif
+
+        if(r >= r1) then
+           do iz = ra(3), rb(3)
+              ! bz is penalized to B0 outside of fluid.
+              us(ix,iy,iz,6)=B0
            enddo
         endif
         
