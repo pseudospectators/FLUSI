@@ -202,22 +202,25 @@ subroutine compute_energies(E,Ex,Ey,Ez,f1,f2,f3)
   do ix=ra(1),rb(1)
      do iy=ra(2),rb(2)
         do iz=ra(3),rb(3)
-           v1=f1(ix,iy,iz)
-           v2=f2(ix,iy,iz)
-           v3=f3(ix,iy,iz)
-           
-           LE=Le + v1*v1 + v2*v2 + v3*v3
-           LEx=LEx + v1*v1
-           LEy=LEy + v2*v2
-           LEz=LEz + v3*v3
+           if(mask(ix,iy,iz) == 0.d0) then
+              
+              v1=f1(ix,iy,iz)
+              v2=f2(ix,iy,iz)
+              v3=f3(ix,iy,iz)
+              
+              LE=Le + v1*v1 + v2*v2 + v3*v3
+              LEx=LEx + v1*v1
+              LEy=LEy + v2*v2
+              LEz=LEz + v3*v3
+           endif
         enddo
      enddo
   enddo
 
-  LE=0.5*LE*dx*dy*dz
-  LEx=0.5*LEx*dx*dy*dz
-  LEy=0.5*LEy*dx*dy*dz
-  LEz=0.5*LEz*dx*dy*dz
+  LE=0.5*dx*dy*dz*LE
+  LEx=0.5*dx*dy*dz*LEx
+  LEy=0.5*dx*dy*dz*LEy
+  LEz=0.5*dx*dy*dz*LEz
 
   ! Sum over all MPI processes
   call MPI_REDUCE(LE,E,&
@@ -260,13 +263,15 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
   do ix=ra(1),rb(1)
      do iy=ra(2),rb(2)
         do iz=ra(3),rb(3)
-           v1=f1(ix,iy,iz)
-           v2=f2(ix,iy,iz)
-           v3=f3(ix,iy,iz)
-           
-           LCx=LCx + v1
-           LCy=LCy + v2
-           LCz=LCz + v3
+           if(mask(ix,iy,iz) == 0.d0) then
+              v1=f1(ix,iy,iz)
+              v2=f2(ix,iy,iz)
+              v3=f3(ix,iy,iz)
+              
+              LCx=LCx + v1
+              LCy=LCy + v2
+              LCz=LCz + v3
+           endif
         enddo
      enddo
   enddo
@@ -318,6 +323,7 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
         kx=scalex*ix
         do iy=ca(3),cb(3)
            ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
+
            divk(iz,ix,iy)=imag*&
                 (kx*fk1(iz,ix,iy)&
                 +ky*fk2(iz,ix,iy)&
@@ -333,19 +339,22 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   do ix=ra(1),rb(1)
      do iy=ra(2),rb(2)
         do iz=ra(3),rb(3)
-           v1=f1(ix,iy,iz)
-           v2=f2(ix,iy,iz)
-           v3=f3(ix,iy,iz)
-           
-           ! Normalized version:
-           ! fnorm=v1*v2 + v2*v2 + v3*v3 + 1d-8 ! avoid division by zero
-           ! d=abs(div(ix,iy,iz))/fnorm
-
-           ! Non-normalized version:
-           d=abs(div(ix,iy,iz))
-
-           if(d > locmax) then
-              locmax=d
+           if(mask(ix,iy,iz) == 0.d0) then
+              
+              v1=f1(ix,iy,iz)
+              v2=f2(ix,iy,iz)
+              v3=f3(ix,iy,iz)
+              
+              ! Normalized version:
+              ! fnorm=v1*v2 + v2*v2 + v3*v3 + 1d-8 ! avoid division by zero
+              ! d=abs(div(ix,iy,iz))/fnorm
+              
+              ! Non-normalized version:
+              d=abs(div(ix,iy,iz))
+              
+              if(d > locmax) then
+                 locmax=d
+              endif
            endif
         enddo
      enddo
@@ -383,13 +392,15 @@ subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
   do ix=ra(1),rb(1)
      do iy=ra(2),rb(2)
         do iz=ra(3),rb(3)
-           v1=f1(ix,iy,iz)
-           v2=f2(ix,iy,iz)
-           v3=f3(ix,iy,iz)
-           Lmax=max(Lmax,dsqrt(v1*v1 + v2*v2 + v3*v3))
-           Lxmax=max(Lxmax,v1)
-           Lymax=max(Lymax,v2)
-           Lzmax=max(Lzmax,v3)
+           if(mask(ix,iy,iz) == 0.d0) then
+              v1=f1(ix,iy,iz)
+              v2=f2(ix,iy,iz)
+              v3=f3(ix,iy,iz)
+              Lmax=max(Lmax,dsqrt(v1*v1 + v2*v2 + v3*v3))
+              Lxmax=max(Lxmax,v1)
+              Lymax=max(Lymax,v2)
+              Lzmax=max(Lzmax,v3)
+           endif
         enddo
      enddo
   enddo
@@ -429,11 +440,13 @@ subroutine compute_mean_norm(mean,f1,f2,f3)
   do ix=ra(1),rb(1)
      do iy=ra(2),rb(2)
         do iz=ra(3),rb(3)
-           v1=f1(ix,iy,iz)
-           v2=f2(ix,iy,iz)
-           v3=f3(ix,iy,iz)
-           
-           Lmean=Lmean + v1*v1 + v2*v2 + v3*v3
+           if(mask(ix,iy,iz) == 0.d0) then
+              v1=f1(ix,iy,iz)
+              v2=f2(ix,iy,iz)
+              v3=f3(ix,iy,iz)
+              
+              Lmean=Lmean + v1*v1 + v2*v2 + v3*v3
+           endif
         enddo
      enddo
   enddo
@@ -467,7 +480,7 @@ subroutine compute_fluid_volume(volume)
      do ix=ra(1),rb(1)
         do iy=ra(2),rb(2)
            do iz=ra(3),rb(3)
-              if(mask(ix,iy,iz) /= 0.d0) then
+              if(mask(ix,iy,iz) == 0.d0) then
                  Lvolume=Lvolume +dxyz
               endif
            enddo

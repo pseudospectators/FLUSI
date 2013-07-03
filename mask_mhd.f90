@@ -4,6 +4,7 @@ subroutine create_mask_mhd()
   use mhd_vars
   implicit none
 
+  mask=0.d0
   if(iPenalization == 1) then
      select case (iMask)
      case("taylorcouette")
