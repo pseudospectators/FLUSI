@@ -228,14 +228,16 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
 
   imag = dcmplx(0.d0,1.d0)
   
-  do iy=ca(3),cb(3)
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
+  do iz=ca(1),cb(1)
+     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
      do ix=ca(2),cb(2)
         kx=scalex*dble(ix)
-        do iz=ca(1),cb(1)
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           k2=kx*kx+ky*ky+kz*kz
-           if (k2 .ne. 0.0) then  
+        do iy=ca(3),cb(3)
+           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+           
+           k2=kx*kx + ky*ky + kz*kz
+
+           if (k2 .ne. 0.0) then
               nlx=nlk1(iz,ix,iy)
               nly=nlk2(iz,ix,iy)
               nlz=nlk3(iz,ix,iy)
@@ -243,7 +245,7 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
               ! qk is the Fourier coefficient of thr pressure
               qk=(kx*nlx + ky*nly + kz*nlz)/k2
               ! add the gradient to the non-linear terms
-              nlk1(iz,ix,iy)=nlx - kx*qk  
+              nlk1(iz,ix,iy)=nlx - kx*qk
               nlk2(iz,ix,iy)=nly - ky*qk
               nlk3(iz,ix,iy)=nlz - kz*qk
            endif
@@ -356,9 +358,7 @@ end subroutine omegacrossu_penalize
 
 ! The actual penalization (even though its a fairly simple process) is
 ! done by this routine instead of in the computation of the nonlinear
-! term in order to remove some lines in the actual cal_nlk also, at
-! this occasion, we directly compute the integral hydrodynamic forces,
-! if its time to do so (TimeForDrag=.true.)
+! term in order to remove some lines in the actual cal_nlk also.
 subroutine Penalize(work,u,iDir,TimeForDrag)
   use fsi_vars
   implicit none
@@ -378,15 +378,19 @@ end subroutine Penalize
 
 
 ! Compute the nonlinear source term of the mhd equations,
-! including penality term, in Fourier space. 
+! including penality term, in Fourier space.
+
 ! Input: ubk, which is a 4D array containing the Fourier-space version
 ! of the velocity and magnetic field.
+
 ! Output: nlk is the (Fourier-space) nonlinear source term for both
 ! the velocity and magnetic field. ub is the physical-space version of
 ! the input velocity and magnetic field.
+
 ! Work memory: wj is a 4D array which is used to compute the voriticy
 ! and current density and other quantities, but doesn't contain anything
 ! useful at the end of the subroutine.
+
 ! Other (global) arrays: mask is 3D physical-space array containing
 ! the mask function for both the velocity and magnetic field. us is a
 ! 4D array containing the imposed velocity and magnetic field in
@@ -431,41 +435,41 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   enddo
 
   ! Put the x-space version of the nonlinear source term in wj.
-  do iy=ra(3),rb(3)
+  do iz=ra(1),rb(1)
      do ix=ra(2),rb(2)
-        do iz=ra(1),rb(1)
+        do iy=ra(3),rb(3)
            ! Loop-local variables for velocity and magnetic field:
-           u1=ub(iz,ix,iy,1)
-           u2=ub(iz,ix,iy,2)
-           u3=ub(iz,ix,iy,3)
-           b1=ub(iz,ix,iy,4)
-           b2=ub(iz,ix,iy,5)
-           b3=ub(iz,ix,iy,6)
+           u1=ub(ix,iy,iz,1)
+           u2=ub(ix,iy,iz,2)
+           u3=ub(ix,iy,iz,3)
+           b1=ub(ix,iy,iz,4)
+           b2=ub(ix,iy,iz,5)
+           b3=ub(ix,iy,iz,6)
 
            ! Loop-local variables for vorticity and current density:
-           w1=wj(iz,ix,iy,1)
-           w2=wj(iz,ix,iy,2)
-           w3=wj(iz,ix,iy,3)
-           j1=wj(iz,ix,iy,4)
-           j2=wj(iz,ix,iy,5)
-           j3=wj(iz,ix,iy,6)
+           w1=wj(ix,iy,iz,1)
+           w2=wj(ix,iy,iz,2)
+           w3=wj(ix,iy,iz,3)
+           j1=wj(ix,iy,iz,4)
+           j2=wj(ix,iy,iz,5)
+           j3=wj(ix,iy,iz,6)
 
            ! Loop-local variables for mask and imposed velocity field:
-           m=mask(iz,ix,iy)
-           us1=us(iz,ix,iy,1)
-           us2=us(iz,ix,iy,2)
-           us3=us(iz,ix,iy,3)
+           m=mask(ix,iy,iz)
+           us1=us(ix,iy,iz,1)
+           us2=us(ix,iy,iz,2)
+           us3=us(ix,iy,iz,3)
 
             ! Nonlinear source term for fluid, including penalization:
-            wj(iz,ix,iy,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
-            wj(iz,ix,iy,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
-            wj(iz,ix,iy,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
+            wj(ix,iy,iz,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
+            wj(ix,iy,iz,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
+            wj(ix,iy,iz,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
 
             ! Nonlinear source term for magnetic field (missing the
             ! curl and without penalization):
-            wj(iz,ix,iy,4)=u2*b3 - u3*b2
-            wj(iz,ix,iy,5)=u3*b1 - u1*b3
-            wj(iz,ix,iy,6)=u1*b2 - u2*b1
+            wj(ix,iy,iz,4)=u2*b3 - u3*b2
+            wj(ix,iy,iz,5)=u3*b1 - u1*b3
+            wj(ix,iy,iz,6)=u1*b2 - u2*b1
         enddo
      enddo
   enddo
@@ -475,8 +479,8 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   do i=4,nd
      call fft(nlk(:,:,:,i),wj(:,:,:,i))
   enddo
-  ! NB: the last three sub-arrays of wj are now free (and contain
-  ! nothing useful).
+  ! NB: the last three sub-arrays of wj and the first three sub-arrays
+  ! of nlk are free.
 
   ! Add the curl to the magnetic source term:
   call curl_inplace(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
@@ -490,7 +494,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
      enddo
   endif
   
-  ! Transform u to Fourier space:
+  ! Transform u source-term to Fourier space:
   do i=1,3
      call fft(nlk(:,:,:,i),wj(:,:,:,i))
   enddo
@@ -566,12 +570,13 @@ subroutine curl_inplace(fx,fy,fz)
   imag = dcmplx(0.d0,1.d0)
   
   ! Compute curl of given field in Fourier space:
-  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-     do ix=ca(2),cb(2)  ! kx : 0..nx/2
+  do iz=ca(1),cb(1)
+     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+     do ix=ca(2),cb(2)
         kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+        do iy=ca(3),cb(3)
+           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+           
            t1=fx(iz,ix,iy)
            t2=fy(iz,ix,iy)
            t3=fz(iz,ix,iy)
