@@ -62,12 +62,12 @@ subroutine draw_sphere
 
   N_smooth = 2.d0
 
-  do iz = ra(3), rb(3)
-     do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
-           x = dble(ix)*dx
-           y = dble(iy)*dy
-           z = dble(iz)*dz
+  do ix=ra(1),rb(1)
+     do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)
+           x=dble(ix)*dx
+           y=dble(iy)*dy
+           z=dble(iz)*dz
            R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
            if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
               call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
@@ -92,7 +92,7 @@ end subroutine draw_sphere
 ! f is 1 if x<=t-h
 ! f is 0 if x>t+h
 ! f is variable (smooth) in between
-subroutine smoothstep (f,x,t,h)
+subroutine smoothstep(f,x,t,h)
   use fsi_vars
   implicit none
   real (kind=pr), intent (out) :: f

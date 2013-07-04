@@ -189,13 +189,14 @@ subroutine compute_pressure(pk,nlk)
 
   imag = dcmplx(0.d0,1.d0)
 
-  do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+  do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
+     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
      do ix=ca(2),cb(2) ! kx : 0..nx/2
         kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           k2=kx*kx+ky*ky+kz*kz
+        do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
+           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+
+           k2=kx*kx + ky*ky + kz*kz
            if(k2 .ne. 0.0) then
               ! contains the pressure in Fourier space
               pk(iz,ix,iy)=imag*(&
@@ -534,15 +535,16 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
   imag = dcmplx(0.d0,1.d0)
   
   ! Compute curl of given field in Fourier space:
-  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-     do ix=ca(2),cb(2)  ! kx : 0..nx/2
+  do iz=ca(1),cb(1)
+     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+     do ix=ca(2),cb(2)
         kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           out1(iz,ix,iy)=imag*(ky*in3(iz,ix,iy)-kz*in2(iz,ix,iy))
-           out2(iz,ix,iy)=imag*(kz*in1(iz,ix,iy)-kx*in3(iz,ix,iy))
-           out3(iz,ix,iy)=imag*(kx*in2(iz,ix,iy)-ky*in1(iz,ix,iy))
+        do iy=ca(3),cb(3)
+           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+
+           out1(iz,ix,iy)=imag*(ky*in3(iz,ix,iy) -kz*in2(iz,ix,iy))
+           out2(iz,ix,iy)=imag*(kz*in1(iz,ix,iy) -kx*in3(iz,ix,iy))
+           out3(iz,ix,iy)=imag*(kx*in2(iz,ix,iy) -ky*in1(iz,ix,iy))
         enddo
      enddo
   enddo

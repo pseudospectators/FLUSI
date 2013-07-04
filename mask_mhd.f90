@@ -58,20 +58,20 @@ subroutine tc_us_mhd()
   
   us=0.d0
 
-  do ix = ra(1), rb(1)  
+  do ix=ra(1),rb(1)  
      x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy = ra(2), rb(2)
+     do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
 
         r=dsqrt(x*x +y*y)
 
         if(r <= R1) then
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               us(ix,iy,iz,1)=0.d0 
            enddo
         endif
         if(r >= R2) then
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               us(ix,iy,iz,1)=0.d0
            enddo
         endif
@@ -92,15 +92,15 @@ subroutine tc_mask_mhd()
 
   mask=0.d0
 
-  do ix = ra(1), rb(1)  
+  do ix=ra(1),rb(1)  
      x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy = ra(2), rb(2)
+     do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
 
         r=dsqrt(x*x +y*y)
 
         if(r <= R1 .or. r >= R2) then
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               mask(ix,iy,iz)=1.d0
            enddo
         endif
@@ -130,15 +130,15 @@ subroutine smc_us_mhd(ub)
   C=-3.d0*A*r3*r3 -2.d0*B*r3
   D=2.d0*A*r3*r3*r3 +B*r3*r3
 
-  do ix = ra(1), rb(1)  
+  do ix=ra(1),rb(1)  
      x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy = ra(2), rb(2)
+     do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
 
         r=dsqrt(x*x + y*y)
 
         if(r >= r1) then
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               ! Velocity is no-slip:
               us(ix,iy,iz,1)=0.d0
               us(ix,iy,iz,2)=0.d0
@@ -148,7 +148,7 @@ subroutine smc_us_mhd(ub)
         
         ! Linear profile:
         if(r >= r1 .and. r < r2) then
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               us(ix,iy,iz,4)=ub(ix,iy,iz,4) + Bc*y/r1
               us(ix,iy,iz,5)=ub(ix,iy,iz,5) - Bc*x/r1
            enddo
@@ -157,14 +157,14 @@ subroutine smc_us_mhd(ub)
         ! Hermite profile:
         if(r >= r2 .and. r <= r3) then
            h=(A*r*r*r +B*r*r +C*r +D)
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               us(ix,iy,iz,4)=ub(ix,iy,iz,4) + h*y/r
               us(ix,iy,iz,5)=ub(ix,iy,iz,5) - h*x/r
            enddo
         endif
 
         if(r >= r1) then
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               ! bz is penalized to B0 outside of fluid.
               us(ix,iy,iz,6)=B0
            enddo
@@ -186,15 +186,15 @@ subroutine smc_mask_mhd()
 
   mask=0.d0
 
-  do ix = ra(1), rb(1)  
+  do ix=ra(1),rb(1)  
      x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy = ra(2), rb(2)
+     do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
 
         r=dsqrt(x*x +y*y)
 
         if(r >= R1) then
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               mask(ix,iy,iz)=1.d0
            enddo
         endif

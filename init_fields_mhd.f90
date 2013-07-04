@@ -64,17 +64,19 @@ subroutine init_orszagtang(ubk,wj)
 
   beta=0.8d0
 
-  do iz=ra(3),rb(3)
-     z=zl*(dble(iz)/dble(nz) -0.5d0)
+  do ix=ra(1),rb(1)
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
-        do ix=ra(1),rb(1)
-           x=xl*(dble(ix)/dble(nx) -0.5d0)
+        do iz=ra(3),rb(3)
+           z=zl*(dble(iz)/dble(nz) -0.5d0)
+
            wj(ix,iy,iz,1)=-2.d0*dsin(y)
            wj(ix,iy,iz,2)=2.d0*dsin(x)
            wj(ix,iy,iz,3)=0.d0
-           wj(ix,iy,iz,4)=beta*(-2.*dsin(2.*y) + dsin(z))
-           wj(ix,iy,iz,5)=beta*(2.*dsin(x) + dsin(z))
+
+           wj(ix,iy,iz,4)=beta*(-2.d0*dsin(2.d0*y) + dsin(z))
+           wj(ix,iy,iz,5)=beta*(2.d0*dsin(x) + dsin(z))
            wj(ix,iy,iz,6)=beta*(dsin(x) + dsin(y))
         enddo
      enddo
@@ -127,7 +129,7 @@ subroutine init_smc(ubk,ub)
      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
 
-  ! compute energy
+  ! Compute energy and fluid area (for normalization later).
   pekin=0.d0
   pfluidarea=0.d0
   do ix=ra(1),rb(1)
@@ -147,9 +149,6 @@ subroutine init_smc(ubk,ub)
 
   pekin = 0.5*pekin
   
-  fluidarea=0.d0
-  ekin=0.d0
-
   call MPI_REDUCE(pekin,ekin,&
        1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        0,MPI_COMM_WORLD,mpicode)
@@ -158,7 +157,6 @@ subroutine init_smc(ubk,ub)
        0,MPI_COMM_WORLD,mpicode)
   
   if(mpirank == 0) then
-     ! compute the normalization:
      ekin = ekin/fluidarea
   endif
   call MPI_BCAST(ekin,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
@@ -200,7 +198,7 @@ subroutine init_smc(ubk,ub)
 
         if(r >= r2 .and. r <= r3) then
            h=(A*r*r*r +B*r*r +C*r +D)
-           do iz = ra(3), rb(3)
+           do iz=ra(3),rb(3)
               ub(ix,iy,iz,4)= h*y/r
               ub(ix,iy,iz,5)=-h*x/r
            enddo
@@ -245,10 +243,10 @@ subroutine randgen3d(fk1,fk2,fk3,w)
   !-- generate 3D gaussian field 
   do iz=ca(1),cb(1)
      kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
-     do iy=ca(3),cb(3)
-        ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
-        do ix=ca(2),cb(2)
-           kx=scalex*dble(ix)
+     do ix=ca(2),cb(2)
+        kx=scalex*dble(ix)
+        do iy=ca(3),cb(3)
+           ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
            k=dsqrt(kx*kx +ky*ky +kz*kz)
 
            !-- ek = sqrt(Ek/4pik^2), Ek imposed spectrum
