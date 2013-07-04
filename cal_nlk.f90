@@ -435,9 +435,9 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   enddo
 
   ! Put the x-space version of the nonlinear source term in wj.
-  do iz=ra(1),rb(1)
-     do ix=ra(2),rb(2)
-        do iy=ra(3),rb(3)
+  do ix=ra(1),rb(1)
+     do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)
            ! Loop-local variables for velocity and magnetic field:
            u1=ub(ix,iy,iz,1)
            u2=ub(ix,iy,iz,2)
