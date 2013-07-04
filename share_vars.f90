@@ -26,21 +26,7 @@ module vars
   ! Used in params.f90
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
 
-  ! Resolution and time-stepping
-  integer,save :: nx,ny,nz,nt 
-
-  ! Variables set via the parameters file
-  integer,save :: iDealias,itdrag
-  integer,save :: iKinDiss
-  integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
-  integer,save :: iMoving,iPenalization,iDoBackup
-  real(kind=pr),save :: tmax,cfl,eps,pi,scalex,scaley,scalez,length,nu
-  real(kind=pr),save :: tintegral ! Time between output of integral quantities
-  real(kind=pr),save :: xl,yl,zl,dx,dy,dz
-  real(kind=pr),save :: tsave ! Time between outpout of whole fields.
-  real(kind=pr),save :: tstart
-  real(kind=pr),save :: dt_fixed
-  character(len=80),save :: iMask,iTimeMethodFluid,inicond
+  real(kind=pr),save :: pi ! 3.14....
 
   real (kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
 
@@ -50,9 +36,46 @@ module vars
   real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
 
   ! The mask array.  TODO: move out of shave_vars?
-  real (kind=pr),dimension (:,:,:),allocatable,save :: mask
+  real (kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
-  real (kind=pr),allocatable,save :: us(:,:,:,:) 
+  real (kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
+
+
+  ! Variables set via the parameters file
+  real(kind=pr),save :: length ! FIXME: what is length?
+  ! Domain size variables:
+  integer,save :: nx,ny,nz
+  real(kind=pr),save :: xl,yl,zl,dx,dy,dz,scalex,scaley,scalez
+
+  ! FIXME: please document
+  integer,save :: iDealias,iKinDiss
+
+  ! Parameters to set which files are saved and how often:
+  integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
+  integer,save :: iDoBackup
+  real(kind=pr),save :: tintegral ! Time between output of integral quantities
+  real(kind=pr),save :: tsave ! Time between outpout of entire fields.
+  integer,save :: itdrag
+
+  ! Time-stepping parameters
+  real(kind=pr),save :: tmax
+  real(kind=pr),save :: tstart
+  real(kind=pr),save :: cfl
+  integer,save :: nt
+  character(len=80),save :: iTimeMethodFluid
+
+  ! Physical parameters:
+  real(kind=pr),save :: nu
+
+  ! Initial conditions:
+  character(len=80),save :: inicond
+  real(kind=pr),save :: omega1
+
+  ! Boundary conditions:
+  character(len=80),save :: iMask
+  integer,save :: iMoving,iPenalization
+  real(kind=pr),save :: dt_fixed
+  real(kind=pr),save :: eps
 end module vars
 
 

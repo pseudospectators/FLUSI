@@ -91,16 +91,17 @@ subroutine get_params_common(PARAMS,i)
   iTimeMethodFluid = "AB2" 
   call GetValue_String(PARAMS,i,"Time","iTimeMethodFluid", iTimeMethodFluid,&
        iTimeMethodFluid)  
-  call GetValue_Real(PARAMS,i,"Time","Tmax",Tmax, 1.d9)
-  call GetValue_Real(PARAMS,i,"Time","CFL",cfl, 0.1d0)
+  call GetValue_Real(PARAMS,i,"Time","Tmax",Tmax,1.d9)
+  call GetValue_Real(PARAMS,i,"Time","CFL",cfl,0.1d0)
   call GetValue_Real(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
 
   ! Reynolds number section:
-  call GetValue_Real(PARAMS,i,"ReynoldsNumber","nu",nu, 1.d-2)  
-  inicond = "none"
+  call GetValue_Real(PARAMS,i,"ReynoldsNumber","nu",nu,1.d-2)  
 
   ! Initial conditions section
+  inicond = "none"
   call GetValue_String(PARAMS,i,"InitialCondition","inicond",inicond, inicond)
+  call GetValue_Real(PARAMS,i,"InitialCondition","omega1",omega1,0.d0)  
 
   ! Dealasing section
   call GetValue_Int(PARAMS,i,"Dealiasing","iDealias",iDealias, 1)

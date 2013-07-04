@@ -30,6 +30,8 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
      call init_orszagtang(ubk,wj)
   case("smc")
      call init_smc(ubk,wj)
+  case("taylorcouette")
+     call init_tc_mhd(ubk,wj)
   case default
      if(inicond(1:8) == "backup::") then
         call Read_Runtime_Backup(inicond(9:len(inicond)),&
@@ -306,3 +308,89 @@ subroutine randgen3d(fk1,fk2,fk3,w)
   call ifft(w,fk3)
   call fft(fk3,w)
 end subroutine randgen3d
+
+
+! The Taylor-Couette initial conditions for mhd.
+subroutine init_tc_mhd(ubk,ub)
+  use mpi_header
+  use mhd_vars
+  implicit none
+
+  complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  integer :: ix,iy,iz,i
+  real(kind=pr) :: x,y,r
+  real(kind=pr) :: A,B,F
+
+  
+  if(mpirank == 0) then
+     if(r1 <= r2) then
+        write (*,*) "r1 <= r2 is not allowed in Taylor-Coette flow; stopping."
+        stop
+     endif
+  endif
+  
+  A=-omega1*r1*r1/(r2*r2 - r1*r1)
+  B=omega1*r1*r1*r2*r2/(r2*r2 - r1*r1)
+
+  do ix=ra(1),rb(1)
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+        r=dsqrt(x*x +y*y)
+
+        if(r <= R1) then
+           do iz=ra(3),rb(3)
+              ! Velocity field:
+              ub(ix,iy,iz,1)=-omega1*y
+              ub(ix,iy,iz,2)=omega1*x
+              ub(ix,iy,iz,3)=0.d0 ! z-component is zero
+
+              ! Magnetic field:
+              ub(ix,iy,iz,4)=-omega1*y
+              ub(ix,iy,iz,5)=omega1*x
+              ub(ix,iy,iz,6)=B0
+           enddo
+        endif
+
+        if(r > R1 .and. r < R2) then
+           do iz=ra(3),rb(3)
+              ! Velocity field:
+              F=A*r+B/r
+
+              ub(ix,iy,iz,1)=-F*y/r
+              ub(ix,iy,iz,2)=F*x/r
+              ub(ix,iy,iz,3)=0.d0 ! z-component is zero
+
+              ! Magnetic field:
+              ! FIXME: perhaps start with perturbation field?
+              ub(ix,iy,iz,4)=-F*y/r
+              ub(ix,iy,iz,5)=F*x/r
+              ub(ix,iy,iz,6)=B0
+           enddo
+        endif
+        
+        if(r >= R2) then
+           do iz=ra(3),rb(3)
+              ! NB: We assume that the outer wall is not moving.
+
+              ! Velocity field:
+              us(ix,iy,iz,1)=0.d0
+              us(ix,iy,iz,2)=0.d0
+              us(ix,iy,iz,3)=0.d0
+
+              ! Magnetic field:
+              us(ix,iy,iz,4)=0.d0
+              us(ix,iy,iz,5)=0.d0
+              us(ix,iy,iz,6)=B0
+           enddo
+        endif
+
+     enddo
+  enddo
+  
+  do i=1,nd
+     call fft(ubk(:,:,:,i),ub(:,:,:,i))
+  enddo
+end subroutine init_tc_mhd

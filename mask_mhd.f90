@@ -56,8 +56,17 @@ subroutine tc_us_mhd()
   real (kind=pr) :: r, x, y
   integer :: ix, iy, iz
   
+  if(mpirank == 0) then
+     if(r1 <= r2) then
+        write (*,*) "r1 <= r2 is not allowed in Taylor-Coette flow; stopping."
+        stop
+     endif
+  endif
+
   us=0.d0
 
+  ! FIXME: non-penetration for b?
+  
   do ix=ra(1),rb(1)  
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
@@ -67,12 +76,30 @@ subroutine tc_us_mhd()
 
         if(r <= R1) then
            do iz=ra(3),rb(3)
-              us(ix,iy,iz,1)=0.d0 
+              ! Velocity field:
+              us(ix,iy,iz,1)=-omega1*y
+              us(ix,iy,iz,2)=omega1*x
+              us(ix,iy,iz,3)=0.d0 ! z-component is zero
+
+              ! Magnetic field:
+              us(ix,iy,iz,4)=-omega1*y
+              us(ix,iy,iz,5)=omega1*x
+              us(ix,iy,iz,6)=B0
            enddo
         endif
         if(r >= R2) then
            do iz=ra(3),rb(3)
+              ! NB: We assume that the outer wall is not moving.
+
+              ! Velocity field:
               us(ix,iy,iz,1)=0.d0
+              us(ix,iy,iz,2)=0.d0
+              us(ix,iy,iz,3)=0.d0
+
+              ! Magnetic field:
+              us(ix,iy,iz,4)=0.d0
+              us(ix,iy,iz,5)=0.d0
+              us(ix,iy,iz,6)=B0
            enddo
         endif
 
