@@ -271,7 +271,8 @@ subroutine adjust_dt(dt1,u)
         if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
         ! time step is smaller than eps 
         
-        ! Don't jump past save-points
+        ! Don't jump past save-points: if the time-step is larger than
+        ! the time interval between outputs, decrease the time-step.
         if(tsave > 0.d0 .and. dt1 > tsave) then
            dt1=tsave
         endif
