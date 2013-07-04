@@ -49,3 +49,69 @@ void draw_another(bool myleg,string[] legends, int n)
   }
 }
 
+
+// load file (note format change from FORTRAN to C)
+real[][][] readfile(int nx, int ny, int nz, string name) {
+  file fin=input(name,mode="binary").singlereal();
+  real[][][] f=new real[nx][ny][nz];
+  for(int k=0; k < nz; ++k) {
+    for(int j=0; j < ny; ++j) {
+      for(int i=0; i < nx; ++i) {
+	f[i][j][k]=fin.read(1);
+      }
+    }
+  }
+  return f;
+}
+
+// return a 2D cross-section of a 3D file in index dir.
+real[][] cut2(real[][][] f,
+    int nx, int ny, int nz, int c, int dir) {
+  real[][] f2;
+  if(dir == 1) {
+    f2=new real[nx][ny];
+    for(int i=0; i < nx; ++i) {
+      for(int j=0; j < ny; ++j) {
+	f2[i][j]=f[i][j][c];
+      }
+    }
+  }
+  if(dir == 2) {
+    f2=new real[ny][nz];
+    for(int j=0; j < ny; ++j) {
+      for(int k=0; k < nz; ++k) {
+	f2[j][k]=f[c][j][k];
+      }
+    }
+  }
+  if(dir == 3) {
+    f2=new real[nx][nz];
+    for(int i=0; i < nx; ++i) {
+      for(int k=0; k < nz; ++k) {
+	f2[i][k]=f[i][c][k];
+      }
+    }
+  }
+  return f2;
+}
+
+// return a 1D cross-section of a 3D file in index dir.
+real[] cut1(real[][][] f, int nx, int ny, int nz, int c1, int c2, int dir) {
+  real [] f1;
+  if(dir == 1) {
+    f1=new real[nx];
+    for(int i=0; i < nx; ++i)
+      f1[i]=f[i][c1][c2];
+  }
+  if(dir == 2) {
+    f1=new real[ny];
+  for(int j=0; j < ny; ++j)
+    f1[j]=f[c1][j][c2];
+  }
+  if(dir == 3) {
+    f1=new real[nz];
+    for(int k=0; k < ny; ++k)
+      f1[k]=f[c1][c2][k];
+  }
+  return f1;
+}
