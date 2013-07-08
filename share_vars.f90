@@ -76,6 +76,7 @@ module vars
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: dt_fixed
   real(kind=pr),save :: eps
+  real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
 end module vars
 
 
@@ -112,7 +113,6 @@ module mhd_vars
   ! Physical parameters
   real(kind=pr),save :: eta ! magnetic diffusivity
   real(kind=pr),save :: b0, bc ! Boundary condition parameters
-  real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
 
   ! Determine whether we save various fields
   integer,save :: iSaveMagneticField,iSaveCurrent

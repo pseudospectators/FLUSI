@@ -30,7 +30,7 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
      call init_orszagtang(ubk,wj)
   case("smc")
      call init_smc(ubk,wj)
-  case("taylorcouette")
+  case("TaylorCouette")
      call init_tc_mhd(ubk,wj)
   case default
      if(inicond(1:8) == "backup::") then
@@ -53,16 +53,16 @@ end subroutine init_fields_mhd
 
 
 ! The Orszag-Tang initial conditions for mhd.
-subroutine init_orszagtang(ubk,wj)
+subroutine init_orszagtang(ubk,ub)
   use mpi_header
   use mhd_vars
   implicit none
 
   complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real(kind=pr),intent (inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: beta
   integer :: ix,iy,iz,i
-  real(kind=pr) :: x,y,z  
+  real(kind=pr) :: x,y,z
 
   beta=0.8d0
 
@@ -73,19 +73,19 @@ subroutine init_orszagtang(ubk,wj)
         do iz=ra(3),rb(3)
            z=zl*(dble(iz)/dble(nz) -0.5d0)
 
-           wj(ix,iy,iz,1)=-2.d0*dsin(y)
-           wj(ix,iy,iz,2)=2.d0*dsin(x)
-           wj(ix,iy,iz,3)=0.d0
+           ub(ix,iy,iz,1)=-2.d0*dsin(y)
+           ub(ix,iy,iz,2)=2.d0*dsin(x)
+           ub(ix,iy,iz,3)=0.d0
 
-           wj(ix,iy,iz,4)=beta*(-2.d0*dsin(2.d0*y) + dsin(z))
-           wj(ix,iy,iz,5)=beta*(2.d0*dsin(x) + dsin(z))
-           wj(ix,iy,iz,6)=beta*(dsin(x) + dsin(y))
+           ub(ix,iy,iz,4)=beta*(-2.d0*dsin(2.d0*y) + dsin(z))
+           ub(ix,iy,iz,5)=beta*(2.d0*dsin(x) + dsin(z))
+           ub(ix,iy,iz,6)=beta*(dsin(x) + dsin(y))
         enddo
      enddo
   enddo
   
   do i=1,nd
-     call fft(ubk(:,:,:,i),wj(:,:,:,i))
+     call fft(ubk(:,:,:,i),ub(:,:,:,i))
   enddo
 end subroutine init_orszagtang
 
@@ -100,8 +100,14 @@ subroutine init_const(ubk,wj)
   real(kind=pr),intent (inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   integer :: i
 
-  wj=1.d0
-  
+  wj(:,:,:,1)=1.d0
+  wj(:,:,:,2)=2.d0
+  wj(:,:,:,3)=3.d0
+
+  wj(:,:,:,4)=4.d0
+  wj(:,:,:,5)=5.d0
+  wj(:,:,:,6)=6.d0
+
   do i=1,nd
      call fft(ubk(:,:,:,i),wj(:,:,:,i))
   enddo
@@ -116,65 +122,18 @@ subroutine init_smc(ubk,ub)
 
   complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  integer :: mpicode
   integer :: i, ix,iy,iz
-  real(kind=pr) :: pekin,pfluidarea,fluidarea,ekin
-  real(kind=pr) :: ux,uy,uz
-  real(kind=pr) :: enorm
   real(kind=pr) :: x,y,r
   real (kind=pr) :: a,b,c,d,k1,k2,h
 
-  ! Create random initial conditions for the velocity:
-  call randgen3d(ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),ub(:,:,:,1))
-  
-  do i=1,3
-     call ifft(ub(:,:,:,i),ubk(:,:,:,i))
-  enddo
+  ! Create a perturbation for the velocity field:
+  call perturbation(ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),&
+       ub(:,:,:,1),ub(:,:,:,3),ub(:,:,:,3),&
+       3.1017126d-07)
 
-  ! Compute energy and fluid area (for normalization later).
-  pekin=0.d0
-  pfluidarea=0.d0
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
-           if(mask(ix,iy,iz) == 0.d0) then
-              ux=ub(ix,iy,iz,1)
-              uy=ub(ix,iy,iz,2)
-              uz=ub(ix,iy,iz,3)
-
-              pekin = pekin + ux*ux + uy*uy + uz*uz
-              pfluidarea = pfluidarea + 1.d0
-           endif
-        enddo
-     enddo
-  enddo
-
-  pekin = 0.5*pekin
-  
-  call MPI_REDUCE(pekin,ekin,&
-       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(pfluidarea,fluidarea,&
-       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)
-  
-  if(mpirank == 0) then
-     ekin = ekin/fluidarea
-  endif
-  call MPI_BCAST(ekin,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
-
-  ! normalize energy to that used in Jorge's initialization file.
-  enorm=dsqrt(3.1017126d-07/ekin)
-  do i=1,3
-     ub(:,:,:,i)=ub(:,:,:,i)*enorm
-     call fft(ubk(:,:,:,i),ub(:,:,:,i))
-  enddo
-  
   ! Set up the magnetic field
-
   ub(:,:,:,4)=0.d0
   ub(:,:,:,5)=0.d0
-
   ub(:,:,:,6)=B0 ! bz set to B0 everywhere
 
   k1=Bc*r2/r1
@@ -215,101 +174,6 @@ subroutine init_smc(ubk,ub)
 end subroutine init_smc
 
 
-! Create a random initial condition based with zero divergence in fk1,
-! fk2, fk3. w is a 3D real work array.
-! FIXME: please add more documentation.
-subroutine randgen3d(fk1,fk2,fk3,w)
-  use mpi_header
-  use vars
-  implicit none
-
-  complex(kind=pr),intent(inout):: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout):: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout):: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr),intent(inout) :: w(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr) :: ek
-  real(kind=pr) :: e1,e1x,e1y,e1z
-  real(kind=pr) :: e2,e2x,e2y,e2z
-  real(kind=pr) :: k0
-  real(kind=pr) :: rand1,rand2
-  real(kind=pr) :: kx,ky,kz,k
-  real(kind=pr) :: psi1,beta
-  integer :: ix,iy,iz
-
-  fk1=0.d0
-  fk2=0.d0
-  fk3=0.d0
-
-  k0=3.d0*sqrt(2.d0)*pi/4.d0
-
-  !-- generate 3D gaussian field 
-  do iz=ca(1),cb(1)
-     kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*dble(ix)
-        do iy=ca(3),cb(3)
-           ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
-           k=dsqrt(kx*kx +ky*ky +kz*kz)
-
-           !-- ek = sqrt(Ek/4pik^2), Ek imposed spectrum
-           if(k /= 0.d0) then
-              ek=dsqrt(1.d0/(4.d0*pi*k*k))
-           else
-              ek=0.d0
-           endif
-
-           e1=dsqrt(kx*kx+ky*ky)
-           e1x=ky/e1
-           e1y=-kx/e1
-           e1z=0.d0
-           e2=k*dsqrt(kx*kx+ky*ky)
-           e2x=kx*kz/e2
-           e2y=ky*kz/e2
-           e2z=-(kx*kx+ky*ky)/e2
-
-           if(kx.eq.0 .and. ky.eq.0) then
-              fk1(iz,ix,iy)=dcmplx(0.5d0*ek,0.5d0*ek)
-              fk2(iz,ix,iy)=dcmplx(0.5d0*ek,0.5d0*ek)
-              fk3(iz,ix,iy)=dcmplx(0.d0,0.d0)
-              if(kz.eq.0) then
-                 fk1(iz,ix,iy)=dcmplx(0.d0,0.d0)
-                 fk2(iz,ix,iy)=dcmplx(0.d0,0.d0)
-                 fk3(iz,ix,iy)=dcmplx(0.d0,0.d0)
-              endif
-           else
-              call random_number(rand1)
-              call random_number(rand2)
-              psi1=2.*pi*rand1
-              beta=2.*pi*rand2
-              fk1(iz,ix,iy)=dcmplx(&
-                   ek*dcos(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x),&
-                   ek*dsin(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x)&
-                   )
-              fk2(iz,ix,iy)=dcmplx(&
-                   ek*dcos(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y),&
-                   ek*dsin(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y)&
-                   )
-              fk3(iz,ix,iy)=dcmplx(&
-                   ek*dcos(psi1)*(dsin(beta)*e2z),&
-                   ek*dsin(psi1)*(dsin(beta)*e2z)&
-                   )
-           endif
-        enddo
-     enddo
-  enddo
-
-  ! Enforce Hermitian symmetry the lazy way:
-  call ifft(w,fk1)
-  call fft(fk1,w)
-
-  call ifft(w,fk2)
-  call fft(fk2,w)
-
-  call ifft(w,fk3)
-  call fft(fk3,w)
-end subroutine randgen3d
-
-
 ! The Taylor-Couette initial conditions for mhd.
 subroutine init_tc_mhd(ubk,ub)
   use mpi_header
@@ -318,79 +182,13 @@ subroutine init_tc_mhd(ubk,ub)
 
   complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  integer :: ix,iy,iz,i
-  real(kind=pr) :: x,y,r
-  real(kind=pr) :: A,B,F
-
   
-  if(mpirank == 0) then
-     if(r1 <= r2) then
-        write (*,*) "r1 <= r2 is not allowed in Taylor-Coette flow; stopping."
-        stop
-     endif
-  endif
+  ! Initialize the velocity field:
+  call init_taylorcouette_u(ubk,ub)
   
-  A=-omega1*r1*r1/(r2*r2 - r1*r1)
-  B=omega1*r1*r1*r2*r2/(r2*r2 - r1*r1)
+  ! Create a perturbation for the magnetic field:
+  call perturbation(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6),&
+       ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6),&
+       3.1017126d-07)
 
-  do ix=ra(1),rb(1)
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy=ra(2),rb(2)
-        y=yl*(dble(iy)/dble(ny) -0.5d0)
-
-        r=dsqrt(x*x +y*y)
-
-        if(r <= R1) then
-           do iz=ra(3),rb(3)
-              ! Velocity field:
-              ub(ix,iy,iz,1)=-omega1*y
-              ub(ix,iy,iz,2)=omega1*x
-              ub(ix,iy,iz,3)=0.d0 ! z-component is zero
-
-              ! Magnetic field:
-              ub(ix,iy,iz,4)=-omega1*y
-              ub(ix,iy,iz,5)=omega1*x
-              ub(ix,iy,iz,6)=B0
-           enddo
-        endif
-
-        if(r > R1 .and. r < R2) then
-           do iz=ra(3),rb(3)
-              ! Velocity field:
-              F=A*r+B/r
-
-              ub(ix,iy,iz,1)=-F*y/r
-              ub(ix,iy,iz,2)=F*x/r
-              ub(ix,iy,iz,3)=0.d0 ! z-component is zero
-
-              ! Magnetic field:
-              ! FIXME: perhaps start with perturbation field?
-              ub(ix,iy,iz,4)=-F*y/r
-              ub(ix,iy,iz,5)=F*x/r
-              ub(ix,iy,iz,6)=B0
-           enddo
-        endif
-        
-        if(r >= R2) then
-           do iz=ra(3),rb(3)
-              ! NB: We assume that the outer wall is not moving.
-
-              ! Velocity field:
-              us(ix,iy,iz,1)=0.d0
-              us(ix,iy,iz,2)=0.d0
-              us(ix,iy,iz,3)=0.d0
-
-              ! Magnetic field:
-              us(ix,iy,iz,4)=0.d0
-              us(ix,iy,iz,5)=0.d0
-              us(ix,iy,iz,6)=B0
-           enddo
-        endif
-
-     enddo
-  enddo
-  
-  do i=1,nd
-     call fft(ubk(:,:,:,i),ub(:,:,:,i))
-  enddo
 end subroutine init_tc_mhd

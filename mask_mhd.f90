@@ -7,7 +7,7 @@ subroutine create_mask_mhd()
   mask=0.d0
   if(iPenalization == 1) then
      select case (iMask)
-     case("taylorcouette")
+     case("TaylorCouette")
         call  tc_mask_mhd()
      case("smc")
         call smc_mask_mhd()
@@ -32,8 +32,8 @@ subroutine update_us_mhd(ub)
 
   if(iPenalization == 1) then
      select case (iMask)
-     case("taylorcouette")
-        call tc_us_mhd()
+     case("TaylorCouette")
+        call tc_us_mhd(ub)
      case("smc")
         call smc_us_mhd(ub)
      case default
@@ -48,63 +48,50 @@ end subroutine update_us_mhd
 
 
 ! Set the solid velocity for MHD Taylor-Couette flow.
-subroutine tc_us_mhd()
+subroutine tc_us_mhd(ub)
   use mpi_header
   use mhd_vars
   implicit none
   
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: r, x, y
   integer :: ix, iy, iz
   
-  if(mpirank == 0) then
-     if(r1 <= r2) then
-        write (*,*) "r1 <= r2 is not allowed in Taylor-Coette flow; stopping."
-        stop
-     endif
-  endif
-
   us=0.d0
 
-  ! FIXME: non-penetration for b?
-  
+  ! Set the velocity field to be the steady-state solution:
+  call taylor_couette_u_us(us(:,:,:,1),us(:,:,:,2),us(:,:,:,3))
+
   do ix=ra(1),rb(1)  
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
 
-        r=dsqrt(x*x +y*y)
-
+        r=dsqrt(x*x + y*y)
+        
         if(r <= R1) then
            do iz=ra(3),rb(3)
-              ! Velocity field:
-              us(ix,iy,iz,1)=-omega1*y
-              us(ix,iy,iz,2)=omega1*x
-              us(ix,iy,iz,3)=0.d0 ! z-component is zero
-
               ! Magnetic field:
-              us(ix,iy,iz,4)=-omega1*y
-              us(ix,iy,iz,5)=omega1*x
-              us(ix,iy,iz,6)=B0
+              us(ix,iy,iz,4)=0.d0
+              us(ix,iy,iz,5)=0.d0
+              ! FIXME: non-penetration for b?
+!!$              us(ix,iy,iz,4)=-omega1*y
+!!$              us(ix,iy,iz,5)=omega1*x
            enddo
         endif
         if(r >= R2) then
            do iz=ra(3),rb(3)
               ! NB: We assume that the outer wall is not moving.
-
-              ! Velocity field:
-              us(ix,iy,iz,1)=0.d0
-              us(ix,iy,iz,2)=0.d0
-              us(ix,iy,iz,3)=0.d0
-
-              ! Magnetic field:
+              ! Magnetic field: 
+              ! FIXME: non-penetration for b?
               us(ix,iy,iz,4)=0.d0
               us(ix,iy,iz,5)=0.d0
-              us(ix,iy,iz,6)=B0
            enddo
         endif
-
      enddo
   enddo
+
+  us(:,:,:,6)=B0
 end subroutine tc_us_mhd
 
 
@@ -114,8 +101,8 @@ subroutine tc_mask_mhd()
   use mhd_vars
   implicit none
   
-  real (kind=pr) :: r, x, y
-  integer :: ix, iy, iz
+  real (kind=pr) :: r,x,y
+  integer :: ix,iy,iz
 
   mask=0.d0
 
@@ -124,7 +111,7 @@ subroutine tc_mask_mhd()
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
 
-        r=dsqrt(x*x +y*y)
+        r=dsqrt(x*x + y*y)
 
         if(r <= R1 .or. r >= R2) then
            do iz=ra(3),rb(3)

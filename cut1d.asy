@@ -39,15 +39,7 @@ int nz=getint("nz");
 
 // load file
 string filename=getstring("filename");
-file fin=input(filename,mode="binary").singlereal();
-real[][][] f=new real[nx][ny][nz];
-for(int k=0; k < nz; ++k) {
-  for(int j=0; j < ny; ++j) {
-    for(int i=0; i < nx; ++i) {
-      f[i][j][k]=fin.read(1);
-    }
-  }
-}
+real[][][] f=readfile(nx,ny,nz,filename);
 
 // select direction of cut
 string cutdir=getstring("cut direction: x,y,z");
@@ -78,6 +70,7 @@ if(cutdir == "z") {
   cutinfo=", x="+(string)c1+", y="+(string)c2;
 }
 f1=cut1(f,nx,ny,nz,c1,c2,idir);
+
 // draw the graph, axes, and attach the legend.
 string legend=myleg ? legends[0] : texify(filename);
 draw(graph(sequence(f1.length),f1),legend+cutinfo);

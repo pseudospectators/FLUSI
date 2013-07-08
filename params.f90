@@ -118,6 +118,9 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Geometry","yl",yl, 1.d0)
   call GetValue_Real(PARAMS,i,"Geometry","zl",zl, 1.d0)
   call GetValue_Real(PARAMS,i,"Geometry","Size",length, 0.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","r1",r1,1.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","r2",r2,1.0681415d0)
+  call GetValue_Real(PARAMS,i,"Geometry","r3",r3,1.206371d0)
 
 
   ! Saving section
@@ -192,9 +195,6 @@ subroutine get_params_mhd(PARAMS,i)
   ! MHDGeometry section
   call GetValue_Real(PARAMS,i,"MHDGeometry","b0",b0,4.5d0)
   call GetValue_Real(PARAMS,i,"MHDGeometry","bc",bc,3.88888888888d0)
-  call GetValue_Real(PARAMS,i,"MHDGeometry","r1",r1,1.d0)
-  call GetValue_Real(PARAMS,i,"MHDGeometry","r2",r2,1.0681415d0)
-  call GetValue_Real(PARAMS,i,"MHDGeometry","r3",r3,1.206371d0)
 
   ! Saving section
   call GetValue_Int(PARAMS,i,"Saving","iSaveMagneticField",&

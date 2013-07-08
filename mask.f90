@@ -124,3 +124,60 @@ subroutine smoothstep(f,x,t,h)
   delta = h*GradientERF
   f = 0.5*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
 end subroutine smoothstep
+
+
+! Set the penalization velocity for the given fields (f1,f2,g3) to the
+! steady-state of the Taylor-Couette case.
+subroutine taylor_couette_u_us(f1,f2,f3)
+use mpi_header
+  use vars
+  implicit none
+  
+  real(kind=pr),intent(inout)::f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr) :: r, x, y
+  integer :: ix, iy, iz
+  
+  if(mpirank == 0) then
+     if(r1 >= r2) then
+        write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
+        stop
+     endif
+  endif
+
+  f1=0.d0
+  f2=0.d0
+  f3=0.d0
+  
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+        r=dsqrt(x*x + y*y)
+        
+        if(r <= R1) then
+           do iz=ra(3),rb(3)
+              ! Velocity field:
+              f1(ix,iy,iz)=-omega1*y
+              f2(ix,iy,iz)=omega1*x
+              f3(ix,iy,iz)=0.d0
+           enddo
+        endif
+        if(r >= R2) then
+           do iz=ra(3),rb(3)
+              ! NB: We assume that the outer wall is not moving.
+              f1(ix,iy,iz)=0.d0
+              f2(ix,iy,iz)=0.d0
+              f3(ix,iy,iz)=0.d0
+           enddo
+        endif
+
+     enddo
+  enddo
+
+
+end subroutine taylor_couette_u_us
+
+

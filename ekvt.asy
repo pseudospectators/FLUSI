@@ -2,7 +2,8 @@ import graph;
 import utils;
 
 size(200,150,IgnoreAspect);
-scale(Linear,Log);
+//scale(Linear,Log);
+scale(Linear,Linear);
 
 // used to over-ride the normal legend
 // usage:
