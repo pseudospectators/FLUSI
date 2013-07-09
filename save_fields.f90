@@ -111,11 +111,11 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   endif
 
   ! Save Mask
-  if((iSaveMask == 1).and.(iPenalization == 1)) then
-     call Save_Field_HDF5(time,'./fields/mask_'//name,mask,"mask")
+  if(iSaveMask == 1 .and. iPenalization == 1) then
+     call Save_Field_HDF5(time,'./fields/mask_'//name,eps*mask,"mask")
   endif
 
-  if((iSaveSolidVelocity == 1).and.(iPenalization == 1).and.(iMoving == 1)) then
+  if(iSaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
      call Save_Field_HDF5(time,'./fields/usx_'//name,us(:,:,:,1),"usx")
      call Save_Field_HDF5(time,'./fields/usy_'//name,us(:,:,:,2),"usy")
      call Save_Field_HDF5(time,'./fields/usz_'//name,us(:,:,:,3),"usz")
