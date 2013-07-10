@@ -91,7 +91,8 @@ subroutine tc_us_mhd(ub)
      enddo
   enddo
 
-  us(:,:,:,6)=B0
+  ! Always penalize the z-component to the axial field.
+  us(:,:,:,6)=B0 
 end subroutine tc_us_mhd
 
 

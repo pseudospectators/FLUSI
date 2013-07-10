@@ -154,9 +154,9 @@ subroutine fft_free
 
   !-- Clean 1d workspaces
   do j = 1,3
-     if(mpirank ==0) then
-        write(*,'("!!! cof_p3dfft.f90: cleaning 1d workspace j=",i1)') j
-     endif
+!!$     if(mpirank ==0) then
+!!$        write(*,'("!!! cof_p3dfft.f90: cleaning 1d workspace j=",i1)') j
+!!$     endif
      call dfftw_destroy_plan(Desc_Handle_1D_f(j))
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
