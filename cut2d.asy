@@ -44,7 +44,7 @@ if(getstring("use mask") =="y") {
   for(int i=0; i < nx; ++i) {
     for(int j=0; j < ny; ++j) {
       for(int k=0; k < nz; ++k) {
-	if(mask[i][j][k] == 0.0)
+	if(mask[i][j][k] != 0.0)
 	  f[i][j][k] = 0.0;
       }
     }

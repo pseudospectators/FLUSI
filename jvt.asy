@@ -2,7 +2,8 @@ import graph;
 import utils;
 
 size(200,150,IgnoreAspect);
-scale(Linear,Log);
+//scale(Linear,Log);
+scale(Linear,Linear);
 
 // used to over-ride the normal legend
 // usage:
@@ -25,7 +26,7 @@ if(yvar == "jxmax") ypos=5;
 if(yvar == "jymax") ypos=6;
 if(yvar == "jzmax") ypos=7;
 
-string datafile="jv.t";
+string datafile="j.t";
 
 
 if(ypos == 0) {
