@@ -129,6 +129,35 @@ subroutine tc_mask_mhd()
 end subroutine tc_mask_mhd
 
 
+! Set the mask function for Sean-Montgomery-Chen flow.
+subroutine smc_mask_mhd()
+  use mpi_header
+  use mhd_vars
+  implicit none
+  
+  real (kind=pr) :: r, x, y
+  integer :: ix, iy, iz
+
+  mask=0.d0
+
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+        r=dsqrt(x*x +y*y)
+
+        if(r >= R1) then
+           do iz=ra(3),rb(3)
+              mask(ix,iy,iz)=1.d0
+           enddo
+        endif
+
+     enddo
+  enddo
+end subroutine smc_mask_mhd
+
+
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
 subroutine smc_us_mhd(ub)
   use mpi_header
@@ -166,8 +195,8 @@ subroutine smc_us_mhd(ub)
         ! Linear profile:
         if(r >= r1 .and. r < r2) then
            do iz=ra(3),rb(3)
-              us(ix,iy,iz,4)=ub(ix,iy,iz,4) +Bc*y/r1
-              us(ix,iy,iz,5)=ub(ix,iy,iz,5) -Bc*x/r1
+              us(ix,iy,iz,4)=-Bc*y/r1
+              us(ix,iy,iz,5)=Bc*x/r1
            enddo
         endif
         
@@ -175,44 +204,14 @@ subroutine smc_us_mhd(ub)
         if(r >= r2 .and. r <= r3) then
            h=(A*r*r*r +B*r*r +C*r +D)
            do iz=ra(3),rb(3)
-              us(ix,iy,iz,4)=ub(ix,iy,iz,4) +h*y/r
-              us(ix,iy,iz,5)=ub(ix,iy,iz,5) -h*x/r
+              us(ix,iy,iz,4)=-h*y/r
+              us(ix,iy,iz,5)=h*x/r
            enddo
         endif
         
      enddo
   enddo
 end subroutine smc_us_mhd
-
-
-! Set the mask function for Sean-Montgomery-Chen flow.
-subroutine smc_mask_mhd()
-  use mpi_header
-  use mhd_vars
-  implicit none
-  
-  real (kind=pr) :: r, x, y
-  integer :: ix, iy, iz
-
-  mask=0.d0
-
-  do ix=ra(1),rb(1)  
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy=ra(2),rb(2)
-        y=yl*(dble(iy)/dble(ny) -0.5d0)
-
-        r=dsqrt(x*x +y*y)
-
-        if(r >= R1) then
-           do iz=ra(3),rb(3)
-              mask(ix,iy,iz)=1.d0
-           enddo
-        endif
-
-     enddo
-  enddo
-end subroutine smc_mask_mhd
-
 
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
@@ -252,8 +251,8 @@ subroutine smclinear_us_mhd(ub)
         ! Linear profile:
         if(r >= r1 .and. r < r2) then
            do iz=ra(3),rb(3)
-              us(ix,iy,iz,4)=ub(ix,iy,iz,4) + Bc*y/r1
-              us(ix,iy,iz,5)=ub(ix,iy,iz,5) - Bc*x/r1
+              us(ix,iy,iz,4)=-Bc*y/r1
+              us(ix,iy,iz,5)=Bc*x/r1
            enddo
         endif
         
