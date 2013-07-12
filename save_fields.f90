@@ -615,12 +615,13 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
      call fft(nlk(:,:,:,6,1),work)
   endif
 
-  call H5Fclose_f (file_id,error)
-  call H5close_f (error)
+  call H5Fclose_f(file_id,error)
+  call H5close_f(error)
 
-  ! it is important to have explin, because it won't be initialized
+  ! It is important to have explin, because it won't be initialized
   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
   ! are you sure about dt1??? TODO) 
+  ! FIXME: only compute if dt0=dt1?
   call cal_vis(dt1,explin)
 
   if(mpirank == 0) then
