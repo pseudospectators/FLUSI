@@ -1,20 +1,17 @@
-# Makefile for FLUSI
+# Makefile for fsi and mhd codes. See README for necessary environment
+# variables.
 
-# see README for documentation regarding setting environment variables.
-
-# the program file
-PROG_FILE = FLUSI.f90
-
-# the other Fortran files
+# Non-module Fortran files to be compiled:
 FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
-	create_mask.f90 params.f90 save_fields.f90 time_step.f90
+	mask.f90 mask_fsi.f90 mask_mhd.f90 save_fields.f90 time_step.f90 \
+	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90
 OBJS := $(FFILES:%.f90=%.o)
 
-## set the default compiler if it's not already set, make sure it's not F77.
+# Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
 FC = mpif90
 endif
-ifeq ($(FC),f77) # sometimes FC gets defined as f77, which is bad.
+ifeq ($(FC),f77)
 FC = mpif90
 endif
 
@@ -23,12 +20,14 @@ ifeq ($(shell $(FC) -v 2>&1 | tail -n 1 | head -c 3),gcc)
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
 FFLAGS += -Wsurprising # warn if things might not behave as expected
 PPFLAG= -cpp #preprocessor flag
+
+# Debug flags for gfortran
+#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
 
 # Intel compiler
 ifort:=$(shell $(FC) --version | head -c 5)
 ifeq ($(ifort),ifort)
-# We are using the Intel compiler
 PPFLAG= -fpp #preprocessor flag
 DIFORT= -DIFORT # define the IFORT variable 
 FFLAGS += -vec_report0
@@ -39,46 +38,49 @@ ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
 endif
 
-# this seems to be the only one in use.
+# This seems to be the only one in use.
 MPI_HEADER = mpi_duke_header.f90
 
-PROGRAMS = main
+PROGRAMS = flusi mhd
 
+# FFT_ROOT is set in envinroment.
 FFT_LIB = $(FFT_ROOT)/lib
 FFT_INC = $(FFT_ROOT)/include
+
+# P3DFFT_ROOT is set in environment.
 P3DFFT_LIB = $(P3DFFT_ROOT)/lib
 P3DFFT_INC = $(P3DFFT_ROOT)/include
 
-# for mesocentre:
-# export HDF_ROOT=/LOGINSTO/softs/hdf5/intel/1.8.8/
-
+# HDF_ROOT is set in environment.
 HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
 
-LDFLAGS = -L$(P3DFFT_LIB)  -lp3dfft -lfftw3 -lm  -L$(FFT_LIB)  $(HDF5_FLAGS)
-LDFLAGS += -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
+LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 -lm
+LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
 
 FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
+# Both programs are compiled by default.
+all: $(PROGRAMS)
 
-# by default, compile all the programs.
-all: main
-
-# compile main program, with dependencies:
-main: $(PROG_FILE) $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
+# Compile main programs, with dependencies.
+flusi: FLUSI.f90 $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
+	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
+mhd: mhd.f90 $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
-# compile modules:
+# Compile modules (module dependency must be specified by hand in
+# Fortran).
 mpi_header.o: $(MPI_HEADER)
-	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 share_vars.o: share_vars.f90 mpi_header.o
-	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 cof_p3dfft.o: cof_p3dfft.f90 share_vars.o mpi_header.o
-	$(FC) $(FFLAGS) -o $@ -c $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
-# compile remaining objects:
+# Compile remaining objects from Fortran files.
 %.o: %.f90 mpi_header.o share_vars.o cof_p3dfft.o
-	$(FC) $(FFLAGS) -o $@ -c $<  $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $<  $(LDFLAGS)
 
 clean:
-	rm -f main *.o *.mod
+	rm -f $(PROGRAMS) *.o *.mod

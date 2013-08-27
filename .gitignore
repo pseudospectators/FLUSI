@@ -1,3 +1,11 @@
 *.o
 *.mod
-main
+flusi
+mhd
+*~
+fields
+*.t
+*.eps
+*.pdf
+*.aux
+*.log

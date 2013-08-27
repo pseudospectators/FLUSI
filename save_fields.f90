@@ -1,18 +1,43 @@
-! Main save routine for fields. it computes missing values (such as p
-! and vorticity) and stores the fields in several HDF5 files.
+! Wrapper for saving fields routine
 subroutine save_fields_new(time,uk,u,vort,nlk,work)
-  use mpi_header
-  use share_vars
+  use vars
   implicit none
 
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+
+  select case(method(1:3))
+     case("fsi") 
+        call save_fields_new_fsi(time,uk,u,vort,nlk,work)
+     case("mhd") 
+        call save_fields_new_mhd(time,uk,u,vort,nlk,work)
+     case default
+        if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields_new"
+        stop
+  end select
+end subroutine save_fields_new
+
+
+! Main save routine for fields for fsi. it computes missing values
+! (such as p and vorticity) and stores the fields in several HDF5
+! files.
+subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
+  use mpi_header
+  use fsi_vars
+  implicit none
+
+  real(kind=pr),intent(in) :: time
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   character(len=17) :: name
-  type(Integrals) :: dummy_integrals
+  integer :: i
 
   !--Set up file name base
   write(name,'(i5.5)') floor(time*100.d0)
@@ -28,20 +53,25 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   if((iSaveVelocity.ne.0) .or. (iSaveVorticity.ne.0) .or. (iSavePress.ne.0))&
        then
      ! Calculate ux and uy in physical space
-     call cofitxyz(uk(:,:,:,1),u(:,:,:,1))
-     call cofitxyz(uk(:,:,:,2),u(:,:,:,2))
-     call cofitxyz(uk(:,:,:,3),u(:,:,:,3))
+     do i=1,3
+        call ifft(u(:,:,:,i),uk(:,:,:,i))
+     enddo
      
      ! SaveVelocity
      if(iSaveVelocity == 1) then
-        call Save_Field_HDF5 ( time, './fields/ux_'//name,u(:,:,:,1),"ux")
-        call Save_Field_HDF5 ( time, './fields/uy_'//name,u(:,:,:,2),"uy")
-        call Save_Field_HDF5 ( time, './fields/uz_'//name,u(:,:,:,3),"uz")
+        call Save_Field_HDF5(time,'./fields/ux_'//name,u(:,:,:,1),"ux")
+        call Save_Field_HDF5(time,'./fields/uy_'//name,u(:,:,:,2),"uy")
+        call Save_Field_HDF5(time,'./fields/uz_'//name,u(:,:,:,3),"uz")
      endif
 
      if((iSaveVorticity.ne.0) .or. (iSavePress.ne.0)) then
         ! compute vorticity
-        call compute_vorticity(vort,nlk,uk)
+        call curl(&
+             nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+             uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
+        do i=1,3
+           call ifft(vort(:,:,:,i),nlk(:,:,:,i))
+        enddo
         !-----------------------------------------------
         !-- Save Vorticity
         !-----------------------------------------------
@@ -57,11 +87,11 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
         if(iSavePress == 1) then
            ! Calculate omega x u(cross-product) in Fourier space
            if (iPenalization == 1) then
-              ! note this subroutine can also compute drag, which we are not 
+              ! Note this subroutine can also compute drag, which we are not 
               ! interested in here (therefore set.false.)
-              call omegacrossu_penalize(nlk,work,u,vort,.false.,dummy_integrals)
+              call omegacrossu_penalize(work,u,vort,.false.,nlk)
            else
-              call omegacrossu_nopen(nlk,work,u,vort)
+              call omegacrossu_nopen(work,u,vort,nlk)
            endif
 
            ! store the physical pressure in the work array
@@ -69,7 +99,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
            ! nlkk(...1) is the pressure in Fourier space, so p is
            ! the total pressure in physical space. Then remove kinetic
            ! energy to get "physical" pressure
-           call cofitxyz(nlk(:,:,:,1),work)
+           call ifft(work,nlk(:,:,:,1))
            work=work-0.5d0*(&
                 u(:,:,:,1)*u(:,:,:,1)&
                 +u(:,:,:,2)*u(:,:,:,2)&
@@ -81,16 +111,16 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   endif
 
   ! Save Mask
-  if((iSaveMask == 1).and.(iPenalization == 1)) then
-     call Save_Field_HDF5(time,'./fields/mask_'//name,mask,"mask")
+  if(iSaveMask == 1 .and. iPenalization == 1) then
+     call Save_Field_HDF5(time,'./fields/mask_'//name,eps*mask,"mask")
   endif
 
-  if((iSaveSolidVelocity == 1).and.(iPenalization == 1).and.(iMoving == 1)) then
+  if(iSaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
      call Save_Field_HDF5(time,'./fields/usx_'//name,us(:,:,:,1),"usx")
      call Save_Field_HDF5(time,'./fields/usy_'//name,us(:,:,:,2),"usy")
      call Save_Field_HDF5(time,'./fields/usz_'//name,us(:,:,:,3),"usz")
   endif
-end subroutine save_fields_new
+end subroutine save_fields_new_fsi
 
 
 ! Write the field field_out to file filename, saving the name of the
@@ -98,11 +128,11 @@ end subroutine save_fields_new
 ! metadata of the HDF file .
 subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   use mpi_header
-  use share_vars
+  use vars
   use HDF5
   implicit none
   
-   ! the field to be written to disk
+  ! The field to be written to disk:
   real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr), intent (in) :: time
@@ -156,7 +186,7 @@ subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
           MPI_COMM_WORLD,mpierror )
   enddo
 
-  !!! set up the HDF data structures:
+  !!! Set up the HDF data structures:
 
   ! Initialize HDF5 library and Fortran interfaces.
   call h5open_f(error)
@@ -236,9 +266,10 @@ end subroutine Save_Field_HDF5
 ! field, no time-stepping or vectors are available but this allows to
 ! directly copy-paste a single field and load it into paraview without
 ! any effort.
-subroutine Write_XMF ( time, filename, dsetname )
-  use share_vars
+subroutine Write_XMF(time,filename,dsetname)
+  use vars
   implicit none
+
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename, dsetname
   character(len=128) :: tmp_time, tmp_nxyz
@@ -288,18 +319,18 @@ end subroutine Write_XMF
 ! time steps, and what else? FIXME: document what is saved.
 subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   use mpi_header
-  use share_vars
+  use vars
   use hdf5
   implicit none
-  character(len=18) :: filename
+
   real(kind=pr),intent(inout) :: time,dt1,dt0
   integer,intent(inout) :: n1,nbackup,it
-  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3), &
-       intent(in) :: uk
-  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
-       intent(in):: nlk
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
-       intent(inout) :: work
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(in)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+
+  character(len=18) :: filename
+
   real(kind=pr) :: t1
   integer :: error  ! error flags
   integer(hid_t) :: file_id       ! file identifier
@@ -311,18 +342,18 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
      write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1,".h5 to disk....")') time, nbackup
   endif
 
-  ! create current filename
+  ! Create current filename:
   write(filename,'("runtime_backup",i1,".h5")') nbackup
 
-  ! Initialize HDF5 library and Fortran interfaces.
+  ! Initialize HDF5 library and Fortran interfaces:
   call h5open_f(error)
 
   !!! Setup file access property list with parallel I/O access.
   ! Set up a property list ("plist_id") with standard values for
-  ! FILE_ACCESS
+  ! FILE_ACCESS:
   call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
   ! Modify the property list and store MPI IO comminucator information
-  ! in the file access property list
+  ! in the file access property list:
   call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
   ! Create the file collectively. (existing files are overwritten)
@@ -331,33 +362,63 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   ! Close the property list (we'll re-use it)
   call H5Pclose_f(plist_id, error)
 
-  call cofitxyz ( uk(:,:,:,1), work)
-  call Dump_Field_Backup (work,"ux",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( uk(:,:,:,2), work)
-  call Dump_Field_Backup (work,"uy",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( uk(:,:,:,3), work)
-  call Dump_Field_Backup (work,"uz",time,dt0,dt1,n1,it,file_id  )
+  ! Write the fluid backup field:
+  call ifft(work,uk(:,:,:,1))
+  call Dump_Field_Backup (work,"ux",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,uk(:,:,:,2))
+  call Dump_Field_Backup (work,"uy",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,uk(:,:,:,3))
+  call Dump_Field_Backup (work,"uz",time,dt0,dt1,n1,it,file_id)
 
-  call cofitxyz ( nlk(:,:,:,1,0), work)
-  call Dump_Field_Backup (work,"nlkx0",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,2,0), work)
-  call Dump_Field_Backup (work,"nlky0",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,3,0), work)
-  call Dump_Field_Backup (work,"nlkz0",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,1,1), work)
-  call Dump_Field_Backup (work,"nlkx1",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,2,1), work)
-  call Dump_Field_Backup (work,"nlky1",time,dt0,dt1,n1,it,file_id  )
-  call cofitxyz ( nlk(:,:,:,3,1), work)
-  call Dump_Field_Backup (work,"nlkz1",time,dt0,dt1,n1,it,file_id  )
+  if(method == "mhd") then
+     ! Write the MHD backup field:
+     call ifft(work,uk(:,:,:,4))
+     call Dump_Field_Backup (work,"bx",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,uk(:,:,:,5))
+     call Dump_Field_Backup (work,"by",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,uk(:,:,:,6))
+     call Dump_Field_Backup (work,"bz",time,dt0,dt1,n1,it,file_id)
+  endif
 
-  ! Close the file.
+  ! Write the fluid nonlinear term backup:
+  call ifft(work,nlk(:,:,:,1,0))
+  call Dump_Field_Backup (work,"nlkx0",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,nlk(:,:,:,2,0))
+  call Dump_Field_Backup (work,"nlky0",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,nlk(:,:,:,3,0))
+  call Dump_Field_Backup (work,"nlkz0",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,nlk(:,:,:,1,1))
+  call Dump_Field_Backup (work,"nlkx1",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,nlk(:,:,:,2,1))
+  call Dump_Field_Backup (work,"nlky1",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,nlk(:,:,:,3,1))
+  call Dump_Field_Backup (work,"nlkz1",time,dt0,dt1,n1,it,file_id)
+  
+  if(method == "mhd") then
+     ! Write the MHD backup field:
+     call ifft(work,nlk(:,:,:,4,0))
+     call Dump_Field_Backup (work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,nlk(:,:,:,5,0))
+     call Dump_Field_Backup (work,"bnlky0",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,nlk(:,:,:,6,0))
+     call Dump_Field_Backup (work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,nlk(:,:,:,4,1))
+     call Dump_Field_Backup (work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,nlk(:,:,:,5,1))
+     call Dump_Field_Backup (work,"bnlky1",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,nlk(:,:,:,6,1))
+     call Dump_Field_Backup (work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
+  endif
+
+  ! Close the file:
   call H5Fclose_f(file_id, error)
-  ! Close FORTRAN interfaces and HDF5 library
+  ! Close FORTRAN interfaces and HDF5 library:
   call h5close_f(error)
 
   nbackup = 1 - nbackup
-  time_bckp=time_bckp + MPI_wtime() -t1 ! performance diagnostic
+  time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
+
+  if(mpirank ==0 ) write(*,'("<<< info: done saving backup.")')
 end subroutine Dump_Runtime_Backup
 
 
@@ -366,17 +427,18 @@ end subroutine Dump_Runtime_Backup
 ! "bckp" which contains 8 values
 subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   use mpi_header
-  use share_vars
+  use vars
   use hdf5
   implicit none
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(in) ::&
-       field
-  integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
+
+  real(kind=pr),intent(in) :: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr), intent (in) :: time,dt1,dt0
   character(len=*), intent (in) :: dsetname
   integer,intent(in) :: n1,it
-
   integer(hid_t), intent(in) :: file_id       ! file identifier
+
+  integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
+
   integer(hid_t) :: dset_id       ! dataset identifier
   integer(hid_t) :: filespace     ! dataspace identifier in file
   integer(hid_t) :: memspace      ! dataspace identifier in memory
@@ -403,7 +465,7 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   dimensions_local(2) = rb(2)-ra(2) +1
   dimensions_local(3) = rb(3)-ra(3) +1
 
-  ! offsets
+  ! Offsets
   offset(1) = ra(1)
   offset(2) = ra(2)
   offset(3) = ra(3)
@@ -421,7 +483,7 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   ! -----------------------------------
   ! Create the data space for the  dataset.
   ! -----------------------------------
-  ! dataspace in the file: contains all data from all procs
+  ! Dataspace in the file: contains all data from all procs
   call H5Screate_simple_f(rank, dimensions_file, filespace, error)
   ! dataspace in memory: contains only local data
   call H5Screate_simple_f(rank, dimensions_local, memspace, error)
@@ -446,7 +508,7 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
        file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
 
   ! ------
-  ! attributes (we save everything in one, all double. to be converted
+  ! Attributes (we save everything in one, all double. to be converted
   ! when reading (to integer)
   ! ------
   adims = (/8/)
@@ -461,31 +523,29 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   call H5Dclose_f(dset_id, error)
   call H5Pclose_f(plist_id, error)
 
-  deallocate (attributes)
+  deallocate(attributes)
 end subroutine Dump_Field_Backup
 
-! load backup data from disk to initialize run for restart
-subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
+
+! Load backup data from disk to initialize run for restart
+subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   use mpi_header
-  use share_vars
+  use vars
   use hdf5
   implicit none
 
   character(len=*),intent(in) :: filename
   real(kind=pr),intent(out) :: time,dt1,dt0
   integer,intent(out) :: n1,it
-  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3),&
-       intent(out) :: uk
-  complex(kind=pr), dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1),&
-       intent(out):: nlk
-  real(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))&
-       ,intent(out) :: workvis
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
-       intent(inout) :: work
+  complex(kind=pr), intent(out) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out)::&
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  real(kind=pr),intent(out) :: explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
-  integer :: error  ! error flags
-  integer(hid_t) :: file_id       ! file identifier
-  integer(hid_t) :: plist_id      ! property list identifier
+  integer :: error  ! Error flag
+  integer(hid_t) :: file_id       ! File identifier
+  integer(hid_t) :: plist_id      ! Property list identifier
 
   if(mpirank == 0) then
      write(*,'("---------")')
@@ -507,33 +567,62 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,workvis,work)
   ! this closes the property list (we'll re-use it)
   call H5Pclose_f(plist_id, error)
 
-  call Read_Field_Backup ( work,"ux",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, uk(:,:,:,1) )
-  call Read_Field_Backup ( work,"uy",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, uk(:,:,:,2) )
-  call Read_Field_Backup ( work,"uz",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, uk(:,:,:,3) )
+  ! Read fluid backup field:
+  call Read_Field_Backup(work,"ux",time,dt0,dt1,n1,it,file_id)
+  call fft(uk(:,:,:,1),work)
+  call Read_Field_Backup(work,"uy",time,dt0,dt1,n1,it,file_id)
+  call fft(uk(:,:,:,2),work)
+  call Read_Field_Backup(work,"uz",time,dt0,dt1,n1,it,file_id)
+  call fft(uk(:,:,:,3),work)
 
-  call Read_Field_Backup ( work,"nlkx0",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,1,0) )
-  call Read_Field_Backup ( work,"nlky0",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,2,0) )
-  call Read_Field_Backup ( work,"nlkz0",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,3,0) )
-  call Read_Field_Backup ( work,"nlkx1",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,1,1) )
-  call Read_Field_Backup ( work,"nlky1",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,2,1) )
-  call Read_Field_Backup ( work,"nlkz1",time,dt0,dt1,n1,it,file_id )
-  call coftxyz ( work, nlk(:,:,:,3,1) )
+  if(method == "mhd") then
+     ! Read MHD backup field:
+     call Read_Field_Backup(work,"bx",time,dt0,dt1,n1,it,file_id)
+     call fft(uk(:,:,:,4),work)
+     call Read_Field_Backup(work,"by",time,dt0,dt1,n1,it,file_id)
+     call fft(uk(:,:,:,5),work)
+     call Read_Field_Backup(work,"bz",time,dt0,dt1,n1,it,file_id)
+     call fft(uk(:,:,:,6),work)
+  endif
 
-  call H5Fclose_f (file_id,error)
-  call H5close_f (error)
+  ! Read fluid nonlinear source term backup:
+  call Read_Field_Backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
+  call fft(nlk(:,:,:,1,0),work)
+  call Read_Field_Backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
+  call fft(nlk(:,:,:,2,0),work)
+  call Read_Field_Backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
+  call fft(nlk(:,:,:,3,0),work)
+  call Read_Field_Backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
+  call fft(nlk(:,:,:,1,1),work)
+  call Read_Field_Backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
+  call fft(nlk(:,:,:,2,1),work)
+  call Read_Field_Backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
+  call fft(nlk(:,:,:,3,1),work)
 
-  ! it is important to have workvis, because it won't be initialized
+  if(method == "mhd") then
+     ! Read MHD nonlinear source term backup too:
+     call Read_Field_Backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
+     call fft(nlk(:,:,:,4,0),work)
+     call Read_Field_Backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
+     call fft(nlk(:,:,:,5,0),work)
+     call Read_Field_Backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
+     call fft(nlk(:,:,:,6,0),work)
+     call Read_Field_Backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
+     call fft(nlk(:,:,:,4,1),work)
+     call Read_Field_Backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
+     call fft(nlk(:,:,:,5,1),work)
+     call Read_Field_Backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
+     call fft(nlk(:,:,:,6,1),work)
+  endif
+
+  call H5Fclose_f(file_id,error)
+  call H5close_f(error)
+
+  ! It is important to have explin, because it won't be initialized
   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
-  ! are you sure about dt1???)
-  call cal_vis ( dt1, workvis )
+  ! are you sure about dt1??? TODO) 
+  ! FIXME: only compute if dt0=dt1?
+  call cal_vis(dt1,explin)
 
   if(mpirank == 0) then
      write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
@@ -549,7 +638,7 @@ end subroutine Read_Runtime_Backup
 ! array containing scalar backup information
 subroutine Read_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use mpi_header
-  use share_vars
+  use fsi_vars
   use hdf5
   implicit none
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), &
@@ -606,7 +695,7 @@ subroutine Read_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   enddo
 
   !----------------------------------------------------------------------------
-  ! read actual field from file (dataset)
+  ! Read actual field from file (dataset)
   !----------------------------------------------------------------------------
   ! dataspace in the file: contains all data from all procs
   call H5Screate_simple_f(rank, dimensions_file, filespace, error)
@@ -675,7 +764,7 @@ end subroutine Read_Field_Backup
 ! adims/dims to a given dataset identifier dset_id. Double version.
 subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   use mpi_header
-  use share_vars
+  use vars
   use HDF5
   implicit none
 
@@ -707,7 +796,7 @@ end subroutine write_attribute_dble
 ! adims/dims to a given dataset identifier dset_id. Integer version.
 subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   use mpi_header
-  use share_vars
+  use vars
   use HDF5
   implicit none
 
@@ -736,41 +825,90 @@ subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
 end subroutine write_attribute_int
 
 
-! Given the velocity in Fourier space and a work array vortk, compute
-! the vorticity in phsycial space.  Arrays are 4-dimensional.
-subroutine compute_vorticity(vort,vortk,uk)
+! Main save routine for fields for fsi. it computes missing values
+! (such as p and vorticity) and stores the fields in several HDF5
+! files.
+subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
   use mpi_header
-  use share_vars
+  use mhd_vars
   implicit none
 
-  ! input: velocity field in Fourier space
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  ! work: vortk, (at output: vorticity in Fourier space)
-  complex(kind=pr),intent(inout)::vortk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  ! output: vorticity
-  real(kind=pr),intent(out) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  ! imaginary unit
-  complex(kind=pr) :: imag
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! comput vorticity in Fourier space:
-  do iy=ca(3),cb(3)    ! ky : 0..ny/2-1 ,then,-ny/2..-1
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-     do ix=ca(2),cb(2)  ! kx : 0..nx/2
-        kx=scalex*dble(ix)
-        do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then,-nz/2..-1
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           vortk(iz,ix,iy,1)=imag*(ky*uk(iz,ix,iy,3)-kz*uk(iz,ix,iy,2))
-           vortk(iz,ix,iy,2)=imag*(kz*uk(iz,ix,iy,1)-kx*uk(iz,ix,iy,3))
-           vortk(iz,ix,iy,3)=imag*(kx*uk(iz,ix,iy,2)-ky*uk(iz,ix,iy,1))
-        enddo
-     enddo
-  enddo
+  real(kind=pr),intent(in) :: time
+  complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  character(len=17) :: name
+  integer :: i
 
-  ! Transform to physical space
-  call cofitxyz(vortk(:,:,:,1),vort(:,:,:,1))
-  call cofitxyz(vortk(:,:,:,2),vort(:,:,:,2))
-  call cofitxyz(vortk(:,:,:,3),vort(:,:,:,3))
-end subroutine compute_vorticity
+  !--Set up file name base
+  write(name,'(i5.5)') floor(time*100.d0)
+  name=trim(adjustl(name))
+
+  if(mpirank == 0 ) write(*,*) "Saving output fields..."
+
+  ! We need the velocity for saving the velocity and/or vorticity
+  if(iSaveVelocity == 1 .or. iSaveVorticity == 1) then
+     do i=1,3
+        call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+     enddo
+  endif
+    
+  ! We need the magnetic fields velocity for saving the magnetic field
+  ! and/or current density
+  if(iSaveMagneticField == 1  .or. iSaveCurrent == 1) then
+     do i=4,6
+        call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+     enddo
+  endif
+    
+  ! Save the velocity
+  if(iSaveVelocity == 1) then
+     call Save_Field_HDF5(time,'./fields/ux_'//name,ub(:,:,:,1),"ux")
+     call Save_Field_HDF5(time,'./fields/uy_'//name,ub(:,:,:,2),"uy")
+     call Save_Field_HDF5(time,'./fields/uz_'//name,ub(:,:,:,3),"uz")
+  endif
+  
+  ! Save the vorticity
+  if(iSaveVorticity == 1) then
+     ! compute vorticity
+     call curl(&
+          nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+          ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3)) 
+     do i=1,3
+        call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+     enddo
+     call Save_Field_HDF5(time,'./fields/vorx_'//name,wj(:,:,:,1),"vorx")
+     call Save_Field_HDF5(time,'./fields/vory_'//name,wj(:,:,:,2),"vory")
+     call Save_Field_HDF5(time,'./fields/vorz_'//name,wj(:,:,:,3),"vorz")
+  endif
+  
+  ! Save the magnetic field
+  if(iSaveMagneticField == 1) then
+     call Save_Field_HDF5(time,'./fields/bx_'//name,ub(:,:,:,4),"bx")
+     call Save_Field_HDF5(time,'./fields/by_'//name,ub(:,:,:,5),"by")
+     call Save_Field_HDF5(time,'./fields/bz_'//name,ub(:,:,:,6),"bz")
+  endif
+
+  ! Save the current density
+  if(iSaveCurrent == 1) then
+     call curl(&
+          nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
+          ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6)) 
+     do i=4,6
+        call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+     enddo
+     call Save_Field_HDF5(time,'./fields/jx_'//name,wj(:,:,:,4),"jx")
+     call Save_Field_HDF5(time,'./fields/jy_'//name,wj(:,:,:,5),"jy")
+     call Save_Field_HDF5(time,'./fields/jz_'//name,wj(:,:,:,6),"jz")
+  endif
+  
+  ! Save Mask
+  ! FIXME: for stationary masks, this should be done only once
+  if((iSaveMask == 1).and.(iPenalization == 1)) then
+     call Save_Field_HDF5(time,'./fields/mask_'//name,mask,"mask")
+  endif
+
+  if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."
+end subroutine save_fields_new_mhd

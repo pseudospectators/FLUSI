@@ -7,7 +7,7 @@
 !====================================================================
 
 module fftw3_descriptors
-  use share_vars
+  use vars
   implicit none
   integer*8,dimension(1:3),save :: Desc_Handle_1D_f,Desc_Handle_1D_b
 end module fftw3_descriptors
@@ -18,7 +18,7 @@ subroutine fft_initialize
   !     Allocate memory and initialize FFT
   !====================================================================
   use mpi_header ! Module incapsulates mpif.
-  use share_vars
+  use vars
   use p3dfft
   use fftw3_descriptors
   implicit none
@@ -138,7 +138,7 @@ subroutine fft_free
   !====================================================================
   !     Free memory allocated for FFT
   !====================================================================
-  use share_vars
+  use vars
   use p3dfft
   use fftw3_descriptors
   implicit none
@@ -154,9 +154,9 @@ subroutine fft_free
 
   !-- Clean 1d workspaces
   do j = 1,3
-     if(mpirank ==0) then
-        write(*,'("!!! cof_p3dfft.f90: cleaning 1d workspace j=",i1)') j
-     endif
+!!$     if(mpirank ==0) then
+!!$        write(*,'("!!! cof_p3dfft.f90: cleaning 1d workspace j=",i1)') j
+!!$     endif
      call dfftw_destroy_plan(Desc_Handle_1D_f(j))
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
@@ -172,7 +172,7 @@ subroutine coftxyz(f,fk)
   !     Calculation of the Fourier-coefficients of a real function
   !     along x(1st index),y(2nd index),and z(3rd index)
   !====================================================================
-  use share_vars
+  use vars
   use p3dfft
   use mpi_header
   implicit none
@@ -210,7 +210,7 @@ subroutine cofitxyz(fk,f)
   !     Calculation of a real function from its Fourier coefficients
   !     along x(1st index),y(2nd index),and z(3rd index)
   !====================================================================
-  use share_vars
+  use vars
   use p3dfft
   use mpi_header
   implicit none
@@ -236,7 +236,7 @@ subroutine cofts(iplan,f,fk,L,n)
   !     FILTERING
   !     FFTW3 library is used
   !====================================================================
-  use share_vars
+  use vars
   use fftw3_descriptors
   implicit none
   include 'fftw3.f'
@@ -271,7 +271,7 @@ subroutine cofits(iplan,fk,f,L,n)
   !     FILTERING
   !     FFTW3 library is used
   !====================================================================
-  use share_vars
+  use vars
   use fftw3_descriptors
   implicit none
   include 'fftw3.f'
