@@ -54,6 +54,7 @@ void draw_another(bool myleg,string[] legends, int n)
 real[][][] readfile(int nx, int ny, int nz, string name) {
   file fin=input(name,mode="binary").singlereal();
   //file fin=input(name,mode="binary");
+  //file fin=input(name);
   real[][][] f=new real[nx][ny][nz];
 
   // There is some really weird ordering in .h5 files.
