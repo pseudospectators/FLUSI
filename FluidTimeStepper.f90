@@ -251,8 +251,7 @@ subroutine adjust_dt(dt1,u)
 
      !--Adjust time step at 0th process
      if(mpirank == 0) then
-       
-        if(ISNAN(umax)) then
+        if(.NOT.(umax.eq.umax)) then
            write(*,*) "Evolved field contains a NAN: aborting run."
            stop
         endif
