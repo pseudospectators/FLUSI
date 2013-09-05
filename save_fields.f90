@@ -59,9 +59,9 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
      
      ! SaveVelocity
      if(iSaveVelocity == 1) then
-        call Save_Field_HDF5(time,'./fields/ux_'//name,u(:,:,:,1),"ux")
-        call Save_Field_HDF5(time,'./fields/uy_'//name,u(:,:,:,2),"uy")
-        call Save_Field_HDF5(time,'./fields/uz_'//name,u(:,:,:,3),"uz")
+        call Save_Field_HDF5(time,'./ux_'//name,u(:,:,:,1),"ux")
+        call Save_Field_HDF5(time,'./uy_'//name,u(:,:,:,2),"uy")
+        call Save_Field_HDF5(time,'./uz_'//name,u(:,:,:,3),"uz")
      endif
 
      if((iSaveVorticity.ne.0) .or. (iSavePress.ne.0)) then
@@ -76,11 +76,11 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
         !-- Save Vorticity
         !-----------------------------------------------
         if(iSaveVorticity == 1) then
-           call Save_Field_HDF5(time, './fields/vorx_'//name,vort(:,:,:,1),&
+           call Save_Field_HDF5(time, './vorx_'//name,vort(:,:,:,1),&
                 "vorx")
-           call Save_Field_HDF5(time, './fields/vory_'//name,vort(:,:,:,2),&
+           call Save_Field_HDF5(time, './vory_'//name,vort(:,:,:,2),&
                 "vory")
-           call Save_Field_HDF5(time, './fields/vorz_'//name,vort(:,:,:,3),&
+           call Save_Field_HDF5(time, './vorz_'//name,vort(:,:,:,3),&
                 "vorz")
         endif
 
@@ -105,20 +105,20 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
                 +u(:,:,:,2)*u(:,:,:,2)&
                 +u(:,:,:,3)*u(:,:,:,3)&
                 )
-           call Save_Field_HDF5(time,'./fields/p_'//name,work,"p")
+           call Save_Field_HDF5(time,'./p_'//name,work,"p")
         endif
      endif
   endif
 
   ! Save Mask
   if(iSaveMask == 1 .and. iPenalization == 1) then
-     call Save_Field_HDF5(time,'./fields/mask_'//name,eps*mask,"mask")
+     call Save_Field_HDF5(time,'./mask_'//name,eps*mask,"mask")
   endif
 
   if(iSaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
-     call Save_Field_HDF5(time,'./fields/usx_'//name,us(:,:,:,1),"usx")
-     call Save_Field_HDF5(time,'./fields/usy_'//name,us(:,:,:,2),"usy")
-     call Save_Field_HDF5(time,'./fields/usz_'//name,us(:,:,:,3),"usz")
+     call Save_Field_HDF5(time,'./usx_'//name,us(:,:,:,1),"usx")
+     call Save_Field_HDF5(time,'./usy_'//name,us(:,:,:,2),"usy")
+     call Save_Field_HDF5(time,'./usz_'//name,us(:,:,:,3),"usz")
   endif
 end subroutine save_fields_new_fsi
 
@@ -253,7 +253,7 @@ subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
 
   ! write the XMF data for all of the saved fields
   if (mpirank == 0) then
-     ! the filename contains a leading "./fields/" which we must remove
+     ! the filename contains a leading "./" which we must remove
      call Write_XMF ( time, trim(adjustl(filename(10:len(filename)))) , &
           trim(adjustl(dsetname)) )
   endif
@@ -279,7 +279,7 @@ subroutine Write_XMF(time,filename,dsetname)
   write(tmp_nxyz,'(3(i4,1x))') nz,ny,nx
 
   ! note the XMF file goes also in the fields/ directory
-  open (14, file='./fields/'//trim(adjustl(filename))//'.xmf', status='replace')
+  open (14, file='./'//trim(adjustl(filename))//'.xmf', status='replace')
 
   write(14,'(A)') '<?xml version="1.0" ?>'
   write(14,'(A)') '<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>'
@@ -865,9 +865,9 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
     
   ! Save the velocity
   if(iSaveVelocity == 1) then
-     call Save_Field_HDF5(time,'./fields/ux_'//name,ub(:,:,:,1),"ux")
-     call Save_Field_HDF5(time,'./fields/uy_'//name,ub(:,:,:,2),"uy")
-     call Save_Field_HDF5(time,'./fields/uz_'//name,ub(:,:,:,3),"uz")
+     call Save_Field_HDF5(time,'./ux_'//name,ub(:,:,:,1),"ux")
+     call Save_Field_HDF5(time,'./uy_'//name,ub(:,:,:,2),"uy")
+     call Save_Field_HDF5(time,'./uz_'//name,ub(:,:,:,3),"uz")
   endif
   
   ! Save the vorticity
@@ -879,16 +879,16 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
      do i=1,3
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
-     call Save_Field_HDF5(time,'./fields/vorx_'//name,wj(:,:,:,1),"vorx")
-     call Save_Field_HDF5(time,'./fields/vory_'//name,wj(:,:,:,2),"vory")
-     call Save_Field_HDF5(time,'./fields/vorz_'//name,wj(:,:,:,3),"vorz")
+     call Save_Field_HDF5(time,'./vorx_'//name,wj(:,:,:,1),"vorx")
+     call Save_Field_HDF5(time,'./vory_'//name,wj(:,:,:,2),"vory")
+     call Save_Field_HDF5(time,'./vorz_'//name,wj(:,:,:,3),"vorz")
   endif
   
   ! Save the magnetic field
   if(iSaveMagneticField == 1) then
-     call Save_Field_HDF5(time,'./fields/bx_'//name,ub(:,:,:,4),"bx")
-     call Save_Field_HDF5(time,'./fields/by_'//name,ub(:,:,:,5),"by")
-     call Save_Field_HDF5(time,'./fields/bz_'//name,ub(:,:,:,6),"bz")
+     call Save_Field_HDF5(time,'./bx_'//name,ub(:,:,:,4),"bx")
+     call Save_Field_HDF5(time,'./by_'//name,ub(:,:,:,5),"by")
+     call Save_Field_HDF5(time,'./bz_'//name,ub(:,:,:,6),"bz")
   endif
 
   ! Save the current density
@@ -899,15 +899,15 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
      do i=4,6
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
-     call Save_Field_HDF5(time,'./fields/jx_'//name,wj(:,:,:,4),"jx")
-     call Save_Field_HDF5(time,'./fields/jy_'//name,wj(:,:,:,5),"jy")
-     call Save_Field_HDF5(time,'./fields/jz_'//name,wj(:,:,:,6),"jz")
+     call Save_Field_HDF5(time,'./jx_'//name,wj(:,:,:,4),"jx")
+     call Save_Field_HDF5(time,'./jy_'//name,wj(:,:,:,5),"jy")
+     call Save_Field_HDF5(time,'./jz_'//name,wj(:,:,:,6),"jz")
   endif
   
   ! Save Mask
   ! FIXME: for stationary masks, this should be done only once
   if((iSaveMask == 1).and.(iPenalization == 1)) then
-     call Save_Field_HDF5(time,'./fields/mask_'//name,mask,"mask")
+     call Save_Field_HDF5(time,'./mask_'//name,mask,"mask")
   endif
 
   if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."

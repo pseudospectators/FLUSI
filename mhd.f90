@@ -51,9 +51,6 @@ program MHD3D
   
   ! Initialize FFT
   call fft_initialize
-
-  !  Set up output directory
-  call system('mkdir -p fields') ! NB: this does not work on turing.
   
   ! Overwrite integral output file? only if we're not resuming a
   ! backup!
