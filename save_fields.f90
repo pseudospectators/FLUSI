@@ -254,8 +254,10 @@ subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   ! write the XMF data for all of the saved fields
   if (mpirank == 0) then
      ! the filename contains a leading "./" which we must remove
-     call Write_XMF ( time, trim(adjustl(filename(10:len(filename)))) , &
-          trim(adjustl(dsetname)) )
+     call Write_XMF(time,&
+          trim(adjustl(filename(3:len(filename)))),&
+          trim(adjustl(dsetname))&
+          )
   endif
 
   time_save=time_save + MPI_wtime() - t1 ! performance analysis
@@ -301,7 +303,7 @@ subroutine Write_XMF(time,filename,dsetname)
   write(14,'(A)') ' '
   write(14,'(A)') '    <Attribute Name="'//trim(adjustl(dsetname)) &
                 //'" AttributeType="Scalar" Center="Node">'
-  write(14,'(A)') '    <DataItem Dimensions="'//tmp_nxyz&
+  write(14,'(A)') '    <DataItem Dimensions="'//trim(adjustl(tmp_nxyz))&
                 //'" NumberType="Float" Format="HDF">'
   write(14,'(A)') '    '//trim(adjustl(filename))//'.h5:/'&
                 //trim(adjustl(dsetname))
