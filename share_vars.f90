@@ -42,7 +42,10 @@ module vars
 
 
   ! Variables set via the parameters file
-  real(kind=pr),save :: length ! FIXME: what is length?
+  real(kind=pr),save :: length 
+  ! Q: what is length? 
+  ! A: a generic lengthscale, for example circle radius or plate spanwise length
+  
   ! Domain size variables:
   integer,save :: nx,ny,nz
   real(kind=pr),save :: xl,yl,zl,dx,dy,dz,scalex,scaley,scalez
@@ -53,6 +56,7 @@ module vars
   ! Parameters to set which files are saved and how often:
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
   integer,save :: iDoBackup
+  integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
   integer,save :: itdrag
@@ -69,7 +73,7 @@ module vars
 
   ! Initial conditions:
   character(len=80),save :: inicond
-  real(kind=pr),save :: omega1
+  real(kind=pr),save :: omega1 ! FIXME: what is omega1?
 
   ! Boundary conditions:
   character(len=80),save :: iMask
@@ -100,8 +104,35 @@ module fsi_vars
      real(kind=pr) :: Volume
      real(kind=pr),dimension(1:3) :: Force
   end type Integrals
+  
+  ! derived datatype for insect parameters (for readability)
+  type InsectParams ! documentaion see insect.f90
+    character(len=80) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
+    character(len=80) :: FlappingMotion_right, FlappingMotion_left
+    ! parameters for body:
+    real(kind=pr) :: L_body, b_body, R_head, R_eye
+    ! parameters for wing shape:
+    real(kind=pr) :: b_top, b_bot, L_chord, L_span, WingThickness
+    ! this is a safety distance for smoothing:
+    real(kind=pr) :: safety
+    ! vectors desribing the positoions of jerry's key elements
+    ! in the body coordinate system
+    real(kind=pr), dimension(1:3) :: x_head, x_eye_r, x_eye_l, &
+                                     x_pivot_l, x_pivot_r
+  end type InsectParams
 
   type(Integrals),save :: GlobalIntegrals
+  type(InsectParams), save :: Insect
+  
+  contains
+  ! this function simplifies my life with the insects
+  real(kind=pr) function deg2rad(deg)
+    use vars
+    implicit none
+    real(kind=pr), intent(in) :: deg
+    deg2rad=deg*pi/180.d0
+    return
+  end function
 end module fsi_vars
 
 
@@ -119,27 +150,3 @@ module mhd_vars
 end module mhd_vars
 
 
-! Compute the FFT of the real-valued 3D array inx and save the output
-! in the complex-valued 3D array outk.
-subroutine fft(outk,inx)
-    use mpi_header
-    use vars ! For precision specficiation and array sizes
-    
-    real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-    complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-    call coftxyz(inx,outk)
-end subroutine fft
-
-
-! Compute the inverse FFT of the complex-valued 3D array ink and save the
-! output in the real-valued 3D array outx.
-subroutine ifft(outx,ink)
-    use mpi_header
-    use vars ! For precision specficiation and array sizes
-    
-    complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-    real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-
-    call cofitxyz(ink,outx)
-end subroutine ifft

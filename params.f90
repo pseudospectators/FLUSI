@@ -129,6 +129,7 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
   call GetValue_Int(PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 1)  
   call GetValue_Int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
+  call GetValue_Int(PARAMS,i,"Saving","iSaveXMF",iSaveXMF, 1) ! default is yes
   call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
   call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
   
@@ -156,20 +157,98 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_int(PARAMS,i,"Saving","itdrag",itdrag, 99999)
   call GetValue_int(PARAMS,i,"Saving","iKinDiss",iKinDiss, 0)
 
+  ! ---------------------------------------------------
   ! Geometry section
+  ! ---------------------------------------------------
   call GetValue_Real(PARAMS,i,"Geometry","x0",x0, 0.d0)
   call GetValue_Real(PARAMS,i,"Geometry","y0",y0, 0.d0)
   call GetValue_Real(PARAMS,i,"Geometry","z0",z0, 0.d0)
   
+  ! ---------------------------------------------------
   ! Saving section
+  ! ---------------------------------------------------
   call GetValue_Int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
 
+  ! ---------------------------------------------------
   ! MeanFlow section
+  ! ---------------------------------------------------
   call GetValue_Int(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
   call GetValue_Real(PARAMS,i,"MeanFlow","ux",ux, 1.d0) 
   call GetValue_Real(PARAMS,i,"MeanFlow","uy",uy, 1.d0) 
   call GetValue_Real(PARAMS,i,"MeanFlow","uz",uz, 1.d0) 
 
+  ! ---------------------------------------------------
+  ! Insects section
+  ! ---------------------------------------------------
+  Insect%WingShape="none"
+  call GetValue_String(PARAMS,i,"Insects","WingShape",&
+       Insect%WingShape,Insect%WingShape)
+  call GetValue_Real(PARAMS,i,"Insects","b_top",Insect%b_top, 0.d0) 
+  call GetValue_Real(PARAMS,i,"Insects","b_bot",Insect%b_bot, 0.d0) 
+  call GetValue_Real(PARAMS,i,"Insects","L_chord",Insect%L_chord, 0.d0) 
+  call GetValue_Real(PARAMS,i,"Insects","L_span",Insect%L_span, 0.d0) 
+  
+  ! for string parameters, set the default in the first place
+  Insect%FlappingMotion_right="none"
+  call GetValue_String(PARAMS,i,"Insects","FlappingMotion_right",&
+       Insect%FlappingMotion_right,Insect%FlappingMotion_right)
+       
+  Insect%FlappingMotion_left="none"
+  call GetValue_String(PARAMS,i,"Insects","FlappingMotion_left",&
+       Insect%FlappingMotion_left,Insect%FlappingMotion_left)
+       
+  Insect%BodyType="ellipsoid"
+  call GetValue_String(PARAMS,i,"Insects","BodyType",&
+       Insect%BodyType,Insect%BodyType)  
+       
+  Insect%HasEye="yes"
+  call GetValue_String(PARAMS,i,"Insects","HasEye",&
+       Insect%HasEye,Insect%HasEye)
+       
+  Insect%HasHead="yes"
+  call GetValue_String(PARAMS,i,"Insects","HasHead",&
+       Insect%HasHead,Insect%HasHead)    
+       
+  Insect%BodyMotion="yes"
+  call GetValue_String(PARAMS,i,"Insects","BodyMotion",&
+       Insect%BodyMotion,Insect%BodyMotion)        
+       
+  call GetValue_Real(PARAMS,i,"Insects","b_body",Insect%b_body, 0.1d0) 
+  call GetValue_Real(PARAMS,i,"Insects","L_body",Insect%L_body, 1.d0)
+  call GetValue_Real(PARAMS,i,"Insects","R_head",Insect%R_head, 0.1d0) 
+  call GetValue_Real(PARAMS,i,"Insects","R_eye",Insect%R_eye, 0.d1) 
+  call GetValue_Real(PARAMS,i,"Insects","WingThickness",&
+       Insect%WingThickness, 4.0*dx) 
+  
+  ! position vector of the head
+  Insect%x_head=(/0.5*Insect%L_body,0.d0,0.d0 /)
+  call GetValue_Vector(PARAMS,i,"Insects","x_head",&
+       Insect%x_head, Insect%x_head) 
+  
+  ! eyes
+  Insect%x_eye_r=Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1,+1,1/)
+  call GetValue_Vector(PARAMS,i,"Insects","x_eye_r",&
+       Insect%x_eye_r, Insect%x_eye_r) 
+       
+  Insect%x_eye_l=Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1,-1,1/)
+  call GetValue_Vector(PARAMS,i,"Insects","x_eye_l",&
+       Insect%x_eye_l, Insect%x_eye_l) 
+       
+  ! wing hinges (root points)    
+  Insect%x_pivot_l=(/0.d0, +Insect%b_body, 0.d0 /)    
+  call GetValue_Vector(PARAMS,i,"Insects","x_pivot_l",&
+       Insect%x_pivot_l, Insect%x_pivot_l)  
+       
+  Insect%x_pivot_r=(/0.d0, -Insect%b_body, 0.d0 /)
+  call GetValue_Vector(PARAMS,i,"Insects","x_pivot_r",&
+       Insect%x_pivot_r, Insect%x_pivot_r)        
+              
+     
+  
+  ! ---------------------------------------------------
+  ! DONE..
+  ! ---------------------------------------------------
+       
   lin(1)=nu
 
   if (mpirank==0) then
@@ -206,7 +285,21 @@ subroutine get_params_mhd(PARAMS,i)
 end subroutine get_params_mhd
 
 
-! FIXME: document
+
+
+!-------------------------------------------------------------------------------
+! Fetches a REAL VALUED parameter from the PARAMS.ini file.
+! Displays what it does on stdout (so you can see whats going on)
+! Input:
+!       PARAMS: the complete *.ini file as array of characters*256
+!               with maximum nlines=2048 lines (this value is set in share_vars)
+!       actual_lines: number of lines in the params file
+!                     because we don't need to loop over empty lines
+!       section: the section we're looking for
+!       keyword: the keyword we're looking for
+!       defaultvalue: if the we can't find the parameter, we return this and warn
+! Output:
+!       params_real: this is the parameter you were looking for
 subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
      defaultvalue)
   use vars
@@ -240,7 +333,21 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
 end subroutine GetValue_real
 
 
-! FIXME: document
+
+
+!-------------------------------------------------------------------------------
+! Fetches a STRING VALUED parameter from the PARAMS.ini file.
+! Displays what it does on stdout (so you can see whats going on)
+! Input:
+!       PARAMS: the complete *.ini file as array of characters*256
+!               with maximum nlines=2048 lines (this value is set in share_vars)
+!       actual_lines: number of lines in the params file
+!                     because we don't need to loop over empty lines
+!       section: the section we're looking for
+!       keyword: the keyword we're looking for
+!       defaultvalue: if the we can't find the parameter, we return this and warn
+! Output:
+!       params_string: this is the parameter you were looking for
 subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
      params_string, defaultvalue)
   use vars
@@ -276,8 +383,120 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
 end subroutine GetValue_string
 
 
+
+!-------------------------------------------------------------------------------
+! Fetches a VECTOR VALUED parameter from the PARAMS.ini file.
+! Displays what it does on stdout (so you can see whats going on)
+! Input:
+!       PARAMS: the complete *.ini file as array of characters*256
+!               with maximum nlines=2048 lines (this value is set in share_vars)
+!       actual_lines: number of lines in the params file
+!                     because we don't need to loop over empty lines
+!       section: the section we're looking for
+!       keyword: the keyword we're looking for
+!       defaultvalue: if the we can't find a vector, we return this and warn
+! Output:
+!       params_vector: this is the parameter you were looking for
+subroutine GetValue_vector (PARAMS, actual_lines, section, keyword, params_vector, &
+     defaultvalue)
+  use vars
+  use mpi_header
+  implicit none
+  character section*(*) ! What section do you look for? for example [Resolution]
+  character keyword*(*)   ! what keyword do you look for? for example nx=128
+  character (len=80)  value    ! returns the value
+  character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
+  real (kind=pr) :: params_vector(1:3), defaultvalue(1:3)
+  integer actual_lines
+  integer mpicode
+
+  ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
+  if (mpirank==0) then
+     call GetValue(PARAMS, actual_lines, section, keyword, value)
+     if (value .ne. '') then
+        ! read the three values from the vector string
+        read (value, *) params_vector
+        write (value,'(3(g10.3,1x))') params_vector
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+     else
+        write (value,'(3(g10.3,1x))') defaultvalue
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+             " (THIS IS THE DEFAULT VALUE!)"
+        params_vector = defaultvalue
+     endif
+  endif
+  
+  ! And then broadcast
+  call MPI_BCAST( params_vector, 3, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
+end subroutine GetValue_vector
+
+
+
+!-------------------------------------------------------------------------------
+! Fetches a INTEGER VALUED parameter from the PARAMS.ini file.
+! Displays what it does on stdout (so you can see whats going on)
+! Input:
+!       PARAMS: the complete *.ini file as array of characters*256
+!               with maximum nlines=2048 lines (this value is set in share_vars)
+!       actual_lines: number of lines in the params file
+!                     because we don't need to loop over empty lines
+!       section: the section we're looking for
+!       keyword: the keyword we're looking for
+!       defaultvalue: if the we can't find the parameter, we return this and warn
+! Output:
+!       params_int: this is the parameter you were looking for
+subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
+     defaultvalue)
+  use mpi_header
+  use vars
+  implicit none
+
+  character section*(*) ! What section do you look for? for example [Resolution]
+  character keyword*(*)   ! what keyword do you look for? for example nx=128
+  character (len=80)  value    ! returns the value
+  character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
+  integer params_int, actual_lines, defaultvalue
+  integer mpicode
+
+  !------------------
+  ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
+  !------------------
+  if (mpirank==0) then
+     call GetValue(PARAMS, actual_lines, section, keyword, value)
+     if (value .ne. '') then
+        read (value, *) params_int
+        write (value,'(i7)') params_int
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+     else
+        write (value,'(i7)') defaultvalue
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+             " (THIS IS THE DEFAULT VALUE!)"
+        params_int = defaultvalue
+     endif
+  endif
+
+  ! And then broadcast
+  call MPI_BCAST( params_int, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
+end subroutine GetValue_Int
+
+
+
+
+
+!-------------------------------------------------------------------------------
 ! Extracts a value from the PARAMS.ini file, which is in "section" and
 ! which is named "keyword"
+! Input:
+!       PARAMS: the complete *.ini file as array of characters*256
+!               with maximum nlines=2048 lines (this value is set in share_vars)
+!       actual_lines: number of lines in the params file
+!                     because we don't need to loop over empty lines
+!       section: the section we're looking for
+!       keyword: the keyword we're looking for
+! Output:
+!       value: is a string contaiing everything between '=' and ';'
+!              to be processed further, depending on the expected type
+!              of variable (e.g. you read an integer from this string)
 subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   use vars
   use mpi_header
@@ -335,39 +554,3 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
      endif
   enddo
 end subroutine getvalue
-
-
-! FIXME: document
-subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
-     defaultvalue)
-  use mpi_header
-  use vars
-  implicit none
-
-  character section*(*) ! What section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=80)  value    ! returns the value
-  character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
-  integer params_int, actual_lines, defaultvalue
-  integer mpicode
-
-  !------------------
-  ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
-  !------------------
-  if (mpirank==0) then
-     call GetValue(PARAMS, actual_lines, section, keyword, value)
-     if (value .ne. '') then
-        read (value, *) params_int
-        write (value,'(i7)') params_int
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
-     else
-        write (value,'(i7)') defaultvalue
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
-             " (THIS IS THE DEFAULT VALUE!)"
-        params_int = defaultvalue
-     endif
-  endif
-
-  ! And then broadcast
-  call MPI_BCAST( params_int, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
-end subroutine GetValue_Int

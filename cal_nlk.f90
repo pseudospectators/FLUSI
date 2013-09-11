@@ -77,7 +77,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   t1=MPI_wtime()
   ! NB: nlk is temporarily used for vortk
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-       uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
+             uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
 
   do i=1,3
      call ifft(vort(:,:,:,i),nlk(:,:,:,i))

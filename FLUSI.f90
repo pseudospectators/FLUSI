@@ -35,7 +35,9 @@ program FLUSI
      write(*,'("Running on ",i3," CPUs")') mpisize
   endif
 
+  !-------------------------
   ! Read input parameters
+  !-------------------------
   allocate(lin(nf)) ! Set up the linear term
   if (mpirank == 0) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
@@ -63,7 +65,9 @@ program FLUSI
        mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
 
+  !-------------------------
   ! Allocate memory:
+  !-------------------------
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   ! velocity in Fourier space
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
@@ -83,17 +87,23 @@ program FLUSI
         allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
      endif
      ! create mask(this one call can be redundant,but who cares.)
-     call Create_Mask(0.d0)
+     call Create_Mask(0.0d0)
   endif
 
+  
+  !----------------------------
   ! Step forward in time
+  !----------------------------
   call MPI_barrier (MPI_COMM_world, mpicode)
   t1 = MPI_wtime()
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   call time_step(u,uk,nlk,vort,work,explin) ! Actual time-stepping function
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   t2 = MPI_wtime() - t1
   if (mpirank ==0) then
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize
   endif
+  
 
   if(mpirank==0) then
      write(*,*) "control values for debugging:"
@@ -103,8 +113,11 @@ program FLUSI
           GlobalIntegrals%Force(2),GlobalIntegrals%Force(3),&
           GlobalIntegrals%Volume
   endif
+  
 
+  !-------------------------
   ! Deallocate memory
+  !-------------------------
   deallocate(lin)
   deallocate(explin)
   deallocate(vort,work)
@@ -115,7 +128,9 @@ program FLUSI
      if(iMoving == 1) deallocate(us)
   endif
 
+  !-------------------------
   ! Show the breakdown of timing information
+  !-------------------------
   if (mpirank == 0) call show_timings(t2)
 
   call fft_free 

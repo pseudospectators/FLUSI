@@ -252,7 +252,7 @@ subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
 
   ! write the XMF data for all of the saved fields
-  if (mpirank == 0) then
+  if ((mpirank==0).and.(iSaveXMF==1)) then
      ! the filename contains a leading "./" which we must remove
      call Write_XMF(time,&
           trim(adjustl(filename(3:len(filename)))),&

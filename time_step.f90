@@ -31,6 +31,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   ! Initialize vorticity or read values from a backup file
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
 
+
   ! Create mask function:
   call create_mask(time)
   call update_us(uk)
@@ -43,7 +44,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   
   ! Loop over time steps
   t1=MPI_wtime()
-  do while((time<=tmax) .and. (it<=nt))
+  do while ((time<=tmax) .and. (it<=nt))
      dt0=dt1
 
      ! If the mask is time-dependend,we create it here
@@ -54,8 +55,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
 
      ! Switch time levels
      inter=n1 ; n1=n0 ; n0=inter
-     ! Advance in time so that uk contains the evolved field at time
-     ! 'time+dt1'
+     ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time=time + dt1
      it=it + 1
 
@@ -103,8 +103,8 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
 
   ! this is done every 300 time steps, but it may happen that this is too seldom
   ! or too oftern. in future versions, maybe we try doing it once in an hour or
-  ! so.
-  if(modulo(it,300) == 0) then
+  ! so. we also output a first estimate after 20 time steps
+  if ((modulo(it,300) == 0).or.(it==20)) then
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
      write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &
