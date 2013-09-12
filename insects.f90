@@ -156,6 +156,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   implicit none
   real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
+  real(kind=pr) :: v_tmp(1:3)
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
 
@@ -208,10 +209,14 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
     endif
     
     mask(ix,iy,iz) = max(z_tmp*y_tmp*x_tmp, mask(ix,iy,iz))
-    us(ix,iy,iz,1:3) = matmul(transpose(M), &
-                      (/ rot(2)*x_wing(3)-rot(3)*x_wing(2), &
-                         rot(3)*x_wing(1)-rot(1)*x_wing(3), &
-                         rot(1)*x_wing(2)-rot(2)*x_wing(1)/) ) 
+    ! solid body rotation
+    v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
+    v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
+    v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
+    ! note we set this only if it is a part of the wing
+    if ( z_tmp*y_tmp*x_tmp > mask(ix,iy,iz) ) then
+      us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
+    endif
   endif
   
   
