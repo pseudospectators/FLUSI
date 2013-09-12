@@ -64,7 +64,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
         call write_integrals(time,uk,u,vort,nlk,work)
      endif
 
-     if(modulo(it,300) == 0) then
+     if(modulo(it,itdrag) == 0) then
         call write_integrals(time,uk,u,vort,nlk,work) ! FIXME: temp?
      endif
 

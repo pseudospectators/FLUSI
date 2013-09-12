@@ -18,8 +18,7 @@ end module fftw3_descriptors
 ! in the complex-valued 3D array outk.
 subroutine fft(outk,inx)
     use mpi_header
-    use vars ! For precision specficiation and array sizes
-    
+    use vars ! For precision specficiation and array sizes    
     real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
@@ -31,8 +30,7 @@ end subroutine fft
 ! output in the real-valued 3D array outx.
 subroutine ifft(outx,ink)
     use mpi_header
-    use vars ! For precision specficiation and array sizes
-    
+    use vars ! For precision specficiation and array sizes    
     complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
     real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 

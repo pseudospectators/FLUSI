@@ -79,7 +79,7 @@ program FLUSI
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
   ! Create obstacle mask
-  if(iPenalization>0) then
+  if (iPenalization==1) then
      ! you need the mask field only if you want to actually do penalization
      allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))     
      if(iMoving == 1) then

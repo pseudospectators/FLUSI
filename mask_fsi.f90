@@ -8,22 +8,26 @@ subroutine Create_Mask_fsi(time)
   real(kind=pr) :: t1
 
   t1 = MPI_wtime() 
-
-  ! Actual mask functions:
-  select case (iMask)
-  case ("sphere")
-     call Draw_Sphere()
-  case ("Flapper")    
-     call Flapper (time)    
-  case ("Insect")
-    call Draw_Insect (time)
-  case default    
-     if (mpirank == 0) then
-        write (*,*) "iMask not properly set; stopping."
-        stop
-     endif
-  end select
-
+  
+  ! do not create any mask when not using penalization
+  if (iPenalization==1) then
+    ! reset solid velocity
+    if (iMoving==1) us = 0.d0
+    ! Actual mask functions:
+    select case (iMask)
+    case ("sphere")
+      call Draw_Sphere()
+    case ("Flapper")    
+      call Flapper (time)    
+    case ("Insect")
+      call Draw_Insect (time)
+    case default    
+      if (mpirank == 0) then
+          write (*,*) "iMask not properly set; stopping."
+          stop
+      endif
+    end select
+  endif
   ! -- for global timing.
   time_mask = time_mask + MPI_wtime() - t1
 end subroutine Create_Mask_fsi

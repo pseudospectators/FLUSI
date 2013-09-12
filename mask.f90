@@ -7,25 +7,28 @@ subroutine create_mask(time)
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: eps_inv
 
-  ! Attention: mask is reset here (and not in subroutines)
-  mask = 0.d0
+  ! do not create any mask when not using penalization
+  if (iPenalization==1) then  
+    ! Attention: mask is reset here (and not in subroutines)
+    mask = 0.d0
 
-  ! Actual mask functions:
-  select case(method)
-  case("fsi")
-     call Create_Mask_fsi(time)
-  case("mhd")
-     call Create_Mask_mhd()
-  case default    
-     if(mpirank == 0) then
-        write (*,*) "Error: unkown method in create_mask; stopping."
-        stop
-     endif
-  end select
+    ! Actual mask functions:
+    select case(method)
+    case("fsi")
+        call Create_Mask_fsi(time)
+    case("mhd")
+        call Create_Mask_mhd()
+    case default    
+        if(mpirank == 0) then
+          write (*,*) "Error: unkown method in create_mask; stopping."
+          stop
+        endif
+    end select
 
-  ! Attention: division by eps is done here, not in subroutines.
-  eps_inv=1.d0/eps
-  mask=mask*eps_inv
+    ! Attention: division by eps is done here, not in subroutines.
+    eps_inv=1.d0/eps
+    mask=mask*eps_inv  
+  endif
 end subroutine create_mask
 
 
@@ -36,18 +39,21 @@ subroutine update_us(ub)
   implicit none
 
   real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-
-  select case(method)
-  case("fsi")
-     call update_us_fsi(ub)
-  case("mhd")
-     call update_us_mhd(ub)
-  case default    
-     if(mpirank == 0) then
-        write (*,*) "Error: unkown method in update_us; stopping."
-        stop
-     endif
-  end select
+  
+  ! do not create any mask when not using penalization
+  if (iPenalization==1) then  
+    select case(method)
+    case("fsi")
+        call update_us_fsi(ub)
+    case("mhd")
+        call update_us_mhd(ub)
+    case default    
+        if(mpirank == 0) then
+          write (*,*) "Error: unkown method in update_us; stopping."
+          stop
+        endif
+    end select  
+  endif
 end subroutine update_us
 
 

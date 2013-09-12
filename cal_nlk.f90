@@ -57,12 +57,12 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   time_ifft2=0.0 ! time_ifft2 is the time spend on iffts during cal_nlk only
 
   !-----------------------------------------------
-  !-- Calculate ux and uy in physical space
+  !-- Calculate velocity in physical space
   !-----------------------------------------------
   t1=MPI_wtime()
-  do i=1,nd
-     call ifft(u(:,:,:,i),uk(:,:,:,i))
-  enddo
+  call ifft(u(:,:,:,1),uk(:,:,:,1))
+  call ifft(u(:,:,:,2),uk(:,:,:,2))
+  call ifft(u(:,:,:,3),uk(:,:,:,3))
   time_u=time_u + MPI_wtime() - t1
 
   ! FIXME: move into write_integrals_fsi
@@ -75,13 +75,14 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-- Compute vorticity
   !-----------------------------------------------
   t1=MPI_wtime()
-  ! NB: nlk is temporarily used for vortk
+  ! nlk is temporarily used for vortk
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
              uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
 
-  do i=1,3
-     call ifft(vort(:,:,:,i),nlk(:,:,:,i))
-  enddo
+  ! transform it to physical space
+  call ifft(vort(:,:,:,1),nlk(:,:,:,1))
+  call ifft(vort(:,:,:,2),nlk(:,:,:,2))
+  call ifft(vort(:,:,:,3),nlk(:,:,:,3))
 
   ! Timing statistics
   time_vor=time_vor + MPI_wtime() - t1
@@ -108,8 +109,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   ! timing statistics
   time_curl=time_curl + MPI_wtime() - t1
 
+  
   t1=MPI_wtime()
-  call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,3),nlk(:,:,:,3))
+  call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
   time_p=time_p + MPI_wtime() - t1
 
   ! this is for the timing statistics.

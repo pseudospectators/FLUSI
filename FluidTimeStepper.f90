@@ -283,6 +283,7 @@ subroutine adjust_dt(dt1,u)
      ! Broadcast time step to all processes
      call MPI_BCAST(dt1,1,mpireal,0,MPI_COMM_WORLD,mpicode)
   endif
+  
 end subroutine adjust_dt
 
 
