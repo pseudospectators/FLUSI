@@ -533,9 +533,9 @@ end subroutine Dump_Field_Backup
 
 
 ! Read in a single file that follows the naming convention
-!!! this is a serial routine currently
-!!! !!! note you need to know what dimension the file has,
-!call fetch_attributes first!!!!
+! this is a serial routine (parallel version below)
+! note you need to know what dimension the file has,
+! call fetch_attributes first
 subroutine Read_Single_File_serial ( filename, field )
   use mpi_header
   use vars
@@ -651,6 +651,131 @@ subroutine Read_Single_File_serial ( filename, field )
   
   
 end subroutine Read_Single_File_serial
+
+
+
+
+! Read in a single file that follows the naming convention
+! note you need to know the dimensions and domain decomposition before
+! calling it.
+subroutine Read_Single_File ( filename, field )
+  use mpi_header
+  use vars
+  use hdf5
+  implicit none
+
+  character(len=*),intent(in) :: filename
+  real(kind=pr),&
+  dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
+  intent (out) :: field
+  
+  integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
+  real (kind=pr)                :: time,dt1,dt0, xl_file, yl_file, zl_file
+  character(len=80)             :: dsetname
+  integer                       :: n1,it
+  integer                       :: nx_file,ny_file,nz_file, mpierror, i  
+
+  integer(hid_t) :: file_id       ! file identifier
+  integer(hid_t) :: dset_id       ! dataset identifier
+  integer(hid_t) :: filespace     ! dataspace identifier in file
+  integer(hid_t) :: memspace      ! dataspace identifier in memory
+  integer(hid_t) :: plist_id      ! property list identifier
+
+  ! dataset dimensions in the file.
+  integer(hsize_t), dimension(rank) :: dimensions_file
+  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
+  integer(hsize_t), dimension(rank) :: chunking_dims  ! chunks dimensions
+
+  integer(hsize_t),  dimension(rank) :: count  = 1
+  integer(hssize_t), dimension(rank) :: offset
+  integer(hsize_t),  dimension(rank) :: stride = 1
+  integer :: error  ! error flags
+
+  ! what follows is for the attribute "time"
+  integer, parameter :: arank = 1
+  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
+  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
+  !integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
+  integer(hid_t) :: attr_id       ! Attribute identifier
+  character(len=4) :: aname ! attribute name
+  real (kind=pr), dimension (:), allocatable :: attributes  
+  
+  ! the dataset is named the same way as the file: (this is convention)
+  dsetname = filename ( 1:index( filename, '_' )-1 )
+
+  ! Initialize HDF5 library and Fortran interfaces.
+  call h5open_f(error)
+
+  ! Setup file access property list with parallel I/O access.  this
+  ! sets up a property list ("plist_id") with standard values for
+  ! FILE_ACCESS
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! this modifies the property list and stores MPI IO
+  ! comminucator information in the file access property list
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  ! open the file in parallel
+  call H5Fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
+  ! this closes the property list (we'll re-use it)
+  call H5Pclose_f(plist_id, error)
+  
+  ! Definition of memory distribution
+  dimensions_file = (/nx,ny,nz/)
+  dimensions_local(1) = rb(1)-ra(1) +1
+  dimensions_local(2) = rb(2)-ra(2) +1
+  dimensions_local(3) = rb(3)-ra(3) +1
+
+  offset(1) = ra(1)
+  offset(2) = ra(2)
+  offset(3) = ra(3)
+  
+  ! Each process knows how much data it has and where to store it.
+  ! now, define the dataset chunking. Chunking is largest dimension in
+  ! each direction
+  do i = 1, 3
+     call MPI_REDUCE ( dimensions_local(i), chunking_dims(i),1, &
+          MPI_INTEGER8, MPI_MAX,0,MPI_COMM_WORLD,mpierror)
+     call MPI_BCAST  ( chunking_dims(i), 1, MPI_INTEGER8, 0, &
+          MPI_COMM_WORLD, mpierror )
+  enddo
+
+  !----------------------------------------------------------------------------
+  ! Read actual field from file (dataset)
+  !----------------------------------------------------------------------------
+  ! dataspace in the file: contains all data from all procs
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
+  ! dataspace in memory: contains only local data
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
+
+  ! Create chunked dataset
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, chunking_dims, error)
+
+  ! Open an existing dataset.
+  call H5Dopen_f(file_id, dsetname, dset_id, error)
+
+  ! Select hyperslab in the file.
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+       error , stride, dimensions_local)
+
+  ! Create property list for collective dataset read
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+
+  call H5Dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
+       mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
+
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
+  call H5Pclose_f(plist_id, error) ! note the dataset remains opened
+
+  ! Close dataset
+  call H5Dclose_f(dset_id, error)
+  call H5Fclose_f(file_id,error)
+  call H5close_f(error)
+  
+  
+end subroutine Read_Single_File
 
 
 

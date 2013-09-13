@@ -566,7 +566,6 @@ subroutine curl_inplace(fx,fy,fz)
   complex(kind=pr),intent(inout)::fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
   complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
-
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz
   complex(kind=pr) :: imag   ! imaginary unit
