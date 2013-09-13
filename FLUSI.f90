@@ -2,11 +2,48 @@ program FLUSI
   use mpi_header
   use fsi_vars
   implicit none
+  integer                :: mpicode
+  character (len=80)     :: infile
 
+  ! Initialize MPI, get size and rank
+  call MPI_INIT(mpicode)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,mpisize,mpicode)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,mpirank,mpicode) 
+  
+  ! get filename of PARAMS file from command line
+  call get_command_argument(1,infile)
+  
+  if ( infile( index(infile,'.'):index(infile,'.')+3 ) == '.ini') then  
+      !-------------------------------------------------------------------------
+      ! the file is an *.ini file -> we run a normal simulation 
+      !-------------------------------------------------------------------------
+      call Start_Simulation()    
+
+  elseif ( infile == "--postprocess") then 
+      !-------------------------------------------------------------------------
+      ! the first argument tells us that we're postprocessing 
+      !-------------------------------------------------------------------------
+      call postprocessing()
+      
+  else
+      if (mpirank==0) write(*,*) "nothing to do..."      
+  endif
+
+  
+  call MPI_FINALIZE(mpicode)
+  call exit(0)
+end program FLUSI
+
+
+
+
+subroutine Start_Simulation()
+  use mpi_header
+  use fsi_vars
+  implicit none
   integer                :: mpicode
   real (kind=pr)         :: t1,t2
   character (len=80)     :: infile
-
   ! Arrays needed for simulation
   real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
@@ -14,15 +51,11 @@ program FLUSI
   complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
   real(kind=pr),dimension(:,:,:),allocatable :: work
 
+  
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
   nf=1 ! We are evolving one field.
   nd=3*nf ! The one field has three components.
-  
-  ! Initialize MPI, get size and rank
-  call MPI_INIT(mpicode)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD,mpisize,mpicode)
-  call MPI_COMM_RANK(MPI_COMM_WORLD,mpirank,mpicode)
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
@@ -127,15 +160,15 @@ program FLUSI
      deallocate(mask)
      if(iMoving == 1) deallocate(us)
   endif
-
+  
+  call fft_free 
   !-------------------------
   ! Show the breakdown of timing information
   !-------------------------
   if (mpirank == 0) call show_timings(t2)
+end subroutine Start_Simulation
 
-  call fft_free 
-  call MPI_FINALIZE(mpicode)
-end program FLUSI
+
 
 
 ! Output information on where the algorithm spent the most time.

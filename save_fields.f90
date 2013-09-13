@@ -529,6 +529,132 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
 end subroutine Dump_Field_Backup
 
 
+
+
+
+! Read in a single file that follows the naming convention
+!!! this is a serial routine currently
+!!! !!! note you need to know what dimension the file has,
+!call fetch_attributes first!!!!
+subroutine Read_Single_File_serial ( filename, field )
+  use mpi_header
+  use vars
+  use hdf5
+  implicit none
+
+  character(len=*),intent(in) :: filename
+  real(kind=pr), intent (out) :: field(0:nx-1,0:ny-1,0:nz-1)
+  
+  integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
+  real (kind=pr)                :: time,dt1,dt0, xl_file, yl_file, zl_file
+  character(len=80)             :: dsetname
+  integer                       :: n1,it
+  integer                       :: nx_file,ny_file,nz_file, mpierror, i  
+
+  integer(hid_t) :: file_id       ! file identifier
+  integer(hid_t) :: dset_id       ! dataset identifier
+  integer(hid_t) :: filespace     ! dataspace identifier in file
+  integer(hid_t) :: memspace      ! dataspace identifier in memory
+  integer(hid_t) :: plist_id      ! property list identifier
+
+  ! dataset dimensions in the file.
+  integer(hsize_t), dimension(rank) :: dimensions_file
+  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
+  integer(hsize_t), dimension(rank) :: chunking_dims  ! chunks dimensions
+
+  integer(hsize_t),  dimension(rank) :: count  = 1
+  integer(hssize_t), dimension(rank) :: offset
+  integer(hsize_t),  dimension(rank) :: stride = 1
+  integer :: error  ! error flags
+
+  ! what follows is for the attribute "time"
+  integer, parameter :: arank = 1
+  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
+  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
+  !integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
+  integer(hid_t) :: attr_id       ! Attribute identifier
+  character(len=4) :: aname ! attribute name
+  real (kind=pr), dimension (:), allocatable :: attributes  
+  
+  ! the dataset is named the same way as the file: (this is convention)
+  dsetname = filename ( 1:index( filename, '_' )-1 )
+
+  if (mpisize>1) then
+    write (*,*) "this routine is currently serial only"
+    stop
+  endif
+
+  ! Initialize HDF5 library and Fortran interfaces.
+  call h5open_f(error)
+
+  ! Setup file access property list with parallel I/O access.  this
+  ! sets up a property list ("plist_id") with standard values for
+  ! FILE_ACCESS
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! this modifies the property list and stores MPI IO
+  ! comminucator information in the file access property list
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  ! open the file in parallel
+  call H5Fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
+  ! this closes the property list (we'll re-use it)
+  call H5Pclose_f(plist_id, error)
+  
+  ! Definition of memory distribution
+  dimensions_file = (/nx,ny,nz/)
+  dimensions_local(1) = nx
+  dimensions_local(2) = ny
+  dimensions_local(3) = nz
+
+  offset(1) = 0
+  offset(2) = 0
+  offset(3) = 0
+  
+  chunking_dims(1) = nx
+  chunking_dims(2) = ny
+  chunking_dims(3) = nz
+
+  !----------------------------------------------------------------------------
+  ! Read actual field from file (dataset)
+  !----------------------------------------------------------------------------
+  ! dataspace in the file: contains all data from all procs
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
+  ! dataspace in memory: contains only local data
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
+
+  ! Create chunked dataset
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, chunking_dims, error)
+
+  ! Open an existing dataset.
+  call H5Dopen_f(file_id, dsetname, dset_id, error)
+
+  ! Select hyperslab in the file.
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+       error , stride, dimensions_local)
+
+  ! Create property list for collective dataset read
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+
+  call H5Dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
+       mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
+
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
+  call H5Pclose_f(plist_id, error) ! note the dataset remains opened
+
+  ! Close dataset
+  call H5Dclose_f(dset_id, error)
+  call H5Fclose_f(file_id,error)
+  call H5close_f(error)
+  
+  
+end subroutine Read_Single_File_serial
+
+
+
+
 ! Load backup data from disk to initialize run for restart
 subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   use mpi_header
@@ -914,3 +1040,115 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
 
   if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."
 end subroutine save_fields_new_mhd
+
+
+
+
+
+!----------------------------------------------------
+! This routine fetches the resolution, the domain size and the time
+! form a *.h5 file
+!----------------------------------------------------
+! filename: a *.h5 file to read from.
+! dsetname: a dataset inside the file. in our system, we only have one per file
+!           and this matches the prefix: mask_00010.h5  --> dsetname = "mask"
+! note:
+!           the file must contain the dataset
+!           but especially the attributes "nxyz", "time", "domain_size"
+!----------------------------------------------------
+subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
+  use hdf5
+  implicit none
+
+  integer, parameter :: pr = 8
+  integer, intent (out) :: nx, ny, nz
+  real (kind=pr), intent(out) :: xl,yl,zl, time
+
+  character(len=*) :: filename  ! file name
+  character(len=*) :: dsetname  ! dataset name
+  character(len=4) :: aname     ! attribute name
+  character(len=11) :: aname2
+
+  integer(hid_t) :: file_id       ! file identifier
+  integer(hid_t) :: dset_id       ! dataset identifier
+  integer(hid_t) :: attr_id       ! attribute identifier
+  integer(hid_t) :: aspace_id     ! attribute dataspace identifier
+  integer(hid_t) :: atype_id      ! attribute dataspace identifier
+  integer(hsize_t), dimension(1) :: adims = (/1/) ! attribute dimension
+  integer     ::   arank = 1                      ! attribure rank
+  integer(size_t) :: attrlen    ! length of the attribute string
+
+  real (kind=pr) ::  attr_data  ! attribute data
+  real (kind=pr), dimension (1:3) :: attr_data2
+  integer, dimension (1:3) :: attr_data3
+
+  integer     ::   error ! error flag
+  integer(hsize_t), dimension(1) :: data_dims
+
+
+  ! Initialize FORTRAN interface.
+  CALL h5open_f(error)
+
+  ! Open an existing file.
+  CALL h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error)
+  ! Open an existing dataset.
+  CALL h5dopen_f(file_id, dsetname, dset_id, error)
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! open attribute (time)
+!!!!!!!!!!!!!!!!!!!!!!!!!!
+  aname = "time"
+  CALL h5aopen_f(dset_id, aname, attr_id, error)
+
+  ! Get dataspace and read
+  CALL h5aget_space_f(attr_id, aspace_id, error)
+  data_dims(1) = 1
+  CALL h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attr_data, data_dims, error)
+
+  time = attr_data
+  CALL h5aclose_f(attr_id, error) ! Close the attribute.
+  CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! open attribute (domain_length)
+!!!!!!!!!!!!!!!!!!!!!!!!!!
+  aname2 = "domain_size"
+  CALL h5aopen_f(dset_id, aname2, attr_id, error)
+
+  ! Get dataspace and read
+  CALL h5aget_space_f(attr_id, aspace_id, error)
+  data_dims(1) = 3
+  CALL h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attr_data2, data_dims, error)
+
+  xl = attr_data2(1)
+  yl = attr_data2(2)
+  zl = attr_data2(3)
+
+  CALL h5aclose_f(attr_id, error) ! Close the attribute.
+  CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! open attribute (sizes)
+!!!!!!!!!!!!!!!!!!!!!!!!!!
+  aname = "nxyz"
+  CALL h5aopen_f(dset_id, aname, attr_id, error)
+
+  ! Get dataspace and read
+  CALL h5aget_space_f(attr_id, aspace_id, error)
+  data_dims(1) = 3
+  CALL h5aread_f( attr_id, H5T_NATIVE_INTEGER, attr_data3, data_dims, error)
+
+  nx = attr_data3(1)
+  ny = attr_data3(2)
+  nz = attr_data3(3)
+
+  CALL h5aclose_f(attr_id, error) ! Close the attribute.
+  CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
+
+  CALL h5dclose_f(dset_id, error) ! End access to the dataset and release resources used by it.
+  CALL h5fclose_f(file_id, error) ! Close the file.
+  CALL h5close_f(error)  ! Close FORTRAN interface.
+
+  !   write (*,'("time=",es12.4," domain=",3(es12.4,1x),2x,3(i3,1x))') time, xl,yl,zl, nx, ny, nz
+end subroutine Fetch_attributes
