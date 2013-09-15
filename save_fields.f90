@@ -84,7 +84,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   if (iSaveVorticity==1) then
     ! cal_nlk overwrote the vorticity, recompute it
     call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),& 
-                uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
+               uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
     call ifft3(vort,nlk)      
     !-- Save Vorticity
     if (iSaveVorticity == 1) then

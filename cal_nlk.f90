@@ -53,7 +53,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
-  real(kind=pr) :: penalx,penaly,penalz,forcex,forcey,forcez
+  real(kind=pr) :: penalx,penaly,penalz,forcex,forcey,forcez,xlev,ylev,zlev
+  real(kind=pr) :: torquex,torquey,torquez
   integer, intent(in) :: it
   integer :: ix,iz,iy,mpicode
   ! performance measurement in global variables
@@ -82,7 +83,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-----------------------------------------------
   t1 = MPI_wtime()
   ! nlk is temporarily used for vortk
-  call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
+  call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+             uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
   ! transform it to physical space
   call ifft3 (vort, nlk)  
   time_vor = time_vor + MPI_wtime() - t1
@@ -102,6 +104,11 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         vory = vort(ix,iy,iz,2)
         vorz = vort(ix,iy,iz,3)
         
+        ! for torque moment
+        xlev = dble(ix)*dx - x0
+        ylev = dble(iy)*dy - y0
+        zlev = dble(iz)*dz - z0
+        
         ! local variables for penalization
         if (iPenalization==1) then
           chi  = mask(ix,iy,iz)
@@ -110,14 +117,17 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
             usy  = us(ix,iy,iz,2)
             usz  = us(ix,iy,iz,3)
           endif
-          penalx = - chi*(ux-usx)
-          penaly = - chi*(uy-usy)
-          penalz = - chi*(uz-usz)
+          penalx = -chi*(ux-usx)
+          penaly = -chi*(uy-usy)
+          penalz = -chi*(uz-usz)
           
-          ! integrate forces
+          ! integrate forces + torques
           forcex = forcex + penalx
           forcey = forcey + penaly
-          forcez = forcez + penalz          
+          forcez = forcez + penalz              
+          torquex = torquex + ylev*penalz - zlev*penaly
+          torquey = torquey + zlev*penalx - xlev*penalz
+          torquez = torquez + xlev*penaly - ylev*penalx
         endif
         
         ! we overwrite the vorticity with the NL term in phys space
@@ -135,20 +145,34 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-----------------------------------------------
   !-- add pressure gradient
   !-----------------------------------------------  
-  t1=MPI_wtime()
+  t1 = MPI_wtime()
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-  time_p=time_p + MPI_wtime() - t1
+  time_p = time_p + MPI_wtime() - t1
 
+  !-----------------------------------------------
+  !-- done. nlk is the right hand side of naiver-stokes in Fourier space
+  !-----------------------------------------------  
+  
   ! save global forces
   forcex = forcex*dx*dy*dz
   forcey = forcey*dx*dy*dz
   forcez = forcez*dx*dy*dz  
-  call MPI_ALLREDUCE (forcex,GlobalIntegrals%Force(1),1,mpireal,MPI_SUM,0,&
+  call MPI_REDUCE (forcex,GlobalIntegrals%Force(1),1,mpireal,MPI_SUM,0,&
                    MPI_COMM_WORLD,mpicode)  
-  call MPI_ALLREDUCE (forcey,GlobalIntegrals%Force(2),1,mpireal,MPI_SUM,0,&
+  call MPI_REDUCE (forcey,GlobalIntegrals%Force(2),1,mpireal,MPI_SUM,0,&
                    MPI_COMM_WORLD,mpicode) 
-  call MPI_ALLREDUCE (forcez,GlobalIntegrals%Force(3),1,mpireal,MPI_SUM,0,&
+  call MPI_REDUCE (forcez,GlobalIntegrals%Force(3),1,mpireal,MPI_SUM,0,&
+                   MPI_COMM_WORLD,mpicode)    
+                   
+  torquex = torquex*dx*dy*dz
+  torquey = torquey*dx*dy*dz
+  torquez = torquez*dx*dy*dz  
+  call MPI_REDUCE (torquex,GlobalIntegrals%Torque(1),1,mpireal,MPI_SUM,0,&
+                   MPI_COMM_WORLD,mpicode)  
+  call MPI_REDUCE (torquey,GlobalIntegrals%Torque(2),1,mpireal,MPI_SUM,0,&
                    MPI_COMM_WORLD,mpicode) 
+  call MPI_REDUCE (torquez,GlobalIntegrals%Torque(3),1,mpireal,MPI_SUM,0,&
+                   MPI_COMM_WORLD,mpicode)                    
                    
   ! this is for the timing statistics.
   ! how much time was spend on ffts in cal_nlk?

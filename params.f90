@@ -155,9 +155,8 @@ subroutine get_params_fsi(PARAMS,i)
 
   integer,intent(in) :: i
   character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
-  call GetValue_int(PARAMS,i,"Saving","iDrag",iDrag, 0)
+
   call GetValue_int(PARAMS,i,"Saving","itdrag",itdrag, 99999)
-  call GetValue_int(PARAMS,i,"Saving","iKinDiss",iKinDiss, 0)
 
   ! ---------------------------------------------------
   ! Geometry section

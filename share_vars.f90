@@ -51,7 +51,7 @@ module vars
   real(kind=pr),save :: xl,yl,zl,dx,dy,dz,scalex,scaley,scalez
 
   ! FIXME: please document
-  integer,save :: iDealias,iKinDiss
+  integer,save :: iDealias
 
   ! Parameters to set which files are saved and how often:
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
@@ -92,7 +92,6 @@ module fsi_vars
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
   integer,save :: iMeanFlow
-  integer,save :: iDrag
   integer,save :: iSaveSolidVelocity
 
   ! The derived integral quantities for fluid-structure interactions.
@@ -103,6 +102,7 @@ module fsi_vars
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume
      real(kind=pr),dimension(1:3) :: Force
+     real(kind=pr),dimension(1:3) :: Torque
   end type Integrals
   
   ! derived datatype for insect parameters (for readability)
