@@ -128,10 +128,10 @@ do
               echo "It takes me a moment to digest this..."
               sleep 1
               warn=$((warn+1))
-            fi
-            
+            fi            
             checked=$((checked+1))            
         else
+            warn=$((warn+1))
             echo -e ${Red} "Reference file not found" ${Color_Off}            
         fi
         echo "-------------------"

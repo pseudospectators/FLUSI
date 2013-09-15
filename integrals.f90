@@ -35,7 +35,9 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr), intent(in) :: time
-  real(kind=pr) :: maxdiv
+  real(kind=pr) :: kx, ky, kz, locmax, maxdiv, maxdiv_loc
+  complex(kind=pr) :: imag ! imaginary unit
+  integer :: ix,iy,iz,mpicode
 
   ! forces and torques are computed in every time step
   if(mpirank == 0) then
@@ -46,14 +48,30 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
     GlobalIntegrals%Torque(3),tab
     close(14)
   endif
+
   
-!   call compute_max_div(maxdiv,uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,4),&
-!        u(:,:,:,1),u(:,:,:,2),u(:,:,:,3),work,nlk(:,:,:,1))
-!   if(mpirank == 0) then
-!     open(14,file='divu.time',status='unknown',position='append')
-!     write (14,'(2(e12.5,A))') time,tab,maxdiv,tab
-!     close(14)
-!   endif      
+  ! Compute the divergence in Fourier space, store in divk
+  do iz=ca(1),cb(1)
+    kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
+    do ix=ca(2),cb(2)
+      kx=scalex*ix
+      do iy=ca(3),cb(3)
+        ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
+        nlk(iz,ix,iy,1)=(kx*uk(iz,ix,iy,1)+ky*uk(iz,ix,iy,2)+kz*uk(iz,ix,iy,3))
+        nlk(iz,ix,iy,1)=dcmplx(0.d0,1.d0)*nlk(iz,ix,iy,1)
+      enddo
+    enddo
+  enddo
+  call ifft(work,nlk(:,:,:,1))
+  maxdiv_loc=maxval(abs(work))
+  call MPI_REDUCE(maxdiv_loc,maxdiv,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+       MPI_COMM_WORLD,mpicode)
+
+  if(mpirank == 0) then
+    open(14,file='divu.time',status='unknown',position='append')
+    write (14,'(2(e12.5,A))') time,tab,maxdiv,tab
+    close(14)
+  endif      
 end subroutine write_integrals_fsi
 
 
@@ -347,7 +365,6 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   do ix=ra(1),rb(1)
      do iy=ra(2),rb(2)
         do iz=ra(3),rb(3)
-           if(iPenalization == 1) then
            if(mask(ix,iy,iz) == 0.d0) then
               
               v1=f1(ix,iy,iz)
@@ -364,11 +381,6 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
               if(d > locmax) then
                  locmax=d
               endif
-           endif
-           else ! no penalization, no mask
-               if(d > locmax) then
-                 locmax=d
-              endif             
            endif
         enddo
      enddo

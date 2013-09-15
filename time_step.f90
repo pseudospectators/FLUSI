@@ -30,17 +30,18 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
      
   ! Initialize vorticity or read values from a backup file
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
+  n0=1 - n1 !important to do this now in case we're retaking a backp
+  it_start=it 
 
 
   ! Create mask function:
   call create_mask(time)
   call update_us(uk)
 
-  ! After init, output integral quantities.
-  call write_integrals(time,uk,u,vort,nlk,work)
+  ! After init, output integral quantities. (note we can overwrite only 
+  ! nlk(:,:,:,:,n0) when retaking a backup
+  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
-  n0=1 - n1
-  it_start=it 
   
   ! Loop over time steps
   t1=MPI_wtime()
@@ -58,15 +59,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time=time + dt1
      it=it + 1
-
+     
      ! Output of integrals after every tintegral time units
      if(modulo(time - tstart,tintegral) <= dt1) then
-       call write_integrals(time,uk,u,vort,nlk(:,:,:,1:nd,n0),work)
+       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
      endif
 
      if(modulo(it,itdrag) == 0) then
-       call write_integrals(time,uk,u,vort,nlk(:,:,:,1:nd,n0),work)
-      endif
+       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+     endif
 
      ! Output how much time remains
      if(mpirank == 0) call are_we_there_yet(it,it_start,time,t2,t1,dt1)
