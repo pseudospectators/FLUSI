@@ -394,6 +394,12 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     endif
   end select
   
+  ! for compability, we update the x0,y0,z0 also
+  ! this is used e.g. for torque computation  
+  x0 = xc(1)
+  y0 = xc(2)
+  z0 = xc(3)
+  
 end subroutine BodyMotion
 
 

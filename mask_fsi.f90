@@ -15,7 +15,7 @@ subroutine Create_Mask_fsi(time)
     if (iMoving==1) us = 0.d0
     ! Actual mask functions:
     select case (iMask)
-    case ("sphere")    
+    case ("sphere","Sphere")    
       call Draw_Sphere()
     case ("Flapper")    
       call Flapper (time)    

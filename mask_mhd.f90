@@ -223,7 +223,7 @@ subroutine smclinear_us_mhd(ub)
   real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: r,x,y
   integer :: ix,iy,iz
-  real (kind=pr) :: a,b,c,d,k1,k2,h
+  real (kind=pr) :: a,b,c,d,k1,k2
   
   ! Velocity is no-slip:
   us(:,:,:,1)=0.d0

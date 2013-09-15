@@ -134,6 +134,7 @@ do
         else
             echo -e ${Red} "Reference file not found" ${Color_Off}            
         fi
+        echo "-------------------"
       fi
     done    
   done

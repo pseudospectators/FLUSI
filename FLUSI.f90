@@ -89,6 +89,10 @@ subroutine Start_Simulation()
     write (14,'(13A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
                       "Momentx",tab,"Momenty",tab,"Momentz"
     close (14)
+    
+    open  (14,file='divu.time',status='replace')
+    write (14,'(13A)') "% time",tab,"max(divu)",tab
+    close (14)
   endif
 
   ! Print domain decomposition

@@ -18,7 +18,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work)
      call write_integrals_mhd(time,uk,u,vort,nlk,work)
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
-     call abort
+     stop
   end select
 end subroutine write_integrals
 
@@ -35,15 +35,10 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr), intent(in) :: time
-  
-  ! FIXME: compute integral quantities
+  real(kind=pr) :: maxdiv
 
-  ! NB: consider using subroutines (eg: compute_max_div,
-  ! compute_energies, etc): see mhd version.
-
+  ! forces and torques are computed in every time step
   if(mpirank == 0) then
-    ! FIXME: see mhd integrals for an output format using tabs and
-    ! avoiding the empty space at the start of the line.
     open(14,file='forces.time',status='unknown',position='append')
     write (14,'(7(e12.5,A))') time,tab,GlobalIntegrals%Force(1),tab,&
     GlobalIntegrals%Force(2),tab, GlobalIntegrals%Force(3),tab, &
@@ -51,6 +46,14 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
     GlobalIntegrals%Torque(3),tab
     close(14)
   endif
+  
+  call compute_max_div(maxdiv,uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,4),&
+       u(:,:,:,1),u(:,:,:,2),u(:,:,:,3),work,nlk(:,:,:,1))
+  if(mpirank == 0) then
+    open(14,file='divu.time',status='unknown',position='append')
+    write (14,'(2(e12.5,A))') time,tab,maxdiv,tab
+    close(14)
+  endif      
 end subroutine write_integrals_fsi
 
 
@@ -335,10 +338,16 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   call ifft(div,divk)
   
   ! Find the local max
+  
+  ! FIXME: at least in the present version, this can be simplified to
+  ! locmax = max(abs(div))
+  ! without loss of functionality or performance.
+  
   locmax=0.d0
   do ix=ra(1),rb(1)
      do iy=ra(2),rb(2)
         do iz=ra(3),rb(3)
+           if(iPenalization == 1) then
            if(mask(ix,iy,iz) == 0.d0) then
               
               v1=f1(ix,iy,iz)
@@ -355,6 +364,11 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
               if(d > locmax) then
                  locmax=d
               endif
+           endif
+           else ! no penalization, no mask
+               if(d > locmax) then
+                 locmax=d
+              endif             
            endif
         enddo
      enddo
