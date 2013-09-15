@@ -93,9 +93,9 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
      uk=dcmplx(0.0d0,0.0d0)
      if ( iMeanFlow == 1) then
         if ( ( ca(1) == 0 ) .and. ( ca(2) == 0 ) .and. ( ca(3) == 0 ) ) then
-           uk(0, 0, 0,1)=Ux
-           uk(0, 0, 0,2)=Uy
-           uk(0, 0, 0,3)=Uz
+           uk(0, 0, 0,1)=Uxmean
+           uk(0, 0, 0,2)=Uymean
+           uk(0, 0, 0,3)=Uzmean
         endif
      endif
 

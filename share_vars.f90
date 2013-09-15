@@ -89,8 +89,8 @@ module fsi_vars
   use vars
   implicit none
 
-  real (kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
-  real(kind=pr),save :: Ux,Uy,Uz
+  real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
+  real(kind=pr),save :: Uxmean,Uymean,Uzmean
   integer,save :: iMeanFlow
   integer,save :: iDrag
   integer,save :: iSaveSolidVelocity

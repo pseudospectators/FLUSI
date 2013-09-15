@@ -50,10 +50,21 @@ subroutine Convert_vorticity()
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time 
+  logical :: exist1,exist2,exist3
   
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
+  
+  inquire ( file=fname_ux, exist=exist1 )
+  inquire ( file=fname_uy, exist=exist2 )
+  inquire ( file=fname_uz, exist=exist3 )
+  
+  if ( exist1.eqv..false. .or. exist2.eqv..false. .or. exist3.eqv..false. ) then
+    write (*,*) "Input file not found..."
+    return
+  endif
+  
   
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
   call Fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
@@ -114,11 +125,19 @@ subroutine Keyvalues(filename)
   integer :: nx_file,ny_file,nz_file
   real(kind=pr) :: xl_file, yl_file, zl_file, time
   real(kind=pr), dimension(:,:,:), allocatable :: field
+  logical :: exist1
   
   if (mpisize>1) then
     write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"
     stop 
   endif  
+  
+  inquire ( file=filename, exist=exist1 )
+  
+  if (exist1.eqv..false.) then
+    write(*,*) "Input file not found..."
+    return
+  endif
   
   write (*,*) "analyzing file "//trim(adjustl(filename))//" for keyvalues"  
   
@@ -154,6 +173,15 @@ subroutine Compare_key(key1,key2)
   implicit none
   character(len=*), intent(in) :: key1,key2
   real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2
+  logical :: exist1, exist2
+  
+  inquire ( file=key1, exist=exist1 )
+  inquire ( file=key2, exist=exist2 )
+  
+  if ( exist1.eqv..false. .or. exist2.eqv..false. ) then
+    write (*,*) "Input file not found..."
+    stop
+  endif  
   
   open  (14, file = key1, status = 'unknown', action='read')
   read (14,'(4(es17.10,1x))') a1,b1,c1,d1  

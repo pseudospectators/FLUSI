@@ -315,9 +315,9 @@ subroutine set_mean_flow(uk,time)
      ! TODO: this might not always select the proper mode; it could be
      ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
      if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-        uk(0,0,0,1)=Ux
-        uk(0,0,0,2)=Uy
-        uk(0,0,0,3)=Uz
+        uk(0,0,0,1)=Uxmean
+        uk(0,0,0,2)=Uymean
+        uk(0,0,0,3)=Uzmean
      endif
   endif
 end subroutine set_mean_flow

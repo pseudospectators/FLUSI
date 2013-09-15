@@ -114,10 +114,7 @@ do
         rm ${file}
         
         if [ -f $reffile ]; then        
-            ./flusi --postprocess --compare-keys $keyfile $reffile
-            
-            checked=$((checked+1))
-            
+            ./flusi --postprocess --compare-keys $keyfile $reffile            
             if [ $? == "0" ]; then
               echo -e ${Green} "Passed!" ${Color_Off}
               passed=$((passed+1))
@@ -132,6 +129,8 @@ do
               sleep 1
               warn=$((warn+1))
             fi
+            
+            checked=$((checked+1))            
         else
             echo -e ${Red} "Reference file not found" ${Color_Off}            
         fi

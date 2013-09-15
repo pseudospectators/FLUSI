@@ -6,13 +6,15 @@ subroutine get_params(paramsfile)
   character (len=80) :: paramsfile  ! The file we read the PARAMS from
   integer :: i  
   character PARAMS(nlines)*256 ! this array will contain the ascii-params file
-
-  if(mpirank == 0) then
-     if(paramsfile == "") then
-        write(*,*) "Please specify the params file!"
-        write(*,*) "eg: mhd PARAMS or flusi PARAMS"
-        stop
-     endif
+  logical :: exist1
+  
+  ! check if the specified file exists
+  inquire ( file=paramsfile, exist=exist1 )
+  
+  if (((paramsfile=="").or.(exist1.eqv..false.)).and.(mpirank==0)) then
+    write(*,*) "Please specify the params file!"
+    write(*,*) "eg: mhd PARAMS or flusi PARAMS"
+    stop
   endif
   
   ! Read the paramsfile and put the length i and the text in PARAMS
@@ -173,9 +175,9 @@ subroutine get_params_fsi(PARAMS,i)
   ! MeanFlow section
   ! ---------------------------------------------------
   call GetValue_Int(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
-  call GetValue_Real(PARAMS,i,"MeanFlow","ux",ux, 1.d0) 
-  call GetValue_Real(PARAMS,i,"MeanFlow","uy",uy, 1.d0) 
-  call GetValue_Real(PARAMS,i,"MeanFlow","uz",uz, 1.d0) 
+  call GetValue_Real(PARAMS,i,"MeanFlow","ux",uxmean, 1.d0) 
+  call GetValue_Real(PARAMS,i,"MeanFlow","uy",uymean, 1.d0) 
+  call GetValue_Real(PARAMS,i,"MeanFlow","uz",uzmean, 1.d0) 
 
   ! ---------------------------------------------------
   ! Insects section

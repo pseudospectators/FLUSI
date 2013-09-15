@@ -38,6 +38,31 @@ subroutine ifft(outx,ink)
 end subroutine ifft
 
 
+! Compute the FFT of the real-valued 3D array inx and save the output
+! in the complex-valued 3D array outk.
+subroutine fft3(outk,inx)
+    use mpi_header
+    use vars ! For precision specficiation and array sizes    
+    real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+    complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+    call coftxyz(inx(:,:,:,1),outk(:,:,:,1))
+    call coftxyz(inx(:,:,:,2),outk(:,:,:,2))
+    call coftxyz(inx(:,:,:,3),outk(:,:,:,3))
+end subroutine fft3
+
+
+! Compute the inverse FFT of the complex-valued 3D array ink and save the
+! output in the real-valued 3D array outx.
+subroutine ifft3(outx,ink)
+    use mpi_header
+    use vars ! For precision specficiation and array sizes    
+    complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+    real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+    call cofitxyz(ink(:,:,:,1),outx(:,:,:,1))
+    call cofitxyz(ink(:,:,:,2),outx(:,:,:,2))
+    call cofitxyz(ink(:,:,:,3),outx(:,:,:,3))    
+end subroutine ifft3
+
 subroutine fft_initialize
   !====================================================================
   !     Allocate memory and initialize FFT
@@ -172,7 +197,7 @@ subroutine fft_free
 
   !-- Clean 3d workspace
   if(mpirank ==0) then
-     write(*,'(A)') "!!! cof_p3dfft.f90: calling p3dfft_clean"
+     write(*,*) "*** cleaning FFT"
   endif
 
   call p3dfft_clean

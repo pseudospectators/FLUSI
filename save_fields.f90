@@ -24,7 +24,10 @@ end subroutine save_fields_new
 
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
-! files.
+! files. 
+! The latest version calls cal_nlk_fsi to avoid redudant code. 
+! note cal_nlk_fsi returns the NL+penal term in phys space in the work
+! array "vort" which is why we have to recompute the vorticity
 subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   use mpi_header
   use fsi_vars
@@ -43,82 +46,68 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   write(name,'(i5.5)') floor(time*100.d0)
   name=trim(adjustl(name))
 
-  if(mpirank == 0 ) then
-     write(*,&
-          '(">>> info: Saving data.... time= ",es8.2,1x," saveflags= ",5(i1))')&
-          time,iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,&
-          iSaveSolidVelocity
+  if (mpirank == 0 ) then
+    write(*,'("Saving data, time= ",es8.2,1x," flags= ",5(i1))') time, &
+    iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveSolidVelocity
   endif
 
-  if((iSaveVelocity.ne.0) .or. (iSaveVorticity.ne.0) .or. (iSavePress.ne.0))&
-       then
-     ! Calculate ux and uy in physical space
-     do i=1,3
-        call ifft(u(:,:,:,i),uk(:,:,:,i))
-     enddo
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work) 
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    
+  !-------------  
+  ! Velocity
+  !-------------
+  if (iSaveVelocity == 1) then
+    call Save_Field_HDF5(time,"./ux_"//name,u(:,:,:,1),"ux")
+    call Save_Field_HDF5(time,"./uy_"//name,u(:,:,:,2),"uy")
+    call Save_Field_HDF5(time,"./uz_"//name,u(:,:,:,3),"uz")
+  endif
+
+  !-------------  
+  ! Pressure
+  !-------------
+  if (iSavePress == 1) then  
+    call fft3(nlk,vort) ! nlk now NL+penal term in Fourier space
+    ! store the total pressure in the work array
+    call compute_pressure(nlk(:,:,:,1),nlk)
+    ! total pressure in phys-space
+    call ifft(work,nlk(:,:,:,1))
+    ! get actuall pressure (we're in the rotational formulation)
+    work=work-0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+    call Save_Field_HDF5(time,'./p_'//name,work,"p")
+  endif
      
-     ! SaveVelocity
-     if(iSaveVelocity == 1) then
-        call Save_Field_HDF5(time,'./ux_'//name,u(:,:,:,1),"ux")
-        call Save_Field_HDF5(time,'./uy_'//name,u(:,:,:,2),"uy")
-        call Save_Field_HDF5(time,'./uz_'//name,u(:,:,:,3),"uz")
-     endif
-
-     if((iSaveVorticity.ne.0) .or. (iSavePress.ne.0)) then
-        ! compute vorticity
-        call curl(&
-             nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-             uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
-        do i=1,3
-           call ifft(vort(:,:,:,i),nlk(:,:,:,i))
-        enddo
-        !-----------------------------------------------
-        !-- Save Vorticity
-        !-----------------------------------------------
-        if(iSaveVorticity == 1) then
-           call Save_Field_HDF5(time, './vorx_'//name,vort(:,:,:,1),&
-                "vorx")
-           call Save_Field_HDF5(time, './vory_'//name,vort(:,:,:,2),&
-                "vory")
-           call Save_Field_HDF5(time, './vorz_'//name,vort(:,:,:,3),&
-                "vorz")
-        endif
-
-        if(iSavePress == 1) then
-           ! Calculate omega x u(cross-product) in Fourier space
-           if (iPenalization == 1) then
-              ! Note this subroutine can also compute drag, which we are not 
-              ! interested in here (therefore set.false.)
-              call omegacrossu_penalize(work,u,vort,.false.,nlk)
-           else
-              call omegacrossu_nopen(work,u,vort,nlk)
-           endif
-
-           ! store the physical pressure in the work array
-           call compute_pressure(nlk(:,:,:,1),nlk)
-           ! nlkk(...1) is the pressure in Fourier space, so p is
-           ! the total pressure in physical space. Then remove kinetic
-           ! energy to get "physical" pressure
-           call ifft(work,nlk(:,:,:,1))
-           work=work-0.5d0*(&
-                u(:,:,:,1)*u(:,:,:,1)&
-                +u(:,:,:,2)*u(:,:,:,2)&
-                +u(:,:,:,3)*u(:,:,:,3)&
-                )
-           call Save_Field_HDF5(time,'./p_'//name,work,"p")
-        endif
-     endif
+  !-------------  
+  ! Vorticity
+  !-------------   
+  if (iSaveVorticity==1) then
+    ! cal_nlk overwrote the vorticity, recompute it
+    call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),& 
+                uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
+    call ifft3(vort,nlk)      
+    !-- Save Vorticity
+    if (iSaveVorticity == 1) then
+      call Save_Field_HDF5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
+      call Save_Field_HDF5(time,"./vory_"//name,vort(:,:,:,2),"vory")
+      call Save_Field_HDF5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
+    endif
   endif
-
-  ! Save Mask
-  if(iSaveMask == 1 .and. iPenalization == 1) then
-     call Save_Field_HDF5(time,'./mask_'//name,eps*mask,"mask")
+      
+  !-------------  
+  ! Mask
+  !-------------
+  if (iSaveMask == 1 .and. iPenalization == 1) then
+    call Save_Field_HDF5(time,'./mask_'//name,eps*mask,"mask")
   endif
-
-  if(iSaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
-     call Save_Field_HDF5(time,'./usx_'//name,us(:,:,:,1),"usx")
-     call Save_Field_HDF5(time,'./usy_'//name,us(:,:,:,2),"usy")
-     call Save_Field_HDF5(time,'./usz_'//name,us(:,:,:,3),"usz")
+  
+  !-------------  
+  ! solid velocity
+  !-------------
+  if (iSaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
+    call Save_Field_HDF5(time,'./usx_'//name,us(:,:,:,1),"usx")
+    call Save_Field_HDF5(time,'./usy_'//name,us(:,:,:,2),"usy")
+    call Save_Field_HDF5(time,'./usz_'//name,us(:,:,:,3),"usz")
   endif
 end subroutine save_fields_new_fsi
 

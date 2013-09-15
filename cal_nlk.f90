@@ -23,12 +23,24 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work)
 end subroutine cal_nlk
 
 
+!-------------------------------------------------------------------------------
 ! Compute the nonlinear source term of the Navier-Stokes equation,
-! including penality term, in Fourier space. Seven real-valued
+! including penalty term, in Fourier space. Seven real-valued
 ! arrays are required for working memory.
-! FIXME: this does other things as well, like computing energy
-! dissipation.
-! FIXME: add documentation: which arguments are used for what?
+! Input:
+!       time: guess what!
+!       uk: 4D field of velocity in Fourier space
+! Output:
+!       nlk: The right hand side of penalized Navier-Stokes in Fourier space
+!       vort: work array, contains NL+penal term in phys space
+!       u: work array, contains the velocity in phys space
+!       work: work array, currently unused (will be used for pressure)
+! Side Effects:
+!       computes the hydrodynamic forces at every time step and stores them
+!       in a global struct on root rank. we will need this for free flight
+! To Do:
+!       * compute torque moments also on the fly
+!       * for "true" FSI, we'll need to return the pressure field in phys space
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   use mpi_header
   use fsi_vars
@@ -38,82 +50,106 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
-  real(kind=pr) :: t1,t0
+  real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
+  real(kind=pr) :: penalx,penaly,penalz,forcex,forcey,forcez
   integer, intent(in) :: it
-  logical :: TimeForDrag ! FIXME: move to time_step routine?
-  integer i
-
-  ! FIXME: move into write_integrals_fsi
-  ! is it time for save global quantities?
-  TimeForDrag=.false.
-  ! note we do this every itdrag time steps
-  if (modulo(it,itdrag)==0) TimeForDrag=.true. ! yes, indeed
-  
+  integer :: ix,iz,iy,mpicode
   ! performance measurement in global variables
-  t0=MPI_wtime()
-  time_fft2 =0.0 ! time_fft2 is the time spend on ffts during cal_nlk only
-  time_ifft2=0.0 ! time_ifft2 is the time spend on iffts during cal_nlk only
-
+  t0         = MPI_wtime()
+  time_fft2  = 0.d0 ! time_fft2 is the time spend on ffts during cal_nlk only
+  time_ifft2 = 0.d0 ! time_ifft2 is the time spend on iffts during cal_nlk only
+  penalx     = 0.d0
+  penaly     = 0.d0
+  penalz     = 0.d0
+  forcex     = 0.d0
+  forcey     = 0.d0
+  forcez     = 0.d0  
+  usx     = 0.d0
+  usy     = 0.d0
+  usz     = 0.d0  
+  
   !-----------------------------------------------
   !-- Calculate velocity in physical space
   !-----------------------------------------------
-  t1=MPI_wtime()
-  call ifft(u(:,:,:,1),uk(:,:,:,1))
-  call ifft(u(:,:,:,2),uk(:,:,:,2))
-  call ifft(u(:,:,:,3),uk(:,:,:,3))
-  time_u=time_u + MPI_wtime() - t1
-
-  ! FIXME: move into write_integrals_fsi
-  !------------------------------------------------
-  ! TEMP: compute divergence
-  !-----------------------------------------------
-  ! if (TimeForDrag) call compute_divergence(FIXME)
+  t1 = MPI_wtime()
+  call ifft3 (u, uk)
+  time_u = time_u + MPI_wtime() - t1
   
   !-----------------------------------------------
   !-- Compute vorticity
   !-----------------------------------------------
-  t1=MPI_wtime()
+  t1 = MPI_wtime()
   ! nlk is temporarily used for vortk
-  call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-             uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
-
+  call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
   ! transform it to physical space
-  call ifft(vort(:,:,:,1),nlk(:,:,:,1))
-  call ifft(vort(:,:,:,2),nlk(:,:,:,2))
-  call ifft(vort(:,:,:,3),nlk(:,:,:,3))
+  call ifft3 (vort, nlk)  
+  time_vor = time_vor + MPI_wtime() - t1
 
-  ! Timing statistics
-  time_vor=time_vor + MPI_wtime() - t1
-
-  ! FIXME: move into write_integrals_fsi
+  !-------------------------------------------------------------
+  !-- Non-Linear terms
+  !-------------------------------------------------------------
+  t1 = MPI_wtime()
+  do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do iz=ra(3),rb(3)  
+        ! local loop variables
+        ux   = u(ix,iy,iz,1)
+        uy   = u(ix,iy,iz,2)
+        uz   = u(ix,iy,iz,3)
+        vorx = vort(ix,iy,iz,1)
+        vory = vort(ix,iy,iz,2)
+        vorz = vort(ix,iy,iz,3)
+        
+        ! local variables for penalization
+        if (iPenalization==1) then
+          chi  = mask(ix,iy,iz)
+          if (iMoving==1) then
+            usx  = us(ix,iy,iz,1)
+            usy  = us(ix,iy,iz,2)
+            usz  = us(ix,iy,iz,3)
+          endif
+          penalx = - chi*(ux-usx)
+          penaly = - chi*(uy-usy)
+          penalz = - chi*(uz-usz)
+          
+          ! integrate forces
+          forcex = forcex + penalx
+          forcey = forcey + penaly
+          forcez = forcez + penalz          
+        endif
+        
+        ! we overwrite the vorticity with the NL term in phys space
+        vort(ix,iy,iz,1) = uy*vorz - uz*vory + penalx
+        vort(ix,iy,iz,2) = uz*vorx - ux*vorz + penaly
+        vort(ix,iy,iz,3) = ux*vory - uy*vorx + penalz
+      enddo
+    enddo
+  enddo
+  ! to Fourier space
+  call fft3(nlk,vort)  
+  time_curl = time_curl + MPI_wtime() - t1
+  
+  
   !-----------------------------------------------
-  !-- Compute kinetic energy and dissipation rate + mask volume
+  !-- add pressure gradient
   !-----------------------------------------------  
-  if((TimeForDrag) .and. (iKinDiss==1)) then
-     call Energy_Dissipation (u,vort)
-  endif
-  
-  !-------------------------------------------------------------
-  !-- Calculate omega x u (cross-product)
-  !-- add penalization term
-  !-- and transform the result into Fourier space 
-  !-------------------------------------------------------------
-  t1=MPI_wtime()
-  if (iPenalization==1) then
-     call omegacrossu_penalize(work,u,vort,TimeForDrag,nlk)
-  else ! no penalization
-     call omegacrossu_nopen(work,u,vort,nlk)
-  endif
-  ! timing statistics
-  time_curl=time_curl + MPI_wtime() - t1
-
-  
   t1=MPI_wtime()
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
   time_p=time_p + MPI_wtime() - t1
 
+  ! save global forces
+  forcex = forcex*dx*dy*dz
+  forcey = forcey*dx*dy*dz
+  forcez = forcez*dx*dy*dz  
+  call MPI_ALLREDUCE (forcex,GlobalIntegrals%Force(1),1,mpireal,MPI_SUM,0,&
+                   MPI_COMM_WORLD,mpicode)  
+  call MPI_ALLREDUCE (forcey,GlobalIntegrals%Force(2),1,mpireal,MPI_SUM,0,&
+                   MPI_COMM_WORLD,mpicode) 
+  call MPI_ALLREDUCE (forcez,GlobalIntegrals%Force(3),1,mpireal,MPI_SUM,0,&
+                   MPI_COMM_WORLD,mpicode) 
+                   
   ! this is for the timing statistics.
   ! how much time was spend on ffts in cal_nlk?
   time_nlk_fft=time_nlk_fft + time_fft2 + time_ifft2
@@ -121,57 +157,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   time_nlk=time_nlk + MPI_wtime() - t0
 end subroutine cal_nlk_fsi
 
-
-! This subroutine takes one component of the penalization term (work)
-! computes the integral over it, which is the hydrodynamic force in
-! the direction iDirection. The force is stored in the GlobalIntegrals
-! structure
-subroutine IntegralForce(work,iDirection) 
-  use fsi_vars
-  use mpi_header
-  implicit none
-  real (kind=pr), dimension (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
-       intent (in) :: work
-  integer, intent (in) :: iDirection
-  integer :: mpicode
-  real (kind=pr) :: Force_local
-
-  Force_local =dx*dy*dz*sum( work )  
-  call MPI_REDUCE (Force_local,GlobalIntegrals%Force(iDirection),1,mpireal,&
-       MPI_SUM,0,MPI_COMM_WORLD,mpicode)  ! max at 0th process  
-end subroutine IntegralForce
-
-
-! Compute the kinetic energy, dissipation rate and mask volume.  Store
-! all these in the structure GlobalIntegrals (definition see
-! fsi_vars).
-subroutine Energy_Dissipation(u,vort)
-  use fsi_vars
-  use mpi_header
-  implicit none
-
-  real (kind=pr),intent (in) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent (in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr) :: Ekin_local, Dissip_local, Volume_local
-  integer :: mpicode
-
-  Ekin_local =0.5d0*dx*dy*dz*sum( u*u )
-  Dissip_local=-nu*dx*dy*dz*sum( vort*vort )
-
-  if (iPenalization==1) then
-     Volume_local=dx*dy*dz*sum( mask )*eps
-  else
-     Volume_local=0.d0
-  endif
-
-   ! sum at 0th process
-  call MPI_REDUCE(Ekin_local,GlobalIntegrals%Ekin,1,mpireal,MPI_SUM,0,&
-       MPI_COMM_WORLD,mpicode) 
-  call MPI_REDUCE(Dissip_local,GlobalIntegrals%Dissip,1,mpireal,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(Volume_local,GlobalIntegrals%Volume,1,mpireal,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)
-end subroutine Energy_Dissipation
 
 
 ! Compute the pressure. It is given by the divergence of the non-linear
@@ -256,128 +241,6 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
      enddo
   enddo
 end subroutine add_grad_pressure
-
-
-!FIXME: temp code, removed from main cal_nlk
-subroutine compute_divergence()
-  use mpi_header
-  use vars
-  implicit none
-!!$  
-!!$  ! compute max val of {|div(.)|/|.|} over entire domain
-!!$  do iz=ca(1),cb(1)
-!!$     kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
-!!$     do iy=ca(3),cb(3)
-!!$        ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
-!!$        do ix=ca(2),cb(2)
-!!$           kx=scalex*ix
-!!$           ! divergence of velocity field
-!!$           nlk(iz,ix,iy,1)=dcmplx(0.d0,1.d0)*(kx*uk(iz,ix,iy,1)+ky*uk(iz,ix,iy,2)+kz*uk(iz,ix,iy,3))
-!!$        enddo
-!!$     enddo
-!!$  enddo
-!!$  ! now nlk(:,:,:,1) contains divergence field
-!!$  call ifft(nlk(:,:,:,1),work)
-!!$  call MPI_REDUCE (maxval(work), GlobalIntegrals%Divergence, 1, mpireal, &
-!!$       MPI_MAX, 0, MPI_COMM_WORLD, mpicode)  ! max at 0th process  
-!!$
-!!$  call Energy_Dissipation ( GlobalIntegrals, u, vort )
-!!$
-!!$  if (mpirank ==0) then
-!!$     write (*,'("max{div(u)}=",es15.8,"max{div(u)}/||u||=",es15.8)') &
-!!$          GlobalIntegrals%Divergence, GlobalIntegrals%Divergence/(2.d0*GlobalIntegrals%Ekin)
-!!$  endif
-end subroutine compute_divergence
-
-
-! Compute non-linear transport term (omega cross u) and transform it to Fourier
-! space. This is the case without penalization.
-subroutine omegacrossu_nopen(work,u,vort,nlk)
-  use mpi_header
-  use fsi_vars
-  implicit none
-
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real(kind=pr),intent(out) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  
-  work=u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-  call fft(nlk(:,:,:,1),work)
-  work=u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-  call fft(nlk(:,:,:,2),work)
-  work=u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-  call fft(nlk(:,:,:,3),work)
-endsubroutine omegacrossu_nopen
-
-
-! Compute non-linear transport term (omega cross u) and transform it
-! to Fourier space. This is the case with penalization. Therefore we
-! compute the penalty term mask*(u-us) as well. This gives the
-! occasion to compute the drag forces, if it is time to do so
-! (TimeForDrag=.true.). The drag is returned in GlobalIntegrals.
-subroutine omegacrossu_penalize(work,u,vort,TimeForDrag,nlk)
-  use mpi_header
-  use fsi_vars
-  implicit none
-
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  logical,intent(in) :: TimeForDrag
-  
-  ! x component
-  call Penalize(work,u,1,TimeForDrag)
-  ! FIXME: move into write_integrals_fsi?
-  ! if its time, compute drag forces
-  if ((TimeForDrag).and.(iDrag==1)) then
-     call IntegralForce (work,1) 
-  endif
-  work=work + u(:,:,:,2)*vort(:,:,:,3) - u(:,:,:,3)*vort(:,:,:,2)
-  call fft(nlk(:,:,:,1),work)
-  
-  ! y component
-  call Penalize(work,u,2,TimeForDrag)
-  ! FIXME: move into write_integrals_fsi?
-  ! if its time, compute drag forces
-  if ((TimeForDrag).and.(iDrag==1)) then
-     call IntegralForce (work,2) 
-  endif
-  work=work + u(:,:,:,3)*vort(:,:,:,1) - u(:,:,:,1)*vort(:,:,:,3)
-  call fft(nlk(:,:,:,2),work)
-  
-  ! z component
-  call Penalize(work,u,3,TimeForDrag)
-  ! FIXME: move into write_integrals_fsi?
-  ! if its time, compute drag forces
-  if ((TimeForDrag).and.(iDrag==1)) then
-     call IntegralForce (work,3) 
-  endif
-  work=work + u(:,:,:,1)*vort(:,:,:,2) - u(:,:,:,2)*vort(:,:,:,1)
-  call fft(nlk(:,:,:,3),work)
-end subroutine omegacrossu_penalize
-
-
-! The actual penalization (even though its a fairly simple process) is
-! done by this routine instead of in the computation of the nonlinear
-! term in order to remove some lines in the actual cal_nlk also.
-subroutine Penalize(work,u,iDir,TimeForDrag)
-  use fsi_vars
-  implicit none
-
-  integer, intent(in) :: iDir
-  logical, intent(in) :: TimeForDrag
-  real (kind=pr), intent(out) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-
-  ! compute penalization term
-  if (iMoving == 1) then
-     work=-mask*(u(:,:,:,iDir) - us(:,:,:,iDir))  
-  else
-     work=-mask*(u(:,:,:,iDir))
-  endif
-end subroutine Penalize
 
 
 ! Compute the nonlinear source term of the mhd equations,
