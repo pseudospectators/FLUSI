@@ -47,13 +47,13 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
     close(14)
   endif
   
-  call compute_max_div(maxdiv,uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,4),&
-       u(:,:,:,1),u(:,:,:,2),u(:,:,:,3),work,nlk(:,:,:,1))
-  if(mpirank == 0) then
-    open(14,file='divu.time',status='unknown',position='append')
-    write (14,'(2(e12.5,A))') time,tab,maxdiv,tab
-    close(14)
-  endif      
+!   call compute_max_div(maxdiv,uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,4),&
+!        u(:,:,:,1),u(:,:,:,2),u(:,:,:,3),work,nlk(:,:,:,1))
+!   if(mpirank == 0) then
+!     open(14,file='divu.time',status='unknown',position='append')
+!     write (14,'(2(e12.5,A))') time,tab,maxdiv,tab
+!     close(14)
+!   endif      
 end subroutine write_integrals_fsi
 
 
