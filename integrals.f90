@@ -42,14 +42,14 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   ! compute_energies, etc): see mhd version.
 
   if(mpirank == 0) then
-     ! FIXME: see mhd integrals for an output format using tabs and
-     ! avoiding the empty space at the start of the line.
-     open(14,file='drag_data',status='unknown',position='append')
-     write(14,'(7(es12.4,1x))')  time,GlobalIntegrals%Ekin,&
-          GlobalIntegrals%Dissip, GlobalIntegrals%Force(1),&
-          GlobalIntegrals%Force(2),GlobalIntegrals%Force(3),&
-       GlobalIntegrals%Volume
-     close(14)
+    ! FIXME: see mhd integrals for an output format using tabs and
+    ! avoiding the empty space at the start of the line.
+    open(14,file='forces.time',status='unknown',position='append')
+    write (14,'(7(e12.5,A))') time,tab,GlobalIntegrals%Force(1),tab,&
+    GlobalIntegrals%Force(2),tab, GlobalIntegrals%Force(3),tab, &
+    GlobalIntegrals%Torque(1),tab, GlobalIntegrals%Torque(2),tab, &
+    GlobalIntegrals%Torque(3),tab
+    close(14)
   endif
 end subroutine write_integrals_fsi
 

@@ -15,7 +15,7 @@ subroutine Create_Mask_fsi(time)
     if (iMoving==1) us = 0.d0
     ! Actual mask functions:
     select case (iMask)
-    case ("sphere")
+    case ("sphere")    
       call Draw_Sphere()
     case ("Flapper")    
       call Flapper (time)    
@@ -23,7 +23,7 @@ subroutine Create_Mask_fsi(time)
       call Draw_Insect (time)
     case default    
       if (mpirank == 0) then
-          write (*,*) "iMask not properly set; stopping."
+          write (*,*) "iMask="//iMask//" not properly set; stopping."
           stop
       endif
     end select

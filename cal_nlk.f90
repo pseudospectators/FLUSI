@@ -67,6 +67,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   forcex     = 0.d0
   forcey     = 0.d0
   forcez     = 0.d0  
+  torquex    = 0.d0
+  torquey    = 0.d0
+  torquez    = 0.d0    
   usx     = 0.d0
   usy     = 0.d0
   usz     = 0.d0  
@@ -104,19 +107,20 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         vory = vort(ix,iy,iz,2)
         vorz = vort(ix,iy,iz,3)
         
-        ! for torque moment
-        xlev = dble(ix)*dx - x0
-        ylev = dble(iy)*dy - y0
-        zlev = dble(iz)*dz - z0
-        
         ! local variables for penalization
         if (iPenalization==1) then
+          ! for torque moment
+          xlev = dble(ix)*dx - x0
+          ylev = dble(iy)*dy - y0
+          zlev = dble(iz)*dz - z0
+
           chi  = mask(ix,iy,iz)
           if (iMoving==1) then
             usx  = us(ix,iy,iz,1)
             usy  = us(ix,iy,iz,2)
             usz  = us(ix,iy,iz,3)
           endif
+          ! actual penalization term
           penalx = -chi*(ux-usx)
           penaly = -chi*(uy-usy)
           penalz = -chi*(uz-usz)
@@ -130,7 +134,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
           torquez = torquez + xlev*penaly - ylev*penalx
         endif
         
-        ! we overwrite the vorticity with the NL term in phys space
+        ! we overwrite the vorticity with the NL terms in phys space
         vort(ix,iy,iz,1) = uy*vorz - uz*vory + penalx
         vort(ix,iy,iz,2) = uz*vorx - ux*vorz + penaly
         vort(ix,iy,iz,3) = ux*vory - uy*vorx + penalz
@@ -201,23 +205,20 @@ subroutine compute_pressure(pk,nlk)
   imag = dcmplx(0.d0,1.d0)
 
   do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
-     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-     do ix=ca(2),cb(2) ! kx : 0..nx/2
-        kx=scalex*dble(ix)
-        do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
-           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+    kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+    do ix=ca(2),cb(2) ! kx : 0..nx/2
+      kx=scalex*dble(ix)
+      do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
+        ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
 
-           k2=kx*kx + ky*ky + kz*kz
-           if(k2 .ne. 0.0) then
-              ! contains the pressure in Fourier space
-              pk(iz,ix,iy)=imag*(&
-                   kx*nlk(iz,ix,iy,1)&
-                   +ky*nlk(iz,ix,iy,2)&
-                   +kz*nlk(iz,ix,iy,3)&
-                   )/k2
-           endif
-        enddo
-     enddo
+        k2=kx*kx + ky*ky + kz*kz
+        if(k2 .ne. 0.0) then
+          ! contains the pressure in Fourier space
+          pk(iz,ix,iy)=imag*(kx*nlk(iz,ix,iy,1)+ky*nlk(iz,ix,iy,2)+&
+                             kz*nlk(iz,ix,iy,3) )/k2
+        endif
+      enddo
+    enddo
   enddo
 end subroutine compute_pressure
 

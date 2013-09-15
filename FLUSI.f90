@@ -79,10 +79,15 @@ subroutine Start_Simulation()
   call get_params(infile)
   ! Initialize FFT
   call fft_initialize 
+  
+  tab = char(9) ! set horizontal tab character 
+  ! to do: please kill malcolm now.
 
   ! Overwrite drag_data file? only if we're not resuming a backup!
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
-    open  (14, file = 'drag_data', status = 'replace')
+    open  (14,file='forces.time',status='replace')
+    write (14,'(13A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                      "Momentx",tab,"Momenty",tab,"Momentz"
     close (14)
   endif
 
