@@ -143,7 +143,6 @@ subroutine get_params_common(PARAMS,i)
   dx=xl/dble(nx)
   dy=yl/dble(ny)
   dz=zl/dble (nz) 
-  tstart=0.d0
 end subroutine get_params_common
 
 

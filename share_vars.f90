@@ -63,7 +63,7 @@ module vars
 
   ! Time-stepping parameters
   real(kind=pr),save :: tmax
-  real(kind=pr),save :: tstart
+!   real(kind=pr),save :: tstart
   real(kind=pr),save :: cfl
   integer,save :: nt
   character(len=80),save :: iTimeMethodFluid

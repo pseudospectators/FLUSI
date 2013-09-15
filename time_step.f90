@@ -36,7 +36,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
 
   ! Create mask function:
   call create_mask(time)
-  call update_us(uk)
+  call update_us(u)
 
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup
@@ -61,7 +61,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
      it=it + 1
      
      ! Output of integrals after every tintegral time units
-     if(modulo(time - tstart,tintegral) <= dt1) then
+     if(modulo(time,tintegral) <= dt1) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
      endif
 
@@ -73,7 +73,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
      if(mpirank == 0) call are_we_there_yet(it,it_start,time,t2,t1,dt1)
      
      ! Output(after tsave)
-     if(modulo(time - tstart,tsave) <= dt1) then
+     if(modulo(time,tsave) <= dt1) then
         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays, which are

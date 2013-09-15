@@ -42,7 +42,7 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   real(kind=pr),intent (inout) :: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent (inout) :: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
-  real(kind=pr),intent (inout) :: energy
+  real(kind=pr),intent (in) :: energy
 
   integer :: mpicode
   integer :: ix,iy,iz
