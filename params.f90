@@ -113,6 +113,8 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Penalization","iMoving",iMoving, 0)
   imask="none"
   call GetValue_String(PARAMS,i,"Penalization","iMask",iMask, iMask)
+  iSmoothing="erf" ! std choice
+  call GetValue_String(PARAMS,i,"Penalization","iSmoothing",iSmoothing,iSmoothing)
   call GetValue_Real(PARAMS,i,"Penalization","eps",eps, 1.d-2)
 
   ! Geometry section

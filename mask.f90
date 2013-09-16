@@ -97,32 +97,31 @@ subroutine smoothstep(f,x,t,h)
   implicit none
   real (kind=pr), intent (out) :: f
   real (kind=pr), intent (in)  :: x,t,h
-  real (kind=pr) :: delta, GradientERF!, SmoothStep
-!   real (kind=pr) :: a,b,c,d
-  !--polynomial coefficients:
-  !   a =  1.0 / (4.0*(h**3))
-  !   b = -3.0*t / (4.0*(h**3))
-  !   c =  3.0*(t+h)*(t-h)/(4.0*(h**3))
-  !   d =  ((t+h)**2)*(2.0*h-t)/(4.0*(h**3))
+  real (kind=pr) :: delta, GradientERF
 
-  !  if (x<=t-h) then
-  !    f = 1.0
-  !  elseif (((t-h)<x).and.(x<(t+h))) then
-  ! !     f = a*(x**3) + b*(x**2) + c*x + d
-  ! !     f = 1.0 - (x-t+h)/(2.0*h)
-  !    f = 0.5*(1.+cos((x-t+h)*pi/(2.0*h)) )
-  !  else
-  !    f = 0.0
-  !  endif
-
-  !-----------------------------------
-  ! version 14 - error function as non-oscilatory shape
-  !-----------------------------------
-  ! h - delta (gradient thickness)
-  ! t - thickness (radius)
-  GradientERF = abs( ( exp(-(2.0*1.0)**2)  - 1.0 )/sqrt(pi) )
-  delta = h*GradientERF
-  f = 0.5*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
+  select case (iSmoothing)
+  case ("erf")
+      !-------------------------------------------------
+      ! error function as non-oscilatory shape
+      !-------------------------------------------------
+      ! h - delta (gradient thickness)
+      ! t - thickness (radius)
+      GradientERF = abs( ( exp(-(2.0*1.0)**2)  - 1.0 )/sqrt(pi) )
+      delta = h*GradientERF
+      f = 0.5*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
+  case ("cos")
+      !-------------------------------------------------
+      ! cos shaped smoothing (compact in phys.space)
+      !-------------------------------------------------
+      if (x<=t-h) then
+        f = 1.0
+      elseif (((t-h)<x).and.(x<(t+h))) then
+        f = 0.5*(1.+cos((x-t+h)*pi/(2.0*h)) )
+      else
+        f = 0.0
+      endif
+  end select
+  
 end subroutine smoothstep
 
 

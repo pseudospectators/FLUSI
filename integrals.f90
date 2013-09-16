@@ -35,11 +35,13 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr), intent(in) :: time
-  real(kind=pr) :: kx, ky, kz, locmax, maxdiv, maxdiv_loc
+  real(kind=pr) :: kx, ky, kz, locmax, maxdiv,maxdiv_fluid, maxdiv_loc
   complex(kind=pr) :: imag ! imaginary unit
   integer :: ix,iy,iz,mpicode
 
+  !-----------------------------------------------------------
   ! forces and torques are computed in every time step
+  !-----------------------------------------------------------  
   if(mpirank == 0) then
     open(14,file='forces.time',status='unknown',position='append')
     write (14,'(7(e12.5,A))') time,tab,GlobalIntegrals%Force(1),tab,&
@@ -49,8 +51,9 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
     close(14)
   endif
 
-  
-  ! Compute the divergence in Fourier space, store in divk
+  !-----------------------------------------------------------
+  ! divergence of velocity field (in the entire domain and in the fluid domain)
+  !-----------------------------------------------------------
   do iz=ca(1),cb(1)
     kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
     do ix=ca(2),cb(2)
@@ -62,14 +65,24 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
       enddo
     enddo
   enddo
-  call ifft(work,nlk(:,:,:,1))
+  
+  call ifft(work,nlk(:,:,:,1)) ! work is now div in phys space
+  
   maxdiv_loc=maxval(abs(work))
   call MPI_REDUCE(maxdiv_loc,maxdiv,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
        MPI_COMM_WORLD,mpicode)
+  
+  if (iPenalization==1) then
+  maxdiv_loc=maxval(abs(work*(1.d0-mask*eps)))
+  call MPI_REDUCE(maxdiv_loc,maxdiv_fluid,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+       MPI_COMM_WORLD,mpicode)       
+  else
+  maxdiv_fluid = maxdiv
+  endif
 
   if(mpirank == 0) then
     open(14,file='divu.time',status='unknown',position='append')
-    write (14,'(2(e12.5,A))') time,tab,maxdiv,tab
+    write (14,'(3(e12.5,A))') time,tab,maxdiv,tab,maxdiv_fluid,tab
     close(14)
   endif      
 end subroutine write_integrals_fsi
@@ -358,7 +371,7 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   ! Find the local max
   
   ! FIXME: at least in the present version, this can be simplified to
-  ! locmax = max(abs(div))
+  ! locmax = maxval(abs(div))
   ! without loss of functionality or performance.
   
   locmax=0.d0

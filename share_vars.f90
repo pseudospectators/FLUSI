@@ -63,7 +63,6 @@ module vars
 
   ! Time-stepping parameters
   real(kind=pr),save :: tmax
-!   real(kind=pr),save :: tstart
   real(kind=pr),save :: cfl
   integer,save :: nt
   character(len=80),save :: iTimeMethodFluid
@@ -81,6 +80,7 @@ module vars
   real(kind=pr),save :: dt_fixed
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
+  character(len=80) :: iSmoothing ! how to smooth the mask
 end module vars
 
 
