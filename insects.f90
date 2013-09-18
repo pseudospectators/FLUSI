@@ -136,7 +136,6 @@ subroutine Draw_Insect ( time )
         enddo
     enddo
   enddo
-  
 end subroutine Draw_Insect
 
 
@@ -154,76 +153,142 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   use fsi_vars
   use mpi_header
   implicit none
-  real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp
+  real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot, R_tmp
+  real(kind=pr) :: y_tmp, x_tmp, z_tmp, xroot,yroot, f,xc,yc
+  real(kind=pr) :: ai(1:40), bi(1:40), a0, theta
   real(kind=pr) :: v_tmp(1:3)
   integer, intent(in) :: ix,iy,iz
+  integer :: i
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
 
-  ! spanwise length:
-  if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
-  ! thickness: (note left and right wing have a different orientation of the z-axis
-  ! but this does not matter since this is the same.
-  if (abs(x_wing(3))<=0.5*Insect%WingThickness + Insect%safety) then
-      
-      
-  ! wing shape (determine between which x-values (x_bot, x_top) the wing is
-  ! these values depend on the spanwise direction (which is y)
-  select case(Insect%WingShape)
-    case ('TwoEllipses')
-      a_body = 0.5d0 * Insect%L_span
-      if ((1.d0 - ((x_wing(2)-a_body)**2)/(a_body**2)) >= 0.d0) then
-      x_top =  dsqrt((Insect%b_top**2)*(1.d0-((x_wing(2)-a_body)**2)/(a_body**2)))
-      x_bot = -dsqrt((Insect%b_bot**2)*(1.d0-((x_wing(2)-a_body)**2)/(a_body**2)))
-      else
-      x_top = 0.d0
-      x_bot = 0.d0
-      endif
-    case ('rectangular')
-      x_top = Insect%b_top
-      x_bot =-Insect%b_bot
-    case default
-      write (*,*) 'DrawWing:: unknown type of wing shape..'
-      stop
-  end select
-      
-  
-  ! in the x-direction, the actual wing shape plays.    
-  if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then        
-      
-    ! smooth length
-    if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
-      y_tmp = steps(-x_wing(2),0.d0,dz)
-    else
-      y_tmp = steps( x_wing(2),Insect%L_span,dz)
-    endif
-
-    ! smooth height
-    z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness,dz) ! thickness       
-
-    ! smooth shape
-    if (x_wing(1)<0.d0) then
-      x_tmp = steps(-x_wing(1),-x_bot,dz)
-    else
-      x_tmp = steps( x_wing(1), x_top,dz)
-    endif
+  select case (Insect%WingShape) 
+  ! in these two cases, we have two given x_w(y_w) that delimit the wing
+  case ('TwoEllipses','rectangular')  
+    ! spanwise length:
+    if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
+    ! thickness: (note left and right wing have a different orientation of the z-axis
+    ! but this does not matter since this is the same.
+    if (abs(x_wing(3))<=0.5*Insect%WingThickness + Insect%safety) then
+        
+        
+    ! wing shape (determine between which x-values (x_bot, x_top) the wing is
+    ! these values depend on the spanwise direction (which is y)
+    select case(Insect%WingShape)
+      case ('TwoEllipses')
+        a_body = 0.5d0 * Insect%L_span
+        if ((1.d0 - ((x_wing(2)-a_body)**2)/(a_body**2)) >= 0.d0) then
+        x_top =  dsqrt((Insect%b_top**2)*(1.d0-((x_wing(2)-a_body)**2)/(a_body**2)))
+        x_bot = -dsqrt((Insect%b_bot**2)*(1.d0-((x_wing(2)-a_body)**2)/(a_body**2)))
+        else
+        x_top = 0.d0
+        x_bot = 0.d0
+        endif
+      case ('rectangular')
+        x_top = Insect%b_top
+        x_bot =-Insect%b_bot
+    end select
+        
     
-    mask(ix,iy,iz) = max(z_tmp*y_tmp*x_tmp, mask(ix,iy,iz))
-    ! solid body rotation
-    v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
-    v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
-    v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
-    ! note we set this only if it is a part of the wing
-    if ( z_tmp*y_tmp*x_tmp > mask(ix,iy,iz) ) then
-      us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
+    ! in the x-direction, the actual wing shape plays.    
+    if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then        
+        
+      ! smooth length
+      if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
+        y_tmp = steps(-x_wing(2),0.d0,dz)
+      else
+        y_tmp = steps( x_wing(2),Insect%L_span,dz)
+      endif
+
+      ! smooth height
+      z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness,dz) ! thickness       
+
+      ! smooth shape
+      if (x_wing(1)<0.d0) then
+        x_tmp = steps(-x_wing(1),-x_bot,dz)
+      else
+        x_tmp = steps( x_wing(1), x_top,dz)
+      endif
+      
+      if ( mask(ix,iy,iz) <= z_tmp*y_tmp*x_tmp ) then 
+        mask(ix,iy,iz) = z_tmp*y_tmp*x_tmp
+        ! solid body rotation
+        v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
+        v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
+        v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
+        ! note we set this only if it is a part of the wing
+        us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
+      endif
+    endif  
+    
     endif
-  endif
+    endif
   
   
-  
-  endif
-  endif
-  
+  ! in this case, we have given the wing shape as a function R(theta) which is 
+  ! given by some Fourier coefficients
+  case ('drosophila')
+    ! first, check if the point lies inside the rectanglee L_span x L_span
+    ! here we assume that the chordlength is NOT greater than the span
+    if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
+    if ((x_wing(1)>=-(Insect%L_span+Insect%safety))&
+        .and.&
+        (x_wing(1)<=Insect%L_span+Insect%safety))&
+    then
+    if (abs(x_wing(3))<=0.5*Insect%WingThickness + Insect%safety) then
+      ! Fourier coefficients
+      a0 = 0.5140278
+      ai = (/0.1276258,-0.1189758,-0.0389458,0.0525938,0.0151538,-0.0247938,&
+             -0.0039188,0.0104848,-0.0030638,-0.0064578,0.0042208,0.0043248,&
+             -0.0026878,-0.0021458,0.0017688,0.0006398,-0.0013538,-0.0002038,&
+             0.0009738,0.0002508,-0.0003548,-0.0003668,-0.0002798,0.0000568,&
+             0.0003358,0.0001408,-0.0002208,0.0000028,0.0004348,0.0001218,&
+             -0.0006458,-0.0003498,0.0007168,0.0003288,-0.0007078,-0.0001368,&
+             0.0007828,0.0001458,-0.0007078,-0.0001358/) 
+             
+      bi = (/-0.1072518,-0.0449318,0.0296558,0.0265668,-0.0043988,-0.0113218,&
+             -0.0003278,0.0075028,0.0013598,-0.0057338,-0.0021228,0.0036178,&
+             0.0013328,-0.0024128,-0.0007688,0.0011478,0.0003158,-0.0005528,&
+             0.0000458,0.0003768,0.0002558,0.0000168,-0.0006018,-0.0006338,&
+             0.0001718,0.0007758,0.0001328,-0.0005888,-0.0001088,0.0006298,&
+             0.0000318,-0.0008668,-0.0000478,0.0009048,0.0001198,-0.0008248,&
+             -0.0000788,0.0007028,-0.0000118,-0.0006608/)
+             
+      ! wing root point        
+      xroot =+0.1122
+      yroot =-0.0157
+      ! center of circle
+      xc =-0.1206 + xroot
+      yc = 0.3619 + yroot            
+      ! normalized angle
+      theta = atan2 (x_wing(2)-yc,x_wing(1)-xc )
+      theta = ( theta + pi ) / (2.d0*pi)
+      
+      ! fourier series
+      R0 = a0/2.0
+      f = 2.d0*pi      
+      do i = 1, 40
+        R0 = R0 + ai(i)*dcos(f*dble(i)*theta) + bi(i)*dsin(f*dble(i)*theta)
+      enddo
+
+      R = sqrt ( (x_wing(1)-xc)**2 + (x_wing(2)-yc)**2 )
+      R_tmp = steps(R,R0,dz)
+      
+      z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness,dz) ! thickness
+      
+      if ( mask(ix,iy,iz) <= R_tmp*z_tmp ) then 
+        mask(ix,iy,iz) = R_tmp*z_tmp
+        ! solid body rotation
+        v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
+        v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
+        v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
+        ! note we set this only if it is a part of the wing
+        us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
+      endif
+      
+    endif
+    endif
+    endif
+  end select
 end subroutine DrawWing
 
 
@@ -238,13 +303,15 @@ subroutine DrawBody(ix,iy,iz,x_body)
   use fsi_vars
   use mpi_header
   implicit none
-  real(kind=pr) :: a_body, R, R0, steps
+  real(kind=pr) :: a_body, R, R0, steps, x
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x_body(1:3)
   
   select case (Insect%BodyType)
-  case ('ellipsoid')
-    ! ellipsoid body    
+  case ('ellipsoid')  
+    ! ------------------------------------
+    ! ellipsoid body (jerry)
+    ! ------------------------------------
     a_body = Insect%L_body / 2.d0
     
     ! check if inside the surrounding box (save comput. time)
@@ -259,12 +326,49 @@ subroutine DrawBody(ix,iy,iz,x_body)
         R0 = dsqrt( Insect%b_body**2 *(1.d0- (x_body(1)/a_body)**2 ) )
 
         if ( R < R0 + Insect%safety ) then
-            mask(ix,iy,iz)= max(steps(R,R0,dz),mask(ix,iy,iz))
+          mask(ix,iy,iz)= max(steps(R,R0,dz),mask(ix,iy,iz))
         endif
         endif
     endif
     endif
     endif
+    
+    
+!   -12.6800
+!    27.4960
+!   -14.7360
+    
+  case ('drosophila')
+    ! ------------------------------------
+    ! two b-splines body (abdomen+thorax)
+    ! ------------------------------------    
+    x = x_body(1) + 0.8067 ! centers the thickest part of the thorax at the origin
+    
+    ! check if inside body bounds (in x-direction)
+    if ( (x>=-Insect%safety) .and. (x<=1.2+Insect%safety) ) then    
+      R0=0.0
+      ! compute radius as a function of x (counting from the tail on)
+      if (x < 0.6333) then
+        ! we're in the ABDOMEN
+        R0 = max( -1.2990*x**2 + 0.9490*x + 0.0267, 0.d0)
+      elseif ((x >= 0.6333) .and. (x <=1.0 )) then
+        ! we're in the THORAX 
+        R0 = max( -2.1667*x**2 + 3.4661*x - 1.2194, 0.d0)
+      elseif ((x >= 1.0) .and. (x <=1.2 )) then
+        ! we're in the HEAD
+        R0 = max( -12.68*x**2 + 27.4960*x - 14.7360, 0.d0)
+      endif
+    
+      R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
+      
+      if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
+        mask(ix,iy,iz)= max( steps(R,R0,dz), mask(ix,iy,iz) )
+      endif      
+    
+    endif
+    
+    
+    
   case ('nobody')
     ! doesn't do anything
   case default
@@ -321,7 +425,14 @@ subroutine DrawHead(ix,iy,iz,x)
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x(1:3)
   if (Insect%HasHead=="yes") then
-  call DrawSphere(ix,iy,iz,x,Insect%R_head)
+  
+!     select case (Insect%BodyType)
+!     case ('ellipsoid')  
+      ! an ellipsoid body goes with a spherical head
+      call DrawSphere(ix,iy,iz,x,Insect%R_head)
+!     case ('drosophila')
+      ! drosophilae have different heads.
+!     end select
   endif
 end subroutine
 
@@ -379,12 +490,12 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     vc = (/-R*sin(1.5*pi+gamma)*gamma_dt, R*cos(1.5*pi+gamma)*gamma_dt,0.d0/)
   case ("hovering")
     psi      = 0.0
-    beta     = 0.0
+    beta     = deg2rad(-55.d0)
     gamma    = 0.0
     psi_dt   = 0.0
     beta_dt  = 0.0
     gamma_dt = 0.0  
-    xc = (/0.0, 0.0, 0.0/)
+    xc = (/0.5*xl, 0.5*yl,0.5*zl/)
     vc = (/0.0, 0.0, 0.0/)
     
   case default
@@ -431,22 +542,105 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
   character (len=*), intent(in) :: protocoll
   real(kind=pr) :: phi_max,alpha_max, phase,f
+  real(kind=pr) :: ai_phi(1:10), bi_phi(1:10), ai_theta(1:10), bi_theta(1:10)
+  real(kind=pr) :: ai_alpha(1:10), bi_alpha(1:10)
+  real(kind=pr) :: a0_alpha, a0_phi, a0_theta, s,c
+  integer :: i
   
   select case ( protocoll )
+  case ("Drosophila_hovering_fry")
+    !---------------------------------------------------------------------------
+    ! motion protocoll digitalized from Fry et al JEB 208, 2303-2318 (2005)
+    !
+    ! fourier coefficients analyzed with matlab
+    !---------------------------------------------------------------------------
+    a0_phi   =25.4649398
+    a0_alpha =-0.3056968
+    a0_theta =17.8244658
+    ai_phi   =(/71.1061858,2.1685448,-0.1986978,0.6095268,-0.0311298,&
+               -0.1255648,-0.0867778,0.0543518,0.0,0.0/)
+    bi_phi   =(/5.4547058,-3.5461688,0.6260698,0.1573728,-0.0360498,-0.0205348,&
+               -0.0083818,-0.0076848,0.0,0.0/)
+    ai_alpha =(/3.3288788,0.6303878,-10.9780518,2.1123398,-3.2301198,&
+               -1.4473158,0.6141758,-0.3071608,0.1458498,0.0848308/)
+    bi_alpha =(/67.5430838,0.6566888,9.9226018,3.9183988,-2.6882828,0.6433518,&
+                -0.8792398,-0.4817838,0.0300078,-0.1015118/)
+    ai_theta =(/3.9750378,8.2808998,-0.0611208,-0.3906598,0.4488778,-0.120087,&
+               -0.0717048,0.0699578,0.0,0.0/)
+    bi_theta =(/2.2839398,3.5213068,-1.9296668,1.0832488,0.3011748,-0.1786648,&
+                0.1228608,-0.0004808,0.0,0.0/)
+    
+    ! mean values
+    phi = a0_phi/2.0
+    alpha = a0_alpha/2.0
+    theta = a0_theta/2.0
+    
+    phi_dt = 0.0
+    alpha_dt = 0.0
+    theta_dt = 0.0
+    
+    ! frequency
+    f = 2.d0*pi
+    
+    ! Fourier series
+    do i=1,10
+      ! allows the spaces I like with the 80 columns malcolm likes :)
+      s = dsin(f*dble(i)*time) 
+      c = dcos(f*dble(i)*time)
+      phi   = phi   + ai_phi(i)   * c + bi_phi(i)   * s
+      theta = theta + ai_theta(i) * c + bi_theta(i) * s
+      alpha = alpha + ai_alpha(i) * c + bi_alpha(i) * s
+      
+      phi_dt   = phi_dt   + f*dble(i)*(-ai_phi(i)   * s + bi_phi(i)   * c)
+      theta_dt = theta_dt + f*dble(i)*(-ai_theta(i) * s + bi_theta(i) * c)
+      alpha_dt = alpha_dt + f*dble(i)*(-ai_alpha(i) * s + bi_alpha(i) * c)
+    enddo
+    
+    if(mpirank == 0) then
+    open(14,file='motion.time',status='unknown',position='append')
+    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+    close(14)
+    endif
+    
+    phi =  deg2rad(phi)
+    alpha = deg2rad(alpha)
+    theta = -deg2rad(theta)
+    
+    phi_dt = deg2rad(phi_dt)
+    alpha_dt = deg2rad(alpha_dt)
+    theta_dt = -deg2rad(theta_dt)
+    
   case ("simplified")
+    !---------------------------------------------------------------------------
+    ! simplified motion protocoll
+    !
+    ! J. comput. Phys. 231 (2012) 1822-1847 "A fluid–structure interaction 
+    ! model of insect flight with flexible wings"
+    !
+    ! the pase shift "phase" was my idea
+    !---------------------------------------------------------------------------
     phi_max     = 60.d0*pi/180.d0  ! phi is up/down angle (flapping)
-    alpha_max   = 45.d0*pi/180.d0  ! alpha is tethering
-    phase       = 10.d0*pi/180.d0  ! phase shift between flapping and tethering
+    alpha_max   = 0.d0!45.d0*pi/180.d0  ! alpha is tethering
+    phase       = 0.d0! 10.d0*pi/180.d0  ! phase shift between flapping and tethering
     f = 1.d0*2.0*pi
+    
     phi      = phi_max  *dcos(f*time)
     alpha    = alpha_max*dsin(f*(time+phase))
     theta    = 0.0
+    
     phi_dt   =-phi_max *f *dsin(f*time)
     alpha_dt = alpha_max*f*dcos(f*(time+phase))
     theta_dt = 0.0
   case ("debug")
     phi      = deg2rad(45.d0)   
     alpha    = deg2rad(0.d0)
+    theta    = 0.0
+    phi_dt   = 0.0
+    alpha_dt = 0.0
+    theta_dt = 0.0
+  case ("none")
+    phi      = 0.0
+    alpha    = 0.0
     theta    = 0.0
     phi_dt   = 0.0
     alpha_dt = 0.0
@@ -476,7 +670,20 @@ subroutine StrokePlane ( time, eta_stroke )
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(out) :: eta_stroke
 
-  eta_stroke = deg2rad(0.d0) !+ 0.5d0*pi
+  select case (Insect%BodyMotion)
+  case ("fixed")
+    eta_stroke = deg2rad(0.d0)    
+  case ("wheeling")
+    eta_stroke = deg2rad(0.d0)
+  case ("hovering")
+    eta_stroke = deg2rad(-35.d0)
+  case default
+    if (mpirank==0) then
+    write (*,*) "insects.f90::StrokePlane: motion case (Insect%BodyMotion) undefined"
+    stop
+    endif
+  end select
+  
   
 end subroutine StrokePlane
 
@@ -508,7 +715,7 @@ subroutine FlappingMotion_right ( time, phi, alpha, theta, phi_dt, alpha_dt, the
   
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
-  call FlappingMotion ( time, Insect%FlappingMotion_left, &
+  call FlappingMotion ( time, Insect%FlappingMotion_right, &
                         phi, alpha, theta, phi_dt, alpha_dt, theta_dt )  
 end subroutine FlappingMotion_right
 
