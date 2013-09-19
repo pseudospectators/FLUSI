@@ -114,7 +114,7 @@ module fsi_vars
     ! parameters for wing shape:
     real(kind=pr) :: b_top, b_bot, L_chord, L_span, WingThickness
     ! this is a safety distance for smoothing:
-    real(kind=pr) :: safety
+    real(kind=pr) :: safety, smooth
     ! vectors desribing the positoions of jerry's key elements
     ! in the body coordinate system
     real(kind=pr), dimension(1:3) :: x_head, x_eye_r, x_eye_l, &

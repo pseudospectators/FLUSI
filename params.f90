@@ -246,7 +246,7 @@ subroutine get_params_fsi(PARAMS,i)
        Insect%x_pivot_r, Insect%x_pivot_r)        
               
      
-  
+  Insect%smooth = 2.0*dz
   ! ---------------------------------------------------
   ! DONE..
   ! ---------------------------------------------------

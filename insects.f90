@@ -28,7 +28,8 @@ subroutine Draw_Insect ( time )
   xc_eye_r, xc_pivot_r,xc_pivot_l, x_head, vc_body, v_tmp
   integer :: ix, iy, iz
   
-  Insect%safety = 2.d0*dx
+  Insect%safety = 2.d0*dz
+  Insect%smooth = 1.d0*dz
   
   ! some checks
   if ((mpirank==0).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
@@ -194,19 +195,19 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
         
       ! smooth length
       if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
-        y_tmp = steps(-x_wing(2),0.d0,dz)
+        y_tmp = steps(-x_wing(2),0.d0)
       else
-        y_tmp = steps( x_wing(2),Insect%L_span,dz)
+        y_tmp = steps( x_wing(2),Insect%L_span)
       endif
 
       ! smooth height
-      z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness,dz) ! thickness       
+      z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness       
 
       ! smooth shape
       if (x_wing(1)<0.d0) then
-        x_tmp = steps(-x_wing(1),-x_bot,dz)
+        x_tmp = steps(-x_wing(1),-x_bot)
       else
-        x_tmp = steps( x_wing(1), x_top,dz)
+        x_tmp = steps( x_wing(1), x_top)
       endif
       
       if ( mask(ix,iy,iz) <= z_tmp*y_tmp*x_tmp ) then 
@@ -271,9 +272,9 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       enddo
 
       R = sqrt ( (x_wing(1)-xc)**2 + (x_wing(2)-yc)**2 )
-      R_tmp = steps(R,R0,dz)
+      R_tmp = steps(R,R0)
       
-      z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness,dz) ! thickness
+      z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
       
       if ( mask(ix,iy,iz) <= R_tmp*z_tmp ) then 
         mask(ix,iy,iz) = R_tmp*z_tmp
@@ -303,7 +304,7 @@ subroutine DrawBody(ix,iy,iz,x_body)
   use fsi_vars
   use mpi_header
   implicit none
-  real(kind=pr) :: a_body, R, R0, steps, x
+  real(kind=pr) :: a_body, R, R0, steps, x, x_tmp, R_tmp
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x_body(1:3)
   
@@ -326,17 +327,13 @@ subroutine DrawBody(ix,iy,iz,x_body)
         R0 = dsqrt( Insect%b_body**2 *(1.d0- (x_body(1)/a_body)**2 ) )
 
         if ( R < R0 + Insect%safety ) then
-          mask(ix,iy,iz)= max(steps(R,R0,dz),mask(ix,iy,iz))
+          mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
         endif
         endif
     endif
     endif
     endif
     
-    
-!   -12.6800
-!    27.4960
-!   -14.7360
     
   case ('drosophila')
     ! ------------------------------------
@@ -359,10 +356,20 @@ subroutine DrawBody(ix,iy,iz,x_body)
         R0 = max( -12.68*x**2 + 27.4960*x - 14.7360, 0.d0)
       endif
     
+      ! radius at this point
       R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
       
+      ! smoothing in x-direction
+      if (x<Insect%safety) then  ! xs is chordlength coordinate
+        x_tmp = steps(-x, Insect%smooth)
+      else
+        x_tmp = steps( x,1.2-Insect%smooth)
+      endif     
+      
+      
       if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
-        mask(ix,iy,iz)= max( steps(R,R0,dz), mask(ix,iy,iz) )
+        R_tmp = steps(R,R0)        
+        mask(ix,iy,iz)= max( R_tmp*x_tmp , mask(ix,iy,iz) )
       endif      
     
     endif
@@ -398,7 +405,7 @@ subroutine DrawSphere(ix,iy,iz,x,R0)
   if (abs(x(3))<R0+Insect%safety) then
       R = sqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
       if ( R <= R0+Insect%safety ) then
-        mask(ix,iy,iz) = max(steps(R,R0,dz),mask(ix,iy,iz))
+        mask(ix,iy,iz) = max(steps(R,R0),mask(ix,iy,iz))
       endif
   endif
   endif
@@ -766,11 +773,14 @@ subroutine Rz (R,angle)
 end subroutine 
 
 
-real(kind=pr) function steps(x,t,h)
+! short for the smooth step function.
+! the smooting is defined in Insect%smooth, here we need only x, and the 
+! thickness (i.e., in the limit, steps=1 if x<t and steps=0 if x>t
+real(kind=pr) function steps(x,t)
   use fsi_vars
   use mpi_header
   implicit none
-  real(kind=pr) :: f,x,t,h
-  call smoothstep(f,x,t,h)
+  real(kind=pr) :: f,x,t
+  call smoothstep(f,x,t,Insect%smooth)
   steps=f
 end function
