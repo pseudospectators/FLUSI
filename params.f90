@@ -136,6 +136,7 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Saving","iSaveXMF",iSaveXMF, 1) ! default is yes
   call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
   call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
+  call GetValue_Int(PARAMS,i,"Saving","itdrag",itdrag,99999)
   
   ! Set other parameters (all procs)
   pi=4.d0 *datan(1.d0)
