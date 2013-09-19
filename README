@@ -1,45 +1,6 @@
 Notes for FLUSI (with HDF5)
 
-on sugiton, I've had to install hdf5_mpich2 and hdf5_mpich2_devel,
-then I was able to link the FLUSI with 
-LDFLAGS=... -lhdf5_fortran -lhdf5 -lz  
-there was then no need to specify where HDF5 lives (-I/../../ and -L/../..)
-environment:
-export HDF_ROOT=""
-export FFT_ROOT="$HOME/fftw"
-export P3DFFT_ROOT="$HOME/Documents/Research/src/p3dfft.2.3.2_fixed"
-export FFLAGS="-g"
-#debug flags:
-#export FFLAGS="${FFLAGS} -ffpe-trap -Wall -fsyntax-only"
 
-On the mesocentre I had to recompile FFTW and P3DFFT first, because
-they were using openmpi, which seems not to work with HDF.
-For modules:
-module load intel/12.1 mpich2/intel/1.4.1
-export P3DFFT_ROOT="$HOME/p3dfft.2.3.2_fixed"
-export FFT_ROOT="$HOME/fftw"
-export FFLAGS=""
-export HDF_ROOT="/LOGINSTO/softs/hdf5/intel/1.8.8/"
-the modifications on the mesocentre are reflected in the makefile.
+All remarks about installation can be found in the WIKI on github.
 
-
-notes from the makefile:
-# note that FFT_ROOT, P3DFFT_ROOT, and FFLAGS must be set in the shell
-# (e.g. in .bashrc).
-
-# --------------------------------------------------------------------
-# Duke (thomas)
-# 	export FFT_ROOT=/Softs/fftw/
-# 	export P3DFFT_ROOT=/home/dkolom/P3DFFT/p3dfft.2.3.2
-# 	export FFLAGS="-O3 -xW -fpp -r8"
-
-For the HDF5 MPI libraries, one must also specify HDF_ROOT
-
-It may be necessary to include the HDF lib directory in the
-LD_LIBRARY_PATH in order to avoid run-time errors for missing objects.
-For example, on ada.idris.fr using bash, include the following in your
-.bashrc :
-
-module load hdf5/mpi/1.8.9
-export HDF_ROOT=/smplocal/pub/HDF5/1.8.9/par/
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/smplocal/pub/HDF5/1.8.9/par/lib
+There you can find the general installation procedure as well as machine dependend settings on the clusters we use.
