@@ -132,7 +132,7 @@ subroutine Draw_Insect ( time )
             v_tmp(2) = vc_body(2)+rot_body(3)*x_body(1)-rot_body(1)*x_body(3)
             v_tmp(3) = vc_body(3)+rot_body(1)*x_body(2)-rot_body(2)*x_body(1)
             
-            us(ix,iy,iz,1:3)=us(ix,iy,iz,1:3)+matmul(transpose(M_body),v_tmp)
+            us(ix,iy,iz,1:3)=matmul(transpose(M_body),us(ix,iy,iz,1:3)+v_tmp)
            endif
         enddo
     enddo
@@ -157,7 +157,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot, R_tmp
   real(kind=pr) :: y_tmp, x_tmp, z_tmp, xroot,yroot, f,xc,yc
   real(kind=pr) :: ai(1:40), bi(1:40), a0, theta
-  real(kind=pr) :: v_tmp(1:3)
+  real(kind=pr) :: v_tmp(1:3), mask_tmp
   integer, intent(in) :: ix,iy,iz
   integer :: i
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
@@ -210,12 +210,20 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
         x_tmp = steps( x_wing(1), x_top)
       endif
       
-      if ( mask(ix,iy,iz) <= z_tmp*y_tmp*x_tmp ) then 
-        mask(ix,iy,iz) = z_tmp*y_tmp*x_tmp
+      mask_tmp = z_tmp*y_tmp*x_tmp
+      
+      if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+        mask(ix,iy,iz) = mask_tmp
+        !------------------------------------------------
         ! solid body rotation
+        ! Attention: the Matrix transpose(M) brings us back to the body
+        ! coordinate system, not to the inertial frame. this is done in 
+        ! the main routine Draw_Insect
+        !------------------------------------------------
         v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
         v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
         v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
+        
         ! note we set this only if it is a part of the wing
         us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
       endif
@@ -276,9 +284,17 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       
       z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
       
-      if ( mask(ix,iy,iz) <= R_tmp*z_tmp ) then 
-        mask(ix,iy,iz) = R_tmp*z_tmp
+      
+      mask_tmp = z_tmp*R_tmp
+      
+      if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+        mask(ix,iy,iz) = mask_tmp
+        !------------------------------------------------
         ! solid body rotation
+        ! Attention: the Matrix transpose(M) brings us back to the body
+        ! coordinate system, not to the inertial frame. this is done in 
+        ! the main routine Draw_Insect
+        !------------------------------------------------
         v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
         v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
         v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
@@ -598,6 +614,7 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
       theta = theta + ai_theta(i) * c + bi_theta(i) * s
       alpha = alpha + ai_alpha(i) * c + bi_alpha(i) * s
       
+      ! you checked this in matlab, it is correct.
       phi_dt   = phi_dt   + f*dble(i)*(-ai_phi(i)   * s + bi_phi(i)   * c)
       theta_dt = theta_dt + f*dble(i)*(-ai_theta(i) * s + bi_theta(i) * c)
       alpha_dt = alpha_dt + f*dble(i)*(-ai_alpha(i) * s + bi_alpha(i) * c)
