@@ -6,7 +6,7 @@ subroutine Initialize_runtime_control_file()
   use mpi_header
   implicit none
   
-  open  (14,file='runtime_control',status='replace')
+  open  (14,file='runtime_control.ini',status='replace')
   write (14,'(A)') "# This is flusi's runtime control file"
   write (14,'(A)') "# You can influence a running simulation with this file"
   write (14,'(A)') "# flusi regularily reads it and checks what to do"
@@ -48,7 +48,7 @@ subroutine runtime_control_command( command )
   character  :: CTRL_FILE(nlines)*256
   integer :: i
 
-  file ="runtime_control"
+  file ="runtime_control.ini"
   ! root reads in the control file
   ! and fetched the command 
   if (mpirank ==0) then
