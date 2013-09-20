@@ -18,7 +18,7 @@ subroutine get_params(paramsfile)
   endif
   
   ! Read the paramsfile and put the length i and the text in PARAMS
-  call read_params_file(PARAMS,i,paramsfile)
+  call read_params_file(PARAMS,i,paramsfile,.true.)
 
   ! Get parameter values from PARAMS
   call get_params_common(PARAMS,i)
@@ -41,7 +41,7 @@ end subroutine get_params
 
 ! Read the file paramsfile, count the lines (output in i) and put the
 ! text in PARAMS.
-subroutine read_params_file(PARAMS,i,paramsfile)
+subroutine read_params_file(PARAMS,i,paramsfile, verbose)
   use mpi_header
   use vars
   implicit none
@@ -51,16 +51,18 @@ subroutine read_params_file(PARAMS,i,paramsfile)
   ! This array will contain the ascii-params file
   character,intent(inout) :: PARAMS(nlines)*256
   character(len=80) :: paramsfile ! this is the file we read the PARAMS from
-
+  logical, intent(in) :: verbose
 
   ! Read in the params file (root only)
   io_error=0
   if (mpirank==0) then
+     if (verbose) then
      write (*,*) "*************************************************"
      write (*,'(A,i3)') " *** info: reading params from "//trim(paramsfile)//" rank=", mpirank
      write (*,*) "*************************************************"
+     endif
      i = 1
-     open(unit=14,file=paramsfile,action='read',status='old')    
+     open(unit=14,file=trim(adjustl(paramsfile)),action='read',status='old')    
      do while ((io_error==0).and.(i<=nlines))
         read (14,'(A)',iostat=io_error) PARAMS(i)  
         i = i+1
@@ -373,7 +375,11 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
         params_string = value
+        ! its a bit dirty but it avoids filling the screen with "nothing" anytime we check
+        ! the runtime control file
+        if (keyword.ne."runtime_control") then 
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        endif
      else
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
              " (THIS IS THE DEFAULT VALUE!)"

@@ -1,4 +1,4 @@
-subroutine time_step(u,uk,nlk,vort,work,explin)
+subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   use mpi_header
   use fsi_vars
   implicit none
@@ -10,6 +10,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   integer :: it_start
   real(kind=pr) :: time,dt0,dt1,t1,t2
   integer :: mpicode
+  character (len=80)  :: command ! for runtime control
+  character (len=80),intent(in)  :: params_file ! for runtime control
   
   complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent(inout)::&
@@ -20,13 +22,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
   real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
 
   if (mpirank == 0) write(*,'(A)') 'Info: Starting time iterations.'
-
-  call MPI_barrier(MPI_COMM_world,mpicode)
+  ! initialize runtime control file
+  if (mpirank == 0) call Initialize_runtime_control_file()
+  
+  
   time=0.0
 
   ! Useful to trigger cal_vis
   dt0=1.0d0
-  dt1=2.d0
+  dt1=2.0d0
      
   ! Initialize vorticity or read values from a backup file
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
@@ -85,6 +89,27 @@ subroutine time_step(u,uk,nlk,vort,work,explin)
            call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
         endif
      endif
+     
+     ! Runtime remote control (every 10 time steps)
+     if ( modulo(it,10) == 0 ) then
+        ! fetch command from file
+        call runtime_control_command( command )
+        ! execute it
+        select case (command)
+        case ("reload_params")
+          if (mpirank==0) write (*,*) "runtime control: Reloading PARAMS file.."
+          ! read all parameters from the params.ini file
+          call get_params(params_file)           
+          ! overwrite control file
+          if (mpirank == 0) call Initialize_runtime_control_file()
+        case ("save_stop")
+          if (mpirank==0) write (*,*) "runtime control: Safely stopping..."
+          call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+          it = nt+10 ! this will stop the time loop
+          ! overwrite control file
+          if (mpirank == 0) call Initialize_runtime_control_file()
+        end select
+     endif 
   end do
 
   if(mpirank==0) then

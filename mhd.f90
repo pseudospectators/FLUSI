@@ -100,7 +100,7 @@ program MHD3D
 
   ! Step forward in time
   if (mpirank == 0)  write(*,'(A)') 'Info: Starting time iterations.'
-  call time_step(ub,ubk,nlk,wj,work,explin)
+  call time_step(ub,ubk,nlk,wj,work,explin,infile)
 
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
   

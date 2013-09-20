@@ -139,7 +139,7 @@ subroutine Start_Simulation()
   call MPI_barrier (MPI_COMM_world, mpicode)
   t1 = MPI_wtime()
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  call time_step(u,uk,nlk,vort,work,explin) ! Actual time-stepping function
+  call time_step(u,uk,nlk,vort,work,explin,infile) ! Actual time-stepping function
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   t2 = MPI_wtime() - t1
   if (mpirank ==0) then
