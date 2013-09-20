@@ -74,7 +74,9 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      endif
 
      ! Output how much time remains
-     if(mpirank == 0) call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+     if ((modulo(it,300)==0).or.(it==20)) then
+       call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+     endif
      
      ! Output(after tsave)
      if(modulo(time,tsave) <= dt1) then
@@ -83,6 +85,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
         
         ! Backup if that's specified in the PARAMS.ini file
         if(iDoBackup == 1) then
@@ -130,7 +133,7 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   ! this is done every 300 time steps, but it may happen that this is too seldom
   ! or too oftern. in future versions, maybe we try doing it once in an hour or
   ! so. we also output a first estimate after 20 time steps
-  if ((modulo(it,300) == 0).or.(it==20)) then
+  if(mpirank == 0) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
      write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &
