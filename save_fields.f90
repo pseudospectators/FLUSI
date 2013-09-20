@@ -74,7 +74,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
     ! total pressure in phys-space
     call ifft(work,nlk(:,:,:,1))
     ! get actuall pressure (we're in the rotational formulation)
-    work=work-0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+    work = work - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
     call Save_Field_HDF5(time,'./p_'//name,work,"p")
   endif
      

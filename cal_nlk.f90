@@ -125,16 +125,17 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
           penaly = -chi*(uy-usy)
           penalz = -chi*(uz-usz)
           
-          ! integrate forces + torques
-          forcex = forcex + penalx
-          forcey = forcey + penaly
-          forcez = forcez + penalz              
-          torquex = torquex + ylev*penalz - zlev*penaly
-          torquey = torquey + zlev*penalx - xlev*penalz
-          torquez = torquez + xlev*penaly - ylev*penalx
+          ! integrate forces + torques (note sign inversion!)
+          forcex = forcex - penalx
+          forcey = forcey - penaly
+          forcez = forcez - penalz              
+          torquex = torquex - (ylev*penalz - zlev*penaly)
+          torquey = torquey - (zlev*penalx - xlev*penalz)
+          torquez = torquez - (xlev*penaly - ylev*penalx)
         endif
         
         ! we overwrite the vorticity with the NL terms in phys space
+        ! note this is indeed -(vor x u) (negative sign)
         vort(ix,iy,iz,1) = uy*vorz - uz*vory + penalx
         vort(ix,iy,iz,2) = uz*vorx - ux*vorz + penaly
         vort(ix,iy,iz,3) = ux*vory - uy*vorx + penalz
@@ -202,6 +203,11 @@ subroutine compute_pressure(pk,nlk)
   complex(kind=pr),intent(in):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   complex(kind=pr) :: imag   ! imaginary unit
 
+  ! important remark:
+  ! as the RHS in cal_nlk is on the left side, i.e. -(vor x u) -chi*(u-us)
+  ! its sign is inversed when computing the pressure. we therefore inverse the 
+  ! sign here, which was wrong in old versions.
+  
   imag = dcmplx(0.d0,1.d0)
 
   do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
@@ -214,8 +220,8 @@ subroutine compute_pressure(pk,nlk)
         k2=kx*kx + ky*ky + kz*kz
         if(k2 .ne. 0.0) then
           ! contains the pressure in Fourier space
-          pk(iz,ix,iy)=imag*(kx*nlk(iz,ix,iy,1)+ky*nlk(iz,ix,iy,2)+&
-                             kz*nlk(iz,ix,iy,3) )/k2
+          pk(iz,ix,iy) = - imag*(kx*nlk(iz,ix,iy,1)+ky*nlk(iz,ix,iy,2)+&
+                                 kz*nlk(iz,ix,iy,3) )/k2
         endif
       enddo
     enddo

@@ -10,6 +10,9 @@ if [ ! -f flusi ]; then
   fi
 fi
 
+# set up mpi command (this may be machine dependent!!)
+mpi_command="mpirun -n 4 -host localhost"
+
 # meaningful name for the test
 names[1]="Vortex Ring 1: serial, no penalization"
 names[2]="Vortex Ring 1: parallel, no penalization"
@@ -75,7 +78,7 @@ do
       if [ ${parallel[i]} == "serial" ]; then
         ./flusi ${params_files[i]}
       else
-        mpirun -host localhost -n 4 ./flusi ${params_files[i]}
+        ${mpi_command} ./flusi ${params_files[i]}
       fi
   else # restart testing needs different commands
       echo -e ${Purple} "-----------------------------" ${Color_Off}
@@ -83,10 +86,10 @@ do
       echo -e ${Purple} "-----------------------------" ${Color_Off}
       sleep 0.5
 
-      mpirun -host localhost -n 4 ./flusi Testing_Sphere_start.ini
+      ${mpi_command} ./flusi Testing_Sphere_start.ini
       echo -e ${Purple} "Waiting 1 sec before restarting..." $Color_Off
       sleep 1
-      mpirun -host localhost -n 4 ./flusi Testing_Sphere_restart.ini    
+      ${mpi_command} ./flusi Testing_Sphere_restart.ini    
   fi
   
   
