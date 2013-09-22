@@ -20,12 +20,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  logical :: continue_timestepping
+  
 
   if (mpirank == 0) write(*,'(A)') 'Info: Starting time iterations.'
   ! initialize runtime control file
   if (mpirank == 0) call Initialize_runtime_control_file()
   
-  
+
+  continue_timestepping = .true.
   time=0.0
 
   ! Useful to trigger cal_vis
@@ -49,7 +52,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
 
   ! Loop over time steps
   t1=MPI_wtime()
-  do while ((time<=tmax) .and. (it<=nt))
+  do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
      dt0=dt1
 
      ! If the mask is time-dependend,we create it here
@@ -65,11 +68,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      it=it + 1
      
      ! Output of integrals after every tintegral time units
-     if(modulo(time,tintegral) <= dt1) then
-       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
-     endif
-
-     if(modulo(it,itdrag) == 0) then
+     if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
      endif
 
@@ -108,7 +107,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
         case ("save_stop")
           if (mpirank==0) write (*,*) "runtime control: Safely stopping..."
           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-          it = nt+10 ! this will stop the time loop
+          continue_timestepping = .false. ! this will stop the time loop
           ! overwrite control file
           if (mpirank == 0) call Initialize_runtime_control_file()
         end select
