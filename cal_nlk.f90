@@ -175,13 +175,13 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-----------------------------------------------
   ! add sponge term
   !-----------------------------------------------
-!   t1 = MPI_wtime()
+  t1 = MPI_wtime()
   if (iVorticitySponge == "yes") then
     nlk(:,:,:,1) = nlk(:,:,:,1) + sponge(:,:,:,1)
     nlk(:,:,:,2) = nlk(:,:,:,2) + sponge(:,:,:,2)
     nlk(:,:,:,3) = nlk(:,:,:,3) + sponge(:,:,:,3)
   endif
-!   time_sponge = time_sponge + MPI_wtime() - t1
+  time_sponge = time_sponge + MPI_wtime() - t1
   
   !-----------------------------------------------
   !-- add pressure gradient
