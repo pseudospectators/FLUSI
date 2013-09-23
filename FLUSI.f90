@@ -59,7 +59,7 @@ subroutine Start_Simulation()
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
-  time_bckp=0.0; time_save=0.0; time_total=0.0; time_u=0.0;
+  time_bckp=0.0; time_save=0.0; time_total=0.0; time_u=0.0; time_sponge=0.0
 
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
@@ -117,8 +117,14 @@ subroutine Start_Simulation()
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   ! velocity in physical space
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
-  ! vorticity in physical space
+  ! real valued work array
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  
+  if (iVorticitySponge == "yes") then
+  ! sponge term (this is currently global, but it will be changed)
+  allocate (sponge(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd) )
+  endif
+  
 
   ! Create obstacle mask
   if (iPenalization==1) then
@@ -165,6 +171,10 @@ subroutine Start_Simulation()
   deallocate(vort,work)
   deallocate(u,uk,nlk)
   
+  if (iVorticitySponge == "yes") then
+  deallocate(sponge)
+  endif
+  
   if(iPenalization == 1) then
      deallocate(mask)
      if(iMoving == 1) deallocate(us)
@@ -205,14 +215,15 @@ subroutine show_timings(t2)
   write(*,'("cal_nlk: ",es12.4," (",f5.1,"%)")') time_nlk, 100.0*time_nlk/time_fluid
   write(*,'("cal_vis: ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
   tmp = time_fluid - time_nlk - time_vis
-  write(*,'("explin: ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
+  write(*,'("explin:  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "cal_nlk decomposes into:"
   write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk
   write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.0*time_vor/time_nlk
   write(*,'("vor x u - chi*u: ",es12.4," (",f5.1,"%)")') time_curl, 100.0*time_curl/time_nlk
   write(*,'("projection     : ",es12.4," (",f5.1,"%)")') time_p, 100.0*time_p/time_nlk
-  tmp = time_nlk - time_u - time_vor - time_curl - time_p
+  write(*,'("sponge         : ",es12.4," (",f5.1,"%)")') tmp, 100.0*time_sponge/time_nlk
+  tmp = time_nlk - time_u - time_vor - time_curl - time_p  
   write(*,'("Misc           : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
   write (*,'(A)') "cal_nlk: FFTs and local operations:"
   write(*,'("FFTs           : ",es12.4," (",f5.1,"%)")') time_nlk_fft, 100.0*time_nlk_fft/time_nlk

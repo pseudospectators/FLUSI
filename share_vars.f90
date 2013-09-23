@@ -34,7 +34,8 @@ module vars
   real (kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2
   real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
   real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-
+  real (kind=pr),save :: time_sponge
+  
   ! The mask array.  TODO: move out of shave_vars?
   real (kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
@@ -88,6 +89,14 @@ end module vars
 module fsi_vars
   use vars
   implicit none
+  
+  ! the sponge term is temporarily set in a global variable, but this will
+  ! be changed in future versions
+  complex(kind=pr), allocatable, save:: sponge(:,:,:,:)
+  ! switch for vorticity sponge:
+  character(len=80), save :: iVorticitySponge
+  real(kind=pr), save :: eps_sponge
+  integer, save :: sponge_thickness
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean

@@ -97,7 +97,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
         ! fetch command from file
         call runtime_control_command( command )
         ! execute it
-        select case (command)
+        select case ( command )
         case ("reload_params")
           if (mpirank==0) write (*,*) "runtime control: Reloading PARAMS file.."
           ! read all parameters from the params.ini file
