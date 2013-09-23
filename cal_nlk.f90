@@ -61,8 +61,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   real(kind=pr) :: torquex,torquey,torquez
   integer, intent(in) :: it
   integer :: ix,iz,iy,mpicode, i
-
-
   
   ! performance measurement in global variables
   t0         = MPI_wtime()
@@ -191,7 +189,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   time_p = time_p + MPI_wtime() - t1
 
   !-----------------------------------------------
-  !-- done. nlk is the right hand side of naiver-stokes in Fourier space
+  !-- done. nlk is the right hand side of 
+  !-- Navier-Stokes in Fourier space
   !-----------------------------------------------  
   
   ! save global forces
@@ -581,6 +580,7 @@ end subroutine div_field_nul
 ! and then take the curl sponge = nabla \crossproduct psi
 !
 ! currently, the sponge array is global so no arguments
+! to do: merge with vorticity2velocity in init_fields_fsi
 ! ------------------------------------------------------------------------------
 subroutine vort_sponge()
   use mpi_header
@@ -648,7 +648,7 @@ subroutine penalize_vort ( vort_penalized, vort )
   
   do iz=ra(3),rb(3) 
     ! note we currenly do not allocate a mask for this
-    if (iz>nz-32) then
+    if (iz>nz-sponge_thickness) then
       vort_penalized(:,:,iz) = - vort(:,:,iz) / eps_sponge
     endif
   enddo    

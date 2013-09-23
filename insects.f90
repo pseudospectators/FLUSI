@@ -156,8 +156,8 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   implicit none
   real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot, R_tmp
   real(kind=pr) :: y_tmp, x_tmp, z_tmp, xroot,yroot, f,xc,yc
-  real(kind=pr) :: ai(1:40), bi(1:40), a0, theta
-  real(kind=pr) :: v_tmp(1:3), mask_tmp
+  real(kind=pr) :: ai_1(1:40), bi_1(1:40), a0, ai_2(1:70), bi_2(1:70)
+  real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
   integer, intent(in) :: ix,iy,iz
   integer :: i
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
@@ -235,18 +235,22 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   
   ! in this case, we have given the wing shape as a function R(theta) which is 
   ! given by some Fourier coefficients
-  case ('drosophila')
+  case ('drosophila','drosophila_mutated')
     ! first, check if the point lies inside the rectanglee L_span x L_span
     ! here we assume that the chordlength is NOT greater than the span
     if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
     if ((x_wing(1)>=-(Insect%L_span+Insect%safety))&
         .and.&
-        (x_wing(1)<=Insect%L_span+Insect%safety))&
-    then
+        (x_wing(1)<=Insect%L_span+Insect%safety)) then
     if (abs(x_wing(3))<=0.5*Insect%WingThickness + Insect%safety) then
-      ! Fourier coefficients
+    
+      !-----------------------------------------
+      ! hard-coded Fourier coefficients for R(theta)
+      !-----------------------------------------
+      if (Insect%WingShape == 'drosophila') then
+      
       a0 = 0.5140278
-      ai = (/0.1276258,-0.1189758,-0.0389458,0.0525938,0.0151538,-0.0247938,&
+      ai_1 = (/0.1276258,-0.1189758,-0.0389458,0.0525938,0.0151538,-0.0247938,&
              -0.0039188,0.0104848,-0.0030638,-0.0064578,0.0042208,0.0043248,&
              -0.0026878,-0.0021458,0.0017688,0.0006398,-0.0013538,-0.0002038,&
              0.0009738,0.0002508,-0.0003548,-0.0003668,-0.0002798,0.0000568,&
@@ -254,7 +258,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
              -0.0006458,-0.0003498,0.0007168,0.0003288,-0.0007078,-0.0001368,&
              0.0007828,0.0001458,-0.0007078,-0.0001358/) 
              
-      bi = (/-0.1072518,-0.0449318,0.0296558,0.0265668,-0.0043988,-0.0113218,&
+      bi_1 = (/-0.1072518,-0.0449318,0.0296558,0.0265668,-0.0043988,-0.0113218,&
              -0.0003278,0.0075028,0.0013598,-0.0057338,-0.0021228,0.0036178,&
              0.0013328,-0.0024128,-0.0007688,0.0011478,0.0003158,-0.0005528,&
              0.0000458,0.0003768,0.0002558,0.0000168,-0.0006018,-0.0006338,&
@@ -267,26 +271,82 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       yroot =-0.0157
       ! center of circle
       xc =-0.1206 + xroot
-      yc = 0.3619 + yroot            
-      ! normalized angle
+      yc = 0.3619 + yroot    
+      
+      elseif (Insect%WingShape == 'drosophila_mutated') then
+      
+      
+      a0 = 0.4812548
+      ai_2 = (/0.1593968, -0.1056828, -0.0551518, 0.0508748, 0.0244538, -0.0264738,&
+               -0.0080828, 0.0181228, 0.0023648, -0.0134578, -0.0037068, 0.0064508,&
+               0.0028748, -0.0014258, -0.0006028, -0.0008898, -0.0020408, 0.0009218,&
+               0.0029938, 0.0002768, -0.0026968, -0.0011518, 0.0017798, 0.0016538,&
+               -0.0006098, -0.0012998, -0.0001918, 0.0003478, 0.0001408, 0.0003098,&
+               0.0001078, -0.0005568, -0.0005998, 0.0006128, 0.0009078, -0.0003798,&
+               -0.0009268, 0.0002128, 0.0009098, -0.0000598, -0.0010668, -0.0003428,&
+               0.0009228, 0.0007688, -0.0003568, -0.0010458, -0.0004378, 0.0008738,&
+               0.0009478, -0.0004108, -0.0012248, -0.0000638, 0.0013148, 0.0004978,&
+               -0.0010638, -0.0007148, 0.0006338, 0.0007438, -0.0003278, -0.0006078,&
+               0.0001838, 0.0003768, -0.0001698, -0.0002148, 0.0001318, 0.0001628,&
+               -0.0000878, 0.0000068, 0.0001478, -0.0001128/) 
+            
+      bi_2 = (/-0.1132588, -0.0556428, 0.0272098, 0.0221478, -0.0063798, -0.0059078,&
+                0.0043788, 0.0043208, -0.0003308, -0.0026598, -0.0013158, 0.0025178,&
+                0.0022438, -0.0023798, -0.0037048, 0.0001528, 0.0031218, 0.0022248,&
+                -0.0007428, -0.0027298, -0.0018298, 0.0014538, 0.0028888, 0.0000648,&
+                -0.0023508, -0.0009418, 0.0017848, 0.0016578, -0.0008058, -0.0017348,&
+                -0.0001368, 0.0011138, 0.0004218, -0.0005918, -0.0002798, 0.0002388,&
+                0.0002148, 0.0001408, 0.0000218, -0.0005138, -0.0003458, 0.0008208,&
+                0.0009888, -0.0007468, -0.0015298, 0.0002728, 0.0015588, 0.0002758,&
+                -0.0012498, -0.0006908,0.0008718, 0.0008848, -0.0003038, -0.0008048,&
+                -0.0001538, 0.0005418, 0.0003658, -0.0001988, -0.0003938, 0.0000048,&
+                0.0003008, 0.0000538, -0.0002748, -0.0000598, 0.0002898, 0.0001398,&
+                -0.0002108, -0.0001888, 0.0001838, 0.0001888 /)
+             
+      ! wing root point        
+      xroot =+0.1122
+      yroot =-0.0157
+      ! center of circle
+      xc =-0.1206 + xroot
+      yc = 0.3619 + yroot          
+      
+      endif
+      
+      !-----------------------------------------
+      ! get normalized angle (theta)
+      !-----------------------------------------
       theta = atan2 (x_wing(2)-yc,x_wing(1)-xc )
       theta = ( theta + pi ) / (2.d0*pi)
       
-      ! fourier series
+      !-----------------------------------------
+      ! construct R by evaluating the fourier series
+      !-----------------------------------------
       R0 = a0/2.0
-      f = 2.d0*pi      
-      do i = 1, 40
-        R0 = R0 + ai(i)*dcos(f*dble(i)*theta) + bi(i)*dsin(f*dble(i)*theta)
-      enddo
+      f = 2.d0*pi    
+      if (Insect%WingShape == 'drosophila') then
+        do i = 1, 40
+          R0=R0 + ai_1(i)*dcos(f*dble(i)*theta) + bi_1(i)*dsin(f*dble(i)*theta)
+        enddo
+      elseif (Insect%WingShape == 'drosophila_mutated') then
+        do i = 1, 70
+          R0=R0 + ai_2(i)*dcos(f*dble(i)*theta) + bi_2(i)*dsin(f*dble(i)*theta)
+        enddo      
+      endif
 
+      !-----------------------------------------
+      ! get smooth (radial) step function
+      !-----------------------------------------
       R = sqrt ( (x_wing(1)-xc)**2 + (x_wing(2)-yc)**2 )
       R_tmp = steps(R,R0)
       
+      ! smooth also the thicknes
       z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
-      
-      
       mask_tmp = z_tmp*R_tmp
       
+      
+      !-----------------------------------------
+      ! set new value for mask and velocity us
+      !-----------------------------------------
       if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
         mask(ix,iy,iz) = mask_tmp
         !------------------------------------------------
