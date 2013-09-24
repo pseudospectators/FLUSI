@@ -49,7 +49,6 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   ! nlk(:,:,:,:,n0) when retaking a backup
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
-
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )

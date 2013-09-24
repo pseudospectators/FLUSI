@@ -91,12 +91,14 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: mean flow"
      uk=dcmplx(0.0d0,0.0d0)
-     if ( iMeanFlow == 1) then
-        if ( ( ca(1) == 0 ) .and. ( ca(2) == 0 ) .and. ( ca(3) == 0 ) ) then
-           uk(0, 0, 0,1)=Uxmean
-           uk(0, 0, 0,2)=Uymean
-           uk(0, 0, 0,3)=Uzmean
-        endif
+     ! note this inicond also works without meanflow forcing, it is then
+     ! really just an inicond
+     
+     ! forcing = zeroth Fourier mode only
+     if ( (ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0) ) then
+       uk(0, 0, 0,1) = Uxmean
+       uk(0, 0, 0,2) = Uymean
+       uk(0, 0, 0,3) = Uzmean
      endif
 
   case("quiescent")
