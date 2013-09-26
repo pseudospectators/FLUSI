@@ -38,10 +38,9 @@ end subroutine postprocessing
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5
+! ./flusi --postprocessing --hdf2bin ux_00000.h5
 !-------------------------------------------------------------------------------
-! load the velocity components from file and compute & save the vorticity
-! can be done in parallel
+! converts the *.h5 file to an ordinairy binary file
 subroutine convert_hdf2bin()
   use fsi_vars
   use mpi_header
@@ -52,12 +51,11 @@ subroutine convert_hdf2bin()
   integer :: ix, iy ,iz
   real(kind=pr_out), dimension(:,:,:), allocatable :: field_out ! single precision
   real(kind=pr) :: time 
-  logical :: exist1,exist2,exist3
-  
+  logical :: exist1
   call get_command_argument(3,fname)
-
-  inquire ( file=fname, exist=exist1 )
   
+  ! check if input file exists
+  inquire ( file=fname, exist=exist1 )  
   if ( exist1.eqv..false. ) then
     write (*,*) "Input file not found..."
     return
@@ -71,16 +69,19 @@ subroutine convert_hdf2bin()
   dsetname = fname ( 1:index( fname, '_' )-1 )
   call Fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
   
-  pi=4.d0 *datan(1.d0)
-  scalex=2.d0*pi/xl
-  scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl  
-    
+  write (*,'("Converting ",A," to ",A,".binary. Resolution is" 3(i4,1x))') &
+        trim(fname), trim(fname), nx,ny,nz
+  write (*,'("time=",es12.4," xl=",es12.4," yl=",es12.4," zl=",es12.4)') &
+        time, xl, yl, zl
+      
   allocate ( field(0:nx-1,0:ny-1,0:nz-1),field_out(0:nx-1,0:ny-1,0:nz-1) )
   ! read field from hdf file
   call Read_Single_File_serial (fname, field)
   ! convert to single precision
   field_out = real(field, kind=pr_out)
+  
+  write (*,'("maxval=",es12.4," minval=",es12.4)') &
+        maxval(field_out),minval(field_out)
   
   ! dump binary file (this file will be called ux_00100.h5.binary)
   open (12, file = trim(fname)//".binary", form='unformatted', status='replace')
