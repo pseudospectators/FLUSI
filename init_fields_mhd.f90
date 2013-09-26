@@ -128,7 +128,7 @@ subroutine init_smc(ubk,ub)
 
   ! Create a perturbation for the velocity field:
   call perturbation(ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),&
-       ub(:,:,:,1),ub(:,:,:,3),ub(:,:,:,3),&
+       ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3),&
        3.1017126d-07)
 
   ! Set up the magnetic field
