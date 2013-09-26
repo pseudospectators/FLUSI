@@ -134,12 +134,14 @@ subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
   integer,intent(inout) :: it,it_start
   real(kind=pr):: time_left
   
+  if (mpirank == 0) then
   ! t2 is time [sec] per time step
   t2 = (MPI_wtime() - t1) / dble(it-it_start)
   
   open(14,file='timestep.t',status='unknown',position='append')
   write (14,'(e12.5,A,i7.7,A,es12.5,A,es12.5)') time,tab,it,tab,dt1,tab,t2
   close(14)
+  endif
   
 end subroutine save_time_stepping_info
 
