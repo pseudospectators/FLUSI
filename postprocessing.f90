@@ -27,12 +27,68 @@ subroutine postprocessing()
     call Compare_key (key1,key2)         
   case ("--vorticity")
     call Convert_vorticity()
+  case ("--hdf2bin")
+    call convert_hdf2bin()
   end select
       
   if (mpirank==0) write (*,*) "*** bye bye ***"   
 end subroutine postprocessing
 
 
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocessing --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5
+!-------------------------------------------------------------------------------
+! load the velocity components from file and compute & save the vorticity
+! can be done in parallel
+subroutine convert_hdf2bin()
+  use fsi_vars
+  use mpi_header
+  implicit none
+  character(len=80) :: fname, dsetname  
+  real(kind=pr), dimension(:,:,:), allocatable :: field
+  integer, parameter :: pr_out = 4 
+  integer :: ix, iy ,iz
+  real(kind=pr_out), dimension(:,:,:), allocatable :: field_out ! single precision
+  real(kind=pr) :: time 
+  logical :: exist1,exist2,exist3
+  
+  call get_command_argument(3,fname)
+
+  inquire ( file=fname, exist=exist1 )
+  
+  if ( exist1.eqv..false. ) then
+    write (*,*) "Input file not found..."
+    return
+  endif
+  
+  if ( mpisize>1 ) then
+    write (*,*) "--hdf2bin is currently a serial version only, run it on 1CPU"
+    return 
+  endif    
+  
+  dsetname = fname ( 1:index( fname, '_' )-1 )
+  call Fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
+  
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl  
+    
+  allocate ( field(0:nx-1,0:ny-1,0:nz-1),field_out(0:nx-1,0:ny-1,0:nz-1) )
+  ! read field from hdf file
+  call Read_Single_File_serial (fname, field)
+  ! convert to single precision
+  field_out = real(field, kind=pr_out)
+  
+  ! dump binary file (this file will be called ux_00100.h5.binary)
+  open (12, file = trim(fname)//".binary", form='unformatted', status='replace')
+  write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
+  close (12)
+  
+  deallocate (field, field_out) 
+end subroutine convert_hdf2bin
 
 
 

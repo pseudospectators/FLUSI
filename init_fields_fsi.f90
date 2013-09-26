@@ -67,7 +67,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
      ! random vorticity
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
-     call random_seed
+     call random_seed()
      do iz=ra(3), rb(3)
         do iy=ra(2), rb(2)
            do ix=ra(1), rb(1)
