@@ -113,7 +113,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
         end select
      endif 
      
-     call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
+     if(mpirank==0) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
   end do
 
   if(mpirank==0) then
