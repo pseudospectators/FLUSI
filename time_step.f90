@@ -30,6 +30,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
 
   continue_timestepping = .true.
   time=0.0
+  it = 0
 
   ! Useful to trigger cal_vis
   dt0=1.0d0
@@ -111,12 +112,37 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
           if (mpirank == 0) call Initialize_runtime_control_file()
         end select
      endif 
+     
+     call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
   end do
 
   if(mpirank==0) then
      write(*,'("Finished time stepping; did it=",i5," time steps")') it
   endif
 end subroutine time_step
+
+
+
+! dump information about performance, time, time step and iteration
+! number to disk. this helps estimating how many time steps will be 
+! required when passing to higher resolution.
+subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
+  use vars
+  implicit none
+
+  real(kind=pr),intent(inout) :: time,t2,t1,dt1
+  integer,intent(inout) :: it,it_start
+  real(kind=pr):: time_left
+  
+  ! t2 is time [sec] per time step
+  t2 = (MPI_wtime() - t1) / dble(it-it_start)
+  
+  open(14,file='timestep.t',status='unknown',position='append')
+  write (14,'(e12.5,A,i7.7,A,es12.5,A,es12.5)') time,tab,it,tab,dt1,tab,t2
+  close(14)
+  
+end subroutine save_time_stepping_info
+
 
 
 ! Output how much time remains in the simulation.

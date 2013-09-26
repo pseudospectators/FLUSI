@@ -7,7 +7,8 @@ subroutine postprocessing()
   implicit none
   character (len=80)     :: postprocessing_mode, filename, key1,key2
   
-  if (mpirank==0) write (*,*) "*** FLUSI (FSI) is running in postprocessing mode ***"
+  if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
+  
   
   ! the second argument tells us what to do with the file
   call get_command_argument(2,postprocessing_mode)
@@ -28,7 +29,7 @@ subroutine postprocessing()
     call Convert_vorticity()
   end select
       
-      
+  if (mpirank==0) write (*,*) "*** bye bye ***"   
 end subroutine postprocessing
 
 
@@ -65,6 +66,10 @@ subroutine Convert_vorticity()
     return
   endif
   
+  if (mpirank == 0) then
+    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
+  endif
+  
   
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
   call Fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
@@ -97,6 +102,10 @@ subroutine Convert_vorticity()
   fname_ux='vorx'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
   fname_uy='vory'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
   fname_uz='vorz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
+  
+  if (mpirank == 0) then
+    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
+  endif
     
   call Save_Field_HDF5 ( time,fname_ux,u(:,:,:,1),"vorx")
   call Save_Field_HDF5 ( time,fname_uy,u(:,:,:,2),"vory")
