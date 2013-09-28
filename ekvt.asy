@@ -1,17 +1,23 @@
 import graph;
 import utils;
 
-size(200,150,IgnoreAspect);
-//scale(Linear,Log);
-scale(Linear,Linear);
+size(300,200,IgnoreAspect);
+scale(Linear,Log);
+//scale(Linear,Linear);
 
 // used to over-ride the normal legend
 // usage:
-// asy vt -u "runlegs=\"asdf\""
+// asy ekvt.asy -u "runlegs=\"asdf\""
+// to turn on the linear interpolation, one must specify bounds, as in
+// asy ekvt.asy -u "startstops=new real[] {60,130,70,120}"
 
 // Use usersetting() to get optional 
 string runlegs;
+real[] startstops;
 usersetting();
+
+//startstops= new real[] {60,130};
+
 bool myleg=((runlegs == "") ? false: true);
 string[] legends=set_legends(runlegs);
 
@@ -25,6 +31,33 @@ if(yvar == "Ekinz") ypos=4;
 
 string datafile="ek.t";
 
+pair linear(real[] x, real[] y, real start, real stop)
+{
+  pair AB=(0,0);
+
+  real meanx=0.0, meany=0.0;
+  int N=0;
+  for(int i=0; i < x.length; ++i) {
+    if(x[i] > start && x[i] < stop) {
+      meanx += x[i];
+      meany += y[i];
+      ++N;
+    }
+  }
+  if(N == 0) return AB;
+  meanx /= N;
+  meany /= N;
+
+  real a=0, b=0;
+  for(int i=0; i < x.length; ++i) {
+    if(x[i] > start && x[i] < stop) {
+      a += (x[i]-meanx)*(y[i]-meany);
+      b += (x[i]-meanx)*(x[i]-meanx);
+    }
+  }
+  
+  return (meany-(a/b)*meanx,a/b);
+ }
 
 if(ypos == 0) {
   write("Invalid choice for y variable.");
@@ -58,6 +91,19 @@ while(flag) {
     
     string legend=myleg ? legends[n] : texify(run);
     draw(graph(t,a[ypos]),Pen(n),legend);
+
+    if(startstops.length > 0) {
+      real start=startstops[2*n];
+      real stop=startstops[2*n+1];
+      
+      real[] logEkin=log(a[ypos]);
+      
+      pair AB=linear(t,logEkin,start,stop);
+      
+      draw(graph(t,4*exp(AB.x)*exp(AB.y*t),
+		 abs(t-0.5*(start+stop))<0.5*(stop-start)),
+	   Pen(n)+dashed,"$\propto \exp("+string(AB.y,4)+"\,t)$");
+    }
   }
 }
 

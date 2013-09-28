@@ -119,3 +119,34 @@ real[] cut1(real[][][] f, int nx, int ny, int nz, int c1, int c2, int dir) {
   }
   return f1;
 }
+
+
+// Given a function y(x), find the fit to a+by for x in (start,stop).
+// The data is returned in a pair (a,b).
+pair linear(real[] x, real[] y, real start, real stop)
+{
+  pair AB=(0,0);
+
+  real meanx=0.0, meany=0.0;
+  int N=0;
+  for(int i=0; i < x.length; ++i) {
+    if(x[i] > start && x[i] < stop) {
+      meanx += x[i];
+      meany += y[i];
+      ++N;
+    }
+  }
+  if(N == 0) return AB;
+  meanx /= N;
+  meany /= N;
+
+  real a=0, b=0;
+  for(int i=0; i < x.length; ++i) {
+    if(x[i] > start && x[i] < stop) {
+      a += (x[i]-meanx)*(y[i]-meany);
+      b += (x[i]-meanx)*(x[i]-meanx);
+    }
+  }
+  
+  return (meany-(a/b)*meanx,a/b);
+ }
