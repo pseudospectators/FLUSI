@@ -93,6 +93,10 @@ subroutine Start_Simulation()
     open  (14,file='divu.t',status='replace')
     write (14,'(13A)') "% time",tab,"max(divu)",tab
     close (14)
+    
+    ! this file contains, time, iteration#, time step and performance
+    open  (14,file='timestep.t',status='replace')
+    close (14)
   endif
 
   ! Print domain decomposition

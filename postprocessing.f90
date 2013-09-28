@@ -7,7 +7,8 @@ subroutine postprocessing()
   implicit none
   character (len=80)     :: postprocessing_mode, filename, key1,key2
   
-  if (mpirank==0) write (*,*) "*** FLUSI (FSI) is running in postprocessing mode ***"
+  if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
+  
   
   ! the second argument tells us what to do with the file
   call get_command_argument(2,postprocessing_mode)
@@ -26,12 +27,69 @@ subroutine postprocessing()
     call Compare_key (key1,key2)         
   case ("--vorticity")
     call Convert_vorticity()
+  case ("--hdf2bin")
+    call convert_hdf2bin()
   end select
       
-      
+  if (mpirank==0) write (*,*) "*** bye bye ***"   
 end subroutine postprocessing
 
 
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocessing --hdf2bin ux_00000.h5
+!-------------------------------------------------------------------------------
+! converts the *.h5 file to an ordinairy binary file
+subroutine convert_hdf2bin()
+  use fsi_vars
+  use mpi_header
+  implicit none
+  character(len=80) :: fname, dsetname  
+  real(kind=pr), dimension(:,:,:), allocatable :: field
+  integer, parameter :: pr_out = 4 
+  integer :: ix, iy ,iz
+  real(kind=pr_out), dimension(:,:,:), allocatable :: field_out ! single precision
+  real(kind=pr) :: time 
+  logical :: exist1
+  call get_command_argument(3,fname)
+  
+  ! check if input file exists
+  inquire ( file=fname, exist=exist1 )  
+  if ( exist1.eqv..false. ) then
+    write (*,*) "Input file not found..."
+    return
+  endif
+  
+  if ( mpisize>1 ) then
+    write (*,*) "--hdf2bin is currently a serial version only, run it on 1CPU"
+    return 
+  endif    
+  
+  dsetname = fname ( 1:index( fname, '_' )-1 )
+  call Fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
+  
+  write (*,'("Converting ",A," to ",A,".binary. Resolution is" 3(i4,1x))') &
+        trim(fname), trim(fname), nx,ny,nz
+  write (*,'("time=",es12.4," xl=",es12.4," yl=",es12.4," zl=",es12.4)') &
+        time, xl, yl, zl
+      
+  allocate ( field(0:nx-1,0:ny-1,0:nz-1),field_out(0:nx-1,0:ny-1,0:nz-1) )
+  ! read field from hdf file
+  call Read_Single_File_serial (fname, field)
+  ! convert to single precision
+  field_out = real(field, kind=pr_out)
+  
+  write (*,'("maxval=",es12.4," minval=",es12.4)') &
+        maxval(field_out),minval(field_out)
+  
+  ! dump binary file (this file will be called ux_00100.h5.binary)
+  open (12, file = trim(fname)//".binary", form='unformatted', status='replace')
+  write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
+  close (12)
+  
+  deallocate (field, field_out) 
+end subroutine convert_hdf2bin
 
 
 
@@ -63,6 +121,10 @@ subroutine Convert_vorticity()
   if ( exist1.eqv..false. .or. exist2.eqv..false. .or. exist3.eqv..false. ) then
     write (*,*) "Input file not found..."
     return
+  endif
+  
+  if (mpirank == 0) then
+    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
   endif
   
   
@@ -97,6 +159,10 @@ subroutine Convert_vorticity()
   fname_ux='vorx'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
   fname_uy='vory'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
   fname_uz='vorz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
+  
+  if (mpirank == 0) then
+    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
+  endif
     
   call Save_Field_HDF5 ( time,fname_ux,u(:,:,:,1),"vorx")
   call Save_Field_HDF5 ( time,fname_uy,u(:,:,:,2),"vory")

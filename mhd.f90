@@ -86,6 +86,10 @@ program MHD3D
      open(14,file='d.t',status='replace')    
      write(14,5) "#time",tab,"divu",tab,"divb"
      close(14)
+     
+     ! this file contains, time, iteration#, time step and performance
+     open  (14,file='timestep.t',status='replace')
+     close (14)
   endif
 
   ! Allocate memory:
