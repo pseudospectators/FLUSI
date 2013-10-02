@@ -13,6 +13,8 @@ subroutine create_mask_mhd()
         call smc_mask_mhd()
      case("smclinear")
         call smc_mask_mhd()
+     case("smcflat")
+        call smc_mask_mhd()
      case default
         if(mpirank == 0) then
            write (*,*) &
@@ -39,7 +41,9 @@ subroutine update_us_mhd(ub)
      case("smc")
         call smc_us_mhd(ub)
      case("smclinear")
-        call smc_us_mhd(ub)
+        call smclinear_us_mhd(ub)
+     case("smcflat")
+        call smcflat_us_mhd(ub)
      case default
         if(mpirank == 0) then
            write (*,*) &
@@ -259,3 +263,50 @@ subroutine smclinear_us_mhd(ub)
      enddo
   enddo
 end subroutine smclinear_us_mhd
+
+
+! Set the solid velocity for Sean-Montgomery-Chen flow.
+subroutine smcflat_us_mhd(ub)
+  use mpi_header
+  use mhd_vars
+  implicit none
+  
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr) :: r,x,y
+  integer :: ix,iy,iz
+  real (kind=pr) :: a,b,c,d,k1,k2
+  
+  ! Velocity is no-slip:
+  us(:,:,:,1)=0.d0
+  us(:,:,:,2)=0.d0
+  us(:,:,:,3)=0.d0
+
+  us(:,:,:,4)=0.d0
+  us(:,:,:,5)=0.d0
+  us(:,:,:,6)=B0
+
+  k1=Bc*r2/r1
+  k2=Bc/r1
+  A=(2.d0*k1 -k2*(r2-r3))/(r3*r3*r3 -3.d0*r2*r3*r3 +3.d0*r2*r2*r3 -r2*r2*r2)
+  B=(k2 -3.d0*A*(r2*r2 -r3*r3))/(2.d0*r2 -2.d0*r3)
+  C=-3.d0*A*r3*r3 -2.d0*B*r3
+  D=2.d0*A*r3*r3*r3 +B*r3*r3
+
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+        r=dsqrt(x*x +y*y)
+        
+        ! Linear profile:
+        if(r >= r1 .and. r < r2) then
+           do iz=ra(3),rb(3)
+              us(ix,iy,iz,4)=-Bc
+              us(ix,iy,iz,5)=Bc
+           enddo
+        endif
+        
+     enddo
+  enddo
+end subroutine smcflat_us_mhd
