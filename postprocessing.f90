@@ -55,11 +55,7 @@ subroutine convert_hdf2bin()
   call get_command_argument(3,fname)
   
   ! check if input file exists
-  inquire ( file=fname, exist=exist1 )  
-  if ( exist1.eqv..false. ) then
-    write (*,*) "Input file not found..."
-    return
-  endif
+  call check_file_exists ( fname )
   
   if ( mpisize>1 ) then
     write (*,*) "--hdf2bin is currently a serial version only, run it on 1CPU"
@@ -114,14 +110,10 @@ subroutine Convert_vorticity()
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
   
-  inquire ( file=fname_ux, exist=exist1 )
-  inquire ( file=fname_uy, exist=exist2 )
-  inquire ( file=fname_uz, exist=exist3 )
-  
-  if ( exist1.eqv..false. .or. exist2.eqv..false. .or. exist3.eqv..false. ) then
-    write (*,*) "Input file not found..."
-    return
-  endif
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
   
   if (mpirank == 0) then
     write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
@@ -198,12 +190,7 @@ subroutine Keyvalues(filename)
     stop 
   endif  
   
-  inquire ( file=filename, exist=exist1 )
-  
-  if (exist1.eqv..false.) then
-    write(*,*) "Input file not found..."
-    return
-  endif
+  call check_file_exists( filename )
   
   write (*,*) "analyzing file "//trim(adjustl(filename))//" for keyvalues"  
   

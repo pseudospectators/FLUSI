@@ -105,7 +105,25 @@ subroutine get_params_common(PARAMS,i)
   ! Initial conditions section
   inicond = "none"
   call GetValue_String(PARAMS,i,"InitialCondition","inicond",inicond, inicond)
-  call GetValue_Real(PARAMS,i,"InitialCondition","omega1",omega1,0.d0)  
+  call GetValue_Real(PARAMS,i,"InitialCondition","omega1",omega1,0.d0) 
+  ! if reading from file, which files?
+  if (inicond=="infile") then 
+    file_ux="none"
+    call GetValue_String(PARAMS,i,"InitialCondition","file_ux",file_ux, file_ux)
+    file_uy="none"
+    call GetValue_String(PARAMS,i,"InitialCondition","file_uy",file_uy, file_uy)
+    file_uz="none"
+    call GetValue_String(PARAMS,i,"InitialCondition","file_uz",file_uz, file_uz)
+    ! if running in MHD mode, we also need the B-field initialized
+    if (method=="mhd") then
+      file_bx="none"
+      call GetValue_String(PARAMS,i,"InitialCondition","file_bx",file_bx, file_bx)
+      file_by="none"
+      call GetValue_String(PARAMS,i,"InitialCondition","file_by",file_by, file_by)
+      file_bz="none"
+      call GetValue_String(PARAMS,i,"InitialCondition","file_bz",file_bz, file_bz)
+    endif
+  endif
 
   ! Dealasing section
   call GetValue_Int(PARAMS,i,"Dealiasing","iDealias",iDealias, 1)

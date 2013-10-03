@@ -572,6 +572,9 @@ subroutine Read_Single_File_serial ( filename, field )
     write (*,*) "this routine is currently serial only"
     stop
   endif
+  
+  ! check if file exist
+  call check_file_exists( filename )
 
   ! Initialize HDF5 library and Fortran interfaces.
   call h5open_f(error)
@@ -688,10 +691,48 @@ subroutine Read_Single_File ( filename, field )
   integer(hid_t) :: attr_id       ! Attribute identifier
   character(len=4) :: aname ! attribute name
   real (kind=pr), dimension (:), allocatable :: attributes  
-  
+  logical :: exist1
+
   ! the dataset is named the same way as the file: (this is convention)
   dsetname = filename ( 1:index( filename, '_' )-1 )
-
+  if (mpirank==0) then
+    write (*,'("Reading file ",A)') trim(adjustl(filename))
+  endif
+  
+  !-----------------------------------------------------------------------------
+  ! perform tests
+  !-----------------------------------------------------------------------------
+  call check_file_exists ( filename )
+  
+  ! fetch attributes from file to see if it is a good idea to load it
+  call Fetch_attributes( filename, dsetname,nx_file,ny_file,nz_file,& 
+                         xl_file,yl_file ,zl_file,time )
+         
+  ! if the resolutions do not match, yell and hang yourself       
+  if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then                         
+    if (mpirank == 0) then
+    write (*,'(A)') "read_single_file: ERROR " // trim(filename)
+    write (*,'("nx=",i4,"ny=",i4,"nz=",i4)') nx,ny,nz
+    write (*,'("but in file: nx=",i4,"ny=",i4,"nz=",i4)') nx_file,ny_file,nz_file
+    stop
+    endif
+  endif
+  
+  ! if the domain size doesn't match, proceed, but yell.
+  if ((xl.ne.xl_file).or.(yl.ne.yl_file).or.(zl.ne.zl_file)) then                         
+    if (mpirank == 0) then
+    write (*,'(A)') "read_single_file: WARNING " // trim(filename)
+    write (*,'("xl=",es12.4,"yl=",es12.4,"zl=",es12.4)')&
+      xl,yl,zl
+    write (*,'("but in file: xl=",es12.4,"yl=",es12.4,"zl=",es12.4)') & 
+      xl_file,yl_file,zl_file
+    write (*,'(A)') "proceed, with fingers crossed."
+    endif
+  endif
+  
+  !-----------------------------------------------------------------------------
+  ! load the file
+  !-----------------------------------------------------------------------------  
   ! Initialize HDF5 library and Fortran interfaces.
   call h5open_f(error)
 
@@ -793,6 +834,8 @@ subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
      write(*,'("---------")')
      write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
   endif
+  
+  call check_file_exists ( filename )
 
   ! Initialize HDF5 library and Fortran interfaces.
   call h5open_f(error)
@@ -1200,6 +1243,8 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   integer(hsize_t), dimension(1) :: data_dims
 
 
+  call check_file_exists ( filename )
+  
   ! Initialize FORTRAN interface.
   CALL h5open_f(error)
 
@@ -1209,9 +1254,9 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   CALL h5dopen_f(file_id, dsetname, dset_id, error)
 
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (time)
-!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
   aname = "time"
   CALL h5aopen_f(dset_id, aname, attr_id, error)
 
@@ -1224,9 +1269,9 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   CALL h5aclose_f(attr_id, error) ! Close the attribute.
   CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (domain_length)
-!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
   aname2 = "domain_size"
   CALL h5aopen_f(dset_id, aname2, attr_id, error)
 
@@ -1242,9 +1287,9 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   CALL h5aclose_f(attr_id, error) ! Close the attribute.
   CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (sizes)
-!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
   aname = "nxyz"
   CALL h5aopen_f(dset_id, aname, attr_id, error)
 
@@ -1266,3 +1311,23 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
 
   !   write (*,'("time=",es12.4," domain=",3(es12.4,1x),2x,3(i3,1x))') time, xl,yl,zl, nx, ny, nz
 end subroutine Fetch_attributes
+
+
+
+! checks if a given file ("fname") exists. if not, code is stopped brutally
+subroutine check_file_exists ( fname )
+  use vars
+  implicit none
+  
+  character (len=*), intent(in) :: fname
+  logical :: exist1
+
+  if (mpirank == 0) then
+    inquire ( file=fname, exist=exist1 )
+    if ( exist1 .eqv. .false.) then
+      write (*,'("ERROR! file: ",A," not found")') trim(fname) 
+      stop
+    endif  
+  endif
+  
+end subroutine check_file_exists

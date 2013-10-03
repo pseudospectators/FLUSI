@@ -72,7 +72,8 @@ module vars
   real(kind=pr),save :: nu
 
   ! Initial conditions:
-  character(len=80),save :: inicond
+  character(len=80),save :: inicond, file_ux,file_uy,file_uz
+  character(len=80),save :: file_bx,file_by,file_bz
   real(kind=pr),save :: omega1 ! FIXME: what is omega1?
 
   ! Boundary conditions:

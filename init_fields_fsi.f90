@@ -27,6 +27,15 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   vort=0.0d0
 
   select case(inicond)
+  case("infile")
+     !--------------------------------------------------
+     ! read HDF5 files
+     !--------------------------------------------------  
+     if (mpirank==0) write (*,*) "*** inicond: reading infiles"
+     call Read_Single_File ( file_ux, vort(:,:,:,1) )
+     call Read_Single_File ( file_uy, vort(:,:,:,2) )
+     call Read_Single_File ( file_uz, vort(:,:,:,3) )
+     call fft3 ( uk,vort )
   case("VortexRing")
      !--------------------------------------------------
      ! Vortex ring
@@ -153,7 +162,6 @@ subroutine Vorticity2Velocity(uk,work,vort)
   ! work(:,:,:,1:3, 1) will contain the three components of
   ! streamfunction
   !------------------------------------------------- 
-
   do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
     ky2=ky*ky

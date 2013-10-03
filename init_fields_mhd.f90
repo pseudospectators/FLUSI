@@ -11,6 +11,7 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real(kind=pr),intent (inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  integer :: i
   
   ! Assign zero values
   time=0.0d0
@@ -32,6 +33,22 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
      call init_smc(ubk,wj)
   case("TaylorCouette")
      call init_tc_mhd(ubk,wj)
+  case("infile")
+     ! read in fluid velocity from files
+     call Read_Single_File ( file_ux, wj(:,:,:,1) )
+     call Read_Single_File ( file_uy, wj(:,:,:,2) )
+     call Read_Single_File ( file_uz, wj(:,:,:,3) )
+    
+     ! read in b-field from files
+     call Read_Single_File ( file_bx, wj(:,:,:,4) )
+     call Read_Single_File ( file_by, wj(:,:,:,5) )
+     call Read_Single_File ( file_bz, wj(:,:,:,6) )
+     
+     ! transform everything to fourier space
+     do i = 1,6
+      call fft( ubk(:,:,:,i), wj(:,:,:,i) )
+     enddo
+     
   case default
      if(inicond(1:8) == "backup::") then
         call Read_Runtime_Backup(inicond(9:len(inicond)),&
