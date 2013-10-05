@@ -65,7 +65,7 @@ subroutine Start_Simulation()
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  FLUSI'
      write(*,'(A)') '--------------------------------------'
-     write(*,'("Running on ",i3," CPUs")') mpisize
+     write(*,'("Running on ",i5," CPUs")') mpisize
   endif
 
   !-------------------------
@@ -106,7 +106,7 @@ subroutine Start_Simulation()
      write(*,'(A)') '--------------------------------------'
   endif
   call MPI_barrier (MPI_COMM_world, mpicode)
-  write (*,'("mpirank=",i3," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&
+  write (*,'("mpirank=",i5," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&
        &") k-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
        mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
@@ -153,7 +153,7 @@ subroutine Start_Simulation()
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   t2 = MPI_wtime() - t1
   if (mpirank ==0) then
-     write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i2," CPUs")') t2, mpisize
+     write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i5," CPUs")') t2, mpisize
   endif
   
 

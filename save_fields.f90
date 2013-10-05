@@ -44,11 +44,14 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
 
   !--Set up file name base
   write(name,'(i5.5)') floor(time*100.d0)
+!   write(name,'(i5.5)') floor( (time-real(floor(time)))*100.d0 )
   name=trim(adjustl(name))
 
   if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",es8.2,1x," flags= ",5(i1))') time, &
-    iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveSolidVelocity
+    write(*,'("Saving data, time= ",es8.2,1x," flags= ",5(i1)," str=",A)') & 
+    time, &
+    iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveSolidVelocity, &
+    trim(adjustl(name))
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -109,6 +112,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
     call Save_Field_HDF5(time,'./usy_'//name,us(:,:,:,2),"usy")
     call Save_Field_HDF5(time,'./usz_'//name,us(:,:,:,3),"usz")
   endif
+  
+  if (mpirank==0) write(*,*) "Done saving."
 end subroutine save_fields_new_fsi
 
 

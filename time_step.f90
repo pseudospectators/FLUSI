@@ -79,12 +79,12 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      
      ! Output(after tsave)
      if(modulo(time,tsave) <= dt1) then
+        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
-        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
         
         ! Backup if that's specified in the PARAMS.ini file
         if(iDoBackup == 1) then
@@ -138,9 +138,9 @@ subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
   ! t2 is time [sec] per time step
   t2 = (MPI_wtime() - t1) / dble(it-it_start)
   
-  open(14,file='timestep.t',status='unknown',position='append')
+  open  (14,file='timestep.t',status='unknown',position='append')
   write (14,'(e12.5,A,i7.7,A,es12.5,A,es12.5)') time,tab,it,tab,dt1,tab,t2
-  close(14)
+  close (14)
   endif
   
 end subroutine save_time_stepping_info

@@ -36,6 +36,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
      call Read_Single_File ( file_uy, vort(:,:,:,2) )
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
      call fft3 ( uk,vort )
+     if (mpirank==0) write (*,*) "*** done reading infiles"
   case("VortexRing")
      !--------------------------------------------------
      ! Vortex ring
