@@ -160,12 +160,14 @@ subroutine get_params_common(PARAMS,i)
   
   ! Set other parameters (all procs)
   pi=4.d0 *datan(1.d0)
+  ! scaling for FFTs
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl  
+  ! lattice spacing is global
   dx=xl/dble(nx)
   dy=yl/dble(ny)
-  dz=zl/dble (nz) 
+  dz=zl/dble(nz) 
 end subroutine get_params_common
 
 

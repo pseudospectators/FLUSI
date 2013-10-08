@@ -660,14 +660,24 @@ end subroutine penalize_vort
 !-------------------------------------------------------------------------------
 ! FFT unit test
 !-------------------------------------------------------------------------------
+! Computes some derivatives that we can also compute exactly to ensure
+! proper functioning of the FFT wrappers
+! Input:
+!       u: real valued work array
+!       uk: complex valued work array
+! Output:
+!       none
+! Side effects:
+!       kills run if test fails (if the error is bigger than 1e-13)
+!       says "hooray" if everything is fine
+!-------------------------------------------------------------------------------
 subroutine FFT_unit_test ( u, uk )
   use mpi_header
-  use fsi_vars
-  
+  use vars  
   ! input: real work array
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   ! input: complex work array
-   complex(kind=pr), intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr), intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   integer :: iz,ix,iy
   real (kind=pr) :: kx, err, ky, kz
   if (mpirank==0) write(*,*) "starting FFT unit test"
@@ -723,8 +733,8 @@ subroutine FFT_unit_test ( u, uk )
   
   ! compute gradient
   do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-     ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)                 
-     uk(:,:,iy) = uk(:,:,iy) * ky *dcmplx(0.d0,1.d0)
+     ky = scaley*dble(modulo(iy+ny/2,ny)-ny/2)                 
+     uk(:,:,iy) = uk(:,:,iy)*ky*dcmplx(0.d0,1.d0)
   enddo
   
   ! to x space
@@ -762,7 +772,7 @@ subroutine FFT_unit_test ( u, uk )
   
   ! compute gradient
   do iz=ca(1),cb(1)  ! kz : 0..nz/2-1 ,then, -nz/2..-1           
-    kz =scalez*dble(modulo(iz+nz/2,nz)-nz/2)      
+    kz = scalez*dble(modulo(iz+nz/2,nz)-nz/2)      
     uk(iz,:,:) = uk(iz,:,:)*kz*dcmplx(0.d0,1.d0)
   enddo
   
