@@ -142,7 +142,6 @@ subroutine Start_Simulation()
      call Create_Mask(0.0d0)
   endif
 
-  
   !----------------------------
   ! Step forward in time
   !----------------------------

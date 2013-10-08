@@ -27,7 +27,9 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   ! initialize runtime control file
   if (mpirank == 0) call Initialize_runtime_control_file()
   
-
+  ! check if at least FFT works okay
+  call FFT_unit_test ( work, uk(:,:,:,1) )
+  
   continue_timestepping = .true.
   time=0.0
   it = 0
