@@ -155,9 +155,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   use mpi_header
   implicit none
   real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot, R_tmp
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp, xroot,yroot, f,xc,yc
-  real(kind=pr) :: ai_1(1:40), bi_1(1:40), a0, ai_2(1:70), bi_2(1:70)
-  real(kind=pr) :: ai_3(1:10), bi_3(1:10)
+  real(kind=pr) :: y_tmp, x_tmp, z_tmp, xroot,yroot, f,xc,yc, a0
   real(kind=pr), dimension(:), allocatable :: ai, bi
   real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
   integer :: n_fft
@@ -256,9 +254,10 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       ! hard-coded Fourier coefficients for R(theta)
       !-----------------------------------------
       if (Insect%WingShape == 'drosophila') then
-      
+      n_fft = 40
+      allocate ( ai(1:n_fft), bi(1:n_fft) )
       a0 = 0.5140278
-      ai_1 = (/0.1276258,-0.1189758,-0.0389458,0.0525938,0.0151538,-0.0247938,&
+      ai = (/0.1276258,-0.1189758,-0.0389458,0.0525938,0.0151538,-0.0247938,&
              -0.0039188,0.0104848,-0.0030638,-0.0064578,0.0042208,0.0043248,&
              -0.0026878,-0.0021458,0.0017688,0.0006398,-0.0013538,-0.0002038,&
              0.0009738,0.0002508,-0.0003548,-0.0003668,-0.0002798,0.0000568,&
@@ -266,7 +265,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
              -0.0006458,-0.0003498,0.0007168,0.0003288,-0.0007078,-0.0001368,&
              0.0007828,0.0001458,-0.0007078,-0.0001358/) 
              
-      bi_1 = (/-0.1072518,-0.0449318,0.0296558,0.0265668,-0.0043988,-0.0113218,&
+      bi = (/-0.1072518,-0.0449318,0.0296558,0.0265668,-0.0043988,-0.0113218,&
              -0.0003278,0.0075028,0.0013598,-0.0057338,-0.0021228,0.0036178,&
              0.0013328,-0.0024128,-0.0007688,0.0011478,0.0003158,-0.0005528,&
              0.0000458,0.0003768,0.0002558,0.0000168,-0.0006018,-0.0006338,&
@@ -283,9 +282,10 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       
       elseif (Insect%WingShape == 'drosophila_mutated') then
       
-      
+      n_fft = 70
+      allocate ( ai(1:n_fft), bi(1:n_fft) )
       a0 = 0.4812548
-      ai_2 = (/0.1593968, -0.1056828, -0.0551518, 0.0508748, 0.0244538, -0.0264738,&
+      ai = (/0.1593968, -0.1056828, -0.0551518, 0.0508748, 0.0244538, -0.0264738,&
                -0.0080828, 0.0181228, 0.0023648, -0.0134578, -0.0037068, 0.0064508,&
                0.0028748, -0.0014258, -0.0006028, -0.0008898, -0.0020408, 0.0009218,&
                0.0029938, 0.0002768, -0.0026968, -0.0011518, 0.0017798, 0.0016538,&
@@ -298,7 +298,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
                0.0001838, 0.0003768, -0.0001698, -0.0002148, 0.0001318, 0.0001628,&
                -0.0000878, 0.0000068, 0.0001478, -0.0001128/) 
             
-      bi_2 = (/-0.1132588, -0.0556428, 0.0272098, 0.0221478, -0.0063798, -0.0059078,&
+      bi = (/-0.1132588, -0.0556428, 0.0272098, 0.0221478, -0.0063798, -0.0059078,&
                 0.0043788, 0.0043208, -0.0003308, -0.0026598, -0.0013158, 0.0025178,&
                 0.0022438, -0.0023798, -0.0037048, 0.0001528, 0.0031218, 0.0022248,&
                 -0.0007428, -0.0027298, -0.0018298, 0.0014538, 0.0028888, 0.0000648,&
@@ -320,11 +320,13 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       
       elseif (Insect%WingShape == 'drosophila_sandberg') then
       
+      n_fft = 10
+      allocate ( ai(1:n_fft), bi(1:n_fft) )
            
       a0 = 0.4812548
-      ai_3 = (/ 0.0167338, -0.1346378, 0.0028778, 0.0426518, -0.0024728, &
+      ai = (/ 0.0167338, -0.1346378, 0.0028778, 0.0426518, -0.0024728, &
                -0.0133168, 0.0024058, 0.0048748, -0.0026348, -0.0025768  /)
-      bi_3 = (/-0.0815948, 0.0099708, 0.0241578, -0.0031968, -0.0042798, &
+      bi = (/-0.0815948, 0.0099708, 0.0241578, -0.0031968, -0.0042798, &
                -0.0002598, -0.0009348, 0.0005898, 0.0003148, -0.0006448  /)
       
       ! wing root point        
@@ -347,19 +349,19 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       !-----------------------------------------
       R0 = a0/2.0
       f = 2.d0*pi    
-      if (Insect%WingShape == 'drosophila') then
-        do i = 1, 40
-          R0=R0 + ai_1(i)*dcos(f*dble(i)*theta) + bi_1(i)*dsin(f*dble(i)*theta)
+!       if (Insect%WingShape == 'drosophila') then
+        do i = 1, n_fft
+          R0=R0 + ai(i)*dcos(f*dble(i)*theta) + bi(i)*dsin(f*dble(i)*theta)
         enddo
-      elseif (Insect%WingShape == 'drosophila_mutated') then
-        do i = 1, 70
-          R0=R0 + ai_2(i)*dcos(f*dble(i)*theta) + bi_2(i)*dsin(f*dble(i)*theta)
-        enddo      
-      elseif (Insect%WingShape == 'drosophila_sandberg') then
-        do i = 1, 10
-          R0=R0 + ai_3(i)*dcos(f*dble(i)*theta) + bi_3(i)*dsin(f*dble(i)*theta)
-        enddo 
-      endif
+!       elseif (Insect%WingShape == 'drosophila_mutated') then
+!         do i = 1, 70
+!           R0=R0 + ai_2(i)*dcos(f*dble(i)*theta) + bi_2(i)*dsin(f*dble(i)*theta)
+!         enddo      
+!       elseif (Insect%WingShape == 'drosophila_sandberg') then
+!         do i = 1, 10
+!           R0=R0 + ai_3(i)*dcos(f*dble(i)*theta) + bi_3(i)*dsin(f*dble(i)*theta)
+!         enddo 
+!       endif
 
       !-----------------------------------------
       ! get smooth (radial) step function
