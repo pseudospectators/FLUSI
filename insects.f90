@@ -157,13 +157,19 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot, R_tmp
   real(kind=pr) :: y_tmp, x_tmp, z_tmp, xroot,yroot, f,xc,yc
   real(kind=pr) :: ai_1(1:40), bi_1(1:40), a0, ai_2(1:70), bi_2(1:70)
+  real(kind=pr) :: ai_3(1:10), bi_3(1:10)
+  real(kind=pr), dimension(:), allocatable :: ai, bi
   real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
+  integer :: n_fft
   integer, intent(in) :: ix,iy,iz
   integer :: i
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
 
   select case (Insect%WingShape) 
+  
+  !*****************************************************************************
   ! in these two cases, we have two given x_w(y_w) that delimit the wing
+  !*****************************************************************************
   case ('TwoEllipses','rectangular')  
     ! spanwise length:
     if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
@@ -231,11 +237,13 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
     
     endif
     endif
+    
   
-  
+  !*****************************************************************************
   ! in this case, we have given the wing shape as a function R(theta) which is 
   ! given by some Fourier coefficients
-  case ('drosophila','drosophila_mutated')
+  !*****************************************************************************
+  case ('drosophila','drosophila_mutated','drosophila_sandberg')
     ! first, check if the point lies inside the rectanglee L_span x L_span
     ! here we assume that the chordlength is NOT greater than the span
     if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
@@ -308,7 +316,23 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       yroot =-0.0157
       ! center of circle
       xc =-0.1206 + xroot
-      yc = 0.3619 + yroot          
+      yc = 0.3619 + yroot  
+      
+      elseif (Insect%WingShape == 'drosophila_sandberg') then
+      
+           
+      a0 = 0.4812548
+      ai_3 = (/ 0.0167338, -0.1346378, 0.0028778, 0.0426518, -0.0024728, &
+               -0.0133168, 0.0024058, 0.0048748, -0.0026348, -0.0025768  /)
+      bi_3 = (/-0.0815948, 0.0099708, 0.0241578, -0.0031968, -0.0042798, &
+               -0.0002598, -0.0009348, 0.0005898, 0.0003148, -0.0006448  /)
+      
+      ! wing root point        
+      xroot =+0.3905 
+      yroot =-0.0590 + 2.d0*Insect%smooth ! displace the wing by 2 grid points
+      ! center of circle
+      xc =-0.4386 + xroot
+      yc = 0.3216 + yroot  
       
       endif
       
@@ -331,6 +355,10 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
         do i = 1, 70
           R0=R0 + ai_2(i)*dcos(f*dble(i)*theta) + bi_2(i)*dsin(f*dble(i)*theta)
         enddo      
+      elseif (Insect%WingShape == 'drosophila_sandberg') then
+        do i = 1, 10
+          R0=R0 + ai_3(i)*dcos(f*dble(i)*theta) + bi_3(i)*dsin(f*dble(i)*theta)
+        enddo 
       endif
 
       !-----------------------------------------
