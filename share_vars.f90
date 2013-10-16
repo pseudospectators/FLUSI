@@ -98,6 +98,11 @@ module fsi_vars
   character(len=80), save :: iVorticitySponge
   real(kind=pr), save :: eps_sponge
   integer, save :: sponge_thickness
+  
+  ! for periodically repeating flows, it is better to always have only one set
+  ! of files on the disk
+  character(len=80) :: save_only_one_period
+  
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
@@ -135,6 +140,7 @@ module fsi_vars
   type(InsectParams), save :: Insect
   
   contains
+  
   ! this function simplifies my life with the insects
   real(kind=pr) function deg2rad(deg)
     use vars

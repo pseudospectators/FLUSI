@@ -83,7 +83,9 @@ subroutine Start_Simulation()
   tab = char(9) ! set horizontal tab character 
   ! to do: please kill malcolm now.
 
-  ! Overwrite drag_data file? only if we're not resuming a backup!
+  !-----------------------------------------------------------------
+  ! Initialize time series output files, if not resuming a backup
+  !-----------------------------------------------------------------
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
     open  (14,file='forces.t',status='replace')
     write (14,'(13A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
@@ -96,6 +98,9 @@ subroutine Start_Simulation()
     
     ! this file contains, time, iteration#, time step and performance
     open  (14,file='timestep.t',status='replace')
+    close (14)    
+    
+    open  (14,file='meanflow.t',status='replace')
     close (14)
   endif
 

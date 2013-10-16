@@ -85,6 +85,17 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
     write (14,'(3(e12.5,A))') time,tab,maxdiv,tab,maxdiv_fluid,tab
     close(14)
   endif      
+  
+  !-----------------------------------------------------------
+  ! save mean flow values
+  !-----------------------------------------------------------
+  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+    ! this is done only by one CPU
+    open  (14,file='meanflow.t',status='unknown',position='append')
+    write (14,'(4(es12.5,1x))') time, dreal(uk(0,0,0,1:3))
+    close (14)
+  endif  
+  
 end subroutine write_integrals_fsi
 
 

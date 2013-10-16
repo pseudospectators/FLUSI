@@ -354,6 +354,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       do i = 1, n_fft
         R0=R0 + ai(i)*dcos(f*dble(i)*theta) + bi(i)*dsin(f*dble(i)*theta)
       enddo
+      deallocate (ai, bi)
       
       !-----------------------------------------
       ! get smooth (radial) step function
@@ -599,11 +600,13 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     psi_dt   = 0.0
     beta_dt  = 0.0
     gamma_dt = 0.0  
-!     xc = (/0.5*xl, 0.5*yl,0.5*zl/)
+
     xc = (/0.5*xl, 0.5*yl, zl-sponge_thickness*dz-1.0/)
     vc = (/0.0, 0.0, 0.0/)
+    
 !    if (zl<6.0) then
 !      write(*,*) "z direction too small..cu"
+!      write(*,*) "you probably forgot to adjust something here"
 !      stop
 !    endif
     

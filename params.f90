@@ -202,6 +202,9 @@ subroutine get_params_fsi(PARAMS,i)
   ! Saving section
   ! ---------------------------------------------------
   call GetValue_Int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
+  save_only_one_period = "no"
+  call GetValue_String(PARAMS,i,"Saving","save_only_one_period",&
+       save_only_one_period,save_only_one_period)  
 
   ! ---------------------------------------------------
   ! MeanFlow section
