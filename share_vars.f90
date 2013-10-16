@@ -134,6 +134,8 @@ module fsi_vars
     ! in the body coordinate system
     real(kind=pr), dimension(1:3) :: x_head, x_eye_r, x_eye_l, &
                                      x_pivot_l, x_pivot_r
+    ! parameter for hovering:
+    real(kind=pr) :: distance_from_sponge
   end type InsectParams
 
   type(Integrals),save :: GlobalIntegrals

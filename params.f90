@@ -254,8 +254,8 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Insects","L_body",Insect%L_body, 1.d0)
   call GetValue_Real(PARAMS,i,"Insects","R_head",Insect%R_head, 0.1d0) 
   call GetValue_Real(PARAMS,i,"Insects","R_eye",Insect%R_eye, 0.d1) 
-  call GetValue_Real(PARAMS,i,"Insects","WingThickness",&
-       Insect%WingThickness, 4.0*dx) 
+  call GetValue_Real(PARAMS,i,"Insects","distance_from_sponge",Insect%distance_from_sponge, 1.d0) 
+  call GetValue_Real(PARAMS,i,"Insects","WingThickness",Insect%WingThickness, 4.0*dx) 
   
   ! position vector of the head
   Insect%x_head=(/0.5*Insect%L_body,0.d0,0.d0 /)

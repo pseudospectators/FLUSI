@@ -601,14 +601,8 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     beta_dt  = 0.0
     gamma_dt = 0.0  
 
-    xc = (/0.5*xl, 0.5*yl, zl-sponge_thickness*dz-1.0/)
+    xc = (/0.5*xl, 0.5*yl, zl-sponge_thickness*dz-Insect%distance_from_sponge/)
     vc = (/0.0, 0.0, 0.0/)
-    
-!    if (zl<6.0) then
-!      write(*,*) "z direction too small..cu"
-!      write(*,*) "you probably forgot to adjust something here"
-!      stop
-!    endif
     
   case default
     if (mpirank==0) then
