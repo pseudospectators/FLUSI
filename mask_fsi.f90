@@ -165,14 +165,23 @@ subroutine Add_Cavity()
        
           if ((ix<=cavity_size-1).or.(ix>=nx-1-cavity_size+1)) then            
             mask(ix,iy,iz) = 1.d0
+            if (iMoving == 1) then
+              us(ix,iy,iz,:) = 0.d0
+            endif
           endif
           
-          if ((iy<=cavity_size-1).or.(iy>=ny-1-cavity_size+1)) then            
+          if ((iy<=cavity_size-1).or.(iy>=ny-1-cavity_size+1)) then       
             mask(ix,iy,iz) = 1.d0
+            if (iMoving == 1) then
+              us(ix,iy,iz,:) = 0.d0
+            endif
           endif     
           
           if ((iz<=cavity_size-1).or.(iz>=nz-1-cavity_size+1)) then            
             mask(ix,iy,iz) = 1.d0
+            if (iMoving == 1) then
+              us(ix,iy,iz,:) = 0.d0
+            endif
           endif
        enddo
     enddo
