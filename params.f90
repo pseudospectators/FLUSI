@@ -179,7 +179,15 @@ subroutine get_params_fsi(PARAMS,i)
 
   integer,intent(in) :: i
   character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
-
+  
+  ! ---------------------------------------------------
+  ! cavity
+  ! ---------------------------------------------------
+  iCavity = "no"
+  call GetValue_String(PARAMS,i,"Penalization","iCavity",&
+       iCavity,iCavity) 
+  call GetValue_Int(PARAMS,i,"Penalization","cavity_size",cavity_size,0)
+  
   
   ! ---------------------------------------------------
   ! sponge
@@ -187,6 +195,9 @@ subroutine get_params_fsi(PARAMS,i)
   iVorticitySponge = "no"
   call GetValue_String(PARAMS,i,"Sponge","iVorticitySponge",&
        iVorticitySponge,iVorticitySponge)  
+  iSpongeType = "top_cover"
+  call GetValue_String(PARAMS,i,"Sponge","iSpongeType",&
+       iSpongeType,iSpongeType)         
   call GetValue_Real(PARAMS,i,"Sponge","eps_sponge",eps_sponge, 0.d0)   
   call GetValue_Int(PARAMS,i,"Sponge","sponge_thickness",sponge_thickness,0)
   

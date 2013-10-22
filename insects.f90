@@ -567,7 +567,7 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(out) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
   real(kind=pr), intent(out) :: xc(1:3), vc(1:3)
-  real(kind=pr) :: f,T, R
+  real(kind=pr) :: f,T,R
   
   select case (Insect%BodyMotion)
   case ("fixed")
@@ -602,8 +602,7 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     gamma_dt = 0.0  
 
     xc = (/0.5*xl, 0.5*yl, zl-sponge_thickness*dz-Insect%distance_from_sponge/)
-    vc = (/0.0, 0.0, 0.0/)
-    
+    vc = (/0.0, 0.0, 0.0/)    
   case default
     if (mpirank==0) then
     write (*,*) "insects.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"

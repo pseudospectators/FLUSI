@@ -95,12 +95,17 @@ module fsi_vars
   ! be changed in future versions
   complex(kind=pr), allocatable, save:: sponge(:,:,:,:)
   ! switch for vorticity sponge:
-  character(len=80), save :: iVorticitySponge
+  character(len=80), save :: iVorticitySponge, iSpongeType
   real(kind=pr), save :: eps_sponge
   integer, save :: sponge_thickness
   
-  ! for periodically repeating flows, it is better to always have only one set
-  ! of files on the disk
+  ! cavity mask:
+  character(len=80), save :: iCavity
+  integer, save :: cavity_size
+  
+  
+  ! for periodically repeating flows, it may be better to always have only 
+  ! one set of files on the disk
   character(len=80) :: save_only_one_period
   
 
@@ -120,6 +125,7 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Torque
   end type Integrals
   
+  
   ! derived datatype for insect parameters (for readability)
   type InsectParams ! documentaion see insect.f90
     character(len=80) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
@@ -137,6 +143,8 @@ module fsi_vars
     ! parameter for hovering:
     real(kind=pr) :: distance_from_sponge
   end type InsectParams
+  
+  
 
   type(Integrals),save :: GlobalIntegrals
   type(InsectParams), save :: Insect

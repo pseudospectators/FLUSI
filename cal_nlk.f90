@@ -104,14 +104,14 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   if (iVorticitySponge == "yes") then  
     ! loop over components
     do i=1,3  
-      ! penalize vorticity in the work array
+      ! penalize this vorticity component in the work array
       call penalize_vort ( work, vort(:,:,:,i) )
       ! then transform it to fourier space and store it in the global
       ! array sponge
       call fft ( sponge(:,:,:,i), work )  
     enddo  
     ! transform vorticity sponge term to velocity
-    call vort_sponge()  
+    call apply_vort_sponge()  
   endif
   time_sponge = time_sponge + MPI_wtime() - t1
   
@@ -140,9 +140,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
 
           chi  = mask(ix,iy,iz)
           if (iMoving==1) then
-            usx  = us(ix,iy,iz,1)
-            usy  = us(ix,iy,iz,2)
-            usz  = us(ix,iy,iz,3)
+            usx = us(ix,iy,iz,1)
+            usy = us(ix,iy,iz,2)
+            usz = us(ix,iy,iz,3)
           endif
           ! actual penalization term
           penalx = -chi*(ux-usx)
@@ -582,7 +582,7 @@ end subroutine div_field_nul
 ! currently, the sponge array is global so no arguments
 ! to do: merge with vorticity2velocity in init_fields_fsi
 ! ------------------------------------------------------------------------------
-subroutine vort_sponge()
+subroutine apply_vort_sponge()
   use mpi_header
   use fsi_vars
   complex (kind=pr) :: im, spx,spy,spz
@@ -622,7 +622,7 @@ subroutine vort_sponge()
     enddo
   enddo
   
-end subroutine vort_sponge
+end subroutine apply_vort_sponge
 
 
 !-------------------------------------------------------------------------------
@@ -630,6 +630,8 @@ end subroutine vort_sponge
 !
 ! computes chi_sponge * (vort-vort0) / eta_sponge in physical space
 ! we currently do not allocate a mask_sponge array
+!
+! for one component only
 !
 ! in this version, the mask is applied in a layer on top (in Z-direction)
 ! of the domain.
@@ -642,16 +644,55 @@ subroutine penalize_vort ( vort_penalized, vort )
   real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   ! output: penalized vorticity in phys space
   real(kind=pr),intent(out):: vort_penalized(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr) :: eps_inv
   integer :: iz
-  
+  eps_inv= 1.d0 / eps_sponge
   vort_penalized = 0.d0
   
-  do iz=ra(3),rb(3) 
-    ! note we currenly do not allocate a mask for this
-    if (iz>nz-sponge_thickness) then
-      vort_penalized(:,:,iz) = - vort(:,:,iz) / eps_sponge
-    endif
-  enddo    
+  select case (iSpongeType)
+  case ("cavity")
+    !--------------------------------------------
+    ! sponge for the cavity type (ie we set a solid wall
+    ! around the domain and kill the vorticity in front
+    ! of if). But you can also use it without the solid wall
+    ! ie iCavity=no and iSponge=yes, iSpongeType=cavity
+    !--------------------------------------------
+    do ix = ra(1), rb(1)
+      do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3) 
+          ! do not use vorticity sponge and solid wall simulateously
+          if (mask(ix,iy,iz) < 1e-12) then
+          if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+          
+          if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif     
+          
+          if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+          endif
+        enddo
+      enddo
+    enddo       
+    
+  case ("top_cover")
+    !--------------------------------------------
+    ! sponge as a cover on top of the domain 
+    ! (top=positive z)
+    !--------------------------------------------
+    do iz=ra(3),rb(3) 
+      ! note we currenly do not allocate a mask for this
+      if ( iz>nz-sponge_thickness ) then
+        vort_penalized(:,:,iz) = - vort(:,:,iz)*eps_inv
+      endif
+    enddo  
+  end select
+  
+  
+    
 end subroutine penalize_vort
   
   
