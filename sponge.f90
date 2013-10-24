@@ -22,10 +22,11 @@
 ! ------------------------------------------------------------------------------
 subroutine vorticity_sponge( work, vort )
   use mpi_header
-  use fsi_vars
+  use fsi_vars  
+  implicit none  
   complex (kind=pr) :: im, spx,spy,spz
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
-  integer :: i
+  integer :: i, ix, iy, iz
   
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)

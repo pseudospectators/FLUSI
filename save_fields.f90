@@ -108,7 +108,9 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   ! Mask
   !-------------
   if (iSaveMask == 1 .and. iPenalization == 1) then
-    call Save_Field_HDF5(time,'./mask_'//name,eps*mask,"mask")
+    mask = mask*eps
+    call Save_Field_HDF5(time,'./mask_'//name,mask,"mask")
+    mask = mask/eps
   endif
   
   !-------------  
