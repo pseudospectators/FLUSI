@@ -1,12 +1,12 @@
 
 
-subroutine cal_drag ( time, dt, u )
+subroutine cal_drag ( time, u )
   use mpi_header
   use fsi_vars
   implicit none
   
   real(kind=pr),intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(in) :: time,dt
+  real(kind=pr),intent(in) :: time
   
   integer :: ix,iy,iz, mpicode, ixmin,ixmax,iymin,iymax,izmin,izmax
   real(kind=pr) :: penalx,penaly,penalz,forcex,forcey,forcez,xlev,ylev,zlev
