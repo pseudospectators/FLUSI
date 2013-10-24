@@ -40,18 +40,6 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   integer :: ix,iy,iz,mpicode
 
   !-----------------------------------------------------------
-  ! forces and torques are computed in every time step
-  !-----------------------------------------------------------  
-  if(mpirank == 0) then
-    open(14,file='forces.t',status='unknown',position='append')
-    write (14,'(7(e12.5,A))') time,tab,GlobalIntegrals%Force(1),tab,&
-    GlobalIntegrals%Force(2),tab, GlobalIntegrals%Force(3),tab, &
-    GlobalIntegrals%Torque(1),tab, GlobalIntegrals%Torque(2),tab, &
-    GlobalIntegrals%Torque(3),tab
-    close(14)
-  endif
-
-  !-----------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)
   !-----------------------------------------------------------
   do iz=ca(1),cb(1)

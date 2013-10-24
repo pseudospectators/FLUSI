@@ -38,8 +38,6 @@ end subroutine cal_nlk
 !             this is reused in the caller FluidTimestep to adjust dt
 !       work: work array, currently unused (will be used for pressure)
 ! Side Effects:
-!      * computes the hydrodynamic forces+torques at every time step and stores 
-!        them in a global struct on root rank. we will need this for free flight
 !      * if present, a sponge is applied to remove incoming vorticity
 !
 ! To Do:
@@ -57,8 +55,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
-  real(kind=pr) :: penalx,penaly,penalz,forcex,forcey,forcez,xlev,ylev,zlev
-  real(kind=pr) :: torquex,torquey,torquez
+  real(kind=pr) :: penalx,penaly,penalz
   integer, intent(in) :: it
   integer :: ix,iz,iy,mpicode, i
   
@@ -68,13 +65,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   time_ifft2 = 0.d0 ! time_ifft2 is the time spend on iffts during cal_nlk only
   penalx     = 0.d0
   penaly     = 0.d0
-  penalz     = 0.d0
-  forcex     = 0.d0
-  forcey     = 0.d0
-  forcez     = 0.d0  
-  torquex    = 0.d0
-  torquey    = 0.d0
-  torquez    = 0.d0    
+  penalz     = 0.d0  
   usx     = 0.d0
   usy     = 0.d0
   usz     = 0.d0  
@@ -91,34 +82,22 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-----------------------------------------------
   t1 = MPI_wtime()
   ! nlk is temporarily used for vortk
-  call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-             uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
+  call curl (nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+              uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
   ! transform it to physical space
   call ifft3 (vort, nlk)  
-  time_vor = time_vor + MPI_wtime() - t1
+  time_vor = time_vor + MPI_wtime() - t1  
   
   !-----------------------------------------------
   !-- vorticity sponge term
   !-----------------------------------------------
   t1 = MPI_wtime()
-  if (iVorticitySponge == "yes") then  
-    ! loop over components
-    do i=1,3  
-      ! penalize this vorticity component in the work array
-      call penalize_vort ( work, vort(:,:,:,i) )
-      ! then transform it to fourier space and store it in the global
-      ! array sponge
-      call fft ( sponge(:,:,:,i), work )  
-    enddo  
-    ! transform vorticity sponge term to velocity
-    call apply_vort_sponge()  
-  endif
+  call vorticity_sponge( work, vort )  
   time_sponge = time_sponge + MPI_wtime() - t1
-  
-  
-  !-------------------------------------------------------------
+    
+  !-----------------------------------------------
   !-- Non-Linear terms
-  !-------------------------------------------------------------
+  !-----------------------------------------------
   t1 = MPI_wtime()
   do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)
@@ -133,11 +112,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         
         ! local variables for penalization
         if (iPenalization==1) then
-          ! for torque moment
-          xlev = dble(ix)*dx - x0
-          ylev = dble(iy)*dy - y0
-          zlev = dble(iz)*dz - z0
-
           chi  = mask(ix,iy,iz)
           if (iMoving==1) then
             usx = us(ix,iy,iz,1)
@@ -148,14 +122,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
           penalx = -chi*(ux-usx)
           penaly = -chi*(uy-usy)
           penalz = -chi*(uz-usz)
-          
-          ! integrate forces + torques (note sign inversion!)
-          forcex = forcex - penalx
-          forcey = forcey - penaly
-          forcez = forcez - penalz              
-          torquex = torquex - (ylev*penalz - zlev*penaly)
-          torquey = torquey - (zlev*penalx - xlev*penalz)
-          torquez = torquez - (xlev*penaly - ylev*penalx)
         endif
         
         ! we overwrite the vorticity with the NL terms in phys space
@@ -168,7 +134,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   enddo
   ! to Fourier space
   call fft3(nlk,vort)  
-  time_curl = time_curl + MPI_wtime() - t1
+  time_curl = time_curl + MPI_wtime() - t1  
   
   !-----------------------------------------------
   ! add sponge term
@@ -179,7 +145,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
     nlk(:,:,:,2) = nlk(:,:,:,2) + sponge(:,:,:,2)
     nlk(:,:,:,3) = nlk(:,:,:,3) + sponge(:,:,:,3)
   endif
-  time_sponge = time_sponge + MPI_wtime() - t1
+  time_sponge = time_sponge + MPI_wtime() - t1  
   
   !-----------------------------------------------
   !-- add pressure gradient
@@ -188,32 +154,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
   time_p = time_p + MPI_wtime() - t1
 
-  !-----------------------------------------------
-  !-- done. nlk is the right hand side of 
-  !-- Navier-Stokes in Fourier space
-  !-----------------------------------------------  
-  
-  ! save global forces
-  forcex = forcex*dx*dy*dz
-  forcey = forcey*dx*dy*dz
-  forcez = forcez*dx*dy*dz  
-  call MPI_REDUCE (forcex,GlobalIntegrals%Force(1),1,mpireal,MPI_SUM,0,&
-                   MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE (forcey,GlobalIntegrals%Force(2),1,mpireal,MPI_SUM,0,&
-                   MPI_COMM_WORLD,mpicode) 
-  call MPI_REDUCE (forcez,GlobalIntegrals%Force(3),1,mpireal,MPI_SUM,0,&
-                   MPI_COMM_WORLD,mpicode)    
-                   
-  torquex = torquex*dx*dy*dz
-  torquey = torquey*dx*dy*dz
-  torquez = torquez*dx*dy*dz  
-  call MPI_REDUCE (torquex,GlobalIntegrals%Torque(1),1,mpireal,MPI_SUM,0,&
-                   MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE (torquey,GlobalIntegrals%Torque(2),1,mpireal,MPI_SUM,0,&
-                   MPI_COMM_WORLD,mpicode) 
-  call MPI_REDUCE (torquez,GlobalIntegrals%Torque(3),1,mpireal,MPI_SUM,0,&
-                   MPI_COMM_WORLD,mpicode)                    
-                   
   ! this is for the timing statistics.
   ! how much time was spend on ffts in cal_nlk?
   time_nlk_fft=time_nlk_fft + time_fft2 + time_ifft2
@@ -223,10 +163,12 @@ end subroutine cal_nlk_fsi
 
 
 
+!-------------------------------------------------------------------------------
 ! Compute the pressure. It is given by the divergence of the non-linear
 ! terms (nlk: intent(in)) divided by k**2.
 ! so: p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
 ! note: we use rotational formulation: p is NOT the physical pressure
+!-------------------------------------------------------------------------------
 subroutine compute_pressure(pk,nlk)
   use mpi_header
   use vars
@@ -563,281 +505,3 @@ subroutine div_field_nul(fx,fy,fz)
   enddo
   
 end subroutine div_field_nul
-
-
-
-! ------------------------------------------------------------------------------
-! Vorticity sponge technology
-!
-! adds a damping term to the vorticity and thus removes partly the periodicity
-!
-! input is penalized vorticity in fourier space, output is the penalization 
-! term to be added to the Navier--Stokes eqn.
-!
-! the vorticity sponge term is chi_sp * (vort) / eta_sponge
-! but this is in the vorticity formulation
-! so we compute the streamfunctions vort = - LAPLACE(psi)
-! and then take the curl sponge = nabla \crossproduct psi
-!
-! currently, the sponge array is global so no arguments
-! to do: merge with vorticity2velocity in init_fields_fsi
-! ------------------------------------------------------------------------------
-subroutine apply_vort_sponge()
-  use mpi_header
-  use fsi_vars
-  complex (kind=pr) :: im, spx,spy,spz
-  real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
-  
-  ! imaginary unit
-  im=dcmplx(0.d0,1.d0)  
-  
-  do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-    ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-    ky2=ky*ky
-    do ix=ca(2), cb(2)  ! kx : 0..nx/2
-      kx=scalex*dble(ix)                
-      kx2=kx*kx
-      do iz=ca(1),cb(1)  ! kz : 0..nz/2-1 ,then, -nz/2..-1           
-        kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-        kz2    =kz*kz
-        k_abs_2=kx2+ky2+kz2
-        if (abs(k_abs_2) .ne. 0.0) then  
-          ! we first "solve" the poisson eqn 
-          ! which gives us the streamfunction components
-          spx = sponge(iz,ix,iy,1) / k_abs_2
-          spy = sponge(iz,ix,iy,2) / k_abs_2
-          spz = sponge(iz,ix,iy,3) / k_abs_2
-          
-          ! we then take the curl of the streamfunction
-          sponge(iz,ix,iy,1)=im*(ky*spz - kz*spy)
-          sponge(iz,ix,iy,2)=im*(kz*spx - kx*spz)
-          sponge(iz,ix,iy,3)=im*(kx*spy - ky*spx)          
-          
-        else
-          sponge(iz,ix,iy,1)=dcmplx(0.d0,0.d0)
-          sponge(iz,ix,iy,2)=dcmplx(0.d0,0.d0)
-          sponge(iz,ix,iy,3)=dcmplx(0.d0,0.d0)
-        endif
-      enddo
-    enddo
-  enddo
-  
-end subroutine apply_vort_sponge
-
-
-!-------------------------------------------------------------------------------
-! vorticity penalization
-!
-! computes chi_sponge * (vort-vort0) / eta_sponge in physical space
-! we currently do not allocate a mask_sponge array
-!
-! for one component only
-!
-! in this version, the mask is applied in a layer on top (in Z-direction)
-! of the domain.
-!-------------------------------------------------------------------------------
-subroutine penalize_vort ( vort_penalized, vort )
-  use mpi_header
-  use fsi_vars
-  
-  ! input: vorticity in phys space
-  real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  ! output: penalized vorticity in phys space
-  real(kind=pr),intent(out):: vort_penalized(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr) :: eps_inv
-  integer :: iz
-  eps_inv= 1.d0 / eps_sponge
-  vort_penalized = 0.d0
-  
-  select case (iSpongeType)
-  case ("cavity")
-    !--------------------------------------------
-    ! sponge for the cavity type (ie we set a solid wall
-    ! around the domain and kill the vorticity in front
-    ! of if). But you can also use it without the solid wall
-    ! ie iCavity=no and iSponge=yes, iSpongeType=cavity
-    !--------------------------------------------
-    do ix = ra(1), rb(1)
-      do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3) 
-          ! do not use vorticity sponge and solid wall simulateously
-          if (mask(ix,iy,iz) < 1e-12) then
-          if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif
-          
-          if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif     
-          
-          if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif
-          endif
-        enddo
-      enddo
-    enddo       
-    
-  case ("top_cover")
-    !--------------------------------------------
-    ! sponge as a cover on top of the domain 
-    ! (top=positive z)
-    !--------------------------------------------
-    do iz=ra(3),rb(3) 
-      ! note we currenly do not allocate a mask for this
-      if ( iz>nz-sponge_thickness ) then
-        vort_penalized(:,:,iz) = - vort(:,:,iz)*eps_inv
-      endif
-    enddo  
-  end select
-  
-  
-    
-end subroutine penalize_vort
-  
-  
-  
-  
-!-------------------------------------------------------------------------------
-! FFT unit test
-!-------------------------------------------------------------------------------
-! Computes some derivatives that we can also compute exactly to ensure
-! proper functioning of the FFT wrappers
-! Input:
-!       u: real valued work array
-!       uk: complex valued work array
-! Output:
-!       none
-! Side effects:
-!       kills run if test fails (if the error is bigger than 1e-13)
-!       says "hooray" if everything is fine
-!-------------------------------------------------------------------------------
-subroutine FFT_unit_test ( u, uk )
-  use mpi_header
-  use vars  
-  ! input: real work array
-  real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  ! input: complex work array
-  complex(kind=pr), intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  integer :: iz,ix,iy
-  real (kind=pr) :: kx, err, ky, kz
-  if (mpirank==0) write(*,*) "starting FFT unit test"
-  !-----------------------------------------------------------------------------
-  ! derivative in X direction
-  !-----------------------------------------------------------------------------
-  ! fill real work array with a sine wave
-  do ix=ra(1),rb(1)
-    u(ix,:,:) = dsin( dble(ix)*dx*2.d0*pi/xl )
-  enddo
-  
-  ! to fourier space
-  call fft ( uk, u )
-  
-  ! compute gradient
-  do ix=ca(2), cb(2)  ! kx : 0..nx/2
-     kx=scalex*dble(ix)                
-     uk(:,ix,:) = uk(:,ix,:) * kx *dcmplx(0.d0,1.d0)
-  enddo
-  
-  ! to x space
-  call ifft ( u, uk )
-  
-  ! compute error
-  err = 0.d0  
-  do ix=ra(1),rb(1)
-    do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
-        err = err + (u(ix,iy,iz)-dcos( dble(ix)*dx*2.d0*pi/xl )*2.d0*pi/xl)**2
-      enddo
-    enddo
-  enddo    
-  err = err*dx*dy*dz
-
-  if (mpirank==0) then
-    write(*,*) "FFT unit (x) test done. error=", err
-    if ( err > 1.0e-13 ) then
-      write (*,*) "Very bad: FFT unit test failed."
-      stop
-    endif
-  endif
-  
-  !-----------------------------------------------------------------------------
-  ! derivative in Y direction
-  !-----------------------------------------------------------------------------
-  ! fill real work array with a sine wave
-  do iy=ra(2),rb(2)
-    u(:,iy,:) = dsin( dble(iy)*dy*2.d0*pi/yl )
-  enddo
-  
-  ! to fourier space
-  call fft ( uk, u )
-  
-  ! compute gradient
-  do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-     ky = scaley*dble(modulo(iy+ny/2,ny)-ny/2)                 
-     uk(:,:,iy) = uk(:,:,iy)*ky*dcmplx(0.d0,1.d0)
-  enddo
-  
-  ! to x space
-  call ifft ( u, uk )
-  
-  ! compute error
-  err = 0.d0  
-  do ix=ra(1),rb(1)
-    do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
-        err = err + (u(ix,iy,iz)-dcos( dble(iy)*dy*2.d0*pi/yl )*2.d0*pi/yl)**2
-      enddo
-    enddo
-  enddo    
-  err = err*dx*dy*dz
-
-  if (mpirank==0) then
-    write(*,*) "FFT unit (y) test done. error=", err
-    if ( err > 1.0e-13 ) then
-      write (*,*) "Very bad: FFT unit test failed."
-      stop
-    endif    
-  endif  
-
-  !-----------------------------------------------------------------------------
-  ! derivative in Z direction
-  !-----------------------------------------------------------------------------
-  ! fill real work array with a sine wave
-  do iz=ra(3),rb(3)
-    u(:,:,iz) = dsin( dble(iz)*dz*2.d0*pi/zl )
-  enddo
-  
-  ! to fourier space
-  call fft ( uk, u )
-  
-  ! compute gradient
-  do iz=ca(1),cb(1)  ! kz : 0..nz/2-1 ,then, -nz/2..-1           
-    kz = scalez*dble(modulo(iz+nz/2,nz)-nz/2)      
-    uk(iz,:,:) = uk(iz,:,:)*kz*dcmplx(0.d0,1.d0)
-  enddo
-  
-  ! to x space
-  call ifft ( u, uk )
-  
-  ! compute error
-  err = 0.d0  
-  do ix=ra(1),rb(1)
-    do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
-        err = err + (u(ix,iy,iz)-dcos( dble(iz)*dz*2.d0*pi/zl )*2.d0*pi/zl)**2
-      enddo
-    enddo
-  enddo    
-  err = err*dx*dy*dz
-
-  if (mpirank==0) then
-    write(*,*) "FFT unit (z) test done. error=", err
-    if ( err > 1.0e-13 ) then
-      write (*,*) "Very bad: FFT unit test failed."
-      stop
-    endif    
-  endif  
-  
-end subroutine FFT_unit_test
-  

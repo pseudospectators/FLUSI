@@ -103,6 +103,9 @@ module fsi_vars
   character(len=80), save :: iCavity
   integer, save :: cavity_size
   
+  ! save forces and use unsteady corrections?
+  integer, save :: compute_forces, unst_corrections
+  
   
   ! for periodically repeating flows, it may be better to always have only 
   ! one set of files on the disk
@@ -122,7 +125,9 @@ module fsi_vars
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume
      real(kind=pr),dimension(1:3) :: Force
+     real(kind=pr),dimension(1:3) :: Force_unst
      real(kind=pr),dimension(1:3) :: Torque
+     real(kind=pr),dimension(1:3) :: Torque_unst
   end type Integrals
   
   

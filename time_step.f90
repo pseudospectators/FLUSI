@@ -57,29 +57,46 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
      dt0=dt1
 
+     !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
+     !-------------------------------------------------
      if(iMoving == 1 .and. iPenalization == 1) call create_mask(time)
-
-     ! Do a fluid time step
+     
+     !-------------------------------------------------
+     ! advance fluid/B-field in time
+     !-------------------------------------------------
      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
 
-     ! Switch time levels
+     !-------------------------------------------------
+     ! Compute hydrodynamic forces at time level n (FSI only)
+     ! NOTE:    is done every itdrag time steps. this condition will be changed
+     !          in future versions if free-flight (ie solving eq of motion) is
+     !          required.
+     !-------------------------------------------------
+     if (( method=="fsi" ).and.( modulo(it,itdrag)==0) ) then
+       ! note dt0 is OLD time step t(n)-t(n-1)
+       call cal_drag ( time, dt0, u ) ! note u is OLD time level 
+     endif     
+     
+     !-----------------------------------------------
+     ! time step done: advance iteration + time
+     !-----------------------------------------------
      inter=n1 ; n1=n0 ; n0=inter
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time=time + dt1
      it=it + 1
      
-     ! Output of integrals after every tintegral time units
+     !-------------------------------------------------
+     ! Output of INTEGRALS after every tintegral time 
+     ! units or itdrag time steps
+     !-------------------------------------------------
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
      endif
-
-     ! Output how much time remains
-     if ((modulo(it,300)==0).or.(it==20)) then
-       call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-     endif
-     
-     ! Output(after tsave)
+    
+     !-------------------------------------------------
+     ! Output FIELDS (after tsave)
+     !-------------------------------------------------
      if(modulo(time,tsave) <= dt1) then
         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
@@ -94,7 +111,16 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
         endif
      endif
      
+     !-----------------------------------------------
+     ! Output how much time remains
+     !-----------------------------------------------
+     if ((modulo(it,300)==0).or.(it==20)) then
+       call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+     endif
+     
+     !-----------------------------------------------
      ! Runtime remote control (every 10 time steps)
+     !-----------------------------------------------
      if ( modulo(it,10) == 0 ) then
         ! fetch command from file
         call runtime_control_command( command )

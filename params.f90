@@ -181,13 +181,13 @@ subroutine get_params_fsi(PARAMS,i)
   character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
   
   ! ---------------------------------------------------
-  ! cavity
+  ! penalization / cavity
   ! ---------------------------------------------------
   iCavity = "no"
-  call GetValue_String(PARAMS,i,"Penalization","iCavity",&
-       iCavity,iCavity) 
+  call GetValue_String(PARAMS,i,"Penalization","iCavity",iCavity,iCavity) 
   call GetValue_Int(PARAMS,i,"Penalization","cavity_size",cavity_size,0)
-  
+  call GetValue_Int(PARAMS,i,"Penalization","compute_forces",compute_forces,1)   
+  call GetValue_Int(PARAMS,i,"Penalization","unst_corrections",unst_corrections,0)        
   
   ! ---------------------------------------------------
   ! sponge
