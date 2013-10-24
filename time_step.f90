@@ -74,7 +74,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      !-------------------------------------------------
      if ( method=="fsi" ) then
         ! compute unst corrections in every time step
-        if (unst_corrections ==1) call cal_unst_corrections( time, dt0 )    
+        if (unst_corrections ==1) call cal_unst_corrections ( time, dt0 )    
         ! compute drag only if required
         if (modulo(it,itdrag)==0) call cal_drag ( time, u ) ! note u is OLD time level 
         ! note dt0 is OLD time step t(n)-t(n-1)

@@ -152,9 +152,9 @@ subroutine cal_unst_corrections ( time, dt )
   !------------------------------------
   ! force
   !------------------------------------
-  force_new_loc(1) = sum( mask*us(:,:,:,1) )*dx*dy*dz
-  force_new_loc(2) = sum( mask*us(:,:,:,2) )*dx*dy*dz
-  force_new_loc(3) = sum( mask*us(:,:,:,3) )*dx*dy*dz  
+  force_new_loc(1) = sum( mask*us(:,:,:,1) )*dx*dy*dz*eps
+  force_new_loc(2) = sum( mask*us(:,:,:,2) )*dx*dy*dz*eps
+  force_new_loc(3) = sum( mask*us(:,:,:,3) )*dx*dy*dz*eps
   
   call MPI_REDUCE(force_new_loc(1),force_new(1),1,mpireal,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
   call MPI_REDUCE(force_new_loc(2),force_new(2),1,mpireal,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
@@ -184,9 +184,9 @@ subroutine cal_unst_corrections ( time, dt )
         ylev = dble(iy)*dy - y0
         zlev = dble(iz)*dz - z0    
         
-        usx = us(ix,iy,iz,1)
-        usy = us(ix,iy,iz,2)
-        usz = us(ix,iy,iz,3)
+        usx = us(ix,iy,iz,1)*mask(ix,iy,iz)*eps
+        usy = us(ix,iy,iz,2)*mask(ix,iy,iz)*eps
+        usz = us(ix,iy,iz,3)*mask(ix,iy,iz)*eps
         
         torque_new_loc(1) = torque_new_loc(1) + (ylev*usz - zlev*usy)
         torque_new_loc(2) = torque_new_loc(2) + (zlev*usx - xlev*usz)
