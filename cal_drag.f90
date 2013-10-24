@@ -103,15 +103,10 @@ subroutine cal_drag ( time, dt, u )
     call MPI_REDUCE (torquez,GlobalIntegrals%Torque(3),1,mpireal,MPI_SUM,0,&
                     MPI_COMM_WORLD,mpicode)    
                     
-    !------------------------------------------------------
-    ! unsteady corrections
-    !------------------------------------------------------                
-    if (unst_corrections == 1) then
-      call cal_unst_corrections( time, dt )                    
-    endif
-         
     !-------------------------------------------------------
     ! write time series to disk
+    ! note: we also dump the unst corrections and thus suppose that they
+    ! have been computed
     !-------------------------------------------------------     
     if(mpirank == 0) then
       open(14,file='forces.t',status='unknown',position='append')
