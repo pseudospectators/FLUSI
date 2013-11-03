@@ -15,6 +15,8 @@ subroutine create_mask_mhd()
         call smc_mask_mhd()
      case("smcflat")
         call smc_mask_mhd()
+     case("smcnum")
+        call smc_mask_mhd()
      case default
         if(mpirank == 0) then
            write (*,*) &
@@ -24,6 +26,51 @@ subroutine create_mask_mhd()
      end select
   endif
 end subroutine create_mask_mhd
+
+subroutine dealias(fk1,fk2,fk3) 
+  use vars
+  use mpi_header
+  implicit none
+
+  integer :: ix,iy,iz
+  complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout) :: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout) :: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real(kind=pr) :: kx2,ky2,kz2,t1,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
+  integer :: i
+
+  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
+  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
+  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)  
+
+  do iz=ca(1),cb(1)
+     kz2 =(scalez*dble(modulo(iz+nz/2,nz)-nz/2))**2
+     kzt2=dble(modulo(iz+nz/2,nz)-nz/2)/kz_trunc
+     kzt2=kzt2*kzt2
+
+     do ix=ca(2),cb(2)
+        ! kx - x-wavenumber: 0..nx/2
+        kx2=(scalex*dble(ix))**2
+        kxt2=dble(ix)/kx_trunc
+        kxt2=kxt2*kxt2
+
+        do iy=ca(3),cb(3)
+           ! ky - y-wavenumber: 0..ny/2-1 ,then, -ny/2..-1
+           ky2=(scaley*dble(modulo(iy+ny/2,ny)-ny/2))**2
+           kyt2=dble(modulo(iy+ny/2,ny)-ny/2)/ky_trunc
+           kyt2=kyt2*kyt2
+
+           if ((kxt2 + kyt2 + kzt2  .ge. 1.d0) .and. (iDealias==1)) then
+              fk1(iz,ix,iy)=0.d0
+              fk2(iz,ix,iy)=0.d0
+              fk3(iz,ix,iy)=0.d0
+           endif
+
+        enddo
+     enddo
+  enddo
+
+end subroutine dealias
 
 
 ! MHD wrapper for setting (possibly velocity-dependent) imposed field.
@@ -44,6 +91,9 @@ subroutine update_us_mhd(ub)
         call smclinear_us_mhd(ub)
      case("smcflat")
         call smcflat_us_mhd(ub)
+     case("smcnum")
+        !call smc_us_mhd(ub)
+        call smcnum_us_mhd(ub)
      case default
         if(mpirank == 0) then
            write (*,*) &
@@ -310,3 +360,215 @@ subroutine smcflat_us_mhd(ub)
      enddo
   enddo
 end subroutine smcflat_us_mhd
+
+! Set the solid velocity for Sean-Montgomery-Chen flow.
+subroutine smcnum_us_mhd(ub)
+  use mpi_header
+  use mhd_vars
+  implicit none
+  
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr) :: r,x,y,z,kx,ky,kz,k2,mydt,diff,diff0,globdiff,overthing,val
+  real (kind=pr) :: vx,vy,vz
+  integer :: ix,iy,iz,i,myi,mpicode
+
+  logical, save :: FirstCall = .TRUE. 
+  complex(kind=pr),dimension(:,:,:),allocatable :: penk1, penk2, penk3
+  complex(kind=pr),dimension(:,:,:),allocatable :: ust1, ust2, ust3
+  complex(kind=pr),dimension(:,:,:),allocatable :: ust01, ust02, ust03
+  ! local loop variables, which, in modern languages, are declared
+  ! locally, not here.
+  complex(kind=pr) :: gx,gy,gz 
+  complex(kind=pr) :: ux,uy,uz
+  complex(kind=pr) :: px,py,pz
+
+  real(kind=pr),dimension(:,:,:),allocatable :: pen1, pen2, pen3
+  real (kind=pr) :: peps
+  logical keeponkeepingon
+
+
+  if (FirstCall) then
+     FirstCall = .FALSE.
+
+     mydt=1d-4
+     peps=1d-4
+
+     myi=0 ! iteration parameter
+
+     allocate(pen1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(pen2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(pen3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+     allocate(penk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(penk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(penk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     
+     allocate(ust1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(ust2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(ust3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+
+     allocate(ust01(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(ust02(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(ust03(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+    
+     keeponkeepingon= .TRUE.
+
+     pen1=0.d0
+     pen2=0.d0
+     pen3=0.d0
+
+     ust1=0.d0
+     ust2=0.d0
+     ust3=0.d0
+     
+     ! Loop should start here
+     do while (keeponkeepingon .eqv. .TRUE.)
+
+        call ifft(pen1,ust1)
+        call ifft(pen2,ust2)
+        call ifft(pen3,ust3)
+
+        diff=0
+        do iz=ca(1),cb(1)
+           do ix=ca(2),cb(2)
+              do iy=ca(3),cb(3)
+                 if(abs(ust1(iz,ix,iy)) > diff) then
+                    diff = abs(ust1(iz,ix,iy))
+                 endif
+              enddo
+           enddo
+        enddo
+        write(*,*) "ust1"
+        write(*,*) diff
+
+        do ix=ra(1),rb(1)  
+           x=xl*(dble(ix)/dble(nx) -0.5d0)
+           do iy=ra(2),rb(2)
+              y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+              r=dsqrt(x*x + y*y)
+
+              ! FIXME
+              if(r < R1) then 
+                 do iz=ra(3),rb(3)
+                    pen1(ix,iy,iz)=pen1(ix,iy,iz) -Bc*y/r1
+                    pen2(ix,iy,iz)=pen2(ix,iy,iz) +Bc*x/r1
+                 enddo
+              endif
+           enddo
+        enddo
+
+        call fft(penk1,pen1)
+        call fft(penk2,pen2)
+        call fft(penk3,pen3)
+
+        call dealias(penk1,penk2,penk3)
+
+        do iz=ca(1),cb(1)
+           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+           do ix=ca(2),cb(2)
+              kx=scalex*dble(ix)
+              do iy=ca(3),cb(3)
+                 ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+
+                 ux=ust1(iz,ix,iy)
+                 uy=ust2(iz,ix,iy)
+                 uz=ust3(iz,ix,iy)
+
+                 k2=kx*kx +ky*ky +kz*kz
+                 gx=k2*ux
+                 gy=k2*uy
+                 gz=k2*uz
+
+                 px=penk1(iz,ix,iy)/peps
+                 py=penk2(iz,ix,iy)/peps
+                 pz=penk3(iz,ix,iy)/peps
+
+                 ust1(iz,ix,iy)=ux -mydt*(gx +px)
+                 ust2(iz,ix,iy)=uy -mydt*(gy +py)
+                 ust3(iz,ix,iy)=uz -mydt*(gz +pz)
+
+                 if(k2 /= 0.d0) then
+                    ! val = (k \cdot{} f) / k^2
+                    ux=ust1(iz,ix,iy)
+                    uy=ust2(iz,ix,iy)
+                    uz=ust3(iz,ix,iy)
+
+                    val=mydt*(kx*ux + ky*uy + kz*uz)/(k2*dsqrt(peps))
+                    val=0.d0
+
+                    ! f <- f - k \cdot{} val
+                    ust1(iz,ix,iy)=ux -kx*val
+                    ust2(iz,ix,iy)=uy -ky*val
+                    ust3(iz,ix,iy)=uz -kz*val
+
+                 endif
+
+              enddo
+           enddo
+        enddo
+
+        call dealias(ust1,ust2,ust3)
+
+        ! project onto the solenoidal manifold
+        ! FIXME: restore?
+        !call div_field_nul(ust1,ust2,ust3)
+
+        myi=myi+1
+
+        ! FIXME: this should actually compute the error of the
+        ! boundary condition.
+        diff=0.d0
+        do iz=ca(1),cb(1)
+           do ix=ca(2),cb(2)
+              do iy=ca(3),cb(3)
+                 overthing=abs(ust1(iz,ix,iy)+ust2(iz,ix,iy)+ust3(iz,ix,iy))&
+                      +1e-16
+                 diff0=abs(ust1(iz,ix,iy)-ust01(iz,ix,iy)) &
+                      +abs(ust2(iz,ix,iy)-ust02(iz,ix,iy)) &
+                      +abs(ust3(iz,ix,iy)-ust03(iz,ix,iy))/overthing
+                 if(diff0 > diff) then
+                    diff=diff0
+                 end if
+              enddo
+           enddo
+        enddo
+
+        ust01=ust1
+        ust02=ust2
+        ust03=ust3
+        
+        call MPI_REDUCE(diff,diff0,&
+             1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+             MPI_COMM_WORLD,mpicode)
+        
+        if (mpirank == 0) write(*,*) diff0
+
+
+        if(myi > 10 .and. diff0 < eps) then
+           keeponkeepingon= .FALSE.
+        endif
+
+        if(myi > 200) then ! FIXME add actual check here
+!        if(diff0 < eps) then
+
+           keeponkeepingon= .FALSE.
+        endif
+     enddo ! keep on keeping on?
+     
+     if (mpirank == 0) WRITE(*,*) "Testing.  FML."
+     call exit
+
+  end if
+  
+  ! Velocity is no-slip:
+  us(:,:,:,1)=0.d0
+  us(:,:,:,2)=0.d0
+  us(:,:,:,3)=0.d0
+
+  us(:,:,:,4)=0.d0
+  us(:,:,:,5)=0.d0
+  us(:,:,:,6)=B0
+
+  
+end subroutine smcnum_us_mhd
