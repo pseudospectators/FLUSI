@@ -322,7 +322,7 @@ end subroutine Write_XMF
 
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
-subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   use mpi_header
   use vars
   use hdf5
@@ -330,7 +330,7 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
   integer,intent(inout) :: n1,nbackup,it
-  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(in) :: ub(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(in)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
@@ -362,57 +362,57 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
   ! Create the file collectively. (existing files are overwritten)
-  call H5Fcreate_f ( filename, H5F_ACC_TRUNC_F, file_id, error, &
+  call H5Fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error, &
        access_prp = plist_id)
   ! Close the property list (we'll re-use it)
   call H5Pclose_f(plist_id, error)
 
   ! Write the fluid backup field:
-  call ifft(work,uk(:,:,:,1))
-  call Dump_Field_Backup (work,"ux",time,dt0,dt1,n1,it,file_id)
-  call ifft(work,uk(:,:,:,2))
-  call Dump_Field_Backup (work,"uy",time,dt0,dt1,n1,it,file_id)
-  call ifft(work,uk(:,:,:,3))
-  call Dump_Field_Backup (work,"uz",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,ub(:,:,:,1))
+  call Dump_Field_Backup(work,"ux",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,ub(:,:,:,2))
+  call Dump_Field_Backup(work,"uy",time,dt0,dt1,n1,it,file_id)
+  call ifft(work,ub(:,:,:,3))
+  call Dump_Field_Backup(work,"uz",time,dt0,dt1,n1,it,file_id)
 
   if(method == "mhd") then
      ! Write the MHD backup field:
-     call ifft(work,uk(:,:,:,4))
-     call Dump_Field_Backup (work,"bx",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,uk(:,:,:,5))
-     call Dump_Field_Backup (work,"by",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,uk(:,:,:,6))
-     call Dump_Field_Backup (work,"bz",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,ub(:,:,:,4))
+     call Dump_Field_Backup(work,"bx",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,ub(:,:,:,5))
+     call Dump_Field_Backup(work,"by",time,dt0,dt1,n1,it,file_id)
+     call ifft(work,ub(:,:,:,6))
+     call Dump_Field_Backup(work,"bz",time,dt0,dt1,n1,it,file_id)
   endif
 
   ! Write the fluid nonlinear term backup:
   call ifft(work,nlk(:,:,:,1,0))
-  call Dump_Field_Backup (work,"nlkx0",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,2,0))
-  call Dump_Field_Backup (work,"nlky0",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,3,0))
-  call Dump_Field_Backup (work,"nlkz0",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,1,1))
-  call Dump_Field_Backup (work,"nlkx1",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,2,1))
-  call Dump_Field_Backup (work,"nlky1",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,3,1))
-  call Dump_Field_Backup (work,"nlkz1",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
   
   if(method == "mhd") then
      ! Write the MHD backup field:
      call ifft(work,nlk(:,:,:,4,0))
-     call Dump_Field_Backup (work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,5,0))
-     call Dump_Field_Backup (work,"bnlky0",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,6,0))
-     call Dump_Field_Backup (work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,4,1))
-     call Dump_Field_Backup (work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,5,1))
-     call Dump_Field_Backup (work,"bnlky1",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,6,1))
-     call Dump_Field_Backup (work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
   endif
 
   ! Close the file:
@@ -423,14 +423,14 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
   nbackup = 1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
 
-  if(mpirank ==0 ) write(*,'("<<< info: done saving backup.")')
+  if(mpirank == 0) write(*,'("<<< info: done saving backup.")')
 end subroutine Dump_Runtime_Backup
 
 
 ! This routine dumps a single field "field" as a dataset "dsetname" to
 ! a backup file "file_id". Attributes are stores in one attribute
 ! "bckp" which contains 8 values
-subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
+subroutine Dump_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use mpi_header
   use vars
   use hdf5
@@ -479,10 +479,10 @@ subroutine Dump_Field_Backup (field,dsetname,time,dt0,dt1,n1,it,file_id  )
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
   do i = 1, 3
-     call MPI_REDUCE ( dimensions_local(i), chunking_dims(i),1, &
+     call MPI_REDUCE(dimensions_local(i), chunking_dims(i),1, &
           MPI_INTEGER8, MPI_MAX,0,MPI_COMM_WORLD,mpierror)
-     call MPI_BCAST  ( chunking_dims(i), 1, MPI_INTEGER8, 0, &
-          MPI_COMM_WORLD, mpierror )
+     call MPI_BCAST(chunking_dims(i), 1, MPI_INTEGER8, 0, &
+          MPI_COMM_WORLD, mpierror)
   enddo
 
   ! -----------------------------------
@@ -572,7 +572,7 @@ subroutine Read_Single_File_serial ( filename, field )
 
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
-  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
+  integer(hsize_t), dimension(1) :: adims  ! Attribute dimension
   integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
   !integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
   integer(hid_t) :: attr_id       ! Attribute identifier
@@ -1329,7 +1329,7 @@ end subroutine Fetch_attributes
 
 
 ! checks if a given file ("fname") exists. if not, code is stopped brutally
-subroutine check_file_exists ( fname )
+subroutine check_file_exists(fname)
   use vars
   implicit none
   

@@ -88,6 +88,25 @@ while(flag) {
     
     // get time:
     real[] t=a[0];
+
+    // Restarting simulations from save-points earlier than the last
+    // integral output produces overlapping data.  If the time series
+    // is not monotonic, the code below discards later terms in favour
+    // of earlier terms.
+    // FIXME: this should be done when data is generated, not in
+    // post-processing.
+    real lastmax=-realMax;
+    for(int i=0; i < t.length; ++i) {
+      if(t[i] > lastmax)
+	lastmax=t[i];
+      else {
+	int j=i;
+	while(j < t.length && t[j] <= lastmax) {
+	  t.delete(j);
+	  a[ypos].delete(j);
+	}
+      }
+    }
     
     string legend=myleg ? legends[n] : texify(run);
     draw(graph(t,a[ypos]),Pen(n),legend);
