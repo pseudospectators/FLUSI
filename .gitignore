@@ -5,6 +5,8 @@ mhd
 *~
 fields
 *.t
+*.h5
+*.xmf
 *.eps
 *.pdf
 *.aux
