@@ -361,6 +361,49 @@ subroutine smcflat_us_mhd(ub)
   enddo
 end subroutine smcflat_us_mhd
 
+subroutine pointpoint(on,x,y)
+  use mpi_header
+  use mhd_vars
+  implicit none
+
+  logical, intent(out) :: on
+  real(kind=pr), intent(in) :: x,y
+  real(kind=pr) :: f
+  
+  ! NB: f values were determined by hand.
+  f=0.d0
+  if(nx == 16) f=9.d0
+  if(nx == 32) f=15.d0
+  if(nx == 64) f=29.d0
+  if(nx == 128) f=60.d0
+  if(nx == 256) f=115.d0
+  if(f == 0.d0) then
+     if (mpirank == 0) then
+        WRITE(*,*) "Fudge-factor not determined for given resolution."
+     endif
+     call exit
+  endif
+
+  on=.false.
+  if(abs(x*x + y*y ) < f*dx*dy) then
+     on=.true.
+  endif
+end subroutine pointpoint
+
+
+subroutine bcval(bcx,bcy,x,y)
+  use mpi_header
+  use mhd_vars
+  implicit none
+
+  real(kind=pr), intent(out) :: bcx,bcy
+  real(kind=pr), intent(in) :: x,y
+  
+  bcx=Bc*y/r1
+  bcy=-Bc*x/r1
+
+end subroutine bcval
+
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
 subroutine smcnum_us_mhd(ub)
   use mpi_header
@@ -368,8 +411,8 @@ subroutine smcnum_us_mhd(ub)
   implicit none
   
   real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr) :: r,x,y,z,kx,ky,kz,k2,mydt,diff,diff0,globdiff,overthing,val
-  real (kind=pr) :: vx,vy,vz
+  real(kind=pr) :: r,x,y,z,kx,ky,kz,k2,mydt,diff,diff0,globdiff,overthing,val
+  real(kind=pr) :: vx,vy,vz
   integer :: ix,iy,iz,i,myi,mpicode
 
   logical, save :: FirstCall = .TRUE. 
@@ -379,13 +422,13 @@ subroutine smcnum_us_mhd(ub)
   ! local loop variables, which, in modern languages, are declared
   ! locally, not here.
   complex(kind=pr) :: gx,gy,gz 
+  real(kind=pr) :: bcx,bcy
   complex(kind=pr) :: ux,uy,uz
   complex(kind=pr) :: px,py,pz
 
   real(kind=pr),dimension(:,:,:),allocatable :: pen1, pen2, pen3
-  real (kind=pr) :: peps
-  logical keeponkeepingon
-
+  real (kind=pr) :: peps, perror, pnorm
+  logical keeponkeepingon, onboundary
 
   if (FirstCall) then
      FirstCall = .FALSE.
@@ -411,8 +454,10 @@ subroutine smcnum_us_mhd(ub)
      allocate(ust02(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
      allocate(ust03(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
     
-     keeponkeepingon= .TRUE.
+     keeponkeepingon=.true.
 
+
+     write(*,*) "ASDFASDF"
      pen1=0.d0
      pen2=0.d0
      pen3=0.d0
@@ -422,7 +467,7 @@ subroutine smcnum_us_mhd(ub)
      ust3=0.d0
      
      ! Loop should start here
-     do while (keeponkeepingon .eqv. .TRUE.)
+     do while(keeponkeepingon)
 
         call ifft(pen1,ust1)
         call ifft(pen2,ust2)
@@ -448,11 +493,12 @@ subroutine smcnum_us_mhd(ub)
 
               r=dsqrt(x*x + y*y)
 
-              ! FIXME
-              if(r < R1) then 
+              call pointpoint(onboundary,x,y)
+              if(onboundary) then 
+                 call bcval(bcx,bcy,x,y)
                  do iz=ra(3),rb(3)
-                    pen1(ix,iy,iz)=pen1(ix,iy,iz) -Bc*y/r1
-                    pen2(ix,iy,iz)=pen2(ix,iy,iz) +Bc*x/r1
+                    pen1(ix,iy,iz)=pen1(ix,iy,iz) -bcx
+                    pen2(ix,iy,iz)=pen2(ix,iy,iz) -bcy
                  enddo
               endif
            enddo
@@ -516,21 +562,36 @@ subroutine smcnum_us_mhd(ub)
 
         myi=myi+1
 
-        ! FIXME: this should actually compute the error of the
-        ! boundary condition.
+
+        ! transform ust(Fourier space) to pen(physical space)
+        call ifft(pen1,ust1)
+        call ifft(pen2,ust2)
+        call ifft(pen3,ust3)
+
         diff=0.d0
-        do iz=ca(1),cb(1)
-           do ix=ca(2),cb(2)
-              do iy=ca(3),cb(3)
-                 overthing=abs(ust1(iz,ix,iy)+ust2(iz,ix,iy)+ust3(iz,ix,iy))&
-                      +1e-16
-                 diff0=abs(ust1(iz,ix,iy)-ust01(iz,ix,iy)) &
-                      +abs(ust2(iz,ix,iy)-ust02(iz,ix,iy)) &
-                      +abs(ust3(iz,ix,iy)-ust03(iz,ix,iy))/overthing
-                 if(diff0 > diff) then
-                    diff=diff0
-                 end if
-              enddo
+
+        do ix=ra(1),rb(1)  
+           x=xl*(dble(ix)/dble(nx) -0.5d0)
+           do iy=ra(2),rb(2)
+              y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+              r=dsqrt(x*x + y*y)
+
+              call pointpoint(onboundary,x,y)
+              if(onboundary) then 
+                 call bcval(bcx,bcy,x,y)
+                 do iz=ra(3),rb(3)
+                    px=pen1(ix,iy,iz)
+                    py=pen2(ix,iy,iz)
+                    pz=pen3(ix,iy,iz)
+
+                    pnorm=px*px + py*py +bcx*bcx + bcy*bcy +1d-16
+                    perror=(px-bcx)*(px-bcx) +(py-bcy)*(py-bcy)
+                    
+                    perror=perror/pnorm
+                    if(perror > diff) diff=perror
+                 enddo
+              endif
            enddo
         enddo
 
