@@ -361,7 +361,7 @@ subroutine smcflat_us_mhd(ub)
   enddo
 end subroutine smcflat_us_mhd
 
-subroutine pointpoint(on,x,y)
+subroutine bcpoint(on,x,y)
   use mpi_header
   use mhd_vars
   implicit none
@@ -374,7 +374,8 @@ subroutine pointpoint(on,x,y)
   f=0.d0
   if(nx == 16) f=9.d0
   if(nx == 32) f=15.d0
-  if(nx == 64) f=29.d0
+  if(nx == 64) f=15.d0
+  !if(nx == 64) f=29.d0
   if(nx == 128) f=60.d0
   if(nx == 256) f=115.d0
   if(f == 0.d0) then
@@ -385,24 +386,101 @@ subroutine pointpoint(on,x,y)
   endif
 
   on=.false.
-  if(abs(x*x + y*y ) < f*dx*dy) then
-     on=.true.
-  endif
-end subroutine pointpoint
-
+  if(abs(x*x + y*y -r1*r1) < f*dx*dy) on=.true.
+end subroutine bcpoint
 
 subroutine bcval(bcx,bcy,x,y)
   use mpi_header
   use mhd_vars
   implicit none
-
   real(kind=pr), intent(out) :: bcx,bcy
   real(kind=pr), intent(in) :: x,y
   
   bcx=Bc*y/r1
   bcy=-Bc*x/r1
-
 end subroutine bcval
+
+subroutine setpen(p1,p2,p3)
+  use mpi_header
+  use mhd_vars
+  implicit none
+  
+  real(kind=pr),intent(out)::p1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(out)::p2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(out)::p3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+
+  logical onboundary
+  integer :: ix,iy,iz
+  real(kind=pr) :: x,y,bcx,bcy
+  integer a
+
+  a=0
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+        
+        call bcpoint(onboundary,x,y)
+        if(onboundary) then
+           a = a+1
+           call bcval(bcx,bcy,x,y)
+           !write(*,*) ix,iy
+           do iz=ra(3),rb(3)
+              p1(ix,iy,iz)=bcx
+              p2(ix,iy,iz)=bcy
+              p3(ix,iy,iz)=0.d0
+           enddo
+        else
+           do iz=ra(3),rb(3)
+              p1(ix,iy,iz)=0.d0
+              p2(ix,iy,iz)=0.d0
+              p3(ix,iy,iz)=0.d0
+           enddo
+        endif
+     enddo
+  enddo
+end subroutine setpen
+
+subroutine checkbc(diff,us1,us2,us3)
+  use mpi_header
+  use mhd_vars
+  implicit none
+  
+  real(kind=pr),intent(in)::us1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::us2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::us3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+
+  logical onboundary
+  integer :: ix,iy,iz
+  real(kind=pr) :: x,y,bcx,bcy,perror,pnorm,ux,uy
+  real(kind=pr),intent(out) :: diff
+
+  diff=0.d0
+  
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+        
+        call bcpoint(onboundary,x,y)
+        if(onboundary) then 
+           call bcval(bcx,bcy,x,y)
+           do iz=ra(3),rb(3)
+
+              ux=us1(ix,iy,iz)
+              uy=us2(ix,iy,iz)
+              
+              pnorm=bcx*bcx + bcy*bcy +1d-16
+              perror=(ux-bcx)*(ux-bcx) +(uy-bcy)*(uy-bcy)
+              
+              perror=perror/pnorm
+              if(perror > diff) diff=perror
+           enddo
+        endif
+     enddo
+  enddo
+end subroutine checkbc
+
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
 subroutine smcnum_us_mhd(ub)
@@ -416,137 +494,76 @@ subroutine smcnum_us_mhd(ub)
   integer :: ix,iy,iz,i,myi,mpicode
 
   logical, save :: FirstCall = .TRUE. 
-  complex(kind=pr),dimension(:,:,:),allocatable :: penk1, penk2, penk3
+  complex(kind=pr),dimension(:,:,:),allocatable :: pk1, pk2, pk3
   complex(kind=pr),dimension(:,:,:),allocatable :: ust1, ust2, ust3
-  complex(kind=pr),dimension(:,:,:),allocatable :: ust01, ust02, ust03
-  ! local loop variables, which, in modern languages, are declared
-  ! locally, not here.
-  complex(kind=pr) :: gx,gy,gz 
+  real(kind=pr),dimension(:,:,:),allocatable :: p1, p2, p3
+  ! Local loop variables, which, in modern languages, are declared
+  ! locally in the loop
   real(kind=pr) :: bcx,bcy
   complex(kind=pr) :: ux,uy,uz
-  complex(kind=pr) :: px,py,pz
-
-  real(kind=pr),dimension(:,:,:),allocatable :: pen1, pen2, pen3
-  real (kind=pr) :: peps, perror, pnorm
-  logical keeponkeepingon, onboundary
+  complex(kind=pr) :: pkx,pky,pkz
+  real (kind=pr) :: peps
+  logical keeponkeepingon
 
   if (FirstCall) then
      FirstCall = .FALSE.
 
-     mydt=1d-8
-     peps=1d-4
+     ! pseudo time-stepping parameters
+     peps=1d-2
+     mydt=1d-4
 
-     myi=0 ! iteration parameter
+     myi=0 ! iteration variable
 
-     allocate(pen1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-     allocate(pen2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-     allocate(pen3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(p1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(p2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(p3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-     allocate(penk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-     allocate(penk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-     allocate(penk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(pk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(pk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(pk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
      
      allocate(ust1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
      allocate(ust2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
      allocate(ust3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-
-     allocate(ust01(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-     allocate(ust02(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-     allocate(ust03(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
     
      keeponkeepingon=.true.
 
-     pen1=0.d0
-     pen2=0.d0
-     pen3=0.d0
-
+     ! initialize penalization field to zero
      ust1=0.d0
      ust2=0.d0
      ust3=0.d0
      
-     ! Loop should start here
-     do while(keeponkeepingon)
+     do while(keeponkeepingon) ! Solve for ust
 
-        call ifft(pen1,ust1)
-        call ifft(pen2,ust2)
-        call ifft(pen3,ust3)
+        ! Compute the penalization term
+        call setpen(p1,p2,p3)
+        ! Transform the penalization term to Fourier space:
+        call fft(pk1,p1)
+        call fft(pk2,p2)
+        call fft(pk3,p3)
+        call dealias(pk1,pk2,pk3)
 
-        diff=0
-        do iz=ca(1),cb(1)
-           do ix=ca(2),cb(2)
-              do iy=ca(3),cb(3)
-                 if(abs(ust1(iz,ix,iy)) > diff) then
-                    diff = abs(ust1(iz,ix,iy))
-                 endif
-              enddo
-           enddo
-        enddo
-        !write(*,*) "max ust1=",diff
-
-        do ix=ra(1),rb(1)  
-           x=xl*(dble(ix)/dble(nx) -0.5d0)
-           do iy=ra(2),rb(2)
-              y=yl*(dble(iy)/dble(ny) -0.5d0)
-
-              r=dsqrt(x*x + y*y)
-
-              call pointpoint(onboundary,x,y)
-              if(onboundary) then 
-                 call bcval(bcx,bcy,x,y)
-                 do iz=ra(3),rb(3)
-                    pen1(ix,iy,iz)=pen1(ix,iy,iz) -bcx
-                    pen2(ix,iy,iz)=pen2(ix,iy,iz) -bcy
-                 enddo
-              endif
-           enddo
-        enddo
-
-        call fft(penk1,pen1)
-        call fft(penk2,pen2)
-        call fft(penk3,pen3)
-
-        call dealias(penk1,penk2,penk3)
-
+        ! compute the gradient and time-step
         do iz=ca(1),cb(1)
            kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
            do ix=ca(2),cb(2)
               kx=scalex*dble(ix)
               do iy=ca(3),cb(3)
                  ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-
+                 
                  ux=ust1(iz,ix,iy)
                  uy=ust2(iz,ix,iy)
                  uz=ust3(iz,ix,iy)
 
                  k2=kx*kx +ky*ky +kz*kz
-                 gx=k2*ux
-                 gy=k2*uy
-                 gz=k2*uz
 
-                 px=penk1(iz,ix,iy)/peps
-                 py=penk2(iz,ix,iy)/peps
-                 pz=penk3(iz,ix,iy)/peps
+                 pkx=pk1(iz,ix,iy)
+                 pky=pk2(iz,ix,iy)
+                 pkz=pk3(iz,ix,iy)
 
-                 ust1(iz,ix,iy)=ux -mydt*(gx +px)
-                 ust2(iz,ix,iy)=uy -mydt*(gy +py)
-                 ust3(iz,ix,iy)=uz -mydt*(gz +pz)
-
-                 ! if(k2 /= 0.d0) then
-                 !    ! val = (k \cdot{} f) / k^2
-                 !    ux=ust1(iz,ix,iy)
-                 !    uy=ust2(iz,ix,iy)
-                 !    uz=ust3(iz,ix,iy)
-
-                 !    val=mydt*(kx*ux + ky*uy + kz*uz)/(k2*dsqrt(peps))
-                 !    val=0.d0
-
-                 !    ! f <- f - k \cdot{} val
-                 !    ust1(iz,ix,iy)=ux -kx*val
-                 !    ust2(iz,ix,iy)=uy -ky*val
-                 !    ust3(iz,ix,iy)=uz -kz*val
-
-                 ! endif
-
+                 ust1(iz,ix,iy)=ux +mydt*(-k2*ux +pkx/peps)
+                 ust2(iz,ix,iy)=uy +mydt*(-k2*uy +pky/peps)
+                 ust3(iz,ix,iy)=uz +mydt*(-k2*uz +pkz/peps)
               enddo
            enddo
         enddo
@@ -558,65 +575,41 @@ subroutine smcnum_us_mhd(ub)
 
         myi=myi+1
 
-        ! transform ust(Fourier space) to pen(physical space)
-        call ifft(pen1,ust1)
-        call ifft(pen2,ust2)
-        call ifft(pen3,ust3)
-
-        diff=0.d0
-
-        do ix=ra(1),rb(1)  
-           x=xl*(dble(ix)/dble(nx) -0.5d0)
-           do iy=ra(2),rb(2)
-              y=yl*(dble(iy)/dble(ny) -0.5d0)
-
-              r=dsqrt(x*x + y*y)
-
-              call pointpoint(onboundary,x,y)
-              if(onboundary) then 
-                 call bcval(bcx,bcy,x,y)
-                 do iz=ra(3),rb(3)
-                    px=pen1(ix,iy,iz)
-                    py=pen2(ix,iy,iz)
-                    pz=pen3(ix,iy,iz)
-
-                    pnorm=px*px + py*py +bcx*bcx + bcy*bcy +1d-16
-                    perror=(px-bcx)*(px-bcx) +(py-bcy)*(py-bcy)
-                    
-                    perror=perror/pnorm
-                    if(perror > diff) diff=perror
-                 enddo
-              endif
-           enddo
-        enddo
-
-        ust01=ust1
-        ust02=ust2
-        ust03=ust3
-        
+        ! transform ust to physical space
+        call ifft(p1,ust1)
+        call ifft(p2,ust2)
+        call ifft(p3,ust3)
+        ! check how close the field is to obeying the boundary conditions
+        call checkbc(diff,p1,p2,p3)
         call MPI_REDUCE(diff,diff0,&
-             1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+             1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
              MPI_COMM_WORLD,mpicode)
-        
-        if (mpirank == 0) write(*,*) "error=",diff0
 
-        if(myi > 10 .and. perror < eps) then
-           write(*,*) "finished: ",perror," < ",peps
-           keeponkeepingon= .FALSE.
-        endif
+        ! output a sample bc point and what it should reach:
+        ! ix=8
+        ! iy=39
+        ! x=xl*(dble(ix)/dble(nx) -0.5d0)
+        ! y=yl*(dble(iy)/dble(ny) -0.5d0)
+        ! call bcval(bcx,bcy,x,y)
+        ! write(*,*)p1(ix,iy,0),bcx
 
-        if(myi > 20000) then ! FIXME add actual check here
-!        if(diff0 < eps) then
-           if (mpirank == 0) WRITE(*,*) myi," is too many iterations."
-           keeponkeepingon= .FALSE.
+        if (mpirank == 0) then
+           write(*,*) "error=",diff0
+           ! Loop exit conditions:
+           if(myi > 10 .and. diff0 < eps) then
+              write(*,*) "finished: ",diff0," < ",peps
+              keeponkeepingon= .FALSE.
+           endif
+           if(myi > 20000) then ! we've gone too far: abort
+              if (mpirank == 0) WRITE(*,*) myi," is too many iterations."
+              keeponkeepingon= .FALSE.
+           endif
         endif
      enddo ! keep on keeping on?
 
-     deallocate(pen1,pen2,pen3)
-     deallocate(penk1,penk2,penk3)
-     
+     deallocate(p1,p2,p3)
+     deallocate(pk1,pk2,pk3)
      deallocate(ust1,ust2,ust3)
-     deallocate(ust01,ust02,ust03)
      
      if (mpirank == 0) WRITE(*,*) "Testing: aborted. (FIXME!)"
      call exit
