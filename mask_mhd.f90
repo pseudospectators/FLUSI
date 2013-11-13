@@ -433,7 +433,7 @@ subroutine smcnum_us_mhd(ub)
   if (FirstCall) then
      FirstCall = .FALSE.
 
-     mydt=1d-4
+     mydt=1d-8
      peps=1d-4
 
      myi=0 ! iteration parameter
@@ -456,8 +456,6 @@ subroutine smcnum_us_mhd(ub)
     
      keeponkeepingon=.true.
 
-
-     write(*,*) "ASDFASDF"
      pen1=0.d0
      pen2=0.d0
      pen3=0.d0
@@ -483,8 +481,7 @@ subroutine smcnum_us_mhd(ub)
               enddo
            enddo
         enddo
-        write(*,*) "ust1"
-        write(*,*) diff
+        !write(*,*) "max ust1=",diff
 
         do ix=ra(1),rb(1)  
            x=xl*(dble(ix)/dble(nx) -0.5d0)
@@ -534,21 +531,21 @@ subroutine smcnum_us_mhd(ub)
                  ust2(iz,ix,iy)=uy -mydt*(gy +py)
                  ust3(iz,ix,iy)=uz -mydt*(gz +pz)
 
-                 if(k2 /= 0.d0) then
-                    ! val = (k \cdot{} f) / k^2
-                    ux=ust1(iz,ix,iy)
-                    uy=ust2(iz,ix,iy)
-                    uz=ust3(iz,ix,iy)
+                 ! if(k2 /= 0.d0) then
+                 !    ! val = (k \cdot{} f) / k^2
+                 !    ux=ust1(iz,ix,iy)
+                 !    uy=ust2(iz,ix,iy)
+                 !    uz=ust3(iz,ix,iy)
 
-                    val=mydt*(kx*ux + ky*uy + kz*uz)/(k2*dsqrt(peps))
-                    val=0.d0
+                 !    val=mydt*(kx*ux + ky*uy + kz*uz)/(k2*dsqrt(peps))
+                 !    val=0.d0
 
-                    ! f <- f - k \cdot{} val
-                    ust1(iz,ix,iy)=ux -kx*val
-                    ust2(iz,ix,iy)=uy -ky*val
-                    ust3(iz,ix,iy)=uz -kz*val
+                 !    ! f <- f - k \cdot{} val
+                 !    ust1(iz,ix,iy)=ux -kx*val
+                 !    ust2(iz,ix,iy)=uy -ky*val
+                 !    ust3(iz,ix,iy)=uz -kz*val
 
-                 endif
+                 ! endif
 
               enddo
            enddo
@@ -557,11 +554,9 @@ subroutine smcnum_us_mhd(ub)
         call dealias(ust1,ust2,ust3)
 
         ! project onto the solenoidal manifold
-        ! FIXME: restore?
-        !call div_field_nul(ust1,ust2,ust3)
+        call div_field_nul(ust1,ust2,ust3)
 
         myi=myi+1
-
 
         ! transform ust(Fourier space) to pen(physical space)
         call ifft(pen1,ust1)
@@ -603,21 +598,27 @@ subroutine smcnum_us_mhd(ub)
              1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
              MPI_COMM_WORLD,mpicode)
         
-        if (mpirank == 0) write(*,*) diff0
+        if (mpirank == 0) write(*,*) "error=",diff0
 
-
-        if(myi > 10 .and. diff0 < eps) then
+        if(myi > 10 .and. perror < eps) then
+           write(*,*) "finished: ",perror," < ",peps
            keeponkeepingon= .FALSE.
         endif
 
-        if(myi > 200) then ! FIXME add actual check here
+        if(myi > 20000) then ! FIXME add actual check here
 !        if(diff0 < eps) then
-
+           if (mpirank == 0) WRITE(*,*) myi," is too many iterations."
            keeponkeepingon= .FALSE.
         endif
      enddo ! keep on keeping on?
+
+     deallocate(pen1,pen2,pen3)
+     deallocate(penk1,penk2,penk3)
      
-     if (mpirank == 0) WRITE(*,*) "Testing.  FML."
+     deallocate(ust1,ust2,ust3)
+     deallocate(ust01,ust02,ust03)
+     
+     if (mpirank == 0) WRITE(*,*) "Testing: aborted. (FIXME!)"
      call exit
 
   end if
