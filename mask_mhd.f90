@@ -383,7 +383,7 @@ subroutine bcpoint(on,x,y)
   if(nx == 256) f=115.d0
   if(f == 0.d0) then
      if (mpirank == 0) then
-        WRITE(*,*) "Fudge-factor not determined for given resolution."
+        write(*,*) "Fudge-factor not determined for given resolution."
      endif
      call exit
   endif
@@ -514,15 +514,17 @@ subroutine smcnum_us_mhd(ub)
   logical keeponkeepingon
 
   if (FirstCall) then
-     FirstCall = .FALSE.
+     FirstCall = .false.
 
      ! pseudo time-stepping parameters
      peps=pseudoeps
      mydt=pseudodt
      
-     write(*,*) "Computing penalization field via pseudo time-stepping...."
-     write(*,*) "pseudoeps=",pseudoeps
-     write(*,*) "pseudodt=",pseudodt
+     if (mpirank == 0) then
+        write(*,*) "Computing penalization field via pseudo time-stepping...."
+        write(*,*) "pseudoeps=",pseudoeps
+        write(*,*) "pseudodt=",pseudodt
+     endif
 
      myi=0 ! iteration variable
 
@@ -609,12 +611,19 @@ subroutine smcnum_us_mhd(ub)
            write(*,*) "error=",diff0
            ! Loop exit conditions:
            if(myi > 10 .and. diff0 < dsqrt(eps)) then
-              write(*,*) "finished: ",diff0," < ",peps
-              keeponkeepingon= .FALSE.
+              write(*,*) "finished: ",diff0," < dsqrt(",peps,")=",dsqrt(eps)
+              keeponkeepingon= .false.
            endif
-           if(myi > 20000) then ! we've gone too far: abort
-              if (mpirank == 0) WRITE(*,*) myi," is too many iterations."
-              keeponkeepingon= .FALSE.
+           if(myi > 1000000) then ! we've gone too far: abort
+              write(*,*) myi," is too many iterations."
+              keeponkeepingon= .false.
+              call abort
+           endif
+           if(myi > 10 .and. diff0 > 100.d0) then
+              ! convergence isn't happening: abort
+              write(*,*) "error is greater than 100; aborting due to instability"
+              keeponkeepingon= .false.
+              call abort
            endif
         endif
      enddo ! keep on keeping on?
@@ -633,7 +642,7 @@ subroutine smcnum_us_mhd(ub)
      deallocate(pk1,pk2,pk3)
      deallocate(ust1,ust2,ust3)
      
-     if (mpirank == 0) WRITE(*,*) "Testing: aborted. (FIXME!)"
+     if (mpirank == 0) write(*,*) "Testing: aborted. (FIXME!)"
      call exit
 
   end if
