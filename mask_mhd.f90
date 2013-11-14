@@ -608,7 +608,7 @@ subroutine smcnum_us_mhd(ub)
         if (mpirank == 0) then
            write(*,*) "error=",diff0
            ! Loop exit conditions:
-           if(myi > 10 .and. diff0 < eps) then
+           if(myi > 10 .and. diff0 < dsqrt(eps)) then
               write(*,*) "finished: ",diff0," < ",peps
               keeponkeepingon= .FALSE.
            endif
