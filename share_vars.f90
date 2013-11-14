@@ -45,7 +45,8 @@ module vars
   ! Variables set via the parameters file
   real(kind=pr),save :: length 
   ! Q: what is length? 
-  ! A: a generic lengthscale, for example circle radius or plate spanwise length
+  ! A: a generic lengthscale, for example circle radius or plate
+  ! spanwise length
   
   ! Domain size variables:
   integer,save :: nx,ny,nz
@@ -83,6 +84,7 @@ module vars
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
   character(len=80) :: iSmoothing ! how to smooth the mask
+  real(kind=pr),save :: pseudoeps, pseudodt
 end module vars
 
 

@@ -136,6 +136,8 @@ subroutine get_params_common(PARAMS,i)
   iSmoothing="erf" ! std choice
   call GetValue_String(PARAMS,i,"Penalization","iSmoothing",iSmoothing,iSmoothing)
   call GetValue_Real(PARAMS,i,"Penalization","eps",eps, 1.d-2)
+  call GetValue_Real(PARAMS,i,"Penalization","pseudoeps",pseudoeps, 1.d-2)
+  call GetValue_Real(PARAMS,i,"Penalization","pseudodt",pseudodt, 1.d-2)
 
   ! Geometry section
   call GetValue_Real(PARAMS,i,"Geometry","xl",xl, 1.d0)

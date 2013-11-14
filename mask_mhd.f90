@@ -370,13 +370,16 @@ subroutine bcpoint(on,x,y)
   real(kind=pr), intent(in) :: x,y
   real(kind=pr) :: f
   
+  ! f is a sort of search width to find points representing \partial\Omega_f
+  ! The larger the value of f, the more points.
+  ! Too many points and the boundary has non-zero volume.
   ! NB: f values were determined by hand.
+  ! FIXME: find a better way to determine f.
   f=0.d0
   if(nx == 16) f=9.d0
   if(nx == 32) f=15.d0
-  if(nx == 64) f=15.d0
-  !if(nx == 64) f=29.d0
-  if(nx == 128) f=60.d0
+  if(nx == 64) f=15.d0 ! normally 29?
+  if(nx == 128) f=30.d0 ! normally 60, but, needs to be less?
   if(nx == 256) f=115.d0
   if(f == 0.d0) then
      if (mpirank == 0) then
@@ -465,6 +468,10 @@ subroutine checkbc(diff,us1,us2,us3)
         call bcpoint(onboundary,x,y)
         if(onboundary) then 
            call bcval(bcx,bcy,x,y)
+
+           ! Un-comment to output points to check bcpoint validity.
+           !write(*,*) x,y 
+
            do iz=ra(3),rb(3)
 
               ux=us1(ix,iy,iz)
@@ -479,6 +486,7 @@ subroutine checkbc(diff,us1,us2,us3)
         endif
      enddo
   enddo
+!  call abort ! Un-comment to stop after outputting points
 end subroutine checkbc
 
 
@@ -509,8 +517,12 @@ subroutine smcnum_us_mhd(ub)
      FirstCall = .FALSE.
 
      ! pseudo time-stepping parameters
-     peps=1d-2
-     mydt=1d-4
+     peps=pseudoeps
+     mydt=pseudodt
+     
+     write(*,*) "Computing penalization field via pseudo time-stepping...."
+     write(*,*) "pseudoeps=",pseudoeps
+     write(*,*) "pseudodt=",pseudodt
 
      myi=0 ! iteration variable
 
@@ -607,6 +619,16 @@ subroutine smcnum_us_mhd(ub)
         endif
      enddo ! keep on keeping on?
 
+     ! copy ust to appropriate field for time-stepping. (us 4 and us 5)
+     do ix=ra(1),rb(1)  
+        do iy=ra(2),rb(2)
+           do iz=ra(3),rb(3)
+              us(ix,iy,iz,4)=0.d0
+              us(ix,iy,iz,5)=0.d0
+           enddo
+        enddo
+     enddo
+     
      deallocate(p1,p2,p3)
      deallocate(pk1,pk2,pk3)
      deallocate(ust1,ust2,ust3)
@@ -621,9 +643,7 @@ subroutine smcnum_us_mhd(ub)
   us(:,:,:,2)=0.d0
   us(:,:,:,3)=0.d0
 
-  us(:,:,:,4)=0.d0
-  us(:,:,:,5)=0.d0
-  us(:,:,:,6)=B0
-
+  ! the z-component of the magnetic field is penalized to B0
+  us(:,:,:,6)=B0 
   
 end subroutine smcnum_us_mhd
