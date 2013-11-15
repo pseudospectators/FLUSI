@@ -415,9 +415,7 @@ subroutine setpen(p1,p2,p3)
   logical onboundary
   integer :: ix,iy,iz
   real(kind=pr) :: x,y,bcx,bcy
-  integer a
 
-  a=0
   do ix=ra(1),rb(1)  
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
@@ -425,7 +423,6 @@ subroutine setpen(p1,p2,p3)
         
         call bcpoint(onboundary,x,y)
         if(onboundary) then
-           a = a+1
            call bcval(bcx,bcy,x,y)
            !write(*,*) ix,iy
            do iz=ra(3),rb(3)
@@ -489,6 +486,125 @@ subroutine checkbc(diff,us1,us2,us3)
 !  call abort ! Un-comment to stop after outputting points
 end subroutine checkbc
 
+! Compute the source for the pseudotime-stepper in physical space,
+! returned in sx, sy, sz
+subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
+  use mpi_header
+  use mhd_vars
+  implicit none
+  
+  real(kind=pr),intent(in)::ux(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::uy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::uz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+
+  complex(kind=pr),intent(inout)::ukx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::uky(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::ukz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+
+  real(kind=pr),intent(out)::sx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(out)::sy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(out)::sz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+
+  ! Local loop variables
+  logical onboundary
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,k2
+  real(kind=pr) :: x,y,bcx,bcy
+
+  ! Compute gradient
+
+  call fft(ukx,ux)
+  call fft(uky,uy)
+  call fft(ukz,uz)
+
+  do iz=ca(1),cb(1)
+     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+     do ix=ca(2),cb(2)
+        kx=scalex*dble(ix)
+        do iy=ca(3),cb(3)
+           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+
+           k2=kx*kx +ky*ky +kz*kz
+           
+           ukx(iz,ix,iy)=-k2*ukx(iz,ix,iy)
+           uky(iz,ix,iy)=-k2*uky(iz,ix,iy)
+           ukz(iz,ix,iy)=-k2*ukz(iz,ix,iy)
+        enddo
+     enddo
+  enddo
+ 
+  ! call dealias(ukx,uky,ukz)
+
+  call ifft(sx,ukx)
+  call ifft(sy,uky)
+  call ifft(sz,ukz)
+
+  ! Compute penalisation
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+  
+        call bcpoint(onboundary,x,y)
+        if(onboundary) then
+           call bcval(bcx,bcy,x,y)
+           !write(*,*) ix,iy
+           do iz=ra(3),rb(3)
+              sx(ix,iy,iz)=-(ux(ix,iy,iz) - bcx)/pseudoeps
+              sy(ix,iy,iz)=-(uy(ix,iy,iz) - bcy)/pseudoeps
+           enddo
+        endif
+     enddo
+  enddo
+  
+end subroutine pseudosource
+
+! Compute the Euclideian distance between points (ax,ay,az) and
+! (bx,by,bz)
+subroutine dist(ax,ay,az,bx,by,bz,d)
+  use vars
+  implicit none
+  
+  real(kind=pr), intent(in) :: ax,ay,az,bx,by,bz
+  real(kind=pr) :: d1,d2,d3
+  real(kind=pr), intent(out) :: d
+
+  d1=ax-bx
+  d2=ay-by
+  d3=az-bz
+
+  d=dsqrt(d1*d1+d2*d2+d3*d3)
+end subroutine dist
+
+! Compute l-infinity distance between the real-valued arrays
+! (ax,ay,az) and (bx,by,bz)
+subroutine maxdist(ax,ay,az,bx,by,bz,d)
+  use vars
+  implicit none
+  
+  real(kind=pr),intent(in)::ax(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::ay(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::az(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+
+  real(kind=pr),intent(in)::bx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::by(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::bz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr) :: dd
+  real(kind=pr),intent(out) :: d
+  integer :: ix,iy,iz
+
+  d=0.d0
+  do ix=ra(1),rb(1)
+     do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)
+           call  dist(ax(ix,iy,iz),ay(ix,iy,iz),az(ix,iy,iz),&
+                bx(ix,iy,iz),by(ix,iy,iz),bz(ix,iy,iz),dd)
+           if(dd > d) d=dd
+        enddo
+     enddo
+  enddo
+end subroutine maxdist
+
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
 subroutine smcnum_us_mhd(ub)
@@ -499,18 +615,29 @@ subroutine smcnum_us_mhd(ub)
   real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: r,x,y,z,kx,ky,kz,k2,mydt,diff,diff0,globdiff,overthing,val
   real(kind=pr) :: vx,vy,vz
-  integer :: ix,iy,iz,i,myi,mpicode
+  integer :: ix,iy,iz
+  integer :: i,myi,mpicode
 
-  logical, save :: FirstCall = .TRUE. 
-  complex(kind=pr),dimension(:,:,:),allocatable :: pk1, pk2, pk3
-  complex(kind=pr),dimension(:,:,:),allocatable :: ust1, ust2, ust3
-  real(kind=pr),dimension(:,:,:),allocatable :: p1, p2, p3
+  logical, save :: FirstCall = .true. 
+  ! the penalisation field
+  real(kind=pr),dimension(:,:,:),allocatable :: usx, usy, usz
+  ! for the 2-stage time-stepper
+  real(kind=pr),dimension(:,:,:),allocatable :: tusx, tusy, tusz
+  ! for computing gradient of penalisation field
+  complex(kind=pr),dimension(:,:,:),allocatable :: uskx, usky, uskz
+  ! PC time-stepping source buffers
+  real(kind=pr),dimension(:,:,:),allocatable :: s1x, s1y, s1z
+  real(kind=pr),dimension(:,:,:),allocatable :: s2x, s2y, s2z
+  real(kind=pr) s1ms2
+  
   ! Local loop variables, which, in modern languages, are declared
   ! locally in the loop
   real(kind=pr) :: bcx,bcy
   complex(kind=pr) :: ux,uy,uz
   complex(kind=pr) :: pkx,pky,pkz
   real (kind=pr) :: peps
+  real (kind=pr) :: olddiff
+  real (kind=pr) :: newdt
   logical keeponkeepingon
 
   if (FirstCall) then
@@ -528,88 +655,98 @@ subroutine smcnum_us_mhd(ub)
 
      myi=0 ! iteration variable
 
-     allocate(p1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-     allocate(p2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-     allocate(p3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     call allocreal(usx)
+     call allocreal(usy)
+     call allocreal(usz)
 
-     allocate(pk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-     allocate(pk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-     allocate(pk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     call allocreal(tusx)
+     call allocreal(tusy)
+     call allocreal(tusz)
+
+     call allocreal(s1x)
+     call allocreal(s1y)
+     call allocreal(s1z)
      
-     allocate(ust1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-     allocate(ust2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-     allocate(ust3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-    
+     call allocreal(s2x)
+     call allocreal(s2y)
+     call allocreal(s2z)
+
+     call alloccomplex(uskx)
+     call alloccomplex(usky)
+     call alloccomplex(uskz)
+     
      keeponkeepingon=.true.
 
      ! initialize penalization field to zero
-     ust1=0.d0
-     ust2=0.d0
-     ust3=0.d0
-     
-     do while(keeponkeepingon) ! Solve for ust
+     usx=0.d0
+     usy=0.d0
+     usz=0.d0
 
-        ! Compute the penalization term
-        call setpen(p1,p2,p3)
-        ! Transform the penalization term to Fourier space:
-        call fft(pk1,p1)
-        call fft(pk2,p2)
-        call fft(pk3,p3)
-        call dealias(pk1,pk2,pk3)
+     olddiff=0.d0
 
-        ! compute the gradient and time-step
-        do iz=ca(1),cb(1)
-           kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-           do ix=ca(2),cb(2)
-              kx=scalex*dble(ix)
-              do iy=ca(3),cb(3)
-                 ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-                 
-                 ux=ust1(iz,ix,iy)
-                 uy=ust2(iz,ix,iy)
-                 uz=ust3(iz,ix,iy)
-
-                 k2=kx*kx +ky*ky +kz*kz
-
-                 pkx=pk1(iz,ix,iy)
-                 pky=pk2(iz,ix,iy)
-                 pkz=pk3(iz,ix,iy)
-
-                 ust1(iz,ix,iy)=ux +mydt*(-k2*ux +pkx/peps)
-                 ust2(iz,ix,iy)=uy +mydt*(-k2*uy +pky/peps)
-                 ust3(iz,ix,iy)=uz +mydt*(-k2*uz +pkz/peps)
-              enddo
-           enddo
-        enddo
-
-        call dealias(ust1,ust2,ust3)
-
-        ! project onto the solenoidal manifold
-        call div_field_nul(ust1,ust2,ust3)
+     do while(keeponkeepingon) ! Solve for us
 
         myi=myi+1
+        
+        ! compute source for first stage:
+        call pseudosource(usx,usy,usz,uskx,usky,uskz,s1x,s1y,s1z)
+        ! perform the first stage
+        tusx = usx +0.5d0*pseudodt*s1x
+        tusy = usy +0.5d0*pseudodt*s1y
+        tusz = usz +0.5d0*pseudodt*s1z
+                
+        ! compute source for second stage:
+        call pseudosource(tusx,tusy,tusz,uskx,usky,uskz,s2x,s2y,s2z)
+        ! perform the second stage
+        usx = usx +pseudodt*(s2x)
+        usy = usy +pseudodt*(s2y)
+        usz = usz +pseudodt*(s2z)
 
-        ! transform ust to physical space
-        call ifft(p1,ust1)
-        call ifft(p2,ust2)
-        call ifft(p3,ust3)
-        ! check how close the field is to obeying the boundary conditions
-        call checkbc(diff,p1,p2,p3)
-        call MPI_REDUCE(diff,diff0,&
-             1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
-             MPI_COMM_WORLD,mpicode)
-
+        ! Project onto the solenoidal manifold
+        call fft(uskx,usx)
+        call fft(usky,usy)
+        call fft(uskz,usz)
+        call div_field_nul(uskx,usky,uskz)
+        call ifft(usx,uskx)
+        call ifft(usy,usky)
+        call ifft(usz,uskz)
+        
         ! output a sample bc point and what it should reach:
         ! ix=8
         ! iy=39
         ! x=xl*(dble(ix)/dble(nx) -0.5d0)
         ! y=yl*(dble(iy)/dble(ny) -0.5d0)
         ! call bcval(bcx,bcy,x,y)
-        ! write(*,*)p1(ix,iy,0),bcx
+        ! write(*,*)usx(ix,iy,0),bcx
+
+        ! compute time-stepper error for adaptive method:
+        call maxdist(s1x,s1y,s1z,s2x,s2y,s2z,diff)
+        call MPI_REDUCE(diff,diff0,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+             MPI_COMM_WORLD,mpicode)
+        if (mpirank == 0) then
+           diff0=diff0*pseudodt
+           write(*,*) "time-step error=",diff0
+           if(diff0 > 5d-4) pseudodt=0.7d0*pseudodt ! time-step too large
+           if(diff0 < 3d-4) pseudodt=1.4d0*pseudodt ! step too small
+           write(*,*) "pseudodt=",pseudodt
+         endif
+         call MPI_BCAST(pseudodt,1,MPI_DOUBLE_PRECISION,0,&
+              MPI_COMM_WORLD,mpicode)
+
+        ! check how close the field is to obeying the boundary conditions
+        call checkbc(diff,usx,usy,usz)
+        call MPI_REDUCE(diff,diff0,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+             MPI_COMM_WORLD,mpicode)
 
         if (mpirank == 0) then
            write(*,*) "error=",diff0
            ! Loop exit conditions:
+           if(olddiff < diff0) then
+              ! if we are not converging, reduce the time-step
+              !pseudodt=0.7d0*pseudodt
+              !write(*,*) "pseudodt=",pseudodt
+           endif
+
            if(myi > 10 .and. diff0 < dsqrt(eps)) then
               write(*,*) "finished: ",diff0," < dsqrt(",peps,")=",dsqrt(eps)
               keeponkeepingon= .false.
@@ -626,6 +763,7 @@ subroutine smcnum_us_mhd(ub)
               call abort
            endif
         endif
+        call MPI_BCAST(pseudodt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
      enddo ! keep on keeping on?
 
      ! copy ust to appropriate field for time-stepping. (us 4 and us 5)
@@ -638,9 +776,7 @@ subroutine smcnum_us_mhd(ub)
         enddo
      enddo
      
-     deallocate(p1,p2,p3)
-     deallocate(pk1,pk2,pk3)
-     deallocate(ust1,ust2,ust3)
+     ! FIXME: deallocate temporary buffers
      
      if (mpirank == 0) write(*,*) "Testing: aborted. (FIXME!)"
      call exit
