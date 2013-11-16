@@ -222,49 +222,55 @@ subroutine smc_us_mhd(ub)
   real (kind=pr) :: r,x,y
   integer :: ix,iy,iz
   real (kind=pr) :: a,b,c,d,k1,k2,h
+  logical, save :: firstcall = .true. 
   
-  ! Velocity is no-slip:
-  us(:,:,:,1)=0.d0
-  us(:,:,:,2)=0.d0
-  us(:,:,:,3)=0.d0
+  if (firstcall) then
+     firstcall = .false.
+     
+     ! Velocity is no-slip:
+     us(:,:,:,1)=0.d0
+     us(:,:,:,2)=0.d0
+     us(:,:,:,3)=0.d0
 
-  us(:,:,:,4)=0.d0
-  us(:,:,:,5)=0.d0
-  us(:,:,:,6)=B0
+     us(:,:,:,4)=0.d0
+     us(:,:,:,5)=0.d0
+     us(:,:,:,6)=B0
 
-  k1=Bc*r2/r1
-  k2=Bc/r1
-  A=(2.d0*k1 -k2*(r2-r3))/(r3*r3*r3 -3.d0*r2*r3*r3 +3.d0*r2*r2*r3 -r2*r2*r2)
-  B=(k2 -3.d0*A*(r2*r2 -r3*r3))/(2.d0*r2 -2.d0*r3)
-  C=-3.d0*A*r3*r3 -2.d0*B*r3
-  D=2.d0*A*r3*r3*r3 +B*r3*r3
+     k1=Bc*r2/r1
+     k2=Bc/r1
+     A=(2.d0*k1 -k2*(r2-r3))/(r3*r3*r3 -3.d0*r2*r3*r3 +3.d0*r2*r2*r3 -r2*r2*r2)
+     B=(k2 -3.d0*A*(r2*r2 -r3*r3))/(2.d0*r2 -2.d0*r3)
+     C=-3.d0*A*r3*r3 -2.d0*B*r3
+     D=2.d0*A*r3*r3*r3 +B*r3*r3
 
-  do ix=ra(1),rb(1)
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy=ra(2),rb(2)
-        y=yl*(dble(iy)/dble(ny) -0.5d0)
+     do ix=ra(1),rb(1)
+        x=xl*(dble(ix)/dble(nx) -0.5d0)
+        do iy=ra(2),rb(2)
+           y=yl*(dble(iy)/dble(ny) -0.5d0)
 
-        r=dsqrt(x*x +y*y)
-        
-        ! Linear profile:
-        if(r >= r1 .and. r < r2) then
-           do iz=ra(3),rb(3)
-              us(ix,iy,iz,4)=-Bc*y/r1
-              us(ix,iy,iz,5)=Bc*x/r1
-           enddo
-        endif
-        
-        ! Hermite profile:
-        if(r >= r2 .and. r <= r3) then
-           h=(A*r*r*r +B*r*r +C*r +D)
-           do iz=ra(3),rb(3)
-              us(ix,iy,iz,4)=-h*y/r
-              us(ix,iy,iz,5)=h*x/r
-           enddo
-        endif
-        
+           r=dsqrt(x*x +y*y)
+
+           ! Linear profile:
+           if(r >= r1 .and. r < r2) then
+              do iz=ra(3),rb(3)
+                 us(ix,iy,iz,4)=-Bc*y/r1
+                 us(ix,iy,iz,5)=Bc*x/r1
+              enddo
+           endif
+
+           ! Hermite profile:
+           if(r >= r2 .and. r <= r3) then
+              h=(A*r*r*r +B*r*r +C*r +D)
+              do iz=ra(3),rb(3)
+                 us(ix,iy,iz,4)=-h*y/r
+                 us(ix,iy,iz,5)=h*x/r
+              enddo
+           endif
+
+        enddo
      enddo
-  enddo
+
+  endif ! only performed on first call.
 end subroutine smc_us_mhd
 
 
@@ -561,6 +567,7 @@ end subroutine pseudosource
 
 ! Compute the Euclideian distance between points (ax,ay,az) and
 ! (bx,by,bz)
+! FIXME: put this in some other "header" file for general use?
 subroutine dist(ax,ay,az,bx,by,bz,d)
   use vars
   implicit none
@@ -578,6 +585,7 @@ end subroutine dist
 
 ! Compute l-infinity distance between the real-valued arrays
 ! (ax,ay,az) and (bx,by,bz)
+! FIXME: put this in some other "header" file for general use?
 subroutine maxdist(ax,ay,az,bx,by,bz,d)
   use vars
   implicit none
@@ -618,7 +626,7 @@ subroutine smcnum_us_mhd(ub)
   integer :: ix,iy,iz
   integer :: i,myi,mpicode
 
-  logical, save :: FirstCall = .true. 
+  logical, save :: firstcall = .true. 
   ! the penalisation field
   real(kind=pr),dimension(:,:,:),allocatable :: usx, usy, usz
   ! for the 2-stage time-stepper
@@ -640,8 +648,8 @@ subroutine smcnum_us_mhd(ub)
   real (kind=pr) :: newdt
   logical keeponkeepingon
 
-  if (FirstCall) then
-     FirstCall = .false.
+  if (firstcall) then
+     firstcall = .false.
 
      ! pseudo time-stepping parameters
      peps=pseudoeps
@@ -775,20 +783,25 @@ subroutine smcnum_us_mhd(ub)
            enddo
         enddo
      enddo
+
+     ! Velocity is no-slip:
+     us(:,:,:,1)=0.d0
+     us(:,:,:,2)=0.d0
+     us(:,:,:,3)=0.d0
+
+     ! the z-component of the magnetic field is penalized to B0
+     us(:,:,:,6)=B0 
      
-     ! FIXME: deallocate temporary buffers
-     
+     ! Deallocate temporary buffers
+     deallocate(usx,usy,usz)
+     deallocate(tusx,tusy,tusz)
+     deallocate(s1x,s1y,s1z)
+     deallocate(s2x,s2y,s2z)
+     deallocate(uskx,usky,uskz)
+
      if (mpirank == 0) write(*,*) "Testing: aborted. (FIXME!)"
      call exit
 
   end if
-  
-  ! Velocity is no-slip:
-  us(:,:,:,1)=0.d0
-  us(:,:,:,2)=0.d0
-  us(:,:,:,3)=0.d0
-
-  ! the z-component of the magnetic field is penalized to B0
-  us(:,:,:,6)=B0 
   
 end subroutine smcnum_us_mhd

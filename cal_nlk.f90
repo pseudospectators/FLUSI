@@ -290,7 +290,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   enddo
 
   ! Compute us, the imposed penalty field:
-  call update_us(ub) ! TODO: only update when necessary
+  call update_us(ub)
 
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.

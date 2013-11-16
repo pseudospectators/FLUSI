@@ -26,12 +26,12 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
      call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   case("AB2")
      if(it == 0) then
-        call Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
+        call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
      else
-        call AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
+        call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
      end if
   case("Euler")
-     call Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+     call euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   case default
      if (mpirank == 0) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
      stop
@@ -45,7 +45,7 @@ end subroutine FluidTimestep
 
 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use mpi_header
   use fsi_vars
   implicit none
@@ -102,13 +102,13 @@ subroutine RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   do i=1,nd
      uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
   enddo
-end subroutine RungeKutta2
+end subroutine rungekutta2
 
 
 ! This is standard Euler-explicit time marching. It does not serve as
 ! startup scheme for AB2.
 ! FIXME: add documentation: which arguments are used for what?
-subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use mpi_header
   use fsi_vars
   implicit none
@@ -140,12 +140,12 @@ subroutine Euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
         uk(:,:,:,l)=(uk(:,:,:,l) + dt1*nlk(:,:,:,l,1))*expvis(:,:,:,j)
      enddo
   enddo
-end subroutine Euler
+end subroutine euler
 
 
 ! Note this is not an optimized Euler. It only does things we need for AB2.
 ! FIXME: add documentation: which arguments are used for what?
-subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
+subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
   use mpi_header
   use fsi_vars
   implicit none
@@ -180,11 +180,11 @@ subroutine Euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
   enddo
 
   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
-end subroutine Euler_startup
+end subroutine euler_startup
 
 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
+subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   use mpi_header
   use fsi_vars
   implicit none
@@ -225,7 +225,7 @@ subroutine AdamsBashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
         nlk(:,:,:,a,n0)=nlk(:,:,:,a,n0)*expvis(:,:,:,j)
      enddo
   enddo
-end subroutine AdamsBashforth
+end subroutine adamsbashforth
 
 
 ! Set the time step based on the CFL condition and penalization
