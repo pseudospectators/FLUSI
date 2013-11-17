@@ -774,24 +774,28 @@ subroutine smcnum_us_mhd(ub)
         call MPI_BCAST(pseudodt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
      enddo ! keep on keeping on?
 
-     ! copy ust to appropriate field for time-stepping. (us 4 and us 5)
-     do ix=ra(1),rb(1)  
-        do iy=ra(2),rb(2)
-           do iz=ra(3),rb(3)
-              us(ix,iy,iz,4)=0.d0
-              us(ix,iy,iz,5)=0.d0
-           enddo
-        enddo
-     enddo
+     if (mpirank == 0) write(*,*) "finished!"
 
+     if (mpirank == 0) write(*,*) "setting velocity penalty field...."
      ! Velocity is no-slip:
      us(:,:,:,1)=0.d0
      us(:,:,:,2)=0.d0
      us(:,:,:,3)=0.d0
 
+     if (mpirank == 0) write(*,*) "setting magnetic penalty field...."
+     ! copy ust to appropriate field for time-stepping. (us 4 and us 5)
+     do ix=ra(1),rb(1)  
+        do iy=ra(2),rb(2)
+           do iz=ra(3),rb(3)
+              us(ix,iy,iz,4)=usx(ix,iy,iz)
+              us(ix,iy,iz,5)=usy(ix,iy,iz)
+           enddo
+        enddo
+     enddo
      ! the z-component of the magnetic field is penalized to B0
-     us(:,:,:,6)=B0 
+     us(:,:,:,6)=b0 
      
+     if (mpirank == 0) write(*,*) "deallocating temporary buffers..."
      ! Deallocate temporary buffers
      deallocate(usx,usy,usz)
      deallocate(tusx,tusy,tusz)
@@ -801,7 +805,8 @@ subroutine smcnum_us_mhd(ub)
 
 !     if (mpirank == 0) write(*,*) "Testing: aborted. (FIXME!)"
 !     call exit
+     if (mpirank == 0) write(*,*) "Finished setting penalty fields."
 
-  end if
+  end if ! if(firstcall)
   
 end subroutine smcnum_us_mhd

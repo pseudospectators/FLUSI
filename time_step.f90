@@ -39,19 +39,25 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   dt1=2.0d0
      
   ! Initialize vorticity or read values from a backup file
+  if (mpirank == 0) write(*,*) "Set up initial conditions...."
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
   n0=1 - n1 !important to do this now in case we're retaking a backp
   it_start=it 
 
 
+  if (mpirank == 0) write(*,*) "Create mask variables...."
   ! Create mask function:
   call create_mask(time)
   call update_us(u)
 
+  
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup
+  if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
+
+  if (mpirank == 0) write(*,*) "Start time-stepping...."
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
