@@ -799,8 +799,8 @@ subroutine smcnum_us_mhd(ub)
      deallocate(s2x,s2y,s2z)
      deallocate(uskx,usky,uskz)
 
-     if (mpirank == 0) write(*,*) "Testing: aborted. (FIXME!)"
-     call exit
+!     if (mpirank == 0) write(*,*) "Testing: aborted. (FIXME!)"
+!     call exit
 
   end if
   
