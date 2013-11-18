@@ -192,6 +192,7 @@ module mhd_vars
   ! Physical parameters
   real(kind=pr),save :: eta ! magnetic diffusivity
   real(kind=pr),save :: b0, bc ! Boundary condition parameters
+  real(kind=pr),save :: ay ! x*x + ay*y*y -r1*r1 == 0 ?in boundary conditions
 
   ! Determine whether we save various fields
   integer,save :: iSaveMagneticField,iSaveCurrent

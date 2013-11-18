@@ -16,7 +16,7 @@ subroutine create_mask_mhd()
      case("smcflat")
         call smc_mask_mhd()
      case("smcnum")
-        call smc_mask_mhd()
+        call smcnum_mask_mhd()
      case default
         if(mpirank == 0) then
            write (*,*) &
@@ -185,7 +185,6 @@ end subroutine tc_mask_mhd
 
 ! Set the mask function for Sean-Montgomery-Chen flow.
 subroutine smc_mask_mhd()
-  use mpi_header
   use mhd_vars
   implicit none
   
@@ -199,7 +198,7 @@ subroutine smc_mask_mhd()
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
 
-        r=dsqrt(x*x +y*y)
+        r=dsqrt(x*x +ay*y*y)
 
         if(r >= R1) then
            do iz=ra(3),rb(3)
@@ -210,6 +209,35 @@ subroutine smc_mask_mhd()
      enddo
   enddo
 end subroutine smc_mask_mhd
+
+
+! Set the mask function for Sean-Montgomery-Chen flow.
+subroutine smcnum_mask_mhd()
+  use mhd_vars
+  implicit none
+  
+  real (kind=pr) :: r, x, y
+  integer :: ix, iy, iz
+
+  mask=0.d0
+
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+        r=dsqrt(x*x +ay*y*y)
+
+        if(r >= R1) then
+           do iz=ra(3),rb(3)
+              mask(ix,iy,iz)=1.d0
+           enddo
+        endif
+
+     enddo
+  enddo
+end subroutine smcnum_mask_mhd
+
 
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
@@ -395,7 +423,7 @@ subroutine bcpoint(on,x,y)
   endif
 
   on=.false.
-  if(abs(x*x + y*y -r1*r1) < f*dx*dy) on=.true.
+  if(abs(x*x + ay*y*y -r1*r1) < f*dx*dy) on=.true.
 end subroutine bcpoint
 
 subroutine bcval(bcx,bcy,x,y)
@@ -404,9 +432,12 @@ subroutine bcval(bcx,bcy,x,y)
   implicit none
   real(kind=pr), intent(out) :: bcx,bcy
   real(kind=pr), intent(in) :: x,y
-  
-  bcx=Bc*y/r1
-  bcy=-Bc*x/r1
+  real(kind=pr) n
+
+  n=dsqrt(ay*ay*y*y+x*x)
+
+  bcx=Bc*ay*y/n
+  bcy=-Bc*x/n
 end subroutine bcval
 
 subroutine setpen(p1,p2,p3)
@@ -462,18 +493,22 @@ subroutine checkbc(diff,us1,us2,us3)
   real(kind=pr),intent(out) :: diff
 
   diff=0.d0
+!  write(*,*) -0.5d0*xl,-0.5d0*yl
+!  write(*,*) 0.5d0*xl,0.5d0*yl
   
-  do ix=ra(1),rb(1)  
+  do ix=ra(1),rb(1)
      x=xl*(dble(ix)/dble(nx) -0.5d0)
+
+
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
         
         call bcpoint(onboundary,x,y)
-        if(onboundary) then 
+        if(onboundary) then
            call bcval(bcx,bcy,x,y)
 
            ! Un-comment to output points to check bcpoint validity.
-           !write(*,*) x,y 
+           !write(*,*) x,y,bcx,bcy
 
            do iz=ra(3),rb(3)
 
@@ -489,7 +524,7 @@ subroutine checkbc(diff,us1,us2,us3)
         endif
      enddo
   enddo
-!  call abort ! Un-comment to stop after outputting points
+  !call abort ! Un-comment to stop after outputting points
 end subroutine checkbc
 
 ! Compute the source for the pseudotime-stepper in physical space,
