@@ -738,8 +738,6 @@ subroutine smcnum_us_mhd(ub)
            if(diff0 > pseudoerrmax) pseudodt=0.7d0*pseudodt ! step too large
            write(*,*) "pseudodt=",pseudodt
          endif
-         call MPI_BCAST(pseudodt,1,MPI_DOUBLE_PRECISION,0,&
-              MPI_COMM_WORLD,mpicode)
 
         ! check how close the field is to obeying the boundary conditions
         call checkbc(diff,usx,usy,usz)
@@ -772,6 +770,7 @@ subroutine smcnum_us_mhd(ub)
            endif
         endif
         call MPI_BCAST(pseudodt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+        call MPI_BCAST(keeponkeepingon,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpicode)
      enddo ! keep on keeping on?
 
      if (mpirank == 0) write(*,*) "finished!"
