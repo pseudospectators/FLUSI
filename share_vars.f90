@@ -84,7 +84,7 @@ module vars
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
   character(len=80) :: iSmoothing ! how to smooth the mask
-  real(kind=pr),save :: pseudoeps, pseudodt
+  real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
 
   contains 
 

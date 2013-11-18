@@ -734,8 +734,8 @@ subroutine smcnum_us_mhd(ub)
         if (mpirank == 0) then
            diff0=diff0*pseudodt
            write(*,*) "time-step error=",diff0
-           if(diff0 > 5d-4) pseudodt=0.7d0*pseudodt ! time-step too large
-           if(diff0 < 3d-4) pseudodt=1.4d0*pseudodt ! step too small
+           if(diff0 < pseudoerrmin) pseudodt=1.4d0*pseudodt ! step too small
+           if(diff0 > pseudoerrmax) pseudodt=0.7d0*pseudodt ! step too large
            write(*,*) "pseudodt=",pseudodt
          endif
          call MPI_BCAST(pseudodt,1,MPI_DOUBLE_PRECISION,0,&
