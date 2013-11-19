@@ -59,6 +59,17 @@ subroutine Draw_Insect ( time )
   call FlappingMotion_right(time, phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r )
   call FlappingMotion_left (time, phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l )  
   call StrokePlane (time, eta_stroke)
+
+  !-------------------------------------------------------
+  ! write kinematics to disk (Dmitry, 28 Oct 2013)
+  !-------------------------------------------------------     
+!  if(mpirank == 0) then
+!    open(17,file='kinematics.t',status='unknown',position='append')
+!    write (17,'(14(e12.5,1x))') time, xc_body, psi, beta, gamma, eta_stroke, &
+!    alpha_l, phi_l, theta_l, alpha_r, phi_r, theta_r
+!    close(17)
+!  endif
+
   !-------------------------------
   ! define the rotation matrices to change between coordinate systems
   !-------------------------------
@@ -73,23 +84,23 @@ subroutine Draw_Insect ( time )
   call Rx(M1,pi)
   call Ry(M2,eta_stroke)  
   M_stroke_r = matmul(M1,M2)
-  
+
   call Ry(M1,alpha_l)
-  call Rx(M2,phi_l)
-  call Rz(M3,theta_l)  
+  call Rz(M2,theta_l)   ! Order changed (Dmitry, 7 Nov 2013)
+  call Rx(M3,phi_l)
   M_wing_l = matmul(M1,matmul(M2,matmul(M3,M_stroke_l)))
 
   ! note the coordinate system is rotated so we don't need to inverse the sign
   ! of theta, and the wings still rotate in opposite direction
   call Ry(M1,-alpha_r)
-  call Rx(M2,-phi_r)
-  call Rz(M3,theta_r)  
+  call Rz(M2,theta_r)   ! Order changed (Dmitry, 7 Nov 2013) 
+  call Rx(M3,-phi_r)
   M_wing_r = matmul(M1,matmul(M2,matmul(M3,M_stroke_r)))
-  
+
   !------------------------------------
   ! angular velocity vectors
   !------------------------------------
-  rot_l = (/ phi_dt_l, alpha_dt_l, theta_dt_l /)
+  rot_l = (/ phi_dt_l, alpha_dt_l, theta_dt_l /) ! in the wing reference frame
   rot_r = (/-phi_dt_r,-alpha_dt_r, theta_dt_r /) ! no need to inverse theta_dt sign
   rot_body = (/psi_dt, beta_dt, gamma_dt /)
 
@@ -241,7 +252,8 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   ! in this case, we have given the wing shape as a function R(theta) which is 
   ! given by some Fourier coefficients
   !*****************************************************************************
-  case ('drosophila','drosophila_mutated','drosophila_sandberg')
+  case ('drosophila','drosophila_mutated','drosophila_sandberg',&
+        'drosophila_maeda','flapper_sane')
     ! first, check if the point lies inside the rectanglee L_span x L_span
     ! here we assume that the chordlength is NOT greater than the span
     if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
@@ -338,6 +350,63 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
         /)
         xc =-0.0235498  
         yc = 0.1531398 
+      elseif (Insect%WingShape == 'drosophila_maeda') then
+        !********************************************
+        !  Drosophila wing from Maeda and Liu, similar to Liu and Aono, BB2009
+        !********************************************        
+        n_fft = 25
+        allocate ( ai(1:n_fft), bi(1:n_fft) )
+        a0 = 0.591294836514357
+        ai = (/0.11389995408864588, -0.08814321795213981, -0.03495210456149335,&
+        0.024972085605453047, 0.009422293191002384, -0.01680813499169695,&
+        -0.006006435254421029, 0.012157932943676907, 0.00492283934032996,&
+        -0.009882103857127606, -0.005421102356676356, 0.007230876076797827,&
+        0.005272314598249222, -0.004519437431722127, -0.004658072133773225,&
+        0.0030795046767766853, 0.003970792618725898, -0.0016315879319092456,&
+        -0.002415442110272326, 0.0011118187761994598, 0.001811261693911865,&
+        -2.6496695842951815E-4, -0.0012472769174353662, -1.7427507835680091E-4,&
+        0.0010049640224536927/)
+        bi = (/0.0961275426181888, 0.049085916171592914, -0.022051083533094627,&
+        -0.014004783021121204, 0.012955446778711292, 0.006539648525493488,&
+        -0.011873438993933363, -0.00691719567010525, 0.008479044683798266,&
+        0.0045388280405204194, -0.008252172088956379, -0.005091347100627815,&
+        0.004626409662755484, 0.004445034936616318, -0.0030708884306814804,&
+        -0.004428808427471962, 0.0014113707529017868, 0.003061279043478891,&
+        -8.658653756413232E-4, -0.002153349816945423, 3.317570161883452E-4,&
+        0.001573518502682025, 2.14583094242007E-4, -0.0011299834277813852,&
+        -5.172854674801216E-4/)
+        !xc = 0.0 ! original mesh 
+        xc = 0.0473 ! shifted towards t.e. to 1/4 of the root chord ("+" sign here)
+        !xc = -0.0728 ! shifted towards l.e., to 0.2cmean from the l.e. (Liu and Aono BB 2009)
+        yc = 0.7
+      elseif (Insect%WingShape == 'flapper_sane') then
+        !********************************************
+        !  Mechanical model from Sane and Dickinson, JEB 205, 2002 
+        !  'The aerodynamic effects...'
+        !********************************************        
+        n_fft = 25
+        allocate ( ai(1:n_fft), bi(1:n_fft) )
+        a0 = 0.5379588906565078
+        ai = (/0.135338653455782,-0.06793162622123261,-0.0398235167675977,&
+        0.006442194893963269,0.0012783260416583853,-0.007014398516674715,&
+        0.0017710765408983137,0.006401601802033519,-2.970619204124993E-4,&
+        -0.0038483478773981405,-6.180958756568494E-4,8.015784831786756E-4,&
+        -6.957513357109226E-4,-1.4028929172227943E-4,0.0013484885717868547,&
+        4.827827498543977E-4,-9.747844462919694E-4,-5.838504331939134E-4,&
+        2.72834004831554E-4,2.8152492682871664E-5,-1.2802199282558645E-4,&
+        4.117887216124469E-4,3.364169982438278E-4,-3.33258003686823E-4,&
+        -3.5615733035757616E-4/)
+        bi = (/2.686408368800394E-4,0.01649582345310688,0.01288513083639708,&
+        0.004711436946785864,-0.0035725088809005073,-0.00898640397179334,&
+        -0.003856509905612652,0.004536524572892801,0.004849677692836578,&
+        2.9194421255236984E-4,-7.512780802871473E-4,7.12685261783966E-4,&
+        -1.5519932673320404E-4,-0.0012695469974603026,2.2861692091158138E-4,&
+        0.0016461316319681953,5.257476721137781E-4,-7.686482830046961E-4,&
+        -3.108879176661735E-4,2.2437540206568518E-4,-2.578427217327782E-4,&
+        -2.5120263516966855E-4,4.1693453021778877E-4,3.9290173948150096E-4,&
+        -1.9762601237675826E-4/)
+        xc = 0.0  
+        yc = 0.6
       endif
       
       !-----------------------------------------
@@ -562,6 +631,7 @@ end subroutine
 subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   use fsi_vars
   use mpi_header
+  use share_kine 
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -591,18 +661,57 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     beta_dt  = 0.0
     gamma_dt = 2.d0*pi/T  
     
-    xc = (/R*cos(1.5*pi+gamma)+0.5*xl, R*sin(1.5*pi+gamma)+0.5*yl, 0.5*zl/)
-    vc = (/-R*sin(1.5*pi+gamma)*gamma_dt, R*cos(1.5*pi+gamma)*gamma_dt,0.d0/)
+    xc = (/R*dcos(1.5d0*pi+gamma)+0.5d0*xl, R*dsin(1.5d0*pi+gamma)+0.5d0*yl, 0.5d0*zl/)
+    vc = (/-R*dsin(1.5d0*pi+gamma)*gamma_dt, R*dcos(1.5d0*pi+gamma)*gamma_dt,0.d0/)
+
   case ("hovering")
     psi      = 0.0
-    beta     = deg2rad(-55.d0)
+!    beta     = deg2rad(-55.d0)
+    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
     gamma    = deg2rad(45.d0)
     psi_dt   = 0.0
     beta_dt  = 0.0
     gamma_dt = 0.0  
 
-    xc = (/0.5*xl, 0.5*yl, zl-sponge_thickness*dz-Insect%distance_from_sponge/)
-    vc = (/0.0, 0.0, 0.0/)    
+!    xc = (/0.5*xl, 0.5*yl, 0.5*zl/)  ! Dmitry, 26 Oct 2013
+!    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)  ! Dmitry, 30 Oct 2013 -one wing length from top
+    xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
+!    xc = (/0.5d0*xl, 0.5d0*yl, 0.8d0/)  ! Dmitry, 28 Oct 2013  - ground dist+0.3
+    vc = (/0.0d0, 0.0d0, 0.0d0/)    
+
+  case ("flapper")  ! Comparison with Dickinson et al. (Dmitry, 19 Nov 2013)
+    psi      = 0.0
+    beta     = deg2rad(-90.d0)
+    gamma    = deg2rad(45.d0)
+    psi_dt   = 0.0
+    beta_dt  = 0.0
+    gamma_dt = 0.0  
+
+    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)  
+    vc = (/0.0d0, 0.0d0, 0.0d0/)    
+
+  case ("takeoff")  ! Takeoff kinematics read from file (Dmitry, 14 Nov 2013)
+    if (Insect%KineFromFile=="yes") then
+      call body_kine_interp(time,beta,xc(3),xc(1),beta_dt,vc(3),vc(1))
+      ! x coordinate
+      xc(1) = xc(1)+ 2.0d0 !0.5d0*xl
+      ! y coordinate
+      xc(2) = 0.5d0*yl
+      vc(2) = 0.0d0
+      ! vertical position corrected
+      xc(3) = xc(3) + 0.3 + 0.6 !(ground+legs)
+      ! convert pitch angle to flusi conventions
+      beta = -beta
+      beta = deg2rad(beta)
+      beta_dt = -beta_dt
+      beta_dt = deg2rad(beta_dt)
+      ! zero heading and yaw
+      psi = 0.0d0
+      psi_dt = 0.0d0
+      gamma = 0.0d0
+      gamma_dt = 0.0d0
+    endif
+
   case default
     if (mpirank==0) then
     write (*,*) "insects.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
@@ -649,7 +758,16 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr) :: phi_max,alpha_max, phase,f
   real(kind=pr) :: ai_phi(1:10), bi_phi(1:10), ai_theta(1:10), bi_theta(1:10)
   real(kind=pr) :: ai_alpha(1:10), bi_alpha(1:10)
+  real(kind=pr) :: bi_alpha_flapper(1:29) ! For comparison with Sane&Dickinson
+  real(kind=pr) :: ai_phi_flapper(1:31) ! For comparison with Sane&Dickinson
+  real(kind=pr) :: tadv ! For comparison with Dickinson
+  real(kind=pr) :: posi,elev,feth,posi_dt,elev_dt,feth_dt,angles ! Comp. w. Maeda
+  real(kind=pr) :: dangle_posi,dangle_elev,dangle_feth ! Comp. w. Maeda
+  real(kind=pr) :: dangle_posi_dt,dangle_elev_dt,dangle_feth_dt ! Comp. w. Maeda
+  real(kind=pr) :: a_posi(1:4),b_posi(1:4),a_elev(1:4),b_elev(1:4),a_feth(1:4),b_feth(1:4)
   real(kind=pr) :: a0_alpha, a0_phi, a0_theta, s,c
+  real(kind=pr) :: tau, phia, la, ta, dtt, t1, phic, phicdeg, ua
+  real(kind=pr) :: alphac, alphacdeg, dtr, tr0
   integer :: i
   
   select case ( protocoll )
@@ -661,7 +779,7 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     !---------------------------------------------------------------------------
     a0_phi   =25.4649398
     a0_alpha =-0.3056968
-    a0_theta =17.8244658
+    a0_theta =-17.8244658  ! - sign (Dmitry, 10 Nov 2013)
     ai_phi   =(/71.1061858,2.1685448,-0.1986978,0.6095268,-0.0311298,&
                -0.1255648,-0.0867778,0.0543518,0.0,0.0/)
     bi_phi   =(/5.4547058,-3.5461688,0.6260698,0.1573728,-0.0360498,-0.0205348,&
@@ -670,10 +788,10 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
                -1.4473158,0.6141758,-0.3071608,0.1458498,0.0848308/)
     bi_alpha =(/67.5430838,0.6566888,9.9226018,3.9183988,-2.6882828,0.6433518,&
                 -0.8792398,-0.4817838,0.0300078,-0.1015118/)
-    ai_theta =(/3.9750378,8.2808998,-0.0611208,-0.3906598,0.4488778,-0.120087,&
-               -0.0717048,0.0699578,0.0,0.0/)
-    bi_theta =(/2.2839398,3.5213068,-1.9296668,1.0832488,0.3011748,-0.1786648,&
-                0.1228608,-0.0004808,0.0,0.0/)
+    ai_theta =(/-3.9750378,-8.2808998,0.0611208,0.3906598,-0.4488778,0.120087,&
+               0.0717048,-0.0699578,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
+    bi_theta =(/-2.2839398,-3.5213068,1.9296668,-1.0832488,-0.3011748,0.1786648,&
+               -0.1228608,0.0004808,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
     
     ! mean values
     phi = a0_phi/2.0
@@ -702,25 +820,339 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
       alpha_dt = alpha_dt + f*dble(i)*(-ai_alpha(i) * s + bi_alpha(i) * c)
     enddo
     
-    if(mpirank == 0) then
-    open(14,file='motion.t',status='unknown',position='append')
-    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-    close(14)
-    endif
-    
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
-    theta = -deg2rad(theta)
+    theta = deg2rad(theta)
     
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
-    theta_dt = -deg2rad(theta_dt)
+    theta_dt = deg2rad(theta_dt)
+
+!    if(mpirank == 0) then
+!    open(14,file='motion.t',status='unknown',position='append')
+!    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+!    close(14)
+!    endif
+
+  case ("Drosophila_hovering_maeda")
+    !---------------------------------------------------------------------------
+    ! Drosophila hovering kinematics protocol 
+    !
+    ! Fourier coefficients provided by Maeda
+    ! Diditized from Fry et al.
+    !---------------------------------------------------------------------------
+    a_posi = (/  0.22700d0,  1.24020d0,  0.03610d0, -0.00360d0/)
+    b_posi = (/  0.00000d0,  0.08880d0, -0.07000d0,  0.01250d0/)
+    a_elev = (/  0.16125d0,  0.06750d0,  0.14500d0,  0.00540d0/)
+    b_elev = (/  0.00000d0,  0.03670d0,  0.06840d0, -0.03390d0/)
+    a_feth = (/ -0.00864d0, -0.04890d0, -0.02056d0,  0.19649d0/)
+    b_feth = (/  0.00000d0, -1.17586d0, -0.01216d0, -0.17590d0/)
+
+    ! Initialize angles and velocities
+    posi = 0.0d0
+    elev = 0.0d0
+    feth = 0.0d0
+    posi_dt = 0.0d0
+    elev_dt = 0.0d0
+    feth_dt = 0.0d0
+
+    do i=0,3 !! Fourier series
+      !! time dependent angle
+      angles  = 2.0d0*dble(i)*pi*time
+
+      selectcase( i )
+      case( 0 ) ! Fourier 0th order
+        ! mean
+        dangle_posi = a_posi(1) ! +shift_mean_posi_
+        dangle_elev = a_elev(1) ! +shift_mean_elev_
+        dangle_feth = a_feth(1) ! +shift_mean_feth_
+
+        dangle_posi_dt = 0.0d0
+        dangle_elev_dt = 0.0d0
+        dangle_feth_dt = 0.0d0
+  
+      case default !! Fourier n-th orders
+  
+        call get_dangle( &
+            & angles, &                !! intent(in)
+            & i, &                     !! intent(in)
+            & a_posi(i+1), & !! intent(in)
+            & b_posi(i+1), & !! intent(in)
+            & 0.0d0, &                 !! intent(in)
+            & 0.0d0, &                 !! intent(in)
+            & dangle_posi, &      !! intent(out)
+            & dangle_posi_dt &   !! intent(out)
+        & )
+  
+        call get_dangle( &
+            & angles, &                !! intent(in
+            & i, &                     !! intent(in)
+            & a_elev(i+1), & !! intent(in)
+            & b_elev(i+1), & !! intent(in)
+            & 0.0d0, &                 !! intent(in)
+            & 0.0d0, &                 !! intent(in)
+            & dangle_elev, &      !! intent(out)
+            & dangle_elev_dt &   !! intent(out)
+        & )
+  
+        call get_dangle( &
+            & angles, &                !! intent(in
+            & i, &                     !! intent(in)
+            & a_feth(i+1), & !! intent(in)
+            & b_feth(i+1), & !! intent(in)
+            & 0.0d0, &                 !! intent(in)
+            & 0.0d0, &                 !! intent(in)
+            & dangle_feth, &      !! intent(out)
+            & dangle_feth_dt &   !! intent(out)
+        & )
+  
+      endselect
+  
+      posi = posi +dangle_posi
+      elev = elev +dangle_elev
+      feth = feth +dangle_feth
+
+      posi_dt = posi_dt +dangle_posi_dt
+      elev_dt = elev_dt +dangle_elev_dt
+      feth_dt = feth_dt +dangle_feth_dt
+    enddo
+ 
+    ! Convert to FLUSI's variables
+    phi = posi
+    alpha = -feth
+    theta = -elev
     
+    phi_dt = posi_dt
+    alpha_dt = -feth_dt
+    theta_dt = -elev_dt
+    
+!    if(mpirank == 0) then
+!    open(14,file='motion.t',status='unknown',position='append')
+!    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+!    close(14)
+!    endif
+    
+  case ("flapper_sane")
+    !---------------------------------------------------------------------------
+    ! motion protocol from Sane and Dickinson, JEB 204, 2607-2626 (2001)
+    !
+    ! feathering: fourier coefficients analyzed with matlab, 2nd order
+    !             Butterworth filter with cutoff at k=10
+    ! positional: similar to above
+    ! elevation:  zero
+    !
+    ! Dmitry, 2 Nov 2013
+    !---------------------------------------------------------------------------
+
+    ! *** I. feathering motion ***
+    ! Corresponds to Fig. 3D in JEB 204, p. 2613 
+    ! Note that this is feathering angle measured from the vertical.
+    ! This is NOT angle of attack
+    bi_alpha_flapper =(/48.807554373967804d0,&
+     0.0d0,11.14661083909663d0,0.0d0,2.242734216805251d0,&
+     0.0d0,-0.6141899985692184d0,0.0d0,-0.7426551158681146d0,&
+     0.0d0,-0.2329560587573768d0,0.0d0,0.038749678276091284d0,&
+     0.0d0,0.07083462320831221d0,0.0d0,0.028982501947490313d0,&
+     0.0d0,-0.0025202918494477244d0,0.0d0,-0.010221019942802941d0,&
+     0.0d0,-0.005614021318470698d0,0.0d0,1.1958884364596903d-6,&
+     0.0d0,0.002186832241254999d0,0.0d0,0.0015347995090793172d0/)
+
+    alpha = 0.0
+    alpha_dt = 0.0
+    
+    ! frequency factor
+    f = 2.d0*pi
+    
+    ! Fourier series
+    do i=1,29
+      ! allows the spaces I like with the 80 columns malcolm likes :)
+      s = dsin(f*dble(i)*time) 
+      c = dcos(f*dble(i)*time)
+      alpha = alpha + bi_alpha_flapper(i) * s
+      alpha_dt = alpha_dt + f*dble(i)* bi_alpha_flapper(i) * c
+    enddo
+
+    ! Scale to a given value of max angle in gedrees
+    ! alphacdeg is 90deg MINUS alpha of JEB 204 (eg alphedeg=90-50 for Fig 3D)
+    alphacdeg = 90.0d0 - 00.0d0
+    alpha = alphacdeg/40.0d0 * alpha
+    alpha_dt = alphacdeg/40.0d0 * alpha_dt
+   
+    ! convert in radians 
+    alpha = deg2rad(alpha)
+    alpha_dt = deg2rad(alpha_dt)
+    
+    ! *** II. position ***
+    ai_phi_flapper =(/72.96795908179631d0,&
+     0.0d0,8.064401876272864d0,0.0d0,2.769062401215844d0,&
+     0.0d0,1.2200252377066352d0,0.0d0,0.5584689705779989d0,&
+     0.0d0,0.2545617536476344d0,0.0d0,0.11829515180579572d0,&
+     0.0d0,0.05754453975774996d0,0.0d0,0.02964141751269772d0,&
+     0.0d0,0.016177705089515895d0,0.0d0,0.009315101869467001d0,&
+     0.0d0,0.005625663922446026d0,0.0d0,0.0035424425357352385d0,&
+     0.0d0,0.0023130422432356247d0,0.0d0,0.001558278163264511d0,&
+     0.0d0,0.001078213692334021d0/)
+
+    phi = 0.0
+    phi_dt = 0.0
+    
+    ! frequency factor
+    f = 2.d0*pi
+    
+    ! Fourier series
+    do i=1,31
+      ! allows the spaces I like with the 80 columns malcolm likes :)
+      s = dsin(f*dble(i)*time) 
+      c = dcos(f*dble(i)*time)
+      phi   = phi   + ai_phi_flapper(i) * c
+      phi_dt   = phi_dt   + f*dble(i)*(-ai_phi_flapper(i) * s)
+    enddo
+    
+    ! Scale to a given value of max angle in gedrees
+    ! phicdeg is Phi of JEB 204 (eg twice the max value of triangular wave)
+    phicdeg = 180.0d0
+    phi = phicdeg/180.0d0 * phi
+    phi_dt = phicdeg/180.0d0 * phi_dt
+   
+    ! convert in radians 
+    phi = deg2rad(phi)
+    phi_dt = deg2rad(phi_dt)
+    
+    ! *** III. elevation ***
+    theta = 0.0d0
+    theta_dt = 0.0d0
+
+
+    !if(mpirank == 0) then
+    !open(14,file='motion.t',status='unknown',position='append')
+    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+    !close(14)
+    !endif
+    
+  case ("flapper_dickinson")
+    !---------------------------------------------------------------------------
+    ! motion protocol from Dickinson, Lehmann and Sane, Science (1999)
+    !
+    ! feathering: fourier coefficients analyzed with matlab,
+    !             Gaussian filter that fits fig 3D
+    ! positional: similar to above
+    ! elevation:  zero
+    !
+    ! Dmitry, 5 Nov 2013
+    !---------------------------------------------------------------------------
+
+    ! *** I. feathering motion ***
+    ! Corresponds to Fig. 3D in Science
+    ! Note that this is feathering angle measured from the vertical.
+    ! This is NOT angle of attack
+    bi_alpha_flapper =(/48.23094285611071d0,&
+      0.0d0,10.224154661301371d0,0.0d0,2.1623763046726396d0,&
+      0.0d0,0.05049394424178093d0,0.0d0,-0.17550942623071494d0,&
+      0.0d0,-0.06634193748204852d0,0.0d0,-0.008925020495896451d0,&
+      0.0d0,0.0011292567942149407d0,0.0d0,6.471071566666472d-4,&
+      0.0d0,1.0018757795834964d-4,0.0d0,3.0105550216312524d-6,&
+      0.0d0,-1.237567150768195d-6,0.0d0,-1.988004402010933d-7,&
+      0.0d0,-1.10165545174181d-8,0.0d0,2.4135650975460306d-10/)
+
+    ! Advanced rotation (+ sign) or delayed rotation (- sign)
+    tadv = 0.08
+    !tadv = - 0.08
+
+    alpha = 0.0
+    alpha_dt = 0.0
+    
+    ! frequency factor
+    f = 2.d0*pi
+    
+    ! Fourier series
+    do i=1,29
+      ! allows the spaces I like with the 80 columns malcolm likes :)
+      s = dsin(f*dble(i)*(time+tadv)) 
+      c = dcos(f*dble(i)*(time+tadv))
+      alpha = alpha + bi_alpha_flapper(i) * s
+      alpha_dt = alpha_dt + f*dble(i)* bi_alpha_flapper(i) * c
+    enddo
+
+    ! Scale to a given value of max angle in gedrees
+    ! alphacdeg is 90deg MINUS alpha of Science (eg alphedeg=90-40 for Fig 3)
+    alphacdeg = 90.0d0 - 40.0d0
+    alpha = alphacdeg/40.0d0 * alpha
+    alpha_dt = alphacdeg/40.0d0 * alpha_dt
+   
+    ! convert in radians 
+    alpha = deg2rad(alpha)
+    alpha_dt = deg2rad(alpha_dt)
+    
+    ! *** II. position ***
+    ai_phi_flapper =(/63.24528806534019d0,&
+      0.0d0,5.753991800610726d0,0.0d0,1.3887974015525626d0,&
+      0.0d0,0.3889856512386744d0,0.0d0,0.10577402496901325d0,&
+      0.0d0,0.026061339604144987d0,0.0d0,0.005623376646981709d0,&
+      0.0d0,0.001042285996467963d0,0.0d0,1.639611509380189d-4,&
+      0.0d0,2.1716252827442023d-5,0.0d0,2.408190194815521d-6,&
+      0.0d0,2.2268710288534648d-7,0.0d0,1.7118916093759426d-8,&
+      0.0d0,1.0914870312823793d-9,0.0d0,5.76135101855556d-11,&
+      0.0d0,2.513944479978149d-12/)
+
+    phi = 0.0
+    phi_dt = 0.0
+    
+    ! frequency factor
+    f = 2.d0*pi
+    
+    ! Fourier series
+    do i=1,31
+      ! allows the spaces I like with the 80 columns malcolm likes :)
+      s = dsin(f*dble(i)*time) 
+      c = dcos(f*dble(i)*time)
+      phi   = phi   + ai_phi_flapper(i) * c
+      phi_dt   = phi_dt   + f*dble(i)*(-ai_phi_flapper(i) * s)
+    enddo
+    
+    ! Scale to a given value of max angle in gedrees
+    ! phicdeg is Phi of JEB 204 (eg twice the max value of triangular wave)
+    phicdeg = 180.0d0
+    phi = phicdeg/180.0d0 * phi
+    phi_dt = phicdeg/180.0d0 * phi_dt
+   
+    ! convert in radians 
+    phi = deg2rad(phi)
+    phi_dt = deg2rad(phi_dt)
+
+    ! *** III. elevation ***
+    theta = 0.0d0
+    theta_dt = 0.0d0
+
+    !if(mpirank == 0) then
+    !open(14,file='motion.t',status='unknown',position='append')
+    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+    !close(14)
+    !endif
+   
+  case ("takeoff")
+    !--------------------------------------------------
+    ! Fontaine et al. 
+    !--------------------------------------------------
+    if (Insect%KineFromFile=="yes") then
+      call wing_kine_interp(time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt)
+      ! position angle
+      phi = deg2rad(phi)
+      phi_dt = deg2rad(phi_dt)
+      ! feathering angle
+      alpha = deg2rad(alpha)
+      alpha_dt = deg2rad(alpha_dt)  
+      ! elevation angle in flusi coordinates
+      theta = -theta
+      theta_dt = - theta_dt
+      theta = deg2rad(theta)
+      theta_dt = deg2rad(theta_dt)
+    endif 
+ 
   case ("simplified")
     !---------------------------------------------------------------------------
     ! simplified motion protocoll
     !
-    ! J. comput. Phys. 231 (2012) 1822-1847 "A fluid–structure interaction 
+    ! J. comput. Phys. 231 (2012) 1822-1847 "A fluid-structure interaction 
     ! model of insect flight with flexible wings"
     !
     ! the pase shift "phase" was my idea
@@ -782,7 +1214,12 @@ subroutine StrokePlane ( time, eta_stroke )
   case ("wheeling")
     eta_stroke = deg2rad(0.d0)
   case ("hovering")
-    eta_stroke = deg2rad(-35.d0)
+!    eta_stroke = deg2rad(-35.d0)
+    eta_stroke = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
+  case ("flapper")   ! Comparison with Dickinson et al. (Dmitry, 19 Nov 2013)
+    eta_stroke = deg2rad(0.d0)
+  case ("takeoff")
+    eta_stroke = deg2rad(-28.d0) ! 62-90, Fontaine et al., fig 13 (Dmitry, 14 Nov 2013)
   case default
     if (mpirank==0) then
     write (*,*) "insects.f90::StrokePlane: motion case (Insect%BodyMotion) undefined"
@@ -883,3 +1320,50 @@ real(kind=pr) function steps(x,t)
   call smoothstep(f,x,t,Insect%smooth)
   steps=f
 end function
+
+
+
+
+!-------------------------------------------------------
+! Compute angle from coefficients provided by Maeda
+!-------------------------------------------------------
+subroutine get_dangle( angles, F, a, b, shift_phase, initial_phase, dangle, dangle_dt )
+  use fsi_vars
+  implicit none
+  integer, intent(in) :: F  ! wavenumber (Dmitry, 7 Nov 2013)
+  real(kind=pr), intent(in) :: angles ! 2*pi*F*time (Dmitry, 7 Nov 2013) 
+  real(kind=pr), intent(in) :: a
+  real(kind=pr), intent(in) :: b
+  real(kind=pr), intent(in) :: shift_phase
+  real(kind=pr), intent(in) :: initial_phase
+  real(kind=pr), intent(out) :: dangle
+  real(kind=pr), intent(out) :: dangle_dt ! velocity increment (Dmitry, 7 Nov 2013)
+  real(kind=pr) :: dAmp
+  real(kind=pr) :: factor_amp = 1.0d0  ! Dmitry, 7 Nov 2013
+  real(kind=pr) :: phase
+  !!----------------------------
+ 
+  !! d_amplitude
+  dAmp = dsqrt(a**2 +b**2)*factor_amp
+ 
+  !! phase
+  if( b>0.0d0 ) then
+    phase = datan(a/b)
+  elseif( b<0.0d0 ) then
+    phase = datan(a/b) +pi
+  else !! b == 0 -> avoid division by zero
+    phase = pi*0.5d0 !! sin(PI/2) = cos
+  endif
+ 
+  phase = phase + (shift_phase +initial_phase*2.0d0*pi)*dble(F)
+ 
+  !! d_angle
+  dangle = dAmp*dsin( angles +phase )
+
+  !! velocity increment (Dmitry, 7 Nov 2013) 
+  dangle_dt = 2.0d0*pi*dble(F) * dAmp*dcos( angles +phase )
+
+  return
+end subroutine get_dangle
+
+

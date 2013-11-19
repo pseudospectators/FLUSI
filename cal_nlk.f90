@@ -129,6 +129,12 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         vort(ix,iy,iz,1) = uy*vorz - uz*vory + penalx
         vort(ix,iy,iz,2) = uz*vorx - ux*vorz + penaly
         vort(ix,iy,iz,3) = ux*vory - uy*vorx + penalz
+
+        ! Channel (Dmitry, 22 Oct 2013)
+        call channel(chi,ix,iy,iz)
+        vort(ix,iy,iz,1) = vort(ix,iy,iz,1) - chi*ux 
+        vort(ix,iy,iz,2) = vort(ix,iy,iz,2) - chi*uy
+        vort(ix,iy,iz,3) = vort(ix,iy,iz,3) - chi*uz
       enddo
     enddo
   enddo
@@ -290,7 +296,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   enddo
 
   ! Compute us, the imposed penalty field:
-  call update_us(ub)
+  call update_us(ub) ! TODO: only update when necessary
 
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.

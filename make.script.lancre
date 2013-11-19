@@ -1,0 +1,5 @@
+export MAKEFLAGS="-j12"
+export HDF_ROOT="/home/dkolom/src/hdf5_lancre_new"
+export FFT_ROOT=/home/dkolom/src/fftw-3.3.3
+export P3DFFT_ROOT=/home/dkolom/src/p3dfft.2.3.2_fixed
+make

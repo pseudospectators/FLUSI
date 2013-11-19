@@ -130,7 +130,69 @@ subroutine penalize_vort ( vort_penalized, vort )
         enddo
       enddo
     enddo       
-    
+
+  case ("xmin_xmax_ymin_ymax")
+    !--------------------------------------------
+    ! Dmitry, 25 Oct 2013
+    ! At xmin, xmax, ymin, ymax walls only. No sponge at zmin, zmax walls.
+    !--------------------------------------------
+    do ix = ra(1), rb(1)
+      do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+          ! do not use vorticity sponge and solid wall simulateously
+          if (mask(ix,iy,iz) < 1e-12) then
+          if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+
+          if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+          endif
+        enddo
+      enddo
+    enddo
+   
+  case ("xmin_xmax")
+    !--------------------------------------------
+    ! Dmitry, 25 Oct 2013
+    ! At xmin, xmax walls only.
+    !--------------------------------------------
+    do ix = ra(1), rb(1)
+      do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+          ! do not use vorticity sponge and solid wall simulateously
+          if (mask(ix,iy,iz) < 1e-12) then
+          if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+          endif
+        enddo
+      enddo
+    enddo   
+
+  case ("xmin_xmax_zmin_zmax")
+    !--------------------------------------------
+    ! Dmitry, 25 Oct 2013
+    ! At xmin, xmax, zmin, zmax walls only.
+    !--------------------------------------------
+    do ix = ra(1), rb(1)
+      do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+          ! do not use vorticity sponge and solid wall simulateously
+          if (mask(ix,iy,iz) < 1e-12) then
+          if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+          
+          if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+          endif
+        enddo
+      enddo
+    enddo   
+ 
   case ("top_cover")
     !--------------------------------------------
     ! sponge as a cover on top of the domain 

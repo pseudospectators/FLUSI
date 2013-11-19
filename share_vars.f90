@@ -45,8 +45,7 @@ module vars
   ! Variables set via the parameters file
   real(kind=pr),save :: length 
   ! Q: what is length? 
-  ! A: a generic lengthscale, for example circle radius or plate
-  ! spanwise length
+  ! A: a generic lengthscale, for example circle radius or plate spanwise length
   
   ! Domain size variables:
   integer,save :: nx,ny,nz
@@ -84,22 +83,6 @@ module vars
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
   character(len=80) :: iSmoothing ! how to smooth the mask
-  real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
-
-  contains 
-
-    ! Routines to allocate real and complex arrays using the standard
-    ! dimensions.
-    subroutine allocreal(u)
-      implicit none
-      real(kind=pr),dimension(:,:,:),allocatable :: u
-      allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-    end subroutine allocreal
-    subroutine alloccomplex(u)
-      implicit none
-      complex(kind=pr),dimension(:,:,:),allocatable :: u
-      allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-    end subroutine alloccomplex
 end module vars
 
 
@@ -152,6 +135,7 @@ module fsi_vars
   type InsectParams ! documentaion see insect.f90
     character(len=80) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
     character(len=80) :: FlappingMotion_right, FlappingMotion_left
+    character(len=80) :: KineFromFile ! kinematics from file (Dmitry, 14 Nov 2013)
     ! parameters for body:
     real(kind=pr) :: L_body, b_body, R_head, R_eye
     ! parameters for wing shape:
@@ -192,8 +176,9 @@ module mhd_vars
   ! Physical parameters
   real(kind=pr),save :: eta ! magnetic diffusivity
   real(kind=pr),save :: b0, bc ! Boundary condition parameters
-  real(kind=pr),save :: ay ! x*x + ay*y*y -r1*r1 == 0 ?in boundary conditions
 
   ! Determine whether we save various fields
   integer,save :: iSaveMagneticField,iSaveCurrent
 end module mhd_vars
+
+

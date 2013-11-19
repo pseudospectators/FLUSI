@@ -24,6 +24,8 @@ subroutine Create_Mask_fsi(time)
       call Flapper (time)    
     case ("Insect")
       call Draw_Insect (time)
+    case ("plate","Plate")
+      call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
     case default    
       if (mpirank == 0) then
           write (*,*) "iMask="//iMask//" not properly set; stopping."
