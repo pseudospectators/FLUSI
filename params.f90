@@ -136,6 +136,10 @@ subroutine get_params_common(PARAMS,i)
   iSmoothing="erf" ! std choice
   call GetValue_String(PARAMS,i,"Penalization","iSmoothing",iSmoothing,iSmoothing)
   call GetValue_Real(PARAMS,i,"Penalization","eps",eps, 1.d-2)
+  call GetValue_Real(PARAMS,i,"Penalization","pseudoeps",pseudoeps, 1.d-2)
+  call GetValue_Real(PARAMS,i,"Penalization","pseudodt",pseudodt, 1.d-2)
+  call GetValue_Real(PARAMS,i,"Penalization","pseuderrmin",pseudoerrmin,3d-4)
+  call GetValue_Real(PARAMS,i,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
 
   ! Geometry section
   call GetValue_Real(PARAMS,i,"Geometry","xl",xl, 1.d0)
@@ -329,6 +333,7 @@ subroutine get_params_mhd(PARAMS,i)
   ! MHDGeometry section
   call GetValue_Real(PARAMS,i,"MHDGeometry","b0",b0,4.5d0)
   call GetValue_Real(PARAMS,i,"MHDGeometry","bc",bc,3.88888888888d0)
+  call GetValue_Real(PARAMS,i,"MHDGeometry","ay",ay,1.0d0)
 
   ! Saving section
   call GetValue_Int(PARAMS,i,"Saving","iSaveMagneticField",&
