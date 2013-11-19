@@ -85,9 +85,6 @@ end subroutine vorticity_sponge
 ! we currently do not allocate a mask_sponge array
 !
 ! for one component only
-!
-! in this version, the mask is applied in a layer on top (in Z-direction)
-! of the domain.
 !-------------------------------------------------------------------------------
 subroutine penalize_vort ( vort_penalized, vort )
   use mpi_header
