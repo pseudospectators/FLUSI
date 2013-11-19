@@ -45,8 +45,7 @@ module vars
   ! Variables set via the parameters file
   real(kind=pr),save :: length 
   ! Q: what is length? 
-  ! A: a generic lengthscale, for example circle radius or plate
-  ! spanwise length
+  ! A: a generic lengthscale, for example circle radius or plate spanwise length
   
   ! Domain size variables:
   integer,save :: nx,ny,nz
@@ -77,7 +76,8 @@ module vars
   character(len=80),save :: file_bx,file_by,file_bz
   real(kind=pr),save :: omega1 ! FIXME: what is omega1?
 
-  ! Boundary conditions:
+
+ ! Boundary conditions:
   character(len=80),save :: iMask
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: dt_fixed
@@ -152,6 +152,7 @@ module fsi_vars
   type InsectParams ! documentaion see insect.f90
     character(len=80) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
     character(len=80) :: FlappingMotion_right, FlappingMotion_left
+    character(len=80) :: KineFromFile ! kinematics from file (Dmitry, 14 Nov 2013)
     ! parameters for body:
     real(kind=pr) :: L_body, b_body, R_head, R_eye
     ! parameters for wing shape:
@@ -197,3 +198,5 @@ module mhd_vars
   ! Determine whether we save various fields
   integer,save :: iSaveMagneticField,iSaveCurrent
 end module mhd_vars
+
+

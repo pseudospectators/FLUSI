@@ -6,7 +6,8 @@ FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
 	mask.f90 mask_fsi.f90 mask_mhd.f90 save_fields.f90 time_step.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
 	insects.f90 postprocessing.f90 runtime_control.f90 cal_drag.f90 \
-	sponge.f90 FFT_unit_test.f90
+	sponge.f90 FFT_unit_test.f90 draw_plate.f90 channel.f90 \
+        kineloader.f90 
 OBJS := $(FFILES:%.f90=%.o)
 
 # Set the default compiler if it's not already set, make sure it's not F77.
@@ -66,9 +67,9 @@ FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 all: $(PROGRAMS)
 
 # Compile main programs, with dependencies.
-flusi: FLUSI.f90 $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
+flusi: FLUSI.f90 $(OBJS) mpi_header.o share_vars.o share_kine.o cof_p3dfft.o
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
-mhd: mhd.f90 $(OBJS) mpi_header.o share_vars.o cof_p3dfft.o
+mhd: mhd.f90 $(OBJS) mpi_header.o share_vars.o share_kine.o cof_p3dfft.o
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile modules (module dependency must be specified by hand in
@@ -77,11 +78,13 @@ mpi_header.o: $(MPI_HEADER)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 share_vars.o: share_vars.f90 mpi_header.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+share_kine.o:  share_kine.f90 mpi_header.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 cof_p3dfft.o: cof_p3dfft.f90 share_vars.o mpi_header.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
-%.o: %.f90 mpi_header.o share_vars.o cof_p3dfft.o
+%.o: %.f90 mpi_header.o share_vars.o share_kine.o cof_p3dfft.o
 	$(FC) $(FFLAGS) -c -o $@ $<  $(LDFLAGS)
 
 clean:

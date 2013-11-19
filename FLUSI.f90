@@ -40,6 +40,7 @@ end program FLUSI
 subroutine Start_Simulation()
   use mpi_header
   use fsi_vars
+  use share_kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   integer                :: mpicode
   real (kind=pr)         :: t1,t2
@@ -88,10 +89,21 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
     open  (14,file='forces.t',status='replace')
-    write (14,'(13A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                      "Momentx",tab,"Momenty",tab,"Momentz"
+    write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
     close (14)
-    
+
+    if (iMask=='Insect') then
+      open  (14,file='kinematics.t',status='replace')
+      write (14,'(27A)') "% time",tab,"xc_body",tab,"yc_body",tab,"zc_body",tab,&
+                        "psi",tab,"beta",tab,"gamma",tab,"eta_stroke",tab,&
+                        "alpha_l",tab,"phi_l",tab,"theta_l",tab,&
+                        "alpha_r",tab,"phi_r",tab,"theta_r"
+      close (14)
+    endif    
+
     open  (14,file='divu.t',status='replace')
     write (14,'(13A)') "% time",tab,"max(divu)",tab
     close (14)
@@ -133,7 +145,11 @@ subroutine Start_Simulation()
   ! sponge term (this is currently global, but it will be changed)
   allocate (sponge(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd) )
   endif
-  
+
+  ! Load kinematics from file (Dmitry, 14 Nov 2013)
+  if (Insect%KineFromFile=="yes") then
+     call load_kine_init(mpirank,mpireal,mpiinteger)
+  endif
 
   ! Create obstacle mask
   if (iPenalization==1) then
@@ -186,6 +202,11 @@ subroutine Start_Simulation()
   if(iPenalization == 1) then
      deallocate(mask)
      if(iMoving == 1) deallocate(us)
+  endif
+
+  ! Clean kinematics (Dmitry, 14 Nov 2013)
+  if (Insect%KineFromFile=="yes") then
+     call load_kine_clean
   endif
   
   call fft_free 
