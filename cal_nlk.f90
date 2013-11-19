@@ -54,7 +54,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
-  real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
+  real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz,chi2
   real(kind=pr) :: penalx,penaly,penalz
   integer, intent(in) :: it
   integer :: ix,iz,iy,mpicode, i
@@ -69,6 +69,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   usx     = 0.d0
   usy     = 0.d0
   usz     = 0.d0  
+  chi2    = 0.d0
 
   !-----------------------------------------------
   !-- Calculate velocity in physical space
@@ -112,12 +113,20 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         
         ! local variables for penalization
         if (iPenalization==1) then
-          chi  = mask(ix,iy,iz)
+          ! is there channel walls?
+          if (iChannel==1) then
+            call channel(chi2,ix,iy,iz)
+          endif
+          
+          ! without channel walls, chi2 is zero
+          chi  = mask(ix,iy,iz) + chi2
+          
           if (iMoving==1) then
             usx = us(ix,iy,iz,1)
             usy = us(ix,iy,iz,2)
             usz = us(ix,iy,iz,3)
           endif
+          
           ! actual penalization term
           penalx = -chi*(ux-usx)
           penaly = -chi*(uy-usy)
@@ -129,12 +138,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         vort(ix,iy,iz,1) = uy*vorz - uz*vory + penalx
         vort(ix,iy,iz,2) = uz*vorx - ux*vorz + penaly
         vort(ix,iy,iz,3) = ux*vory - uy*vorx + penalz
-
-        ! Channel (Dmitry, 22 Oct 2013)
-        call channel(chi,ix,iy,iz)
-        vort(ix,iy,iz,1) = vort(ix,iy,iz,1) - chi*ux 
-        vort(ix,iy,iz,2) = vort(ix,iy,iz,2) - chi*uy
-        vort(ix,iy,iz,3) = vort(ix,iy,iz,3) - chi*uz
       enddo
     enddo
   enddo
