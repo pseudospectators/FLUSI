@@ -76,13 +76,15 @@ module vars
   character(len=80),save :: file_bx,file_by,file_bz
   real(kind=pr),save :: omega1 ! FIXME: what is omega1?
 
-  ! Boundary conditions:
+
+ ! Boundary conditions:
   character(len=80),save :: iMask
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: dt_fixed
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
   character(len=80) :: iSmoothing ! how to smooth the mask
+  real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
 end module vars
 
 
