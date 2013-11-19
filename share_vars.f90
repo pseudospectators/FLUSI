@@ -85,6 +85,21 @@ module vars
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
   character(len=80) :: iSmoothing ! how to smooth the mask
   real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
+
+  contains 
+
+    ! Routines to allocate real and complex arrays using the standard
+    ! dimensions.
+    subroutine allocreal(u)
+      implicit none
+      real(kind=pr),dimension(:,:,:),allocatable :: u
+      allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+    end subroutine allocreal
+    subroutine alloccomplex(u)
+      implicit none
+      complex(kind=pr),dimension(:,:,:),allocatable :: u
+      allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+    end subroutine alloccomplex
 end module vars
 
 
