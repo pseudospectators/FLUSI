@@ -1,6 +1,6 @@
 subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   use mpi_header
-  use fsi_vars
+  use fsi_vars ! FIXME: should only refer to vars, not fsi_vars.
   implicit none
   
   integer :: inter,it
@@ -80,7 +80,11 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      !-------------------------------------------------
      if ( method=="fsi" ) then
         ! compute unst corrections in every time step
+
+        ! FIXME: unst_correction is in fsi_vars, not in vars.  Please
+        ! wrap this function or move unst_corrections to vars.
         if (unst_corrections ==1) call cal_unst_corrections ( time, dt0 )    
+
         ! compute drag only if required
         if (modulo(it,itdrag)==0) call cal_drag ( time, u ) ! note u is OLD time level 
         ! note dt0 is OLD time step t(n)-t(n-1)
