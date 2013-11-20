@@ -681,6 +681,7 @@ subroutine smcnum_us_mhd(ub)
   real (kind=pr) :: peps
   real (kind=pr) :: olddiff
   real (kind=pr) :: newdt
+  real (kind=pr) :: lerror, error
   logical keeponkeepingon
 
   if (firstcall) then
@@ -726,6 +727,9 @@ subroutine smcnum_us_mhd(ub)
      usz=0.d0
 
      olddiff=0.d0
+     diff0=0.d0
+
+     if (mpirank == 0) write(*,*) "pseudodt diff0 error:"
 
      do while(keeponkeepingon) ! Solve for us
 
@@ -766,30 +770,27 @@ subroutine smcnum_us_mhd(ub)
         call maxdist(s1x,s1y,s1z,s2x,s2y,s2z,diff)
         call MPI_REDUCE(diff,diff0,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
              MPI_COMM_WORLD,mpicode)
-        if (mpirank == 0) then
-           diff0=diff0*pseudodt
-           write(*,*) "time-step error=",diff0
-           if(diff0 < pseudoerrmin) pseudodt=1.4d0*pseudodt ! step too small
-           if(diff0 > pseudoerrmax) pseudodt=0.7d0*pseudodt ! step too large
-           write(*,*) "pseudodt=",pseudodt
-         endif
+
 
         ! check how close the field is to obeying the boundary conditions
-        call checkbc(diff,usx,usy,usz)
-        call MPI_REDUCE(diff,diff0,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+        call checkbc(lerror,usx,usy,usz)
+        call MPI_REDUCE(lerror,error,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
              MPI_COMM_WORLD,mpicode)
 
         if (mpirank == 0) then
-           write(*,*) "error=",diff0
-           ! Loop exit conditions:
-           if(olddiff < diff0) then
-              ! if we are not converging, reduce the time-step
-              !pseudodt=0.7d0*pseudodt
-              !write(*,*) "pseudodt=",pseudodt
-           endif
+           diff0=diff0*pseudodt
 
-           if(myi > 10 .and. diff0 < dsqrt(eps)) then
-              write(*,*) "finished: ",diff0," < dsqrt(",peps,")=",dsqrt(eps)
+20         format (f10.9,x,f10.9,x,f10.9) ! I really hate this part of Fortran.
+           write(*,20) pseudodt,diff0,error
+           
+           if(diff0 < pseudoerrmin) pseudodt=1.4d0*pseudodt ! step too small
+           if(diff0 > pseudoerrmax) pseudodt=0.7d0*pseudodt ! step too large
+
+           ! Loop exit conditions:
+           if(myi > 10 .and. error < dsqrt(eps)) then
+              write(*,*) "Converged in ",myi," iterations:"
+              write(*,*) error," < dsqrt(",peps,")=",dsqrt(eps)
+
               keeponkeepingon= .false.
            endif
            if(myi > 1000000) then ! we've gone too far: abort
@@ -797,7 +798,7 @@ subroutine smcnum_us_mhd(ub)
               keeponkeepingon= .false.
               call abort
            endif
-           if(myi > 10 .and. diff0 > 100.d0) then
+           if(myi > 10 .and. error > 100.d0) then
               ! convergence isn't happening: abort
               write(*,*) "error is greater than 100; aborting due to instability"
               keeponkeepingon= .false.
