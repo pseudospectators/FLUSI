@@ -61,6 +61,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
+  dt1=tsave
      dt0=dt1
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
@@ -70,22 +71,22 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-     call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
-
-     !-------------------------------------------------
-     ! Compute hydrodynamic forces at time level n (FSI only)
-     ! NOTE:    is done every itdrag time steps. this condition will be changed
-     !          in future versions if free-flight (ie solving eq of motion) is
-     !          required.
-     !-------------------------------------------------
-     if ( method=="fsi" ) then
-        ! compute unst corrections in every time step
-        if (unst_corrections ==1) call cal_unst_corrections ( time, dt0 )    
-
-        ! compute drag only if required
-        if (modulo(it,itdrag)==0) call cal_drag ( time, u ) ! note u is OLD time level 
-        ! note dt0 is OLD time step t(n)-t(n-1)
-     endif     
+!      call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+! 
+!      !-------------------------------------------------
+!      ! Compute hydrodynamic forces at time level n (FSI only)
+!      ! NOTE:    is done every itdrag time steps. this condition will be changed
+!      !          in future versions if free-flight (ie solving eq of motion) is
+!      !          required.
+!      !-------------------------------------------------
+!      if ( method=="fsi" ) then
+!         ! compute unst corrections in every time step
+!         if (unst_corrections ==1) call cal_unst_corrections ( time, dt0 )    
+! 
+!         ! compute drag only if required
+!         if (modulo(it,itdrag)==0) call cal_drag ( time, u ) ! note u is OLD time level 
+!         ! note dt0 is OLD time step t(n)-t(n-1)
+!      endif     
      
      !-----------------------------------------------
      ! time step done: advance iteration + time
@@ -95,62 +96,62 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      time=time + dt1
      it=it + 1
      
-     !-------------------------------------------------
-     ! Output of INTEGRALS after every tintegral time 
-     ! units or itdrag time steps
-     !-------------------------------------------------
-     if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
-       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
-     endif
-    
-     !-------------------------------------------------
-     ! Output FIELDS (after tsave)
-     !-------------------------------------------------
-     if(modulo(time,tsave) <= dt1) then
-        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
-        ! never matters,and for AB2 this is the one to be overwritten
-        ! in the next step.  This frees 3 complex arrays, which are
-        ! then used in Dump_Runtime_Backup.
+!      !-------------------------------------------------
+!      ! Output of INTEGRALS after every tintegral time 
+!      ! units or itdrag time steps
+!      !-------------------------------------------------
+!      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
+!        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+!      endif
+!     
+!      !-------------------------------------------------
+!      ! Output FIELDS (after tsave)
+!      !-------------------------------------------------
+!      if(modulo(time,tsave) <= dt1) then
+!         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+!         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
+!         ! never matters,and for AB2 this is the one to be overwritten
+!         ! in the next step.  This frees 3 complex arrays, which are
+!         ! then used in Dump_Runtime_Backup.
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
-        
-        ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup == 1) then
-           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-        endif
-     endif
-     
-     !-----------------------------------------------
-     ! Output how much time remains
-     !-----------------------------------------------
-     if ((modulo(it,300)==0).or.(it==20)) then
-       call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-     endif
-     
-     !-----------------------------------------------
-     ! Runtime remote control (every 10 time steps)
-     !-----------------------------------------------
-     if ( modulo(it,10) == 0 ) then
-        ! fetch command from file
-        call runtime_control_command( command )
-        ! execute it
-        select case ( command )
-        case ("reload_params")
-          if (mpirank==0) write (*,*) "runtime control: Reloading PARAMS file.."
-          ! read all parameters from the params.ini file
-          call get_params(params_file)           
-          ! overwrite control file
-          if (mpirank == 0) call Initialize_runtime_control_file()
-        case ("save_stop")
-          if (mpirank==0) write (*,*) "runtime control: Safely stopping..."
-          call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-          continue_timestepping = .false. ! this will stop the time loop
-          ! overwrite control file
-          if (mpirank == 0) call Initialize_runtime_control_file()
-        end select
-     endif 
-     
-     if(mpirank==0) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
+!         
+!         ! Backup if that's specified in the PARAMS.ini file
+!         if(iDoBackup == 1) then
+!            call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+!         endif
+!      endif
+!      
+!      !-----------------------------------------------
+!      ! Output how much time remains
+!      !-----------------------------------------------
+!      if ((modulo(it,300)==0).or.(it==20)) then
+!        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+!      endif
+!      
+!      !-----------------------------------------------
+!      ! Runtime remote control (every 10 time steps)
+!      !-----------------------------------------------
+!      if ( modulo(it,10) == 0 ) then
+!         ! fetch command from file
+!         call runtime_control_command( command )
+!         ! execute it
+!         select case ( command )
+!         case ("reload_params")
+!           if (mpirank==0) write (*,*) "runtime control: Reloading PARAMS file.."
+!           ! read all parameters from the params.ini file
+!           call get_params(params_file)           
+!           ! overwrite control file
+!           if (mpirank == 0) call Initialize_runtime_control_file()
+!         case ("save_stop")
+!           if (mpirank==0) write (*,*) "runtime control: Safely stopping..."
+!           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+!           continue_timestepping = .false. ! this will stop the time loop
+!           ! overwrite control file
+!           if (mpirank == 0) call Initialize_runtime_control_file()
+!         end select
+!      endif 
+!      
+!      if(mpirank==0) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
   end do
 
   if(mpirank==0) then

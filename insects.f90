@@ -666,19 +666,22 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
 
   case ("hovering")
     psi      = 0.0
-!    beta     = deg2rad(-55.d0)
-    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
+    beta     = deg2rad(-55.d0)
+!    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
     gamma    = deg2rad(45.d0)
     psi_dt   = 0.0
     beta_dt  = 0.0
     gamma_dt = 0.0  
 
+    vc = (/0.0d0, 0.0d0, 0.0d0/)    
+    xc = (/0.5*xl, 0.5*yl, zl-sponge_thickness*dz-Insect%distance_from_sponge/)
+    
 !    xc = (/0.5*xl, 0.5*yl, 0.5*zl/)  ! Dmitry, 26 Oct 2013
 !    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)  ! Dmitry, 30 Oct 2013 -one wing length from top
-    xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
+!    xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
 !    xc = (/0.5d0*xl, 0.5d0*yl, 0.8d0/)  ! Dmitry, 28 Oct 2013  - ground dist+0.3
-    vc = (/0.0d0, 0.0d0, 0.0d0/)    
 
+    
   case ("flapper")  ! Comparison with Dickinson et al. (Dmitry, 19 Nov 2013)
     psi      = 0.0
     beta     = deg2rad(-90.d0)
@@ -1209,8 +1212,8 @@ subroutine StrokePlane ( time, eta_stroke )
   case ("wheeling")
     eta_stroke = deg2rad(0.d0)
   case ("hovering")
-!    eta_stroke = deg2rad(-35.d0)
-    eta_stroke = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
+    eta_stroke = deg2rad(-35.d0)
+!    eta_stroke = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
   case ("flapper")   ! Comparison with Dickinson et al. (Dmitry, 19 Nov 2013)
     eta_stroke = deg2rad(0.d0)
   case ("takeoff")
