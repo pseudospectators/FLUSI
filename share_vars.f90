@@ -118,7 +118,7 @@ module fsi_vars
   
   ! cavity mask:
   character(len=80), save :: iCavity
-  integer, save :: cavity_size
+  integer, save :: cavity_size, iChannel
   
   ! save forces and use unsteady corrections?
   integer, save :: compute_forces, unst_corrections
