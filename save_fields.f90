@@ -55,7 +55,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   name=trim(adjustl(name))
 
   if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",es8.2,1x," flags= ",5(i1)," str=",A)') & 
+    write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," str=",A)') & 
     time, &
     iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveSolidVelocity, &
     trim(adjustl(name))
@@ -344,7 +344,7 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   t1=MPI_wtime() ! performance diagnostic
 
   if(mpirank == 0) then
-     write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1,".h5 to disk....")') time, nbackup
+     write(*,'("*** info: time=",e11.4," dumping runtime_backup",i1,".h5 to disk....")') time, nbackup
   endif
 
   ! Create current filename:

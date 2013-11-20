@@ -780,7 +780,8 @@ subroutine smcnum_us_mhd(ub)
         if (mpirank == 0) then
            diff0=diff0*pseudodt
 
-20         format (f10.9,x,f10.9,x,f10.9) ! I really hate this part of Fortran.
+           ! I really hate this part of Fortran.
+20         format (es10.2,x,es10.2,x,es10.2) 
            write(*,20) pseudodt,diff0,error
            
            if(diff0 < pseudoerrmin) pseudodt=1.4d0*pseudodt ! step too small

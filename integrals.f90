@@ -149,7 +149,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='ek.t',status='unknown',position='append')
      ! 9 outputs, including tabs
-     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
+     write(14,'(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)') &
           time,tab,Ekin,tab,Ekinx,tab,Ekiny,tab,Ekinz
      close(14)
   endif
@@ -160,7 +160,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='eb.t',status='unknown',position='append')
      ! 9 outputs, including tabs
-     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
+     write(14,'(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)') &
           time,tab,Emag,tab,Emagx,tab,Emagy,tab,Emagz
      close(14)
   endif
@@ -173,7 +173,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
      open(14,file='j.t',status='unknown',position='append')
      ! 15 outputs, including tabs
      write(14,&
-          '(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)')&
+          '(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)')&
           time,tab,meanjx,tab,meanjy,tab,meanjz,tab,jmax,tab,jxmax,tab,&
           jymax,tab,jzmax
      close(14)
@@ -189,7 +189,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='diss.t',status='unknown',position='append')
      ! 3 outputs
-     write(14,'(e12.6,A,e12.6,A,e12.6)') time,tab,dissu,tab,dissb
+     write(14,'(e25.16,A,e25.16,A,e25.16)') time,tab,dissu,tab,dissb
      close(14)
   endif
 
@@ -205,7 +205,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='d.t',status='unknown',position='append')
      ! 3 outputs
-     write(14,'(e12.6,A,e12.6,A,e12.6)') time,tab,divu,tab,divb
+     write(14,'(e25.16,A,e25.16,A,e25.16)') time,tab,divu,tab,divb
      close(14)
   endif
 end subroutine write_integrals_mhd
