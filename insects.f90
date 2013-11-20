@@ -771,7 +771,11 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   integer :: i
   
   select case ( protocoll )
+  
+  !*******************************
   case ("Drosophila_hovering_fry")
+  !*******************************
+  
     !---------------------------------------------------------------------------
     ! motion protocoll digitalized from Fry et al JEB 208, 2303-2318 (2005)
     !
@@ -828,13 +832,10 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
 
-!    if(mpirank == 0) then
-!    open(14,file='motion.t',status='unknown',position='append')
-!    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-!    close(14)
-!    endif
 
+  !*********************************
   case ("Drosophila_hovering_maeda")
+  !*********************************
     !---------------------------------------------------------------------------
     ! Drosophila hovering kinematics protocol 
     !
@@ -926,13 +927,11 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     alpha_dt = -feth_dt
     theta_dt = -elev_dt
     
-!    if(mpirank == 0) then
-!    open(14,file='motion.t',status='unknown',position='append')
-!    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-!    close(14)
-!    endif
-    
+
+  !********************
   case ("flapper_sane")
+  !********************
+  
     !---------------------------------------------------------------------------
     ! motion protocol from Sane and Dickinson, JEB 204, 2607-2626 (2001)
     !
@@ -1023,13 +1022,9 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     theta_dt = 0.0d0
 
 
-    !if(mpirank == 0) then
-    !open(14,file='motion.t',status='unknown',position='append')
-    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-    !close(14)
-    !endif
-    
+  !*************************    
   case ("flapper_dickinson")
+  !*************************
     !---------------------------------------------------------------------------
     ! motion protocol from Dickinson, Lehmann and Sane, Science (1999)
     !
@@ -1123,13 +1118,10 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     theta = 0.0d0
     theta_dt = 0.0d0
 
-    !if(mpirank == 0) then
-    !open(14,file='motion.t',status='unknown',position='append')
-    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-    !close(14)
-    !endif
-   
+  
+  !***************
   case ("takeoff")
+  !***************
     !--------------------------------------------------
     ! Fontaine et al. 
     !--------------------------------------------------
@@ -1148,7 +1140,10 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
       theta_dt = deg2rad(theta_dt)
     endif 
  
+  !******************
   case ("simplified")
+  !******************
+  
     !---------------------------------------------------------------------------
     ! simplified motion protocoll
     !
@@ -1170,9 +1165,9 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     alpha_dt = alpha_max*f*dcos(f*(time+phase))
     theta_dt = 0.0
   case ("debug")
-    phi      = deg2rad(45.d0)   
-    alpha    = deg2rad(0.d0)
-    theta    = 0.0
+    phi      = dsin(2.d0*pi*time)
+    alpha    = 0.0
+    theta    = deg2rad(30.d0)
     phi_dt   = 0.0
     alpha_dt = 0.0
     theta_dt = 0.0
