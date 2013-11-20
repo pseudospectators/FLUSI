@@ -80,9 +80,6 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      !-------------------------------------------------
      if ( method=="fsi" ) then
         ! compute unst corrections in every time step
-
-        ! FIXME: unst_correction is in fsi_vars, not in vars.  Please
-        ! wrap this function or move unst_corrections to vars.
         if (unst_corrections ==1) call cal_unst_corrections ( time, dt0 )    
 
         ! compute drag only if required
