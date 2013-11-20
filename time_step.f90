@@ -1,6 +1,6 @@
 subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   use mpi_header
-  use fsi_vars ! FIXME: should only refer to vars, not fsi_vars.
+  use vars
   implicit none
   
   integer :: inter,it
