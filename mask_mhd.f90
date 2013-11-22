@@ -565,7 +565,7 @@ subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
         do iy=ca(3),cb(3)
            ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
 
-           k2=kx*kx +ky*ky +kz*kz
+           k2=100d0*(kx*kx +ky*ky +kz*kz)
            
            ukx(iz,ix,iy)=-k2*ukx(iz,ix,iy)
            uky(iz,ix,iy)=-k2*uky(iz,ix,iy)
