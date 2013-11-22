@@ -96,11 +96,11 @@ subroutine Start_Simulation()
     close (14)
 
     if (iMask=='Insect') then
-      open  (14,file='kinematics.t',status='replace')
-      write (14,'(27A)') "% time",tab,"xc_body",tab,"yc_body",tab,"zc_body",tab,&
-                        "psi",tab,"beta",tab,"gamma",tab,"eta_stroke",tab,&
-                        "alpha_l",tab,"phi_l",tab,"theta_l",tab,&
-                        "alpha_r",tab,"phi_r",tab,"theta_r"
+      open  (14,file='kinematics_wing_r.t',status='replace')
+      close (14)
+      open  (14,file='kinematics_wing_l.t',status='replace')
+      close (14)
+      open  (14,file='kinematics_body.t',status='replace')
       close (14)
     endif    
 

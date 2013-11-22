@@ -638,6 +638,7 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   real(kind=pr), intent(out) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
   real(kind=pr), intent(out) :: xc(1:3), vc(1:3)
   real(kind=pr) :: f,T,R
+  integer, save :: counter=0
   
   select case (Insect%BodyMotion)
   case ("fixed")
@@ -728,6 +729,16 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   y0 = xc(2)
   z0 = xc(3)
   
+  
+  ! write time series of kinematics to disk
+  ! do this only every 5 calls to reduce file size
+  counter = counter + 1
+  if ((mpirank == 0).and.(modulo(counter,5)==0)) then
+    open(14,file='kinematics_body.t',status='unknown',position='append')
+    write (14,'(13(e12.5,1x))') time, xc, vc, psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+    close(14)
+  endif    
+  
 end subroutine BodyMotion
 
 
@@ -772,6 +783,7 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr) :: tau, phia, la, ta, dtt, t1, phic, phicdeg, ua
   real(kind=pr) :: alphac, alphacdeg, dtr, tr0
   integer :: i
+
   
   select case ( protocoll )
   
@@ -1188,6 +1200,8 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     endif    
   end select
   
+
+  
 end subroutine FlappingMotion
 
 
@@ -1241,8 +1255,22 @@ subroutine FlappingMotion_left ( time, phi, alpha, theta, phi_dt, alpha_dt, thet
   
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
+  integer, save :: counter = 0
+  
+  ! call main flapping motion routine
   call FlappingMotion ( time, Insect%FlappingMotion_left, &
                         phi, alpha, theta, phi_dt, alpha_dt, theta_dt )  
+                        
+  !-------------------------------------------------------
+  ! write time series of kinematics to disk
+  ! do this only every 5 calls to reduce file size
+  !-------------------------------------------------------     
+  counter = counter + 1
+  if ((mpirank == 0).and.(modulo(counter,5)==0)) then
+    open(14,file='kinematics_wing_l.t',status='unknown',position='append')
+    write (14,'(13(e12.5,1x))') time, phi, alpha, theta, phi_dt, alpha_dt, theta_dt
+    close(14)
+  endif                          
 end subroutine FlappingMotion_left
 
 
@@ -1256,8 +1284,22 @@ subroutine FlappingMotion_right ( time, phi, alpha, theta, phi_dt, alpha_dt, the
   
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
+  integer, save :: counter = 0
+  
+  ! call main flapping motion routine
   call FlappingMotion ( time, Insect%FlappingMotion_right, &
                         phi, alpha, theta, phi_dt, alpha_dt, theta_dt )  
+                        
+  !-------------------------------------------------------
+  ! write time series of kinematics to disk
+  ! do this only every 5 calls to reduce file size
+  !-------------------------------------------------------     
+  counter = counter + 1
+  if ((mpirank == 0).and.(modulo(counter,5)==0)) then
+    open(14,file='kinematics_wing_r.t',status='unknown',position='append')
+    write (14,'(13(e12.5,1x))') time, phi, alpha, theta, phi_dt, alpha_dt, theta_dt
+    close(14)
+  endif                          
 end subroutine FlappingMotion_right
 
 
