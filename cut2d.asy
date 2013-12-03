@@ -53,19 +53,31 @@ if(getstring("use mask") =="y") {
 
 real[][] f2=cut2(f,nx,ny,nz,c,idir);
 
+// Get dimensions of image:
+real l1=getreal("l1");
+real l2=getreal("l2");
+
+// Find bounds for pallette:
+real f2max=f2[0][0];
+real f2min=f2[0][0];
+for(int i=0; i < f2.length; ++i) {
+  for(int j=0; j < f2[i].length; ++j) {
+    if(f2[i][j] > f2max) f2max=f2[i][j];
+    if(f2[i][j] < f2min) f2min=f2[i][j];
+  }
+}
+real f2absmax=max(abs(f2max),abs(f2min));
+
 // choose a palette
 pen[] Palette=BWRainbow();
 
-//image(f[z],(0,0),(1,1),Palette); // just add the image:
+// symmetric colour bar:
+bounds range=image(f2,Range(-f2absmax,f2absmax),(0,0),(l1,l2),Palette);
+// Full colour bar:
+//bounds range=image(f2,Full,(0,0),(l1,l2),Palette);
 
-real l1=getreal("l1");
-real l2=getreal("l2");
-bounds range=image(f2,(0,0),(l1,l2),Palette); // add the image
-
-
-
+// Draw shape and remove wall region from image:
 string shape=getstring("boundary shape");
-
 if(shape == "circle") {
   pair O=(l1/2,l2/2);
   real ay=getreal("ay");
@@ -86,18 +98,11 @@ if(shape == "rectangle") {
   clip(wall);
 }
 
-// add the palette bar:
+// Add the palette bar:
 picture bar;
 string barlegend="";
 palette(bar,barlegend,range,(0,0),(0.5cm,paletteheight),Right,Palette,
         PaletteTicks(ptick=linewidth(0.5*linewidth())));
 add(bar.fit(),point(E),30E);
-
-
-/*
-pair center=(0.5+1/nx,0.5+1/ny);
-real rad=0.5/(0.4*pi);
-draw(circle(center,rad));
-*/
 
 label(legend+", "+"$i_"+cutdir+"$"+"="+string(c),point(N),N);
