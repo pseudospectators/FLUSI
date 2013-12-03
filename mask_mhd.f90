@@ -13,8 +13,6 @@ subroutine create_mask_mhd()
         call smc_mask_mhd()
      case("smclinear")
         call smc_mask_mhd()
-     case("smcflat")
-        call smc_mask_mhd()
      case("smcnum")
         call smcnum_mask_mhd()
      case default
@@ -36,8 +34,7 @@ subroutine dealias(fk1,fk2,fk3)
   complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout) :: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout) :: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr) :: kx2,ky2,kz2,t1,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
-  integer :: i
+  real(kind=pr) :: kx2,ky2,kz2,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
 
   kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
   ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
@@ -74,26 +71,22 @@ end subroutine dealias
 
 
 ! MHD wrapper for setting (possibly velocity-dependent) imposed field.
-subroutine update_us_mhd(ub)
+subroutine update_us_mhd()
   use mpi_header
   use mhd_vars
   implicit none
 
-  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
   if(iPenalization == 1) then
      select case (iMask)
      case("TaylorCouette")
-        call tc_us_mhd(ub)
+        call tc_us_mhd()
      case("smc")
-        call smc_us_mhd(ub)
-     case("smclinear")
-        call smclinear_us_mhd(ub)
-     case("smcflat")
-        call smcflat_us_mhd(ub)
+        call smc_us_mhd()
      case("smcnum")
         !call smc_us_mhd(ub)
-        call smcnum_us_mhd(ub)
+        call smcnum_us_mhd()
      case default
         if(mpirank == 0) then
            write (*,*) &
@@ -106,12 +99,12 @@ end subroutine update_us_mhd
 
 
 ! Set the solid velocity for MHD Taylor-Couette flow.
-subroutine tc_us_mhd(ub)
+subroutine tc_us_mhd()
   use mpi_header
   use mhd_vars
   implicit none
   
-  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: r, x, y
   integer :: ix, iy, iz
   
@@ -241,12 +234,12 @@ end subroutine smcnum_mask_mhd
 
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
-subroutine smc_us_mhd(ub)
+subroutine smc_us_mhd()
   use mpi_header
   use mhd_vars
   implicit none
   
-  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: r,x,y
   integer :: ix,iy,iz
   real (kind=pr) :: a,b,c,d,k1,k2,h
@@ -302,98 +295,6 @@ subroutine smc_us_mhd(ub)
 end subroutine smc_us_mhd
 
 
-! Set the solid velocity for Sean-Montgomery-Chen flow.
-subroutine smclinear_us_mhd(ub)
-  use mpi_header
-  use mhd_vars
-  implicit none
-  
-  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr) :: r,x,y
-  integer :: ix,iy,iz
-  real (kind=pr) :: a,b,c,d,k1,k2
-  
-  ! Velocity is no-slip:
-  us(:,:,:,1)=0.d0
-  us(:,:,:,2)=0.d0
-  us(:,:,:,3)=0.d0
-
-  us(:,:,:,4)=0.d0
-  us(:,:,:,5)=0.d0
-  us(:,:,:,6)=B0
-
-  k1=Bc*r2/r1
-  k2=Bc/r1
-  A=(2.d0*k1 -k2*(r2-r3))/(r3*r3*r3 -3.d0*r2*r3*r3 +3.d0*r2*r2*r3 -r2*r2*r2)
-  B=(k2 -3.d0*A*(r2*r2 -r3*r3))/(2.d0*r2 -2.d0*r3)
-  C=-3.d0*A*r3*r3 -2.d0*B*r3
-  D=2.d0*A*r3*r3*r3 +B*r3*r3
-
-  do ix=ra(1),rb(1)  
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy=ra(2),rb(2)
-        y=yl*(dble(iy)/dble(ny) -0.5d0)
-
-        r=dsqrt(x*x +y*y)
-        
-        ! Linear profile:
-        if(r >= r1 .and. r < r2) then
-           do iz=ra(3),rb(3)
-              us(ix,iy,iz,4)=-Bc*y/r1
-              us(ix,iy,iz,5)=Bc*x/r1
-           enddo
-        endif
-        
-     enddo
-  enddo
-end subroutine smclinear_us_mhd
-
-
-! Set the solid velocity for Sean-Montgomery-Chen flow.
-subroutine smcflat_us_mhd(ub)
-  use mpi_header
-  use mhd_vars
-  implicit none
-  
-  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr) :: r,x,y
-  integer :: ix,iy,iz
-  real (kind=pr) :: a,b,c,d,k1,k2
-  
-  ! Velocity is no-slip:
-  us(:,:,:,1)=0.d0
-  us(:,:,:,2)=0.d0
-  us(:,:,:,3)=0.d0
-
-  us(:,:,:,4)=0.d0
-  us(:,:,:,5)=0.d0
-  us(:,:,:,6)=B0
-
-  k1=Bc*r2/r1
-  k2=Bc/r1
-  A=(2.d0*k1 -k2*(r2-r3))/(r3*r3*r3 -3.d0*r2*r3*r3 +3.d0*r2*r2*r3 -r2*r2*r2)
-  B=(k2 -3.d0*A*(r2*r2 -r3*r3))/(2.d0*r2 -2.d0*r3)
-  C=-3.d0*A*r3*r3 -2.d0*B*r3
-  D=2.d0*A*r3*r3*r3 +B*r3*r3
-
-  do ix=ra(1),rb(1)  
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy=ra(2),rb(2)
-        y=yl*(dble(iy)/dble(ny) -0.5d0)
-
-        r=dsqrt(x*x +y*y)
-        
-        ! Linear profile:
-        if(r >= r1 .and. r < r2) then
-           do iz=ra(3),rb(3)
-              us(ix,iy,iz,4)=-Bc
-              us(ix,iy,iz,5)=Bc
-           enddo
-        endif
-        
-     enddo
-  enddo
-end subroutine smcflat_us_mhd
 
 subroutine bcpoint(on,x,y)
   use mpi_header
@@ -478,14 +379,14 @@ subroutine setpen(p1,p2,p3)
   enddo
 end subroutine setpen
 
-subroutine checkbc(diff,us1,us2,us3)
+subroutine checkbc(diff,us1,us2)
   use mpi_header
   use mhd_vars
   implicit none
   
   real(kind=pr),intent(in)::us1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in)::us2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(in)::us3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+!  real(kind=pr),intent(in)::us3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   logical onboundary
   integer :: ix,iy,iz
@@ -650,16 +551,15 @@ end subroutine maxdist
 
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
-subroutine smcnum_us_mhd(ub)
+subroutine smcnum_us_mhd()
   use mpi_header
   use mhd_vars
   implicit none
   
-  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr) :: r,x,y,z,kx,ky,kz,k2,mydt,diff,diff0,globdiff,overthing,val
-  real(kind=pr) :: vx,vy,vz
+!  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr) :: mydt,diff,diff0
   integer :: ix,iy,iz
-  integer :: i,myi,mpicode
+  integer :: myi,mpicode
 
   logical, save :: firstcall = .true. 
   ! the penalisation field
@@ -671,16 +571,11 @@ subroutine smcnum_us_mhd(ub)
   ! PC time-stepping source buffers
   real(kind=pr),dimension(:,:,:),allocatable :: s1x, s1y, s1z
   real(kind=pr),dimension(:,:,:),allocatable :: s2x, s2y, s2z
-  real(kind=pr) s1ms2
   
   ! Local loop variables, which, in modern languages, are declared
   ! locally in the loop
-  real(kind=pr) :: bcx,bcy
-  complex(kind=pr) :: ux,uy,uz
-  complex(kind=pr) :: pkx,pky,pkz
   real (kind=pr) :: peps
   real (kind=pr) :: olddiff
-  real (kind=pr) :: newdt
   real (kind=pr) :: lerror, error
   logical keeponkeepingon
 
@@ -773,7 +668,7 @@ subroutine smcnum_us_mhd(ub)
 
 
         ! check how close the field is to obeying the boundary conditions
-        call checkbc(lerror,usx,usy,usz)
+        call checkbc(lerror,usx,usy)
         call MPI_REDUCE(lerror,error,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
              MPI_COMM_WORLD,mpicode)
 

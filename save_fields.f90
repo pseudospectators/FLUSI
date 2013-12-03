@@ -14,7 +14,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
      case("fsi") 
         call save_fields_new_fsi(time,uk,u,vort,nlk,work)
      case("mhd") 
-        call save_fields_new_mhd(time,uk,u,vort,nlk,work)
+        call save_fields_new_mhd(time,uk,u,vort,nlk)
      case default
         if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields_new"
         stop
@@ -29,7 +29,6 @@ end subroutine save_fields_new
 ! note cal_nlk_fsi returns the NL+penal term in phys space in the work
 ! array "vort" which is why we have to recompute the vorticity
 subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
-  use mpi_header
   use fsi_vars
   implicit none
 
@@ -40,7 +39,6 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   character(len=17) :: name
-  integer :: i
 
   !--Set up file name base    
   if ( save_only_one_period == "yes" ) then
@@ -539,7 +537,7 @@ end subroutine Dump_Field_Backup
 ! this is a serial routine (parallel version below)
 ! note you need to know what dimension the file has,
 ! call fetch_attributes first
-subroutine read_single_file_serial ( filename, field )
+subroutine read_single_file_serial(filename,field)
   use mpi_header
   use vars
   use hdf5
@@ -549,10 +547,7 @@ subroutine read_single_file_serial ( filename, field )
   real(kind=pr), intent (out) :: field(0:nx-1,0:ny-1,0:nz-1)
   
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
-  real (kind=pr)                :: time,dt1,dt0, xl_file, yl_file, zl_file
   character(len=80)             :: dsetname
-  integer                       :: n1,it
-  integer                       :: nx_file,ny_file,nz_file, mpierror, i  
 
   integer(hid_t) :: file_id       ! file identifier
   integer(hid_t) :: dset_id       ! dataset identifier
@@ -572,12 +567,6 @@ subroutine read_single_file_serial ( filename, field )
 
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
-  integer(hsize_t), dimension(1) :: adims  ! Attribute dimension
-  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
-  !integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
-  integer(hid_t) :: attr_id       ! Attribute identifier
-  character(len=4) :: aname ! attribute name
-  real (kind=pr), dimension (:), allocatable :: attributes  
   
   ! the dataset is named the same way as the file: (this is convention)
   dsetname = filename ( 1:index( filename, '_' )-1 )
@@ -676,10 +665,9 @@ subroutine Read_Single_File ( filename, field )
   intent (out) :: field
   
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
-  real (kind=pr)                :: time,dt1,dt0, xl_file, yl_file, zl_file
+  real (kind=pr)                :: time, xl_file, yl_file, zl_file
   character(len=80)             :: dsetname
-  integer                       :: n1,it
-  integer                       :: nx_file,ny_file,nz_file, mpierror, i  
+  integer                       :: nx_file, ny_file, nz_file, mpierror, i  
 
   integer(hid_t) :: file_id       ! file identifier
   integer(hid_t) :: dset_id       ! dataset identifier
@@ -699,13 +687,6 @@ subroutine Read_Single_File ( filename, field )
 
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
-  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
-  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
-  !integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
-  integer(hid_t) :: attr_id       ! Attribute identifier
-  character(len=4) :: aname ! attribute name
-  real (kind=pr), dimension (:), allocatable :: attributes  
-  logical :: exist1
 
   ! the dataset is named the same way as the file: (this is convention)
   dsetname = filename ( 1:index( filename, '_' )-1 )
@@ -1126,7 +1107,7 @@ end subroutine write_attribute_int
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
 ! files.
-subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
+subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   use mpi_header
   use mhd_vars
   implicit none
@@ -1134,7 +1115,6 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   character(len=17) :: name
@@ -1213,8 +1193,6 @@ end subroutine save_fields_new_mhd
 
 
 
-
-
 !----------------------------------------------------
 ! This routine fetches the resolution, the domain size and the time
 ! form a *.h5 file
@@ -1243,10 +1221,6 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   integer(hid_t) :: dset_id       ! dataset identifier
   integer(hid_t) :: attr_id       ! attribute identifier
   integer(hid_t) :: aspace_id     ! attribute dataspace identifier
-  integer(hid_t) :: atype_id      ! attribute dataspace identifier
-  integer(hsize_t), dimension(1) :: adims = (/1/) ! attribute dimension
-  integer     ::   arank = 1                      ! attribure rank
-  integer(size_t) :: attrlen    ! length of the attribute string
 
   real (kind=pr) ::  attr_data  ! attribute data
   real (kind=pr), dimension (1:3) :: attr_data2

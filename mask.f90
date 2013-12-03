@@ -46,7 +46,7 @@ subroutine update_us(ub)
     case("fsi")
         call update_us_fsi(ub)
     case("mhd")
-        call update_us_mhd(ub)
+        call update_us_mhd()
     case default    
         if(mpirank == 0) then
           write (*,*) "Error: unkown method in update_us; stopping."
