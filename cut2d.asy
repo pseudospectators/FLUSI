@@ -58,21 +58,33 @@ pen[] Palette=BWRainbow();
 
 //image(f[z],(0,0),(1,1),Palette); // just add the image:
 
-real lx=2.513274;
-real ly=2.513274;
-bounds range=image(f2,(0,0),(lx,ly),Palette); // add the image
+real l1=getreal("l1");
+real l2=getreal("l2");
+bounds range=image(f2,(0,0),(l1,l2),Palette); // add the image
 
-pair O=(lx/2,ly/2);
-real ay=0;
-ay=getreal("ay");
-if(ay != 0.0) {
-  path wall=ellipse(O,1,1/sqrt(ay));
-  //dot(O);
-  // path ellipse(pair c, real a, real b)
+
+
+string shape=getstring("boundary shape");
+
+if(shape == "circle") {
+  pair O=(l1/2,l2/2);
+  real ay=getreal("ay");
+  if(ay != 0.0) {
+    path wall=ellipse(O,1,1/sqrt(ay));
+    draw(wall);
+    clip(wall);
+  }
+}
+if(shape == "rectangle") {
+  real w=getreal("width");
+  real h=getreal("height");
+
+  pair O=(l1/2,l2/2);
+  pair pw=(0.5*w,0), ph=(0,0.5*h);
+  path wall=O-pw-ph--O-pw+ph--O+pw+ph--O+pw-ph--cycle;
   draw(wall);
   clip(wall);
 }
-
 
 // add the palette bar:
 picture bar;
