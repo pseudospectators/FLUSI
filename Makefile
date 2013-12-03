@@ -19,9 +19,12 @@ FC = mpif90
 endif
 
 # GNU compiler
-ifeq ($(shell $(FC) --version 2>&1 | tail -n 1 | head -c 3),GNU)
+ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
 FFLAGS += -Wsurprising # warn if things might not behave as expected
+FFLAGS += -pedantic 
+FFLAGS += -Wconversion
+FFLGAS += -Wunused-labels
 PPFLAG= -cpp #preprocessor flag
 
 # Debug flags for gfortran
