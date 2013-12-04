@@ -27,6 +27,8 @@ subroutine postprocessing()
     call Compare_key (key1,key2)         
   case ("--vorticity")
     call Convert_vorticity()
+  case ("--vor_abs")
+    call Convert_abs_vorticity()    
   case ("--hdf2bin")
     call convert_hdf2bin()
   end select
@@ -90,6 +92,91 @@ end subroutine convert_hdf2bin
 
 
 
+!-------------------------------------------------------------------------------
+! ./flusi --postprocessing --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5
+!-------------------------------------------------------------------------------
+! load the velocity components from file and compute & save the vorticity
+! directly compute the absolute value of vorticity, do not save components
+! can be done in parallel
+subroutine Convert_abs_vorticity()
+  use fsi_vars
+  use mpi_header
+  implicit none
+  character(len=80) :: fname_ux, fname_uy, fname_uz, dsetname
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr) :: time 
+  logical :: exist1,exist2,exist3
+  
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+  
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+    
+  if (mpirank == 0) then
+    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
+  endif
+  
+  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz"))
+     write (*,*) "Error in arguments, files do not start with ux uy and uz"
+     write (*,*) "note files have to be in the right order"
+     stop
+  endif
+  
+  
+  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
+  call Fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl  
+    
+  call fft_initialize() ! also initializes the domain decomp
+  
+  if (mpirank==0) write (*,*) "Done fft_initialize"
+  
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+  
+  if (mpirank==0) write (*,*) "Allocated memory"
+  
+  call Read_Single_File ( fname_ux, u(:,:,:,1) )
+  call Read_Single_File ( fname_uy, u(:,:,:,2) )
+  call Read_Single_File ( fname_uz, u(:,:,:,3) )
+    
+  call FFT (uk(:,:,:,1),u(:,:,:,1))
+  call FFT (uk(:,:,:,2),u(:,:,:,2))
+  call FFT (uk(:,:,:,3),u(:,:,:,3))
+  
+  call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  
+  call IFFT (u(:,:,:,1),uk(:,:,:,1))
+  call IFFT (u(:,:,:,2),uk(:,:,:,2))
+  call IFFT (u(:,:,:,3),uk(:,:,:,3))
+  
+  ! now u contains the vorticity in physical space
+  fname_ux='vor_abs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
+  
+  if (mpirank == 0) then
+    write (*,'("Writing to file",A)') trim(fname_ux)
+  endif
+  
+  ! compute absolute vorticity:
+  u(:,:,:,1) = dsqrt(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
+    
+  call Save_Field_HDF5 ( time,fname_ux,u(:,:,:,1),"vor_abs")
+  
+  deallocate (u)
+  deallocate (uk)
+  call fft_free()
+  
+end subroutine Convert_abs_vorticity
+
+
 
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocessing --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5
@@ -118,7 +205,12 @@ subroutine Convert_vorticity()
   if (mpirank == 0) then
     write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
   endif
-  
+
+  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz"))
+     write (*,*) "Error in arguments, files do not start with ux uy and uz"
+     write (*,*) "note files have to be in the right order"
+     stop
+  endif
   
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
   call Fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
