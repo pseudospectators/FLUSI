@@ -53,7 +53,6 @@ subroutine convert_hdf2bin()
   integer :: ix, iy ,iz
   real(kind=pr_out), dimension(:,:,:), allocatable :: field_out ! single precision
   real(kind=pr) :: time 
-  logical :: exist1
   call get_command_argument(3,fname)
   
   ! check if input file exists
@@ -106,15 +105,14 @@ subroutine Convert_abs_vorticity()
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time 
-  logical :: exist1,exist2,exist3
   
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
   
-  call check_file_exists( fname_ux )
-  call check_file_exists( fname_uy )
-  call check_file_exists( fname_uz )
+  call check_file_exists(fname_ux)
+  call check_file_exists(fname_uy)
+  call check_file_exists(fname_uz)
     
   if (mpirank == 0) then
     write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
@@ -168,7 +166,7 @@ subroutine Convert_abs_vorticity()
   ! compute absolute vorticity:
   u(:,:,:,1) = dsqrt(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
     
-  call Save_Field_HDF5 ( time,fname_ux,u(:,:,:,1),"vor_abs")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vor_abs")
   
   deallocate (u)
   deallocate (uk)
@@ -183,7 +181,7 @@ end subroutine Convert_abs_vorticity
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! can be done in parallel
-subroutine Convert_vorticity()
+subroutine convert_vorticity()
   use fsi_vars
   use mpi_header
   implicit none
@@ -191,7 +189,6 @@ subroutine Convert_vorticity()
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time 
-  logical :: exist1,exist2,exist3
   
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -248,15 +245,15 @@ subroutine Convert_vorticity()
     write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
   endif
     
-  call Save_Field_HDF5 ( time,fname_ux,u(:,:,:,1),"vorx")
-  call Save_Field_HDF5 ( time,fname_uy,u(:,:,:,2),"vory")
-  call Save_Field_HDF5 ( time,fname_uz,u(:,:,:,3),"vorz")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vorx")
+  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2),"vory")
+  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"vorz")
   
   deallocate (u)
   deallocate (uk)
   call fft_free()
   
-end subroutine Convert_vorticity
+end subroutine convert_vorticity
 
 
 
@@ -272,10 +269,8 @@ subroutine Keyvalues(filename)
   implicit none
   character(len=*), intent(in) :: filename
   character(len=80) :: dsetname
-  integer :: nx_file,ny_file,nz_file
-  real(kind=pr) :: xl_file, yl_file, zl_file, time
+  real(kind=pr) :: time
   real(kind=pr), dimension(:,:,:), allocatable :: field
-  logical :: exist1
   
   if (mpisize>1) then
     write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"

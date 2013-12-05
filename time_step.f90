@@ -25,10 +25,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
 
   if (mpirank == 0) write(*,'(A)') 'Info: Starting time iterations.'
   ! initialize runtime control file
-  if (mpirank == 0) call Initialize_runtime_control_file()
+  if (mpirank == 0) call initialize_runtime_control_file()
   
   ! check if at least FFT works okay
-  call FFT_unit_test ( work, uk(:,:,:,1) )
+  call fft_unit_test ( work, uk(:,:,:,1) )
   
   continue_timestepping = .true.
   time=0.0
@@ -70,7 +70,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-     call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+     call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
 
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
@@ -116,7 +116,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
         
         ! Backup if that's specified in the PARAMS.ini file
         if(iDoBackup == 1) then
-           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
         endif
      endif
      
@@ -140,13 +140,13 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
           ! read all parameters from the params.ini file
           call get_params(params_file)           
           ! overwrite control file
-          if (mpirank == 0) call Initialize_runtime_control_file()
+          if (mpirank == 0) call initialize_runtime_control_file()
         case ("save_stop")
           if (mpirank==0) write (*,*) "runtime control: Safely stopping..."
-          call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
           continue_timestepping = .false. ! this will stop the time loop
           ! overwrite control file
-          if (mpirank == 0) call Initialize_runtime_control_file()
+          if (mpirank == 0) call initialize_runtime_control_file()
         end select
      endif 
      
@@ -199,10 +199,10 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   if(mpirank == 0) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
-     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",e25.16)') &
+     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es10.2,"s t=",es10.2)') &
           floor(time_left/(24.d0*3600.d0))   ,&
           floor(mod(time_left,24.*3600.d0)/3600.d0),&
           floor(mod(time_left,3600.d0)/60.d0),&
-          floor(mod(mod(time_left,3600.d0),60.d0)),dt1
+          floor(mod(mod(time_left,3600.d0),60.d0)),dt1,time
   endif
 end subroutine are_we_there_yet

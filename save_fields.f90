@@ -55,7 +55,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   if (mpirank == 0 ) then
     write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," str=",A)') & 
     time, &
-    iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveSolidVelocity, &
+    isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity, &
     trim(adjustl(name))
   endif
 
@@ -66,16 +66,16 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   !-------------  
   ! Velocity
   !-------------
-  if (iSaveVelocity == 1) then
-    call Save_Field_HDF5(time,"./ux_"//name,u(:,:,:,1),"ux")
-    call Save_Field_HDF5(time,"./uy_"//name,u(:,:,:,2),"uy")
-    call Save_Field_HDF5(time,"./uz_"//name,u(:,:,:,3),"uz")
+  if (isaveVelocity == 1) then
+    call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
+    call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
+    call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
   endif
 
   !-------------  
   ! Pressure
   !-------------
-  if (iSavePress == 1) then  
+  if (isavePress == 1) then  
     call fft3(nlk,vort) ! nlk now NL+penal term in Fourier space
     ! store the total pressure in the work array
     call compute_pressure(nlk(:,:,:,1),nlk)
@@ -83,41 +83,41 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
     call ifft(work,nlk(:,:,:,1))
     ! get actuall pressure (we're in the rotational formulation)
     work = work - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-    call Save_Field_HDF5(time,'./p_'//name,work,"p")
+    call save_field_hdf5(time,'./p_'//name,work,"p")
   endif
      
   !-------------  
   ! Vorticity
   !-------------   
-  if (iSaveVorticity==1) then
+  if (isaveVorticity==1) then
     ! cal_nlk overwrote the vorticity, recompute it
     call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),& 
                uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
     call ifft3(vort,nlk)      
-    !-- Save Vorticity
-    if (iSaveVorticity == 1) then
-      call Save_Field_HDF5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
-      call Save_Field_HDF5(time,"./vory_"//name,vort(:,:,:,2),"vory")
-      call Save_Field_HDF5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
+    !-- save Vorticity
+    if (isaveVorticity == 1) then
+      call save_field_hdf5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
+      call save_field_hdf5(time,"./vory_"//name,vort(:,:,:,2),"vory")
+      call save_field_hdf5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
     endif
   endif
       
   !-------------  
   ! Mask
   !-------------
-  if (iSaveMask == 1 .and. iPenalization == 1) then
+  if (isaveMask == 1 .and. iPenalization == 1) then
     mask = mask*eps
-    call Save_Field_HDF5(time,'./mask_'//name,mask,"mask")
+    call save_field_hdf5(time,'./mask_'//name,mask,"mask")
     mask = mask/eps
   endif
   
   !-------------  
   ! solid velocity
   !-------------
-  if (iSaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
-    call Save_Field_HDF5(time,'./usx_'//name,us(:,:,:,1),"usx")
-    call Save_Field_HDF5(time,'./usy_'//name,us(:,:,:,2),"usy")
-    call Save_Field_HDF5(time,'./usz_'//name,us(:,:,:,3),"usz")
+  if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
+    call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1),"usx")
+    call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
+    call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
   endif
   
   if (mpirank==0) write(*,*) "Done saving."
@@ -126,11 +126,11 @@ end subroutine save_fields_new_fsi
 
 ! Write the field field_out to file filename, saving the name of the
 ! field, dsetname, (as well as time, eps, and resolution) to the
-! metadata of the HDF file .
-subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
+! metadata of the hdf file .
+subroutine save_field_hdf5(time,filename,field_out,dsetname)
   use mpi_header
   use vars
-  use HDF5
+  use hdf5
   implicit none
   
   ! The field to be written to disk:
@@ -253,7 +253,7 @@ subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
 
   ! write the XMF data for all of the saved fields
-  if ((mpirank==0).and.(iSaveXMF==1)) then
+  if ((mpirank==0).and.(isaveXMF==1)) then
      ! the filename contains a leading "./" which we must remove
      call Write_XMF(time,&
           trim(adjustl(filename(3:len(filename)))),&
@@ -262,7 +262,7 @@ subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   endif
 
   time_save=time_save + MPI_wtime() - t1 ! performance analysis
-end subroutine Save_Field_HDF5
+end subroutine save_field_hdf5
 
 
 ! Generate an XMF file for paraview.  Note: this is a single scalar
@@ -320,7 +320,7 @@ end subroutine Write_XMF
 
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
-subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
+subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   use mpi_header
   use vars
   use hdf5
@@ -367,50 +367,50 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
 
   ! Write the fluid backup field:
   call ifft(work,ub(:,:,:,1))
-  call Dump_Field_Backup(work,"ux",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"ux",time,dt0,dt1,n1,it,file_id)
   call ifft(work,ub(:,:,:,2))
-  call Dump_Field_Backup(work,"uy",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"uy",time,dt0,dt1,n1,it,file_id)
   call ifft(work,ub(:,:,:,3))
-  call Dump_Field_Backup(work,"uz",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
 
   if(method == "mhd") then
      ! Write the MHD backup field:
      call ifft(work,ub(:,:,:,4))
-     call Dump_Field_Backup(work,"bx",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
      call ifft(work,ub(:,:,:,5))
-     call Dump_Field_Backup(work,"by",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
      call ifft(work,ub(:,:,:,6))
-     call Dump_Field_Backup(work,"bz",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
   endif
 
   ! Write the fluid nonlinear term backup:
   call ifft(work,nlk(:,:,:,1,0))
-  call Dump_Field_Backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,2,0))
-  call Dump_Field_Backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,3,0))
-  call Dump_Field_Backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,1,1))
-  call Dump_Field_Backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,2,1))
-  call Dump_Field_Backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,3,1))
-  call Dump_Field_Backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
+  call dump_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
   
   if(method == "mhd") then
      ! Write the MHD backup field:
      call ifft(work,nlk(:,:,:,4,0))
-     call Dump_Field_Backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,5,0))
-     call Dump_Field_Backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,6,0))
-     call Dump_Field_Backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,4,1))
-     call Dump_Field_Backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,5,1))
-     call Dump_Field_Backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,6,1))
-     call Dump_Field_Backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
+     call dump_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
   endif
 
   ! Close the file:
@@ -422,13 +422,13 @@ subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
 
   if(mpirank == 0) write(*,'("<<< info: done saving backup.")')
-end subroutine Dump_Runtime_Backup
+end subroutine dump_Runtime_backup
 
 
 ! This routine dumps a single field "field" as a dataset "dsetname" to
 ! a backup file "file_id". Attributes are stores in one attribute
 ! "bckp" which contains 8 values
-subroutine Dump_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
+subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use mpi_header
   use vars
   use hdf5
@@ -527,7 +527,7 @@ subroutine Dump_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   call h5pclose_f(plist_id, error)
 
   deallocate(attributes)
-end subroutine Dump_Field_Backup
+end subroutine dump_field_backup
 
 
 
@@ -1044,7 +1044,7 @@ end subroutine read_field_backup
 subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   use mpi_header
   use vars
-  use HDF5
+  use hdf5
   implicit none
 
   integer, intent(in) :: dim
@@ -1076,7 +1076,7 @@ end subroutine write_attribute_dble
 subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   use mpi_header
   use vars
-  use HDF5
+  use hdf5
   implicit none
 
   integer, intent(in) :: dim
@@ -1127,7 +1127,7 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   if(mpirank == 0 ) write(*,*) "Saving output fields..."
 
   ! We need the velocity for saving the velocity and/or vorticity
-  if(iSaveVelocity == 1 .or. iSaveVorticity == 1) then
+  if(isaveVelocity == 1 .or. isaveVorticity == 1) then
      do i=1,3
         call ifft(ub(:,:,:,i),ubk(:,:,:,i))
      enddo
@@ -1135,21 +1135,21 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
     
   ! We need the magnetic fields velocity for saving the magnetic field
   ! and/or current density
-  if(iSaveMagneticField == 1  .or. iSaveCurrent == 1) then
+  if(isaveMagneticfield == 1  .or. isaveCurrent == 1) then
      do i=4,6
         call ifft(ub(:,:,:,i),ubk(:,:,:,i))
      enddo
   endif
     
-  ! Save the velocity
-  if(iSaveVelocity == 1) then
-     call Save_Field_HDF5(time,'./ux_'//name,ub(:,:,:,1),"ux")
-     call Save_Field_HDF5(time,'./uy_'//name,ub(:,:,:,2),"uy")
-     call Save_Field_HDF5(time,'./uz_'//name,ub(:,:,:,3),"uz")
+  ! save the velocity
+  if(isaveVelocity == 1) then
+     call save_field_hdf5(time,'./ux_'//name,ub(:,:,:,1),"ux")
+     call save_field_hdf5(time,'./uy_'//name,ub(:,:,:,2),"uy")
+     call save_field_hdf5(time,'./uz_'//name,ub(:,:,:,3),"uz")
   endif
   
-  ! Save the vorticity
-  if(iSaveVorticity == 1) then
+  ! save the vorticity
+  if(isaveVorticity == 1) then
      ! compute vorticity
      call curl(&
           nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
@@ -1157,35 +1157,35 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
      do i=1,3
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
-     call Save_Field_HDF5(time,'./vorx_'//name,wj(:,:,:,1),"vorx")
-     call Save_Field_HDF5(time,'./vory_'//name,wj(:,:,:,2),"vory")
-     call Save_Field_HDF5(time,'./vorz_'//name,wj(:,:,:,3),"vorz")
+     call save_field_hdf5(time,'./vorx_'//name,wj(:,:,:,1),"vorx")
+     call save_field_hdf5(time,'./vory_'//name,wj(:,:,:,2),"vory")
+     call save_field_hdf5(time,'./vorz_'//name,wj(:,:,:,3),"vorz")
   endif
   
-  ! Save the magnetic field
-  if(iSaveMagneticField == 1) then
-     call Save_Field_HDF5(time,'./bx_'//name,ub(:,:,:,4),"bx")
-     call Save_Field_HDF5(time,'./by_'//name,ub(:,:,:,5),"by")
-     call Save_Field_HDF5(time,'./bz_'//name,ub(:,:,:,6),"bz")
+  ! save the magnetic field
+  if(isaveMagneticfield == 1) then
+     call save_field_hdf5(time,'./bx_'//name,ub(:,:,:,4),"bx")
+     call save_field_hdf5(time,'./by_'//name,ub(:,:,:,5),"by")
+     call save_field_hdf5(time,'./bz_'//name,ub(:,:,:,6),"bz")
   endif
 
-  ! Save the current density
-  if(iSaveCurrent == 1) then
+  ! save the current density
+  if(isaveCurrent == 1) then
      call curl(&
           nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
           ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6)) 
      do i=4,6
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
-     call Save_Field_HDF5(time,'./jx_'//name,wj(:,:,:,4),"jx")
-     call Save_Field_HDF5(time,'./jy_'//name,wj(:,:,:,5),"jy")
-     call Save_Field_HDF5(time,'./jz_'//name,wj(:,:,:,6),"jz")
+     call save_field_hdf5(time,'./jx_'//name,wj(:,:,:,4),"jx")
+     call save_field_hdf5(time,'./jy_'//name,wj(:,:,:,5),"jy")
+     call save_field_hdf5(time,'./jz_'//name,wj(:,:,:,6),"jz")
   endif
   
-  ! Save Mask
+  ! save Mask
   ! FIXME: for stationary masks, this should be done only once
-  if((iSaveMask == 1).and.(iPenalization == 1)) then
-     call Save_Field_HDF5(time,'./mask_'//name,mask,"mask")
+  if((isaveMask == 1).and.(iPenalization == 1)) then
+     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
   endif
 
   if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."
