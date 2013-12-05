@@ -54,8 +54,12 @@ if(getstring("use mask") =="y") {
 real[][] f2=cut2(f,nx,ny,nz,c,idir);
 
 // Get dimensions of image:
-real l1=getreal("l1");
-real l2=getreal("l2");
+string sl1, sl2;
+if(cutdir == "x") { sl1="yl"; sl2="zl";}
+if(cutdir == "y") { sl1="xl"; sl2="zl";}
+if(cutdir == "z") { sl1="xl"; sl2="yl";} // CHECKME
+real l1=getreal(sl1);
+real l2=getreal(sl2);
 
 // Find bounds for pallette:
 real f2max=f2[0][0];
