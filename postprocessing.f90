@@ -20,15 +20,15 @@ subroutine postprocessing()
   select case (postprocessing_mode)
   case ("--keyvalues")
     call get_command_argument(3,filename)
-    call Keyvalues (filename)      
+    call keyvalues (filename)      
   case ("--compare-keys")
     call get_command_argument(3,key1)
     call get_command_argument(4,key2)
-    call Compare_key (key1,key2)         
+    call compare_key (key1,key2)         
   case ("--vorticity")
-    call Convert_vorticity()
+    call convert_vorticity()
   case ("--vor_abs")
-    call Convert_abs_vorticity()    
+    call convert_abs_vorticity()    
   case ("--hdf2bin")
     call convert_hdf2bin()
   end select
@@ -64,7 +64,7 @@ subroutine convert_hdf2bin()
   endif    
   
   dsetname = fname ( 1:index( fname, '_' )-1 )
-  call Fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
   
   write (*,'("Converting ",A," to ",A,".binary. Resolution is" 3(i4,1x))') &
         trim(fname), trim(fname), nx,ny,nz
@@ -73,7 +73,7 @@ subroutine convert_hdf2bin()
       
   allocate ( field(0:nx-1,0:ny-1,0:nz-1),field_out(0:nx-1,0:ny-1,0:nz-1) )
   ! read field from hdf file
-  call Read_Single_File_serial (fname, field)
+  call read_single_file_serial (fname, field)
   ! convert to single precision
   field_out = real(field, kind=pr_out)
   
@@ -97,7 +97,7 @@ end subroutine convert_hdf2bin
 ! load the velocity components from file and compute & save the vorticity
 ! directly compute the absolute value of vorticity, do not save components
 ! can be done in parallel
-subroutine Convert_abs_vorticity()
+subroutine convert_abs_vorticity()
   use fsi_vars
   use mpi_header
   implicit none
@@ -126,7 +126,7 @@ subroutine Convert_abs_vorticity()
   
   
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call Fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
   
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -142,19 +142,19 @@ subroutine Convert_abs_vorticity()
   
   if (mpirank==0) write (*,*) "Allocated memory"
   
-  call Read_Single_File ( fname_ux, u(:,:,:,1) )
-  call Read_Single_File ( fname_uy, u(:,:,:,2) )
-  call Read_Single_File ( fname_uz, u(:,:,:,3) )
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
     
-  call FFT (uk(:,:,:,1),u(:,:,:,1))
-  call FFT (uk(:,:,:,2),u(:,:,:,2))
-  call FFT (uk(:,:,:,3),u(:,:,:,3))
+  call fft (uk(:,:,:,1),u(:,:,:,1))
+  call fft (uk(:,:,:,2),u(:,:,:,2))
+  call fft (uk(:,:,:,3),u(:,:,:,3))
   
   call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   
-  call IFFT (u(:,:,:,1),uk(:,:,:,1))
-  call IFFT (u(:,:,:,2),uk(:,:,:,2))
-  call IFFT (u(:,:,:,3),uk(:,:,:,3))
+  call ifft (u(:,:,:,1),uk(:,:,:,1))
+  call ifft (u(:,:,:,2),uk(:,:,:,2))
+  call ifft (u(:,:,:,3),uk(:,:,:,3))
   
   ! now u contains the vorticity in physical space
   fname_ux='vor_abs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
@@ -172,7 +172,7 @@ subroutine Convert_abs_vorticity()
   deallocate (uk)
   call fft_free()
   
-end subroutine Convert_abs_vorticity
+end subroutine convert_abs_vorticity
 
 
 
@@ -210,7 +210,7 @@ subroutine convert_vorticity()
   endif
   
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call Fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
   
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -222,19 +222,19 @@ subroutine convert_vorticity()
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
   
-  call Read_Single_File ( fname_ux, u(:,:,:,1) )
-  call Read_Single_File ( fname_uy, u(:,:,:,2) )
-  call Read_Single_File ( fname_uz, u(:,:,:,3) )
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
   
-  call FFT (uk(:,:,:,1),u(:,:,:,1))
-  call FFT (uk(:,:,:,2),u(:,:,:,2))
-  call FFT (uk(:,:,:,3),u(:,:,:,3))
+  call fft (uk(:,:,:,1),u(:,:,:,1))
+  call fft (uk(:,:,:,2),u(:,:,:,2))
+  call fft (uk(:,:,:,3),u(:,:,:,3))
   
   call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   
-  call IFFT (u(:,:,:,1),uk(:,:,:,1))
-  call IFFT (u(:,:,:,2),uk(:,:,:,2))
-  call IFFT (u(:,:,:,3),uk(:,:,:,3))
+  call ifft (u(:,:,:,1),uk(:,:,:,1))
+  call ifft (u(:,:,:,2),uk(:,:,:,2))
+  call ifft (u(:,:,:,3),uk(:,:,:,3))
   
   ! now u contains the vorticity in physical space
   fname_ux='vorx'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
@@ -263,7 +263,7 @@ end subroutine convert_vorticity
 ! load the specified *.h5 file and creates a *.key file that contains
 ! min / max / mean / L2 norm of the field data. This is used for unit testing
 ! so that we don't need to store entire fields but rather the *.key only
-subroutine Keyvalues(filename)
+subroutine keyvalues(filename)
   use fsi_vars
   use mpi_header
   implicit none
@@ -289,10 +289,10 @@ subroutine Keyvalues(filename)
   ! the dataset is named the same way as the file:
   dsetname = filename ( 1:index( filename, '_' )-1 )
   write (*,*) "dsetname: ", dsetname
-  call Fetch_attributes( filename, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( filename, dsetname, nx, ny, nz, xl, yl, zl, time )
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
   
-  call Read_Single_File_serial (filename, field)
+  call read_single_file_serial (filename, field)
   
   open  (14, file = filename(1:index(filename,'.'))//'key', status = 'replace')
   write (14,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/(nx*ny*nz), sum(field**2)/(nx*ny*nz)
@@ -300,14 +300,14 @@ subroutine Keyvalues(filename)
   close (14)  
   
   deallocate (field)  
-end subroutine Keyvalues
+end subroutine keyvalues
 
 
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocessing --compare-keys mask_00000.key saved.key
 !-------------------------------------------------------------------------------
 ! compares to *.key files if they're equal
-subroutine Compare_key(key1,key2)
+subroutine compare_key(key1,key2)
   use fsi_vars
   use mpi_header
   implicit none
@@ -351,4 +351,4 @@ subroutine Compare_key(key1,key2)
     write (*,*) "ERROR"
     call exit(1)
   endif 
-end subroutine Compare_key
+end subroutine compare_key
