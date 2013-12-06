@@ -8,30 +8,29 @@ import utils;
 // asy cut -u "runlegs=\"asdf\""
 // asy cut -u "quantity=\"asdf\""
 
+
+string type="cut";
+type=getstring("type: cut or spectrum");
+
+string xlabel, ylabel;
+if(type == "cut") {
+  scale(Linear,Linear);
+  xlabel="position";
+  ylabel="value";
+}
+if(type == "spectrum") {
+  scale(Log,Log);
+  xlabel="wavenumber";
+  ylabel="magnitude";
+}
+
 string runlegs;
 string quantity="";
 usersetting();
 
 // find the comma-separated strings to use in the legend
 bool myleg=((runlegs== "") ? false: true);
-bool flag=true;
-int n=-1;
-int lastpos=0;
-string legends[];
-if(myleg) {
-  string runleg;
-  while(flag) {
-    ++n;
-    int pos=find(runlegs,",",lastpos);
-    if(lastpos == -1) {runleg=""; flag=false;}
-    
-    runleg=substr(runlegs,lastpos,pos-lastpos);
-
-    lastpos=pos > 0 ? pos+1 : -1;
-    if(flag) legends.push(runleg);
-  }
-}
-
+string[] legends=set_legends(runlegs);
 
 
 string filenames=getstring("filenames");
@@ -70,42 +69,62 @@ while(flag) {
     
     // find the line through the data:
     string cutinfo;
-    int c1=getint("height 1");
-    int c2=getint("height 2");
     int idir;
+    string sh1, sh2;
     real[] f1;
     if(cutdir == "x") {
       f1=new real[nx];
-      idir=3;
-      cutinfo=", y="+(string)c1+", z="+(string)c2;
+      idir=1;
+      //cutinfo=", y="+(string)c1+", z="+(string)c2;
       d=L/nx;
+      sh2="y height";
+      sh1="z height";
+
     }
     if(cutdir == "y") {
       f1=new real[ny];
       idir=2;
-      cutinfo=", x="+(string)c1+", z="+(string)c2;
+      //cutinfo=", x="+(string)c1+", z="+(string)c2;
       d=L/ny;
+      sh2="z height";
+      sh1="x height";
     }
     if(cutdir == "z") {
       f1=new real[nz];
-      idir=1;
-      cutinfo=", x="+(string)c1+", y="+(string)c2;
+      idir=3;
+      //cutinfo=", x="+(string)c1+", y="+(string)c2;
       d=L/nz;
+      sh2="x height";
+      sh1="y height";
     }
+    int c2=getint(sh2);
+    int c1=getint(sh1);
     f1=cut1(f,nx,ny,nz,c1,c2,idir);
 
     // draw the graph, axes, and attach the legend.
     string legend=myleg ? legends[0] : texify(filename);
     real x[];
-    for(int i=0; i < f1.length; ++i)
-      x.push(i*d);
     //if(n == 1) f1=-f1;
     
     string leg=texify(filename);
-    draw(graph(x,f1),Pen(n),leg+cutinfo);
+    if(type == "cut") {
+      for(int i=0; i < f1.length; ++i) x.push(i*d);
+      draw(graph(x,f1),Pen(n),leg+cutinfo);
+    }
+    
+    if(type == "spectrum") {
+      for(int i=0; i < f1.length; ++i)
+	x.push(i);
+      pair[] ff=new pair[f1.length];
+      for(int i=0; i < ff.length; ++i) 	ff[i]=f1[i];
+      pair[] fff=fft(ff);
+      string leg=texify(filename);
+      draw(graph(x,abs(fff),x > 0 & x<fff.length/3.0-1),Pen(n),leg+cutinfo);
+     }
+    
   }
 }
-yaxis(quantity,LeftRight,LeftTicks);
-xaxis("position",BottomTop,LeftTicks);
+yaxis(ylabel+quantity,LeftRight,LeftTicks);
+xaxis(xlabel,BottomTop,LeftTicks);
 
 attach(legend(),point(plain.E),20plain.E);
