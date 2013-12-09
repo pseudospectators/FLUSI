@@ -61,7 +61,7 @@ if(cutdir == "z") { sl1="xl"; sl2="yl";} // CHECKME
 real l1=getreal(sl1);
 real l2=getreal(sl2);
 
-// Find bounds for pallette:
+// Find bounds for palette:
 real f2max=f2[0][0];
 real f2min=f2[0][0];
 for(int i=0; i < f2.length; ++i) {
@@ -73,8 +73,8 @@ for(int i=0; i < f2.length; ++i) {
 real f2absmax=max(abs(f2max),abs(f2min));
 
 // choose a palette
-pen[] Palette=BWRainbow();
-
+//pen[] Palette=BWRainbow();
+pen[] Palette=paraview_cooltowarm;
 // symmetric colour bar:
 bounds range=image(f2,Range(-f2absmax,f2absmax),(0,0),(l1,l2),Palette);
 // Full colour bar:

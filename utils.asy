@@ -1,4 +1,42 @@
 import graph;
+import palette;
+
+//http://www.sandia.gov/~kmorel/documents/ColorMaps/CoolWarmUChar33.csv
+pen[] paraview_cooltowarm=Gradient(
+		       rgb(59,76,192),
+		       rgb(68,90,204),
+		       rgb(77,104,215),
+		       rgb(87,117,225),
+		       rgb(98,130,234),
+		       rgb(108,142,241),
+		       rgb(119,154,247),
+		       rgb(130,165,251),
+		       rgb(141,176,254),
+		       rgb(152,185,255),
+		       rgb(163,194,255),
+		       rgb(174,201,253),
+		       rgb(184,208,249),
+		       rgb(194,213,244),
+		       rgb(204,217,238),
+		       rgb(213,219,230),
+		       rgb(221,221,221),
+		       rgb(229,216,209),
+		       rgb(236,211,197),
+		       rgb(241,204,185),
+		       rgb(245,196,173),
+		       rgb(247,187,160),
+		       rgb(247,177,148),
+		       rgb(247,166,135),
+		       rgb(244,154,123),
+		       rgb(241,141,111),
+		       rgb(236,127,99),
+		       rgb(229,112,88),
+		       rgb(222,96,77),
+		       rgb(213,80,66),
+		       rgb(203,62,56),
+		       rgb(192,40,47),
+		       rgb(180,4,38)	       );
+
 
 // Find the comma-separated strings to use in the legend
 string[] set_legends(string runlegs)
