@@ -2,10 +2,17 @@ size(10cm,10cm);
 
 real paletteheight=6cm;
 
-// take 2D cuts from images produced by mhd3d.
+// Take 2D cuts from images datasets in binary format.
 
-// specify the legend name via command-line arguments:
+// To transform flusi .h5 files to binary, use hdf2binary (which just
+// wraps h5dump).
+
+// Specify the contour lines to be drawn:
+// asy -f pdf img.asy -u "con=new real[] {-2,2};"
+
+// Specify the legend name via command-line arguments:
 // asy -f pdf img.asy -u "legend=\"$v$\""
+// (currently deprecated).
 
 
 import graph;
@@ -18,6 +25,7 @@ int ny=getint("ny");
 int nz=getint("nz");
 
 string legend="";
+real[] con={};
 usersetting();
 
 string name=getstring("filename");
@@ -72,13 +80,18 @@ for(int i=0; i < f2.length; ++i) {
 }
 real f2absmax=max(abs(f2max),abs(f2min));
 
-// choose a palette
+// Choose a palette:
 //pen[] Palette=BWRainbow();
 pen[] Palette=paraview_cooltowarm;
-// symmetric colour bar:
-bounds range=image(f2,Range(-f2absmax,f2absmax),(0,0),(l1,l2),Palette);
+
+pair a=(0,0), b=(l1,l2);
+
+// Draw image and specify colour bar:
+// Symmetric colour bar:
+bounds range=image(f2,Range(-f2absmax,f2absmax),a,b,Palette);
 // Full colour bar:
 //bounds range=image(f2,Full,(0,0),(l1,l2),Palette);
+
 
 // Draw shape and remove wall region from image:
 string shape=getstring("boundary shape");
@@ -102,6 +115,20 @@ if(shape == "rectangle") {
   clip(wall);
 }
 
+// Draw a contour:ice on box(a,b), use
+
+
+import contour;
+if(con.length > 0) {
+  draw(contour(f2,a,b,con));
+  Label[] Labels=sequence(new Label(int i) {
+      return Label(con[i] != 0 ? (string) con[i] : "",Relative(unitrand()),(0,0)
+		   //,UnFill(1bp)
+		   );
+    },con.length);
+  draw(Labels,contour(f2,a,b,con));
+}
+
 // Add the palette bar:
 picture bar;
 string barlegend="";
@@ -109,4 +136,4 @@ palette(bar,barlegend,range,(0,0),(0.5cm,paletteheight),Right,Palette,
         PaletteTicks(ptick=linewidth(0.5*linewidth())));
 add(bar.fit(),point(E),30E);
 
-label(legend+", "+"$i_"+cutdir+"$"+"="+string(c),point(N),N);
+//label(legend+", "+"$i_"+cutdir+"$"+"="+string(c),point(N),N);
