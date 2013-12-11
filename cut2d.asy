@@ -30,7 +30,7 @@ usersetting();
 
 string name=getstring("filename");
 
-// select direction of cross-section
+// Select direction of cross-section
 string cutdir=getstring("cut direction: x,y,z");
 int idir;
 if(cutdir != "x" && cutdir != "y" && cutdir != "z") {
@@ -45,10 +45,10 @@ int c=getint(cutdir+"-height");
 
 real[][][] f=readfile(nx,ny,nz,name);
 
+// Optionally set the field to zero if the mask is not set to zero.
 if(getstring("use mask") =="y") {
   string maskname=getstring("mask filename");
   real[][][] mask=readfile(nx,ny,nz,maskname);
-  
   for(int i=0; i < nx; ++i) {
     for(int j=0; j < ny; ++j) {
       for(int k=0; k < nz; ++k) {
@@ -59,6 +59,7 @@ if(getstring("use mask") =="y") {
   }
 }
 
+// Take a 2D cut of the file
 real[][] f2=cut2(f,nx,ny,nz,c,idir);
 
 // Get dimensions of image:
@@ -78,6 +79,7 @@ for(int i=0; i < f2.length; ++i) {
     if(f2[i][j] < f2min) f2min=f2[i][j];
   }
 }
+write("range: "+string(f2min)+" "+string(f2max));
 real f2absmax=max(abs(f2max),abs(f2min));
 
 // Choose a palette:
