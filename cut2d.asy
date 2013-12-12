@@ -26,10 +26,12 @@ int nz=getint("nz");
 
 string legend="";
 real[] con={};
+string filename="";
 usersetting();
 
-string name=getstring("filename");
-
+string name;
+if(filename == "") name=getstring("filename");
+else name=filename;
 // Select direction of cross-section
 string cutdir=getstring("cut direction: x,y,z");
 int idir;
@@ -128,7 +130,7 @@ if(con.length > 0) {
 		   //,UnFill(1bp)
 		   );
     },con.length);
-  draw(Labels,contour(f2,a,b,con));
+  //  draw(Labels,contour(f2,a,b,con));
 }
 
 // Add the palette bar:
