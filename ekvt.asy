@@ -6,13 +6,18 @@ scale(Linear,Log);
 //scale(Linear,Linear);
 
 // used to over-ride the normal legend
-// usage:
+// Usage:
 // asy ekvt.asy -u "runlegs=\"asdf\""
-// to turn on the linear interpolation, one must specify bounds, as in
+
+// To turn on the linear interpolation, one must specify bounds, as in
 // asy ekvt.asy -u "startstops=new real[] {60,130,70,120}"
+
+// To only plot up to time tmax=30:
+// asy ekvt.asy -u "tmax=30"
 
 // Use usersetting() to get optional 
 string runlegs;
+real tmax=realMax;
 real[] startstops;
 usersetting();
 
@@ -109,7 +114,7 @@ while(flag) {
     }
     
     string legend=myleg ? legends[n] : texify(run);
-    draw(graph(t,a[ypos]),Pen(n),legend);
+    draw(graph(t,a[ypos],t<tmax),Pen(n),legend);
 
     if(startstops.length > 0) {
       real start=startstops[2*n];
