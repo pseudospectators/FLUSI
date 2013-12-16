@@ -103,6 +103,16 @@ module vars
       complex(kind=pr),dimension(:,:,:),allocatable :: u
       allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
     end subroutine alloccomplex
+    subroutine allocrealnd(u)
+      implicit none
+      real(kind=pr),dimension(:,:,:,:),allocatable :: u
+      allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+    end subroutine allocrealnd
+    subroutine alloccomplexnd(u)
+      implicit none
+      complex(kind=pr),dimension(:,:,:,:),allocatable :: u
+      allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
+    end subroutine alloccomplexnd
 end module vars
 
 

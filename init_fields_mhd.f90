@@ -31,6 +31,8 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
      call init_orszagtang(ubk,wj)
   case("smc")
      call init_smc(ubk,wj)
+  case("smcnum")
+     call init_smcnum(ubk,wj)
   case("TaylorCouette")
      call init_tc_mhd(ubk,wj)
   case("infile")
@@ -45,7 +47,7 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
      call read_single_file(file_bz,wj(:,:,:,6))
      
      ! transform everything to fourier space
-     do i = 1,6
+     do i = 1,nd
       call fft(ubk(:,:,:,i),wj(:,:,:,i))
      enddo
      
@@ -190,6 +192,41 @@ subroutine init_smc(ubk,ub)
   enddo
 end subroutine init_smc
 
+! The Sean-Montgomery-Chen initial conditions based on pseudo
+! time-stepped penalziation field.
+subroutine init_smcnum(ubk,ub)
+  use mpi_header
+  use mhd_vars
+  implicit none
+
+  complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  integer :: ix,iy,iz
+
+  if(mpirank == 0) write(*,*) "Perturbed velocity initial conditions:"
+
+  ! Create a perturbation for the velocity field:
+  call perturbation(ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),&
+       ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3),&
+       3.1017126d-07)
+
+  if(mpirank == 0) write(*,*) "Setting magnetic field to penalization field:"
+  ! Set up the magnetic field
+  do ix=ra(1),rb(1)
+     do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)
+           ub(ix,iy,iz,4)=us(ix,iy,iz,4)
+           ub(ix,iy,iz,5)=us(ix,iy,iz,5)
+           ub(ix,iy,iz,6)=b0
+        enddo
+     enddo
+  enddo
+
+  call fft(ubk(:,:,:,4),ub(:,:,:,4))
+  call fft(ubk(:,:,:,5),ub(:,:,:,5))
+  call fft(ubk(:,:,:,6),ub(:,:,:,6))
+end subroutine init_smcnum
+
 
 ! The Taylor-Couette initial conditions for mhd.
 subroutine init_tc_mhd(ubk,ub)
@@ -197,7 +234,7 @@ subroutine init_tc_mhd(ubk,ub)
   use mhd_vars
   implicit none
 
-  complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   
   ! Initialize the velocity field:

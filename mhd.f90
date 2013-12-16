@@ -1,11 +1,13 @@
-program MHD3D
+program mhd
   use mpi_header
   use mhd_vars
   implicit none
 
   integer :: mpicode
   character(len=80) :: infile
-
+  real(kind=pr) :: time,dt0,dt1 ! FIXME: move to vars.
+  integer :: n0=0,n1=1
+  integer :: it
   ! Arrays needed for simulation  
 
   ! 4D array (nf 3D arrays) for the implicit time-stepping routines.
@@ -49,7 +51,6 @@ program MHD3D
   if (mpirank == 0) write(*,'(A)') 'Reading parameters from'//infile
   call get_params(infile)
   
-  ! Initialize FFT
   call fft_initialize
   
   ! Overwrite integral output file? only if we're not resuming a
@@ -88,23 +89,41 @@ program MHD3D
      close(14)
      
      ! this file contains, time, iteration#, time step and performance
-     open  (14,file='timestep.t',status='replace')
-     close (14)
+     open(14,file='timestep.t',status='replace')
+     close(14)
   endif
 
   ! Allocate memory:
   allocate(ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
-  allocate(ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
-  allocate(wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))     
+!  call alloccomplexnd(ubk)
+  call allocrealnd(ub)
+  call allocrealnd(wj)
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
-  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  call allocreal(work)
+  call allocreal(mask)
+  call allocrealnd(us)
 
-  ! Step forward in time
-  if (mpirank == 0)  write(*,'(A)') 'Info: Starting time iterations.'
-  call time_step(ub,ubk,nlk,wj,work,explin,infile)
+  ! Check if at least FFT works okay
+  call fft_unit_test(work,ubk(:,:,:,1))
+
+  time=0.0
+  it=0
+  dt0=1.0d0
+  dt1=2.0d0
+
+  ! Initialize vorticity or read values from a backup file
+  if (mpirank == 0) write(*,*) "Set up initial conditions:"
+  call init_fields(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
+  n0=1 - n1 !important to do this now in case we're retaking a backp
+  
+  if (mpirank == 0) write(*,*) "Create mask variables:"
+  call create_mask_mhd
+  if (mpirank == 0) write(*,*) "update_us:"
+  call update_us(ub)
+  
+  if (mpirank == 0) write(*,*) "Start time-stepping:"
+  call time_step(ub,ubk,nlk,wj,work,explin,infile,time,dt0,dt1,n0,n1,it)
 
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
   
@@ -120,4 +139,4 @@ program MHD3D
 
   call fft_free 
   call MPI_FINALIZE(mpicode)
-end program MHD3D
+end program mhd

@@ -44,6 +44,9 @@ subroutine Start_Simulation()
   implicit none
   integer                :: mpicode
   real (kind=pr)         :: t1,t2
+  real(kind=pr) :: time,dt0,dt1 ! FIXME: move to vars.
+  integer :: n0=0,n1=1
+  integer :: it
   character (len=80)     :: infile
   ! Arrays needed for simulation
   real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
@@ -163,13 +166,32 @@ subroutine Start_Simulation()
      call Create_Mask(0.0d0)
   endif
 
+  ! check if at least FFT works okay
+  call fft_unit_test(work,uk(:,:,:,1))
+  
+  time=0.0
+  it = 0
+  dt0=1.0d0
+  dt1=2.0d0
+
+  ! Initialize vorticity or read values from a backup file
+  if (mpirank == 0) write(*,*) "Set up initial conditions...."
+  call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
+  n0=1 - n1 !important to do this now in case we're retaking a backp
+  
+  if (mpirank == 0) write(*,*) "Create mask variables...."
+  ! Create mask function:
+  call create_mask(time)
+  call update_us(u)
+
   !----------------------------
   ! Step forward in time
   !----------------------------
   call MPI_barrier (MPI_COMM_world, mpicode)
   t1 = MPI_wtime()
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  call time_step(u,uk,nlk,vort,work,explin,infile) ! Actual time-stepping function
+  ! Actual time-stepping function
+  call time_step(u,uk,nlk,vort,work,explin,infile,time,dt0,dt1,n0,n1,it)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   t2 = MPI_wtime() - t1
   if (mpirank ==0) then

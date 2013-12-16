@@ -1,15 +1,15 @@
-subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
+subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it)
   use mpi_header
   use vars
   implicit none
   
-  integer :: inter,it
-  integer :: n0=0,n1=1
+  integer :: inter
+  integer,intent(inout) :: n0,n1,it
   integer :: nbackup=0  ! 0 - backup to file runtime_backup0,1 - to
   ! runtime_backup1,2 - no backup
   integer :: it_start
-  real(kind=pr) :: time,dt0,dt1,t1,t2
-  integer :: mpicode
+  real(kind=pr),intent(inout) :: time,dt0,dt1 
+  real(kind=pr) :: t1,t2
   character (len=80)  :: command ! for runtime control
   character (len=80),intent(in)  :: params_file ! for runtime control
   
@@ -22,45 +22,40 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   logical :: continue_timestepping
   
-
-  if (mpirank == 0) write(*,'(A)') 'Info: Starting time iterations.'
   ! initialize runtime control file
   if (mpirank == 0) call initialize_runtime_control_file()
   
-  ! check if at least FFT works okay
-  call fft_unit_test ( work, uk(:,:,:,1) )
-  
   continue_timestepping = .true.
-  time=0.0
-  it = 0
 
-  ! Useful to trigger cal_vis
-  dt0=1.0d0
-  dt1=2.0d0
-     
-  ! Initialize vorticity or read values from a backup file
-  if (mpirank == 0) write(*,*) "Set up initial conditions...."
-  call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
-  n0=1 - n1 !important to do this now in case we're retaking a backp
-  it_start=it 
-
-
-  if (mpirank == 0) write(*,*) "Create mask variables...."
-  ! Create mask function:
-  call create_mask(time)
-  call update_us(u)
-
+  it_start=it
   
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup)
   if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
-
   if (mpirank == 0) write(*,*) "Start time-stepping...."
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
+    
+     !-------------------------------------------------
+     ! Output FIELDS (after tsave)
+     !-------------------------------------------------
+     if(modulo(time,tsave) <= dt1) then
+        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
+        ! never matters,and for AB2 this is the one to be overwritten
+        ! in the next step.  This frees 3 complex arrays, which are
+        ! then used in Dump_Runtime_Backup.
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
+        
+        ! Backup if that's specified in the PARAMS.ini file
+        if(iDoBackup == 1) then
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+        endif
+     endif
+
      dt0=dt1
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
@@ -102,23 +97,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
      endif
-    
-     !-------------------------------------------------
-     ! Output FIELDS (after tsave)
-     !-------------------------------------------------
-     if(modulo(time,tsave) <= dt1) then
-        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
-        ! never matters,and for AB2 this is the one to be overwritten
-        ! in the next step.  This frees 3 complex arrays, which are
-        ! then used in Dump_Runtime_Backup.
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
-        
-        ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup == 1) then
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-        endif
-     endif
+
      
      !-----------------------------------------------
      ! Output how much time remains
@@ -169,7 +148,6 @@ subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
 
   real(kind=pr),intent(inout) :: time,t2,t1,dt1
   integer,intent(inout) :: it,it_start
-  real(kind=pr):: time_left
   
   if (mpirank == 0) then
   ! t2 is time [sec] per time step

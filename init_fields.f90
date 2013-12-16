@@ -12,8 +12,6 @@ subroutine init_fields(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
        work_nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real (kind=pr), intent(inout) ::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-
-  if (mpirank == 0) write(*,*) "Initializating fields:"
  
   select case(method)
   case("fsi") 

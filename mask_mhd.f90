@@ -675,10 +675,12 @@ subroutine smcnum_us_mhd()
         if (mpirank == 0) then
            diff0=diff0*pseudodt
 
-           ! I really hate this part of Fortran.
-20         format (es10.2,x,es10.2,x,es10.2) 
-           write(*,20) pseudodt,diff0,error
-           
+           if(mod(myi,100) == 0) then
+              ! I really hate this part of Fortran.
+20            format (es10.2,x,es10.2,x,es10.2) 
+              write(*,20) pseudodt,diff0,error
+           endif
+
            if(diff0 < pseudoerrmin) pseudodt=1.4d0*pseudodt ! step too small
            if(diff0 > pseudoerrmax) pseudodt=0.7d0*pseudodt ! step too large
 
