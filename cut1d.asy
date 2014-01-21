@@ -10,18 +10,19 @@ import utils;
 
 
 string type="cut";
+string xlabel, ylabel;
 type=getstring("type: cut or spectrum");
 
-string xlabel, ylabel;
+
 if(type == "cut") {
   scale(Linear,Linear);
-  xlabel="position";
-  ylabel="value";
+  if(xlabel == "") xlabel="position";
+  if(ylabel == "") ylabel="value";
 }
 if(type == "spectrum") {
   scale(Log,Log);
-  xlabel="wavenumber";
-  ylabel="magnitude";
+  if(xlabel == "") xlabel="wavenumber";
+  if(ylabel == "") ylabel="magnitude";
 }
 
 string runlegs;
@@ -31,7 +32,6 @@ usersetting();
 // find the comma-separated strings to use in the legend
 bool myleg=((runlegs== "") ? false: true);
 string[] legends=set_legends(runlegs);
-
 
 string filenames=getstring("filenames");
 bool flag=true;
@@ -58,6 +58,9 @@ while(flag) {
     // load file
     real[][][] f=readfile(nx,ny,nz,filename);
 
+    // Optionally set the field to zero if the mask is not set to zero.
+    if(getstring("use mask") =="y") maskit(f,nx,ny,nz);
+    
     // select direction of cut
     string cutdir=getstring("cut direction: x,y,z");
     if(cutdir != "x" && cutdir != "y" && cutdir != "z") {
@@ -105,11 +108,18 @@ while(flag) {
     string legend=myleg ? legends[0] : texify(filename);
     real x[];
     //if(n == 1) f1=-f1;
+
+    pen p=Pentype(n);
+    if(n == 0) p+=longdashed;
+    if(n == 2) p=darkgreen+solid;
+
+    if(n == 0) p=blue+dashed;
+    if(n == 1) p=darkgreen+solid;
     
-    string leg=texify(filename);
+    string legend=myleg ? legends[n] : texify(filename);
     if(type == "cut") {
       for(int i=0; i < f1.length; ++i) x.push(i*d);
-      draw(graph(x,f1),Pen(n),leg+cutinfo);
+      draw(graph(x,f1),p,legend+cutinfo);
     }
     
     if(type == "spectrum") {
@@ -118,8 +128,8 @@ while(flag) {
       pair[] ff=new pair[f1.length];
       for(int i=0; i < ff.length; ++i) 	ff[i]=f1[i];
       pair[] fff=fft(ff);
-      string leg=texify(filename);
-      draw(graph(x,abs(fff),x > 0 & x<fff.length/3.0-1),Pen(n),leg+cutinfo);
+      //      string leg=texify(filename);
+      draw(graph(x,abs(fff),x > 0 & x<fff.length/3.0-1),p,legend+cutinfo);
      }
     
   }
@@ -127,4 +137,4 @@ while(flag) {
 yaxis(ylabel+quantity,LeftRight,LeftTicks);
 xaxis(xlabel,BottomTop,LeftTicks);
 
-attach(legend(),point(plain.E),20plain.E);
+//attach(legend(),point(plain.E),20plain.E);

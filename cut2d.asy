@@ -48,18 +48,7 @@ int c=getint(cutdir+"-height");
 real[][][] f=readfile(nx,ny,nz,name);
 
 // Optionally set the field to zero if the mask is not set to zero.
-if(getstring("use mask") =="y") {
-  string maskname=getstring("mask filename");
-  real[][][] mask=readfile(nx,ny,nz,maskname);
-  for(int i=0; i < nx; ++i) {
-    for(int j=0; j < ny; ++j) {
-      for(int k=0; k < nz; ++k) {
-	if(mask[i][j][k] != 0.0)
-	  f[i][j][k] = 0.0;
-      }
-    }
-  }
-}
+if(getstring("use mask") =="y") maskit(f,nx,ny,nz);
 
 // Take a 2D cut of the file
 real[][] f2=cut2(f,nx,ny,nz,c,idir);
@@ -124,13 +113,14 @@ if(shape == "rectangle") {
 
 import contour;
 if(con.length > 0) {
-  draw(contour(f2,a,b,con));
+  //draw(contour(f2,a,b,con));
   Label[] Labels=sequence(new Label(int i) {
-      return Label(con[i] != 0 ? (string) con[i] : "",Relative(unitrand()),(0,0)
-		   //,UnFill(1bp)
+      return Label(con[i] != 0 ? (string) con[i] : "",
+		   Relative(unitrand()),(0,0)
+		   ,UnFill(1bp)
 		   );
     },con.length);
-  //  draw(Labels,contour(f2,a,b,con));
+  draw(Labels,contour(f2,a,b,con));
 }
 
 // Add the palette bar:
