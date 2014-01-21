@@ -11,3 +11,12 @@ fields
 *.pdf
 *.aux
 *.log
+.wisdom
+ada
+turing
+bx*
+by*
+bz*
+ux*
+uy*
+uz*
