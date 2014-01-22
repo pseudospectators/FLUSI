@@ -80,11 +80,11 @@ pen[] Palette=paraview_cooltowarm;
 pair a=(0,0), b=(l1,l2);
 
 // Draw image and specify colour bar:
-// Symmetric colour bar:
-bounds range=image(f2,Range(-f2absmax,f2absmax),a,b,Palette);
-// Full colour bar:
-//bounds range=image(f2,Full,(0,0),(l1,l2),Palette);
-
+bounds range;
+if(getstring("symmetric colour bar (y/n)") =="y")
+  range=image(f2,Range(-f2absmax,f2absmax),a,b,Palette);
+else
+  range=image(f2,Full,(0,0),(l1,l2),Palette);  // Full colour bar
 
 // Draw shape and remove wall region from image:
 string shape=getstring("boundary shape");
