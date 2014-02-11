@@ -189,7 +189,8 @@ pair linear(real[] x, real[] y, real start, real stop)
   return (meany-(a/b)*meanx,a/b);
  }
 
-void maskit(real[][][] f,int nx, int ny, int nz) {
+void maskit(real[][][] f,int nx, int ny, int nz)
+{
   string maskname=getstring("mask filename");
   real[][][] mask=readfile(nx,ny,nz,maskname);
   for(int i=0; i < nx; ++i) {
@@ -200,4 +201,39 @@ void maskit(real[][][] f,int nx, int ny, int nz) {
       }
     }
   }
+}
+
+void clipellipse(real l1, real l2, picture pic)
+{
+  pair O=(l1/2,l2/2);
+  real ay=getreal("ay");
+  if(ay != 0.0) {
+    path wall=ellipse(O,1,1/sqrt(ay));
+    draw(pic,wall);
+    clip(pic,wall);
+  }
+}
+
+void cliprectangle(real l1, real l2, picture pic)
+{
+  real w=getreal("width");
+  real h=getreal("height");
+
+  pair O=(l1/2,l2/2);
+  pair pw=(0.5*w,0), ph=(0,0.5*h);
+  path wall=O-pw-ph--O-pw+ph--O+pw+ph--O+pw-ph--cycle;
+  draw(pic,wall);
+  clip(pic,wall);
+}
+
+pair imagedims(string cutdir)
+{
+  // Get dimensions of image:
+  string sl1, sl2;
+  if(cutdir == "x") { sl1="yl"; sl2="zl";}
+  if(cutdir == "y") { sl1="xl"; sl2="zl";}
+  if(cutdir == "z") { sl1="xl"; sl2="yl";} // CHECKME
+  real l1=getreal(sl1);
+  real l2=getreal(sl2);
+  return(l1,l2);
 }

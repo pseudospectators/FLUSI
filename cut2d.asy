@@ -52,14 +52,12 @@ if(getstring("use mask") =="y") maskit(f,nx,ny,nz);
 
 // Take a 2D cut of the file
 real[][] f2=cut2(f,nx,ny,nz,c,idir);
-
-// Get dimensions of image:
-string sl1, sl2;
-if(cutdir == "x") { sl1="yl"; sl2="zl";}
-if(cutdir == "y") { sl1="xl"; sl2="zl";}
-if(cutdir == "z") { sl1="xl"; sl2="yl";} // CHECKME
-real l1=getreal(sl1);
-real l2=getreal(sl2);
+/*
+for(int i=0; i < f2.length; ++i) for(int j=0; j < f2[i].length; ++j) 
+    f2[i][j] -= 41.1722429773;
+*/
+pair a=(0,0);
+pair b=imagedims(cutdir);
 
 // Find bounds for palette:
 real f2max=f2[0][0];
@@ -77,39 +75,18 @@ real f2absmax=max(abs(f2max),abs(f2min));
 //pen[] Palette=BWRainbow();
 pen[] Palette=paraview_cooltowarm;
 
-pair a=(0,0), b=(l1,l2);
 
 // Draw image and specify colour bar:
 bounds range;
 if(getstring("symmetric colour bar (y/n)") =="y")
   range=image(f2,Range(-f2absmax,f2absmax),a,b,Palette);
 else
-  range=image(f2,Full,(0,0),(l1,l2),Palette);  // Full colour bar
+  range=image(f2,Full,a,b,Palette);  // Full colour bar
 
 // Draw shape and remove wall region from image:
 string shape=getstring("boundary shape");
-if(shape == "circle") {
-  pair O=(l1/2,l2/2);
-  real ay=getreal("ay");
-  if(ay != 0.0) {
-    path wall=ellipse(O,1,1/sqrt(ay));
-    draw(wall);
-    clip(wall);
-  }
-}
-if(shape == "rectangle") {
-  real w=getreal("width");
-  real h=getreal("height");
-
-  pair O=(l1/2,l2/2);
-  pair pw=(0.5*w,0), ph=(0,0.5*h);
-  path wall=O-pw-ph--O-pw+ph--O+pw+ph--O+pw-ph--cycle;
-  draw(wall);
-  clip(wall);
-}
-
-// Draw a contour:ice on box(a,b), use
-
+if(shape == "circle") clipellipse(b.x,b.y,currentpicture);
+if(shape == "rectangle") cliprectangle(b.x,b.y,currentpicture);
 
 import contour;
 if(con.length > 0) {
