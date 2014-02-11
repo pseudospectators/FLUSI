@@ -59,7 +59,6 @@ ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
 endif
 
-
 # This seems to be the only one in use.
 MPI_HEADER = mpi_duke_header.f90
 
@@ -82,14 +81,15 @@ LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
 
 FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
+#-mkdir $(OBJ) 2>/dev/null
 
 # Both programs are compiled by default.
-all: $(PROGRAMS)
+all: directories $(PROGRAMS)
 
 # Compile main programs, with dependencies.
 flusi: FLUSI.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
-mhd: mhd.f90  $(MOBJS) $(OBJS) 
+mhd: mhd.f90 $(MOBJS) $(OBJS) 
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile modules (module dependency must be specified by hand in
@@ -108,4 +108,12 @@ $(OBJ)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -f $(PROGRAMS) $(OBJ)/*.o $(OBJ)/*.mod
+	rm -rf $(PROGRAMS) $(OBJ)/*.o $(OBJ)/*.mod
+
+# If the object directory doesn't exist, create it.
+.PHONY: directories
+
+directories: ${OBJ}
+
+${OBJ}:
+	mkdir -p ${OBJ}
