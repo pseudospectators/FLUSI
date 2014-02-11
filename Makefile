@@ -7,15 +7,18 @@ FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
 	insects.f90 postprocessing.f90 runtime_control.f90 cal_drag.f90 \
 	sponge.f90 FFT_unit_test.f90 draw_plate.f90 channel.f90 \
-        kineloader.f90 
+        kineloader.f90
 
 # Object and module directory:
 OBJ=obj
 OBJS := $(FFILES:%.f90=$(OBJ)/%.o)
 
+# Files that create modules:
+MFILES = mpi_header.f90 share_vars.f90 share_kine.f90 cof_p3dfft.f90
+MOBJS := $(MFILES:%.f90=$(OBJ)/%.o)
+
 # Objects from files used in module creation:
-MOBJS := $(OBJ)/mpi_header.o $(OBJ)/share_vars.o \
-	$(OBJ)/share_kine.o $(OBJ)/cof_p3dfft.o
+#MOBJS = $(OBJ)/mpi_header.o $(OBJ)/share_vars.o $(OBJ)/share_kine.o $(OBJ)/cof_p3dfft.o
 
 # Source code directories (colon-separated):
 VPATH = src 
@@ -57,8 +60,6 @@ ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
 endif
 
-# Look for compiled modules here:
-FFLAGS += -I$(OBJ)
 
 # This seems to be the only one in use.
 MPI_HEADER = mpi_duke_header.f90
@@ -82,29 +83,30 @@ LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
 
 FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
+
 # Both programs are compiled by default.
 all: $(PROGRAMS)
 
 # Compile main programs, with dependencies.
-flusi: FLUSI.f90 $(OBJS) $(MOBJS)
+flusi: FLUSI.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
-mhd: mhd.f90 $(OBJS) $(MOBJS)
+mhd: mhd.f90  $(MOBJS) $(OBJS) 
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile modules (module dependency must be specified by hand in
-# Fortran).
+# Fortran). Objects are specified in MOBJS (module objects).
 $(OBJ)/mpi_header.o: $(MPI_HEADER)
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
 $(OBJ)/share_vars.o: share_vars.f90 $(OBJ)/mpi_header.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
 $(OBJ)/share_kine.o: share_kine.f90 $(OBJ)/mpi_header.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
 $(OBJ)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJ)/share_vars.o $(OBJ)/mpi_header.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
-$(OBJ)/%.o: %.f90 $(MOJBS)
-	$(FC) $(FFLAGS) -c -o $@ $<  $(LDFLAGS)
+$(OBJ)/%.o: %.f90 $(MOBJS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
 	rm -f $(PROGRAMS) $(OBJ)/*.o $(OBJ)/*.mod
