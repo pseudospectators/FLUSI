@@ -31,11 +31,10 @@ ifeq ($(FC),f77)
 FC = mpif90
 endif
 
-# Specify directory for compiled modules:
-FFLAGS += -J$(OBJ)
-
 # GNU compiler
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
+# Specify directory for compiled modules:
+FFLAGS += -J$(OBJ)
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
 FFLAGS += -Wsurprising # warn if things might not behave as expected
 FFLAGS += -pedantic 
