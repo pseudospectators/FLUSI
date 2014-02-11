@@ -56,6 +56,8 @@ endif
 
 #IBM compiler
 ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
+FFLAGS += -qmoddir=$(OBJ)
+FFLAGS += -I$(OBJ)
 PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
 endif
 
@@ -81,7 +83,7 @@ LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
 
 FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
-#-mkdir $(OBJ) 2>/dev/null
+
 
 # Both programs are compiled by default.
 all: directories $(PROGRAMS)
