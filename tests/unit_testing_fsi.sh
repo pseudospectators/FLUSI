@@ -32,8 +32,8 @@ parallel[3]="parallel"
 parallel[4]="restart"
 
 # where is the reference data?
-dirs[1]="VortexRing"
-dirs[2]="VortexRing"
+dirs[1]="vortex_ring"
+dirs[2]="vortex_ring"
 dirs[3]="sphere"
 dirs[4]="sphere"
 
