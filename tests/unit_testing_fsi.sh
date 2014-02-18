@@ -11,7 +11,7 @@ if [ ! -f flusi ]; then
 fi
 
 # set up mpi command (this may be machine dependent!!)
-mpi_command="mpirun -n 4 -host localhost"
+mpi_command="mpiexec --np 4 -host localhost"
 
 # meaningful name for the test
 names[1]="Vortex Ring 1: serial, no penalization"
@@ -20,10 +20,10 @@ names[3]="Sphere, with penalization, longtime"
 names[4]="restart facility test"
 
 # which params file?
-params_files[1]="Testing_VortexRing.ini"
-params_files[2]="Testing_VortexRing.ini"
-params_files[3]="Testing_Sphere.ini"
-params_files[4]="Testing_Sphere.ini"
+params_files[1]="testing_vortexring.ini"
+params_files[2]="testing_vortexring.ini"
+params_files[3]="testing_sphere.ini"
+params_files[4]="testing_sphere.ini"
 
 # mpi or not?
 parallel[1]="serial"
@@ -34,8 +34,8 @@ parallel[4]="restart"
 # where is the reference data?
 dirs[1]="VortexRing"
 dirs[2]="VortexRing"
-dirs[3]="Sphere"
-dirs[4]="Sphere"
+dirs[3]="sphere"
+dirs[4]="sphere"
 
 # how many tests?
 n_tests=${#names[@]} 
@@ -86,10 +86,10 @@ do
       echo -e ${Purple} "-----------------------------" ${Color_Off}
       sleep 0.5
 
-      ${mpi_command} ./flusi Testing_Sphere_start.ini
+      ${mpi_command} ./flusi testing_sphere_start.ini
       echo -e ${Purple} "Waiting 1 sec before restarting..." $Color_Off
       sleep 1
-      ${mpi_command} ./flusi Testing_Sphere_restart.ini    
+      ${mpi_command} ./flusi testing_sphere_restart.ini    
   fi
   
   
