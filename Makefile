@@ -18,7 +18,9 @@ MFILES = vars.f90 kine.f90 cof_p3dfft.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
-VPATH = src 
+VPATH = src
+VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd
+VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd
 
 # Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
