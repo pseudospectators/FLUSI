@@ -12,7 +12,7 @@
 ! smoothed.
 subroutine Draw_Insect ( time )
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -163,7 +163,7 @@ end subroutine Draw_Insect
 ! function since this saves many evaluations of the shape.
 subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot, R_tmp
   real(kind=pr) :: y_tmp, x_tmp, z_tmp, xroot,yroot, f,xc,yc, a0
@@ -469,7 +469,7 @@ end subroutine DrawWing
 ! x-axis. also, we currently use only rotational symmetric bodies.
 subroutine DrawBody(ix,iy,iz,x_body)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   real(kind=pr) :: a_body, R, R0, steps, x, x_tmp, R_tmp
   integer, intent(in) :: ix,iy,iz
@@ -560,7 +560,7 @@ end subroutine
 ! Draws a sphere with radius R, as we need for the head and the eyes, if present
 subroutine DrawSphere(ix,iy,iz,x,R0)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   real(kind=pr), intent(in) :: R0
   real(kind=pr) :: R, steps
@@ -582,7 +582,7 @@ end subroutine
 ! as long as we have only spherical eyes, this is just a wrapper
 subroutine DrawEye(ix,iy,iz,x)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x(1:3)
@@ -594,7 +594,7 @@ end subroutine
 ! as long as we have only spherical heads, this is just a wrapper
 subroutine DrawHead(ix,iy,iz,x)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x(1:3)
@@ -630,8 +630,8 @@ end subroutine
 ! protocoll
 subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   use fsi_vars
-  use mpi_header
-  use share_kine 
+  use mpi
+  use kine 
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -763,7 +763,7 @@ end subroutine BodyMotion
 ! call this routine here.
 subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, theta_dt)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -1214,7 +1214,7 @@ end subroutine FlappingMotion
 !       eta_stroke: stroke plane angle 
 subroutine StrokePlane ( time, eta_stroke )
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -1250,7 +1250,7 @@ end subroutine StrokePlane
 !-----------------------
 subroutine FlappingMotion_left ( time, phi, alpha, theta, phi_dt, alpha_dt, theta_dt )
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -1279,7 +1279,7 @@ end subroutine FlappingMotion_left
 !-----------------------
 subroutine FlappingMotion_right ( time, phi, alpha, theta, phi_dt, alpha_dt, theta_dt )
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -1315,7 +1315,7 @@ end subroutine FlappingMotion_right
 !-----------------------
 subroutine Rx (R,angle)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   real(kind=pr), intent (in) :: angle
   real(kind=pr),dimension(1:3,1:3), intent(out) :: R(1:3,1:3)
@@ -1327,7 +1327,7 @@ end subroutine
 
 subroutine Ry (R,angle)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   real(kind=pr), intent (in) :: angle
   real(kind=pr),dimension(1:3,1:3), intent(out) :: R(1:3,1:3)
@@ -1339,7 +1339,7 @@ end subroutine
 
 subroutine Rz (R,angle)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   real(kind=pr), intent (in) :: angle
   real(kind=pr),dimension(1:3,1:3), intent(out) :: R(1:3,1:3)
@@ -1354,7 +1354,7 @@ end subroutine
 ! thickness (i.e., in the limit, steps=1 if x<t and steps=0 if x>t
 real(kind=pr) function steps(x,t)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   real(kind=pr) :: f,x,t
   call smoothstep(f,x,t,Insect%smooth)

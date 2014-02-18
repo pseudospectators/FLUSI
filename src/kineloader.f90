@@ -1,6 +1,6 @@
 subroutine load_kine_init(mpirank,mpireal,mpiinteger)
-  use mpi_header
-  use share_kine
+  use mpi
+  use kine
   implicit none
 
   integer, intent(in) :: mpirank,mpireal,mpiinteger
@@ -65,7 +65,7 @@ end subroutine
 
 
 subroutine load_kine_clean
-  use share_kine
+  use kine
   implicit none
 
   deallocate(vec_t)
@@ -88,7 +88,7 @@ end subroutine
 
 
 subroutine wing_kine_interp(t_i,phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i)
-  use share_kine
+  use kine
   implicit none
 
   real(kind=prk), intent(in) :: t_i
@@ -101,7 +101,7 @@ end subroutine
 
 
 subroutine body_kine_interp(t_i,pitch_i,vert_i,horz_i,pitch_dt_i,vert_dt_i,horz_dt_i)
-  use share_kine
+  use kine
   implicit none
 
   real(kind=prk), intent(in) :: t_i

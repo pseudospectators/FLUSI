@@ -1,5 +1,5 @@
 subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it)
-  use mpi_header
+  use mpi
   use vars
   implicit none
   

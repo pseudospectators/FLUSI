@@ -13,7 +13,7 @@
 !       says "hooray" if everything is fine
 !-------------------------------------------------------------------------------
 subroutine FFT_unit_test ( u, uk )
-  use mpi_header
+  use mpi
   use vars  
   ! input: real work array
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))

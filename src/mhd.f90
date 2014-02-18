@@ -1,5 +1,5 @@
 program mhd
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 

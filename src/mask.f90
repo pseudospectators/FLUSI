@@ -1,6 +1,6 @@
 ! Wrapper for different (possibly time-dependend) mask functions
 subroutine create_mask(time)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -34,7 +34,7 @@ end subroutine create_mask
 
 ! Wrapper to set imposed velocity
 subroutine update_us(ub)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -59,7 +59,7 @@ end subroutine update_us
 
 ! Spherical obstacle
 subroutine draw_sphere
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -128,7 +128,7 @@ end subroutine smoothstep
 ! Set the penalization velocity for the given fields (f1,f2,g3) to the
 ! steady-state of the Taylor-Couette case.
 subroutine taylor_couette_u_us(f1,f2,f3)
-use mpi_header
+use mpi
   use vars
   implicit none
   

@@ -1,6 +1,6 @@
 ! Initialize fields for mhd simulations
 subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -73,7 +73,7 @@ end subroutine init_fields_mhd
 
 ! The Orszag-Tang initial conditions for mhd.
 subroutine init_orszagtang(ubk,ub)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -111,7 +111,7 @@ end subroutine init_orszagtang
 
 ! Constant initial conditions for MHD
 subroutine init_const(ubk,wj)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -135,7 +135,7 @@ end subroutine init_const
 
 ! The Sean-Montgomery-Chen initial conditions
 subroutine init_smc(ubk,ub)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -195,7 +195,7 @@ end subroutine init_smc
 ! The Sean-Montgomery-Chen initial conditions based on pseudo
 ! time-stepped penalziation field.
 subroutine init_smcnum(ubk,ub)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -230,7 +230,7 @@ end subroutine init_smcnum
 
 ! The Taylor-Couette initial conditions for mhd.
 subroutine init_tc_mhd(ubk,ub)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 

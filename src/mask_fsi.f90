@@ -1,6 +1,6 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions 
 subroutine Create_Mask_fsi(time)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -58,7 +58,7 @@ end subroutine update_us_fsi
 
 
 subroutine Flapper (time)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -156,7 +156,7 @@ end subroutine Flapper
 ! note: if the obstacle extends in this zone (e.g. the flying insect touching
 ! the lower end of the domain), it will be overwritten.
 subroutine Add_Cavity()
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
   integer :: ix,iy,iz

@@ -3,7 +3,7 @@
 ! Comparison with flapping foil, Wang, PRL 2000
 !
 subroutine Draw_Plate (time)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 

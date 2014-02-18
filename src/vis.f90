@@ -1,12 +1,13 @@
 !  Calculate visfusive term for time advancement,
-!  exp (-nu*k^2*dt)
-!  It is real valued, its global size is 0:nz-1, 0:nx/2, 0:ny-1 
-!  This is computed only if the time step changes. Is does rarely,
-!  because we round it to one digit.  also, dealiasing is done here
-!  (multiply aliased avenumbers by zero
+!  exp(-nu*k^2*dt)
+!  It is real valued, its global size is 0:nz-1, 0:nx/2, 0:ny-1 This
+!  is computed only if the time step changes. Is does rarely, because
+!  we round it to one digit.  also, dealiasing is done here (multiply
+!  aliased avenumbers by zero).
+
 subroutine cal_vis(dt,vis)
   use vars
-  use mpi_header
+  use mpi
   implicit none
 
   integer :: ix,iy,iz

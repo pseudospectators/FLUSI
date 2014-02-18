@@ -1,6 +1,6 @@
 ! Variables for pseudospectral simnulations
 module vars
-  use mpi_header
+  use mpi
   implicit none
 
   character*1,save:: tab ! Fortran lacks a native tab, so we set one up.

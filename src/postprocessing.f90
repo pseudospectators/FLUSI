@@ -3,7 +3,7 @@
 !-------------------------------------------------------------------------------
 subroutine postprocessing()
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   character (len=80)     :: postprocessing_mode, filename, key1,key2
   
@@ -45,7 +45,7 @@ end subroutine postprocessing
 ! converts the *.h5 file to an ordinairy binary file
 subroutine convert_hdf2bin()
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   character(len=80) :: fname, dsetname  
   real(kind=pr), dimension(:,:,:), allocatable :: field
@@ -99,7 +99,7 @@ end subroutine convert_hdf2bin
 ! can be done in parallel
 subroutine convert_abs_vorticity()
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   character(len=80) :: fname_ux, fname_uy, fname_uz, dsetname
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
@@ -183,7 +183,7 @@ end subroutine convert_abs_vorticity
 ! can be done in parallel
 subroutine convert_vorticity()
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   character(len=80) :: fname_ux, fname_uy, fname_uz, dsetname
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
@@ -265,7 +265,7 @@ end subroutine convert_vorticity
 ! so that we don't need to store entire fields but rather the *.key only
 subroutine keyvalues(filename)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   character(len=*), intent(in) :: filename
   character(len=80) :: dsetname
@@ -309,7 +309,7 @@ end subroutine keyvalues
 ! compares to *.key files if they're equal
 subroutine compare_key(key1,key2)
   use fsi_vars
-  use mpi_header
+  use mpi
   implicit none
   character(len=*), intent(in) :: key1,key2
   real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2

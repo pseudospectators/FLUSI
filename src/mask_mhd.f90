@@ -1,6 +1,6 @@
 ! MHD wrapper for different mask functions 
 subroutine create_mask_mhd()
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -27,7 +27,7 @@ end subroutine create_mask_mhd
 
 subroutine dealias(fk1,fk2,fk3) 
   use vars
-  use mpi_header
+  use mpi
   implicit none
 
   integer :: ix,iy,iz
@@ -72,7 +72,7 @@ end subroutine dealias
 
 ! MHD wrapper for setting (possibly velocity-dependent) imposed field.
 subroutine update_us_mhd()
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -100,7 +100,7 @@ end subroutine update_us_mhd
 
 ! Set the solid velocity for MHD Taylor-Couette flow.
 subroutine tc_us_mhd()
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
   
@@ -149,7 +149,7 @@ end subroutine tc_us_mhd
 
 ! Set the mask function for MHD Taylor-Couette flow.
 subroutine tc_mask_mhd()
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
   
@@ -235,7 +235,7 @@ end subroutine smcnum_mask_mhd
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
 subroutine smc_us_mhd()
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
   
@@ -297,7 +297,7 @@ end subroutine smc_us_mhd
 
 
 subroutine bcpoint(on,x,y)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -328,7 +328,7 @@ subroutine bcpoint(on,x,y)
 end subroutine bcpoint
 
 subroutine bcval(bcx,bcy,x,y)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
   real(kind=pr), intent(out) :: bcx,bcy
@@ -342,7 +342,7 @@ subroutine bcval(bcx,bcy,x,y)
 end subroutine bcval
 
 subroutine setpen(p1,p2,p3)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
   
@@ -380,7 +380,7 @@ subroutine setpen(p1,p2,p3)
 end subroutine setpen
 
 subroutine checkbc(diff,us1,us2)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
   
@@ -431,7 +431,7 @@ end subroutine checkbc
 ! Compute the source for the pseudotime-stepper in physical space,
 ! returned in sx, sy, sz
 subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
   
@@ -552,7 +552,7 @@ end subroutine maxdist
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
 subroutine smcnum_us_mhd()
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
   

@@ -2,23 +2,20 @@
 # variables.
 
 # Non-module Fortran files to be compiled:
-FFILES = cal_nlk.f90 cal_vis.f90 FluidTimeStepper.f90 init_fields.f90 \
+FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	mask.f90 mask_fsi.f90 mask_mhd.f90 save_fields.f90 time_step.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
-	insects.f90 postprocessing.f90 runtime_control.f90 cal_drag.f90 \
-	sponge.f90 FFT_unit_test.f90 draw_plate.f90 channel.f90 \
+	insects.f90 postprocessing.f90 runtime_control.f90 drag.f90 \
+	sponge.f90 fft_unit_test.f90 draw_plate.f90 channel.f90 \
         kineloader.f90
 
 # Object and module directory:
-OBJ=obj
-OBJS := $(FFILES:%.f90=$(OBJ)/%.o)
+OBJDIR=obj
+OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = mpi_header.f90 share_vars.f90 share_kine.f90 cof_p3dfft.f90
-MOBJS := $(MFILES:%.f90=$(OBJ)/%.o)
-
-# Objects from files used in module creation:
-#MOBJS = $(OBJ)/mpi_header.o $(OBJ)/share_vars.o $(OBJ)/share_kine.o $(OBJ)/cof_p3dfft.o
+MFILES = vars.f90 kine.f90 cof_p3dfft.f90
+MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
 VPATH = src 
@@ -34,7 +31,7 @@ endif
 # GNU compiler
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
-FFLAGS += -J$(OBJ)
+FFLAGS += -J$(OBJDIR)
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
 FFLAGS += -Wsurprising # warn if things might not behave as expected
 FFLAGS += -pedantic 
@@ -56,13 +53,10 @@ endif
 
 #IBM compiler
 ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
-FFLAGS += -qmoddir=$(OBJ)
-FFLAGS += -I$(OBJ)
+FFLAGS += -qmoddir=$(OBJDIR)
+FFLAGS += -I$(OBJDIR)
 PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
 endif
-
-# This seems to be the only one in use.
-MPI_HEADER = mpi_duke_header.f90
 
 PROGRAMS = flusi mhd
 
@@ -89,33 +83,31 @@ FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 all: directories $(PROGRAMS)
 
 # Compile main programs, with dependencies.
-flusi: FLUSI.f90 $(MOBJS) $(OBJS)
+flusi: flusi.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 mhd: mhd.f90 $(MOBJS) $(OBJS) 
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile modules (module dependency must be specified by hand in
 # Fortran). Objects are specified in MOBJS (module objects).
-$(OBJ)/mpi_header.o: $(MPI_HEADER)
+$(OBJDIR)/vars.o: vars.f90 
 	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
-$(OBJ)/share_vars.o: share_vars.f90 $(OBJ)/mpi_header.o
+$(OBJDIR)/kine.o: kine.f90
 	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
-$(OBJ)/share_kine.o: share_kine.f90 $(OBJ)/mpi_header.o
-	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
-$(OBJ)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJ)/share_vars.o $(OBJ)/mpi_header.o
+$(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
-$(OBJ)/%.o: %.f90 $(MOBJS)
+$(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -rf $(PROGRAMS) $(OBJ)/*.o $(OBJ)/*.mod
+	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod
 
 # If the object directory doesn't exist, create it.
 .PHONY: directories
 
-directories: ${OBJ}
+directories: ${OBJDIR}
 
-${OBJ}:
-	mkdir -p ${OBJ}
+${OBJDIR}:
+	mkdir -p ${OBJDIR}

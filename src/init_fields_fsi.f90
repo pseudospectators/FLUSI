@@ -1,6 +1,6 @@
 ! Set initial conditions for fsi code.
 subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -139,7 +139,7 @@ end subroutine init_fields_fsi
 ! Computes the divergence-free velocity in Fourier space u given vort
 ! in physical space.  work is a work array
 subroutine Vorticity2Velocity(uk,work,vort)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 

@@ -21,7 +21,7 @@
 !       merge with vorticity2velocity in init_fields_fsi
 ! ------------------------------------------------------------------------------
 subroutine vorticity_sponge( work, vort )
-  use mpi_header
+  use mpi
   use fsi_vars  
   implicit none  
   complex (kind=pr) :: im, spx,spy,spz
@@ -87,7 +87,7 @@ end subroutine vorticity_sponge
 ! for one component only
 !-------------------------------------------------------------------------------
 subroutine penalize_vort ( vort_penalized, vort )
-  use mpi_header
+  use mpi
   use fsi_vars
   
   ! input: vorticity in phys space

@@ -1,6 +1,6 @@
 ! Wrapper for init_fields
 subroutine init_fields(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -28,7 +28,7 @@ end subroutine init_fields
 ! Create a randomized, divergence-free field in fk1,fk3,fk3 which is
 ! normalized to have the given energy in the fluid domain.
 subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
-  use mpi_header
+  use mpi
   use vars
   implicit none
   
@@ -99,7 +99,7 @@ end subroutine perturbation
 ! fk2, fk3. w is a 3D real work array.
 ! FIXME: please add more documentation.
 subroutine randgen3d(fk1,fk2,fk3,w)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -193,7 +193,7 @@ end subroutine randgen3d
 ! Initialize the first three fields of ubk to the steady-state
 ! solution for Taylor-Couette flow.
 subroutine init_taylorcouette_u(ubk,ub)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 

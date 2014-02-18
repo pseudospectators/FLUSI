@@ -42,7 +42,7 @@ end subroutine get_params
 ! Read the file paramsfile, count the lines (output in i) and put the
 ! text in PARAMS.
 subroutine read_params_file(PARAMS,i,paramsfile, verbose)
-  use mpi_header
+  use mpi
   use vars
   implicit none
   
@@ -77,7 +77,7 @@ end subroutine read_params_file
 ! Read individual parameter values from the PARAMS string for the vars
 ! module.
 subroutine get_params_common(PARAMS,i)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -177,7 +177,7 @@ end subroutine get_params_common
 
 ! Read individual parameter values from the PARAMS string for fsi.
 subroutine get_params_fsi(PARAMS,i)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -319,7 +319,7 @@ end subroutine get_params_fsi
 
 ! Read individual parameter values from the PARAMS string for fmhd
 subroutine get_params_mhd(PARAMS,i)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -362,7 +362,7 @@ end subroutine get_params_mhd
 subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
      defaultvalue)
   use vars
-  use mpi_header
+  use mpi
   implicit none
   character section*(*) ! What section do you look for? for example [Resolution]
   character keyword*(*)   ! what keyword do you look for? for example nx=128
@@ -410,7 +410,7 @@ end subroutine GetValue_real
 subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
      params_string, defaultvalue)
   use vars
-  use mpi_header
+  use mpi
   implicit none
   
   character section*(*) ! what section do you look for? for example [Resolution]
@@ -463,7 +463,7 @@ end subroutine GetValue_string
 subroutine GetValue_vector (PARAMS, actual_lines, section, keyword, params_vector, &
      defaultvalue)
   use vars
-  use mpi_header
+  use mpi
   implicit none
   character section*(*) ! What section do you look for? for example [Resolution]
   character keyword*(*)   ! what keyword do you look for? for example nx=128
@@ -510,7 +510,7 @@ end subroutine GetValue_vector
 !       params_int: this is the parameter you were looking for
 subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
      defaultvalue)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -562,7 +562,7 @@ end subroutine GetValue_Int
 !              of variable (e.g. you read an integer from this string)
 subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   use vars
-  use mpi_header
+  use mpi
   implicit none
 
   character section*(*) ! What section do you look for? for example [Resolution]

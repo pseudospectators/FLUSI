@@ -3,7 +3,7 @@
 !-------------------------------------------------------------------------------
 subroutine Initialize_runtime_control_file()
   use vars
-  use mpi_header
+  use mpi
   implicit none
   
   open  (14,file='runtime_control.ini',status='replace')
@@ -41,7 +41,7 @@ end subroutine Initialize_runtime_control_file
 
 subroutine runtime_control_command( command )
   use vars
-  use mpi_header
+  use mpi
   implicit none
   character (len=80), intent(out)     :: command
   character (len=80)  :: file

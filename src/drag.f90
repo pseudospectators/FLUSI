@@ -1,7 +1,7 @@
 
 
 subroutine cal_drag ( time, u )
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
   
@@ -134,7 +134,7 @@ end subroutine cal_drag
 !       if it is not possible to compute the unst corrections, we return 0 here.
 !-------------------------------------------------------------------------------
 subroutine cal_unst_corrections ( time, dt )
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
   real(kind=pr),intent(in) :: time, dt

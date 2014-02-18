@@ -128,7 +128,7 @@ end subroutine save_fields_new_fsi
 ! field, dsetname, (as well as time, eps, and resolution) to the
 ! metadata of the hdf file .
 subroutine save_field_hdf5(time,filename,field_out,dsetname)
-  use mpi_header
+  use mpi
   use vars
   use hdf5
   implicit none
@@ -321,7 +321,7 @@ end subroutine Write_XMF
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
 subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
-  use mpi_header
+  use mpi
   use vars
   use hdf5
   implicit none
@@ -429,7 +429,7 @@ end subroutine dump_Runtime_backup
 ! a backup file "file_id". Attributes are stores in one attribute
 ! "bckp" which contains 8 values
 subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
-  use mpi_header
+  use mpi
   use vars
   use hdf5
   implicit none
@@ -538,7 +538,7 @@ end subroutine dump_field_backup
 ! note you need to know what dimension the file has,
 ! call fetch_attributes first
 subroutine read_single_file_serial(filename,field)
-  use mpi_header
+  use mpi
   use vars
   use hdf5
   implicit none
@@ -654,7 +654,7 @@ end subroutine read_single_file_serial
 ! note you need to know the dimensions and domain decomposition before
 ! calling it.
 subroutine Read_Single_File ( filename, field )
-  use mpi_header
+  use mpi
   use vars
   use hdf5
   implicit none
@@ -807,7 +807,7 @@ end subroutine Read_Single_File
 
 ! Load backup data from disk to initialize run for restart
 subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
-  use mpi_header
+  use mpi
   use vars
   use hdf5
   implicit none
@@ -917,7 +917,7 @@ end subroutine read_runtime_backup
 ! "file_id". the field has the attribute "attributes", which is an 8x1
 ! array containing scalar backup information
 subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
-  use mpi_header
+  use mpi
   use fsi_vars
   use hdf5
   implicit none
@@ -1042,7 +1042,7 @@ end subroutine read_field_backup
 ! Write a given attribute with attribute name aname and dimensions
 ! adims/dims to a given dataset identifier dset_id. Double version.
 subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
-  use mpi_header
+  use mpi
   use vars
   use hdf5
   implicit none
@@ -1074,7 +1074,7 @@ end subroutine write_attribute_dble
 ! Write a given attribute with attribute name aname and dimensions
 ! adims/dims to a given dataset identifier dset_id. Integer version.
 subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
-  use mpi_header
+  use mpi
   use vars
   use hdf5
   implicit none
@@ -1108,7 +1108,7 @@ end subroutine write_attribute_int
 ! (such as p and vorticity) and stores the fields in several HDF5
 ! files.
 subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 

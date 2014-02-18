@@ -1,5 +1,5 @@
 program FLUSI
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
   integer                :: mpicode
@@ -38,9 +38,9 @@ end program FLUSI
 
 
 subroutine Start_Simulation()
-  use mpi_header
+  use mpi
   use fsi_vars
-  use share_kine ! kinematics from file (Dmitry, 14 Nov 2013)
+  use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   integer                :: mpicode
   real (kind=pr)         :: t1,t2

@@ -44,7 +44,7 @@ end subroutine cal_nlk
 !       * for "true" FSI, we'll need to return the pressure field in phys space
 !-------------------------------------------------------------------------------
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -179,7 +179,7 @@ end subroutine cal_nlk_fsi
 ! note: we use rotational formulation: p is NOT the physical pressure
 !-------------------------------------------------------------------------------
 subroutine compute_pressure(pk,nlk)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -219,7 +219,7 @@ end subroutine compute_pressure
 ! projection scheme used in this code. The non-linear term comes in with NL and
 ! penalization and leaves divergence free
 subroutine add_grad_pressure(nlk1,nlk2,nlk3)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -279,7 +279,7 @@ end subroutine add_grad_pressure
 ! 4D array containing the imposed velocity and magnetic field in
 ! phsyical space.
 subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -397,7 +397,7 @@ end subroutine cal_nlk_mhd
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl(out1,out2,out3,in1,in2,in3)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -436,7 +436,7 @@ end subroutine curl
 ! Given three components of a fields in Fourier space, compute the
 ! curl in physical space.  Arrays are 3-dimensional.
 subroutine curl_inplace(fx,fy,fz)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -476,7 +476,7 @@ end subroutine curl_inplace
 ! Render the input field divergence-free via a Helmholtz
 ! decomposition. The zero-mode is left untouched.
 subroutine div_field_nul(fx,fy,fz)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 

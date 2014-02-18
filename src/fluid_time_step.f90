@@ -2,7 +2,7 @@
 ! FIXME: add documentation: which arguments are used for what?  What
 ! are their dimensions?
 subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -49,7 +49,7 @@ end subroutine FluidTimestep
 
 ! FIXME: add documentation: which arguments are used for what?
 subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -112,7 +112,7 @@ end subroutine rungekutta2
 ! startup scheme for AB2.
 ! FIXME: add documentation: which arguments are used for what?
 subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -149,7 +149,7 @@ end subroutine euler
 ! Note this is not an optimized Euler. It only does things we need for AB2.
 ! FIXME: add documentation: which arguments are used for what?
 subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -188,7 +188,7 @@ end subroutine euler_startup
 
 ! FIXME: add documentation: which arguments are used for what?
 subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -235,7 +235,7 @@ end subroutine adamsbashforth
 ! stability contidion.
 subroutine adjust_dt(dt1,u)
   use vars
-  use mpi_header
+  use mpi
   implicit none
 
   real (kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -306,7 +306,7 @@ end subroutine truncate
 
 ! Force zero mode for mean flow
 subroutine set_mean_flow(uk,time)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
   
@@ -330,7 +330,7 @@ end subroutine set_mean_flow
 ! by the grid spacing.
 subroutine maxabs(umax,ub)
   use vars
-  use mpi_header
+  use mpi
   implicit none
 
   real (kind=pr), intent(in) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -363,7 +363,7 @@ end subroutine maxabs
 ! grid spacing.
 subroutine maxabs1(umax,ub)
   use vars
-  use mpi_header
+  use mpi
   implicit none
 
   real (kind=pr), intent(in) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)

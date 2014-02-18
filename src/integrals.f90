@@ -1,6 +1,6 @@
 ! Wrapper for writing integral quantities to file
 subroutine write_integrals(time,uk,u,vort,nlk,work)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -25,7 +25,7 @@ end subroutine write_integrals
 
 ! fsi version of writing integral quantities to disk
 subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
-  use mpi_header
+  use mpi
   use fsi_vars
   implicit none
 
@@ -95,7 +95,7 @@ end subroutine write_integrals_fsi
 ! files, or (if there aren't too many columns) put all the
 ! velocity-only quantities first.
 subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
-  use mpi_header
+  use mpi
   use mhd_vars
   implicit none
 
@@ -215,7 +215,7 @@ end subroutine write_integrals_mhd
 ! physical-space vector fields with components f1, f2, f3, leaving the
 ! input vector field untouched.
 subroutine compute_energies(E,Ex,Ey,Ez,f1,f2,f3)
-  use mpi_header
+  use mpi
   use vars
   implicit none
   
@@ -277,7 +277,7 @@ end subroutine compute_energies
 ! physical-space vector fields with components f1, f2, f3, leaving the
 ! input vector field untouched.
 subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
-  use mpi_header
+  use mpi
   use vars
   implicit none
   
@@ -331,7 +331,7 @@ end subroutine compute_components
 ! Compute the maximum non-normalized divergence of the given 3D field
 ! fk1, fk2, fk3, 
 subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -410,7 +410,7 @@ end subroutine compute_max_div
 ! Compute the maximum components of the given 3D field with
 ! componennts f1, f2, f3.
 subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -463,7 +463,7 @@ end subroutine compute_max
 
 ! Compute the meannorm of the given field with x-space components f1, f2, f3.
 subroutine compute_mean_norm(mean,f1,f2,f3)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
@@ -502,7 +502,7 @@ end subroutine compute_mean_norm
 ! Compute the fluid volume.
 ! NB: mask is a global!
 subroutine compute_fluid_volume(volume)
-  use mpi_header
+  use mpi
   use vars
   implicit none
 
