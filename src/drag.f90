@@ -86,21 +86,21 @@ subroutine cal_drag ( time, u )
     forcex = forcex*dx*dy*dz
     forcey = forcey*dx*dy*dz
     forcez = forcez*dx*dy*dz  
-    call MPI_REDUCE (forcex,GlobalIntegrals%Force(1),1,mpireal,MPI_SUM,0,&
+    call MPI_REDUCE (forcex,GlobalIntegrals%Force(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                     MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (forcey,GlobalIntegrals%Force(2),1,mpireal,MPI_SUM,0,&
+    call MPI_REDUCE (forcey,GlobalIntegrals%Force(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                     MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (forcez,GlobalIntegrals%Force(3),1,mpireal,MPI_SUM,0,&
+    call MPI_REDUCE (forcez,GlobalIntegrals%Force(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                     MPI_COMM_WORLD,mpicode)    
                     
     torquex = torquex*dx*dy*dz
     torquey = torquey*dx*dy*dz
     torquez = torquez*dx*dy*dz  
-    call MPI_REDUCE (torquex,GlobalIntegrals%Torque(1),1,mpireal,MPI_SUM,0,&
+    call MPI_REDUCE (torquex,GlobalIntegrals%Torque(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                     MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (torquey,GlobalIntegrals%Torque(2),1,mpireal,MPI_SUM,0,&
+    call MPI_REDUCE (torquey,GlobalIntegrals%Torque(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                     MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (torquez,GlobalIntegrals%Torque(3),1,mpireal,MPI_SUM,0,&
+    call MPI_REDUCE (torquez,GlobalIntegrals%Torque(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                     MPI_COMM_WORLD,mpicode)    
                     
     !-------------------------------------------------------
@@ -156,9 +156,9 @@ subroutine cal_unst_corrections ( time, dt )
   force_new_loc(2) = sum( mask*us(:,:,:,2) )*dx*dy*dz*eps
   force_new_loc(3) = sum( mask*us(:,:,:,3) )*dx*dy*dz*eps
   
-  call MPI_REDUCE(force_new_loc(1),force_new(1),1,mpireal,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE(force_new_loc(2),force_new(2),1,mpireal,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
-  call MPI_REDUCE(force_new_loc(3),force_new(3),1,mpireal,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
+  call MPI_REDUCE(force_new_loc(1),force_new(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+  call MPI_REDUCE(force_new_loc(2),force_new(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
+  call MPI_REDUCE(force_new_loc(3),force_new(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
   
   if (is_possible) then
     GlobalIntegrals%Force_unst(1) = force_new(1)-force_old(1)
@@ -197,9 +197,9 @@ subroutine cal_unst_corrections ( time, dt )
   
   torque_new_loc = torque_new_loc*dx*dy*dz
   
-  call MPI_REDUCE(torque_new_loc(1),torque_new(1),1,mpireal,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE(torque_new_loc(2),torque_new(2),1,mpireal,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
-  call MPI_REDUCE(torque_new_loc(3),torque_new(3),1,mpireal,MPI_SUM,0,MPI_COMM_WORLD,mpicode)     
+  call MPI_REDUCE(torque_new_loc(1),torque_new(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+  call MPI_REDUCE(torque_new_loc(2),torque_new(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
+  call MPI_REDUCE(torque_new_loc(3),torque_new(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)     
   
   
   if (is_possible) then

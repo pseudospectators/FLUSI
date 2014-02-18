@@ -388,7 +388,7 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
   endif
   
   ! And then broadcast
-  call MPI_BCAST( params_real, 1, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
+  call MPI_BCAST( params_real, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode ) 
 end subroutine GetValue_real
 
 
@@ -490,7 +490,7 @@ subroutine GetValue_vector (PARAMS, actual_lines, section, keyword, params_vecto
   endif
   
   ! And then broadcast
-  call MPI_BCAST( params_vector, 3, mpireal, 0, MPI_COMM_WORLD, mpicode ) 
+  call MPI_BCAST( params_vector, 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode ) 
 end subroutine GetValue_vector
 
 
@@ -539,7 +539,7 @@ subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
   endif
 
   ! And then broadcast
-  call MPI_BCAST( params_int, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )  
+  call MPI_BCAST( params_int, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpicode )  
 end subroutine GetValue_Int
 
 

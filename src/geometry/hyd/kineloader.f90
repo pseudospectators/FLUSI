@@ -1,9 +1,9 @@
-subroutine load_kine_init(mpirank,mpireal,mpiinteger)
+subroutine load_kine_init(mpirank)
   use mpi
   use kine
   implicit none
 
-  integer, intent(in) :: mpirank,mpireal,mpiinteger
+  integer, intent(in) :: mpirank
   integer :: j, mpicode
   real (kind=prk) :: t_period, r_wing 
 
@@ -14,7 +14,7 @@ subroutine load_kine_init(mpirank,mpireal,mpiinteger)
     read (10, *) nk
   endif
 
-  call MPI_BCAST( nk, 1, mpiinteger, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST(nk,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
   allocate(vec_t(nk))
   allocate(vec_phi(nk))
   allocate(vec_phi_dt(nk))
@@ -48,19 +48,19 @@ subroutine load_kine_init(mpirank,mpireal,mpiinteger)
     vec_vert_dt(:) = vec_vert_dt(:) * t_period / r_wing
     vec_horz_dt(:) = vec_horz_dt(:) * t_period / r_wing 
   endif
-  call MPI_BCAST( vec_t, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_phi, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_alpha, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_theta, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_pitch, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_vert, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_horz, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_phi_dt, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_alpha_dt, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_theta_dt, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_pitch_dt, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_vert_dt, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_horz_dt, nk, mpireal, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_t, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_phi, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_alpha, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_theta, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_pitch, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_vert, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_horz, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_phi_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_alpha_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_theta_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_pitch_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_vert_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( vec_horz_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
 end subroutine
 
 

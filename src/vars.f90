@@ -14,14 +14,14 @@ module vars
   integer,save :: nd ! number of fields (3 for NS, 6 for MHD)
 
   ! MPI and p3dfft variables and parameters
-  integer,save :: mpisize,mpirank,mpicommcart
-  integer,parameter :: mpiinteger=MPI_INTEGER
-  integer,parameter :: mpireal=MPI_DOUBLE_PRECISION
-  integer,parameter :: mpicomplex=MPI_DOUBLE_COMPLEX
-  integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
-  integer,dimension (:,:),allocatable,save :: ra_table,rb_table
+  integer,save :: mpisize, mpirank
   ! Local array bounds
   integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
+
+  ! p3dfft only parameters (move to appropraite .f90 file?)
+  integer,save :: mpicommcart 
+  integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
+  integer,dimension (:,:),allocatable,save :: ra_table,rb_table
 
   ! Used in params.f90
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file

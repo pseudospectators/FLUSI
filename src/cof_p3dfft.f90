@@ -10,6 +10,7 @@ module fftw3_descriptors
   use vars
   implicit none
   integer*8,dimension(1:3),save :: Desc_Handle_1D_f,Desc_Handle_1D_b
+
 end module fftw3_descriptors
 
 
@@ -124,9 +125,9 @@ subroutine fft_initialize
   !-- Allocate domain partitioning tables and gather sizes from all
   !-- processes (only for real arrays)
   allocate(ra_table(1:3,0:mpisize-1),rb_table(1:3,0:mpisize-1) )
-  call MPI_ALLGATHER(ra,3,mpiinteger,ra_table,3,mpiinteger,MPI_COMM_WORLD,&
+  call MPI_ALLGATHER(ra,3,MPI_INTEGER,ra_table,3,MPI_INTEGER,MPI_COMM_WORLD,&
        mpicode)
-  call MPI_ALLGATHER(rb,3,mpiinteger,rb_table,3,mpiinteger,MPI_COMM_WORLD,&
+  call MPI_ALLGATHER(rb,3,MPI_INTEGER,rb_table,3,MPI_INTEGER,MPI_COMM_WORLD,&
        mpicode)
 
   ! ------ Multiple one-dimensional FFTs ------

@@ -1,5 +1,5 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions 
-subroutine Create_Mask_fsi(time)
+subroutine create_mask_fsi(time)
   use mpi
   use fsi_vars
   implicit none
@@ -44,7 +44,7 @@ subroutine Create_Mask_fsi(time)
   
   ! -- for global timing.
   time_mask = time_mask + MPI_wtime() - t1
-end subroutine Create_Mask_fsi
+end subroutine create_mask_fsi
 
 
 

@@ -284,7 +284,7 @@ subroutine adjust_dt(dt1,u)
      endif
 
      ! Broadcast time step to all processes
-     call MPI_BCAST(dt1,1,mpireal,0,MPI_COMM_WORLD,mpicode)
+     call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
   endif
   
 end subroutine adjust_dt
@@ -356,7 +356,7 @@ subroutine maxabs(umax,ub)
   enddo
 
   ! Set umax to be the maximum for all fields over all procs.
-  call MPI_REDUCE(uloc(1),umax,1,mpireal,MPI_MAX,0,MPI_COMM_WORLD,mpicode)
+  call MPI_REDUCE(uloc(1),umax,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_WORLD,mpicode)
 end subroutine maxabs
 
 ! Set umax to be the max velocity in each direction divided by the

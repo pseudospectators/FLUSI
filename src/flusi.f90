@@ -151,7 +151,7 @@ subroutine Start_Simulation()
 
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile=="yes") then
-     call load_kine_init(mpirank,mpireal,mpiinteger)
+     call load_kine_init(mpirank)
   endif
 
   ! Create obstacle mask

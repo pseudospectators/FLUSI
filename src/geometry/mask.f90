@@ -15,9 +15,9 @@ subroutine create_mask(time)
     ! Actual mask functions:
     select case(method)
     case("fsi")
-        call Create_Mask_fsi(time)
+        call create_mask_fsi(time)
     case("mhd")
-        call Create_Mask_mhd()
+        call create_mask_mhd()
     case default    
         if(mpirank == 0) then
           write (*,*) "Error: unkown method in create_mask; stopping."
@@ -67,12 +67,12 @@ subroutine draw_sphere
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
   N_smooth = 2.d0
-
+  
   do ix=ra(1),rb(1)
+     x=dble(ix)*dx
      do iy=ra(2),rb(2)
+        y=dble(iy)*dy
         do iz=ra(3),rb(3)
-           x=dble(ix)*dx
-           y=dble(iy)*dy
            z=dble(iz)*dz
            R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
            if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
@@ -125,7 +125,7 @@ subroutine smoothstep(f,x,t,h)
 end subroutine smoothstep
 
 
-! Set the penalization velocity for the given fields (f1,f2,g3) to the
+! Set the penalization velocity for the given fields (f1,f2,f3) to the
 ! steady-state of the Taylor-Couette case.
 subroutine taylor_couette_u_us(f1,f2,f3)
 use mpi

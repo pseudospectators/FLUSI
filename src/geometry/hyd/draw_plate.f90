@@ -91,11 +91,11 @@ subroutine Draw_Plate (time)
   ! Reduce 
   GlobalIntegrals%Force(:) = 0.0d0
   GlobalIntegrals%Torque(:) = 0.0d0
-  call MPI_REDUCE (forcex,GlobalIntegrals%Force(1),1,mpireal,MPI_SUM,0,&
+  call MPI_REDUCE (forcex,GlobalIntegrals%Force(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                    MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE (forcey,GlobalIntegrals%Force(2),1,mpireal,MPI_SUM,0,&
+  call MPI_REDUCE (forcey,GlobalIntegrals%Force(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                    MPI_COMM_WORLD,mpicode) 
-  call MPI_REDUCE (torquez,GlobalIntegrals%Torque(3),1,mpireal,MPI_SUM,0,&
+  call MPI_REDUCE (torquez,GlobalIntegrals%Torque(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
                    MPI_COMM_WORLD,mpicode)                    
 
 end subroutine Draw_Plate
