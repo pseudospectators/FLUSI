@@ -33,7 +33,7 @@ endif
 # GNU compiler
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
-FFLAGS += -J$(OBJDIR)
+FFLAGS += -J$(OBJDIR) # specify directory for modules.
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
 FFLAGS += -Wsurprising # warn if things might not behave as expected
 FFLAGS += -pedantic 
@@ -50,6 +50,7 @@ ifort:=$(shell $(FC) --version | head -c 5)
 ifeq ($(ifort),ifort)
 PPFLAG= -fpp #preprocessor flag
 DIFORT= -DIFORT # define the IFORT variable 
+FFLAGS += -module $(OBJDIR) # specify directory for modules.
 FFLAGS += -vec_report0
 endif
 
