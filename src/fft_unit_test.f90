@@ -34,9 +34,9 @@ subroutine FFT_unit_test ( u, uk )
   call fft ( uk, u )
   
   ! compute gradient
-  do ix=ca(2), cb(2)  ! kx : 0..nx/2
+  do ix=ca(3), cb(3)  ! kx : 0..nx/2
      kx=scalex*dble(ix)                
-     uk(:,ix,:) = uk(:,ix,:) * kx *dcmplx(0.d0,1.d0)
+     uk(:,:,ix) = uk(:,:,ix) * kx *dcmplx(0.d0,1.d0)
   enddo
   
   ! to x space
@@ -57,7 +57,7 @@ subroutine FFT_unit_test ( u, uk )
     write(*,*) "FFT unit (x) test done. error=", err
     if ( err > 1.0e-13 ) then
       write (*,*) "Very bad: FFT unit test failed."
-      stop
+!       stop
     endif
   endif
   
@@ -73,9 +73,9 @@ subroutine FFT_unit_test ( u, uk )
   call fft ( uk, u )
   
   ! compute gradient
-  do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
+  do iy=ca(2), cb(2)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
      ky = scaley*dble(modulo(iy+ny/2,ny)-ny/2)                 
-     uk(:,:,iy) = uk(:,:,iy)*ky*dcmplx(0.d0,1.d0)
+     uk(:,iy,:) = uk(:,iy,:)*ky*dcmplx(0.d0,1.d0)
   enddo
   
   ! to x space
@@ -96,7 +96,7 @@ subroutine FFT_unit_test ( u, uk )
     write(*,*) "FFT unit (y) test done. error=", err
     if ( err > 1.0e-13 ) then
       write (*,*) "Very bad: FFT unit test failed."
-      stop
+!       stop
     endif    
   endif  
 
@@ -135,8 +135,8 @@ subroutine FFT_unit_test ( u, uk )
     write(*,*) "FFT unit (z) test done. error=", err
     if ( err > 1.0e-13 ) then
       write (*,*) "Very bad: FFT unit test failed."
-      stop
+!       stop
     endif    
   endif  
-  
+  stop
 end subroutine FFT_unit_test

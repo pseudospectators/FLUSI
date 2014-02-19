@@ -121,11 +121,14 @@ subroutine fft_initialize
   endif
 
   !-- Initialize P3FFT
-  call p3dfft_setup(mpidims,nx,ny,nz,.false.)
+  ! old: p3dfft_setup(dims,nx,ny,nz,overwrite)
+  ! new: p3dfft_setup(dims,nx,ny,nz,mpi_comm_in,nxcut,nycut,nzcut,overwrite,memsize)
+  call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
 
   !-- Get local sizes
-  call get_dims(ra,rb,rs,1)  ! real blocks
-  call get_dims(ca,cb,cs,2)  ! complex blocks
+  !___________updated!!
+  call p3dfft_get_dims(ra,rb,rs,1)  ! real blocks
+  call p3dfft_get_dims(ca,cb,cs,2)  ! complex blocks
   ra(:) = ra(:) - 1
   rb(:) = rb(:) - 1
   ca(:) = ca(:) - 1
@@ -230,7 +233,7 @@ subroutine coftxyz(f,fk)
 
   t1 = MPI_wtime()
   ! Compute forward FFT
-  call p3dfft_ftran_r2c(f,fk)
+  call p3dfft_ftran_r2c(f,fk,'tff')
 
   ! Normalize
   fk(:,:,:) = fk(:,:,:) / dble(nx*ny*nz)
@@ -268,7 +271,7 @@ subroutine cofitxyz(fk,f)
   t1 = MPI_wtime()
 
   ! Compute backward FFT
-  call p3dfft_btran_c2r(fk,f)
+  call p3dfft_btran_c2r(fk,f,'tff')
 
 
   time_ifft  = time_ifft  + MPI_wtime() - t1
