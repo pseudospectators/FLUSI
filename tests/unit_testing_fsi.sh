@@ -39,6 +39,8 @@ dirs[4]="sphere"
 
 # how many tests?
 n_tests=${#names[@]} 
+# how many files to compare? (still hard-coded)
+n_files=76
 
 # list of possible prefixes (no worries if some do not exist for 
 # that particular test)
@@ -51,7 +53,6 @@ error=0
 warn=0
 checked=0
 
-# Reset
 Color_Off='\e[0m'       # Text Reset
 Black='\e[0;30m'        # Black
 Red='\e[0;31m'          # Red
@@ -95,9 +96,7 @@ do
   
   #-----------------------------------------------
   # now we have the new data lying around
-  #-----------------------------------------------
-
-  
+  #-----------------------------------------------  
   for p in ${prefixes[@]}
   do  
     for t in ${times[@]}
@@ -145,7 +144,8 @@ do
 
   #-----------------------------------------------
   # remove the data generated now
-  #-----------------------------------------------  
+  #-----------------------------------------------    
+#   exit 1
   rm -f *.key
   rm -f *.h5
   rm -f drag_data
@@ -158,14 +158,15 @@ done
 echo "-------------------------------------"
 echo "summary flusi fsi unit testing"
 echo "-------------------------------------"
-echo -e $Green "Passed: "$passed"/"$checked $Color_Off
-if [ $error != 0 ]; then
-echo -e $Red "Fail: "$error"/"$checked $Color_Off
-fi
-if [ $warn != 0 ]; then
-echo -e $Yellow "Warned: "$warn"/"$checked $Color_Off
-fi
-if [ $passed == $checked ]; then
-echo -e $Green "All tests passed -> This is good news!" $Color_Off
+
+echo -e $Green "Passed: "$passed"/"$checked" ("$n_files")" $Color_Off
+echo -e $Red "Fail: "$error"/"$checked" ("$n_files")" $Color_Off
+echo -e $Yellow "Warned: "$warn"/"$checked" ("$n_files")" $Color_Off
+
+
+if [ $passed == $n_files ]; then
+  echo -e $Green "All tests passed -> This is good news!" $Color_Off
+elif [ $passed == $checked ]; then
+  echo -e $Red "All tests succeeded, but some were skipped." $Color_Off
 fi
 echo "-------------------------------------"

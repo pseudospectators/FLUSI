@@ -145,8 +145,8 @@ subroutine Start_Simulation()
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   
   if (iVorticitySponge == "yes") then
-  ! sponge term (this is currently global, but it will be changed)
-  allocate (sponge(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd) )
+    ! sponge term (this is currently global, but it will be changed)
+    allocate (sponge(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd) )
   endif
 
   ! Load kinematics from file (Dmitry, 14 Nov 2013)

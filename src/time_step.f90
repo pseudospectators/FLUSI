@@ -11,8 +11,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   real(kind=pr),intent(inout) :: time,dt0,dt1 
   real(kind=pr) :: t1,t2
   character (len=80)  :: command ! for runtime control
-  character (len=80),intent(in)  :: params_file ! for runtime control
-  
+  character (len=80),intent(in)  :: params_file ! for runtime control  
   complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
@@ -22,12 +21,14 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   logical :: continue_timestepping
   
+  continue_timestepping = .true.
+  it_start=it
+  
+  ! save initial conditions 
+  call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
+  
   ! initialize runtime control file
   if (mpirank == 0) call initialize_runtime_control_file()
-  
-  continue_timestepping = .true.
-
-  it_start=it
   
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup)
@@ -35,27 +36,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
   if (mpirank == 0) write(*,*) "Start time-stepping...."
+  
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
-    
-     !-------------------------------------------------
-     ! Output FIELDS (after tsave)
-     !-------------------------------------------------
-     if(modulo(time,tsave) <= dt1) then
-        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
-        ! never matters,and for AB2 this is the one to be overwritten
-        ! in the next step.  This frees 3 complex arrays, which are
-        ! then used in Dump_Runtime_Backup.
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
-        
-        ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup == 1) then
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-        endif
-     endif
-
      dt0=dt1
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
@@ -98,6 +82,22 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
      endif
 
+     !-------------------------------------------------
+     ! Output FIELDS (after tsave)
+     !-------------------------------------------------
+     if (((modulo(time,tsave)<=dt1).and.(it>2)).or.(time==tmax)) then
+        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
+        ! never matters,and for AB2 this is the one to be overwritten
+        ! in the next step.  This frees 3 complex arrays, which are
+        ! then used in Dump_Runtime_Backup.
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
+        
+        ! Backup if that's specified in the PARAMS.ini file
+        if(iDoBackup == 1) then
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+        endif
+     endif     
      
      !-----------------------------------------------
      ! Output how much time remains
