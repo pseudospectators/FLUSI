@@ -57,7 +57,7 @@ subroutine FFT_unit_test ( u, uk )
     write(*,*) "FFT unit (x) test done. error=", err
     if ( err > 1.0e-13 ) then
       write (*,*) "Very bad: FFT unit test failed."
-!       stop
+      stop
     endif
   endif
   
@@ -96,7 +96,7 @@ subroutine FFT_unit_test ( u, uk )
     write(*,*) "FFT unit (y) test done. error=", err
     if ( err > 1.0e-13 ) then
       write (*,*) "Very bad: FFT unit test failed."
-!       stop
+      stop
     endif    
   endif  
 
@@ -135,8 +135,9 @@ subroutine FFT_unit_test ( u, uk )
     write(*,*) "FFT unit (z) test done. error=", err
     if ( err > 1.0e-13 ) then
       write (*,*) "Very bad: FFT unit test failed."
-!       stop
+      stop
     endif    
   endif  
+  
   stop
 end subroutine FFT_unit_test
