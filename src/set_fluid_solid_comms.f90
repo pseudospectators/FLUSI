@@ -1,4 +1,7 @@
 subroutine set_fluid_solid_communicators
+  !-----------------------------------------------------------------------------
+  ! Sets ups the communicators for the solid and the fluid parts
+  !-----------------------------------------------------------------------------
   use vars
   use mpi
   implicit none
@@ -8,8 +11,10 @@ subroutine set_fluid_solid_communicators
   integer :: original_group
   integer :: group_fluid, group_solid, mpirank_global
   
-  call MPI_COMM_SIZE (MPI_COMM_WORLD, ncpu, mpicode)
-  call MPI_COMM_RANK (MPI_COMM_WORLD, mpirank_global,mpicode) 
+  !-- ncpu is the total number of processes
+  call MPI_COMM_SIZE ( MPI_COMM_WORLD, ncpu, mpicode )
+  call MPI_COMM_RANK ( MPI_COMM_WORLD, mpirank_global,mpicode ) 
+  
   !-----------------------------------------------------------------------------
   !-- decide how many CPU we reserve for the solid solver
   !-----------------------------------------------------------------------------

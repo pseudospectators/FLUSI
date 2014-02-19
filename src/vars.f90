@@ -21,7 +21,7 @@ module vars
   ! p3dfft only parameters (move to appropraite .f90 file?)
   integer,save :: mpicommcart 
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
-  integer,dimension (:,:),allocatable,save :: ra_table,rb_table
+  
 
   ! Used in params.f90
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file

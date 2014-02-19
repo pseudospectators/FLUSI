@@ -84,7 +84,7 @@ subroutine fft_initialize
   ! ------ Three-dimensional FFT ------
   !-- Set up dimensions
   !-- !!! Note that p3dfft_setup permutes mpidims, if DIMS_C is not defined !!!
-  if(ny>mpisize) then
+  if (ny>mpisize) then
      mpidims(1) = 1
      mpidims(2) = mpisize / mpidims(1)
   else
@@ -121,14 +121,6 @@ subroutine fft_initialize
   rb(:) = rb(:) - 1
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
-
-  !-- Allocate domain partitioning tables and gather sizes from all
-  !-- processes (only for real arrays)
-  allocate(ra_table(1:3,0:mpisize-1),rb_table(1:3,0:mpisize-1) )
-  call MPI_ALLGATHER(ra,3,MPI_INTEGER,ra_table,3,MPI_INTEGER,MPI_COMM_WORLD,&
-       mpicode)
-  call MPI_ALLGATHER(rb,3,MPI_INTEGER,rb_table,3,MPI_INTEGER,MPI_COMM_WORLD,&
-       mpicode)
 
   ! ------ Multiple one-dimensional FFTs ------
   !-- Create Cartesian topology for one-dimensional transforms
@@ -209,8 +201,6 @@ subroutine fft_free
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
 
-  !-- Deallocate domain partitioning tables
-  deallocate(ra_table,rb_table )
 
 end subroutine fft_free
 

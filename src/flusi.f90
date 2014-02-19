@@ -6,9 +6,9 @@ program FLUSI
   character (len=80)     :: infile
 
   ! Initialize MPI, get size and rank
-  call MPI_INIT(mpicode)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD,mpisize,mpicode)
-  call MPI_COMM_RANK(MPI_COMM_WORLD,mpirank,mpicode) 
+  call MPI_INIT (mpicode)
+  call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
+  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode) 
   
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
@@ -44,16 +44,16 @@ subroutine Start_Simulation()
   implicit none
   integer                :: mpicode
   real (kind=pr)         :: t1,t2
-  real(kind=pr) :: time,dt0,dt1 ! FIXME: move to vars.
-  integer :: n0=0,n1=1
-  integer :: it
+  real(kind=pr)          :: time,dt0,dt1
+  integer                :: n0=0,n1=1
+  integer                :: it
   character (len=80)     :: infile
   ! Arrays needed for simulation
-  real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
-  real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
-  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  real(kind=pr),dimension(:,:,:,:),allocatable      :: explin  
+  real(kind=pr),dimension(:,:,:,:),allocatable      :: u,vort
+  complex(kind=pr),dimension(:,:,:,:),allocatable   :: uk
   complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
-  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr),dimension(:,:,:),allocatable        :: work
 
   
   ! Set method information in vars module.
@@ -66,17 +66,23 @@ subroutine Start_Simulation()
   time_bckp=0.0; time_save=0.0; time_total=0.0; time_u=0.0; time_sponge=0.0
 
   call set_fluid_solid_communicators()
+  call MPI_COMM_RANK (MPI_COMM_FLUID, mpirank, mpicode)
+  mpisize = ncpu_fluid
+    
   
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  FLUSI'
      write(*,'(A)') '--------------------------------------'
-     write(*,'("Running on ",i5," CPUs")') mpisize
+     write(*,'("Running on ",i5," CPUs")') ncpu
+     write(*,'("  Using ",i5," CPUs for fluid")') ncpu_fluid
+     write(*,'("  Using ",i5," CPUs for solid")') ncpu_solid
+     write(*,'(A)') '--------------------------------------'
   endif
 
-  !-------------------------
+  !-----------------------------------------------------------------------------
   ! Read input parameters
-  !-------------------------
+  !-----------------------------------------------------------------------------
   allocate(lin(nf)) ! Set up the linear term
   if (mpirank == 0) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
@@ -89,9 +95,9 @@ subroutine Start_Simulation()
   tab = char(9) ! set horizontal tab character 
   ! to do: please kill malcolm now.
 
-  !-----------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Initialize time series output files, if not resuming a backup
-  !-----------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
     open  (14,file='forces.t',status='replace')
     write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
@@ -133,9 +139,9 @@ subroutine Start_Simulation()
        mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
 
-  !-------------------------
+  !-----------------------------------------------------------------------------
   ! Allocate memory:
-  !-------------------------
+  !-----------------------------------------------------------------------------
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   ! velocity in Fourier space
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
@@ -186,9 +192,9 @@ subroutine Start_Simulation()
   call create_mask(time)
   call update_us(u)
 
-  !----------------------------
+  !-----------------------------------------------------------------------------
   ! Step forward in time
-  !----------------------------
+  !-----------------------------------------------------------------------------
   call MPI_barrier (MPI_COMM_world, mpicode)
   t1 = MPI_wtime()
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -211,9 +217,9 @@ subroutine Start_Simulation()
   endif
   
 
-  !-------------------------
+  !-----------------------------------------------------------------------------
   ! Deallocate memory
-  !-------------------------
+  !-----------------------------------------------------------------------------
   deallocate(lin)
   deallocate(explin)
   deallocate(vort,work)
@@ -234,9 +240,10 @@ subroutine Start_Simulation()
   endif
   
   call fft_free 
-  !-------------------------
+  
+  !-----------------------------------------------------------------------------
   ! Show the breakdown of timing information
-  !-------------------------
+  !-----------------------------------------------------------------------------
   if (mpirank == 0) call show_timings(t2)
 end subroutine Start_Simulation
 
