@@ -65,9 +65,9 @@ subroutine ifft3(outx,ink)
 end subroutine ifft3
 
 subroutine fft_initialize
-  !====================================================================
+  !--------------------------------------------------------------------
   !     Allocate memory and initialize FFT
-  !====================================================================
+  !--------------------------------------------------------------------
   use mpi ! Module incapsulates mpif.
   use vars
   use p3dfft
