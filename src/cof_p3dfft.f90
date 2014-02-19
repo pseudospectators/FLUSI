@@ -65,9 +65,15 @@ subroutine ifft3(outx,ink)
 end subroutine ifft3
 
 subroutine fft_initialize
-  !--------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !     Allocate memory and initialize FFT
-  !--------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! This subroutine performs two major tasks:
+  !     * Initialize P3DFFT and provide the memory management (how big are the 
+  !       chunks of data on each process (coftxyz and cofitxyz)
+  !     * Initialize 1D transforms that rely on FFTW (cofts and cofits)
+  !       the auxiliary subroutine textents is used here
+  !-----------------------------------------------------------------------------
   use mpi ! Module incapsulates mpif.
   use vars
   use p3dfft
@@ -81,8 +87,11 @@ subroutine fft_initialize
   logical,dimension(2) :: subcart
   real(kind=pr),dimension(:,:),allocatable :: f,ft
 
-  ! ------ Three-dimensional FFT ------
-  !-- Set up dimensions
+  !-----------------------------------------------------------------------------
+  !------ Three-dimensional FFT                                           ------
+  !-----------------------------------------------------------------------------
+  
+    !-- Set up dimensions  
   !-- !!! Note that p3dfft_setup permutes mpidims, if DIMS_C is not defined !!!
   if(ny>mpisize) then
      mpidims(1) = 1
@@ -122,15 +131,9 @@ subroutine fft_initialize
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
 
-  !-- Allocate domain partitioning tables and gather sizes from all
-  !-- processes (only for real arrays)
-  allocate(ra_table(1:3,0:mpisize-1),rb_table(1:3,0:mpisize-1) )
-  call MPI_ALLGATHER(ra,3,MPI_INTEGER,ra_table,3,MPI_INTEGER,MPI_COMM_WORLD,&
-       mpicode)
-  call MPI_ALLGATHER(rb,3,MPI_INTEGER,rb_table,3,MPI_INTEGER,MPI_COMM_WORLD,&
-       mpicode)
-
-  ! ------ Multiple one-dimensional FFTs ------
+  !-----------------------------------------------------------------------------     
+  ! ------ Multiple one-dimensional FFTs                                  ------
+  !-----------------------------------------------------------------------------
   !-- Create Cartesian topology for one-dimensional transforms
   call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/.false.,.false./),&
        .false.,mpicommcart,mpicode)
@@ -208,10 +211,6 @@ subroutine fft_free
      call dfftw_destroy_plan(Desc_Handle_1D_f(j))
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
-
-  !-- Deallocate domain partitioning tables
-  deallocate(ra_table,rb_table )
-
 end subroutine fft_free
 
 
