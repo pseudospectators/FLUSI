@@ -39,6 +39,8 @@ program mhd
   nd=3*nf ! Each field has three dimensions, for six total.
   allocate(lin(nf)) ! Set up the linear term
 
+  call set_fluid_solid_communicators()
+  
   ! FIXME/TODO: initialize time integrals to zero
 
   if (mpirank == 0) write(*,'(A)') 'Starting MHD3D'

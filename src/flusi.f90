@@ -65,6 +65,8 @@ subroutine Start_Simulation()
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
   time_bckp=0.0; time_save=0.0; time_total=0.0; time_u=0.0; time_sponge=0.0
 
+  call set_fluid_solid_communicators()
+  
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  FLUSI'
