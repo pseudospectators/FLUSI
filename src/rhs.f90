@@ -461,7 +461,7 @@ subroutine curl_inplace(fx,fy,fz)
   do iz=ca(1),cb(1)
      kz=wave_z(iz)
      do iy=ca(2),cb(2)
-        kx=wave_y(iy)
+        ky=wave_y(iy)
         do ix=ca(3),cb(3)
            kx=wave_x(ix)
            
