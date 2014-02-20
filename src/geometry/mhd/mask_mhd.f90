@@ -28,6 +28,7 @@ end subroutine create_mask_mhd
 subroutine dealias(fk1,fk2,fk3) 
   use vars
   use mpi
+  use p3dfft_wrapper
   implicit none
 
   integer :: ix,iy,iz
@@ -433,6 +434,7 @@ end subroutine checkbc
 subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
   use mpi
   use mhd_vars
+  use p3dfft_wrapper
   implicit none
   
   real(kind=pr),intent(in)::ux(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -553,6 +555,7 @@ end subroutine maxdist
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
 subroutine smcnum_us_mhd()
   use mpi
+  use p3dfft_wrapper
   use mhd_vars
   implicit none
   

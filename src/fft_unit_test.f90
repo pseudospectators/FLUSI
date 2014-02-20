@@ -15,6 +15,7 @@
 subroutine FFT_unit_test ( u, uk )
   use mpi
   use vars  
+  use p3dfft_wrapper
   ! input: real work array
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   ! input: complex work array
@@ -141,3 +142,22 @@ subroutine FFT_unit_test ( u, uk )
   
   stop
 end subroutine FFT_unit_test
+
+
+! do iz=ca(1),cb(1)          
+!   !-- wavenumber in z-direction
+!   kz = scalez*dble(modulo(iz+nz/2,nz)-nz/2)   
+!   
+!   do iy=ca(2), cb(2)
+!     !-- wavenumber in y-direction
+!     ky = scaley*dble(modulo(iy+ny/2,ny)-ny/2)                 
+!     
+!     do ix=ca(3), cb(3)
+!       !-- wavenumber in x-direction
+!       kx = scalex*dble(ix)     
+!       
+!       !-- actual operation in Fourier space
+!       uk(iz,iy,ix) = 
+!     enddo
+!   enddo
+! enddo

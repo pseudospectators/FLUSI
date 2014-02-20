@@ -13,7 +13,15 @@ module fftw3_descriptors
 
 end module fftw3_descriptors
 
+!---------------------------------------------------------------------
+! module that contains wrappers for P3DFFT
+!---------------------------------------------------------------------
 
+module p3dfft_wrapper
+  use vars
+  implicit none
+  
+  contains
 
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
@@ -113,12 +121,13 @@ subroutine fft_initialize
   endif
 
   !-- Stop if the sizes are odd or smaller than 4
-  if(nx<4 .or. ny<4 .or. nz<4 .or. modulo(nx,2)==1 .or. modulo(ny,2)==1 .or. modulo(nz,2)==1 ) then
-     if(mpirank == 0 ) then
-        print *, 'nx, ny, nz must be even and not smaller than 4'
-     endif
-     stop
-  endif
+!   if(nx<4 .or. ny<4 .or. nz<4 .or. modulo(nx,2)==1 .or. modulo(ny,2)==1 .or. modulo(nz,2)==1 ) then
+!   if(modulo(nx,2)==1 .or. modulo(ny,2)==1 .or. modulo(nz,2)==1 ) then  
+!      if(mpirank == 0 ) then
+!         print *, 'nx, ny, nz must be even and not smaller than 4'
+!      endif
+!      stop
+!   endif
 
   !-- Initialize P3FFT
   ! old: p3dfft_setup(dims,nx,ny,nz,overwrite)
@@ -373,3 +382,5 @@ subroutine trextents(idir,n,mpidims,mpicoords,ka,kb,ks,kat,kbt,kst )
   kst(:) = kbt(:)-kat(:)+1
 
 end subroutine trextents
+
+end module p3dfft_wrapper

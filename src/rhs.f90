@@ -45,6 +45,7 @@ end subroutine cal_nlk
 !-------------------------------------------------------------------------------
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   use mpi
+  use p3dfft_wrapper
   use fsi_vars
   implicit none
 
@@ -180,6 +181,7 @@ end subroutine cal_nlk_fsi
 !-------------------------------------------------------------------------------
 subroutine compute_pressure(pk,nlk)
   use mpi
+  use p3dfft_wrapper
   use vars
   implicit none
 
@@ -221,6 +223,7 @@ end subroutine compute_pressure
 subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr),intent(inout):: nlk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
@@ -281,6 +284,7 @@ end subroutine add_grad_pressure
 subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   use mpi
   use fsi_vars
+  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -398,6 +402,7 @@ end subroutine cal_nlk_mhd
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl(out1,out2,out3,in1,in2,in3)
   use mpi
+  use p3dfft_wrapper
   use vars
   implicit none
 
@@ -438,6 +443,7 @@ end subroutine curl
 subroutine curl_inplace(fx,fy,fz)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   ! Field in Fourier space
@@ -478,6 +484,7 @@ end subroutine curl_inplace
 subroutine div_field_nul(fx,fy,fz)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr), intent(inout) :: fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))

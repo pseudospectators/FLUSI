@@ -8,6 +8,7 @@
 subroutine cal_vis(dt,vis)
   use vars
   use mpi
+  use p3dfft_wrapper
   implicit none
 
   integer :: ix,iy,iz

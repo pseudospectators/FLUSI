@@ -2,6 +2,7 @@
 subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   use mpi
   use fsi_vars
+  use p3dfft_wrapper
   implicit none
 
   integer,intent (inout) :: n1,it
@@ -141,6 +142,7 @@ end subroutine init_fields_fsi
 subroutine Vorticity2Velocity(uk,work,vort)
   use mpi
   use fsi_vars
+  use p3dfft_wrapper
   implicit none
 
   complex (kind=pr),intent(out) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)

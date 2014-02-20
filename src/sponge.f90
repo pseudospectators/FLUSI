@@ -22,6 +22,7 @@
 ! ------------------------------------------------------------------------------
 subroutine vorticity_sponge( work, vort )
   use mpi
+  use p3dfft_wrapper
   use fsi_vars  
   implicit none  
   complex (kind=pr) :: im, spx,spy,spz

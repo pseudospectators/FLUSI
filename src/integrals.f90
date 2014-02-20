@@ -27,6 +27,7 @@ end subroutine write_integrals
 subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   use mpi
   use fsi_vars
+  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -97,6 +98,7 @@ end subroutine write_integrals_fsi
 subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   use mpi
   use mhd_vars
+  use p3dfft_wrapper
   implicit none
 
   complex (kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -333,6 +335,7 @@ end subroutine compute_components
 subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   real(kind=pr),intent(out) :: maxdiv  

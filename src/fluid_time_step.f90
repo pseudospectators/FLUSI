@@ -3,6 +3,7 @@
 ! are their dimensions?
 subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   use mpi
+  use p3dfft_wrapper
   use vars
   implicit none
 
@@ -51,6 +52,7 @@ end subroutine FluidTimestep
 subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
@@ -114,6 +116,7 @@ end subroutine rungekutta2
 subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
@@ -150,6 +153,7 @@ end subroutine euler
 ! FIXME: add documentation: which arguments are used for what?
 subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
   use mpi
+  use p3dfft_wrapper
   use vars
   implicit none
 
@@ -190,6 +194,7 @@ end subroutine euler_startup
 subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   real (kind=pr),intent (inout) :: time,dt1,dt0

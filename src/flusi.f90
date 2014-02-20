@@ -40,6 +40,7 @@ end program FLUSI
 subroutine Start_Simulation()
   use mpi
   use fsi_vars
+  use p3dfft_wrapper
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   integer                :: mpicode

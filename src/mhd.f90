@@ -1,5 +1,6 @@
 program mhd
   use mpi
+  use p3dfft_wrapper
   use mhd_vars
   implicit none
 
