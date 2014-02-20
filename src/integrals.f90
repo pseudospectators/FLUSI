@@ -43,17 +43,20 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   !-----------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)
   !-----------------------------------------------------------
-  do iz=ca(1),cb(1)
-     kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*ix
-        do iy=ca(3),cb(3)
-           ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
-           nlk(iz,ix,iy,1)=&
-                (kx*uk(iz,ix,iy,1)+ky*uk(iz,ix,iy,2)+kz*uk(iz,ix,iy,3))
-           nlk(iz,ix,iy,1)=dcmplx(0.d0,1.d0)*nlk(iz,ix,iy,1)
-        enddo
-     enddo
+  do iz=ca(1),cb(1)          
+    !-- wavenumber in z-direction
+    kz = wave_z(iz)       
+    do iy=ca(2), cb(2)
+      !-- wavenumber in y-direction
+      ky = wave_y(iy)      
+      do ix=ca(3), cb(3)
+        !-- wavenumber in x-direction
+        kx = wave_x(ix)
+        nlk(iz,iy,ix,1)=&
+            (kx*uk(iz,iy,ix,1)+ky*uk(iz,iy,ix,2)+kz*uk(iz,iy,ix,3))
+        nlk(iz,iy,ix,1)=dcmplx(0.d0,1.d0)*nlk(iz,iy,ix,1)
+      enddo
+    enddo
   enddo
 
   call ifft(work,nlk(:,:,:,1)) ! work is now div in phys space
@@ -355,19 +358,22 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   imag = dcmplx(0.d0,1.d0)
 
   ! Compute the divergence in Fourier space, store in divk
-  do iz=ca(1),cb(1)
-     kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*ix
-        do iy=ca(3),cb(3)
-           ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
+  do iz=ca(1),cb(1)          
+    !-- wavenumber in z-direction
+    kz = wave_z(iz)       
+    do iy=ca(2), cb(2)
+      !-- wavenumber in y-direction
+      ky = wave_y(iy)      
+      do ix=ca(3), cb(3)
+        !-- wavenumber in x-direction
+        kx = wave_x(ix)
 
-           divk(iz,ix,iy)=imag*&
-                (kx*fk1(iz,ix,iy)&
-                +ky*fk2(iz,ix,iy)&
-                +kz*fk3(iz,ix,iy))
-        enddo
-     enddo
+        divk(iz,iy,ix)=imag*&
+            (kx*fk1(iz,iy,ix)&
+            +ky*fk2(iz,iy,ix)&
+            +kz*fk3(iz,iy,ix))
+      enddo
+    enddo
   enddo
 
   call ifft(div,divk)

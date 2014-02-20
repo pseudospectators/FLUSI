@@ -128,7 +128,7 @@ end subroutine smoothstep
 ! Set the penalization velocity for the given fields (f1,f2,f3) to the
 ! steady-state of the Taylor-Couette case.
 subroutine taylor_couette_u_us(f1,f2,f3)
-use mpi
+  use mpi
   use vars
   implicit none
   

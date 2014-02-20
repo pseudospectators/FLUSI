@@ -165,24 +165,24 @@ subroutine Vorticity2Velocity(uk,work,vort)
   ! work(:,:,:,1:3, 1) will contain the three components of
   ! streamfunction
   !------------------------------------------------- 
-  do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-    ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-    ky2=ky*ky
-    do ix=ca(2), cb(2)  ! kx : 0..nx/2
-      kx=scalex*dble(ix)                
-      kx2=kx*kx
-      do iz=ca(1),cb(1)  ! kz : 0..nz/2-1 ,then, -nz/2..-1           
-        kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-        kz2    =kz*kz
+  do iz=ca(1), cb(1)
+    kz=wave_z(iz)
+    kz2=kz*kz
+    do iy=ca(2), cb(2)
+      ky=wave_y(iy)
+      ky2=ky*ky
+      do ix=ca(3),cb(3)
+        kx     =wave_x(ix)
+        kx2    =kx*kx
         k_abs_2=kx2+ky2+kz2
         if (abs(k_abs_2) .ne. 0.0) then  
-          work(iz,ix,iy,1)=-work(iz,ix,iy,1) / k_abs_2
-          work(iz,ix,iy,2)=-work(iz,ix,iy,2) / k_abs_2
-          work(iz,ix,iy,3)=-work(iz,ix,iy,3) / k_abs_2
+          work(iz,iy,ix,1)=-work(iz,iy,ix,1) / k_abs_2
+          work(iz,iy,ix,2)=-work(iz,iy,ix,2) / k_abs_2
+          work(iz,iy,ix,3)=-work(iz,iy,ix,3) / k_abs_2
         else
-          work(iz,ix,iy,1)=dcmplx(0.d0,0.d0)
-          work(iz,ix,iy,2)=dcmplx(0.d0,0.d0)
-          work(iz,ix,iy,3)=dcmplx(0.d0,0.d0)
+          work(iz,iy,ix,1)=dcmplx(0.d0,0.d0)
+          work(iz,iy,ix,2)=dcmplx(0.d0,0.d0)
+          work(iz,iy,ix,3)=dcmplx(0.d0,0.d0)
         endif
       enddo
     enddo
@@ -191,15 +191,18 @@ subroutine Vorticity2Velocity(uk,work,vort)
   !-----------------------------------------------
   !-- compute velocity as curl of streamfunction
   !-----------------------------------------------
-  do iy=ca(3), cb(3) ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-    ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-    do ix=ca(2), cb(2) ! kx : 0..nx/2
-      kx=scalex*dble(ix)
-      do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
-        kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-        uk(iz,ix,iy,1)=im*(ky*work(iz,ix,iy,3) - kz*work(iz,ix,iy,2))
-        uk(iz,ix,iy,2)=im*(kz*work(iz,ix,iy,1) - kx*work(iz,ix,iy,3))
-        uk(iz,ix,iy,3)=im*(kx*work(iz,ix,iy,2) - ky*work(iz,ix,iy,1))
+  do iz=ca(1),cb(1)          
+    !-- wavenumber in z-direction
+    kz = wave_z(iz)      
+    do iy=ca(2), cb(2)
+      !-- wavenumber in y-direction
+      ky = wave_y(iy)      
+      do ix=ca(3), cb(3)
+        !-- wavenumber in x-direction
+        kx = wave_x(ix)
+        uk(iz,iy,ix,1)=im*(ky*work(iz,iy,ix,3) - kz*work(iz,iy,ix,2))
+        uk(iz,iy,ix,2)=im*(kz*work(iz,iy,ix,1) - kx*work(iz,iy,ix,3))
+        uk(iz,iy,ix,3)=im*(kx*work(iz,iy,ix,2) - ky*work(iz,iy,ix,1))
       enddo
     enddo
   enddo

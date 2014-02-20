@@ -198,19 +198,18 @@ subroutine compute_pressure(pk,nlk)
   
   imag = dcmplx(0.d0,1.d0)
 
-  do iz=ca(1),cb(1) ! kz : 0..nz/2-1 ,then, -nz/2..-1
-    kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-    do ix=ca(2),cb(2) ! kx : 0..nx/2
-      kx=scalex*dble(ix)
-      do iy=ca(3),cb(3)  ! ky : 0..ny/2-1 ,then, -ny/2..-1
-        ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
-
-        k2=kx*kx + ky*ky + kz*kz
-        if(k2 .ne. 0.0) then
-          ! contains the pressure in Fourier space
-          pk(iz,ix,iy) = - imag*(kx*nlk(iz,ix,iy,1)+ky*nlk(iz,ix,iy,2)+&
-                                 kz*nlk(iz,ix,iy,3) )/k2
-        endif
+  do iz=ca(1),cb(1)
+     kz=wave_z(iz)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do ix=ca(3),cb(3)
+          kx=wave_x(ix)
+          k2=kx*kx + ky*ky + kz*kz
+          if(k2 .ne. 0.0) then
+            ! contains the pressure in Fourier space
+            pk(iz,iy,ix) = -imag*(kx*nlk(iz,iy,ix,1)+ky*nlk(iz,iy,ix,2)+&
+                                  kz*nlk(iz,iy,ix,3) )/k2
+          endif
       enddo
     enddo
   enddo
@@ -237,25 +236,25 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   imag = dcmplx(0.d0,1.d0)
   
   do iz=ca(1),cb(1)
-     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*dble(ix)
-        do iy=ca(3),cb(3)
-           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+     kz=wave_z(iz)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do ix=ca(3),cb(3)
+           kx=wave_x(iz)
            
            k2=kx*kx + ky*ky + kz*kz
 
            if (k2 .ne. 0.0) then
-              nlx=nlk1(iz,ix,iy)
-              nly=nlk2(iz,ix,iy)
-              nlz=nlk3(iz,ix,iy)
+              nlx=nlk1(iz,iy,ix)
+              nly=nlk2(iz,iy,ix)
+              nlz=nlk3(iz,iy,ix)
 
               ! qk is the Fourier coefficient of thr pressure
               qk=(kx*nlx + ky*nly + kz*nlz)/k2
               ! add the gradient to the non-linear terms
-              nlk1(iz,ix,iy)=nlx - kx*qk
-              nlk2(iz,ix,iy)=nly - ky*qk
-              nlk3(iz,ix,iy)=nlz - kz*qk
+              nlk1(iz,iy,ix)=nlx - kx*qk
+              nlk2(iz,iy,ix)=nly - ky*qk
+              nlk3(iz,iy,ix)=nlz - kz*qk
            endif
         enddo
      enddo
@@ -423,15 +422,15 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
   
   ! Compute curl of given field in Fourier space:
   do iz=ca(1),cb(1)
-     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*dble(ix)
-        do iy=ca(3),cb(3)
-           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+     kz=wave_z(iz)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do ix=ca(3),cb(3)
+           kx=wave_x(ix)
 
-           out1(iz,ix,iy)=imag*(ky*in3(iz,ix,iy) -kz*in2(iz,ix,iy))
-           out2(iz,ix,iy)=imag*(kz*in1(iz,ix,iy) -kx*in3(iz,ix,iy))
-           out3(iz,ix,iy)=imag*(kx*in2(iz,ix,iy) -ky*in1(iz,ix,iy))
+           out1(iz,iy,ix)=imag*(ky*in3(iz,iy,ix) -kz*in2(iz,iy,ix))
+           out2(iz,iy,ix)=imag*(kz*in1(iz,iy,ix) -kx*in3(iz,iy,ix))
+           out3(iz,iy,ix)=imag*(kx*in2(iz,iy,ix) -ky*in1(iz,iy,ix))
         enddo
      enddo
   enddo
@@ -460,19 +459,19 @@ subroutine curl_inplace(fx,fy,fz)
   
   ! Compute curl of given field in Fourier space:
   do iz=ca(1),cb(1)
-     kz=scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*dble(ix)
-        do iy=ca(3),cb(3)
-           ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+     kz=wave_z(iz)
+     do iy=ca(2),cb(2)
+        kx=wave_y(iy)
+        do ix=ca(3),cb(3)
+           kx=wave_x(ix)
            
-           t1=fx(iz,ix,iy)
-           t2=fy(iz,ix,iy)
-           t3=fz(iz,ix,iy)
+           t1=fx(iz,iy,ix)
+           t2=fy(iz,iy,ix)
+           t3=fz(iz,iy,ix)
 
-           fx(iz,ix,iy)=imag*(ky*t3 - kz*t2)
-           fy(iz,ix,iy)=imag*(kz*t1 - kx*t3)
-           fz(iz,ix,iy)=imag*(kx*t2 - ky*t1)
+           fx(iz,iy,ix)=imag*(ky*t3 - kz*t2)
+           fy(iz,iy,ix)=imag*(kz*t1 - kx*t3)
+           fz(iz,iy,ix)=imag*(kx*t2 - ky*t1)
         enddo
      enddo
   enddo
@@ -495,26 +494,26 @@ subroutine div_field_nul(fx,fy,fz)
   complex(kind=pr) :: val, vx,vy,vz
 
   do iz=ca(1),cb(1)
-     kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*dble(ix)
-        do iy=ca(3), cb(3)
-           ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
+     kz=wave_z(iz)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do ix=ca(3), cb(3)
+           kx=wave_x(ix)
            
            k2=kx*kx +ky*ky +kz*kz
 
            if(k2 /= 0.d0) then
               ! val = (k \cdot{} f) / k^2
-              vx=fx(iz,ix,iy)
-              vy=fy(iz,ix,iy)
-              vz=fz(iz,ix,iy)
+              vx=fx(iz,iy,ix)
+              vy=fy(iz,iy,ix)
+              vz=fz(iz,iy,ix)
 
               val=(kx*vx + ky*vy + kz*vz)/k2
 
               ! f <- f - k \cdot{} val
-              fx(iz,ix,iy)=vx -kx*val
-              fy(iz,ix,iy)=vy -ky*val
-              fz(iz,ix,iy)=vz -kz*val
+              fx(iz,iy,ix)=vx -kx*val
+              fy(iz,iy,ix)=vy -ky*val
+              fz(iz,iy,ix)=vz -kz*val
            endif
         enddo
      enddo

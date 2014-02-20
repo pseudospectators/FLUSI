@@ -383,4 +383,30 @@ subroutine trextents(idir,n,mpidims,mpicoords,ka,kb,ks,kat,kbt,kst )
 
 end subroutine trextents
 
+!----------------------------------------------------------------
+! wavenumber functions: return the kx,ky,kz wavenumbers
+! as a function of the array index
+!----------------------------------------------------------------
+
+real(kind=pr) function wave_x( ix )
+  use vars ! for scale and precision statement
+  implicit none
+  integer, intent (in) :: ix
+  wave_x = scalex*dble(ix) 
+end function
+
+real(kind=pr) function wave_y( iy )
+  use vars ! for scale and precision statement
+  implicit none
+  integer, intent (in) :: iy
+  wave_y = scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
+end function
+
+real(kind=pr) function wave_z( iz )
+  use vars  ! for scale and precision statement
+  implicit none
+  integer, intent (in) :: iz
+  wave_z = scalez*dble(modulo(iz+nz/2,nz)-nz/2)   
+end function
+
 end module p3dfft_wrapper

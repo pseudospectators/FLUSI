@@ -45,32 +45,36 @@ subroutine vorticity_sponge( work, vort )
     
     ! imaginary unit
     im=dcmplx(0.d0,1.d0)    
-    do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-      ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)     
-      ky2=ky*ky
-      do ix=ca(2), cb(2)  ! kx : 0..nx/2
-        kx=scalex*dble(ix)                
-        kx2=kx*kx
-        do iz=ca(1),cb(1)  ! kz : 0..nz/2-1 ,then, -nz/2..-1           
-          kz     =scalez*dble(modulo(iz+nz/2,nz)-nz/2)
-          kz2    =kz*kz
+    
+    do iz=ca(1), cb(1)
+      kz=wave_z(iz)
+      kz2=kz*kz
+      
+      do iy=ca(2), cb(2)
+        ky=wave_y(iy)
+        ky2=ky*ky
+        
+        do ix=ca(3), cb(3)
+          kx=wave_x(ix)
+          kx2=kx*kx
+          
           k_abs_2=kx2+ky2+kz2
           if (abs(k_abs_2) .ne. 0.0) then  
             ! we first "solve" the poisson eqn 
             ! which gives us the streamfunction components
-            spx = sponge(iz,ix,iy,1) / k_abs_2
-            spy = sponge(iz,ix,iy,2) / k_abs_2
-            spz = sponge(iz,ix,iy,3) / k_abs_2
+            spx = sponge(iz,iy,ix,1) / k_abs_2
+            spy = sponge(iz,iy,ix,2) / k_abs_2
+            spz = sponge(iz,iy,ix,3) / k_abs_2
             
             ! we then take the curl of the streamfunction
-            sponge(iz,ix,iy,1)=im*(ky*spz - kz*spy)
-            sponge(iz,ix,iy,2)=im*(kz*spx - kx*spz)
-            sponge(iz,ix,iy,3)=im*(kx*spy - ky*spx)          
+            sponge(iz,iy,ix,1)=im*(ky*spz - kz*spy)
+            sponge(iz,iy,ix,2)=im*(kz*spx - kx*spz)
+            sponge(iz,iy,ix,3)=im*(kx*spy - ky*spx)          
             
           else
-            sponge(iz,ix,iy,1)=dcmplx(0.d0,0.d0)
-            sponge(iz,ix,iy,2)=dcmplx(0.d0,0.d0)
-            sponge(iz,ix,iy,3)=dcmplx(0.d0,0.d0)
+            sponge(iz,iy,ix,1)=dcmplx(0.d0,0.d0)
+            sponge(iz,iy,ix,2)=dcmplx(0.d0,0.d0)
+            sponge(iz,iy,ix,3)=dcmplx(0.d0,0.d0)
           endif
         enddo
       enddo

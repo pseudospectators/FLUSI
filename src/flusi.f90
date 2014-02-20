@@ -44,17 +44,16 @@ subroutine Start_Simulation()
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   integer                :: mpicode
-  real (kind=pr)         :: t1,t2
-  real(kind=pr) :: time,dt0,dt1 ! FIXME: move to vars.
-  integer :: n0=0,n1=1
-  integer :: it
+  real(kind=pr)          :: t1,t2
+  real(kind=pr)          :: time,dt0,dt1
+  integer                :: n0=0,n1=1,it
   character (len=80)     :: infile
   ! Arrays needed for simulation
   real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
+  real(kind=pr),dimension(:,:,:),allocatable :: work
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
-  real(kind=pr),dimension(:,:,:),allocatable :: work
 
   
   ! Set method information in vars module.
