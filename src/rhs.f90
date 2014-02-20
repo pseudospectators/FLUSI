@@ -240,7 +240,7 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
         do ix=ca(3),cb(3)
-           kx=wave_x(iz)
+           kx=wave_x(ix)
            
            k2=kx*kx + ky*ky + kz*kz
 
