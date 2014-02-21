@@ -2,7 +2,7 @@
 module vars
   use mpi_header
   implicit none
-
+!
   character*1,save:: tab ! Fortran lacks a native tab, so we set one up.
 
   ! Precision of doubles
