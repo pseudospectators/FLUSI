@@ -38,7 +38,8 @@ subroutine Draw_Insect ( time )
   endif
   
   ! initialize mask and solid velocity as zero
-  mask = 0.d0
+  mask = 0.0d0
+  Insect%maskpart = 0.d0
   us = 0.d0
   
   !------------------------------------
@@ -63,12 +64,12 @@ subroutine Draw_Insect ( time )
   !-------------------------------------------------------
   ! write kinematics to disk (Dmitry, 28 Oct 2013)
   !-------------------------------------------------------     
-!  if(mpirank == 0) then
-!    open(17,file='kinematics.t',status='unknown',position='append')
-!    write (17,'(14(e12.5,1x))') time, xc_body, psi, beta, gamma, eta_stroke, &
-!    alpha_l, phi_l, theta_l, alpha_r, phi_r, theta_r
-!    close(17)
-!  endif
+  if(mpirank == 0) then
+    open(17,file='kinematics.t',status='unknown',position='append')
+    write (17,'(14(e12.5,1x))') time, xc_body, psi, beta, gamma, eta_stroke, &
+    alpha_l, phi_l, theta_l, alpha_r, phi_r, theta_r
+    close(17)
+  endif
 
   !-------------------------------
   ! define the rotation matrices to change between coordinate systems
@@ -229,6 +230,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       
       if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
         mask(ix,iy,iz) = mask_tmp
+        Insect%maskpart(ix,iy,iz,1) = mask_tmp ! For wing/body forces
         !------------------------------------------------
         ! solid body rotation
         ! Attention: the Matrix transpose(M) brings us back to the body
@@ -440,6 +442,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       !-----------------------------------------
       if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
         mask(ix,iy,iz) = mask_tmp
+        Insect%maskpart(ix,iy,iz,1) = mask_tmp ! For wing/body forces
         !------------------------------------------------
         ! solid body rotation
         ! Attention: the Matrix transpose(M) brings us back to the body
@@ -471,7 +474,8 @@ subroutine DrawBody(ix,iy,iz,x_body)
   use fsi_vars
   use mpi_header
   implicit none
-  real(kind=pr) :: a_body, R, R0, steps, x, x_tmp, R_tmp
+  real(kind=pr) :: a_body, R, R0, steps, x, y, z, s, s1, x1, x_tmp, R_tmp
+  real(kind=pr) :: rbc, x0bc, z0bc, thbc1, thbc2, xcs, zcs
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x_body(1:3)
   
@@ -495,6 +499,7 @@ subroutine DrawBody(ix,iy,iz,x_body)
 
         if ( R < R0 + Insect%safety ) then
           mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+          Insect%maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
         endif
         endif
     endif
@@ -537,11 +542,69 @@ subroutine DrawBody(ix,iy,iz,x_body)
       if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
         R_tmp = steps(R,R0)        
         mask(ix,iy,iz)= max( R_tmp*x_tmp , mask(ix,iy,iz) )
+        Insect%maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
       endif      
     
     endif
     
+  
+  
+  case ('drosophila_maeda')
+    ! ------------------------------------
+    ! approximation to mesh from Maeda
+    ! similar to Aono et al.
+    ! ------------------------------------    
+    x = x_body(1)
+    y = x_body(2)
+    z = x_body(3)
+
+    ! symmetry plane is xz
+    ! +x direction is forward
+    ! body centerline is an arc with center at x0bc,y0bc
+    ! radius rbc and angles th counted from negative z
+    rbc = 0.9464435146443515
+    thbc1 = 112.0d0 *pi/180.0d0
+    thbc2 = 53.0d0 *pi/180.0d0
+    x0bc = -0.24476987447698745d0
+    z0bc = -0.9301255230125524
+  
+    ! chordwise dimensionless coordinate, from head to abdomen
+    s = (atan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1) 
+    ! body center coordinates at s
+    xcs = x0bc + (x-x0bc)*rbc/sqrt((x-x0bc)**2+(z-z0bc)**2)
+    zcs = z0bc + (z-z0bc)*rbc/sqrt((x-x0bc)**2+(z-z0bc)**2)
+    ! distance to the body center at s
+    R = sqrt( (x-xcs)**2 + y**2 + (z-zcs)**2 )
+
+    ! check if inside body bounds (in s-direction)
+    if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then    
+      R0 = 0.0d0
+      ! distortion of s
+      s1 = 1.0d0 - ( s + 0.08d0*tanh(30.0d0*s) ) / (1.0d0+0.08d0*tanh(30.0d0))
+      s1 = ( s1 + 0.04d0*tanh(60.0d0*s1) ) / (1.0d0+0.04d0*tanh(60.0d0))
+      s1 = (sin(1.2d0*s1)/sin(1.2d0))**1.25d0
+      x1 = 1.075d0 * s1 
+      ! compute radius as a function of x1 (counting from the tail on)
+      ! same shape as 'drosophila'
+      if (x1 < 0.6333d0) then
+        ! we're in the ABDOMEN
+        R0 = max( -1.2990d0*x1**2 + 0.9490d0*x1 + 0.0267d0, 0.d0)
+      elseif ((x1 >= 0.6333d0) .and. (x1 <=1.075d0 )) then
+        ! we're in the THORAX 
+        R0 = max( -2.1667d0*x1**2 + 3.4661d0*x1 - 1.2194d0, 0.d0)
+      endif
+      ! distortion of R0
+      R0 = 0.8158996d0 * (1.0d0+0.6d0*(1.0d0-s)**2) * R0
+
+      ! smoothing
+      if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
+        R_tmp = steps(R,R0)        
+        mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
+        Insect%maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
+      endif      
     
+    endif
+
     
   case ('nobody')
     ! doesn't do anything
@@ -598,15 +661,44 @@ subroutine DrawHead(ix,iy,iz,x)
   implicit none
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x(1:3)
+  real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,steps
   if (Insect%HasHead=="yes") then
   
-!     select case (Insect%BodyType)
-!     case ('ellipsoid')  
+     select case (Insect%BodyType)
+     case ('ellipsoid')  
       ! an ellipsoid body goes with a spherical head
       call DrawSphere(ix,iy,iz,x,Insect%R_head)
-!     case ('drosophila')
+
+     case ('drosophila')
       ! drosophilae have different heads.
-!     end select
+
+     case ('drosophila_maeda')  
+      ! ellipsoid head, assumes xc_head=0 in .ini file
+      x_head = 0.17d0
+      z_head = -0.1d0
+      dx_head = 0.5d0*  0.185d0
+      dz_head = 0.5d0*  0.27d0
+      ! check if inside the surrounding box (save comput. time)
+      if ( dabs(x(2)) <= dz_head + Insect%safety ) then
+      if ( dabs(x(3)-z_head) <= dz_head + Insect%safety ) then
+      ! check for length inside ellipsoid:
+      if ( dabs(x(1)-x_head) < dx_head + Insect%safety ) then
+        R  = dsqrt ( x(2)**2 + (x(3)-z_head)**2 )
+        ! this gives the R(x) shape
+        if ( ((x(1)-x_head)/dx_head)**2 <= 1.d0) then
+        R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
+        if ( R < R0 + Insect%safety ) then
+          mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+          Insect%maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
+        endif
+        endif
+      endif
+      endif
+      endif
+
+     case default
+      ! do nothing
+     end select 
   endif
 end subroutine
 
@@ -638,7 +730,6 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   real(kind=pr), intent(out) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
   real(kind=pr), intent(out) :: xc(1:3), vc(1:3)
   real(kind=pr) :: f,T,R
-  integer, save :: counter=0
   
   select case (Insect%BodyMotion)
   case ("fixed")
@@ -667,22 +758,19 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
 
   case ("hovering")
     psi      = 0.0
-    beta     = deg2rad(-55.d0)
-!    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
+!    beta     = deg2rad(-55.d0)
+    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
     gamma    = deg2rad(45.d0)
     psi_dt   = 0.0
     beta_dt  = 0.0
     gamma_dt = 0.0  
 
-    vc = (/0.0d0, 0.0d0, 0.0d0/)    
-    xc = (/0.5*xl, 0.5*yl, zl-sponge_thickness*dz-Insect%distance_from_sponge/)
-    
 !    xc = (/0.5*xl, 0.5*yl, 0.5*zl/)  ! Dmitry, 26 Oct 2013
 !    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)  ! Dmitry, 30 Oct 2013 -one wing length from top
-!    xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
+    xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
 !    xc = (/0.5d0*xl, 0.5d0*yl, 0.8d0/)  ! Dmitry, 28 Oct 2013  - ground dist+0.3
+    vc = (/0.0d0, 0.0d0, 0.0d0/)    
 
-    
   case ("flapper")  ! Comparison with Dickinson et al. (Dmitry, 19 Nov 2013)
     psi      = 0.0
     beta     = deg2rad(-90.d0)
@@ -697,13 +785,19 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   case ("takeoff")  ! Takeoff kinematics read from file (Dmitry, 14 Nov 2013)
     if (Insect%KineFromFile=="yes") then
       call body_kine_interp(time,beta,xc(3),xc(1),beta_dt,vc(3),vc(1))
+      ! takeoff velocity factor
+      !xc(3) = xc(3) * 0.1d0
+      !vc(3) = vc(3) * 0.1d0
+      !xc(1) = xc(1) * 1.0d0
+      !vc(1) = vc(1) * 1.0d0
       ! x coordinate
       xc(1) = xc(1)+ 2.0d0 !0.5d0*xl
       ! y coordinate
       xc(2) = 0.5d0*yl
       vc(2) = 0.0d0
       ! vertical position corrected
-      xc(3) = xc(3) + 0.3 + 0.6 !(ground+legs)
+      xc(3) = xc(3) + 0.3d0 + 0.56d0 !(ground+legs)
+!      xc(3) = xc(3) + 0.3d0 + 2.0d0 !(far from the ground)
       ! convert pitch angle to flusi conventions
       beta = -beta
       beta = deg2rad(beta)
@@ -714,6 +808,28 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
       psi_dt = 0.0d0
       gamma = 0.0d0
       gamma_dt = 0.0d0
+    elseif (Insect%KineFromFile=="simplified_dynamic") then
+      ! interpolate. xc(3),xc(1),vc(3),vc(1) are unused!
+      call body_kine_interp(time,beta,xc(3),xc(1),beta_dt,vc(3),vc(1))
+      ! y coordinate
+      xc(2) = 0.5d0*yl
+      vc(2) = 0.0d0
+      ! convert pitch angle to flusi conventions
+      beta = -beta
+      beta = deg2rad(beta)
+      beta_dt = -beta_dt
+      beta_dt = deg2rad(beta_dt)
+      ! zero heading and yaw
+      psi = 0.0d0
+      psi_dt = 0.0d0
+      gamma = 0.0d0
+      gamma_dt = 0.0d0
+      ! Use data from flight dynamics solver
+      xc(1) = SolidDyn%var_new(1) + 2.0d0
+!      xc(3) = SolidDyn%var_new(2) + 0.3d0 + 0.56d0 !(ground+legs)
+      xc(3) = SolidDyn%var_new(2) + 0.3d0 + 2.0d0 !(far from the ground)
+      vc(1) = SolidDyn%var_new(3)
+      vc(3) = SolidDyn%var_new(4)
     endif
 
   case default
@@ -728,16 +844,6 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   x0 = xc(1)
   y0 = xc(2)
   z0 = xc(3)
-  
-  
-  ! write time series of kinematics to disk
-  ! do this only every 5 calls to reduce file size
-  counter = counter + 1
-  if ((mpirank == 0).and.(modulo(counter,5)==0)) then
-    open(14,file='kinematics_body.t',status='unknown',position='append')
-    write (14,'(13(e12.5,1x))') time, xc, vc, psi, beta, gamma, psi_dt, beta_dt, gamma_dt
-    close(14)
-  endif    
   
 end subroutine BodyMotion
 
@@ -783,14 +889,9 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr) :: tau, phia, la, ta, dtt, t1, phic, phicdeg, ua
   real(kind=pr) :: alphac, alphacdeg, dtr, tr0
   integer :: i
-
   
   select case ( protocoll )
-  
-  !*******************************
   case ("Drosophila_hovering_fry")
-  !*******************************
-  
     !---------------------------------------------------------------------------
     ! motion protocoll digitalized from Fry et al JEB 208, 2303-2318 (2005)
     !
@@ -847,10 +948,13 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
 
+!    if(mpirank == 0) then
+!    open(14,file='motion.t',status='unknown',position='append')
+!    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+!    close(14)
+!    endif
 
-  !*********************************
   case ("Drosophila_hovering_maeda")
-  !*********************************
     !---------------------------------------------------------------------------
     ! Drosophila hovering kinematics protocol 
     !
@@ -942,11 +1046,13 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     alpha_dt = -feth_dt
     theta_dt = -elev_dt
     
-
-  !********************
+!    if(mpirank == 0) then
+!    open(14,file='motion.t',status='unknown',position='append')
+!    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+!    close(14)
+!    endif
+    
   case ("flapper_sane")
-  !********************
-  
     !---------------------------------------------------------------------------
     ! motion protocol from Sane and Dickinson, JEB 204, 2607-2626 (2001)
     !
@@ -1037,9 +1143,13 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     theta_dt = 0.0d0
 
 
-  !*************************    
+    !if(mpirank == 0) then
+    !open(14,file='motion.t',status='unknown',position='append')
+    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+    !close(14)
+    !endif
+    
   case ("flapper_dickinson")
-  !*************************
     !---------------------------------------------------------------------------
     ! motion protocol from Dickinson, Lehmann and Sane, Science (1999)
     !
@@ -1133,21 +1243,24 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     theta = 0.0d0
     theta_dt = 0.0d0
 
-  
-  !***************
+    !if(mpirank == 0) then
+    !open(14,file='motion.t',status='unknown',position='append')
+    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
+    !close(14)
+    !endif
+   
   case ("takeoff")
-  !***************
     !--------------------------------------------------
     ! Fontaine et al. 
     !--------------------------------------------------
-    if (Insect%KineFromFile=="yes") then
+    if (Insect%KineFromFile/="no") then
       call wing_kine_interp(time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt)
       ! position angle
       phi = deg2rad(phi)
       phi_dt = deg2rad(phi_dt)
       ! feathering angle
-      alpha = deg2rad(alpha)
-      alpha_dt = deg2rad(alpha_dt)  
+      alpha = deg2rad(alpha)         
+      alpha_dt = deg2rad(alpha_dt)    
       ! elevation angle in flusi coordinates
       theta = -theta
       theta_dt = - theta_dt
@@ -1155,10 +1268,7 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
       theta_dt = deg2rad(theta_dt)
     endif 
  
-  !******************
   case ("simplified")
-  !******************
-  
     !---------------------------------------------------------------------------
     ! simplified motion protocoll
     !
@@ -1180,9 +1290,9 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     alpha_dt = alpha_max*f*dcos(f*(time+phase))
     theta_dt = 0.0
   case ("debug")
-    phi      = dsin(2.d0*pi*time)
-    alpha    = 0.0
-    theta    = deg2rad(30.d0)
+    phi      = deg2rad(45.d0)   
+    alpha    = deg2rad(0.d0)
+    theta    = 0.0
     phi_dt   = 0.0
     alpha_dt = 0.0
     theta_dt = 0.0
@@ -1199,8 +1309,6 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     stop
     endif    
   end select
-  
-
   
 end subroutine FlappingMotion
 
@@ -1226,8 +1334,8 @@ subroutine StrokePlane ( time, eta_stroke )
   case ("wheeling")
     eta_stroke = deg2rad(0.d0)
   case ("hovering")
-    eta_stroke = deg2rad(-35.d0)
-!    eta_stroke = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
+!    eta_stroke = deg2rad(-35.d0)
+    eta_stroke = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
   case ("flapper")   ! Comparison with Dickinson et al. (Dmitry, 19 Nov 2013)
     eta_stroke = deg2rad(0.d0)
   case ("takeoff")
@@ -1255,22 +1363,8 @@ subroutine FlappingMotion_left ( time, phi, alpha, theta, phi_dt, alpha_dt, thet
   
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
-  integer, save :: counter = 0
-  
-  ! call main flapping motion routine
   call FlappingMotion ( time, Insect%FlappingMotion_left, &
                         phi, alpha, theta, phi_dt, alpha_dt, theta_dt )  
-                        
-  !-------------------------------------------------------
-  ! write time series of kinematics to disk
-  ! do this only every 5 calls to reduce file size
-  !-------------------------------------------------------     
-  counter = counter + 1
-  if ((mpirank == 0).and.(modulo(counter,5)==0)) then
-    open(14,file='kinematics_wing_l.t',status='unknown',position='append')
-    write (14,'(13(e12.5,1x))') time, phi, alpha, theta, phi_dt, alpha_dt, theta_dt
-    close(14)
-  endif                          
 end subroutine FlappingMotion_left
 
 
@@ -1284,22 +1378,8 @@ subroutine FlappingMotion_right ( time, phi, alpha, theta, phi_dt, alpha_dt, the
   
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
-  integer, save :: counter = 0
-  
-  ! call main flapping motion routine
   call FlappingMotion ( time, Insect%FlappingMotion_right, &
                         phi, alpha, theta, phi_dt, alpha_dt, theta_dt )  
-                        
-  !-------------------------------------------------------
-  ! write time series of kinematics to disk
-  ! do this only every 5 calls to reduce file size
-  !-------------------------------------------------------     
-  counter = counter + 1
-  if ((mpirank == 0).and.(modulo(counter,5)==0)) then
-    open(14,file='kinematics_wing_r.t',status='unknown',position='append')
-    write (14,'(13(e12.5,1x))') time, phi, alpha, theta, phi_dt, alpha_dt, theta_dt
-    close(14)
-  endif                          
 end subroutine FlappingMotion_right
 
 
@@ -1405,5 +1485,140 @@ subroutine get_dangle( angles, F, a, b, shift_phase, initial_phase, dangle, dang
 
   return
 end subroutine get_dangle
+
+
+
+! Insect free flight dynamics.
+! RHS of the ODE system.
+subroutine dynamics_insect(time,it)
+  use mpi_header
+  use fsi_vars
+  implicit none
+
+  integer, intent(in) :: it
+  integer :: ilegs  ! legs force: 0=off; 1=on
+  real (kind=pr), intent (in) :: time
+  real (kind=pr) :: accx,accz,mass_solid,mass_fluid,gravity
+  real (kind=pr) :: time_ref,length_ref,density_ref
+  real (kind=pr) :: anglegs,kzlegsmax,dzlegsmax,t0,tmaxlegs,kzlegs0,anglegsend
+  real (kind=pr) :: kxlegs,kzlegs,fxlegs,fzlegs,fxaero,fzaero,displacement_z
+
+  ! reference values
+  time_ref = 3.664845d-3 ! in s
+  length_ref = 2.39d-3   ! in m
+  density_ref = 1.225d0  ! in kg/m3
+
+  ! mass
+  mass_solid = 0.91d-6 / (density_ref*length_ref**3)
+!  mass_solid = 2.0*0.91d-6 / (density_ref*length_ref**3)  ! heavy, x2
+  mass_fluid = 0.0d0  ! TODO
+
+  ! gravity acceleration
+  gravity = -9.81d0*time_ref*time_ref/length_ref
+
+  select case (Insect%BodyMotion)
+  case ("takeoff")
+    if (Insect%KineFromFile=="simplified_dynamic") then
+
+      ! Current body center displacement
+      displacement_z = SolidDyn%var_new(2)
+
+      ! Legs model parameters
+      ilegs = 1
+      anglegsend = 0.25d0*pi ! case 1 and 3
+!      anglegsend = 0.5d0*pi ! case2
+!      kzlegsmax = 0.057d0 / (density_ref*length_ref**3/time_ref**2) ! case1
+      kzlegsmax = 0.024d0 / (density_ref*length_ref**3/time_ref**2) ! case2
+!      kzlegsmax = 0.08d0 / (density_ref*length_ref**3/time_ref**2) ! case3
+      dzlegsmax = 0.00065d0 / length_ref
+      t0 = 0.0005d0 / time_ref
+      tmaxlegs = t0 + 0.0013d0 / time_ref
+      kzlegs0 = (mass_solid-mass_fluid)*(-gravity) / dzlegsmax  
+
+      ! Legs force
+      fxlegs = 0.0d0
+      fzlegs = 0.0d0
+      if (ilegs>0) then
+        ! If legs touch the ground
+        if (displacement_z<dzlegsmax) then
+          ! Compute torsion spring stiffness and angle
+          if (time<t0) then
+            kzlegs = kzlegs0
+            anglegs = 0.5d0*pi
+          elseif (time<tmaxlegs) then
+            kzlegs = kzlegs0 + (kzlegsmax-kzlegs0) * (time-t0)/(tmaxlegs-t0)
+            anglegs = 0.5d0*pi + (anglegsend-0.5d0*pi) * (time-t0)/(tmaxlegs-t0)
+          else
+            kzlegs = kzlegsmax
+            anglegs = anglegsend
+          endif
+          if (tan(anglegs)<1.0d-8) then
+            kxlegs = 0.0d0
+          else
+            kxlegs = kzlegs/tan(anglegs)
+          endif
+          ! Compute legs forces
+          fxlegs = kxlegs*(dzlegsmax-displacement_z)
+          fzlegs = kzlegs*(dzlegsmax-displacement_z)
+        endif
+      endif
+
+      ! Fluid force. Unsteady correction treated implicitly
+      fxaero = GlobalIntegrals%Force(1)
+      fzaero = GlobalIntegrals%Force(3)
+
+      ! Accelerations
+      accx = (fxaero+fxlegs)/(mass_solid-mass_fluid)
+      accz = (fzaero+fzlegs)/(mass_solid-mass_fluid) + gravity 
+
+      ! RHS of the solid ODEs
+      SolidDyn%rhs_this(1) = SolidDyn%var_this(3) ! horizontal velocity
+      SolidDyn%rhs_this(2) = SolidDyn%var_this(4) ! vertical velocity
+      SolidDyn%rhs_this(3) = accx ! horizontal acceleration
+      SolidDyn%rhs_this(4) = accz ! vertical acceleration
+
+      ! Write legs forces to file
+      if(mpirank == 0) then
+        open(14,file='legs.t',status='unknown',position='append')
+        write (14,'(3(e12.5,1x))') time,fxlegs,fzlegs
+        close(14)
+      endif
+
+    endif
+  case default
+    if (mpirank==0) then
+    write (*,*) &
+    "insects.f90::dynamics_insects case not defined"
+    stop
+    endif
+  end select
+
+end subroutine dynamics_insect
+
+
+! Initialize insect free flight dynamics solver
+subroutine dynamics_insect_init(idynamics)
+  use mpi_header
+  use fsi_vars
+  implicit none
+
+  integer, intent(out) :: idynamics
+
+  ! dynamics solver inactive by default
+  idynamics = 0
+
+  select case (Insect%BodyMotion)
+  case ("takeoff")
+    if (Insect%KineFromFile=="simplified_dynamic") then
+      idynamics = 1
+      SolidDyn%var_new(1) = 0.0d0
+      SolidDyn%var_new(2) = 0.0d0
+      SolidDyn%var_new(3) = 0.0d0
+      SolidDyn%var_new(4) = 0.0d0
+    endif
+  end select
+
+end subroutine dynamics_insect_init
+
 
 

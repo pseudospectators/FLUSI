@@ -35,23 +35,23 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
      call init_tc_mhd(ubk,wj)
   case("infile")
      ! read in fluid velocity from files
-     call read_single_file(file_ux,wj(:,:,:,1))
-     call read_single_file(file_uy,wj(:,:,:,2))
-     call read_single_file(file_uz,wj(:,:,:,3))
+     call Read_Single_File ( file_ux, wj(:,:,:,1) )
+     call Read_Single_File ( file_uy, wj(:,:,:,2) )
+     call Read_Single_File ( file_uz, wj(:,:,:,3) )
     
      ! read in b-field from files
-     call read_single_file(file_bx,wj(:,:,:,4))
-     call read_single_file(file_by,wj(:,:,:,5))
-     call read_single_file(file_bz,wj(:,:,:,6))
+     call Read_Single_File ( file_bx, wj(:,:,:,4) )
+     call Read_Single_File ( file_by, wj(:,:,:,5) )
+     call Read_Single_File ( file_bz, wj(:,:,:,6) )
      
      ! transform everything to fourier space
      do i = 1,6
-      call fft(ubk(:,:,:,i),wj(:,:,:,i))
+      call fft( ubk(:,:,:,i), wj(:,:,:,i) )
      enddo
      
   case default
      if(inicond(1:8) == "backup::") then
-        call read_runtime_backup(inicond(9:len(inicond)),&
+        call Read_Runtime_Backup(inicond(9:len(inicond)),&
              time,dt0,dt1,n1,it,ubk,nlk,explin,wj(:,:,:,1))
      else
         if (mpirank==0) then

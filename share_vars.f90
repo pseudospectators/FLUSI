@@ -2,7 +2,7 @@
 module vars
   use mpi_header
   implicit none
-!
+
   character*1,save:: tab ! Fortran lacks a native tab, so we set one up.
 
   ! Precision of doubles
@@ -60,10 +60,7 @@ module vars
   integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
-  ! compute drag force evry itdrag time steps and compute unst corrections if
-  ! you've told to do so.
-  integer,save :: itdrag, unst_corrections
-  
+  integer,save :: itdrag
 
   ! Time-stepping parameters
   real(kind=pr),save :: tmax
@@ -80,7 +77,7 @@ module vars
   real(kind=pr),save :: omega1 ! FIXME: what is omega1?
 
 
-  ! Boundary conditions:
+ ! Boundary conditions:
   character(len=80),save :: iMask
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: dt_fixed
@@ -124,7 +121,7 @@ module fsi_vars
   integer, save :: cavity_size, iChannel
   
   ! save forces and use unsteady corrections?
-  integer, save :: compute_forces
+  integer, save :: compute_forces, unst_corrections
   
   
   ! for periodically repeating flows, it may be better to always have only 
@@ -137,7 +134,6 @@ module fsi_vars
   integer,save :: iMeanFlow
   integer,save :: iSaveSolidVelocity
 
-  !-----------------------------------------------------------------------------
   ! The derived integral quantities for fluid-structure interactions.
   type Integrals
      real(kind=pr) :: time
@@ -151,7 +147,7 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Torque_unst
   end type Integrals
   
-  !-----------------------------------------------------------------------------
+  
   ! derived datatype for insect parameters (for readability)
   type InsectParams ! documentaion see insect.f90
     character(len=80) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
@@ -169,16 +165,34 @@ module fsi_vars
                                      x_pivot_l, x_pivot_r
     ! parameter for hovering:
     real(kind=pr) :: distance_from_sponge
+
+    ! Wings and body forces
+    type(Integrals), dimension(1:2) :: PartIntegrals
+    ! Wings and body mask
+    real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart
   end type InsectParams
   
-  
+
+  ! derived datatype for rigid solid dynamics solver
+  type SolidDynType
+    ! solid dynamics solver flag (0=off, 1=on)
+    integer :: idynamics
+    ! vector of unknowns at new time step
+    real(kind=pr), dimension(1:4) :: var_new
+    ! vector of unknowns at current time step                                                                                                                
+    real(kind=pr), dimension(1:4) :: var_this
+    ! rhs at current time step                                                                                                                
+    real(kind=pr), dimension(1:4) :: rhs_this
+    ! rhs at previous time step                                                                                                                
+    real(kind=pr), dimension(1:4) :: rhs_old
+  end type SolidDynType
+ 
 
   type(Integrals),save :: GlobalIntegrals
   type(InsectParams), save :: Insect
-  
-  !-----------------------------------------------------------------------------
+  type(SolidDynType), save :: SolidDyn
+ 
   contains
-  !-----------------------------------------------------------------------------
   
   ! this function simplifies my life with the insects
   real(kind=pr) function deg2rad(deg)
@@ -189,7 +203,6 @@ module fsi_vars
     return
   end function
 end module fsi_vars
-
 
 
 ! Variables for mhd simulations

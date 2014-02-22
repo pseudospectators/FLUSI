@@ -95,12 +95,26 @@ subroutine Start_Simulation()
                       "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
     close (14)
 
+    ! For insect wing/body forces
     if (iMask=='Insect') then
-      open  (14,file='kinematics_wing_r.t',status='replace')
-      close (14)
-      open  (14,file='kinematics_wing_l.t',status='replace')
-      close (14)
-      open  (14,file='kinematics_body.t',status='replace')
+       open  (14,file='forces_part1.t',status='replace')
+       write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                         "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                         "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                         "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
+       open  (14,file='forces_part2.t',status='replace')
+       write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                         "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                         "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                         "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
+    endif
+
+    if (iMask=='Insect') then
+      open  (14,file='kinematics.t',status='replace')
+      write (14,'(27A)') "% time",tab,"xc_body",tab,"yc_body",tab,"zc_body",tab,&
+                        "psi",tab,"beta",tab,"gamma",tab,"eta_stroke",tab,&
+                        "alpha_l",tab,"phi_l",tab,"theta_l",tab,&
+                        "alpha_r",tab,"phi_r",tab,"theta_r"
       close (14)
     endif    
 
@@ -147,14 +161,24 @@ subroutine Start_Simulation()
   endif
 
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
-  if (Insect%KineFromFile=="yes") then
+  if (Insect%KineFromFile/="no") then
      call load_kine_init(mpirank,mpireal,mpiinteger)
   endif
+
+  ! If required, initialize rigid solid dynamics solver
+  ! and set idynamics flag on or off
+  if ( method=="fsi" ) then
+     call rigid_solid_init(SolidDyn%idynamics)
+  endif     
 
   ! Create obstacle mask
   if (iPenalization==1) then
      ! you need the mask field only if you want to actually do penalization
      allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))     
+     ! For insect wing/body forces
+     if (iMask=='Insect') then
+        allocate(Insect%maskpart(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2))
+     endif
      if(iMoving == 1) then
         ! if your obstacle moves,you'll need this field for its velocity field
         allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
@@ -201,11 +225,15 @@ subroutine Start_Simulation()
   
   if(iPenalization == 1) then
      deallocate(mask)
+     ! For insect wing/body forces
+     if (iMask=='Insect') then
+        deallocate(Insect%maskpart)
+     endif
      if(iMoving == 1) deallocate(us)
   endif
 
   ! Clean kinematics (Dmitry, 14 Nov 2013)
-  if (Insect%KineFromFile=="yes") then
+  if (Insect%KineFromFile/="no") then
      call load_kine_clean
   endif
   

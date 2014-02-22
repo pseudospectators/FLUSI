@@ -125,7 +125,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
         !--------------------------------------------------  
         if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
              inicond(9:len(inicond))
-        call read_runtime_backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
+        call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
              work_nlk,explin,vort(:,:,:,1))
      else
         if (mpirank==0) write (*,*) inicond

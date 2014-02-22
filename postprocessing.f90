@@ -20,15 +20,13 @@ subroutine postprocessing()
   select case (postprocessing_mode)
   case ("--keyvalues")
     call get_command_argument(3,filename)
-    call keyvalues (filename)      
+    call Keyvalues (filename)      
   case ("--compare-keys")
     call get_command_argument(3,key1)
     call get_command_argument(4,key2)
-    call compare_key (key1,key2)         
+    call Compare_key (key1,key2)         
   case ("--vorticity")
-    call convert_vorticity()
-  case ("--vor_abs")
-    call convert_abs_vorticity()    
+    call Convert_vorticity()
   case ("--hdf2bin")
     call convert_hdf2bin()
   end select
@@ -53,6 +51,7 @@ subroutine convert_hdf2bin()
   integer :: ix, iy ,iz
   real(kind=pr_out), dimension(:,:,:), allocatable :: field_out ! single precision
   real(kind=pr) :: time 
+  logical :: exist1
   call get_command_argument(3,fname)
   
   ! check if input file exists
@@ -64,7 +63,7 @@ subroutine convert_hdf2bin()
   endif    
   
   dsetname = fname ( 1:index( fname, '_' )-1 )
-  call fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call Fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
   
   write (*,'("Converting ",A," to ",A,".binary. Resolution is" 3(i4,1x))') &
         trim(fname), trim(fname), nx,ny,nz
@@ -73,7 +72,7 @@ subroutine convert_hdf2bin()
       
   allocate ( field(0:nx-1,0:ny-1,0:nz-1),field_out(0:nx-1,0:ny-1,0:nz-1) )
   ! read field from hdf file
-  call read_single_file_serial (fname, field)
+  call Read_Single_File_serial (fname, field)
   ! convert to single precision
   field_out = real(field, kind=pr_out)
   
@@ -91,97 +90,13 @@ end subroutine convert_hdf2bin
 
 
 
-!-------------------------------------------------------------------------------
-! ./flusi --postprocessing --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5
-!-------------------------------------------------------------------------------
-! load the velocity components from file and compute & save the vorticity
-! directly compute the absolute value of vorticity, do not save components
-! can be done in parallel
-subroutine convert_abs_vorticity()
-  use fsi_vars
-  use mpi_header
-  implicit none
-  character(len=80) :: fname_ux, fname_uy, fname_uz, dsetname
-  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
-  real(kind=pr),dimension(:,:,:,:),allocatable :: u
-  real(kind=pr) :: time 
-  
-  call get_command_argument(3,fname_ux)
-  call get_command_argument(4,fname_uy)
-  call get_command_argument(5,fname_uz)
-  
-  call check_file_exists(fname_ux)
-  call check_file_exists(fname_uy)
-  call check_file_exists(fname_uz)
-    
-  if (mpirank == 0) then
-    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
-  endif
-  
-  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-     write (*,*) "Error in arguments, files do not start with ux uy and uz"
-     write (*,*) "note files have to be in the right order"
-     stop
-  endif
-  
-  
-  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
-  
-  pi=4.d0 *datan(1.d0)
-  scalex=2.d0*pi/xl
-  scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl  
-    
-  call fft_initialize() ! also initializes the domain decomp
-  
-  if (mpirank==0) write (*,*) "Done fft_initialize"
-  
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
-  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
-  
-  if (mpirank==0) write (*,*) "Allocated memory"
-  
-  call read_single_file ( fname_ux, u(:,:,:,1) )
-  call read_single_file ( fname_uy, u(:,:,:,2) )
-  call read_single_file ( fname_uz, u(:,:,:,3) )
-    
-  call fft (uk(:,:,:,1),u(:,:,:,1))
-  call fft (uk(:,:,:,2),u(:,:,:,2))
-  call fft (uk(:,:,:,3),u(:,:,:,3))
-  
-  call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
-  
-  call ifft (u(:,:,:,1),uk(:,:,:,1))
-  call ifft (u(:,:,:,2),uk(:,:,:,2))
-  call ifft (u(:,:,:,3),uk(:,:,:,3))
-  
-  ! now u contains the vorticity in physical space
-  fname_ux='vor_abs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
-  
-  if (mpirank == 0) then
-    write (*,'("Writing to file",A)') trim(fname_ux)
-  endif
-  
-  ! compute absolute vorticity:
-  u(:,:,:,1) = dsqrt(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
-    
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vor_abs")
-  
-  deallocate (u)
-  deallocate (uk)
-  call fft_free()
-  
-end subroutine convert_abs_vorticity
-
-
 
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocessing --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! can be done in parallel
-subroutine convert_vorticity()
+subroutine Convert_vorticity()
   use fsi_vars
   use mpi_header
   implicit none
@@ -189,6 +104,7 @@ subroutine convert_vorticity()
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time 
+  logical :: exist1,exist2,exist3
   
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -202,15 +118,10 @@ subroutine convert_vorticity()
   if (mpirank == 0) then
     write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
   endif
-
-  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-     write (*,*) "Error in arguments, files do not start with ux uy and uz"
-     write (*,*) "note files have to be in the right order"
-     stop
-  endif
+  
   
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call Fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
   
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -222,19 +133,19 @@ subroutine convert_vorticity()
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
   
-  call read_single_file ( fname_ux, u(:,:,:,1) )
-  call read_single_file ( fname_uy, u(:,:,:,2) )
-  call read_single_file ( fname_uz, u(:,:,:,3) )
+  call Read_Single_File ( fname_ux, u(:,:,:,1) )
+  call Read_Single_File ( fname_uy, u(:,:,:,2) )
+  call Read_Single_File ( fname_uz, u(:,:,:,3) )
   
-  call fft (uk(:,:,:,1),u(:,:,:,1))
-  call fft (uk(:,:,:,2),u(:,:,:,2))
-  call fft (uk(:,:,:,3),u(:,:,:,3))
+  call FFT (uk(:,:,:,1),u(:,:,:,1))
+  call FFT (uk(:,:,:,2),u(:,:,:,2))
+  call FFT (uk(:,:,:,3),u(:,:,:,3))
   
   call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   
-  call ifft (u(:,:,:,1),uk(:,:,:,1))
-  call ifft (u(:,:,:,2),uk(:,:,:,2))
-  call ifft (u(:,:,:,3),uk(:,:,:,3))
+  call IFFT (u(:,:,:,1),uk(:,:,:,1))
+  call IFFT (u(:,:,:,2),uk(:,:,:,2))
+  call IFFT (u(:,:,:,3),uk(:,:,:,3))
   
   ! now u contains the vorticity in physical space
   fname_ux='vorx'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
@@ -245,15 +156,15 @@ subroutine convert_vorticity()
     write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
   endif
     
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vorx")
-  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2),"vory")
-  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"vorz")
+  call Save_Field_HDF5 ( time,fname_ux,u(:,:,:,1),"vorx")
+  call Save_Field_HDF5 ( time,fname_uy,u(:,:,:,2),"vory")
+  call Save_Field_HDF5 ( time,fname_uz,u(:,:,:,3),"vorz")
   
   deallocate (u)
   deallocate (uk)
   call fft_free()
   
-end subroutine convert_vorticity
+end subroutine Convert_vorticity
 
 
 
@@ -263,14 +174,16 @@ end subroutine convert_vorticity
 ! load the specified *.h5 file and creates a *.key file that contains
 ! min / max / mean / L2 norm of the field data. This is used for unit testing
 ! so that we don't need to store entire fields but rather the *.key only
-subroutine keyvalues(filename)
+subroutine Keyvalues(filename)
   use fsi_vars
   use mpi_header
   implicit none
   character(len=*), intent(in) :: filename
   character(len=80) :: dsetname
-  real(kind=pr) :: time
+  integer :: nx_file,ny_file,nz_file
+  real(kind=pr) :: xl_file, yl_file, zl_file, time
   real(kind=pr), dimension(:,:,:), allocatable :: field
+  logical :: exist1
   
   if (mpisize>1) then
     write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"
@@ -289,10 +202,10 @@ subroutine keyvalues(filename)
   ! the dataset is named the same way as the file:
   dsetname = filename ( 1:index( filename, '_' )-1 )
   write (*,*) "dsetname: ", dsetname
-  call fetch_attributes( filename, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call Fetch_attributes( filename, dsetname, nx, ny, nz, xl, yl, zl, time )
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
   
-  call read_single_file_serial (filename, field)
+  call Read_Single_File_serial (filename, field)
   
   open  (14, file = filename(1:index(filename,'.'))//'key', status = 'replace')
   write (14,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/(nx*ny*nz), sum(field**2)/(nx*ny*nz)
@@ -300,14 +213,14 @@ subroutine keyvalues(filename)
   close (14)  
   
   deallocate (field)  
-end subroutine keyvalues
+end subroutine Keyvalues
 
 
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocessing --compare-keys mask_00000.key saved.key
 !-------------------------------------------------------------------------------
 ! compares to *.key files if they're equal
-subroutine compare_key(key1,key2)
+subroutine Compare_key(key1,key2)
   use fsi_vars
   use mpi_header
   implicit none
@@ -351,4 +264,4 @@ subroutine compare_key(key1,key2)
     write (*,*) "ERROR"
     call exit(1)
   endif 
-end subroutine compare_key
+end subroutine Compare_key

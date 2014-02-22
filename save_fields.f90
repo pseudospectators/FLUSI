@@ -14,7 +14,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
      case("fsi") 
         call save_fields_new_fsi(time,uk,u,vort,nlk,work)
      case("mhd") 
-        call save_fields_new_mhd(time,uk,u,vort,nlk)
+        call save_fields_new_mhd(time,uk,u,vort,nlk,work)
      case default
         if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields_new"
         stop
@@ -29,6 +29,7 @@ end subroutine save_fields_new
 ! note cal_nlk_fsi returns the NL+penal term in phys space in the work
 ! array "vort" which is why we have to recompute the vorticity
 subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
+  use mpi_header
   use fsi_vars
   implicit none
 
@@ -39,6 +40,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   character(len=17) :: name
+  integer :: i
 
   !--Set up file name base    
   if ( save_only_one_period == "yes" ) then
@@ -53,9 +55,9 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   name=trim(adjustl(name))
 
   if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," str=",A)') & 
+    write(*,'("Saving data, time= ",es8.2,1x," flags= ",5(i1)," str=",A)') & 
     time, &
-    isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity, &
+    iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveSolidVelocity, &
     trim(adjustl(name))
   endif
 
@@ -66,16 +68,16 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   !-------------  
   ! Velocity
   !-------------
-  if (isaveVelocity == 1) then
-    call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
-    call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
-    call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
+  if (iSaveVelocity == 1) then
+    call Save_Field_HDF5(time,"./ux_"//name,u(:,:,:,1),"ux")
+    call Save_Field_HDF5(time,"./uy_"//name,u(:,:,:,2),"uy")
+    call Save_Field_HDF5(time,"./uz_"//name,u(:,:,:,3),"uz")
   endif
 
   !-------------  
   ! Pressure
   !-------------
-  if (isavePress == 1) then  
+  if (iSavePress == 1) then  
     call fft3(nlk,vort) ! nlk now NL+penal term in Fourier space
     ! store the total pressure in the work array
     call compute_pressure(nlk(:,:,:,1),nlk)
@@ -83,41 +85,41 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
     call ifft(work,nlk(:,:,:,1))
     ! get actuall pressure (we're in the rotational formulation)
     work = work - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-    call save_field_hdf5(time,'./p_'//name,work,"p")
+    call Save_Field_HDF5(time,'./p_'//name,work,"p")
   endif
      
   !-------------  
   ! Vorticity
   !-------------   
-  if (isaveVorticity==1) then
+  if (iSaveVorticity==1) then
     ! cal_nlk overwrote the vorticity, recompute it
     call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),& 
                uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
     call ifft3(vort,nlk)      
-    !-- save Vorticity
-    if (isaveVorticity == 1) then
-      call save_field_hdf5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
-      call save_field_hdf5(time,"./vory_"//name,vort(:,:,:,2),"vory")
-      call save_field_hdf5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
+    !-- Save Vorticity
+    if (iSaveVorticity == 1) then
+      call Save_Field_HDF5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
+      call Save_Field_HDF5(time,"./vory_"//name,vort(:,:,:,2),"vory")
+      call Save_Field_HDF5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
     endif
   endif
       
   !-------------  
   ! Mask
   !-------------
-  if (isaveMask == 1 .and. iPenalization == 1) then
+  if (iSaveMask == 1 .and. iPenalization == 1) then
     mask = mask*eps
-    call save_field_hdf5(time,'./mask_'//name,mask,"mask")
+    call Save_Field_HDF5(time,'./mask_'//name,mask,"mask")
     mask = mask/eps
   endif
   
   !-------------  
   ! solid velocity
   !-------------
-  if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
-    call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1),"usx")
-    call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
-    call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
+  if (iSaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
+    call Save_Field_HDF5(time,'./usx_'//name,us(:,:,:,1),"usx")
+    call Save_Field_HDF5(time,'./usy_'//name,us(:,:,:,2),"usy")
+    call Save_Field_HDF5(time,'./usz_'//name,us(:,:,:,3),"usz")
   endif
   
   if (mpirank==0) write(*,*) "Done saving."
@@ -126,11 +128,11 @@ end subroutine save_fields_new_fsi
 
 ! Write the field field_out to file filename, saving the name of the
 ! field, dsetname, (as well as time, eps, and resolution) to the
-! metadata of the hdf file .
-subroutine save_field_hdf5(time,filename,field_out,dsetname)
+! metadata of the HDF file .
+subroutine Save_Field_HDF5(time,filename,field_out,dsetname)
   use mpi_header
   use vars
-  use hdf5
+  use HDF5
   implicit none
   
   ! The field to be written to disk:
@@ -194,43 +196,43 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
   ! Setup file access property list with parallel I/O access.
   ! this sets up a property list (plist_id) with standard values for
   ! FILE_ACCESS
-  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
   ! Modify the property list and store the MPI IO comminucator
   ! information in the file access property list
-  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
   ! Create the file collectively. (existing files are overwritten)
-  call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+  call H5Fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
        file_id, error, access_prp = plist_id)
   ! this closes the property list plist_id (we'll re-use it)
-  call h5pclose_f(plist_id, error)
+  call H5Pclose_f(plist_id, error)
 
   ! Create the data space for the  dataset.
   ! Dataspace in the file: contains all data from all procs
-  call h5screate_simple_f(rank, dimensions_file, filespace, error)
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
   ! dataspace in memory: contains only local data
-  call h5screate_simple_f(rank, dimensions_local, memspace, error)
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
 
   ! Create chunked dataset.
   ! NB: chunking and hyperslab are unrelated
-  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, chunking_dims, error)
   ! Output files are single-precition
-  call h5dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, &
+  call H5Dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, &
        dset_id, error, plist_id)
-  call h5sclose_f(filespace, error)
+  call H5Sclose_f(filespace, error)
 
   ! Select hyperslab in the file.
-  call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
        error, stride, dimensions_local)
 
   ! Create property list for collective dataset write
-  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
   ! Write the dataset collectively, double precision in memory
-  call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, &
+  call H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, &
        error, file_space_id = filespace, mem_space_id = memspace,&
        xfer_prp = plist_id)
 
@@ -245,15 +247,15 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
   call write_attribute_int(adims,"nxyz",(/nx,ny,nz/),3,dset_id)
 
   !!! Close dataspaces:
-  call h5sclose_f(filespace, error)
-  call h5sclose_f(memspace, error)
-  call h5dclose_f(dset_id, error) ! Close the dataset.
-  call h5pclose_f(plist_id, error) ! Close the property list.
-  call h5fclose_f(file_id, error) ! Close the file.
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
+  call H5Dclose_f(dset_id, error) ! Close the dataset.
+  call H5Pclose_f(plist_id, error) ! Close the property list.
+  call H5Fclose_f(file_id, error) ! Close the file.
   call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
 
   ! write the XMF data for all of the saved fields
-  if ((mpirank==0).and.(isaveXMF==1)) then
+  if ((mpirank==0).and.(iSaveXMF==1)) then
      ! the filename contains a leading "./" which we must remove
      call Write_XMF(time,&
           trim(adjustl(filename(3:len(filename)))),&
@@ -262,7 +264,7 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
   endif
 
   time_save=time_save + MPI_wtime() - t1 ! performance analysis
-end subroutine save_field_hdf5
+end subroutine Save_Field_HDF5
 
 
 ! Generate an XMF file for paraview.  Note: this is a single scalar
@@ -320,7 +322,7 @@ end subroutine Write_XMF
 
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
-subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
+subroutine Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   use mpi_header
   use vars
   use hdf5
@@ -342,7 +344,7 @@ subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   t1=MPI_wtime() ! performance diagnostic
 
   if(mpirank == 0) then
-     write(*,'("*** info: time=",e11.4," dumping runtime_backup",i1,".h5 to disk....")') time, nbackup
+     write(*,'("*** info: time=",es8.2," dumping runtime_backup",i1,".h5 to disk....")') time, nbackup
   endif
 
   ! Create current filename:
@@ -354,67 +356,67 @@ subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   !!! Setup file access property list with parallel I/O access.
   ! Set up a property list ("plist_id") with standard values for
   ! FILE_ACCESS:
-  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
   ! Modify the property list and store MPI IO comminucator information
   ! in the file access property list:
-  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
   ! Create the file collectively. (existing files are overwritten)
-  call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error, &
+  call H5Fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error, &
        access_prp = plist_id)
   ! Close the property list (we'll re-use it)
-  call h5pclose_f(plist_id, error)
+  call H5Pclose_f(plist_id, error)
 
   ! Write the fluid backup field:
   call ifft(work,ub(:,:,:,1))
-  call dump_field_backup(work,"ux",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"ux",time,dt0,dt1,n1,it,file_id)
   call ifft(work,ub(:,:,:,2))
-  call dump_field_backup(work,"uy",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"uy",time,dt0,dt1,n1,it,file_id)
   call ifft(work,ub(:,:,:,3))
-  call dump_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"uz",time,dt0,dt1,n1,it,file_id)
 
   if(method == "mhd") then
      ! Write the MHD backup field:
      call ifft(work,ub(:,:,:,4))
-     call dump_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bx",time,dt0,dt1,n1,it,file_id)
      call ifft(work,ub(:,:,:,5))
-     call dump_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"by",time,dt0,dt1,n1,it,file_id)
      call ifft(work,ub(:,:,:,6))
-     call dump_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bz",time,dt0,dt1,n1,it,file_id)
   endif
 
   ! Write the fluid nonlinear term backup:
   call ifft(work,nlk(:,:,:,1,0))
-  call dump_field_backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,2,0))
-  call dump_field_backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,3,0))
-  call dump_field_backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,1,1))
-  call dump_field_backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,2,1))
-  call dump_field_backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,3,1))
-  call dump_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
+  call Dump_Field_Backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
   
   if(method == "mhd") then
      ! Write the MHD backup field:
      call ifft(work,nlk(:,:,:,4,0))
-     call dump_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,5,0))
-     call dump_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,6,0))
-     call dump_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,4,1))
-     call dump_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,5,1))
-     call dump_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
      call ifft(work,nlk(:,:,:,6,1))
-     call dump_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
+     call Dump_Field_Backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
   endif
 
   ! Close the file:
-  call h5fclose_f(file_id, error)
+  call H5Fclose_f(file_id, error)
   ! Close FORTRAN interfaces and HDF5 library:
   call h5close_f(error)
 
@@ -422,13 +424,13 @@ subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
 
   if(mpirank == 0) write(*,'("<<< info: done saving backup.")')
-end subroutine dump_Runtime_backup
+end subroutine Dump_Runtime_Backup
 
 
 ! This routine dumps a single field "field" as a dataset "dsetname" to
 ! a backup file "file_id". Attributes are stores in one attribute
 ! "bckp" which contains 8 values
-subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
+subroutine Dump_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use mpi_header
   use vars
   use hdf5
@@ -487,27 +489,27 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   ! Create the data space for the  dataset.
   ! -----------------------------------
   ! Dataspace in the file: contains all data from all procs
-  call h5screate_simple_f(rank, dimensions_file, filespace, error)
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
   ! dataspace in memory: contains only local data
-  call h5screate_simple_f(rank, dimensions_local, memspace, error)
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
   ! Create chunked dataset.
-  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
-  call h5dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, &
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, chunking_dims, error)
+  call H5Dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, &
        dset_id, error, plist_id)
-  call h5sclose_f(filespace, error)
+  call H5Sclose_f(filespace, error)
 
   ! Select hyperslab in the file.
-  call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
        error , stride, dimensions_local)
 
   ! Create property list for collective dataset write
-  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
   ! Write the dataset collectively.
-  call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field, dimensions_file, error, &
+  call H5Dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field, dimensions_file, error, &
        file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
 
   ! ------
@@ -521,13 +523,13 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   call write_attribute_dble(adims,aname,attributes,8,dset_id)
 
   ! Close dataspaces, dataset and property list
-  call h5sclose_f(filespace, error)
-  call h5sclose_f(memspace, error)
-  call h5dclose_f(dset_id, error)
-  call h5pclose_f(plist_id, error)
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
+  call H5Dclose_f(dset_id, error)
+  call H5Pclose_f(plist_id, error)
 
   deallocate(attributes)
-end subroutine dump_field_backup
+end subroutine Dump_Field_Backup
 
 
 
@@ -537,7 +539,7 @@ end subroutine dump_field_backup
 ! this is a serial routine (parallel version below)
 ! note you need to know what dimension the file has,
 ! call fetch_attributes first
-subroutine read_single_file_serial(filename,field)
+subroutine Read_Single_File_serial ( filename, field )
   use mpi_header
   use vars
   use hdf5
@@ -547,7 +549,10 @@ subroutine read_single_file_serial(filename,field)
   real(kind=pr), intent (out) :: field(0:nx-1,0:ny-1,0:nz-1)
   
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
+  real (kind=pr)                :: time,dt1,dt0, xl_file, yl_file, zl_file
   character(len=80)             :: dsetname
+  integer                       :: n1,it
+  integer                       :: nx_file,ny_file,nz_file, mpierror, i  
 
   integer(hid_t) :: file_id       ! file identifier
   integer(hid_t) :: dset_id       ! dataset identifier
@@ -567,6 +572,12 @@ subroutine read_single_file_serial(filename,field)
 
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
+  integer(hsize_t), dimension(1) :: adims  ! Attribute dimension
+  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
+  !integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
+  integer(hid_t) :: attr_id       ! Attribute identifier
+  character(len=4) :: aname ! attribute name
+  real (kind=pr), dimension (:), allocatable :: attributes  
   
   ! the dataset is named the same way as the file: (this is convention)
   dsetname = filename ( 1:index( filename, '_' )-1 )
@@ -585,14 +596,14 @@ subroutine read_single_file_serial(filename,field)
   ! Setup file access property list with parallel I/O access.  this
   ! sets up a property list ("plist_id") with standard values for
   ! FILE_ACCESS
-  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
   ! this modifies the property list and stores MPI IO
   ! comminucator information in the file access property list
-  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
   ! open the file in parallel
-  call h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
+  call H5Fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
   ! this closes the property list (we'll re-use it)
-  call h5pclose_f(plist_id, error)
+  call H5Pclose_f(plist_id, error)
   
   ! Definition of memory distribution
   dimensions_file = (/nx,ny,nz/)
@@ -612,40 +623,40 @@ subroutine read_single_file_serial(filename,field)
   ! Read actual field from file (dataset)
   !----------------------------------------------------------------------------
   ! dataspace in the file: contains all data from all procs
-  call h5screate_simple_f(rank, dimensions_file, filespace, error)
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
   ! dataspace in memory: contains only local data
-  call h5screate_simple_f(rank, dimensions_local, memspace, error)
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
 
   ! Create chunked dataset
-  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, chunking_dims, error)
 
   ! Open an existing dataset.
-  call h5dopen_f(file_id, dsetname, dset_id, error)
+  call H5Dopen_f(file_id, dsetname, dset_id, error)
 
   ! Select hyperslab in the file.
-  call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
        error , stride, dimensions_local)
 
   ! Create property list for collective dataset read
-  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
-  call h5dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
+  call H5Dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
        mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
 
-  call h5sclose_f(filespace, error)
-  call h5sclose_f(memspace, error)
-  call h5pclose_f(plist_id, error) ! note the dataset remains opened
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
+  call H5Pclose_f(plist_id, error) ! note the dataset remains opened
 
   ! Close dataset
-  call h5dclose_f(dset_id, error)
-  call h5fclose_f(file_id,error)
+  call H5Dclose_f(dset_id, error)
+  call H5Fclose_f(file_id,error)
   call H5close_f(error)
   
   
-end subroutine read_single_file_serial
+end subroutine Read_Single_File_serial
 
 
 
@@ -665,9 +676,10 @@ subroutine Read_Single_File ( filename, field )
   intent (out) :: field
   
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
-  real (kind=pr)                :: time, xl_file, yl_file, zl_file
+  real (kind=pr)                :: time,dt1,dt0, xl_file, yl_file, zl_file
   character(len=80)             :: dsetname
-  integer                       :: nx_file, ny_file, nz_file, mpierror, i  
+  integer                       :: n1,it
+  integer                       :: nx_file,ny_file,nz_file, mpierror, i  
 
   integer(hid_t) :: file_id       ! file identifier
   integer(hid_t) :: dset_id       ! dataset identifier
@@ -687,6 +699,13 @@ subroutine Read_Single_File ( filename, field )
 
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
+  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
+  integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
+  !integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
+  integer(hid_t) :: attr_id       ! Attribute identifier
+  character(len=4) :: aname ! attribute name
+  real (kind=pr), dimension (:), allocatable :: attributes  
+  logical :: exist1
 
   ! the dataset is named the same way as the file: (this is convention)
   dsetname = filename ( 1:index( filename, '_' )-1 )
@@ -734,14 +753,14 @@ subroutine Read_Single_File ( filename, field )
   ! Setup file access property list with parallel I/O access.  this
   ! sets up a property list ("plist_id") with standard values for
   ! FILE_ACCESS
-  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
   ! this modifies the property list and stores MPI IO
   ! comminucator information in the file access property list
-  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
   ! open the file in parallel
-  call h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
+  call H5Fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
   ! this closes the property list (we'll re-use it)
-  call h5pclose_f(plist_id, error)
+  call H5Pclose_f(plist_id, error)
   
   ! Definition of memory distribution
   dimensions_file = (/nx,ny,nz/)
@@ -767,36 +786,36 @@ subroutine Read_Single_File ( filename, field )
   ! Read actual field from file (dataset)
   !----------------------------------------------------------------------------
   ! dataspace in the file: contains all data from all procs
-  call h5screate_simple_f(rank, dimensions_file, filespace, error)
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
   ! dataspace in memory: contains only local data
-  call h5screate_simple_f(rank, dimensions_local, memspace, error)
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
 
   ! Create chunked dataset
-  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, chunking_dims, error)
 
   ! Open an existing dataset.
-  call h5dopen_f(file_id, dsetname, dset_id, error)
+  call H5Dopen_f(file_id, dsetname, dset_id, error)
 
   ! Select hyperslab in the file.
-  call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
        error , stride, dimensions_local)
 
   ! Create property list for collective dataset read
-  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
-  call h5dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
+  call H5Dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
        mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
 
-  call h5sclose_f(filespace, error)
-  call h5sclose_f(memspace, error)
-  call h5pclose_f(plist_id, error) ! note the dataset remains opened
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
+  call H5Pclose_f(plist_id, error) ! note the dataset remains opened
 
   ! Close dataset
-  call h5dclose_f(dset_id, error)
-  call h5fclose_f(file_id,error)
+  call H5Dclose_f(dset_id, error)
+  call H5Fclose_f(file_id,error)
   call H5close_f(error)
   
   
@@ -806,7 +825,7 @@ end subroutine Read_Single_File
 
 
 ! Load backup data from disk to initialize run for restart
-subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
+subroutine Read_Runtime_Backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   use mpi_header
   use vars
   use hdf5
@@ -838,64 +857,64 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   ! Setup file access property list with parallel I/O access.  this
   ! sets up a property list ("plist_id") with standard values for
   ! FILE_ACCESS
-  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  call H5Pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
   ! this modifies the property list and stores MPI IO
   ! comminucator information in the file access property list
-  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  call H5Pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
   ! open the file in parallel
-  call h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
+  call H5Fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
   ! this closes the property list (we'll re-use it)
-  call h5pclose_f(plist_id, error)
+  call H5Pclose_f(plist_id, error)
 
   ! Read fluid backup field:
-  call read_field_backup(work,"ux",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"ux",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,1),work)
-  call read_field_backup(work,"uy",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"uy",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,2),work)
-  call read_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"uz",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,3),work)
 
   if(method == "mhd") then
      ! Read MHD backup field:
-     call read_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"bx",time,dt0,dt1,n1,it,file_id)
      call fft(uk(:,:,:,4),work)
-     call read_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"by",time,dt0,dt1,n1,it,file_id)
      call fft(uk(:,:,:,5),work)
-     call read_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"bz",time,dt0,dt1,n1,it,file_id)
      call fft(uk(:,:,:,6),work)
   endif
 
   ! Read fluid nonlinear source term backup:
-  call read_field_backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,1,0),work)
-  call read_field_backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,2,0),work)
-  call read_field_backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,3,0),work)
-  call read_field_backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,1,1),work)
-  call read_field_backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,2,1),work)
-  call read_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
+  call Read_Field_Backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,3,1),work)
 
   if(method == "mhd") then
      ! Read MHD nonlinear source term backup too:
-     call read_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
      call fft(nlk(:,:,:,4,0),work)
-     call read_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
      call fft(nlk(:,:,:,5,0),work)
-     call read_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
      call fft(nlk(:,:,:,6,0),work)
-     call read_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
      call fft(nlk(:,:,:,4,1),work)
-     call read_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
      call fft(nlk(:,:,:,5,1),work)
-     call read_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
+     call Read_Field_Backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
      call fft(nlk(:,:,:,6,1),work)
   endif
 
-  call h5fclose_f(file_id,error)
+  call H5Fclose_f(file_id,error)
   call H5close_f(error)
 
   ! It is important to have explin, because it won't be initialized
@@ -910,13 +929,13 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
      write(*,'("---------")')
   endif
 
-end subroutine read_runtime_backup
+end subroutine Read_Runtime_Backup
 
 
 ! This routine reads a single field "dsetname" from a backup file
 ! "file_id". the field has the attribute "attributes", which is an 8x1
 ! array containing scalar backup information
-subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
+subroutine Read_Field_Backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use mpi_header
   use fsi_vars
   use hdf5
@@ -968,41 +987,42 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
   do i = 1, 3
-     call MPI_REDUCE(dimensions_local(i),chunking_dims(i),1,MPI_INTEGER8,&
-          MPI_MAX,0,MPI_COMM_WORLD,mpierror)
-     call MPI_BCAST(chunking_dims(i),1,MPI_INTEGER8,0,MPI_COMM_WORLD,mpierror)
+     call MPI_REDUCE ( dimensions_local(i), chunking_dims(i),1, &
+          MPI_INTEGER8, MPI_MAX,0,MPI_COMM_WORLD,mpierror)
+     call MPI_BCAST  ( chunking_dims(i), 1, MPI_INTEGER8, 0, &
+          MPI_COMM_WORLD, mpierror )
   enddo
 
   !----------------------------------------------------------------------------
   ! Read actual field from file (dataset)
   !----------------------------------------------------------------------------
   ! dataspace in the file: contains all data from all procs
-  call h5screate_simple_f(rank, dimensions_file, filespace, error)
+  call H5Screate_simple_f(rank, dimensions_file, filespace, error)
   ! dataspace in memory: contains only local data
-  call h5screate_simple_f(rank, dimensions_local, memspace, error)
+  call H5Screate_simple_f(rank, dimensions_local, memspace, error)
 
   ! Create chunked dataset
-  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
+  call H5Pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call H5Pset_chunk_f(plist_id, rank, chunking_dims, error)
 
   ! Open an existing dataset.
-  call h5dopen_f(file_id, dsetname, dset_id, error)
+  call H5Dopen_f(file_id, dsetname, dset_id, error)
 
   ! Select hyperslab in the file.
-  call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, offset, count, &
+  call H5Dget_space_f(dset_id, filespace, error)
+  call H5Sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
        error , stride, dimensions_local)
 
   ! Create property list for collective dataset read
-  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+  call H5Pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call H5Pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
-  call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
+  call H5Dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
        mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
 
-  call h5sclose_f(filespace, error)
-  call h5sclose_f(memspace, error)
-  call h5pclose_f(plist_id, error) ! note the dataset remains opened
+  call H5Sclose_f(filespace, error)
+  call H5Sclose_f(memspace, error)
+  call H5Pclose_f(plist_id, error) ! note the dataset remains opened
 
   ! attributes (we save everything in one, all double. to be converted
   ! when reading (to integer)
@@ -1035,8 +1055,8 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   deallocate (attributes)
 
   ! Close dataset
-  call h5dclose_f(dset_id, error)
-end subroutine read_field_backup
+  call H5Dclose_f(dset_id, error)
+end subroutine Read_Field_Backup
 
 
 ! Write a given attribute with attribute name aname and dimensions
@@ -1044,7 +1064,7 @@ end subroutine read_field_backup
 subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   use mpi_header
   use vars
-  use hdf5
+  use HDF5
   implicit none
 
   integer, intent(in) :: dim
@@ -1076,7 +1096,7 @@ end subroutine write_attribute_dble
 subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   use mpi_header
   use vars
-  use hdf5
+  use HDF5
   implicit none
 
   integer, intent(in) :: dim
@@ -1107,7 +1127,7 @@ end subroutine write_attribute_int
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
 ! files.
-subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
+subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk,work)
   use mpi_header
   use mhd_vars
   implicit none
@@ -1115,6 +1135,7 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   character(len=17) :: name
@@ -1127,7 +1148,7 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   if(mpirank == 0 ) write(*,*) "Saving output fields..."
 
   ! We need the velocity for saving the velocity and/or vorticity
-  if(isaveVelocity == 1 .or. isaveVorticity == 1) then
+  if(iSaveVelocity == 1 .or. iSaveVorticity == 1) then
      do i=1,3
         call ifft(ub(:,:,:,i),ubk(:,:,:,i))
      enddo
@@ -1135,21 +1156,21 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
     
   ! We need the magnetic fields velocity for saving the magnetic field
   ! and/or current density
-  if(isaveMagneticfield == 1  .or. isaveCurrent == 1) then
+  if(iSaveMagneticField == 1  .or. iSaveCurrent == 1) then
      do i=4,6
         call ifft(ub(:,:,:,i),ubk(:,:,:,i))
      enddo
   endif
     
-  ! save the velocity
-  if(isaveVelocity == 1) then
-     call save_field_hdf5(time,'./ux_'//name,ub(:,:,:,1),"ux")
-     call save_field_hdf5(time,'./uy_'//name,ub(:,:,:,2),"uy")
-     call save_field_hdf5(time,'./uz_'//name,ub(:,:,:,3),"uz")
+  ! Save the velocity
+  if(iSaveVelocity == 1) then
+     call Save_Field_HDF5(time,'./ux_'//name,ub(:,:,:,1),"ux")
+     call Save_Field_HDF5(time,'./uy_'//name,ub(:,:,:,2),"uy")
+     call Save_Field_HDF5(time,'./uz_'//name,ub(:,:,:,3),"uz")
   endif
   
-  ! save the vorticity
-  if(isaveVorticity == 1) then
+  ! Save the vorticity
+  if(iSaveVorticity == 1) then
      ! compute vorticity
      call curl(&
           nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
@@ -1157,39 +1178,41 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
      do i=1,3
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
-     call save_field_hdf5(time,'./vorx_'//name,wj(:,:,:,1),"vorx")
-     call save_field_hdf5(time,'./vory_'//name,wj(:,:,:,2),"vory")
-     call save_field_hdf5(time,'./vorz_'//name,wj(:,:,:,3),"vorz")
+     call Save_Field_HDF5(time,'./vorx_'//name,wj(:,:,:,1),"vorx")
+     call Save_Field_HDF5(time,'./vory_'//name,wj(:,:,:,2),"vory")
+     call Save_Field_HDF5(time,'./vorz_'//name,wj(:,:,:,3),"vorz")
   endif
   
-  ! save the magnetic field
-  if(isaveMagneticfield == 1) then
-     call save_field_hdf5(time,'./bx_'//name,ub(:,:,:,4),"bx")
-     call save_field_hdf5(time,'./by_'//name,ub(:,:,:,5),"by")
-     call save_field_hdf5(time,'./bz_'//name,ub(:,:,:,6),"bz")
+  ! Save the magnetic field
+  if(iSaveMagneticField == 1) then
+     call Save_Field_HDF5(time,'./bx_'//name,ub(:,:,:,4),"bx")
+     call Save_Field_HDF5(time,'./by_'//name,ub(:,:,:,5),"by")
+     call Save_Field_HDF5(time,'./bz_'//name,ub(:,:,:,6),"bz")
   endif
 
-  ! save the current density
-  if(isaveCurrent == 1) then
+  ! Save the current density
+  if(iSaveCurrent == 1) then
      call curl(&
           nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
           ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6)) 
      do i=4,6
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
-     call save_field_hdf5(time,'./jx_'//name,wj(:,:,:,4),"jx")
-     call save_field_hdf5(time,'./jy_'//name,wj(:,:,:,5),"jy")
-     call save_field_hdf5(time,'./jz_'//name,wj(:,:,:,6),"jz")
+     call Save_Field_HDF5(time,'./jx_'//name,wj(:,:,:,4),"jx")
+     call Save_Field_HDF5(time,'./jy_'//name,wj(:,:,:,5),"jy")
+     call Save_Field_HDF5(time,'./jz_'//name,wj(:,:,:,6),"jz")
   endif
   
-  ! save Mask
+  ! Save Mask
   ! FIXME: for stationary masks, this should be done only once
-  if((isaveMask == 1).and.(iPenalization == 1)) then
-     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
+  if((iSaveMask == 1).and.(iPenalization == 1)) then
+     call Save_Field_HDF5(time,'./mask_'//name,mask,"mask")
   endif
 
   if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."
 end subroutine save_fields_new_mhd
+
+
 
 
 
@@ -1221,6 +1244,10 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   integer(hid_t) :: dset_id       ! dataset identifier
   integer(hid_t) :: attr_id       ! attribute identifier
   integer(hid_t) :: aspace_id     ! attribute dataspace identifier
+  integer(hid_t) :: atype_id      ! attribute dataspace identifier
+  integer(hsize_t), dimension(1) :: adims = (/1/) ! attribute dimension
+  integer     ::   arank = 1                      ! attribure rank
+  integer(size_t) :: attrlen    ! length of the attribute string
 
   real (kind=pr) ::  attr_data  ! attribute data
   real (kind=pr), dimension (1:3) :: attr_data2

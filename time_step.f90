@@ -1,6 +1,6 @@
 subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   use mpi_header
-  use vars
+  use fsi_vars
   implicit none
   
   integer :: inter,it
@@ -25,10 +25,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
 
   if (mpirank == 0) write(*,'(A)') 'Info: Starting time iterations.'
   ! initialize runtime control file
-  if (mpirank == 0) call initialize_runtime_control_file()
+  if (mpirank == 0) call Initialize_runtime_control_file()
   
   ! check if at least FFT works okay
-  call fft_unit_test ( work, uk(:,:,:,1) )
+  call FFT_unit_test ( work, uk(:,:,:,1) )
   
   continue_timestepping = .true.
   time=0.0
@@ -44,7 +44,6 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
   n0=1 - n1 !important to do this now in case we're retaking a backp
   it_start=it 
 
-
   if (mpirank == 0) write(*,*) "Create mask variables...."
   ! Create mask function:
   call create_mask(time)
@@ -52,7 +51,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
 
   
   ! After init, output integral quantities. (note we can overwrite only 
-  ! nlk(:,:,:,:,n0) when retaking a backup)
+  ! nlk(:,:,:,:,n0) when retaking a backup
   if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
@@ -70,7 +69,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-     call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+     call FluidTimeStep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
 
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
@@ -80,11 +79,24 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
      !-------------------------------------------------
      if ( method=="fsi" ) then
         ! compute unst corrections in every time step
-        if (unst_corrections ==1) call cal_unst_corrections ( time, dt0 )    
-
+        if (unst_corrections ==1) then
+           call cal_unst_corrections ( time, dt0 )    
+           if (iMask=='Insect') then
+              call cal_unst_corrections_parts ( time, dt0, 1 )    
+              call cal_unst_corrections_parts ( time, dt0, 2 )    
+           endif
+        endif
         ! compute drag only if required
-        if (modulo(it,itdrag)==0) call cal_drag ( time, u ) ! note u is OLD time level 
+        if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)) then
+           call cal_drag ( time, u ) ! note u is OLD time level 
+           if (iMask=='Insect') then
+              call cal_drag_parts ( time, u, 1 ) ! note u is OLD time level 
+              call cal_drag_parts ( time, u, 2 ) ! note u is OLD time level 
+           endif
+        endif
         ! note dt0 is OLD time step t(n)-t(n-1)
+        ! advance in time ODEs that describe rigid solids
+        if (SolidDyn%idynamics==1) call rigid_solid_time_step(time,dt0,dt1,it)
      endif     
      
      !-----------------------------------------------
@@ -116,7 +128,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
         
         ! Backup if that's specified in the PARAMS.ini file
         if(iDoBackup == 1) then
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+           call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
         endif
      endif
      
@@ -140,13 +152,13 @@ subroutine time_step(u,uk,nlk,vort,work,explin, params_file)
           ! read all parameters from the params.ini file
           call get_params(params_file)           
           ! overwrite control file
-          if (mpirank == 0) call initialize_runtime_control_file()
+          if (mpirank == 0) call Initialize_runtime_control_file()
         case ("save_stop")
           if (mpirank==0) write (*,*) "runtime control: Safely stopping..."
-          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+          call Dump_Runtime_Backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
           continue_timestepping = .false. ! this will stop the time loop
           ! overwrite control file
-          if (mpirank == 0) call initialize_runtime_control_file()
+          if (mpirank == 0) call Initialize_runtime_control_file()
         end select
      endif 
      
@@ -199,10 +211,10 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   if(mpirank == 0) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
-     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es10.2,"s t=",es10.2)') &
+     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es7.1)') &
           floor(time_left/(24.d0*3600.d0))   ,&
           floor(mod(time_left,24.*3600.d0)/3600.d0),&
           floor(mod(time_left,3600.d0)/60.d0),&
-          floor(mod(mod(time_left,3600.d0),60.d0)),dt1,time
+          floor(mod(mod(time_left,3600.d0),60.d0)),dt1
   endif
 end subroutine are_we_there_yet

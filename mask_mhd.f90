@@ -13,6 +13,8 @@ subroutine create_mask_mhd()
         call smc_mask_mhd()
      case("smclinear")
         call smc_mask_mhd()
+     case("smcflat")
+        call smc_mask_mhd()
      case("smcnum")
         call smcnum_mask_mhd()
      case default
@@ -34,7 +36,8 @@ subroutine dealias(fk1,fk2,fk3)
   complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout) :: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout) :: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr) :: kx2,ky2,kz2,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
+  real(kind=pr) :: kx2,ky2,kz2,t1,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
+  integer :: i
 
   kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
   ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
@@ -71,22 +74,26 @@ end subroutine dealias
 
 
 ! MHD wrapper for setting (possibly velocity-dependent) imposed field.
-subroutine update_us_mhd()
+subroutine update_us_mhd(ub)
   use mpi_header
   use mhd_vars
   implicit none
 
-!  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
   if(iPenalization == 1) then
      select case (iMask)
      case("TaylorCouette")
-        call tc_us_mhd()
+        call tc_us_mhd(ub)
      case("smc")
-        call smc_us_mhd()
+        call smc_us_mhd(ub)
+     case("smclinear")
+        call smclinear_us_mhd(ub)
+     case("smcflat")
+        call smcflat_us_mhd(ub)
      case("smcnum")
         !call smc_us_mhd(ub)
-        call smcnum_us_mhd()
+        call smcnum_us_mhd(ub)
      case default
         if(mpirank == 0) then
            write (*,*) &
@@ -99,12 +106,12 @@ end subroutine update_us_mhd
 
 
 ! Set the solid velocity for MHD Taylor-Couette flow.
-subroutine tc_us_mhd()
+subroutine tc_us_mhd(ub)
   use mpi_header
   use mhd_vars
   implicit none
   
-!  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: r, x, y
   integer :: ix, iy, iz
   
@@ -234,12 +241,12 @@ end subroutine smcnum_mask_mhd
 
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
-subroutine smc_us_mhd()
+subroutine smc_us_mhd(ub)
   use mpi_header
   use mhd_vars
   implicit none
   
-!  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: r,x,y
   integer :: ix,iy,iz
   real (kind=pr) :: a,b,c,d,k1,k2,h
@@ -295,6 +302,98 @@ subroutine smc_us_mhd()
 end subroutine smc_us_mhd
 
 
+! Set the solid velocity for Sean-Montgomery-Chen flow.
+subroutine smclinear_us_mhd(ub)
+  use mpi_header
+  use mhd_vars
+  implicit none
+  
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr) :: r,x,y
+  integer :: ix,iy,iz
+  real (kind=pr) :: a,b,c,d,k1,k2
+  
+  ! Velocity is no-slip:
+  us(:,:,:,1)=0.d0
+  us(:,:,:,2)=0.d0
+  us(:,:,:,3)=0.d0
+
+  us(:,:,:,4)=0.d0
+  us(:,:,:,5)=0.d0
+  us(:,:,:,6)=B0
+
+  k1=Bc*r2/r1
+  k2=Bc/r1
+  A=(2.d0*k1 -k2*(r2-r3))/(r3*r3*r3 -3.d0*r2*r3*r3 +3.d0*r2*r2*r3 -r2*r2*r2)
+  B=(k2 -3.d0*A*(r2*r2 -r3*r3))/(2.d0*r2 -2.d0*r3)
+  C=-3.d0*A*r3*r3 -2.d0*B*r3
+  D=2.d0*A*r3*r3*r3 +B*r3*r3
+
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+        r=dsqrt(x*x +y*y)
+        
+        ! Linear profile:
+        if(r >= r1 .and. r < r2) then
+           do iz=ra(3),rb(3)
+              us(ix,iy,iz,4)=-Bc*y/r1
+              us(ix,iy,iz,5)=Bc*x/r1
+           enddo
+        endif
+        
+     enddo
+  enddo
+end subroutine smclinear_us_mhd
+
+
+! Set the solid velocity for Sean-Montgomery-Chen flow.
+subroutine smcflat_us_mhd(ub)
+  use mpi_header
+  use mhd_vars
+  implicit none
+  
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real (kind=pr) :: r,x,y
+  integer :: ix,iy,iz
+  real (kind=pr) :: a,b,c,d,k1,k2
+  
+  ! Velocity is no-slip:
+  us(:,:,:,1)=0.d0
+  us(:,:,:,2)=0.d0
+  us(:,:,:,3)=0.d0
+
+  us(:,:,:,4)=0.d0
+  us(:,:,:,5)=0.d0
+  us(:,:,:,6)=B0
+
+  k1=Bc*r2/r1
+  k2=Bc/r1
+  A=(2.d0*k1 -k2*(r2-r3))/(r3*r3*r3 -3.d0*r2*r3*r3 +3.d0*r2*r2*r3 -r2*r2*r2)
+  B=(k2 -3.d0*A*(r2*r2 -r3*r3))/(2.d0*r2 -2.d0*r3)
+  C=-3.d0*A*r3*r3 -2.d0*B*r3
+  D=2.d0*A*r3*r3*r3 +B*r3*r3
+
+  do ix=ra(1),rb(1)  
+     x=xl*(dble(ix)/dble(nx) -0.5d0)
+     do iy=ra(2),rb(2)
+        y=yl*(dble(iy)/dble(ny) -0.5d0)
+
+        r=dsqrt(x*x +y*y)
+        
+        ! Linear profile:
+        if(r >= r1 .and. r < r2) then
+           do iz=ra(3),rb(3)
+              us(ix,iy,iz,4)=-Bc
+              us(ix,iy,iz,5)=Bc
+           enddo
+        endif
+        
+     enddo
+  enddo
+end subroutine smcflat_us_mhd
 
 subroutine bcpoint(on,x,y)
   use mpi_header
@@ -379,14 +478,14 @@ subroutine setpen(p1,p2,p3)
   enddo
 end subroutine setpen
 
-subroutine checkbc(diff,us1,us2)
+subroutine checkbc(diff,us1,us2,us3)
   use mpi_header
   use mhd_vars
   implicit none
   
   real(kind=pr),intent(in)::us1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in)::us2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!  real(kind=pr),intent(in)::us3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::us3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   logical onboundary
   integer :: ix,iy,iz
@@ -466,7 +565,7 @@ subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
         do iy=ca(3),cb(3)
            ky=scaley*dble(modulo(iy+ny/2,ny)-ny/2)
 
-           k2=100d0*(kx*kx +ky*ky +kz*kz)
+           k2=kx*kx +ky*ky +kz*kz
            
            ukx(iz,ix,iy)=-k2*ukx(iz,ix,iy)
            uky(iz,ix,iy)=-k2*uky(iz,ix,iy)
@@ -551,15 +650,16 @@ end subroutine maxdist
 
 
 ! Set the solid velocity for Sean-Montgomery-Chen flow.
-subroutine smcnum_us_mhd()
+subroutine smcnum_us_mhd(ub)
   use mpi_header
   use mhd_vars
   implicit none
   
-!  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr) :: mydt,diff,diff0
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr) :: r,x,y,z,kx,ky,kz,k2,mydt,diff,diff0,globdiff,overthing,val
+  real(kind=pr) :: vx,vy,vz
   integer :: ix,iy,iz
-  integer :: myi,mpicode
+  integer :: i,myi,mpicode
 
   logical, save :: firstcall = .true. 
   ! the penalisation field
@@ -571,12 +671,16 @@ subroutine smcnum_us_mhd()
   ! PC time-stepping source buffers
   real(kind=pr),dimension(:,:,:),allocatable :: s1x, s1y, s1z
   real(kind=pr),dimension(:,:,:),allocatable :: s2x, s2y, s2z
+  real(kind=pr) s1ms2
   
   ! Local loop variables, which, in modern languages, are declared
   ! locally in the loop
+  real(kind=pr) :: bcx,bcy
+  complex(kind=pr) :: ux,uy,uz
+  complex(kind=pr) :: pkx,pky,pkz
   real (kind=pr) :: peps
   real (kind=pr) :: olddiff
-  real (kind=pr) :: lerror, error
+  real (kind=pr) :: newdt
   logical keeponkeepingon
 
   if (firstcall) then
@@ -622,9 +726,6 @@ subroutine smcnum_us_mhd()
      usz=0.d0
 
      olddiff=0.d0
-     diff0=0.d0
-
-     if (mpirank == 0) write(*,*) "pseudodt diff0 error:"
 
      do while(keeponkeepingon) ! Solve for us
 
@@ -665,28 +766,30 @@ subroutine smcnum_us_mhd()
         call maxdist(s1x,s1y,s1z,s2x,s2y,s2z,diff)
         call MPI_REDUCE(diff,diff0,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
              MPI_COMM_WORLD,mpicode)
-
+        if (mpirank == 0) then
+           diff0=diff0*pseudodt
+           write(*,*) "time-step error=",diff0
+           if(diff0 < pseudoerrmin) pseudodt=1.4d0*pseudodt ! step too small
+           if(diff0 > pseudoerrmax) pseudodt=0.7d0*pseudodt ! step too large
+           write(*,*) "pseudodt=",pseudodt
+         endif
 
         ! check how close the field is to obeying the boundary conditions
-        call checkbc(lerror,usx,usy)
-        call MPI_REDUCE(lerror,error,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+        call checkbc(diff,usx,usy,usz)
+        call MPI_REDUCE(diff,diff0,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
              MPI_COMM_WORLD,mpicode)
 
         if (mpirank == 0) then
-           diff0=diff0*pseudodt
-
-           ! I really hate this part of Fortran.
-20         format (es10.2,x,es10.2,x,es10.2) 
-           write(*,20) pseudodt,diff0,error
-           
-           if(diff0 < pseudoerrmin) pseudodt=1.4d0*pseudodt ! step too small
-           if(diff0 > pseudoerrmax) pseudodt=0.7d0*pseudodt ! step too large
-
+           write(*,*) "error=",diff0
            ! Loop exit conditions:
-           if(myi > 10 .and. error < dsqrt(eps)) then
-              write(*,*) "Converged in ",myi," iterations:"
-              write(*,*) error," < dsqrt(",peps,")=",dsqrt(eps)
+           if(olddiff < diff0) then
+              ! if we are not converging, reduce the time-step
+              !pseudodt=0.7d0*pseudodt
+              !write(*,*) "pseudodt=",pseudodt
+           endif
 
+           if(myi > 10 .and. diff0 < dsqrt(eps)) then
+              write(*,*) "finished: ",diff0," < dsqrt(",peps,")=",dsqrt(eps)
               keeponkeepingon= .false.
            endif
            if(myi > 1000000) then ! we've gone too far: abort
@@ -694,7 +797,7 @@ subroutine smcnum_us_mhd()
               keeponkeepingon= .false.
               call abort
            endif
-           if(myi > 10 .and. error > 100.d0) then
+           if(myi > 10 .and. diff0 > 100.d0) then
               ! convergence isn't happening: abort
               write(*,*) "error is greater than 100; aborting due to instability"
               keeponkeepingon= .false.

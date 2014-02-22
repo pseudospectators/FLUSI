@@ -40,9 +40,6 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   ! Force zero mode for mean flow
   if(method == "fsi") call set_mean_flow(uk,time)
 
-  ! Set the divergence of the magnetic field to zero to avoid drift.
-  if(method == "mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
-
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
 
@@ -50,7 +47,7 @@ end subroutine FluidTimestep
 ! FIXME: add documentation: which arguments are used for what?
 subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use mpi_header
-  use vars
+  use fsi_vars
   implicit none
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
@@ -113,7 +110,7 @@ end subroutine rungekutta2
 ! FIXME: add documentation: which arguments are used for what?
 subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use mpi_header
-  use vars
+  use fsi_vars
   implicit none
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
@@ -150,7 +147,7 @@ end subroutine euler
 ! FIXME: add documentation: which arguments are used for what?
 subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
   use mpi_header
-  use vars
+  use fsi_vars
   implicit none
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
@@ -189,7 +186,7 @@ end subroutine euler_startup
 ! FIXME: add documentation: which arguments are used for what?
 subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   use mpi_header
-  use vars
+  use fsi_vars
   implicit none
 
   real (kind=pr),intent (inout) :: time,dt1,dt0
@@ -293,7 +290,7 @@ end subroutine adjust_dt
 ! FIXME: add documentation
 subroutine truncate(a,b)
   ! rounds time step (from 1.246262e-2 to 1.2e-2)
-  use vars
+  use fsi_vars
   implicit none
 
   real(kind=pr) :: a,b

@@ -43,49 +43,47 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   ! divergence of velocity field (in the entire domain and in the fluid domain)
   !-----------------------------------------------------------
   do iz=ca(1),cb(1)
-     kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*ix
-        do iy=ca(3),cb(3)
-           ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
-           nlk(iz,ix,iy,1)=&
-                (kx*uk(iz,ix,iy,1)+ky*uk(iz,ix,iy,2)+kz*uk(iz,ix,iy,3))
-           nlk(iz,ix,iy,1)=dcmplx(0.d0,1.d0)*nlk(iz,ix,iy,1)
-        enddo
-     enddo
+    kz=scalez*(modulo(iz+nz/2,nz) -nz/2)
+    do ix=ca(2),cb(2)
+      kx=scalex*ix
+      do iy=ca(3),cb(3)
+        ky=scaley*(modulo(iy+ny/2,ny) -ny/2)
+        nlk(iz,ix,iy,1)=(kx*uk(iz,ix,iy,1)+ky*uk(iz,ix,iy,2)+kz*uk(iz,ix,iy,3))
+        nlk(iz,ix,iy,1)=dcmplx(0.d0,1.d0)*nlk(iz,ix,iy,1)
+      enddo
+    enddo
   enddo
-
+  
   call ifft(work,nlk(:,:,:,1)) ! work is now div in phys space
-
+  
   maxdiv_loc=maxval(abs(work))
   call MPI_REDUCE(maxdiv_loc,maxdiv,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
        MPI_COMM_WORLD,mpicode)
-
+  
   if (iPenalization==1) then
-     maxdiv_loc=maxval(abs(work*(1.d0-mask*eps)))
-     call MPI_REDUCE(maxdiv_loc,maxdiv_fluid,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-          MPI_COMM_WORLD,mpicode)       
+  maxdiv_loc=maxval(abs(work*(1.d0-mask*eps)))
+  call MPI_REDUCE(maxdiv_loc,maxdiv_fluid,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+       MPI_COMM_WORLD,mpicode)       
   else
-     maxdiv_fluid = maxdiv
+  maxdiv_fluid = maxdiv
   endif
 
-  ! FIXME: there is already the file d.t which contains the divergence.
   if(mpirank == 0) then
-     open(14,file='divu.t',status='unknown',position='append')
-     write (14,'(3(e12.5,A))') time,tab,maxdiv,tab,maxdiv_fluid,tab
-     close(14)
-  endif
-
+    open(14,file='divu.t',status='unknown',position='append')
+    write (14,'(3(e12.5,A))') time,tab,maxdiv,tab,maxdiv_fluid,tab
+    close(14)
+  endif      
+  
   !-----------------------------------------------------------
-  ! Save mean flow values
+  ! save mean flow values
   !-----------------------------------------------------------
   if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-     ! This is done only by one CPU
-     open  (14,file='meanflow.t',status='unknown',position='append')
-     write (14,'(4(es12.5,1x))') time, dreal(uk(0,0,0,1:3))
-     close (14)
-  endif
-
+    ! this is done only by one CPU
+    open  (14,file='meanflow.t',status='unknown',position='append')
+    write (14,'(4(es12.5,1x))') time, dreal(uk(0,0,0,1:3))
+    close (14)
+  endif  
+  
 end subroutine write_integrals_fsi
 
 
@@ -149,7 +147,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='ek.t',status='unknown',position='append')
      ! 9 outputs, including tabs
-     write(14,'(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)') &
+     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
           time,tab,Ekin,tab,Ekinx,tab,Ekiny,tab,Ekinz
      close(14)
   endif
@@ -160,7 +158,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='eb.t',status='unknown',position='append')
      ! 9 outputs, including tabs
-     write(14,'(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)') &
+     write(14,'(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)') &
           time,tab,Emag,tab,Emagx,tab,Emagy,tab,Emagz
      close(14)
   endif
@@ -173,7 +171,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
      open(14,file='j.t',status='unknown',position='append')
      ! 15 outputs, including tabs
      write(14,&
-          '(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)')&
+          '(e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6,A,e12.6)')&
           time,tab,meanjx,tab,meanjy,tab,meanjz,tab,jmax,tab,jxmax,tab,&
           jymax,tab,jzmax
      close(14)
@@ -189,7 +187,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='diss.t',status='unknown',position='append')
      ! 3 outputs
-     write(14,'(e25.16,A,e25.16,A,e25.16)') time,tab,dissu,tab,dissb
+     write(14,'(e12.6,A,e12.6,A,e12.6)') time,tab,dissu,tab,dissb
      close(14)
   endif
 
@@ -205,7 +203,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   if(mpirank == 0) then
      open(14,file='d.t',status='unknown',position='append')
      ! 3 outputs
-     write(14,'(e25.16,A,e25.16,A,e25.16)') time,tab,divu,tab,divb
+     write(14,'(e12.6,A,e12.6,A,e12.6)') time,tab,divu,tab,divb
      close(14)
   endif
 end subroutine write_integrals_mhd

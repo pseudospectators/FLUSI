@@ -1,7 +1,8 @@
 ! Wrapper for different (possibly time-dependend) mask functions
 subroutine create_mask(time)
   use mpi_header
-  use vars
+!  use vars
+  use fsi_vars
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -28,6 +29,8 @@ subroutine create_mask(time)
     ! Attention: division by eps is done here, not in subroutines.
     eps_inv=1.d0/eps
     mask=mask*eps_inv  
+    ! For forces on wings/body
+    if (iMask=='Insect') Insect%maskpart=Insect%maskpart*eps_inv
   endif
 end subroutine create_mask
 
@@ -46,7 +49,7 @@ subroutine update_us(ub)
     case("fsi")
         call update_us_fsi(ub)
     case("mhd")
-        call update_us_mhd()
+        call update_us_mhd(ub)
     case default    
         if(mpirank == 0) then
           write (*,*) "Error: unkown method in update_us; stopping."
