@@ -54,7 +54,6 @@ subroutine Start_Simulation()
   real(kind=pr),dimension(:,:,:),allocatable :: work
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk  
-  real(kind=pr),dimension(:,:,:),allocatable :: work
 
   
   ! Set method information in vars module.

@@ -242,7 +242,7 @@ subroutine coftxyz(f,fk)
 
   t1 = MPI_wtime()
   ! Compute forward FFT
-  call p3dfft_ftran_r2c(f,fk,'tff')
+  call p3dfft_ftran_r2c(f,fk,'fff')
 
   ! Normalize
   fk(:,:,:) = fk(:,:,:) / dble(nx*ny*nz)
@@ -280,7 +280,7 @@ subroutine cofitxyz(fk,f)
   t1 = MPI_wtime()
 
   ! Compute backward FFT
-  call p3dfft_btran_c2r(fk,f)
+  call p3dfft_btran_c2r(fk,f,'fff')
 
 
   time_ifft  = time_ifft  + MPI_wtime() - t1
@@ -382,3 +382,32 @@ subroutine trextents(idir,n,mpidims,mpicoords,ka,kb,ks,kat,kbt,kst )
   kst(:) = kbt(:)-kat(:)+1
 
 end subroutine trextents
+ 
+
+!----------------------------------------------------------------
+! wavenumber functions: return the kx,ky,kz wavenumbers
+! as a function of the array index
+!----------------------------------------------------------------
+
+real(kind=pr) function wave_x( ix )
+  use vars ! for scale and precision statement
+  implicit none
+integer, intent (in) :: ix
+  wave_x = scalex*dble(ix)
+end function
+
+real(kind=pr) function wave_y( iy )
+  use vars ! for scale and precision statement
+  implicit none
+integer, intent (in) :: iy
+  wave_y = scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+end function
+
+real(kind=pr) function wave_z( iz )
+  use vars ! for scale and precision statement
+  implicit none
+integer, intent (in) :: iz
+  wave_z = scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+end function
+
+end module p3dfft_wrapper
