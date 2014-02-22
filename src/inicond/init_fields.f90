@@ -2,6 +2,7 @@
 subroutine init_fields(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   integer,intent (inout) :: n1,it
@@ -30,6 +31,7 @@ end subroutine init_fields
 subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
   
   complex(kind=pr),intent(inout):: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
@@ -101,6 +103,7 @@ end subroutine perturbation
 subroutine randgen3d(fk1,fk2,fk3,w)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr),intent(inout):: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
@@ -123,60 +126,60 @@ subroutine randgen3d(fk1,fk2,fk3,w)
   k0=3.d0*sqrt(2.d0)*pi/4.d0
 
   !-- generate 3D gaussian field 
-  do iz=ca(1),cb(1)
-     kz=scalez*dble(modulo(iz+nz/2,nz) -nz/2)
-     do ix=ca(2),cb(2)
-        kx=scalex*dble(ix)
-        do iy=ca(3),cb(3)
-           ky=scaley*dble(modulo(iy+ny/2,ny) -ny/2)
-           k=dsqrt(kx*kx +ky*ky +kz*kz)
+  do iz=ca(1),cb(1)          
+    kz = wave_z(iz)       
+    do iy=ca(2), cb(2)
+      ky = wave_y(iy)
+      do ix=ca(3), cb(3)
+        kx = wave_x(ix)
+        k = dsqrt(kx*kx +ky*ky +kz*kz)
 
-           !-- ek = sqrt(Ek/4pik^2), Ek imposed spectrum
-           if(k /= 0.d0) then
-              ek=dsqrt(1.d0/(4.d0*pi*k*k))
-           else
-              ek=0.d0
-           endif
+        !-- ek = sqrt(Ek/4pik^2), Ek imposed spectrum
+        if(k /= 0.d0) then
+          ek=dsqrt(1.d0/(4.d0*pi*k*k))
+        else
+          ek=0.d0
+        endif
 
-           e1=dsqrt(kx*kx+ky*ky)
-           e1x=ky/e1
-           e1y=-kx/e1
-           e1z=0.d0
-           e2=k*dsqrt(kx*kx+ky*ky)
-           e2x=kx*kz/e2
-           e2y=ky*kz/e2
-           e2z=-(kx*kx+ky*ky)/e2
+        e1=dsqrt(kx*kx+ky*ky)
+        e1x=ky/e1
+        e1y=-kx/e1
+        e1z=0.d0
+        e2=k*dsqrt(kx*kx+ky*ky)
+        e2x=kx*kz/e2
+        e2y=ky*kz/e2
+        e2z=-(kx*kx+ky*ky)/e2
 
-           if(kx.eq.0 .and. ky.eq.0) then
-              fk1(iz,ix,iy)=dcmplx(0.5d0*ek,0.5d0*ek)
-              fk2(iz,ix,iy)=dcmplx(0.5d0*ek,0.5d0*ek)
-              fk3(iz,ix,iy)=dcmplx(0.d0,0.d0)
-              if(kz.eq.0) then
-                 fk1(iz,ix,iy)=dcmplx(0.d0,0.d0)
-                 fk2(iz,ix,iy)=dcmplx(0.d0,0.d0)
-                 fk3(iz,ix,iy)=dcmplx(0.d0,0.d0)
-              endif
-           else
-              call random_number(rand1)
-              call random_number(rand2)
-              psi1=2.*pi*rand1
-              beta=2.*pi*rand2
-              fk1(iz,ix,iy)=dcmplx(&
-                   ek*dcos(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x),&
-                   ek*dsin(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x)&
-                   )
-              fk2(iz,ix,iy)=dcmplx(&
-                   ek*dcos(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y),&
-                   ek*dsin(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y)&
-                   )
-              fk3(iz,ix,iy)=dcmplx(&
-                   ek*dcos(psi1)*(dsin(beta)*e2z),&
-                   ek*dsin(psi1)*(dsin(beta)*e2z)&
-                   )
-           endif
-        enddo
-     enddo
-  enddo
+        if(kx.eq.0 .and. ky.eq.0) then
+          fk1(iz,iy,ix)=dcmplx(0.5d0*ek,0.5d0*ek)
+          fk2(iz,iy,ix)=dcmplx(0.5d0*ek,0.5d0*ek)
+          fk3(iz,iy,ix)=dcmplx(0.d0,0.d0)
+          if(kz.eq.0) then
+              fk1(iz,iy,ix)=dcmplx(0.d0,0.d0)
+              fk2(iz,iy,ix)=dcmplx(0.d0,0.d0)
+              fk3(iz,iy,ix)=dcmplx(0.d0,0.d0)
+          endif
+        else
+          call random_number(rand1)
+          call random_number(rand2)
+          psi1=2.*pi*rand1
+          beta=2.*pi*rand2
+          fk1(iz,iy,ix)=dcmplx(&
+                ek*dcos(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x),&
+                ek*dsin(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x)&
+                )
+          fk2(iz,iy,ix)=dcmplx(&
+                ek*dcos(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y),&
+                ek*dsin(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y)&
+                )
+          fk3(iz,iy,ix)=dcmplx(&
+                ek*dcos(psi1)*(dsin(beta)*e2z),&
+                ek*dsin(psi1)*(dsin(beta)*e2z)&
+                )
+        endif
+      enddo
+    enddo
+enddo
 
   ! Enforce Hermitian symmetry the lazy way:
   call ifft(w,fk1)
@@ -195,6 +198,7 @@ end subroutine randgen3d
 subroutine init_taylorcouette_u(ubk,ub)
   use mpi
   use vars
+  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)

@@ -30,6 +30,7 @@ end subroutine save_fields_new
 ! array "vort" which is why we have to recompute the vorticity
 subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   use fsi_vars
+  use p3dfft_wrapper
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -324,6 +325,7 @@ subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   use mpi
   use vars
   use hdf5
+  use p3dfft_wrapper
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -809,6 +811,7 @@ end subroutine Read_Single_File
 subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   use mpi
   use vars
+  use p3dfft_wrapper
   use hdf5
   implicit none
 
@@ -1110,6 +1113,7 @@ end subroutine write_attribute_int
 subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   use mpi
   use mhd_vars
+  use p3dfft_wrapper
   implicit none
 
   real(kind=pr),intent(in) :: time
