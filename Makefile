@@ -88,20 +88,20 @@ all: directories $(PROGRAMS)
 # Compile main programs, with dependencies.
 flusi: flusi.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
-mhd: mhd.f90 $(MOBJS) $(OBJS) 
+mhd: mhd.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile modules (module dependency must be specified by hand in
 # Fortran). Objects are specified in MOBJS (module objects).
-$(OBJDIR)/vars.o: vars.f90 
+$(OBJDIR)/vars.o: vars.f90 ${OBJDIR}
 	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
-$(OBJDIR)/kine.o: kine.f90
+$(OBJDIR)/kine.o: kine.f90 ${OBJDIR}
 	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
-$(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o ${OBJDIR}
 	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
-$(OBJDIR)/%.o: %.f90 $(MOBJS)
+$(OBJDIR)/%.o: %.f90 $(MOBJS) ${OBJDIR}
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
