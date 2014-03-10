@@ -19,10 +19,9 @@ module vars
   integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
 
   ! p3dfft only parameters (move to appropraite .f90 file?)
-  integer,save :: mpicommcart 
+  integer,save :: mpicommcart
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
   
-
   ! Used in params.f90
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
 
@@ -41,9 +40,10 @@ module vars
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
   real(kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
 
-  ! generic lengthscale, for example circle radius or plate spanwise length
+
+  ! Variables set via the parameters file
   real(kind=pr),save :: length 
-  
+
   ! Domain size variables:
   integer,save :: nx,ny,nz
   real(kind=pr),save :: xl,yl,zl,dx,dy,dz,scalex,scaley,scalez
@@ -57,7 +57,7 @@ module vars
   integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
-  ! compute drag force evry itdrag time steps and compute unst corrections if
+  ! compute drag force every itdrag time steps and compute unst corrections if
   ! you've told to do so.
   integer,save :: itdrag, unst_corrections
   
@@ -75,6 +75,7 @@ module vars
   character(len=80),save :: inicond, file_ux,file_uy,file_uz
   character(len=80),save :: file_bx,file_by,file_bz
   real(kind=pr),save :: omega1 ! FIXME: what is omega1?
+
 
   ! Boundary conditions:
   character(len=80),save :: iMask
@@ -185,14 +186,33 @@ module fsi_vars
                                      x_pivot_l, x_pivot_r
     ! parameter for hovering:
     real(kind=pr) :: distance_from_sponge
+
+    ! Wings and body forces
+    type(Integrals), dimension(1:2) :: PartIntegrals
+    ! Wings and body mask
+    real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart
   end type InsectParams
   
-  
+
+  ! derived datatype for rigid solid dynamics solver
+  type SolidDynType
+    ! solid dynamics solver flag (0=off, 1=on)
+    integer :: idynamics
+    ! vector of unknowns at new time step
+    real(kind=pr), dimension(1:4) :: var_new
+    ! vector of unknowns at current time step                                                                                                                
+    real(kind=pr), dimension(1:4) :: var_this
+    ! rhs at current time step                                                                                                                
+    real(kind=pr), dimension(1:4) :: rhs_this
+    ! rhs at previous time step                                                                                                                
+    real(kind=pr), dimension(1:4) :: rhs_old
+  end type SolidDynType
+ 
 
   type(Integrals),save :: GlobalIntegrals
   type(InsectParams), save :: Insect
-  
-  !-----------------------------------------------------------------------------
+  type(SolidDynType), save :: SolidDyn
+ 
   contains
   !-----------------------------------------------------------------------------
   

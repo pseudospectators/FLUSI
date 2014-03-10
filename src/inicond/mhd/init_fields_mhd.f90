@@ -5,7 +5,7 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
   use p3dfft_wrapper
   implicit none
 
-  integer,intent (inout) :: n1,it
+integer,intent (inout) :: n1,it
   real (kind=pr),intent (inout) :: time,dt1,dt0
   complex (kind=pr),intent (out):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex (kind=pr),intent (out)::&
@@ -54,16 +54,16 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
      
   case default
      if(inicond(1:8) == "backup::") then
-        call read_runtime_backup(inicond(9:len(inicond)),&
+call read_runtime_backup(inicond(9:len(inicond)),&
              time,dt0,dt1,n1,it,ubk,nlk,explin,wj(:,:,:,1))
      else
-        if (mpirank==0) then
-           write (*,*) inicond
+if (mpirank==0) then
+write (*,*) inicond
            write (*,*) '??? ERROR: Invalid initial condition'
         endif
-        call abort
-     endif
-  end select
+call abort
+endif
+end select
 
   ! Ensure that initial conditions are divergence-free by performing a
   ! Helmholtz decomposition:
@@ -79,7 +79,7 @@ subroutine init_orszagtang(ubk,ub)
   use p3dfft_wrapper
   implicit none
 
-  complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: beta
   integer :: ix,iy,iz,i
@@ -118,7 +118,7 @@ subroutine init_const(ubk,wj)
   use mhd_vars
   implicit none
 
-  complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   integer :: i
 
@@ -143,7 +143,7 @@ subroutine init_smc(ubk,ub)
   use mhd_vars
   implicit none
 
-  complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   integer :: i, ix,iy,iz
   real(kind=pr) :: x,y,r
@@ -174,21 +174,21 @@ subroutine init_smc(ubk,ub)
         r=dsqrt(x*x + y*y)
 
         if(r < r2) then
-           do iz=ra(3),rb(3)
+do iz=ra(3),rb(3)
               ub(ix,iy,iz,4)=-y*Bc/R1
               ub(ix,iy,iz,5)= x*Bc/R1
            enddo
         endif
 
-        if(r >= r2 .and. r <= r3) then
-           h=(A*r*r*r +B*r*r +C*r +D)
+if(r >= r2 .and. r <= r3) then
+h=(A*r*r*r +B*r*r +C*r +D)
            do iz=ra(3),rb(3)
               ub(ix,iy,iz,4)= h*y/r
               ub(ix,iy,iz,5)=-h*x/r
            enddo
         endif
 
-     enddo
+enddo
   enddo
 
   do i=3,nd
@@ -204,7 +204,7 @@ subroutine init_smcnum(ubk,ub)
   use p3dfft_wrapper
   implicit none
 
-  complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   integer :: ix,iy,iz
 
@@ -240,7 +240,7 @@ subroutine init_tc_mhd(ubk,ub)
   use mhd_vars
   implicit none
 
-  complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   
   ! Initialize the velocity field:

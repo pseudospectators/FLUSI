@@ -1,6 +1,7 @@
 subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it)
   use mpi
   use vars
+  use fsi_vars
   use p3dfft_wrapper
   implicit none
   
@@ -30,11 +31,12 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   
   ! initialize runtime control file
   if (mpirank == 0) call initialize_runtime_control_file()
-  
+   
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup)
   if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+
 
   if (mpirank == 0) write(*,*) "Start time-stepping...."
   
@@ -60,11 +62,24 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      if ( method=="fsi" ) then
         ! compute unst corrections in every time step
-        if (unst_corrections ==1) call cal_unst_corrections ( time, dt0 )    
-
+        if (unst_corrections ==1) then
+           call cal_unst_corrections ( time, dt0 )    
+           if (iMask=='Insect') then
+              call cal_unst_corrections_parts ( time, dt0, 1 )    
+              call cal_unst_corrections_parts ( time, dt0, 2 )    
+           endif
+        endif
         ! compute drag only if required
-        if (modulo(it,itdrag)==0) call cal_drag ( time, u ) ! note u is OLD time level 
+        if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)) then
+           call cal_drag ( time, u ) ! note u is OLD time level 
+           if (iMask=='Insect') then
+              call cal_drag_parts ( time, u, 1 ) ! note u is OLD time level 
+              call cal_drag_parts ( time, u, 2 ) ! note u is OLD time level 
+           endif
+        endif
         ! note dt0 is OLD time step t(n)-t(n-1)
+        ! advance in time ODEs that describe rigid solids
+        if (SolidDyn%idynamics==1) call rigid_solid_time_step(time,dt0,dt1,it)
      endif     
      
      !-----------------------------------------------
@@ -82,7 +97,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
      endif
-
+    
      !-------------------------------------------------
      ! Output FIELDS (after tsave)
      !-------------------------------------------------
@@ -98,7 +113,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         if(iDoBackup == 1) then
            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
         endif
-     endif     
+     endif
      
      !-----------------------------------------------
      ! Output how much time remains

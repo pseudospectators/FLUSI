@@ -5,7 +5,7 @@ subroutine create_mask_fsi(time)
   implicit none
 
   real(kind=pr), intent(in) :: time
-  real(kind=pr) :: t1
+  real(kind=pr) :: t1, eps_inv
 
   t1 = MPI_wtime() 
   
@@ -40,6 +40,15 @@ subroutine create_mask_fsi(time)
   ! if desired, add cavity mask surrounding the domain
   if ((iCavity=="yes").and.(iPenalization==1)) then
     call Add_Cavity ()
+  endif
+  
+  
+  !------------------------------------------------------------      
+  ! For forces on wings/body
+  !------------------------------------------------------------
+  if (iMask=='Insect') then 
+    eps_inv = 1.d0/eps
+    Insect%maskpart=Insect%maskpart*eps_inv
   endif
   
   ! -- for global timing.

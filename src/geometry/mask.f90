@@ -26,8 +26,10 @@ subroutine create_mask(time)
     end select
 
     ! Attention: division by eps is done here, not in subroutines.
-    eps_inv=1.d0/eps
-    mask=mask*eps_inv  
+    eps_inv = 1.d0/eps
+    mask = mask*eps_inv  
+
+    
   endif
 end subroutine create_mask
 
@@ -67,12 +69,12 @@ subroutine draw_sphere
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
   N_smooth = 2.d0
-  
+
   do ix=ra(1),rb(1)
-     x=dble(ix)*dx
      do iy=ra(2),rb(2)
-        y=dble(iy)*dy
         do iz=ra(3),rb(3)
+           x=dble(ix)*dx
+           y=dble(iy)*dy
            z=dble(iz)*dz
            R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
            if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then

@@ -83,9 +83,6 @@ subroutine load_kine_clean
 
 end subroutine
 
-!  call kine_interp(t_i,phi_i,alpha_i,theta_i,pitch_i,vert_i,horz_i, &
-!                   phi_dt_i,alpha_dt_i,theta_dt_i,pitch_dt_i,vert_dt_i,horz_dt_i)
-
 
 subroutine wing_kine_interp(t_i,phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i)
   use kine
