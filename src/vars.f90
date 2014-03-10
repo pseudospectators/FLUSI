@@ -137,16 +137,14 @@ module fsi_vars
   integer, save :: sponge_thickness
   
   ! Wings and body mask
-  real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart
-  
+  real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart  
   
   ! cavity mask:
   character(len=80), save :: iCavity
   integer, save :: cavity_size, iChannel
   
   ! save forces and use unsteady corrections?
-  integer, save :: compute_forces
-  
+  integer, save :: compute_forces  
   
   ! for periodically repeating flows, it may be better to always have only 
   ! one set of files on the disk

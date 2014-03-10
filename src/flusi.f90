@@ -65,6 +65,12 @@ subroutine Start_Simulation()
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
   time_bckp=0.0; time_save=0.0; time_total=0.0; time_u=0.0; time_sponge=0.0
 
+  
+  ! Set up global communicators. We have two groups, for solid and fluid CPUs
+  ! with dedicated tasks to do. For MHD, all CPU are reserved for the fluid
+  call setup_fluid_solid_communicators( 0 )
+  
+  
   if (mpirank == 0) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  FLUSI'

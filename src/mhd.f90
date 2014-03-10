@@ -40,7 +40,9 @@ program mhd
   nd=3*nf ! Each field has three dimensions, for six total.
   allocate(lin(nf)) ! Set up the linear term
 
-  call set_fluid_solid_communicators()
+  ! Set up global communicators. We have two groups, for solid and fluid CPUs
+  ! with dedicated tasks to do. For MHD, all CPU are reserved for the fluid
+  call setup_fluid_solid_communicators( 0 )
   
   ! FIXME/TODO: initialize time integrals to zero
 

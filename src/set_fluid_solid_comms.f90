@@ -1,4 +1,4 @@
-subroutine set_fluid_solid_communicators
+subroutine setup_fluid_solid_communicators ( number_of_solid_cpus )
   !-----------------------------------------------------------------------------
   ! Sets ups the communicators for the solid and the fluid parts
   !-----------------------------------------------------------------------------
@@ -7,6 +7,7 @@ subroutine set_fluid_solid_communicators
   implicit none
   integer :: mpicode
   integer :: i
+  integer, intent (in) :: number_of_solid_cpus
   integer, allocatable :: fluid_ranks(:), solid_ranks(:)
   integer :: original_group
   integer :: group_fluid, group_solid, mpirank_global
@@ -18,15 +19,8 @@ subroutine set_fluid_solid_communicators
   !-----------------------------------------------------------------------------
   !-- decide how many CPU we reserve for the solid solver
   !-----------------------------------------------------------------------------
-  if ( method == "mhd" ) then
-    !-- in the MHD case, we deal only with one group of CPU, no ncpu_solid
-    ncpu_solid = 0
-    ncpu_fluid = ncpu
-  elseif ( method == "fsi" ) then
-    !-- in the MHD case, we deal only with one group of CPU, no ncpu_solid
-    ncpu_solid = 1
-    ncpu_fluid = ncpu - ncpu_solid
-  endif 
+  ncpu_solid = number_of_solid_cpus
+  ncpu_fluid = ncpu - ncpu_solid
   
   
   !-----------------------------------------------------------------------------
