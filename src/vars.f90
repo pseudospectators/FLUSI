@@ -136,6 +136,10 @@ module fsi_vars
   real(kind=pr), save :: eps_sponge
   integer, save :: sponge_thickness
   
+  ! Wings and body mask
+  real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart
+  
+  
   ! cavity mask:
   character(len=80), save :: iCavity
   integer, save :: cavity_size, iChannel
@@ -189,8 +193,8 @@ module fsi_vars
 
     ! Wings and body forces
     type(Integrals), dimension(1:2) :: PartIntegrals
-    ! Wings and body mask
-    real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart
+    ! Wings and body mask (-> MOVED TO BE GLOBAL; TO BE CHANGED LATER)
+    !real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart
   end type InsectParams
   
 

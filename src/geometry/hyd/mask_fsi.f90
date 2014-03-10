@@ -48,7 +48,7 @@ subroutine create_mask_fsi(time)
   !------------------------------------------------------------
   if (iMask=='Insect') then 
     eps_inv = 1.d0/eps
-    Insect%maskpart=Insect%maskpart*eps_inv
+    maskpart = maskpart*eps_inv
   endif
   
   ! -- for global timing.

@@ -154,9 +154,11 @@ subroutine Start_Simulation()
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   ! velocity in Fourier space
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
+  ! right hand side of navier-stokes
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   ! velocity in physical space
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  ! vorticity in physical space
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
   ! real valued work array
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
@@ -177,14 +179,14 @@ subroutine Start_Simulation()
      call rigid_solid_init(SolidDyn%idynamics)
   endif     
 
+  
   ! Create obstacle mask
   if (iPenalization==1) then
      ! you need the mask field only if you want to actually do penalization
      allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))     
      ! For insect wing/body forces
      if (iMask=='Insect') then
-        ! FIXME FIXME: this is very slow
-        allocate(Insect%maskpart(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2))
+        allocate(maskpart(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2))
      endif
      if(iMoving == 1) then
         ! if your obstacle moves,you'll need this field for its velocity field
@@ -253,7 +255,7 @@ subroutine Start_Simulation()
      deallocate(mask)
      ! For insect wing/body forces
      if (iMask=='Insect') then
-        deallocate(Insect%maskpart)
+        deallocate(maskpart)
      endif
      if(iMoving == 1) deallocate(us)
   endif

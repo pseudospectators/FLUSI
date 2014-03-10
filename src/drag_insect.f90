@@ -60,9 +60,9 @@ subroutine cal_drag_parts ( time, u, partid )
             usz = us(ix,iy,iz,3)
           endif
           ! actual penalization term
-          penalx = -Insect%maskpart(ix,iy,iz,partid)*(u(ix,iy,iz,1)-usx)
-          penaly = -Insect%maskpart(ix,iy,iz,partid)*(u(ix,iy,iz,2)-usy)
-          penalz = -Insect%maskpart(ix,iy,iz,partid)*(u(ix,iy,iz,3)-usz)
+          penalx = -maskpart(ix,iy,iz,partid)*(u(ix,iy,iz,1)-usx)
+          penaly = -maskpart(ix,iy,iz,partid)*(u(ix,iy,iz,2)-usy)
+          penalz = -maskpart(ix,iy,iz,partid)*(u(ix,iy,iz,3)-usz)
           
           ! for torque moment
           xlev = dble(ix)*dx - x0
@@ -161,9 +161,9 @@ subroutine cal_unst_corrections_parts ( time, dt, partid )
   !------------------------------------
   ! force
   !------------------------------------
-  force_new_loc(1) = sum( Insect%maskpart(:,:,:,partid)*us(:,:,:,1) )*dx*dy*dz*eps
-  force_new_loc(2) = sum( Insect%maskpart(:,:,:,partid)*us(:,:,:,2) )*dx*dy*dz*eps
-  force_new_loc(3) = sum( Insect%maskpart(:,:,:,partid)*us(:,:,:,3) )*dx*dy*dz*eps
+  force_new_loc(1) = sum( maskpart(:,:,:,partid)*us(:,:,:,1) )*dx*dy*dz*eps
+  force_new_loc(2) = sum( maskpart(:,:,:,partid)*us(:,:,:,2) )*dx*dy*dz*eps
+  force_new_loc(3) = sum( maskpart(:,:,:,partid)*us(:,:,:,3) )*dx*dy*dz*eps
   
   call MPI_REDUCE(force_new_loc(1),force_new(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
   call MPI_REDUCE(force_new_loc(2),force_new(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
@@ -193,9 +193,9 @@ subroutine cal_unst_corrections_parts ( time, dt, partid )
         ylev = dble(iy)*dy - y0
         zlev = dble(iz)*dz - z0    
         
-        usx = us(ix,iy,iz,1)*Insect%maskpart(ix,iy,iz,partid)*eps
-        usy = us(ix,iy,iz,2)*Insect%maskpart(ix,iy,iz,partid)*eps
-        usz = us(ix,iy,iz,3)*Insect%maskpart(ix,iy,iz,partid)*eps
+        usx = us(ix,iy,iz,1)*maskpart(ix,iy,iz,partid)*eps
+        usy = us(ix,iy,iz,2)*maskpart(ix,iy,iz,partid)*eps
+        usz = us(ix,iy,iz,3)*maskpart(ix,iy,iz,partid)*eps
         
         torque_new_loc(1) = torque_new_loc(1) + (ylev*usz - zlev*usy)
         torque_new_loc(2) = torque_new_loc(2) + (zlev*usx - xlev*usz)

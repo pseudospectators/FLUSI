@@ -39,7 +39,7 @@ subroutine Draw_Insect ( time )
   
   ! initialize mask and solid velocity as zero
   mask = 0.0d0
-  Insect%maskpart = 0.d0
+  maskpart = 0.d0
   us = 0.d0
   
   !------------------------------------
@@ -230,7 +230,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       
       if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
         mask(ix,iy,iz) = mask_tmp
-        Insect%maskpart(ix,iy,iz,1) = mask_tmp ! For wing/body forces
+        maskpart(ix,iy,iz,1) = mask_tmp ! For wing/body forces
         !------------------------------------------------
         ! solid body rotation
         ! Attention: the Matrix transpose(M) brings us back to the body
@@ -442,7 +442,7 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
       !-----------------------------------------
       if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
         mask(ix,iy,iz) = mask_tmp
-        Insect%maskpart(ix,iy,iz,1) = mask_tmp ! For wing/body forces
+        maskpart(ix,iy,iz,1) = mask_tmp ! For wing/body forces
         !------------------------------------------------
         ! solid body rotation
         ! Attention: the Matrix transpose(M) brings us back to the body
@@ -499,7 +499,7 @@ subroutine DrawBody(ix,iy,iz,x_body)
 
         if ( R < R0 + Insect%safety ) then
           mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
-          Insect%maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
+          maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
         endif
         endif
     endif
@@ -542,7 +542,7 @@ subroutine DrawBody(ix,iy,iz,x_body)
       if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
         R_tmp = steps(R,R0)        
         mask(ix,iy,iz)= max( R_tmp*x_tmp , mask(ix,iy,iz) )
-        Insect%maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
+        maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
       endif      
     
     endif
@@ -600,7 +600,7 @@ subroutine DrawBody(ix,iy,iz,x_body)
       if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
         R_tmp = steps(R,R0)        
         mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
-        Insect%maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
+        maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
       endif      
     
     endif
@@ -689,7 +689,7 @@ subroutine DrawHead(ix,iy,iz,x)
         R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
         if ( R < R0 + Insect%safety ) then
           mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
-          Insect%maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
+          maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
         endif
         endif
       endif
