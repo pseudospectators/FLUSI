@@ -3,7 +3,7 @@ import utils;
 
 size(200,150,IgnoreAspect);
 //scale(Linear,Linear);
-scale(Linear,Log);
+
 
 // used to over-ride the normal legend
 // usage:
@@ -12,11 +12,13 @@ scale(Linear,Log);
 // Use usersetting() to get optional 
 string runlegs;
 real tmax=realMax;
+string thescale="linlog";
 usersetting();
 bool myleg=((runlegs == "") ? false: true);
 string[] legends=set_legends(runlegs);
 
 string yvar=getstring("y variable: dissu, dissb, total");
+
 
 int ypos=0;
 if(yvar == "dissu") ypos=1;
@@ -30,6 +32,10 @@ if(ypos == 0) {
   write("Invalid choice for y variable.");
   exit();
 }
+
+scale(Linear,Log);
+if(thescale=="linlin")
+  scale(Linear,Linear);
 
 string runs=getstring("runs");
 string run;
@@ -56,8 +62,8 @@ while(flag) {
     // get time:
     real[] t=a[0];
     pen p=Pentype(n);
-    if(n == 0) p+=longdashed;
-    if(n == 2) p=darkgreen+solid;
+    // if(n == 0) p+=longdashed;
+    // if(n == 2) p=darkgreen+solid;
     
     string legend=myleg ? legends[n] : texify(run);
     if(ypos > 0) {
@@ -72,7 +78,12 @@ while(flag) {
 draw_another(myleg,legends,n);
 
 // Draw axes
-yvar="$\nu\int\left|\omega\right|^2\mathrm{d}x$";
+if(yvar == "dissu") 
+  yvar="$\nu\int\left|\omega\right|^2\mathrm{d}x$";
+if(yvar == "dissb") 
+  yvar="$\eta\int\left|\j\right|^2\mathrm{d}x$";
+if(yvar == "total") 
+  yvar="$\int \nu\left|\omega\right|^2 + \eta\left|\j\right|^2 \mathrm{d}x$";
 yaxis(yvar,LeftRight,LeftTicks);
 xaxis("time",BottomTop,LeftTicks);
   
