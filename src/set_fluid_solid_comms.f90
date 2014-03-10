@@ -52,5 +52,5 @@ subroutine setup_fluid_solid_communicators ( number_of_solid_cpus )
   call MPI_GROUP_INCL ( original_group, ncpu_solid, solid_ranks, group_solid, mpicode )     
   call MPI_COMM_CREATE ( MPI_COMM_WORLD, group_solid, MPI_COMM_SOLID, mpicode  )
   ! ----------------------------------------------------------------------------  
-  
+  deallocate ( fluid_ranks, solid_ranks )
 end subroutine

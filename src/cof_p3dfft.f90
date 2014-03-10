@@ -128,9 +128,7 @@ subroutine fft_initialize
      stop
   endif
 
-  !-- Initialize P3FFT
-  ! old: p3dfft_setup(dims,nx,ny,nz,overwrite)
-  ! new: p3dfft_setup(dims,nx,ny,nz,mpi_comm_in,nxcut,nycut,nzcut,overwrite,memsize)
+  !-- Initialize P3DFFT
   call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
 
   !-- Get local sizes
@@ -392,21 +390,21 @@ end subroutine trextents
 real(kind=pr) function wave_x( ix )
   use vars ! for scale and precision statement
   implicit none
-integer, intent (in) :: ix
+  integer, intent (in) :: ix
   wave_x = scalex*dble(ix)
 end function
 
 real(kind=pr) function wave_y( iy )
   use vars ! for scale and precision statement
   implicit none
-integer, intent (in) :: iy
+  integer, intent (in) :: iy
   wave_y = scaley*dble(modulo(iy+ny/2,ny)-ny/2)
 end function
 
 real(kind=pr) function wave_z( iz )
   use vars ! for scale and precision statement
   implicit none
-integer, intent (in) :: iz
+  integer, intent (in) :: iz
   wave_z = scalez*dble(modulo(iz+nz/2,nz)-nz/2)
 end function
 
