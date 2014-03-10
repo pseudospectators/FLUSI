@@ -22,6 +22,7 @@ MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd
 VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd
+VPATH += :src/insects
 
 # Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
