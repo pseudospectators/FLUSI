@@ -13,7 +13,15 @@ module fftw3_descriptors
 
 end module fftw3_descriptors
 
+!---------------------------------------------------------------------
+! module that contains wrappers for P3DFFT
+!---------------------------------------------------------------------
 
+module p3dfft_wrapper
+  use vars
+  implicit none
+  
+  contains
 
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
@@ -65,9 +73,15 @@ subroutine ifft3(outx,ink)
 end subroutine ifft3
 
 subroutine fft_initialize
-  !====================================================================
+  !-----------------------------------------------------------------------------
   !     Allocate memory and initialize FFT
-  !====================================================================
+  !-----------------------------------------------------------------------------
+  ! This subroutine performs two major tasks:
+  !     * Initialize P3DFFT and provide the memory management (how big are the 
+  !       chunks of data on each process (coftxyz and cofitxyz)
+  !     * Initialize 1D transforms that rely on FFTW (cofts and cofits)
+  !       the auxiliary subroutine textents is used here
+  !-----------------------------------------------------------------------------
   use mpi ! Module incapsulates mpif.
   use vars
   use p3dfft
@@ -81,10 +95,13 @@ subroutine fft_initialize
   logical,dimension(2) :: subcart
   real(kind=pr),dimension(:,:),allocatable :: f,ft
 
-  ! ------ Three-dimensional FFT ------
-  !-- Set up dimensions
+  !-----------------------------------------------------------------------------
+  !------ Three-dimensional FFT                                           ------
+  !-----------------------------------------------------------------------------
+  
+    !-- Set up dimensions  
   !-- !!! Note that p3dfft_setup permutes mpidims, if DIMS_C is not defined !!!
-  if(ny>mpisize) then
+  if (ny>mpisize) then
      mpidims(1) = 1
      mpidims(2) = mpisize / mpidims(1)
   else
@@ -112,25 +129,21 @@ subroutine fft_initialize
   endif
 
   !-- Initialize P3FFT
-  call p3dfft_setup(mpidims,nx,ny,nz,.false.)
+  ! old: p3dfft_setup(dims,nx,ny,nz,overwrite)
+  ! new: p3dfft_setup(dims,nx,ny,nz,mpi_comm_in,nxcut,nycut,nzcut,overwrite,memsize)
+  call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
 
   !-- Get local sizes
-  call get_dims(ra,rb,rs,1)  ! real blocks
-  call get_dims(ca,cb,cs,2)  ! complex blocks
+  call p3dfft_get_dims(ra,rb,rs,1)  ! real blocks
+  call p3dfft_get_dims(ca,cb,cs,2)  ! complex blocks
   ra(:) = ra(:) - 1
   rb(:) = rb(:) - 1
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
 
-  !-- Allocate domain partitioning tables and gather sizes from all
-  !-- processes (only for real arrays)
-  allocate(ra_table(1:3,0:mpisize-1),rb_table(1:3,0:mpisize-1) )
-  call MPI_ALLGATHER(ra,3,MPI_INTEGER,ra_table,3,MPI_INTEGER,MPI_COMM_WORLD,&
-       mpicode)
-  call MPI_ALLGATHER(rb,3,MPI_INTEGER,rb_table,3,MPI_INTEGER,MPI_COMM_WORLD,&
-       mpicode)
-
-  ! ------ Multiple one-dimensional FFTs ------
+  !-----------------------------------------------------------------------------     
+  ! ------ Multiple one-dimensional FFTs                                  ------
+  !-----------------------------------------------------------------------------
   !-- Create Cartesian topology for one-dimensional transforms
   call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/.false.,.false./),&
        .false.,mpicommcart,mpicode)
@@ -209,8 +222,6 @@ subroutine fft_free
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
 
-  !-- Deallocate domain partitioning tables
-  deallocate(ra_table,rb_table )
 
 end subroutine fft_free
 
@@ -231,7 +242,7 @@ subroutine coftxyz(f,fk)
 
   t1 = MPI_wtime()
   ! Compute forward FFT
-  call p3dfft_ftran_r2c(f,fk)
+  call p3dfft_ftran_r2c(f,fk,'fff')
 
   ! Normalize
   fk(:,:,:) = fk(:,:,:) / dble(nx*ny*nz)
@@ -269,7 +280,7 @@ subroutine cofitxyz(fk,f)
   t1 = MPI_wtime()
 
   ! Compute backward FFT
-  call p3dfft_btran_c2r(fk,f)
+  call p3dfft_btran_c2r(fk,f,'fff')
 
 
   time_ifft  = time_ifft  + MPI_wtime() - t1
@@ -371,3 +382,32 @@ subroutine trextents(idir,n,mpidims,mpicoords,ka,kb,ks,kat,kbt,kst )
   kst(:) = kbt(:)-kat(:)+1
 
 end subroutine trextents
+ 
+
+!----------------------------------------------------------------
+! wavenumber functions: return the kx,ky,kz wavenumbers
+! as a function of the array index
+!----------------------------------------------------------------
+
+real(kind=pr) function wave_x( ix )
+  use vars ! for scale and precision statement
+  implicit none
+integer, intent (in) :: ix
+  wave_x = scalex*dble(ix)
+end function
+
+real(kind=pr) function wave_y( iy )
+  use vars ! for scale and precision statement
+  implicit none
+integer, intent (in) :: iy
+  wave_y = scaley*dble(modulo(iy+ny/2,ny)-ny/2)
+end function
+
+real(kind=pr) function wave_z( iz )
+  use vars ! for scale and precision statement
+  implicit none
+integer, intent (in) :: iz
+  wave_z = scalez*dble(modulo(iz+nz/2,nz)-nz/2)
+end function
+
+end module p3dfft_wrapper

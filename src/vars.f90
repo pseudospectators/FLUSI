@@ -10,7 +10,7 @@ module vars
 
   ! Method variables set in the program file:
   character(len=3),save:: method ! mhd  or fsi
-  integer,save :: nf ! number of fields (1 for NS, 2 for MHD)
+  integer,save :: nf ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd ! number of fields (3 for NS, 6 for MHD)
 
   ! MPI and p3dfft variables and parameters
@@ -21,31 +21,28 @@ module vars
   ! p3dfft only parameters (move to appropraite .f90 file?)
   integer,save :: mpicommcart 
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
-  integer,dimension (:,:),allocatable,save :: ra_table,rb_table
+  
 
   ! Used in params.f90
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
 
   real(kind=pr),save :: pi ! 3.14....
 
-  real (kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
+  real(kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
 
   ! Vabiables timing statistics.  Global to simplify syntax.
-  real (kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2
-  real (kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
-  real (kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-  real (kind=pr),save :: time_sponge
+  real(kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2
+  real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
+  real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
+  real(kind=pr),save :: time_sponge
   
   ! The mask array.  TODO: move out of shave_vars?
-  real (kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
+  real(kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
-  real (kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
+  real(kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
 
-
-  ! Variables set via the parameters file
+  ! generic lengthscale, for example circle radius or plate spanwise length
   real(kind=pr),save :: length 
-  ! Q: what is length? 
-  ! A: a generic lengthscale, for example circle radius or plate spanwise length
   
   ! Domain size variables:
   integer,save :: nx,ny,nz
@@ -79,7 +76,6 @@ module vars
   character(len=80),save :: file_bx,file_by,file_bz
   real(kind=pr),save :: omega1 ! FIXME: what is omega1?
 
-
   ! Boundary conditions:
   character(len=80),save :: iMask
   integer,save :: iMoving,iPenalization
@@ -89,6 +85,13 @@ module vars
   character(len=80) :: iSmoothing ! how to smooth the mask
   real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
 
+  ! Am I a fluid or a solid CPU?
+  logical, save :: fluid_cpu, solid_cpu
+  ! number of CPU, of CPU for fluid and CPU for solid
+  integer, save :: ncpu, ncpu_fluid, ncpu_solid
+  ! communicators:
+  integer, save :: MPI_COMM_FLUID, MPI_COMM_SOLID
+  
   contains 
 
     ! Routines to allocate real and complex arrays using the standard
@@ -98,16 +101,19 @@ module vars
       real(kind=pr),dimension(:,:,:),allocatable :: u
       allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
     end subroutine allocreal
+    
     subroutine alloccomplex(u)
       implicit none
       complex(kind=pr),dimension(:,:,:),allocatable :: u
       allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
     end subroutine alloccomplex
+    
     subroutine allocrealnd(u)
       implicit none
       real(kind=pr),dimension(:,:,:,:),allocatable :: u
       allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
     end subroutine allocrealnd
+    
     subroutine alloccomplexnd(u)
       implicit none
       complex(kind=pr),dimension(:,:,:,:),allocatable :: u

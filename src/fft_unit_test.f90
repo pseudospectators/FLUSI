@@ -15,6 +15,7 @@
 subroutine FFT_unit_test ( u, uk )
   use mpi
   use vars  
+  use p3dfft_wrapper
   ! input: real work array
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   ! input: complex work array
@@ -34,9 +35,9 @@ subroutine FFT_unit_test ( u, uk )
   call fft ( uk, u )
   
   ! compute gradient
-  do ix=ca(2), cb(2)  ! kx : 0..nx/2
-     kx=scalex*dble(ix)                
-     uk(:,ix,:) = uk(:,ix,:) * kx *dcmplx(0.d0,1.d0)
+  do ix=ca(3), cb(3)
+     kx = wave_x( ix )
+     uk(:,:,ix) = uk(:,:,ix) * kx *dcmplx(0.d0,1.d0)
   enddo
   
   ! to x space
@@ -73,9 +74,9 @@ subroutine FFT_unit_test ( u, uk )
   call fft ( uk, u )
   
   ! compute gradient
-  do iy=ca(3), cb(3)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
-     ky = scaley*dble(modulo(iy+ny/2,ny)-ny/2)                 
-     uk(:,:,iy) = uk(:,:,iy)*ky*dcmplx(0.d0,1.d0)
+  do iy=ca(2), cb(2)    ! ky : 0..ny/2-1 ,then, -ny/2..-1     
+     ky = wave_y(iy)               
+     uk(:,iy,:) = uk(:,iy,:)*ky*dcmplx(0.d0,1.d0)
   enddo
   
   ! to x space
@@ -113,7 +114,7 @@ subroutine FFT_unit_test ( u, uk )
   
   ! compute gradient
   do iz=ca(1),cb(1)  ! kz : 0..nz/2-1 ,then, -nz/2..-1           
-    kz = scalez*dble(modulo(iz+nz/2,nz)-nz/2)      
+    kz = wave_z(iz)     
     uk(iz,:,:) = uk(iz,:,:)*kz*dcmplx(0.d0,1.d0)
   enddo
   

@@ -1,14 +1,17 @@
 #!/bin/bash
 
-if [ ! -f flusi ]; then
+for prog in flusi
+do
+    if [ ! -f $prog ]; then
   # if no flusi excecutable present, try copying it from root folder
-  if [ -f ../flusi ]; then
-      cp ../flusi ./
-  else
-      echo "no flusi excecutable present..."
-      exit 1
-  fi
-fi
+	if [ -f ../$prog ]; then
+	    ln -s ../$prog .
+	else
+	    echo "no flusi excecutable present..."
+	    exit 1
+	fi
+    fi
+done
 
 # set up mpi command (this may be machine dependent!!)
 mpi_command="mpiexec --np 4 -host localhost"
