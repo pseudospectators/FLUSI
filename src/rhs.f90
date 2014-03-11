@@ -113,26 +113,15 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         vorz = vort(ix,iy,iz,3)
         
         ! local variables for penalization
-        if (iPenalization==1) then
-          ! is there channel walls?
-          if (iChannel==1) then
-            call channel(chi2,ix,iy,iz)
-          endif
-          
-          ! without channel walls, chi2 is zero
-          chi  = mask(ix,iy,iz) + chi2
-          
-          if (iMoving==1) then
-            usx = us(ix,iy,iz,1)
-            usy = us(ix,iy,iz,2)
-            usz = us(ix,iy,iz,3)
-          endif
-          
-          ! actual penalization term
-          penalx = -chi*(ux-usx)
-          penaly = -chi*(uy-usy)
-          penalz = -chi*(uz-usz)
-        endif
+        chi  = mask(ix,iy,iz)          
+        usx = us(ix,iy,iz,1)
+        usy = us(ix,iy,iz,2)
+        usz = us(ix,iy,iz,3)
+        
+        ! actual penalization term
+        penalx = -chi*(ux-usx)
+        penaly = -chi*(uy-usy)
+        penalz = -chi*(uz-usz)
         
         ! we overwrite the vorticity with the NL terms in phys space
         ! note this is indeed -(vor x u) (negative sign)

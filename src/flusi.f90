@@ -173,7 +173,7 @@ subroutine Start_Simulation()
   ! mask color function (distinguishes between different parts of the mask
   allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
   ! solid body velocities
-  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   
   
   if (iVorticitySponge == "yes") then

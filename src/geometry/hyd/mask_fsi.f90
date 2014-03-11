@@ -1,21 +1,22 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions 
-subroutine create_mask_fsi(time)
+subroutine create_mask_fsi (time)
   use mpi
   use fsi_vars
   implicit none
-
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: t1, eps_inv
-
   t1 = MPI_wtime() 
   
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+
   !-------------------------------------------------------------
   ! create obstacle mask
   !-------------------------------------------------------------  
   ! do not create any mask when not using penalization
   if (iPenalization==1) then
-    ! reset solid velocity
-    if (iMoving==1) us = 0.d0
     ! Actual mask functions:
     select case (iMask)
     case ("sphere","Sphere")    
@@ -27,21 +28,23 @@ subroutine create_mask_fsi(time)
     case ("plate","Plate")
       call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
     case default    
-      if (mpirank == 0) then
-          write (*,*) "iMask="//iMask//" not properly set; stopping."
-          stop
-      endif
+      write (*,*) "iMask="//iMask//" not properly set; stopping."
+      stop
     end select
   endif
 
   !-------------------------------------------------------------
-  ! cavity mask
+  ! add cavity / channel mask 
   !-------------------------------------------------------------  
   ! if desired, add cavity mask surrounding the domain
   if ((iCavity=="yes").and.(iPenalization==1)) then
     call Add_Cavity ()
   endif
   
+  ! if desired, add channel mask 
+  if ((iChannel/="no").and.(iPenalization==1)) then
+    call Add_Channel ()
+  endif
   
   !------------------------------------------------------------      
   ! For forces on wings/body
@@ -76,7 +79,6 @@ subroutine Flapper (time)
   real (kind=pr) :: R, alpha_t, un, alpha_max
   real (kind=pr) :: y, z, ys,zs, alpha,L,H, tmp, N
 
-
   alpha_max = 30.d0*pi/180.d0
   alpha   =           alpha_max*dsin(time*2.d0*pi)
   alpha_t = (2.d0*pi)*alpha_max*dcos(time*2.d0*pi)
@@ -86,10 +88,6 @@ subroutine Flapper (time)
 
   L = 1.d0
   H = 0.0625
-
-  ! initialize fields
-  mask = 0.d0
-  us = 0.d0
 
   N=3.0 ! smoothing coefficient
 
@@ -103,17 +101,18 @@ subroutine Flapper (time)
         zs = -dsin(alpha)*y + dcos(alpha)*z
 
         if ( (ys>=0.d0) .and. (ys<=L) )  then
-
            call SmoothStep (tmp, abs(zs), H, N*max(dx,dy,dz))
            mask(:,iy,iz) = tmp
 
+           ! assign color "1" where >0 indicates something "useful"
+           if (tmp > 1.0e-12) mask_color(:,iy,iz) = 1
+           
            if (dabs(zs)<=2.d0*H) then
               R = dsqrt( y**2 + z**2  )
               un = R*alpha_t
               us(:,iy,iz,2) = -dsin(alpha)*un
               us(:,iy,iz,3) = +dcos(alpha)*un
            endif
-
         endif
      enddo
   enddo
@@ -131,6 +130,9 @@ subroutine Flapper (time)
            if (mask(1,iy,iz)<tmp) then
               mask(:,iy,iz) = tmp
 
+              ! assign color "1" where >0 indicates something "useful"
+              if (tmp > 1.0e-12) mask_color(ix,iy,iz) = 1
+              
               R = dsqrt( y**2 + z**2  )
               un = R*alpha_t
               us(:,iy,iz,2) = -dsin(alpha)*un
@@ -146,7 +148,10 @@ subroutine Flapper (time)
            call SmoothStep (tmp, R, H, N*max(dx,dy,dz))
            if (mask(1,iy,iz)<tmp) then
               mask(:,iy,iz) = tmp
-
+              
+              ! assign color "1" where >0 indicates something "useful"
+              if (tmp > 1.0e-12) mask_color(ix,iy,iz) = 1
+              
               y = dble(iy)*dy - y0
               z = dble(iz)*dz - z0
               R = dsqrt( y**2 + z**2  )
@@ -161,41 +166,3 @@ subroutine Flapper (time)
 end subroutine Flapper
 
 
-! add a cavity mask around the domain
-! note: if the obstacle extends in this zone (e.g. the flying insect touching
-! the lower end of the domain), it will be overwritten.
-subroutine Add_Cavity()
-  use mpi
-  use fsi_vars
-  implicit none
-  integer :: ix,iy,iz
-  
-  do ix = ra(1), rb(1)
-    do iy = ra(2), rb(2)
-       do iz = ra(3), rb(3)
-       
-          if ((ix<=cavity_size-1).or.(ix>=nx-1-cavity_size+1)) then            
-            mask(ix,iy,iz) = 1.d0
-            if (iMoving == 1) then
-              us(ix,iy,iz,:) = 0.d0
-            endif
-          endif
-          
-          if ((iy<=cavity_size-1).or.(iy>=ny-1-cavity_size+1)) then       
-            mask(ix,iy,iz) = 1.d0
-            if (iMoving == 1) then
-              us(ix,iy,iz,:) = 0.d0
-            endif
-          endif     
-          
-          if ((iz<=cavity_size-1).or.(iz>=nz-1-cavity_size+1)) then            
-            mask(ix,iy,iz) = 1.d0
-            if (iMoving == 1) then
-              us(ix,iy,iz,:) = 0.d0
-            endif
-          endif
-       enddo
-    enddo
-  enddo
- 
-end subroutine Add_Cavity

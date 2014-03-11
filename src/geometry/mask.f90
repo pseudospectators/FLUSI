@@ -7,30 +7,21 @@ subroutine create_mask(time)
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: eps_inv
 
-  ! do not create any mask when not using penalization
-  if (iPenalization==1) then  
-    ! Attention: mask is reset here (and not in subroutines)
-    mask = 0.d0
+  ! Attention: mask is reset here (and not in subroutines)
+  mask = 0.d0
 
-    ! Actual mask functions:
-    select case(method)
-    case("fsi")
-        call create_mask_fsi(time)
-    case("mhd")
-        call create_mask_mhd()
-    case default    
-        if(mpirank == 0) then
-          write (*,*) "Error: unkown method in create_mask; stopping."
-          stop
-        endif
-    end select
+  ! Actual mask functions:
+  select case(method)
+  case("fsi")
+    call create_mask_fsi(time)
+  case("mhd")
+    call create_mask_mhd()
+  end select
 
-    ! Attention: division by eps is done here, not in subroutines.
-    eps_inv = 1.d0/eps
-    mask = mask*eps_inv  
+  ! Attention: division by eps is done here, not in subroutines.
+  eps_inv = 1.d0/eps
+  mask = mask*eps_inv  
 
-    
-  endif
 end subroutine create_mask
 
 
@@ -59,32 +50,7 @@ subroutine update_us(ub)
 end subroutine update_us
 
 
-! Spherical obstacle
-subroutine draw_sphere
-  use mpi
-  use fsi_vars
-  implicit none
 
-  integer :: ix, iy, iz
-  real (kind=pr) :: x, y, z, tmp, R, N_smooth
-
-  N_smooth = 2.d0
-
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
-           x=dble(ix)*dx
-           y=dble(iy)*dy
-           z=dble(iz)*dz
-           R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
-           if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
-              call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
-              mask (ix, iy, iz) = tmp
-           endif
-        enddo
-     enddo
-  enddo
-end subroutine draw_sphere
 
 
 

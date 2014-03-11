@@ -13,10 +13,6 @@ subroutine Draw_Plate (time)
   real (kind=pr) :: x, y, xref, yref, xlev, ylev, tmp, N, rref, rmax, hsmth, Am, alpham
   real (kind=pr) :: Af, Sxf, Syf, Jf, forcex, forcey, torquez
 
-  ! initialize fields
-  mask = 0.d0
-  us = 0.d0
-
   N = 3.0d0 ! smoothing coefficient
   hsmth = N*dx ! smoothing layer thickness
   rmax = 0.5d0
@@ -50,6 +46,9 @@ subroutine Draw_Plate (time)
      call SmoothStep (tmp, rref, rmax-0.0d0*hsmth, hsmth)
      mask(ix,iy,iz) = tmp
 
+     ! assign color "1" where >0 indicates something "useful"
+     if (tmp > 1.0e-12) mask_color(ix,iy,iz) = 1
+     
      ! Velocity
      if ( rref < rmax+6.0d0*hsmth ) then
       us(ix,iy,iz,1) = -omz2*y + vx2
