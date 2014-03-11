@@ -131,7 +131,7 @@ subroutine Flapper (time)
               mask(:,iy,iz) = tmp
 
               ! assign color "1" where >0 indicates something "useful"
-              if (tmp > 1.0e-12) mask_color(ix,iy,iz) = 1
+              if (tmp > 1.0e-12) mask_color(:,iy,iz) = 1
               
               R = dsqrt( y**2 + z**2  )
               un = R*alpha_t
@@ -150,7 +150,7 @@ subroutine Flapper (time)
               mask(:,iy,iz) = tmp
               
               ! assign color "1" where >0 indicates something "useful"
-              if (tmp > 1.0e-12) mask_color(ix,iy,iz) = 1
+              if (tmp > 1.0e-12) mask_color(:,iy,iz) = 1
               
               y = dble(iy)*dy - y0
               z = dble(iz)*dz - z0

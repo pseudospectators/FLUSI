@@ -192,7 +192,8 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Penalization","cavity_size",cavity_size,0)
   call GetValue_Int(PARAMS,i,"Penalization","compute_forces",compute_forces,1)   
   call GetValue_Int(PARAMS,i,"Penalization","unst_corrections",unst_corrections,0)        
-  call GetValue_String(PARAMS,i,"Penalization","iChannel",iChannel,"no") 
+  iChannel = "no"
+  call GetValue_String(PARAMS,i,"Penalization","iChannel",iChannel,iChannel) 
   
   ! ---------------------------------------------------
   ! sponge
