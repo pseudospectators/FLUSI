@@ -1,7 +1,12 @@
+!-------------------------------------------------------------------------------
+! Computes mask function for channel walls at the current position
+!-------------------------------------------------------------------------------
+! The channel mask is not taken into account when computing integral forces, and
+! it is usually so simple that we do not need to allocate an entire array for it
+! in the main loop of cal_nlk_fsi, we loop over the real space, and we just call
+! this subroutine
+!-------------------------------------------------------------------------------
 subroutine channel ( chi, ix, iy, iz )
-!---------------------------------------------------------------
-!     Computes penalization term due to channel walls
-!---------------------------------------------------------------
   use fsi_vars
   implicit none
 
@@ -20,18 +25,18 @@ subroutine channel ( chi, ix, iy, iz )
 
   select case (iWall)
   case ("xz")
-  ! Floor - xz solid wall between y_wall-thick_wall and y_wall
-  y = dble(iy)*dy
-  if ( (y>=pos_wall-thick_wall) .and. (y<=pos_wall) ) then
-     chi = epsinv
-  endif
+    ! Floor - xz solid wall between y_wall-thick_wall and y_wall
+    y = dble(iy)*dy
+    if ( (y>=pos_wall-thick_wall) .and. (y<=pos_wall) ) then
+      chi = epsinv
+    endif
 
   case ("xy")
-  ! Floor - xy solid wall between z_wall-thick_wall and z_wall
-  z = dble(iz)*dz
-  if ( (z>=pos_wall-thick_wall) .and. (z<=pos_wall) ) then
-     chi = epsinv
-  endif
+    ! Floor - xy solid wall between z_wall-thick_wall and z_wall
+    z = dble(iz)*dz
+    if ( (z>=pos_wall-thick_wall) .and. (z<=pos_wall) ) then
+      chi = epsinv
+    endif
   end select
 
 end subroutine channel

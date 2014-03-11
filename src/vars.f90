@@ -37,6 +37,7 @@ module vars
   
   ! The mask array.  TODO: move out of shave_vars?
   real(kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
+  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color ! mask color function
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
   real(kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
 

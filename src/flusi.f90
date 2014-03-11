@@ -168,6 +168,13 @@ subroutine Start_Simulation()
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
   ! real valued work array
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  ! mask function (defines the geometry)
+  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
+  ! mask color function (distinguishes between different parts of the mask
+  allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
+  ! solid body velocities
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  
   
   if (iVorticitySponge == "yes") then
     ! sponge term (this is currently global, but it will be changed)
@@ -187,16 +194,10 @@ subroutine Start_Simulation()
 
   
   ! Create obstacle mask
-  if (iPenalization==1) then
-     ! you need the mask field only if you want to actually do penalization
-     allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))     
+  if (iPenalization==1) then        
      ! For insect wing/body forces
      if (iMask=='Insect') then
         allocate(maskpart(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2))
-     endif
-     if(iMoving == 1) then
-        ! if your obstacle moves,you'll need this field for its velocity field
-        allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
      endif
      ! create mask(this one call can be redundant,but who cares.)
      call Create_Mask(0.0d0)
@@ -252,18 +253,19 @@ subroutine Start_Simulation()
   deallocate(explin)
   deallocate(vort,work)
   deallocate(u,uk,nlk)
+  deallocate(us)
+  deallocate(mask)
+  deallocate(mask_color)
   
   if (iVorticitySponge == "yes") then
   deallocate(sponge)
   endif
   
-  if(iPenalization == 1) then
-     deallocate(mask)
+  if(iPenalization == 1) then     
      ! For insect wing/body forces
      if (iMask=='Insect') then
         deallocate(maskpart)
      endif
-     if(iMoving == 1) deallocate(us)
   endif
 
   ! Clean kinematics (Dmitry, 14 Nov 2013)
