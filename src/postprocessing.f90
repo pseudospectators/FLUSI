@@ -2,7 +2,7 @@
 ! Wrapper for different postprocessing tools
 !-------------------------------------------------------------------------------
 subroutine postprocessing()
-  use fsi_vars
+  use vars
   use mpi
   implicit none
   character (len=80)     :: postprocessing_mode, filename, key1,key2
@@ -44,9 +44,8 @@ end subroutine postprocessing
 !-------------------------------------------------------------------------------
 ! converts the *.h5 file to an ordinairy binary file
 subroutine convert_hdf2bin()
-  use fsi_vars
+  use vars
   use mpi
-  use p3dfft_wrapper
   implicit none
   character(len=80) :: fname, dsetname  
   real(kind=pr), dimension(:,:,:), allocatable :: field
@@ -99,7 +98,7 @@ end subroutine convert_hdf2bin
 ! directly compute the absolute value of vorticity, do not save components
 ! can be done in parallel
 subroutine convert_abs_vorticity()
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use mpi
   implicit none
@@ -184,7 +183,7 @@ end subroutine convert_abs_vorticity
 ! load the velocity components from file and compute & save the vorticity
 ! can be done in parallel
 subroutine convert_vorticity()
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use mpi
   implicit none
@@ -267,8 +266,7 @@ end subroutine convert_vorticity
 ! min / max / mean / L2 norm of the field data. This is used for unit testing
 ! so that we don't need to store entire fields but rather the *.key only
 subroutine keyvalues(filename)
-  use fsi_vars
-  use p3dfft_wrapper
+  use vars
   use mpi
   implicit none
   character(len=*), intent(in) :: filename
@@ -312,9 +310,8 @@ end subroutine keyvalues
 !-------------------------------------------------------------------------------
 ! compares to *.key files if they're equal
 subroutine compare_key(key1,key2)
-  use fsi_vars
+  use vars
   use mpi
-  use p3dfft_wrapper
   implicit none
   character(len=*), intent(in) :: key1,key2
   real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2
