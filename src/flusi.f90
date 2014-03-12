@@ -93,66 +93,15 @@ subroutine Start_Simulation()
   ! Initialize FFT
   call fft_initialize 
   
-  tab = char(9) ! set horizontal tab character 
-  ! to do: please kill malcolm now.
-
   !-----------------------------------------------------------------------------
   ! Initialize time series output files, if not resuming a backup
   !-----------------------------------------------------------------------------
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
-    open  (14,file='forces.t',status='replace')
-    write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
-    close (14)
-
-    ! For insect wing/body forces
-    if (iMask=='Insect') then
-       open  (14,file='forces_part1.t',status='replace')
-       write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                         "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                         "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                         "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
-       open  (14,file='forces_part2.t',status='replace')
-       write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                         "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                         "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                         "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
-    endif
-
-    if (iMask=='Insect') then
-      open  (14,file='kinematics.t',status='replace')
-      write (14,'(27A)') "% time",tab,"xc_body",tab,"yc_body",tab,"zc_body",tab,&
-                        "psi",tab,"beta",tab,"gamma",tab,"eta_stroke",tab,&
-                        "alpha_l",tab,"phi_l",tab,"theta_l",tab,&
-                        "alpha_r",tab,"phi_r",tab,"theta_r"
-      close (14)
-    endif    
-
-    open  (14,file='divu.t',status='replace')
-    write (14,'(13A)') "% time",tab,"max(divu)",tab
-    close (14)
-    
-    ! this file contains, time, iteration#, time step and performance
-    open  (14,file='timestep.t',status='replace')
-    close (14)    
-    
-    open  (14,file='meanflow.t',status='replace')
-    close (14)
+    call initialize_time_series_files()
   endif
-
+ 
   ! Print domain decomposition
-  if (mpirank == 0) then
-     write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '*** Domain decomposition:'
-     write(*,'(A)') '--------------------------------------'
-  endif
-  call MPI_barrier (MPI_COMM_world, mpicode)
-  write (*,'("mpirank=",i5," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&
-       &") k-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
-       mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
-  call MPI_barrier (MPI_COMM_world, mpicode)
+  call print_domain_decomposition()
 
   !-----------------------------------------------------------------------------
   ! Allocate memory:
@@ -173,8 +122,7 @@ subroutine Start_Simulation()
   ! mask color function (distinguishes between different parts of the mask
   allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
   ! solid body velocities
-  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
-  
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))  
   
   if (iVorticitySponge == "yes") then
     ! sponge term (this is currently global, but it will be changed)
@@ -192,7 +140,9 @@ subroutine Start_Simulation()
      call rigid_solid_init(SolidDyn%idynamics)
   endif 
 
+  !-----------------------------------------------------------------------------
   ! check if at least FFT works okay
+  !-----------------------------------------------------------------------------
   call fft_unit_test(work,uk(:,:,:,1))
   
   time=0.0
@@ -200,20 +150,26 @@ subroutine Start_Simulation()
   dt0=1.0d0
   dt1=2.0d0
 
-  ! Initialize vorticity or read values from a backup file
+  !-----------------------------------------------------------------------------
+  ! Initial condition
+  !-----------------------------------------------------------------------------
   if (mpirank == 0) write(*,*) "Set up initial conditions...."
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
   n0=1 - n1 !important to do this now in case we're retaking a backp
   
+  !-----------------------------------------------------------------------------
+  ! Masks for startup
+  !-----------------------------------------------------------------------------  
   if (mpirank == 0) write(*,*) "Create mask variables...."
   ! Create mask function:
   call create_mask(time)
   call update_us(u)
 
-  !-----------------------------------------------------------------------------
+  !*****************************************************************************
   ! Step forward in time
-  !-----------------------------------------------------------------------------
+  !*****************************************************************************
   call MPI_barrier (MPI_COMM_world, mpicode)
+  
   t1 = MPI_wtime()
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! Actual time-stepping function
@@ -224,18 +180,7 @@ subroutine Start_Simulation()
      write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i5," CPUs")') t2, mpisize
   endif
   
-
-  if(mpirank==0) then
-     write(*,*) "control values for debugging:"
-     write(*,'("Ekin=",es15.8," Dissip=",es15.8," F1=",es15.8," F2=",es15.8," F3=",es15.8," Vol=",es15.8)')&
-          GlobalIntegrals%Ekin,&
-          GlobalIntegrals%Dissip, GlobalIntegrals%Force(1),&
-          GlobalIntegrals%Force(2),GlobalIntegrals%Force(3),&
-          GlobalIntegrals%Volume
-  endif
-  
-
-  !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
   ! Deallocate memory
   !-----------------------------------------------------------------------------
   deallocate(lin)
@@ -309,3 +254,71 @@ subroutine show_timings(t2)
   write(*,'(A)') 'Finalizing computation....'
   write(*,'(A)') '--------------------------------------'
 end subroutine show_timings
+
+
+subroutine initialize_time_series_files()
+  use fsi_vars
+  implicit none
+  tab = char(9) ! set horizontal tab character 
+  
+  open  (14,file='forces.t',status='replace')
+  write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                    "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                    "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                    "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
+  close (14)
+
+  ! For insect wing/body forces
+  if (iMask=='Insect') then
+    open  (14,file='forces_part1.t',status='replace')
+    write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
+    open  (14,file='forces_part2.t',status='replace')
+    write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
+    open  (14,file='kinematics.t',status='replace')
+    write (14,'(27A)') "% time",tab,"xc_body",tab,"yc_body",tab,"zc_body",tab,&
+                      "psi",tab,"beta",tab,"gamma",tab,"eta_stroke",tab,&
+                      "alpha_l",tab,"phi_l",tab,"theta_l",tab,&
+                      "alpha_r",tab,"phi_r",tab,"theta_r"
+    close (14)
+  endif    
+
+  open  (14,file='divu.t',status='replace')
+  write (14,'(13A)') "% time",tab,"max(divu)",tab
+  close (14)
+  
+  ! this file contains, time, iteration#, time step and performance
+  open  (14,file='timestep.t',status='replace')
+  close (14)    
+  
+  open  (14,file='meanflow.t',status='replace')
+  close (14)  
+  
+end subroutine
+
+
+
+
+subroutine print_domain_decomposition()
+  use fsi_vars
+  use mpi
+  implicit none
+  integer :: mpicode
+  
+  
+  if (mpirank == 0) then
+     write(*,'(A)') '--------------------------------------'
+     write(*,'(A)') '*** Domain decomposition:'
+     write(*,'(A)') '--------------------------------------'
+  endif
+  call MPI_barrier (MPI_COMM_world, mpicode)
+  write (*,'("mpirank=",i5," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&
+       &") k-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
+       mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
+  call MPI_barrier (MPI_COMM_world, mpicode)
+end subroutine 
