@@ -10,7 +10,8 @@
 #-------------------------------------------------------------------------------
 
 # set up mpi command (this may be machine dependent!!)
-mpi_command="nice -n 19 ionice -c 3 mpiexec --np 4"
+nprocs=$(nproc)
+mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
 subdir=mhdorszagtang
 params=${subdir}/mhdorszagtang.ini
