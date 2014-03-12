@@ -8,7 +8,8 @@
 #-------------------------------------------------------------------------------
 
 # set up mpi command (this may be machine dependent!!)
-mpi_command="mpiexec --np 4 -host localhost"
+nprocs=$(nproc)
+mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
 params="insect.ini"
 
@@ -73,7 +74,7 @@ done
 #-------------------------------------------------------------------------------
 
 files=(forces.t forces_part1.t forces_part2.t)
-columns=(1 2 4 5 6 7 9 12)
+columns=(1 2 4 5 9 12)
 for file in ${files[@]}
 do
 for col in ${columns[@]}
