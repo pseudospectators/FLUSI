@@ -33,7 +33,6 @@ subroutine DrawBody(ix,iy,iz,x_body)
           mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
           ! body has the color "2"
           mask_color(ix,iy,iz) = 2
-          maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
         endif
         endif
     endif
@@ -78,7 +77,6 @@ subroutine DrawBody(ix,iy,iz,x_body)
         mask(ix,iy,iz)= max( R_tmp*x_tmp , mask(ix,iy,iz) )
         ! body has the color "2"
         mask_color(ix,iy,iz) = 2
-        maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
       endif      
     
     endif
@@ -138,7 +136,6 @@ subroutine DrawBody(ix,iy,iz,x_body)
         mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
         ! body has the color "2"
         mask_color(ix,iy,iz) = 2
-        maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
       endif      
     
     endif
@@ -232,7 +229,6 @@ subroutine DrawHead(ix,iy,iz,x)
           mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
           ! body parts have the color "2"
           mask_color(ix,iy,iz) = 2
-          maskpart(ix,iy,iz,2) = mask(ix,iy,iz) ! For wing/body forces
         endif
         endif
       endif

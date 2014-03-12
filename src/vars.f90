@@ -41,7 +41,6 @@ module vars
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
   real(kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
 
-
   ! Variables set via the parameters file
   real(kind=pr),save :: length 
 
@@ -192,8 +191,6 @@ module fsi_vars
 
     ! Wings and body forces
     type(Integrals), dimension(1:2) :: PartIntegrals
-    ! Wings and body mask (-> MOVED TO BE GLOBAL; TO BE CHANGED LATER)
-    !real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart
   end type InsectParams
   
 

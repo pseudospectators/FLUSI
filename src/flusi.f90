@@ -190,18 +190,7 @@ subroutine Start_Simulation()
   ! and set idynamics flag on or off
   if ( method=="fsi" ) then
      call rigid_solid_init(SolidDyn%idynamics)
-  endif     
-
-  
-  ! Create obstacle mask
-  if (iPenalization==1) then        
-     ! For insect wing/body forces
-     if (iMask=='Insect') then
-        allocate(maskpart(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2))
-     endif
-     ! create mask(this one call can be redundant,but who cares.)
-     call Create_Mask(0.0d0)
-  endif
+  endif 
 
   ! check if at least FFT works okay
   call fft_unit_test(work,uk(:,:,:,1))
@@ -259,13 +248,6 @@ subroutine Start_Simulation()
   
   if (iVorticitySponge == "yes") then
   deallocate(sponge)
-  endif
-  
-  if(iPenalization == 1) then     
-     ! For insect wing/body forces
-     if (iMask=='Insect') then
-        deallocate(maskpart)
-     endif
   endif
 
   ! Clean kinematics (Dmitry, 14 Nov 2013)

@@ -8,7 +8,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	insects.f90 postprocessing.f90 runtime_control.f90 drag.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 set_fluid_solid_comms.f90 rigid_solid_time_stepper.f90 \
-        drag_insect.f90 add_channel.f90 add_cavity.f90 \
+        add_channel.f90 add_cavity.f90 \
         wings_geometry.f90 wings_motion.f90 body_motion.f90 \
         body_geometry.f90 rotation_matrices.f90 stroke_plane.f90
 

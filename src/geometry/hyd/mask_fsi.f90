@@ -45,15 +45,7 @@ subroutine create_mask_fsi (time)
   if ((iChannel/="no").and.(iPenalization==1)) then
     call Add_Channel ()
   endif
-  
-  !------------------------------------------------------------      
-  ! For forces on wings/body
-  !------------------------------------------------------------
-  if (iMask=='Insect') then 
-    eps_inv = 1.d0/eps
-    maskpart = maskpart*eps_inv
-  endif
-  
+    
   ! -- for global timing.
   time_mask = time_mask + MPI_wtime() - t1
 end subroutine create_mask_fsi

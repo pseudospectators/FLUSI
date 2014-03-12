@@ -76,7 +76,6 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
         mask(ix,iy,iz) = mask_tmp
         ! wings have the color "1"
         mask_color(ix,iy,iz) = 1
-        maskpart(ix,iy,iz,1) = mask_tmp ! For wing/body forces
         !------------------------------------------------
         ! solid body rotation
         ! Attention: the Matrix transpose(M) brings us back to the body
@@ -290,7 +289,6 @@ subroutine DrawWing(ix,iy,iz,x_wing,M,rot)
         mask(ix,iy,iz) = mask_tmp
         ! wings have the color "1"
         mask_color(ix,iy,iz) = 1
-        maskpart(ix,iy,iz,1) = mask_tmp ! For wing/body forces
         !------------------------------------------------
         ! solid body rotation
         ! Attention: the Matrix transpose(M) brings us back to the body
