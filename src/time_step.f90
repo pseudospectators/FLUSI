@@ -70,7 +70,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
 !            endif
         endif
         ! compute drag only if required
-        if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)) then
+        if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)).and.(compute_forces==1) then
            call cal_drag ( time, u ) ! note u is OLD time level 
 !            if (iMask=='Insect') then
 !               call cal_drag_parts ( time, u, 1 ) ! note u is OLD time level 

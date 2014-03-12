@@ -7,7 +7,10 @@
 !   0           Boring parts (channel walls, cavity)
 !   1           Interesting parts (e.g. a cylinder), for the insects this is WINGS
 !   2           Other parts, for the insects, this is BODY
-
+! Currently, we store the torque / forces over all colors greater than 0 in the
+! global structure "GlobalIntegrals". If we're running in "insects" mode, the 
+! colors 1 and 2 are the forces on wings and body, respectively. These are stored
+! in the "Insect" global struct.
 !-------------------------------------------------------------------------------
 subroutine cal_drag ( time, u )
   use mpi
@@ -24,126 +27,131 @@ subroutine cal_drag ( time, u )
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
   character(len=1024) :: forcepartfilename
   
-  if ((iPenalization==1).and.(compute_forces==1)) then  
-    forcex  = 0.d0
-    forcey  = 0.d0
-    forcez  = 0.d0  
-    torquex = 0.d0
-    torquey = 0.d0
-    torquez = 0.d0
-    
-    !---------------------------------------------------------------------------
-    ! loop over penalization term (this saves a work array)
-    !---------------------------------------------------------------------------
-    do ix=ra(1),rb(1)
-      do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
-          ! actual penalization term
-          penalx = -mask(ix,iy,iz)*(u(ix,iy,iz,1)-us(ix,iy,iz,1))
-          penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
-          penalz = -mask(ix,iy,iz)*(u(ix,iy,iz,3)-us(ix,iy,iz,3))
-          
-          ! for torque moment
-          xlev = dble(ix)*dx - x0
-          ylev = dble(iy)*dy - y0
-          zlev = dble(iz)*dz - z0
-          
-          color = mask_color(ix,iy,iz)
-          
-          ! integrate forces + torques (note sign inversion!)
-          forcex(color) = forcex(color) - penalx
-          forcey(color) = forcey(color) - penaly
-          forcez(color) = forcez(color) - penalz
-          torquex(color) = torquex(color) - (ylev*penalz - zlev*penaly)
-          torquey(color) = torquey(color) - (zlev*penalx - xlev*penalz)
-          torquez(color) = torquez(color) - (xlev*penaly - ylev*penalx)
-        enddo
+  forcex  = 0.d0
+  forcey  = 0.d0
+  forcez  = 0.d0  
+  torquex = 0.d0
+  torquey = 0.d0
+  torquez = 0.d0
+  
+  !---------------------------------------------------------------------------
+  ! loop over penalization term (this saves a work array)
+  !---------------------------------------------------------------------------
+  do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do iz=ra(3),rb(3)
+        ! actual penalization term
+        penalx = -mask(ix,iy,iz)*(u(ix,iy,iz,1)-us(ix,iy,iz,1))
+        penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
+        penalz = -mask(ix,iy,iz)*(u(ix,iy,iz,3)-us(ix,iy,iz,3))
+        
+        ! for torque moment
+        xlev = dble(ix)*dx - x0
+        ylev = dble(iy)*dy - y0
+        zlev = dble(iz)*dz - z0
+        
+        ! what color does the point have?
+        color = mask_color(ix,iy,iz)
+        
+        ! integrate forces + torques (note sign inversion!)
+        forcex(color) = forcex(color) - penalx
+        forcey(color) = forcey(color) - penaly
+        forcez(color) = forcez(color) - penalz
+        torquex(color) = torquex(color) - (ylev*penalz - zlev*penaly)
+        torquey(color) = torquey(color) - (zlev*penalx - xlev*penalz)
+        torquez(color) = torquez(color) - (xlev*penaly - ylev*penalx)
       enddo
-    enddo  
-    
-    !---------------------------------------------------------------------------
-    ! save global forces
-    !---------------------------------------------------------------------------
-    forcex = forcex*dx*dy*dz
-    forcey = forcey*dx*dy*dz
-    forcez = forcez*dx*dy*dz  
-    
-    ! in the global structure, we store all contributions with color > 0, so we
-    ! only EXCLUDE channel / cavity walls (the boring stuff)
-    call MPI_REDUCE ( sum(forcex(1:5)),GlobalIntegrals%Force(1),1,&
+    enddo
+  enddo  
+  
+  !---------------------------------------------------------------------------
+  ! save global forces
+  !---------------------------------------------------------------------------
+  forcex = forcex*dx*dy*dz
+  forcey = forcey*dx*dy*dz
+  forcez = forcez*dx*dy*dz  
+  
+  ! in the global structure, we store all contributions with color > 0, so we
+  ! only EXCLUDE channel / cavity walls (the boring stuff)
+  call MPI_REDUCE ( sum(forcex(1:5)),GlobalIntegrals%Force(1),1,&
+                  MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+  call MPI_REDUCE ( sum(forcey(1:5)),GlobalIntegrals%Force(2),1,&
+                  MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+  call MPI_REDUCE ( sum(forcez(1:5)),GlobalIntegrals%Force(3),1,&
+                  MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
+                  
+  ! the insects have forces on the wing and body separate
+  if (iMask=="Insect") then
+    ! WINGS:
+    call MPI_REDUCE (forcex(1),Insect%PartIntegrals(1)%Force(1),1,&
                     MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE ( sum(forcey(1:5)),GlobalIntegrals%Force(2),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE ( sum(forcez(1:5)),GlobalIntegrals%Force(3),1,&
+    call MPI_REDUCE (forcey(1),Insect%PartIntegrals(1)%Force(2),1,&
                     MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
-                    
-    ! the insects have forces on the wing and body separate
-    ! WINGS:
-    call MPI_REDUCE (forcex(1),Insect%PartIntegrals(1)%Force(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (forcey(1),Insect%PartIntegrals(1)%Force(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (forcez(1),Insect%PartIntegrals(1)%Force(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode)
+    call MPI_REDUCE (forcez(1),Insect%PartIntegrals(1)%Force(3),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
     ! BODY:
-    call MPI_REDUCE (forcex(2),Insect%PartIntegrals(2)%Force(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (forcey(2),Insect%PartIntegrals(2)%Force(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (forcez(2),Insect%PartIntegrals(2)%Force(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode)                    
-
-                    
-    torquex = torquex*dx*dy*dz
-    torquey = torquey*dx*dy*dz
-    torquez = torquez*dx*dy*dz  
-    call MPI_REDUCE ( sum(torquex(1:5)),GlobalIntegrals%Torque(1),1,&
+    call MPI_REDUCE (forcex(2),Insect%PartIntegrals(2)%Force(1),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+    call MPI_REDUCE (forcey(2),Insect%PartIntegrals(2)%Force(2),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
+    call MPI_REDUCE (forcez(2),Insect%PartIntegrals(2)%Force(3),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)                    
+  endi
+  
+  ! in the global structure, we store all contributions with color > 0, so we
+  ! only EXCLUDE channel / cavity walls (the boring stuff)                  
+  torquex = torquex*dx*dy*dz
+  torquey = torquey*dx*dy*dz
+  torquez = torquez*dx*dy*dz  
+  
+  call MPI_REDUCE ( sum(torquex(1:5)),GlobalIntegrals%Torque(1),1,&
+          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+  call MPI_REDUCE ( sum(torquey(1:5)),GlobalIntegrals%Torque(2),1,&
+          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
+  call MPI_REDUCE ( sum(torquez(1:5)),GlobalIntegrals%Torque(3),1,&
+          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+          
+  ! the insects have forces on the wing and body separate
+  if (iMask=="Insect") then
+    ! WINGS:
+    call MPI_REDUCE (torquex(1),Insect%PartIntegrals(1)%Torque(1),1,&
             MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE ( sum(torquey(1:5)),GlobalIntegrals%Torque(2),1,&
+    call MPI_REDUCE (torquey(1),Insect%PartIntegrals(1)%Torque(2),1,&
             MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE ( sum(torquez(1:5)),GlobalIntegrals%Torque(3),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-            
-    ! the insects have forces on the wing and body separate
-    ! WINGS:
-    call MPI_REDUCE (torquex(1),Insect%PartIntegrals(1)%Torque(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (torquey(1),Insect%PartIntegrals(1)%Torque(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (torquez(1),Insect%PartIntegrals(1)%Torque(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode)
+    call MPI_REDUCE (torquez(1),Insect%PartIntegrals(1)%Torque(3),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
     ! BODY:
-    call MPI_REDUCE (torquex(2),Insect%PartIntegrals(2)%Torque(1),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (torquey(2),Insect%PartIntegrals(2)%Torque(2),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (torquez(2),Insect%PartIntegrals(2)%Torque(3),1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-                    MPI_COMM_WORLD,mpicode)                    
-                    
-    !---------------------------------------------------------------------------
-    ! write time series to disk
-    ! note: we also dump the unst corrections and thus suppose that they
-    ! have been computed
-    !---------------------------------------------------------------------------
-    if(mpirank == 0) then
-      open(14,file='forces.t',status='unknown',position='append')
-      write (14,'(13(e12.5,1x))') time, GlobalIntegrals%Force, &
-      GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
-      GlobalIntegrals%Torque_unst
-      close(14)
-      
-      ! currently, only insects have different colors
-      if (iMask=="Insect") then
-      do partid=1,2
-      write (forcepartfilename, "(A11,I1,A2)") "forces_part", partid, ".t"
-      open(14,file=trim(forcepartfilename),status='unknown',position='append')
-      write (14,'(13(e12.5,1x))') time, Insect%PartIntegrals(partid)%Force, &
-      Insect%PartIntegrals(partid)%Force_unst, Insect%PartIntegrals(partid)%Torque, &
-      Insect%PartIntegrals(partid)%Torque_unst
-      close(14)
-      enddo
-      endif
-      
+    call MPI_REDUCE (torquex(2),Insect%PartIntegrals(2)%Torque(1),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+    call MPI_REDUCE (torquey(2),Insect%PartIntegrals(2)%Torque(2),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
+    call MPI_REDUCE (torquez(2),Insect%PartIntegrals(2)%Torque(3),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)                    
+  endif
+  
+  
+  !---------------------------------------------------------------------------
+  ! write time series to disk
+  ! note: we also dump the unst corrections and thus suppose that they
+  ! have been computed ( call cal_unst_corrections first! )
+  !---------------------------------------------------------------------------
+  if(mpirank == 0) then
+    open(14,file='forces.t',status='unknown',position='append')
+    write (14,'(13(e12.5,1x))') time, GlobalIntegrals%Force, &
+    GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
+    GlobalIntegrals%Torque_unst
+    close(14)
+    
+    ! currently, only insects have different colors
+    if (iMask=="Insect") then
+    do partid=1,2
+    write (forcepartfilename, "(A11,I1,A2)") "forces_part", partid, ".t"
+    open(14,file=trim(forcepartfilename),status='unknown',position='append')
+    write (14,'(13(e12.5,1x))') time, Insect%PartIntegrals(partid)%Force, &
+    Insect%PartIntegrals(partid)%Force_unst, Insect%PartIntegrals(partid)%Torque, &
+    Insect%PartIntegrals(partid)%Torque_unst
+    close(14)
+    enddo
     endif
     
   endif
