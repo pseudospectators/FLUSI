@@ -6,6 +6,14 @@ echo
 # list all the test scrits you want, separated by spaces
 tests=(sphere.sh sphere_restart.sh vortex_ring.sh)
 
+# link flusi and mhd from .. to . if this isn't already done.
+if [ ! -f flusi ]; then
+    ln -s ../flusi .
+fi
+if [ ! -f mhd ]; then
+    ln -s ../mhd .
+fi
+
 numtests=0
 numsuccess=0
 numfail=0
@@ -48,3 +56,6 @@ if [ $numfail -gt 0 ]
 then
     echo "NOT ALL TESTS PASSED: DANGER! DANGER!"
 fi
+
+# If this script is used elsewhere, we might want to return the success.
+exit $numfail
