@@ -4,7 +4,7 @@ echo "Unit-testing script for flusi/mhd pseudospectators."
 echo
 
 # list all the test scrits you want, separated by spaces
-tests=(sphere.sh sphere_restart.sh vortex_ring.sh)
+tests=(sphere.sh sphere_restart.sh vortex_ring.sh mhdorszagtang.sh)
 
 # link flusi and mhd from .. to . if this isn't already done.
 if [ ! -f flusi ]; then
