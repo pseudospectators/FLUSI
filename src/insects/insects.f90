@@ -243,8 +243,8 @@ subroutine dynamics_insect(time,it)
 
       ! Legs model parameters
       ilegs = 1
-      anglegsend = 0.25d0*pi ! case 1 and 3
-!      anglegsend = 0.5d0*pi ! case2
+!       anglegsend = 0.25d0*pi ! case 1 and 3
+      anglegsend = 0.5d0*pi ! case2
 !      kzlegsmax = 0.057d0 / (density_ref*length_ref**3/time_ref**2) ! case1
       kzlegsmax = 0.024d0 / (density_ref*length_ref**3/time_ref**2) ! case2
 !      kzlegsmax = 0.08d0 / (density_ref*length_ref**3/time_ref**2) ! case3

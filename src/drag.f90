@@ -96,7 +96,7 @@ subroutine cal_drag ( time, u )
                     MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
     call MPI_REDUCE (forcez(2),Insect%PartIntegrals(2)%Force(3),1,&
                     MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)                    
-  endi
+  endif
   
   ! in the global structure, we store all contributions with color > 0, so we
   ! only EXCLUDE channel / cavity walls (the boring stuff)                  
@@ -226,23 +226,26 @@ subroutine cal_unst_corrections ( time, dt )
     GlobalIntegrals%Force_unst(2) = sum(force_newy(1:5))-sum(force_oldy(1:5))
     GlobalIntegrals%Force_unst(3) = sum(force_newz(1:5))-sum(force_oldz(1:5))    
     GlobalIntegrals%Force_unst = GlobalIntegrals%Force_unst / dt
+    
     if (iMask=="Insect") then
-    ! for the insects, we save separately the WING...
-    Insect%PartIntegrals(1)%Force_unst(1) = force_newx(1)-force_oldx(1)
-    Insect%PartIntegrals(1)%Force_unst(2) = force_newy(1)-force_oldy(1)
-    Insect%PartIntegrals(1)%Force_unst(3) = force_newz(1)-force_oldz(1)
-    Insect%PartIntegrals(1)%Force_unst = Insect%PartIntegrals(1)%Force_unst / dt
-    ! ... and the BODY
-    Insect%PartIntegrals(2)%Force_unst(1) = force_newx(2)-force_oldx(2)
-    Insect%PartIntegrals(2)%Force_unst(2) = force_newy(2)-force_oldy(2)
-    Insect%PartIntegrals(2)%Force_unst(3) = force_newz(2)-force_oldz(2)
-    Insect%PartIntegrals(2)%Force_unst = Insect%PartIntegrals(2)%Force_unst / dt
+      ! for the insects, we save separately the WING...
+      Insect%PartIntegrals(1)%Force_unst(1) = force_newx(1)-force_oldx(1)
+      Insect%PartIntegrals(1)%Force_unst(2) = force_newy(1)-force_oldy(1)
+      Insect%PartIntegrals(1)%Force_unst(3) = force_newz(1)-force_oldz(1)
+      Insect%PartIntegrals(1)%Force_unst = Insect%PartIntegrals(1)%Force_unst / dt
+      ! ... and the BODY
+      Insect%PartIntegrals(2)%Force_unst(1) = force_newx(2)-force_oldx(2)
+      Insect%PartIntegrals(2)%Force_unst(2) = force_newy(2)-force_oldy(2)
+      Insect%PartIntegrals(2)%Force_unst(3) = force_newz(2)-force_oldz(2)
+      Insect%PartIntegrals(2)%Force_unst = Insect%PartIntegrals(2)%Force_unst / dt
     endif
   else
+    ! we cannot compute the time derivative, because we lack the old value of the
+    ! integral. As a hack, return zero.
     GlobalIntegrals%Force_unst = 0.d0    
     if (iMask=="Insect") then
-    Insect%PartIntegrals(1)%Force_unst = 0.d0
-    Insect%PartIntegrals(2)%Force_unst = 0.d0
+      Insect%PartIntegrals(1)%Force_unst = 0.d0
+      Insect%PartIntegrals(2)%Force_unst = 0.d0
     endif
   endif  
   
@@ -295,30 +298,31 @@ subroutine cal_unst_corrections ( time, dt )
     GlobalIntegrals%Torque_unst(3) = sum(torque_newz(1:5))-sum(torque_oldz(1:5))
     GlobalIntegrals%Torque_unst = GlobalIntegrals%Torque_unst / dt
     if (iMask=="Insect") then
-    ! for the insects, we save separately the WING...
-    Insect%PartIntegrals(1)%Torque_unst(1) = torque_newx(1)-torque_oldx(1)
-    Insect%PartIntegrals(1)%Torque_unst(2) = torque_newy(1)-torque_oldy(1)
-    Insect%PartIntegrals(1)%Torque_unst(3) = torque_newz(1)-torque_oldz(1)
-    Insect%PartIntegrals(1)%Torque_unst = Insect%PartIntegrals(1)%Torque_unst / dt
-    ! ... and the BODY
-    Insect%PartIntegrals(2)%Torque_unst(1) = torque_newx(2)-torque_oldx(2)
-    Insect%PartIntegrals(2)%Torque_unst(2) = torque_newy(2)-torque_oldy(2)
-    Insect%PartIntegrals(2)%Torque_unst(3) = torque_newz(2)-torque_oldz(2)
-    Insect%PartIntegrals(2)%Torque_unst = Insect%PartIntegrals(2)%Torque_unst / dt
+      ! for the insects, we save separately the WING...
+      Insect%PartIntegrals(1)%Torque_unst(1) = torque_newx(1)-torque_oldx(1)
+      Insect%PartIntegrals(1)%Torque_unst(2) = torque_newy(1)-torque_oldy(1)
+      Insect%PartIntegrals(1)%Torque_unst(3) = torque_newz(1)-torque_oldz(1)
+      Insect%PartIntegrals(1)%Torque_unst = Insect%PartIntegrals(1)%Torque_unst / dt
+      ! ... and the BODY
+      Insect%PartIntegrals(2)%Torque_unst(1) = torque_newx(2)-torque_oldx(2)
+      Insect%PartIntegrals(2)%Torque_unst(2) = torque_newy(2)-torque_oldy(2)
+      Insect%PartIntegrals(2)%Torque_unst(3) = torque_newz(2)-torque_oldz(2)
+      Insect%PartIntegrals(2)%Torque_unst = Insect%PartIntegrals(2)%Torque_unst / dt
     endif    
   else
+    ! we cannot compute the time derivative, because we lack the old value of the
+    ! integral. As a hack, return zero.
     GlobalIntegrals%Torque_unst = 0.d0   
     if (iMask=="Insect") then
-    Insect%PartIntegrals(1)%Torque_unst = 0.d0
-    Insect%PartIntegrals(2)%Torque_unst = 0.d0
+      Insect%PartIntegrals(1)%Torque_unst = 0.d0
+      Insect%PartIntegrals(2)%Torque_unst = 0.d0
     endif
   endif  
   
   ! iterate
   torque_oldx = torque_newx
   torque_oldy = torque_newy
-  torque_oldz = torque_newz
-  
+  torque_oldz = torque_newz  
   
   ! now we sure have the old value in the next step
   is_possible = .true.

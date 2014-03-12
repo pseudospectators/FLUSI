@@ -102,6 +102,7 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
       psi_dt = 0.0d0
       gamma = 0.0d0
       gamma_dt = 0.0d0
+      
     elseif (Insect%KineFromFile=="simplified_dynamic") then
       ! interpolate. xc(3),xc(1),vc(3),vc(1) are unused!
       call body_kine_interp(time,beta,xc(3),xc(1),beta_dt,vc(3),vc(1))
@@ -120,8 +121,8 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
       gamma_dt = 0.0d0
       ! Use data from flight dynamics solver
       xc(1) = SolidDyn%var_new(1) + 2.0d0
-!      xc(3) = SolidDyn%var_new(2) + 0.3d0 + 0.56d0 !(ground+legs)
-      xc(3) = SolidDyn%var_new(2) + 0.3d0 + 2.0d0 !(far from the ground)
+      xc(3) = SolidDyn%var_new(2) + 0.3d0 + 0.56d0 !(ground+legs)
+!       xc(3) = SolidDyn%var_new(2) + 0.3d0 + 2.0d0 !(far from the ground)
       vc(1) = SolidDyn%var_new(3)
       vc(3) = SolidDyn%var_new(4)
     endif

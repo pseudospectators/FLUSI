@@ -63,19 +63,13 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      if ( method=="fsi" ) then
         ! compute unst corrections in every time step
         if (unst_corrections ==1) then
-           call cal_unst_corrections ( time, dt0 )    
-!            if (iMask=='Insect') then
-!               call cal_unst_corrections_parts ( time, dt0, 1 )    
-!               call cal_unst_corrections_parts ( time, dt0, 2 )    
-!            endif
+          call cal_unst_corrections ( time, dt0 )
         endif
         ! compute drag only if required
-        if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)).and.(compute_forces==1) then
-           call cal_drag ( time, u ) ! note u is OLD time level 
-!            if (iMask=='Insect') then
-!               call cal_drag_parts ( time, u, 1 ) ! note u is OLD time level 
-!               call cal_drag_parts ( time, u, 2 ) ! note u is OLD time level 
-!            endif
+        if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)) then
+        if (compute_forces==1) then
+          call cal_drag ( time, u ) ! note u is OLD time level
+        endif
         endif
         ! note dt0 is OLD time step t(n)-t(n-1)
         ! advance in time ODEs that describe rigid solids
