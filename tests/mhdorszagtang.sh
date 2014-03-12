@@ -70,6 +70,7 @@ do
 done
 
 rm -f *.key
+rm -f *.xmf
 rm -f *.h5
 rm -f drag_data
 rm -f *.t
