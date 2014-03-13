@@ -54,7 +54,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   name=trim(adjustl(name))
 
   if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," str=",A)') & 
+    write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," string=",A," ...")',advance='no') & 
     time, &
     isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity, &
     trim(adjustl(name))
@@ -72,7 +72,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
     call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
     call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
   endif
-
+  
   !-------------  
   ! Pressure
   !-------------
@@ -121,7 +121,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
     call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
   endif
   
-  if (mpirank==0) write(*,*) "Done saving."
+  if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields_new_fsi
 
 
@@ -344,7 +344,8 @@ subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   t1=MPI_wtime() ! performance diagnostic
 
   if(mpirank == 0) then
-     write(*,'("*** info: time=",e11.4," dumping runtime_backup",i1,".h5 to disk....")') time, nbackup
+     write(*,'("Dumping runtime_backup",i1,".h5 (time=",e11.4,") to disk....")',&
+     advance='no') nbackup, time
   endif
 
   ! Create current filename:
@@ -423,7 +424,7 @@ subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   nbackup = 1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
 
-  if(mpirank == 0) write(*,'("<<< info: done saving backup.")')
+  if(mpirank == 0) write(*,'(A)') "...DONE!"
 end subroutine dump_Runtime_backup
 
 
