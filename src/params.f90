@@ -194,6 +194,8 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Penalization","unst_corrections",unst_corrections,0)        
   iChannel = "no"
   call GetValue_String(PARAMS,i,"Penalization","iChannel",iChannel,iChannel) 
+  if (iChannel=="0") iChannel="no" ! for downward compatibility with older ini files
+  if (iChannel=="1") iChannel="xy" ! for downward compatibility with older ini files
   
   ! ---------------------------------------------------
   ! sponge
