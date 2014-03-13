@@ -90,7 +90,10 @@ subroutine Start_Simulation()
   call get_command_argument(1,infile)
   ! read all parameters from that file
   call get_params(infile)
-  ! Initialize FFT
+  
+  !-----------------------------------------------------------------------------
+  ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
+  !-----------------------------------------------------------------------------  
   call fft_initialize 
   
   !-----------------------------------------------------------------------------
@@ -123,22 +126,17 @@ subroutine Start_Simulation()
   allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
   ! solid body velocities
   allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))  
-  
-  if (iVorticitySponge == "yes") then
-    ! sponge term (this is currently global, but it will be changed)
+  ! vorticity sponge
+  if (iVorticitySponge=="yes") then
     allocate (sponge(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd) )
   endif
-
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") then
      call load_kine_init(mpirank,MPI_DOUBLE_PRECISION,MPI_INTEGER)
   endif
-
   ! If required, initialize rigid solid dynamics solver
   ! and set idynamics flag on or off
-  if ( method=="fsi" ) then
-     call rigid_solid_init(SolidDyn%idynamics)
-  endif 
+  call rigid_solid_init(SolidDyn%idynamics)
 
   !-----------------------------------------------------------------------------
   ! check if at least FFT works okay
@@ -168,19 +166,11 @@ subroutine Start_Simulation()
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
-  call MPI_barrier (MPI_COMM_world, mpicode)
-  
   t1 = MPI_wtime()
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! Actual time-stepping function
   call time_step(u,uk,nlk,vort,work,explin,infile,time,dt0,dt1,n0,n1,it)
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   t2 = MPI_wtime() - t1
-  if (mpirank ==0) then
-     write(*,'("$$$ info: total elapsed time time_step=",es12.4, " on ",i5," CPUs")') t2, mpisize
-  endif
   
-    !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Deallocate memory
   !-----------------------------------------------------------------------------
   deallocate(lin)
@@ -190,15 +180,9 @@ subroutine Start_Simulation()
   deallocate(us)
   deallocate(mask)
   deallocate(mask_color)
-  
-  if (iVorticitySponge == "yes") then
-  deallocate(sponge)
-  endif
-
+  if (iVorticitySponge=="yes") deallocate(sponge)
   ! Clean kinematics (Dmitry, 14 Nov 2013)
-  if (Insect%KineFromFile/="no") then
-     call load_kine_clean
-  endif
+  if (Insect%KineFromFile/="no") call load_kine_clean
   
   call fft_free 
   !-------------------------
@@ -254,6 +238,7 @@ subroutine show_timings(t2)
   write(*,'(A)') 'Finalizing computation....'
   write(*,'(A)') '--------------------------------------'
 end subroutine show_timings
+
 
 
 subroutine initialize_time_series_files()

@@ -147,10 +147,11 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
 end subroutine time_step
 
 
-
+!-------------------------------------------------------------------------------
 ! dump information about performance, time, time step and iteration
 ! number to disk. this helps estimating how many time steps will be 
 ! required when passing to higher resolution.
+!-------------------------------------------------------------------------------
 subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
   use vars
   implicit none
@@ -166,12 +167,13 @@ subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
   write (14,'(e12.5,A,i7.7,A,es12.5,A,es12.5)') time,tab,it,tab,dt1,tab,t2
   close (14)
   endif
-  
+ 
 end subroutine save_time_stepping_info
 
 
-
+!-------------------------------------------------------------------------------
 ! Output how much time remains in the simulation.
+!-------------------------------------------------------------------------------
 subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   use vars
   implicit none

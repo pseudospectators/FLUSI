@@ -149,7 +149,6 @@ module fsi_vars
   ! for periodically repeating flows, it may be better to always have only 
   ! one set of files on the disk
   character(len=80) :: save_only_one_period
-  
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
@@ -168,8 +167,7 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Force_unst
      real(kind=pr),dimension(1:3) :: Torque
      real(kind=pr),dimension(1:3) :: Torque_unst
-  end type Integrals
-  
+  end type Integrals  
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
   type InsectParams ! documentaion see insect.f90
@@ -184,16 +182,13 @@ module fsi_vars
     real(kind=pr) :: safety, smooth
     ! vectors desribing the positoions of jerry's key elements
     ! in the body coordinate system
-    real(kind=pr), dimension(1:3) :: x_head, x_eye_r, x_eye_l, &
-                                     x_pivot_l, x_pivot_r
+    real(kind=pr), dimension(1:3) :: x_head,x_eye_rx_eye_l,x_pivot_l,x_pivot_r
     ! parameter for hovering:
     real(kind=pr) :: distance_from_sponge
-
     ! Wings and body forces
     type(Integrals), dimension(1:2) :: PartIntegrals
-  end type InsectParams
-  
-
+  end type InsectParams  
+  !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver
   type SolidDynType
     ! solid dynamics solver flag (0=off, 1=on)
@@ -207,7 +202,17 @@ module fsi_vars
     ! rhs at previous time step                                                                                                                
     real(kind=pr), dimension(1:4) :: rhs_old
   end type SolidDynType
- 
+  !-----------------------------------------------------------------------------
+  ! derived datatype for time
+  type timetype
+    real(kind=pr) :: time
+    real(kind=pr) :: dt1
+    real(kind=pr) :: dt0
+    integer :: it 
+    integer :: n0
+    integer :: n1
+  end type timetype
+  !-----------------------------------------------------------------------------
 
   type(Integrals),save :: GlobalIntegrals
   type(InsectParams), save :: Insect
