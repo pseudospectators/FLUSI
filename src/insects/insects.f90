@@ -321,18 +321,43 @@ subroutine dynamics_insect_init(idynamics)
   implicit none
 
   integer, intent(out) :: idynamics
-
+  integer :: mpicode  
+  
   ! dynamics solver inactive by default
   idynamics = 0
-
+  
+  
   select case (Insect%BodyMotion)
   case ("takeoff")
     if (Insect%KineFromFile=="simplified_dynamic") then
-      idynamics = 1
-      SolidDyn%var_new(1) = 0.0d0
-      SolidDyn%var_new(2) = 0.0d0
-      SolidDyn%var_new(3) = 0.0d0
-      SolidDyn%var_new(4) = 0.0d0
+      if (inicond(1:8).ne."backup::") then
+        !--  we are not resuming a backup
+        idynamics = 1
+        SolidDyn%var_new(1) = 0.0d0
+        SolidDyn%var_new(2) = 0.0d0
+        SolidDyn%var_new(3) = 0.0d0
+        SolidDyn%var_new(4) = 0.0d0
+      else
+        !-- we are resuming a backup
+        idynamics = 1
+        !-- root rank reads in backup file
+        if (mpirank==0) then
+          !-- backup files are called "runtime_backup0.h5.rigidsolver"
+          write (*,*) "------"
+          write (*,*) "Insect solver is resuming from file="//inicond(9:len_trim(inicond))//".rigidsolver"
+          !-- open file
+          open(10, file=inicond(9:len_trim(inicond))//".rigidsolver", form='formatted', status='old') 
+          read(10, *) SolidDyn%var_new, SolidDyn%var_this, SolidDyn%rhs_this, SolidDyn%rhs_old
+          write (*,*) SolidDyn%var_new, SolidDyn%var_this, SolidDyn%rhs_this, SolidDyn%rhs_old
+          !-- close file            
+          close(10)
+          write (*,*) "------"
+        endif
+        call MPI_BCAST( SolidDyn%var_new,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+        call MPI_BCAST( SolidDyn%var_this,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+        call MPI_BCAST( SolidDyn%rhs_this,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+        call MPI_BCAST( SolidDyn%rhs_old,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )        
+      endif
     endif
   end select
 

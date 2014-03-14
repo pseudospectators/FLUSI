@@ -129,6 +129,9 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
         call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
              work_nlk,explin,vort(:,:,:,1))
      else
+        !--------------------------------------------------
+        ! unknown inicond : error
+        !--------------------------------------------------
         if (mpirank==0) write (*,*) inicond
         if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
         call abort

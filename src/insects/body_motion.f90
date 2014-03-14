@@ -110,10 +110,8 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
       xc(2) = 0.5d0*yl
       vc(2) = 0.0d0
       ! convert pitch angle to flusi conventions
-      beta = -beta
-      beta = deg2rad(beta)
-      beta_dt = -beta_dt
-      beta_dt = deg2rad(beta_dt)
+      beta = deg2rad(-beta)
+      beta_dt = deg2rad(-beta_dt)
       ! zero heading and yaw
       psi = 0.0d0
       psi_dt = 0.0d0
