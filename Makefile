@@ -112,7 +112,7 @@ clean:
 	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod
 
 tidy:
-	rm -rf $(OBJDIR)/*
+	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod
 
 # If the object directory doesn't exist, create it.
 .PHONY: directories
