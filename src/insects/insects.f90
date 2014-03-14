@@ -348,7 +348,10 @@ subroutine dynamics_insect_init(idynamics)
           !-- open file
           open(10, file=inicond(9:len_trim(inicond))//".rigidsolver", form='formatted', status='old') 
           read(10, *) SolidDyn%var_new, SolidDyn%var_this, SolidDyn%rhs_this, SolidDyn%rhs_old
-          write (*,*) SolidDyn%var_new, SolidDyn%var_this, SolidDyn%rhs_this, SolidDyn%rhs_old
+          write (*,*) SolidDyn%var_new
+          write (*,*) SolidDyn%var_this
+          write (*,*) SolidDyn%rhs_this
+          write (*,*) SolidDyn%rhs_old
           !-- close file            
           close(10)
           write (*,*) "------"
