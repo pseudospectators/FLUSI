@@ -99,7 +99,6 @@ mhd: mhd.f90 $(MOBJS) $(OBJS)
 $(OBJDIR)/vars.o: vars.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/kine.o: kine.f90
-	 @echo "$< -> $@"
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
