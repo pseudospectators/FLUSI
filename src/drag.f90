@@ -73,29 +73,29 @@ subroutine cal_drag ( time, u )
   
   ! in the global structure, we store all contributions with color > 0, so we
   ! only EXCLUDE channel / cavity walls (the boring stuff)
-  call MPI_REDUCE ( sum(forcex(1:5)),GlobalIntegrals%Force(1),1,&
-                  MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE ( sum(forcey(1:5)),GlobalIntegrals%Force(2),1,&
-                  MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE ( sum(forcez(1:5)),GlobalIntegrals%Force(3),1,&
-                  MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
+  call MPI_ALLREDUCE ( sum(forcex(1:5)),GlobalIntegrals%Force(1),1,&
+                  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+  call MPI_ALLREDUCE ( sum(forcey(1:5)),GlobalIntegrals%Force(2),1,&
+                  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+  call MPI_ALLREDUCE ( sum(forcez(1:5)),GlobalIntegrals%Force(3),1,&
+                  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
                   
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
     ! WINGS:
-    call MPI_REDUCE (forcex(1),Insect%PartIntegrals(1)%Force(1),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (forcey(1),Insect%PartIntegrals(1)%Force(2),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (forcez(1),Insect%PartIntegrals(1)%Force(3),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
+    call MPI_ALLREDUCE (forcex(1),Insect%PartIntegrals(1)%Force(1),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+    call MPI_ALLREDUCE (forcey(1),Insect%PartIntegrals(1)%Force(2),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+    call MPI_ALLREDUCE (forcez(1),Insect%PartIntegrals(1)%Force(3),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
     ! BODY:
-    call MPI_REDUCE (forcex(2),Insect%PartIntegrals(2)%Force(1),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (forcey(2),Insect%PartIntegrals(2)%Force(2),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (forcez(2),Insect%PartIntegrals(2)%Force(3),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)                    
+    call MPI_ALLREDUCE (forcex(2),Insect%PartIntegrals(2)%Force(1),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+    call MPI_ALLREDUCE (forcey(2),Insect%PartIntegrals(2)%Force(2),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+    call MPI_ALLREDUCE (forcez(2),Insect%PartIntegrals(2)%Force(3),1,&
+                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)                    
   endif
   
   ! in the global structure, we store all contributions with color > 0, so we
@@ -104,29 +104,29 @@ subroutine cal_drag ( time, u )
   torquey = torquey*dx*dy*dz
   torquez = torquez*dx*dy*dz  
   
-  call MPI_REDUCE ( sum(torquex(1:5)),GlobalIntegrals%Torque(1),1,&
-          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE ( sum(torquey(1:5)),GlobalIntegrals%Torque(2),1,&
-          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
-  call MPI_REDUCE ( sum(torquez(1:5)),GlobalIntegrals%Torque(3),1,&
-          MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
+  call MPI_ALLREDUCE ( sum(torquex(1:5)),GlobalIntegrals%Torque(1),1,&
+          MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+  call MPI_ALLREDUCE ( sum(torquey(1:5)),GlobalIntegrals%Torque(2),1,&
+          MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+  call MPI_ALLREDUCE ( sum(torquez(1:5)),GlobalIntegrals%Torque(3),1,&
+          MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
           
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
     ! WINGS:
-    call MPI_REDUCE (torquex(1),Insect%PartIntegrals(1)%Torque(1),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (torquey(1),Insect%PartIntegrals(1)%Torque(2),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (torquez(1),Insect%PartIntegrals(1)%Torque(3),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
+    call MPI_ALLREDUCE (torquex(1),Insect%PartIntegrals(1)%Torque(1),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+    call MPI_ALLREDUCE (torquey(1),Insect%PartIntegrals(1)%Torque(2),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+    call MPI_ALLREDUCE (torquez(1),Insect%PartIntegrals(1)%Torque(3),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
     ! BODY:
-    call MPI_REDUCE (torquex(2),Insect%PartIntegrals(2)%Torque(1),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-    call MPI_REDUCE (torquey(2),Insect%PartIntegrals(2)%Torque(2),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode) 
-    call MPI_REDUCE (torquez(2),Insect%PartIntegrals(2)%Torque(3),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)                    
+    call MPI_ALLREDUCE (torquex(2),Insect%PartIntegrals(2)%Torque(1),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+    call MPI_ALLREDUCE (torquey(2),Insect%PartIntegrals(2)%Torque(2),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+    call MPI_ALLREDUCE (torquez(2),Insect%PartIntegrals(2)%Torque(3),1,&
+            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)                    
   endif
   
   
@@ -216,9 +216,9 @@ subroutine cal_unst_corrections ( time, dt )
     enddo
   enddo  
     
-  call MPI_REDUCE(force_new_locx,force_newx,6,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE(force_new_locy,force_newy,6,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
-  call MPI_REDUCE(force_new_locz,force_newz,6,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
+  call MPI_ALLREDUCE(force_new_locx,force_newx,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+  call MPI_ALLREDUCE(force_new_locy,force_newy,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)   
+  call MPI_ALLREDUCE(force_new_locz,force_newz,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)   
   
   if (is_possible) then
     ! here, we store the unsteady corrections for all nonzero colors in the global struct
@@ -286,9 +286,9 @@ subroutine cal_unst_corrections ( time, dt )
   torque_new_locy = torque_new_locy*dx*dy*dz
   torque_new_locz = torque_new_locz*dx*dy*dz
   
-  call MPI_REDUCE(torque_new_locx,torque_newx,6,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)  
-  call MPI_REDUCE(torque_new_locy,torque_newy,6,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)   
-  call MPI_REDUCE(torque_new_locz,torque_newz,6,MPI_DOUBLE_PRECISION,MPI_SUM,0,MPI_COMM_WORLD,mpicode)     
+  call MPI_ALLREDUCE(torque_new_locx,torque_newx,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+  call MPI_ALLREDUCE(torque_new_locy,torque_newy,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)   
+  call MPI_ALLREDUCE(torque_new_locz,torque_newz,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)     
   
   
   if (is_possible) then
