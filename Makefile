@@ -85,9 +85,8 @@ LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
 FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
 
-
 # Both programs are compiled by default.
-all: directories $(PROGRAMS)
+all: directories $(PROGRAMS) 
 
 # Compile main programs, with dependencies.
 flusi: flusi.f90 $(MOBJS) $(OBJS)
@@ -97,15 +96,16 @@ mhd: mhd.f90 $(MOBJS) $(OBJS)
 
 # Compile modules (module dependency must be specified by hand in
 # Fortran). Objects are specified in MOBJS (module objects).
-$(OBJDIR)/vars.o: vars.f90 ${OBJDIR}
-	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
-$(OBJDIR)/kine.o: kine.f90 ${OBJDIR}
-	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
-$(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o ${OBJDIR}
-	$(FC) $(FFLAGS) -c -o $@ $^ $(LDFLAGS)
+$(OBJDIR)/vars.o: vars.f90
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/kine.o: kine.f90
+	 @echo "$< -> $@"
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
-$(OBJDIR)/%.o: %.f90 $(MOBJS) ${OBJDIR}
+$(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
