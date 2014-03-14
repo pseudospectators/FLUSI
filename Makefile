@@ -111,6 +111,9 @@ $(OBJDIR)/%.o: %.f90 $(MOBJS) ${OBJDIR}
 clean:
 	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod
 
+tidy:
+	rm -rf $(OBJDIR)/*
+
 # If the object directory doesn't exist, create it.
 .PHONY: directories
 
