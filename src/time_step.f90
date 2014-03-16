@@ -190,10 +190,12 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   if(mpirank == 0) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
-     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s dt=",es10.2,"s t=",es10.2)') &
+     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1," dt=",es10.2,"s t=",es10.2)') &
           floor(time_left/(24.d0*3600.d0))   ,&
           floor(mod(time_left,24.*3600.d0)/3600.d0),&
           floor(mod(time_left,3600.d0)/60.d0),&
-          floor(mod(mod(time_left,3600.d0),60.d0)),dt1,time
+          floor(mod(mod(time_left,3600.d0),60.d0)),&
+          (MPI_wtime()-time_total)/3600.d0,&
+          dt1,time
   endif
 end subroutine are_we_there_yet

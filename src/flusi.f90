@@ -63,7 +63,8 @@ subroutine Start_Simulation()
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
-  time_bckp=0.0; time_save=0.0; time_total=0.0; time_u=0.0; time_sponge=0.0
+  time_bckp=0.0; time_save=0.0; time_total=MPI_wtime(); time_u=0.0; time_sponge=0.0
+
 
   
   ! Set up global communicators. We have two groups, for solid and fluid CPUs

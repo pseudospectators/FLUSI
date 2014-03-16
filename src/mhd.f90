@@ -34,12 +34,16 @@ program mhd
   call MPI_COMM_SIZE(MPI_COMM_WORLD,mpisize,mpicode)
   call MPI_COMM_RANK(MPI_COMM_WORLD,mpirank,mpicode)
 
+  
   ! Set method information in vars module:
   method="mhd" ! We are doing fluid-structure intergrep actions
   nf=2 ! We are evolving two fields: u and B.
   nd=3*nf ! Each field has three dimensions, for six total.
   allocate(lin(nf)) ! Set up the linear term
-
+  
+  ! this helps displaying the walltime (in the global var time_total)
+  time_total=MPI_wtime()
+  
   ! Set up global communicators. We have two groups, for solid and fluid CPUs
   ! with dedicated tasks to do. For MHD, all CPU are reserved for the fluid
   call setup_fluid_solid_communicators( 0 )
