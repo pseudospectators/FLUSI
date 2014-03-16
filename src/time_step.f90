@@ -51,7 +51,9 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-     call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+     if(dry_run_without_fluid/="yes") then
+       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+     endif
 
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)

@@ -10,6 +10,7 @@ module vars
 
   ! Method variables set in the program file:
   character(len=3),save:: method ! mhd  or fsi
+  character(len=80), save :: dry_run_without_fluid ! just save mask function
   integer,save :: nf ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd ! number of fields (3 for NS, 6 for MHD)
 

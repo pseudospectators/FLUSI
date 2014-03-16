@@ -35,7 +35,18 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     gamma_dt = 0.d0
     xc = (/0.5*xl, 0.5*yl,0.5*zl/)
     vc = (/0.0, 0.0, 0.0/)
-    
+  
+  case ("fixed45")
+    psi      = 0.d0
+    beta     = deg2rad(-45.d0)
+    gamma    = deg2rad(45.d0)
+    psi_dt   = 0.d0
+    beta_dt  = 0.d0
+    gamma_dt = 0.d0
+    xc = (/0.5*xl, 0.5*yl,0.5*zl/)
+    vc = (/0.0, 0.0, 0.0/)
+  
+  
   case ("wheeling")
     T = 20.0 ! time to do one turn    
     R = 1.5  ! circle radius
@@ -127,6 +138,7 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
 
   case default
     if (mpirank==0) then
+    write (*,*) Insect%BodyMotion
     write (*,*) "insects.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
     stop
     endif

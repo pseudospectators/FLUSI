@@ -162,6 +162,19 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
   call GetValue_Int(PARAMS,i,"Saving","itdrag",itdrag,99999)
   
+  !-- dry run, just the mask function
+  dry_run_without_fluid="no" ! std choice
+  call GetValue_String(PARAMS,i,"DryRun","dry_run_without_fluid",&
+       dry_run_without_fluid,dry_run_without_fluid)
+  if (dry_run_without_fluid=="yes") then
+    write(*,*) "Attention! This is a dry run without fluid"
+    write(*,*) "Deactivating all useless save-switches..."
+    iDoBackup=0
+    iSavePress=0
+    iSaveVelocity=0
+    iSaveVorticity=0
+  endif
+  
   ! Set other parameters (all procs)
   pi=4.d0 *datan(1.d0)
   ! scaling for FFTs

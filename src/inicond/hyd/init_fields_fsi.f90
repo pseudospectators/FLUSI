@@ -19,13 +19,14 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   real (kind=pr) :: x,y,z,r,a,gamma0,x00,r00,omega
 
   ! Assign zero values
-  time=0.0d0
-  dt1=0.0d0
-  uk=dcmplx(0.0d0,0.0d0)
-  work_nlk=dcmplx(0.0d0,0.0d0)
-  explin=0.0
-  it=0
-  vort=0.0d0
+  time = 0.0d0
+  dt1  = tsave
+  it = 0
+  
+  uk = dcmplx(0.0d0,0.0d0)
+  work_nlk = dcmplx(0.0d0,0.0d0)
+  explin = 0.0
+  vort = 0.0d0
 
   select case(inicond)
   case("infile")
