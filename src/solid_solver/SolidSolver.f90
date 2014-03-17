@@ -1,20 +1,66 @@
 module SolidSolver
-use share_vars
-use motion
-implicit none
-
-! here we could define some variables
-
- contains
-
-!-------------------------------------------------------------------------------------
-!   SOLID SOLVER WRAPPER
-!-------------------------------------------------------------------------------------
-subroutine SolidSolverWrapper ( time, dt, beams )
   use share_vars
   implicit none
+  
+  !----------------------------------------------
+  ! module global variables
+  !----------------------------------------------
+  integer :: nBeams = 1  
+  integer :: ns=64
+  integer :: TimeMethodSolid 
+  integer, parameter :: EulerImplicit=1, CrankNicholson=2, RungeKutta4=3, EulerExplicit=4, BDF2 =5
+  real(kind=pr) :: mue=0.0571d0
+  real(kind=pr) :: eta=0.0259d0
+  real(kind=pr) :: grav=0.7d0
+  real(kind=pr) :: sigma=0.d0
+  real(kind=pr) :: t_beam=0.05d0
+  real(kind=pr) :: AngleBeam=0.d0
+  real(kind=pr) :: ds=1.d0/(ns-1)
+  real(kind=pr) :: T_release=0.d0, tau=0.d0
+
+  !----------------------------------------------
+  ! Solid datatype
+  !----------------------------------------------
+  type Solid
+    real(kind=pr),dimension(:),allocatable :: x,y,vx,vy
+    real(kind=pr),dimension(:),allocatable :: theta,theta_dot,ax,ay
+    real(kind=pr),dimension(:),allocatable :: pressure_old, pressure_new
+    real(kind=pr),dimension(:),allocatable :: tau_old, tau_new
+    real(kind=pr),dimension(:,:),allocatable :: beam_oldold
+    real(kind=pr),dimension(1:2) :: Force, Force_unst, Force_press, Inertial_Force
+    real(kind=pr) :: E_kinetic, E_pot, E_elastic
+    real(kind=pr) :: x0, y0, AngleBeam, phase
+    ! we need the previous time step for the BDF solver
+    real(kind=pr) :: dt_old    
+    ! these replace the save variables in the unst correction computation:
+    real(kind=pr) :: drag_unst_new, drag_unst_old, lift_unst_new, lift_unst_old
+    logical :: StartupStep, UnsteadyCorrectionsReady
+    integer :: iMouvement
+  end type Solid
+ 
+ 
+ 
+  
+ contains
+ 
+ 
+ 
+ 
+ 
+ 
+ include "mouvement.f90"
+ include "integrate_position.f90"
+ include "init_beam.f90"
+ 
+ 
+
+!-------------------------------------------------------------------------------
+!   SOLID SOLVER WRAPPER
+!-------------------------------------------------------------------------------
+subroutine SolidSolverWrapper ( time, dt, beams )
+  implicit none
   real (kind=pr), intent (in) ::                     dt, time
-  type(solid), dimension(1:iBeam), intent (inout) ::    beams
+  type(solid), dimension(1:nBeams), intent (inout) ::    beams
   integer :: i
   
   if (time>T_release) then ! it is not nessesaire to solve the solid equation when the beam is still held fixed  
@@ -22,14 +68,14 @@ subroutine SolidSolverWrapper ( time, dt, beams )
      ! the beams are released, call IBES solvers
      !-------------------------------------------
      ! all implicit solvers are in one subroutine
-     do i = 1, iBeam
+     do i = 1, nBeams
      call IBES_solver (time, dt, beams(i))     
      enddo
   else 
      !-------------------------------------------
      ! the beams are not yet released, but its leading edges may move
      !-------------------------------------------
-     do i = 1, iBeam
+     do i = 1, nBeams
      call integrate_position (time+dt, beams(i))
      enddo
   endif
@@ -37,7 +83,7 @@ subroutine SolidSolverWrapper ( time, dt, beams )
   !-------------------------------------------
   ! compute energies and stuff
   !-------------------------------------------
-  do i = 1, iBeam
+  do i = 1, nBeams
   call SolidEnergies( beams(i) )
   enddo
 
@@ -46,23 +92,21 @@ end subroutine SolidSolverWrapper
 
 
 
-
-
-!-------------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 !   SOLID SOLVER INITIALIZATION
-!-------------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 subroutine InitializeSolidSolver( beams )
-  use share_vars
   implicit none
   integer :: i
-  type(solid), dimension(1:iBeam), intent (inout) :: beams
+  type(solid), dimension(1:nBeams), intent (inout) :: beams
   
   ! marks all beams to be in the very first time step  
   ! the solver then uses CN2 instead of BDF2, because the old old time level
   ! t_n-1 is not available
-  do i=1,iBeam
+  do i=1,nBeams
     beams(i)%StartupStep = .true.
   enddo
+  
   
 end subroutine InitializeSolidSolver
 
@@ -70,11 +114,10 @@ end subroutine InitializeSolidSolver
 
 
 
-!-------------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 !   energies and stuff for beams
-!-------------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 subroutine SolidEnergies( beam )
-  use share_vars
   implicit none
   type(solid), intent (inout) :: beam
   real (kind=pr), dimension (0:ns-1) :: theta_s
@@ -93,18 +136,10 @@ end subroutine SolidEnergies
 
 
 
-!-------------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 !   SOLID SOLVER ROUTINES
-!-------------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
 subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE beam!!
-  use share_vars
-  use mkl_pardiso
-  use MKL_PARDISO_PRIVATE
-  use mkl95_lapack  
-  use mkl95_precision  
-  use CompressMatrixCSR
-  use omp_lib
-  use PerformanceMeasurement
   implicit none
   real (kind=pr), intent (in) :: 				dt, time
   type (solid), intent(inout) ::                                beam_solid
@@ -277,7 +312,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     ! SOLVE LINEAR SYSTEM
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    call Solve_LGS ( J, F, x_delta, N_nonzero, "DIRECT")
+    call Solve_LGS ( J, F, x_delta )
     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
     iter    = iter + 1
@@ -418,119 +453,27 @@ end subroutine IBES_solver
 
 
 
-subroutine Solve_LGS ( J, F, x, N_nonzero, solver)
+subroutine Solve_LGS ( J, F, x)
   !--------------------------------------------
   ! solves the linear system J*x = F
   !--------------------------------------------
-  use share_vars
-  use CompressMatrixCSR
-  use mkl_pardiso
-  use MKL_PARDISO_PRIVATE
-  use mkl95_lapack  
-  use mkl95_precision
-  use omp_lib
   implicit none
   real (kind=pr), dimension (1:2*ns+4,1:2*ns+4), intent(in) :: J
   real (kind=pr), dimension (1:2*ns+4), intent(out) :: x
   real (kind=pr), dimension (1:2*ns+4), intent(out) :: F
-  character(len=*), intent(in) :: solver
-  integer, intent(in) :: N_nonzero
-  
-  real (kind=pr), allocatable, dimension(:) :: values
-  integer, allocatable, dimension(:) :: columns, rows
-  integer, dimension(2*ns+4) :: perm
-  integer, dimension(64) :: iparams
   integer :: error, ipiv(1:2*ns+4), i
-  type (MKL_PARDISO_HANDLE) :: PT(64) 
   
-  real (kind=pr), dimension (1:2*ns+4,1:2*ns+4) :: J2
-  real (kind=pr), dimension (1:2*ns+4) :: F2
+  call dgetrf( 2*ns+4, 2*ns+4, transpose(J) , 2*ns+4, ipiv, error )
+  if (error .ne. 0) then
+    write(*,*) "!!! Crutial: dgetrf error.", error
+    stop
+  endif
   
-  x = 0.0
-  
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  if (solver == "PARDISO") then
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  
-    !-----------------------------------------------------------------
-    !--Compress the Jacobian into CSR (Compressed sparse row) format
-    !-----------------------------------------------------------------
-    allocate( values(1:N_nonzero), columns(1:N_nonzero) )
-    allocate( rows(1:2*ns+5) ) !rows for the CSR format has a fixed dimension
-    call CompressMatrix(J, values, columns, rows)  
-    
-    !-----------------------------------------------------------------
-    ! initialize PARDISO
-    !-----------------------------------------------------------------    
-    !pardiso internal adresses
-    pt%dummy = 0 
-    perm = 0  
-    iparams = 0   !use standard parameters for pardiso
-    iparams(1)=1  !don't use std parameters, specified below
-    iparams(2)=3  !0 minum degree 2 nestes METIS 3 OPENMP
-    iparams(3)=omp_get_num_threads()  !mkl_get_max_threads() ! number of threads
-    iparams(4)=0
-    iparams(5)=0
-    iparams(6)=0
-    iparams(8)=0
-    iparams(10)=13
-    iparams(11)=1
-    iparams(13)=1
-    iparams(18)=0
-    iparams(19)=0
-    iparams(21)=1
-    iparams(27)=1
-    iparams(28)=0
-    iparams(35)=0
-    iparams(60)=0 ! in core o/ outofcore(2)
-    
-    
-    !-----------------------------------------------------------------
-    ! SOLVE using PARDISO
-    !-----------------------------------------------------------------  
-    call pardiso( pt, 1, 1, 11, 13, 2*ns+4, values, rows, columns, perm, 1, iparams, 0, F, x, error)
-!   call pardiso(pt, maxfct, mnum, type, phase, n, a, ia, ja, perm, nrhs, iparm, msglvl, b, x, error)
-
-    if (error .ne. 0) then
-      write(*,*) "!!! Crutial: PARDISO error.", error
-      stop 
-    endif
-    
-    
-    !-----------------------------------------------------------------
-    ! CLEANUP
-    !-----------------------------------------------------------------      
-    !release pardiso internal memory
-    call pardiso( pt, 1, 1, 11, -1, 2*ns+4, values, rows, columns, perm, 1, iparams, 0, F, x, error)    
-    deallocate ( rows,values,columns )
-    
-    
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
-  elseif (solver == "DIRECT") then
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  
-    J2 = transpose(J)
-    F2 = F
-    call dgetrf( 2*ns+4, 2*ns+4, J2, 2*ns+4, ipiv, error )
-    if (error .ne. 0) then
-      write(*,*) "!!! Crutial: dgetrf error.", error
-      stop
-    endif
-    
-    
-    call dgetrs( 'N', 2*ns+4, 1, J2, 2*ns+4, ipiv, F2, 2*ns+4, error )
-    if (error .ne. 0) then 
-      write(*,*) "!!! Crutial: dgetrs error.", error
-      stop
-    endif
-    
-    x = F2
-    
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
-  else
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!  
-      write (*,*) "!!! linear solver: method unkown"
-      stop 
+  x = F
+  call dgetrs( 'N', 2*ns+4, 1, J2, 2*ns+4, ipiv, x, 2*ns+4, error )
+  if (error .ne. 0) then 
+    write(*,*) "!!! Crutial: dgetrs error.", error
+    stop
   endif
   
   !!!!!!!!!!!!!!!!!!!!
@@ -538,7 +481,6 @@ subroutine Solve_LGS ( J, F, x, N_nonzero, solver)
   !!!!!!!!!!!!!!!!!!!!
   do i = 1, 2*ns + 4
   if (isnan(x(i))) then
-    write (*,*) "Solver: "//solver
     write (*,*) "OhOh. Something went wrong in the Linear solver for the solid"
     write (*,*) "May I suggest to kill yourself as you'll never find this mistake?"
     stop
@@ -547,10 +489,11 @@ subroutine Solve_LGS ( J, F, x, N_nonzero, solver)
   
 end subroutine
 
+
+
 !##################################################################################################################################################################
 
 subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam, beam_solid  )
-  use share_vars
   implicit none  
   ! returns the RHS of the nonlinear eqn set F(x) for a given beam (the iterating one) and the (fixed) previous one
   real (kind=pr), dimension (0:ns-1), intent (in) :: theta_old, theta_dot_old , old_rhs, theta_oldold, theta_dot_oldold
@@ -669,7 +612,6 @@ end subroutine F_nonlinear
 !##################################################################################################################################################################
 
 subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_dot_old, p, theta_oldold, theta_dot_oldold, tau_beam, beam_solid)
-  use share_vars
   implicit none
   real (kind=pr), dimension(1:2*ns+4,1:2*ns+4), intent (out) :: J
   real (kind=pr), dimension(-1:ns-1), intent (in) :: T
@@ -872,7 +814,6 @@ end subroutine Jacobi
 ! -------------------------------------------------------------------------------------------------------------------------------
 
 subroutine GravityImpulse(time)
-  use share_vars
   implicit none
   ! gives a little gravity impulse to pertubate the beam between T0 and T1 (sinusoidal)
   real (kind=pr), intent (in) ::  time
@@ -928,9 +869,6 @@ subroutine RHS_beameqn (time, theta, theta_dot, pressure_beam, T, tau_beam, beam
     ! T			the tension in the beam at time time. we return it to form the complete initial guess for the implicit solvers
     !
     !------------------------------------------------------------------------------
-    use mkl95_lapack
-    use mkl95_precision
-    use share_vars
     implicit none
     real (kind=pr), intent (in) :: 				time
     real (kind=pr) ::  						A1, A2, K2,C2
@@ -999,7 +937,6 @@ end subroutine RHS_beameqn
 
 subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_solid)
   ! note we use a TRIAG solver. the neumann condition is not in the matrix, it is set explicitly. therefore we return also T_s 
-  use share_vars
   implicit none
   real (kind=pr), intent (in) ::				time
   real (kind=pr), dimension (0:ns-1) :: 			theta_s, theta_ss, theta_sss
@@ -1083,7 +1020,6 @@ end subroutine Tension
 ! ----------------------------------------------------------------------------------------------------------------------------------------
 
 subroutine Differentiate1D (f, f_derivative, N, dx, order)
-  use share_vars
   implicit none
   integer, intent (in) 				:: order, n
   real, intent (in)    				:: dx
@@ -1108,7 +1044,6 @@ end subroutine Differentiate1D
 ! -------------------------------------------------------------------------------------------------------------------------------
 
 subroutine create_diff_matrices (D1, D2, D3, D4, nn, dx)
-  use share_vars
   implicit none
   integer :: i,N
   integer, intent (in) :: nn
@@ -1235,7 +1170,6 @@ end subroutine create_diff_matrices
 !##################################################################################################################################################################
 
 subroutine RK4 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
-use share_vars
   implicit none
   real (kind=pr), intent (in) :: dt_beam, time
   real (kind=pr), dimension (0:ns-1, 1:6), intent (inout) :: beam
@@ -1307,7 +1241,6 @@ end subroutine RK4
 ! ---------------------------------------------------------------------------------------------------------------------------------------
   
 subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
-use share_vars
   implicit none
   real (kind=pr), intent (in) :: dt_beam, time
   real (kind=pr), dimension (0:ns-1, 1:6), intent (inout) :: beam
@@ -1330,130 +1263,6 @@ use share_vars
   beam(:,6) = theta_dot + dt_beam * theta_dot_1
 end subroutine EE1
 
-
-!##################################################################################################################################################################
-
-subroutine beamfilter(time,theta)
-  ! note this routine uses ONE BASED INDEXING: its easier because its developped in MATLAB
-  use share_vars
-  implicit none
-  real (kind=pr), dimension (1:ns), intent(inout) :: theta
-  real (kind=pr), intent(in) :: time
-  real (kind=pr), dimension (1:ns) :: theta_old, theta_filtered
-  real (kind=pr), dimension (:), allocatable :: theta_extended, tukey, theta_extended_k, spectrum
-  integer :: i, n_ext, n_tukey, k, k1,k2
-  real(kind=pr) :: filter
-  
-
-  
-!   open (14, file = 'beam.in', status='old', action='read') ! Append output data file
-!   do i=1,ns
-!   read (14, *) theta(i)
-!   enddo
-!   close (14) 
-  
-
-  ! ---------------------------------------
-  ! first, we extend the beam 
-  ! ---------------------------------------
-  n_ext = ns-12 ! n_ext is the number of points we added
-  
-  allocate ( tukey(1:ns+2*n_ext),theta_extended(1:ns+2*n_ext),theta_extended_k(1:ns+2*n_ext),spectrum(1:ns+2*n_ext) )
-  
-  ! the first part is antisymmetric: its the same values with a neg sign in reverse order
-  theta_extended (1 : n_ext)               = -theta(n_ext+1:2:-1)
-  ! embedd original beam
-  theta_extended (n_ext+1 : ns+n_ext)      =  theta(1 : ns) 
-  ! the last part is a mirror of the beam: note that due to BC, theta_s and theta_ss are zero
-  theta_extended (ns+n_ext+1 : ns+2*n_ext) =  theta(ns-1 : (ns-1)-(n_ext-1) : -1)  ! skip point ns here, otherwise taken twice
-  
-
-
-  ! ---------------------------------------
-  ! tukey window
-  ! ---------------------------------------  
-  n_tukey = 3*n_ext/4
-  tukey = 1.0
-  
-  do i=1,n_tukey
-    tukey(i) = 0.5*(1.0 - cos( pi*real(i-1)/real(n_tukey) ) )
-    tukey(ns+2*n_ext-i+1) = tukey(i)
-  enddo
-  
-  
-  ! appley Tukey window to extended beam
-  theta_extended = theta_extended * tukey
-  
-  ! go to fourier space
-  call cofts (theta_extended, theta_extended_k, ns+2*n_ext, 1)
-  
-  spectrum=theta_extended_k
-  
-! write(*,'("theta",1600(es11.4,1x))') theta  
-! write(*,'("theta_ext",1600(es11.4,1x))') theta_extended 
-! write(*,'("tukey",1600(es11.4,1x))') tukey  
-! write(*,'("theta_ex_k ",1600(es11.4,1x))') theta_extended_k
-  
-  ! apply filter
-  k1=100
-  k2=200
-  do k = 1 , (ns+2*n_ext)/2  ! is k_max=756 nodes for ns=512
-
-    if (k<k1) then
-      filter = 1.0
-    elseif ((k>=k1).and.(k<=k2)) then
-      filter = 1.0 - 0.5*(1.0 - cos( pi*real(k-k1)/real(k2-k1) ) )
-    else
-      filter = 0.0
-    endif
-    
-    theta_extended_k (2*k-1) = filter*theta_extended_k (2*k-1) !real part
-    theta_extended_k (2*k)   = filter*theta_extended_k (2*k) !imag part
-    
-  end do
-
-  
-  ! inverse fourier transform
-  call cofits (theta_extended_k, theta_extended, ns+2*n_ext, 1)
-  
-  ! cut added values
-  theta_old = theta
-  theta_filtered = theta_extended (n_ext+1 : ns+n_ext)
-  
-  !===================================================================================
-!   blender = 1.0
-! 
-! !   do i=5,10
-! !     blender(i) = real(i-5)/5.0
-! !   enddo  
-! !   blender( ns-10:ns-5 ) = blender( 10:5:-1 )
-! 
-!   n_blender = 20
-!   n_BC = 4
-!     blender(1:n_BC) = 0.0
-!   blender(ns-n_BC:ns) = 0.0
-!   do i=n_BC,n_blender+n_BC
-!     blender(i) = 0.5*(1.0 - cos( pi*real(i-n_BC)/real(n_blender) ) )
-!     blender(ns-i+1) = blender(i)
-!   enddo
-!   theta = blender*theta_filtered +(1.0-blender)*theta_old
-  !===================================================================================
-  
-  theta = theta_filtered
-
-!   write(*,'("BLENDER",1600(es11.4,1x))') blender
-!   stop
-  
-! write(*,'("theta_k_filt",1600(es11.4,1x))') theta_extended_k  
-! write(*,'("theta_neu",1600(es11.4,1x))') theta
-! write(*,*) "---"
-write(*,*) maxval(abs(theta-theta_old))
-
-!   open (14, file = 'beam_spectrum', status = 'unknown', access = 'append') ! Append output data file
-!   write (14, '(1600(es11.4,1x))') time, (sqrt(spectrum(2*k-1)**2+spectrum(2*k)**2), k = 1,(ns+2*n_ext)/2 )
-!   close (14)
-
-end subroutine
 
 !##################################################################################################################################################################
 
