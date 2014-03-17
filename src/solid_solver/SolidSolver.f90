@@ -1,12 +1,16 @@
 module SolidSolver
-  use share_vars
+  use fsi_vars
   implicit none
   
   !----------------------------------------------
   ! module global variables
   !----------------------------------------------
+  
+  save ! everything is persistent
+  
   integer :: nBeams = 1  
-  integer :: ns=64
+  integer,parameter :: ns=64
+  integer :: iMotion=0
   integer :: TimeMethodSolid 
   integer, parameter :: EulerImplicit=1, CrankNicholson=2, RungeKutta4=3, EulerExplicit=4, BDF2 =5
   real(kind=pr) :: mue=0.0571d0
@@ -1268,7 +1272,6 @@ end subroutine EE1
 
 
 subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, theta_dot_old, p, theta_oldold, theta_dot_oldold, old_rhs, tau_beam_new, beam_solid)
-  use share_vars
   implicit none
   type (solid) :: beam_solid
   real (kind=pr), dimension(1:2*ns+4,1:2*ns+4), intent (out) :: J
@@ -1329,7 +1332,6 @@ end subroutine Jacobi_num
 
 
 subroutine Check_Vector_NAN(f, msg)
-  use share_vars
   real(kind=pr), intent(in) :: f(:)
   character(len=*) :: msg
   integer :: a, i
@@ -1344,7 +1346,6 @@ subroutine Check_Vector_NAN(f, msg)
 end subroutine
 
 subroutine Check_Vector_NAN_try_correct(f, msg)
-  use share_vars
   real(kind=pr), intent(inout) :: f(:)
   character(len=*) :: msg
   integer :: a, i

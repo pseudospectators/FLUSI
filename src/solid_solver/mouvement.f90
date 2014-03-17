@@ -1,5 +1,4 @@
 subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
-  use share_vars
   implicit none
   type(solid), intent(in) :: beam
   real (kind=pr), intent(out) :: alpha, alpha_t, alpha_tt 

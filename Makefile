@@ -11,20 +11,21 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
         add_channel.f90 add_cavity.f90 \
         wings_geometry.f90 wings_motion.f90 body_motion.f90 \
         body_geometry.f90 rotation_matrices.f90 stroke_plane.f90
+        
 
 # Object and module directory:
 OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = vars.f90 kine.f90 cof_p3dfft.f90
+MFILES = vars.f90 kine.f90 cof_p3dfft.f90 SolidSolver.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
 VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd
 VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd
-VPATH += :src/insects
+VPATH += :src/insects:src/solid_solver
 
 # Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
@@ -101,6 +102,8 @@ $(OBJDIR)/vars.o: vars.f90
 $(OBJDIR)/kine.o: kine.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/SolidSolver.o: SolidSolver.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

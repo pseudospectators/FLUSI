@@ -3,8 +3,6 @@ subroutine init_beams ( beams )
   ! initializes an array of beams. the initial state is always
   ! straight lines, possible oriented with different angles, at rest.
   !---------------------------------------------------
-  use share_vars
-  use motion
   implicit none
   integer :: n, i
   type(solid), dimension (1:nBeams), intent (out) :: beams  
