@@ -25,6 +25,13 @@ program FLUSI
       !-------------------------------------------------------------------------
       call postprocessing()
       
+  elseif ( infile = "--solid" ) then
+      !-------------------------------------------------------------------------
+      ! run solid model only
+      !-------------------------------------------------------------------------
+      call get_command_argument(2,infile)
+      call get_params(infile)
+      call OnlySolidSimulation()
   else
       if (mpirank==0) write(*,*) "nothing to do..."      
   endif
