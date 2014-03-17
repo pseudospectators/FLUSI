@@ -8,13 +8,13 @@ module SolidSolver
   
   save ! everything is persistent
   
-  integer :: nBeams = 1  
-  integer,parameter :: ns=64
-  integer :: iMotion=0
-  integer :: TimeMethodSolid 
-  integer, parameter :: EulerImplicit=1, CrankNicholson=2, RungeKutta4=3, EulerExplicit=4, BDF2 =5
-  real(kind=pr) :: mue=0.571d0
-  real(kind=pr) :: eta=0.259d0
+  integer,parameter :: nBeams = 1  
+  integer,parameter :: ns=32
+  integer :: iMotion=0  
+  integer,parameter :: EulerImplicit=1, CrankNicholson=2, RungeKutta4=3, EulerExplicit=4, BDF2 =5
+  integer :: TimeMethodSolid=5
+  real(kind=pr) :: mue=0.0571d0
+  real(kind=pr) :: eta=0.0259d0
   real(kind=pr) :: grav=0.7d0
   real(kind=pr) :: sigma=0.d0
   real(kind=pr) :: t_beam=0.5d0
@@ -53,42 +53,29 @@ module SolidSolver
   implicit none
   type(solid), dimension(1:nBeams) :: beams
   real (kind=pr) :: time
-  integer :: it,ndrag,nsave
+  integer :: it,nsave
 
+  open (14, file = 'beam_data1', status = 'replace')
+  close(14)
+  open (14, file = 'mouvement1', status = 'replace')
+  close(14)
+  
   write (*,*) "*** information: starting OnlySolidSimulation"
-  call system('mkdir '//trim(dir_name) )
-  time = GetRuntime('start') !for runtime measurement
   time = 0.0
-  it = 0
-  
-  continue_timestep = .true.
-  
-  if ((dt_fixed)==0.0) dt_fixed = 1.0e-4 ! in case you forgot to set it
+  it = 0  
+  tmax=10.d0
+  dt_fixed=1.0d-3
 
   ! initialization
-  call InitBeamFiles()  !init files for data, override
-  call init_beams ( beams )
-  
-  ndrag = int(tdrag/dt_fixed)
-  nsave = max(int(1.0e-4/dt_fixed),1)
+  call init_beams( beams )
 
 
-  do while ((time<Time_end).and.(continue_timestep==.true.))  
-    !---------------------
-    ! actual time step
-    !---------------------
+  do while ((time<tmax))
     call SolidSolverWrapper( time, dt_fixed , beams )
-    
-    
+        
     it   = it+1
-    time = real(it)*dt_fixed
-
-
-    if (mod(it,nsave)==0 ) call SaveBeamData( time, beams, dt_fixed )
-    
-    if ( (mod(it,ndrag)==0).or.(it==22) ) then
-      call SaveDeflectionLine (time, beams )
-    endif
+    time = dble(it)*dt_fixed
+    call SaveBeamData( time, beams, dt_fixed )
   enddo
 
 end subroutine
@@ -109,7 +96,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine SolidSolverWrapper ( time, dt, beams )
   implicit none
-  real(kind=pr), intent (in) ::                     dt, time
+  real(kind=pr), intent (in) ::  dt, time
   type(solid), dimension(1:nBeams), intent (inout) ::    beams
   integer :: i
   
@@ -336,7 +323,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
       J2_norm = (J-J2)/J2_norm
       where (abs(J2_norm)<1.0e-5) J2_norm=0.d0 ! delete small values
       if (maxval(J2_norm)>1.0e-2) then  
-          open (14, file = 'IBES_JACOBIAN', status = 'unknown', access = 'append') ! Append output data file
+          open (14, file = 'IBES_JACOBIAN', status = 'old') ! Append output data file
           write (14,*) "---analytic---"
           do n=1,ns*2+4
           write (14,'(1x,3096(es8.1,1x))') J(:,n)
@@ -472,7 +459,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !---------------------------------------------------------------------
   !     save number of iterations
   !---------------------------------------------------------------------    
-  open (14, file = 'IBES_iter', status = 'unknown', access = 'append') ! Append output data file
+  open (14, file = 'IBES_iter', status = 'old') ! Append output data file
   write (14, '(es11.4,1x,i3)') time, iter
   close (14)
   

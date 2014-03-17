@@ -74,7 +74,7 @@ subroutine init_beams ( beams )
     
     ! remember that what follows is described in relative coordinates 
     do n = 0, ns-1 
-      beams(i)%x(n) = LeadingEdge(1) + real(n)*ds
+      beams(i)%x(n) = LeadingEdge(1) + dble(n)*ds
       beams(i)%y(n) = LeadingEdge(2)
       beams(i)%vx(n)= 0.d0
       beams(i)%vy(n)= 0.d0

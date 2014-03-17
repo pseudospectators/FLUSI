@@ -1,21 +1,17 @@
 subroutine SaveBeamData( time, beams, dt1 )
-  use share_vars
-  use SolidSolver
-  use motion
+  use fsi_vars
   implicit none
   real (kind=pr), intent (in) :: time,dt1
   type (solid), dimension(1:nBeams), intent (in) :: beams
   character(len=16) :: format_ns1
   character(len=3)  :: ns1_string
   character(len=1)  :: beamstr
-  real (kind=pr) :: alpha, alpha_t, alpha_tt , dx, dy
+  real (kind=pr) :: alpha, alpha_t, alpha_tt
   real (kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
   integer :: n,step,i
   
-  dx=xl/real(nx)
-  dy=yl/real(ny)  
 
-  
+   
   ! set up formats
   write(ns1_string, '(I3)') ns+1
   format_ns1 = '('//ns1_string//'(es12.5,1x))'
@@ -24,7 +20,7 @@ subroutine SaveBeamData( time, beams, dt1 )
   do i=1, nBeams ! loop over beams
     ! for naming files..
     write (beamstr,'(i1)') i        
-    open  (14, file = trim(dir_name)//'/'//trim(simulation_name)//'beam_data'//beamstr, status = 'unknown', access = 'append')
+    open  (14, file = 'beam_data'//beamstr, status = 'old',position='append')
     write (14, '(21(es15.8,1x))') &
       time,&
       beams(i)%pressure_new(ns-1),&
@@ -59,7 +55,7 @@ subroutine SaveBeamData( time, beams, dt1 )
     write (beamstr,'(i1)') i 
     call mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beams(i) )
     
-    open (14, file = trim(dir_name)//'/'//trim(simulation_name)//'mouvement'//beamstr, status = 'unknown', access = 'append')
+    open (14, file = 'mouvement'//beamstr, status = 'old',position='append')
     write (14, '(10(es15.8,1x))') time, alpha, alpha_t, alpha_tt, (LeadingEdge(n), n=1,6)
     close (14)
     

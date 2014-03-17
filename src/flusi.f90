@@ -1,6 +1,7 @@
 program FLUSI
   use mpi
   use fsi_vars
+  use SolidSolver
   implicit none
   integer                :: mpicode
   character (len=80)     :: infile
@@ -25,10 +26,14 @@ program FLUSI
       !-------------------------------------------------------------------------
       call postprocessing()
       
-  elseif ( infile = "--solid" ) then
+  elseif ( infile == "--solid" ) then
       !-------------------------------------------------------------------------
       ! run solid model only
       !-------------------------------------------------------------------------
+      method="fsi" ! We are doing fluid-structure interactions
+      nf=1 ! We are evolving one field.
+      nd=3*nf ! The one field has three components.
+      allocate(lin(1)) ! Set up the linear term
       call get_command_argument(2,infile)
       call get_params(infile)
       call OnlySolidSimulation()
