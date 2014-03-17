@@ -1,7 +1,5 @@
-!-------------------------------------------------------------------------------
 ! Wrapper to read parameters from an ini file for fsi.  Also reads
 ! parameters which are set in the vars module.
-!-------------------------------------------------------------------------------
 subroutine get_params(paramsfile) 
   use vars
 
@@ -25,7 +23,7 @@ subroutine get_params(paramsfile)
   ! Get parameter values from PARAMS
   call get_params_common(PARAMS,i)
 
-  select case(method)
+  select case(method(1:3))
      case("fsi") 
         ! Get fsi-specific parameter values from PARAMS
         call get_params_fsi(PARAMS,i)
@@ -41,10 +39,8 @@ subroutine get_params(paramsfile)
 end subroutine get_params
 
 
-!-------------------------------------------------------------------------------
 ! Read the file paramsfile, count the lines (output in i) and put the
 ! text in PARAMS.
-!-------------------------------------------------------------------------------
 subroutine read_params_file(PARAMS,i,paramsfile, verbose)
   use mpi
   use vars
@@ -77,10 +73,9 @@ subroutine read_params_file(PARAMS,i,paramsfile, verbose)
 
 end subroutine read_params_file
 
-!-------------------------------------------------------------------------------
+
 ! Read individual parameter values from the PARAMS string for the vars
 ! module.
-!-------------------------------------------------------------------------------
 subroutine get_params_common(PARAMS,i)
   use mpi
   use vars
@@ -254,7 +249,6 @@ subroutine get_params_fsi(PARAMS,i)
   ! ---------------------------------------------------
   ! Insects section
   ! ---------------------------------------------------
-  if (iMask == "Insect") then
   Insect%WingShape="none"
   call GetValue_String(PARAMS,i,"Insects","WingShape",&
        Insect%WingShape,Insect%WingShape)
@@ -325,11 +319,6 @@ subroutine get_params_fsi(PARAMS,i)
   Insect%KineFromFile="no"
   call GetValue_String(PARAMS,i,"Insects","KineFromFile",&
        Insect%KineFromFile,Insect%KineFromFile)    
-  endif
-  ! ---------------------------------------------------
-  ! solid model
-  ! ---------------------------------------------------  
-  call get_params_solid( PARAMS, i )
   
   ! ---------------------------------------------------
   ! DONE..
@@ -372,60 +361,6 @@ subroutine get_params_mhd(PARAMS,i)
 end subroutine get_params_mhd
 
 
-!-------------------------------------------------------------------------------
-! Read individual parameter values that are specific to the solid model only
-!-------------------------------------------------------------------------------
-subroutine get_params_solid(PARAMS,i)
-  use mpi
-  use solid_model
-  implicit none
-
-  integer,intent(in) :: i
-  character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
-
-  use_solid_model="no" ! solid model is deactivated by default
-  call GetValue_String(PARAMS,i,"SolidModel","use_solid_model",use_solid_model,use_solid_model)
-
-  
-  !-- if using the solid model, look for other parameters
-  if (use_solid_model=="yes") then
-    !-- beam resolution
-    call GetValue_Int(PARAMS,i,"SolidModel","ns",ns, 32)
-    !-- density / stiffness / gravity
-    call GetValue_Real(PARAMS,i,"SolidModel","mue",mue,1.0d0)
-    call GetValue_Real(PARAMS,i,"SolidModel","eta",eta,1.0d0)
-    call GetValue_Real(PARAMS,i,"SolidModel","gravity",grav,0.0d0) 
-    !-- beam thickness
-    call GetValue_Real(PARAMS,i,"SolidModel","t_beam",t_beam,0.05d0)
-    !-- damping
-    call GetValue_Real(PARAMS,i,"SolidModel","sigma",sigma,0.0d0)
-    !-- timing
-    call GetValue_Real(PARAMS,i,"SolidModel","T_release",T_release,0.0d0)
-    call GetValue_Real(PARAMS,i,"SolidModel","tau",tau,0.0d0)
-    
-    !-- time marching method for the solid
-    TimeMethodSolid="BDF2"
-    call GetValue_String(PARAMS,i,"SolidModel","TimeMethodSolid",TimeMethodSolid,TimeMethodSolid)
-    
-    select case (TimeMethodSolid)
-      case ("RK4","CN2","BDF2","EI1")
-        if (mpirank==0) write(*,*) "Solid solver is", TimeMethodSolid
-      case default
-        if (mpirank==0) write(*,*) "Solid solver is UNDEFINED, using BDF2"
-        TimeMethodSolid="BDF2"
-    end select
-    
-    imposed_motion_leadingedge="fixed"
-    call GetValue_String(PARAMS,i,"SolidModel","imposed_motion_leadingedge",&
-    imposed_motion_leadingedge,imposed_motion_leadingedge)
-    !-- grid spacing
-    ds = 1.d0/dble(ns-1)
-  endif
-
-end subroutine get_params_solid
-
-
-
 
 
 !-------------------------------------------------------------------------------
@@ -441,7 +376,6 @@ end subroutine get_params_solid
 !       defaultvalue: if the we can't find the parameter, we return this and warn
 ! Output:
 !       params_real: this is the parameter you were looking for
-!-------------------------------------------------------------------------------
 subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
      defaultvalue)
   use vars
@@ -591,7 +525,6 @@ end subroutine GetValue_vector
 !       defaultvalue: if the we can't find the parameter, we return this and warn
 ! Output:
 !       params_int: this is the parameter you were looking for
-!-------------------------------------------------------------------------------
 subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
      defaultvalue)
   use mpi
@@ -644,7 +577,6 @@ end subroutine GetValue_Int
 !       value: is a string contaiing everything between '=' and ';'
 !              to be processed further, depending on the expected type
 !              of variable (e.g. you read an integer from this string)
-!-------------------------------------------------------------------------------
 subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   use vars
   use mpi

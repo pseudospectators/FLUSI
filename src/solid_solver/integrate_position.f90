@@ -35,10 +35,10 @@ subroutine integrate_position (time, beam) !attention! parameter time added (for
     beam%y(s)  = LeadingEdge(2) + yrel*cos(alpha) + xrel*sin(alpha)
     beam%vx(s) = LeadingEdge(3) + cos(alpha)*(vxrel - alpha_t*yrel) - sin(alpha)*(vyrel + alpha_t*xrel)
     beam%vy(s) = LeadingEdge(4) + cos(alpha)*(vyrel + alpha_t*xrel) + sin(alpha)*(vxrel - alpha_t*yrel)
-    xrel  = 0.0
-    yrel  = 0.0
-    vxrel = 0.0
-    vyrel = 0.0    
+    xrel  = 0.d0
+    yrel  = 0.d0
+    vxrel = 0.d0
+    vyrel = 0.d0    
   enddo
   
 
