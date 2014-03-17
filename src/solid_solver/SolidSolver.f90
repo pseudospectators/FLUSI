@@ -1,4 +1,4 @@
-module SolidSolver
+module solid_model
   use fsi_vars
   implicit none
   
@@ -9,18 +9,18 @@ module SolidSolver
   save ! everything is persistent
   
   integer,parameter :: nBeams = 1  
-  integer,parameter :: ns=32
-  integer :: iMotion=0  
-  integer,parameter :: EulerImplicit=1, CrankNicholson=2, RungeKutta4=3, EulerExplicit=4, BDF2 =5
-  integer :: TimeMethodSolid=5
-  real(kind=pr) :: mue=0.0571d0
-  real(kind=pr) :: eta=0.0259d0
-  real(kind=pr) :: grav=0.7d0
-  real(kind=pr) :: sigma=0.d0
-  real(kind=pr) :: t_beam=0.5d0
-  real(kind=pr) :: AngleBeam=0.d0
-  real(kind=pr) :: ds=1.d0/(ns-1)
-  real(kind=pr) :: T_release=0.d0, tau=0.d0
+  integer :: ns
+  integer,parameter :: iMotion = 0 
+  real(kind=pr) :: mue
+  real(kind=pr) :: eta
+  real(kind=pr) :: grav
+  real(kind=pr) :: sigma
+  real(kind=pr) :: t_beam
+  real(kind=pr) :: AngleBeam
+  real(kind=pr) :: ds
+  real(kind=pr) :: T_release, tau
+  character(len=40) :: imposed_motion_leadingedge, TimeMethodSolid
+  
 
   !----------------------------------------------
   ! Solid datatype
@@ -43,11 +43,23 @@ module SolidSolver
   end type Solid
  
  
- 
   
  contains
  
  
+ !-----------------------------------------------------------------
+ include "mouvement.f90"
+ include "integrate_position.f90"
+ include "init_beam.f90"
+ include "BeamIO.f90"
+ !-----------------------------------------------------------------
+ 
+ 
+ 
+ 
+!-------------------------------------------------------------------------------
+!   solid solver main entry point
+!-------------------------------------------------------------------------------
  subroutine OnlySolidSimulation()
   use fsi_vars
   implicit none
@@ -63,14 +75,15 @@ module SolidSolver
   write (*,*) "*** information: starting OnlySolidSimulation"
   time = 0.0
   it = 0  
-  tmax=10.d0
-  dt_fixed=1.0d-3
-
-  ! initialization
+  
+  write(*,*) mue, eta, grav, ds, TimeMethodSolid, iMotion, sigma
+  
+  !-- initialization
   call init_beams( beams )
 
-
+  !--loop over time steps
   do while ((time<tmax))
+    !-- time stepping
     call SolidSolverWrapper( time, dt_fixed , beams )
         
     it   = it+1
@@ -83,14 +96,6 @@ end subroutine
  
  
  
- include "mouvement.f90"
- include "integrate_position.f90"
- include "init_beam.f90"
- include "BeamIO.f90"
- 
- 
- 
-
 !-------------------------------------------------------------------------------
 !   SOLID SOLVER WRAPPER
 !-------------------------------------------------------------------------------
@@ -106,7 +111,16 @@ subroutine SolidSolverWrapper ( time, dt, beams )
      !-------------------------------------------
      ! all implicit solvers are in one subroutine
      do i = 1, nBeams
-     call IBES_solver (time, dt, beams(i))     
+        select case (TimeMethodSolid)
+          case ("CN2","BDF2","EI1")
+            call IBES_solver (time, dt, beams(i))    
+          case ("RK4")
+            call RK4_wrapper (time, dt, beams(i))
+          case default
+            write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
+                TimeMethodSolid
+            stop
+        end select
      enddo
   else 
      !-------------------------------------------
@@ -230,9 +244,9 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !-------------------------------------------------------------------- 
   if (beam_solid%StartupStep) then  ! this is the first time step 
     beam_solid%StartupStep = .false.  ! we're about to do the first step
-    if (TimeMethodSolid==BDF2) then  ! if we deal with BDF2
+    if (TimeMethodSolid=="BDF2") then  ! if we deal with BDF2
       ActuallyBDF2 = .true.    ! Remember to switch back to BDF2 (at the end of the step)
-      TimeMethodSolid = CrankNicholson  ! use CrankNicholson for the first step
+      TimeMethodSolid = "CN2"  ! use "CN2" for the first step
     endif
   endif
   
@@ -277,7 +291,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !--------------------------------------------------------------------
   !   Calculate RHS vector @ t_n. This is required for the CN2 method only.
   !--------------------------------------------------------------------
-  if (TimeMethodSolid == CrankNicholson) then
+  if (TimeMethodSolid == "CN2") then
     theta_old = beam_old(:,5)
     old_rhs = beam_old(:,6)           
     call RHS_beameqn(time, theta_old, old_rhs, pressure_old, T_dummy, tau_beam_old, beam_solid)
@@ -323,7 +337,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
       J2_norm = (J-J2)/J2_norm
       where (abs(J2_norm)<1.0e-5) J2_norm=0.d0 ! delete small values
       if (maxval(J2_norm)>1.0e-2) then  
-          open (14, file = 'IBES_JACOBIAN', status = 'old') ! Append output data file
+          open (14, file = 'IBES_JACOBIAN', status = 'replace') ! Append output data file
           write (14,*) "---analytic---"
           do n=1,ns*2+4
           write (14,'(1x,3096(es8.1,1x))') J(:,n)
@@ -336,10 +350,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
           do n=1,ns*2+4
           write (14,'(1x,3096(es8.1,1x))') J2_norm(:,n)
           enddo   
-          write(*,'(A)') "!!! A weird error in IBES occured. Now and then, I compute the exact Jacobian with finite differences."
-          write(*,'(A)') "    This time, the analytical Jacobian and the numerical one differ more than 1% from each other"
-          write(*,'(A)') "    This means something went wrong in IBES, and you should check it."
-          write(*,'(A)') "    Write an email to thomas.engels@mail.tu-berlin.de"
+          write(*,'(A)') "IBES error, mismatch in Jacobian (numeric vs analytic)"
           write (*,*) time, iter
           close (14)
           stop
@@ -387,17 +398,17 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !     compute angular velocity (theta_dot)
   !---------------------------------------------------------------------  
   ! theta_dot was removed from the NL system and is now computed  
-  if (TimeMethodSolid == EulerImplicit) then  
+  if (TimeMethodSolid == "EI1") then  
     C1=1.0 ! dt factor
     C2=0.d0 ! factor for RHS
     C3=1.0 ! factor before the THETA_DOT_N term
     C4=0.d0 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == CrankNicholson) then  
+  elseif (TimeMethodSolid == "CN2") then  
     C1=2.0 ! dt factor
     C2=1.0 ! rhs old factor
     C3=1.0 ! factor before the THETA_DOT_N term
     C4=0.d0 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == BDF2) then  
+  elseif (TimeMethodSolid == "BDF2") then  
     R  = dt / dt_old
     C1 = (1.+2.*R)/(1.+R)   ! dt factor
     C2 = 0.d0      ! rhs old factor
@@ -468,7 +479,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !---------------------------------------------------------------------    
   
   if (ActuallyBDF2 .eqv. .true.) then   ! Remember to switch back to BDF2 
-    TimeMethodSolid = BDF2 
+    TimeMethodSolid = "BDF2" 
     ActuallyBDF2 = .false.
   endif  
 
@@ -556,17 +567,17 @@ subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T
 
   F = 0. !to check if an index is not set. is not the case.
   
-  if (TimeMethodSolid == EulerImplicit) then  
+  if (TimeMethodSolid == "EI1") then  
     C1=1.0 ! dt factor
     C2=0.d0 ! factor for RHS
     C3=1.0 ! factor before the THETA_DOT_N term
     C4=0.d0 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == CrankNicholson) then  
+  elseif (TimeMethodSolid == "CN2") then  
     C1=2.0 ! dt factor
     C2=1.0 ! rhs old factor
     C3=1.0 ! factor before the THETA_DOT_N term
     C4=0.d0 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == BDF2) then  
+  elseif (TimeMethodSolid == "BDF2") then  
     R  = dt / dt_old
     C1 = (1.+2.*R)/(1.+R)   ! dt factor
     C2 = 0.d0      ! rhs old factor
@@ -684,17 +695,17 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   !    dT_ns-2     =2ns+3
   !---------------------------------------
   
-  if (TimeMethodSolid == EulerImplicit) then  
+  if (TimeMethodSolid == "EI1") then  
     C1=1.0                 ! dt factor
     C2=0.d0                 ! factor for RHS
     C3=1.0                 ! factor before the THETA_DOT_N term
     C4=0.d0                 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == CrankNicholson) then  
+  elseif (TimeMethodSolid == "CN2") then  
     C1=2.0                 ! dt factor
     C2=1.0                 ! rhs old factor
     C3=1.0                 ! factor before the THETA_DOT_N term
     C4=0.d0                 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == BDF2) then  
+  elseif (TimeMethodSolid == "BDF2") then  
     R  = dt / dt_old
     C1 = (1.+2.*R)/(1.+R)   ! dt factor
     C2 = 0.d0      ! rhs old factor
@@ -1226,8 +1237,32 @@ subroutine create_diff_matrices (D1, D2, D3, D4, nn, dx)
  !-----------------------------
 end subroutine create_diff_matrices
 
-!-------------------------------------------------------------------------------
 
+!-------------------------------------------------------------------------------
+!   wrapper for new beam dataype for RK4
+!-------------------------------------------------------------------------------
+subroutine RK4_wrapper ( time, dt, beam_solid )! note this is actuall only ONE beam!!
+  implicit none
+  real(kind=pr), intent (in) :: dt, time
+  type (solid), intent(inout) :: beam_solid
+  real(kind=pr),dimension(0:ns-1) :: T
+  real(kind=pr),dimension(0:ns-1, 1:6) :: beam
+
+  beam(:,1) = beam_solid%x
+  beam(:,2) = beam_solid%y
+  beam(:,3) = beam_solid%vx
+  beam(:,4) = beam_solid%vy
+  beam(:,5) = beam_solid%theta
+  beam(:,6) = beam_solid%theta_dot
+  
+  call RK4( time, dt, beam, beam_solid%pressure_old, T, beam_solid%tau_old, &
+            beam_solid )
+end subroutine RK4_wrapper
+
+
+
+
+!-------------------------------------------------------------------------------
 subroutine RK4 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
   implicit none
   real(kind=pr), intent (in) :: dt_beam, time
@@ -1418,8 +1453,5 @@ subroutine Check_Vector_NAN_try_correct(f, msg)
      endif
   enddo
 end subroutine
- 
-end module
 
-
-
+end module solid_model

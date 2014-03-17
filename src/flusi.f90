@@ -1,7 +1,7 @@
 program FLUSI
   use mpi
   use fsi_vars
-  use SolidSolver
+  use solid_model
   implicit none
   integer                :: mpicode
   character (len=80)     :: infile

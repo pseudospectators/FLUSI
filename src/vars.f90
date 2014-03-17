@@ -137,9 +137,7 @@ module fsi_vars
   real(kind=pr), save :: eps_sponge
   integer, save :: sponge_thickness
   
-  ! Wings and body mask
-  real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart  
-  
+ 
   ! cavity mask:
   character(len=80), save :: iCavity, iChannel
   integer, save :: cavity_size
@@ -149,12 +147,15 @@ module fsi_vars
   
   ! for periodically repeating flows, it may be better to always have only 
   ! one set of files on the disk
-  character(len=80) :: save_only_one_period
+  character(len=80),save :: save_only_one_period
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
   integer,save :: iMeanFlow
   integer,save :: iSaveSolidVelocity
+  
+  !-- use the solid model yes/no
+  character(len=80),save :: use_solid_model
 
   !-----------------------------------------------------------------------------
   ! The derived integral quantities for fluid-structure interactions.
