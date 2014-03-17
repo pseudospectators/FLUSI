@@ -9,17 +9,17 @@ module solid_model
   save ! everything is persistent
   
   integer,parameter :: nBeams = 1  
-  integer :: ns
+  integer,save :: ns
   integer,parameter :: iMotion = 0 
-  real(kind=pr) :: mue
-  real(kind=pr) :: eta
-  real(kind=pr) :: grav
-  real(kind=pr) :: sigma
-  real(kind=pr) :: t_beam
-  real(kind=pr) :: AngleBeam
-  real(kind=pr) :: ds
-  real(kind=pr) :: T_release, tau
-  character(len=40) :: imposed_motion_leadingedge, TimeMethodSolid
+  real(kind=pr),save :: mue
+  real(kind=pr),save :: eta
+  real(kind=pr),save :: grav
+  real(kind=pr),save :: sigma
+  real(kind=pr),save :: t_beam
+  real(kind=pr),save :: AngleBeam
+  real(kind=pr),save :: ds
+  real(kind=pr),save :: T_release, tau
+  character(len=40),save :: imposed_motion_leadingedge, TimeMethodSolid
   
 
   !----------------------------------------------

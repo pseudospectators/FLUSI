@@ -149,13 +149,14 @@ module fsi_vars
   
   ! for periodically repeating flows, it may be better to always have only 
   ! one set of files on the disk
-  character(len=80) :: save_only_one_period
+  character(len=80),save :: save_only_one_period
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
   integer,save :: iMeanFlow
   integer,save :: iSaveSolidVelocity
-
+  
+  character(len=80),save :: use_solid_model
   !-----------------------------------------------------------------------------
   ! The derived integral quantities for fluid-structure interactions.
   type Integrals
