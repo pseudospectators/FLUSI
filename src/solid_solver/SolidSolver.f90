@@ -43,55 +43,18 @@ module solid_model
   end type Solid
  
  
+ 
   
  contains
  
  
- !-----------------------------------------------------------------
+ 
+ 
+ 
+ 
  include "mouvement.f90"
  include "integrate_position.f90"
  include "init_beam.f90"
- include "BeamIO.f90"
- !-----------------------------------------------------------------
- 
- 
- 
- 
-!-------------------------------------------------------------------------------
-!   solid solver main entry point
-!-------------------------------------------------------------------------------
- subroutine OnlySolidSimulation()
-  use fsi_vars
-  implicit none
-  type(solid), dimension(1:nBeams) :: beams
-  real (kind=pr) :: time
-  integer :: it,nsave
-
-  open (14, file = 'beam_data1', status = 'replace')
-  close(14)
-  open (14, file = 'mouvement1', status = 'replace')
-  close(14)
-  
-  write (*,*) "*** information: starting OnlySolidSimulation"
-  time = 0.0
-  it = 0  
-  
-  write(*,*) mue, eta, grav, ds, TimeMethodSolid, iMotion, sigma
-  
-  !-- initialization
-  call init_beams( beams )
-
-  !--loop over time steps
-  do while ((time<tmax))
-    !-- time stepping
-    call SolidSolverWrapper( time, dt_fixed , beams )
-        
-    it   = it+1
-    time = dble(it)*dt_fixed
-    call SaveBeamData( time, beams, dt_fixed )
-  enddo
-
-end subroutine
  
  
  
@@ -101,7 +64,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine SolidSolverWrapper ( time, dt, beams )
   implicit none
-  real(kind=pr), intent (in) ::  dt, time
+  real (kind=pr), intent (in) ::                     dt, time
   type(solid), dimension(1:nBeams), intent (inout) ::    beams
   integer :: i
   
@@ -111,16 +74,7 @@ subroutine SolidSolverWrapper ( time, dt, beams )
      !-------------------------------------------
      ! all implicit solvers are in one subroutine
      do i = 1, nBeams
-        select case (TimeMethodSolid)
-          case ("CN2","BDF2","EI1")
-            call IBES_solver (time, dt, beams(i))    
-          case ("RK4")
-            call RK4_wrapper (time, dt, beams(i))
-          case default
-            write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
-                TimeMethodSolid
-            stop
-        end select
+     call IBES_solver (time, dt, beams(i))     
      enddo
   else 
      !-------------------------------------------
@@ -171,7 +125,7 @@ end subroutine InitializeSolidSolver
 subroutine SolidEnergies( beam )
   implicit none
   type(solid), intent (inout) :: beam
-  real(kind=pr),dimension(0:ns-1) :: theta_s
+  real (kind=pr), dimension (0:ns-1) :: theta_s
   
   ! for beam elastic energy, we need theta_s over the beam 
   call Differentiate1D ( beam%theta, theta_s, ns, ds, 1)  
@@ -192,28 +146,28 @@ end subroutine SolidEnergies
 !-------------------------------------------------------------------------------
 subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE beam!!
   implicit none
-  real(kind=pr), intent (in) :: dt, time
-  type (solid), intent(inout) :: beam_solid
-  real(kind=pr),dimension(0:ns-1) :: T
-  real(kind=pr),dimension(0:ns-1) :: old_rhs, theta_old,T_dummy
-  real(kind=pr),dimension(0:ns-1) :: pressure_old, pressure_new, tau_beam_old, tau_beam_new
-  real(kind=pr),dimension(0:ns-1, 1:6) :: beam
-  real(kind=pr),dimension(-1:ns+1) :: theta_guess
-  real(kind=pr),dimension(-1:ns-1) :: T_guess
-  real(kind=pr),dimension(0:ns-1, 1:6) ::       beam_old, beam_guess
-  real(kind=pr),dimension(0:ns-1, 1:6) ::                   beam_oldold
-  real(kind=pr),dimension(1:2*ns+4) ::       x_guess, x, x_delta, F
-  real(kind=pr),dimension(1:2*ns+4,1:2*ns+4)  ::     J,J2, J2_norm
-  real(kind=pr),dimension(1:ns+3) ::       theta_act
-  real(kind=pr),dimension(1:ns+1) ::       T_act
-  real(kind=pr) :: alpha, alpha_t, alpha_tt, err, A1, A2, K1, K2, T_s0, theta_ss0, theta_s0, C2,C1,C3,C4
-  real(kind=pr) :: err_rel, R
-  real(kind=pr) :: dt_old
-  real(kind=pr), parameter :: error_stop = 1.0e-7
-  integer :: n,N_nonzero,k,iter
-  integer, save :: iCalls=10
-  logical :: ActuallyBDF2=.false., iterate=.true.
-  real(kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
+  real (kind=pr), intent (in) :: 				dt, time
+  type (solid), intent(inout) ::                                beam_solid
+  real (kind=pr), dimension (0:ns-1) ::				T
+  real (kind=pr), dimension (0:ns-1) ::				old_rhs, theta_old,T_dummy
+  real (kind=pr), dimension (0:ns-1) ::	    	                pressure_old, pressure_new, tau_beam_old, tau_beam_new
+  real (kind=pr), dimension (0:ns-1, 1:6) :: 	                beam
+  real (kind=pr), dimension (-1:ns+1) :: 			theta_guess
+  real (kind=pr), dimension (-1:ns-1) :: 			T_guess
+  real (kind=pr), dimension (0:ns-1, 1:6) :: 			beam_old, beam_guess
+  real (kind=pr), dimension (0:ns-1, 1:6) :: 	                beam_oldold
+  real (kind=pr), dimension (1:2*ns+4) :: 			x_guess, x, x_delta, F
+  real (kind=pr), dimension (1:2*ns+4,1:2*ns+4)  :: 		J,J2, J2_norm
+  real (kind=pr), dimension (1:ns+3) :: 			theta_act
+  real (kind=pr), dimension (1:ns+1) :: 			T_act
+  real (kind=pr) :: 						alpha, alpha_t, alpha_tt, err, A1, A2, K1, K2, T_s0, theta_ss0, theta_s0, C2,C1,C3,C4
+  real (kind=pr) :: 						err_rel, R
+  real (kind=pr) ::					        dt_old
+  real (kind=pr), parameter ::					error_stop = 1.0e-7
+  integer :: 							n,N_nonzero,k,iter
+  integer, save ::						iCalls=10
+  logical :: 							ActuallyBDF2=.false., iterate=.true.
+  real (kind=pr), dimension(1:6) :: 				LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
 
   !******************************************************* 
   ! NOTE: 2013, this is extended to take more than one beam into account.
@@ -240,20 +194,20 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   beam_guess = beam  
 
   !--------------------------------------------------------------------
-  !   Startup time step: use CN2 as first step of BDF2 (pay attention to call InitializeSolidSolver() before the run)
+  ! 	Startup time step: use CN2 as first step of BDF2 (pay attention to call InitializeSolidSolver() before the run)
   !-------------------------------------------------------------------- 
-  if (beam_solid%StartupStep) then  ! this is the first time step 
-    beam_solid%StartupStep = .false.  ! we're about to do the first step
-    if (TimeMethodSolid=="BDF2") then  ! if we deal with BDF2
-      ActuallyBDF2 = .true.    ! Remember to switch back to BDF2 (at the end of the step)
-      TimeMethodSolid = "CN2"  ! use "CN2" for the first step
+  if (beam_solid%StartupStep) then	! this is the first time step 
+    beam_solid%StartupStep = .false.	! we're about to do the first step
+    if (TimeMethodSolid==BDF2) then	! if we deal with BDF2
+      ActuallyBDF2 = .true.		! Remember to switch back to BDF2 (at the end of the step)
+      TimeMethodSolid = CrankNicholson	! use CrankNicholson for the first step
     endif
   endif
   
 
   !--------------------------------------------------------------------
-  !   Initial guess for the beam at the new time level. 
-  !   An euler-explicit step is made, ghostpoints are added 
+  ! 	Initial guess for the beam at the new time level. 
+  ! 	An euler-explicit step is made, ghostpoints are added 
   !--------------------------------------------------------------------
   
   call EE1 (time, dt, beam_guess, pressure_old, T, tau_beam_old, beam_solid)
@@ -261,7 +215,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   theta_guess(0:ns-1) = beam_guess(0:ns-1,5) !because of this, temp(1) = 0 (second point added for boundarys)
   !-- leading edge boundary conditions (constants)
   K2 = pressure_new(0) + mue*(LeadingEdge(6)*cos(alpha)-LeadingEdge(5)*sin(alpha)+grav*cos(alpha))
-  C2 = 2.0*ds*K2 - T(0)*theta_guess(1) + (eta/ds**2)*(10.d0*theta_guess(0)-12.0*theta_guess(1)+6.0*theta_guess(2)-theta_guess(3) )
+  C2 = 2.0*ds*K2 - T(0)*theta_guess(1) + (eta/ds**2)*(10.0*theta_guess(0)-12.0*theta_guess(1)+6.0*theta_guess(2)-theta_guess(3) )
   !-- theta_extended(0) is the first virtual node. 
   theta_guess(-1) = C2 / ( (3.0*eta/ds**2)-T(0) )
   !-- solve last two boundary conditions: theta_s(ns-1) = theta_ss(ns-1) = 0
@@ -289,15 +243,15 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !now we have a complete initial guess for the variables
 
   !--------------------------------------------------------------------
-  !   Calculate RHS vector @ t_n. This is required for the CN2 method only.
+  ! 	Calculate RHS vector @ t_n. This is required for the CN2 method only.
   !--------------------------------------------------------------------
-  if (TimeMethodSolid == "CN2") then
+  if (TimeMethodSolid == CrankNicholson) then
     theta_old = beam_old(:,5)
     old_rhs = beam_old(:,6)           
     call RHS_beameqn(time, theta_old, old_rhs, pressure_old, T_dummy, tau_beam_old, beam_solid)
   endif  
   !--------------------------------------------------------------------
-  !   Newton iteration
+  ! 	Newton iteration
   !--------------------------------------------------------------------
   err     = 1.0
   err_rel = 1.0
@@ -310,52 +264,53 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   ! reaching a very small increment, and iterate forever. If x is small, then the relative criterion tries to go much below
   ! machine precision. So we use both, either with the same precision.
   iterate = .true.
-  do while (iterate)
+  do while (iterate==.true.)
     theta_act = x(1:ns+3)
     T_act     = x(ns+4:2*ns+4)
     !-------------------------------------------------------------------------
-    !  Calculate RHS vector
+    !	Calculate RHS vector
     !-------------------------------------------------------------------------
-    call F_nonlinear( time, dt, dt_old, F, beam_old(:,5), beam_old(:,6), theta_act, T_act, pressure_new,&
-                      old_rhs, beam_oldold(:,5), beam_oldold(:,6), tau_beam_new, beam_solid)
+    call F_nonlinear( time, dt, dt_old, F, beam_old(:,5), beam_old(:,6), theta_act, T_act, pressure_new, old_rhs, beam_oldold(:,5), beam_oldold(:,6), tau_beam_new, beam_solid)
     F = -1.0*F !newton raphson is J*dx = -F
 
     !-------------------------------------------------------------------------
-    !  Create Jacobi Matrix and Compress it to the sparse format.
+    !	Create Jacobi Matrix and Compress it to the sparse format.
     !-------------------------------------------------------------------------    
-    call Jacobi(time, dt, dt_old, J, N_nonzero , T_act, theta_act, beam_old(:,5), beam_old(:,6), pressure_new,&
-                beam_oldold(:,5), beam_oldold(:,6), tau_beam_new, beam_solid)
+    call Jacobi(time, dt, dt_old, J, N_nonzero , T_act, theta_act, beam_old(:,5), beam_old(:,6), pressure_new, beam_oldold(:,5), beam_oldold(:,6), tau_beam_new, beam_solid)
 
     !-------------------------------------------------------------------------
-    !  self-test. occasionally, check if Jacobian is okay
+    !	self-test. occasionally, check if Jacobian is okay
     !-------------------------------------------------------------------------     
     if (mod(iCalls,4607)==0) then
-      call Jacobi_num(time, dt,dt_old, J2, k, T_act, theta_act, beam_old(:,5), beam_old(:,6),&
-                      pressure_new, beam_oldold(:,5), beam_oldold(:,6), old_rhs, tau_beam_new, beam_solid)
-      J2_norm = J2
-      where (abs(J2_norm)<1.0e-7) J2_norm=1.0
-      J2_norm = (J-J2)/J2_norm
-      where (abs(J2_norm)<1.0e-5) J2_norm=0.d0 ! delete small values
-      if (maxval(J2_norm)>1.0e-2) then  
-          open (14, file = 'IBES_JACOBIAN', status = 'replace') ! Append output data file
-          write (14,*) "---analytic---"
-          do n=1,ns*2+4
-          write (14,'(1x,3096(es8.1,1x))') J(:,n)
-          enddo
-          write (14,*) "---numeric---"
-          do n=1,ns*2+4
-          write (14,'(1x,3096(es8.1,1x))') J2(:,n)
-          enddo
-          write (14,*) "---difference---"
-          do n=1,ns*2+4
-          write (14,'(1x,3096(es8.1,1x))') J2_norm(:,n)
-          enddo   
-          write(*,'(A)') "IBES error, mismatch in Jacobian (numeric vs analytic)"
-          write (*,*) time, iter
-          close (14)
-          stop
-      endif
-      iCalls = 0
+	call Jacobi_num(time, dt,dt_old, J2, k, T_act, theta_act, beam_old(:,5), beam_old(:,6), pressure_new, beam_oldold(:,5), beam_oldold(:,6), old_rhs, tau_beam_new, beam_solid)
+	J2_norm = J2
+	where (abs(J2_norm)<1.0e-7) J2_norm=1.0
+	J2_norm = (J-J2)/J2_norm
+	where (abs(J2_norm)<1.0e-5) J2_norm=0.0 ! delete small values
+	if (maxval(J2_norm)>1.0e-2) then	
+	    open (14, file = 'IBES_JACOBIAN', status = 'unknown', access = 'append') ! Append output data file
+	    write (14,*) "---analytic---"
+	    do n=1,ns*2+4
+	    write (14,'(1x,3096(es8.1,1x))') J(:,n)
+	    enddo
+	    write (14,*) "---numeric---"
+	    do n=1,ns*2+4
+	    write (14,'(1x,3096(es8.1,1x))') J2(:,n)
+	    enddo
+	    write (14,*) "---difference---"
+	    do n=1,ns*2+4
+	    write (14,'(1x,3096(es8.1,1x))') J2_norm(:,n)
+	    enddo   
+	    call DisplayError
+	    write(*,'(A)') "!!! A weird error in IBES occured. Now and then, I compute the exact Jacobian with finite differences."
+	    write(*,'(A)') "    This time, the analytical Jacobian and the numerical one differ more than 1% from each other"
+	    write(*,'(A)') "    This means something went wrong in IBES, and you should check it."
+	    write(*,'(A)') "    Write an email to thomas.engels@mail.tu-berlin.de"
+	    write (*,*) time, iter
+	    close (14)
+	    stop
+	endif
+	iCalls = 0
     endif
     
 
@@ -389,31 +344,31 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
 
   
   !--------------------------------------------------------------------
-  !    cut ghostpoints 
+  !		cut ghostpoints 
   !--------------------------------------------------------------------
   beam(:,5)=x(2:ns+1)
   T = x(ns+5:2*ns+4)  !nessesairy if one does not use the EE1 predictor to guess
                       !attention! T(-1) is not part of T (Ghostpoint)
   !---------------------------------------------------------------------
-  !     compute angular velocity (theta_dot)
+  ! 		compute angular velocity (theta_dot)
   !---------------------------------------------------------------------  
   ! theta_dot was removed from the NL system and is now computed  
-  if (TimeMethodSolid == "EI1") then  
+  if (TimeMethodSolid == EulerImplicit) then  
     C1=1.0 ! dt factor
-    C2=0.d0 ! factor for RHS
+    C2=0.0 ! factor for RHS
     C3=1.0 ! factor before the THETA_DOT_N term
-    C4=0.d0 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == "CN2") then  
+    C4=0.0 ! factor before the THETA_DOT_N-1 term
+  elseif (TimeMethodSolid == CrankNicholson) then  
     C1=2.0 ! dt factor
     C2=1.0 ! rhs old factor
     C3=1.0 ! factor before the THETA_DOT_N term
-    C4=0.d0 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == "BDF2") then  
+    C4=0.0 ! factor before the THETA_DOT_N-1 term
+  elseif (TimeMethodSolid == BDF2) then  
     R  = dt / dt_old
-    C1 = (1.+2.*R)/(1.+R)   ! dt factor
-    C2 = 0.d0      ! rhs old factor
-    C3 = ((1.+R)**2)/(1.+2.*R)   ! factor before the THETA_DOT_N term
-    C4 = (-R**2 )/(1.+2.*R)   ! factor before the THETA_DOT_N-1 term 
+    C1 = (1.+2.*R)/(1.+R) 	! dt factor
+    C2 = 0.0			! rhs old factor
+    C3 = ((1.+R)**2)/(1.+2.*R) 	! factor before the THETA_DOT_N term
+    C4 = (-R**2 )/(1.+2.*R) 	! factor before the THETA_DOT_N-1 term 
   endif
   
   beam(:,6) = (C1/dt) * ( beam(:,5) - C3*beam_old(:,5) - C4*beam_oldold(:,5) ) - C2*beam_old(:,6)
@@ -436,7 +391,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !*******************************************************
   
   !---------------------------------------------------------------------
-  !     get deflection line (integrate_position)
+  ! 		get deflection line (integrate_position)
   !---------------------------------------------------------------------  
   ! this beam is the new one, so its time+dt ( to get mouvement at the right instant)
   call integrate_position ( time+dt, beam_solid )
@@ -450,46 +405,50 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   
   
   !---------------------------------------------------------------------
-  !       emergency brake
+  !     	emergency brake
   !---------------------------------------------------------------------
-  if (maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0 ) then
+  if (maxval(abs(beam(:,6)-beam_old(:,6) ))>100.0 ) then
     write (*,'(A)') "??????????????????????????????????????????????????????????????????????????????????????????????????????"
+    call DisplayError()
     write (*,'(A)') " "
-    write (*,'(A)') "!!! IBES-Solver: I found maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0"
+    write (*,'(A)') "!!! IBES-Solver: I found maxval(abs(beam(:,6)-beam_old(:,6) ))>100.0"
     write (*,'(A)') "    That indicates a problem, probably artificial added mass instability."
     write (*,'(A)') "    Even though it won't make sense to continue, I make a backup, quit, and let you decide"   
     write (*,'("time=",es11.4)') time
     write (*,'(A)') "??????????????????????????????????????????????????????????????????????????????????????????????????????" 
+    continue_timestep = .false.
   endif
   if (iter>1000) then
+    call DisplayError()
     write (*,'(A)') "!!! IBES solver: It took more than 1000 iterations for a single time step. This indicates convergence problems"
     write (*,'(A)') "in the Jacobi-iteration. Reduce the time step and try again"
+    continue_timestep = .false.
   endif
     
   
   !---------------------------------------------------------------------
-  !     save number of iterations
+  ! 		save number of iterations
   !---------------------------------------------------------------------    
-  open (14, file = 'IBES_iter', status = 'old') ! Append output data file
+  open (14, file = trim(dir_name)//'/'//trim(simulation_name)//'IBES_iter', status = 'unknown', access = 'append') ! Append output data file
   write (14, '(es11.4,1x,i3)') time, iter
   close (14)
   
   !---------------------------------------------------------------------
-  !     iterate ( skipped for CN2 and EI1 )
+  ! 		iterate ( skipped for CN2 and EI1 )
   !---------------------------------------------------------------------    
   
-  if (ActuallyBDF2 .eqv. .true.) then   ! Remember to switch back to BDF2 
-    TimeMethodSolid = "BDF2" 
+  if (ActuallyBDF2 == .true.) then 	! Remember to switch back to BDF2 
+    TimeMethodSolid = BDF2 
     ActuallyBDF2 = .false.
   endif  
 
-  iCalls = iCalls + 1      ! count calls (to perform rare self-tests)
+  iCalls = iCalls + 1			! count calls (to perform rare self-tests)
 
   ! The old beam at the current step is the oldold (t_n-1) at the next step
   beam_solid%beam_oldold = beam_old 
   ! for BDF2 with variable dt, we need the old time step
   ! this should be okay also when restarting, as the first CN2 step will provide us with the dt_old  
-  beam_solid%dt_old = dt   
+  beam_solid%dt_old = dt 	
   
 
 end subroutine IBES_solver
@@ -504,14 +463,12 @@ subroutine Solve_LGS ( J, F, x)
   ! solves the linear system J*x = F
   !--------------------------------------------
   implicit none
-  real(kind=pr),dimension(1:2*ns+4,1:2*ns+4), intent(in) :: J
-  real(kind=pr),dimension(1:2*ns+4), intent(out) :: x
-  real(kind=pr),dimension(1:2*ns+4), intent(out) :: F
-  real(kind=pr),dimension(1:2*ns+4,1:2*ns+4) :: J2
+  real (kind=pr), dimension (1:2*ns+4,1:2*ns+4), intent(in) :: J
+  real (kind=pr), dimension (1:2*ns+4), intent(out) :: x
+  real (kind=pr), dimension (1:2*ns+4), intent(out) :: F
   integer :: error, ipiv(1:2*ns+4), i
   
-  J2 = transpose(J)
-  call dgetrf( 2*ns+4, 2*ns+4, J2 , 2*ns+4, ipiv, error )
+  call dgetrf( 2*ns+4, 2*ns+4, transpose(J) , 2*ns+4, ipiv, error )
   if (error .ne. 0) then
     write(*,*) "!!! Crutial: dgetrf error.", error
     stop
@@ -540,22 +497,22 @@ end subroutine
 
 !-------------------------------------------------------------------------------
 
-subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T, p,&
-                        old_rhs, theta_oldold, theta_dot_oldold, tau_beam, beam_solid  )
+!##################################################################################################################################################################
+
+subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam, beam_solid  )
   implicit none  
   ! returns the RHS of the nonlinear eqn set F(x) for a given beam (the iterating one) and the (fixed) previous one
-  real(kind=pr),dimension(0:ns-1),intent (in) :: theta_old, theta_dot_old
-  real(kind=pr),dimension(0:ns-1),intent (in) :: old_rhs, theta_oldold, theta_dot_oldold
-  real(kind=pr),dimension(-1:ns+1), intent (in) :: theta
+  real (kind=pr), dimension (0:ns-1), intent (in) :: theta_old, theta_dot_old , old_rhs, theta_oldold, theta_dot_oldold
+  real (kind=pr), dimension (-1:ns+1), intent (in) :: theta
   type (solid) :: beam_solid
-  real(kind=pr),dimension(-1:ns-1), intent (in) :: T
-  real(kind=pr),dimension(0:ns-1), intent (in) :: p, tau_beam
-  real(kind=pr),dimension(0:ns-1) :: theta_dot_new, tau_s
-  real(kind=pr),dimension(1:(2*ns+4)), intent (out) :: F  
-  real(kind=pr),intent (in) :: time, dt, dt_old
-  real(kind=pr) :: K1,K2, C1,C2, C3,C4,R
-  real(kind=pr) :: alpha, alpha_t, alpha_tt 
-  real(kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
+  real (kind=pr), dimension (-1:ns-1), intent (in) :: T
+  real (kind=pr), dimension (0:ns-1), intent (in) :: p, tau_beam
+  real (kind=pr), dimension (0:ns-1) :: theta_dot_new, tau_s
+  real (kind=pr), dimension (1:(2*ns+4)), intent (out) :: F  
+  real (kind=pr), intent (in) :: time, dt, dt_old
+  real (kind=pr) :: K1,K2, C1,C2, C3,C4,R
+  real (kind=pr) :: alpha, alpha_t, alpha_tt 
+  real (kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
   integer :: i
   
   call Differentiate1D (tau_beam, tau_s, ns, ds, 1)
@@ -567,25 +524,25 @@ subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T
 
   F = 0. !to check if an index is not set. is not the case.
   
-  if (TimeMethodSolid == "EI1") then  
+  if (TimeMethodSolid == EulerImplicit) then  
     C1=1.0 ! dt factor
-    C2=0.d0 ! factor for RHS
+    C2=0.0 ! factor for RHS
     C3=1.0 ! factor before the THETA_DOT_N term
-    C4=0.d0 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == "CN2") then  
+    C4=0.0 ! factor before the THETA_DOT_N-1 term
+  elseif (TimeMethodSolid == CrankNicholson) then  
     C1=2.0 ! dt factor
     C2=1.0 ! rhs old factor
     C3=1.0 ! factor before the THETA_DOT_N term
-    C4=0.d0 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == "BDF2") then  
+    C4=0.0 ! factor before the THETA_DOT_N-1 term
+  elseif (TimeMethodSolid == BDF2) then  
     R  = dt / dt_old
-    C1 = (1.+2.*R)/(1.+R)   ! dt factor
-    C2 = 0.d0      ! rhs old factor
-    C3 = ((1.+R)**2)/(1.+2.*R)   ! factor before the THETA_DOT_N term
-    C4 = (-R**2 )/(1.+2.*R)   ! factor before the THETA_DOT_N-1 term 
+    C1 = (1.+2.*R)/(1.+R) 	! dt factor
+    C2 = 0.0			! rhs old factor
+    C3 = ((1.+R)**2)/(1.+2.*R) 	! factor before the THETA_DOT_N term
+    C4 = (-R**2 )/(1.+2.*R) 	! factor before the THETA_DOT_N-1 term 
   endif
   
-  theta_dot_new = (C1/dt)*(theta(0:ns-1)-C3*theta_old(0:ns-1)-C4*theta_oldold)-C2*theta_dot_old
+  theta_dot_new = (C1/dt) * ( theta(0:ns-1) - C3*theta_old(0:ns-1) - C4*theta_oldold ) - C2*theta_dot_old
   
   call Check_Vector_NAN ( theta_old, "theta_old" )
   call Check_Vector_NAN ( theta_dot_old, "theta_dot_old" )
@@ -605,14 +562,10 @@ subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T
   
   ! first we set the 8 special eqns at the beginning 
   F(1) = theta(0) 
-  F(2) = (T(1)-T(-1))/(2.0*ds)  +  (eta/(2.0*ds**3))*(theta(-1)-&
-         2.0*theta(0)+theta(1))*(theta(1)-theta(-1))  -  K1
-  F(3) = T(0)*(theta(1)-theta(-1))/(2.0*ds)   -   &
-         (eta/(2.0*ds**3))*(-3.0*theta(-1)+10.d0*theta(0)-12.0*theta(1)+6.0*theta(2)-theta(3))  -  K2
-  F(4) = ( (1.0/12.0)*theta(ns-3) - (2.0/3.0)*theta(ns-2) + (2.0/3.0)*theta(ns)&
-          - (1.0/12.0)*theta(ns+1) )/ds
-  F(5) = ( (-1.0/12.0)*theta(ns-3) + (4.0/3.0)*theta(ns-2) - 2.5*theta(ns-1) + &
-           (4.0/3.0)*theta(ns) + (-1.0/12.0)*theta(ns+1) )/ds**2
+  F(2) = (T(1)-T(-1))/(2.0*ds)  +  (eta/(2.0*ds**3))*(theta(-1)-2.0*theta(0)+theta(1))*(theta(1)-theta(-1))  -  K1
+  F(3) = T(0)*(theta(1)-theta(-1))/(2.0*ds)   -   (eta/(2.0*ds**3))*(-3.0*theta(-1)+10.0*theta(0)-12.0*theta(1)+6.0*theta(2)-theta(3))  -  K2
+  F(4) = ( (1.0/12.0)*theta(ns-3) - (2.0/3.0)*theta(ns-2) + (2.0/3.0)*theta(ns) - (1.0/12.0)*theta(ns+1) )/ds
+  F(5) = ( (-1.0/12.0)*theta(ns-3) + (4.0/3.0)*theta(ns-2) - 2.5*theta(ns-1) + (4.0/3.0)*theta(ns) + (-1.0/12.0)*theta(ns+1) )/ds**2
   F(6) = T(ns-1) 
   
   F(7) = ( T(-1)-2.0*T(0)+T(1) )/(ds**2) &
@@ -662,22 +615,21 @@ subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T
 
 end subroutine F_nonlinear
 
-!-------------------------------------------------------------------------------
+!##################################################################################################################################################################
 
-subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_dot_old,&
-                  p, theta_oldold, theta_dot_oldold, tau_beam, beam_solid)
+subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_dot_old, p, theta_oldold, theta_dot_oldold, tau_beam, beam_solid)
   implicit none
-  real(kind=pr), dimension(1:2*ns+4,1:2*ns+4), intent (out) :: J
-  real(kind=pr), dimension(-1:ns-1), intent (in) :: T
-  real(kind=pr), intent (in) :: time, dt, dt_old
+  real (kind=pr), dimension(1:2*ns+4,1:2*ns+4), intent (out) :: J
+  real (kind=pr), dimension(-1:ns-1), intent (in) :: T
+  real (kind=pr), intent (in) :: time, dt, dt_old
   type(solid) :: beam_solid
-  real(kind=pr), dimension(-1:ns+1), intent (in) :: theta
-  real(kind=pr), dimension(0:ns-1), intent (in) :: p, theta_old, theta_dot_old, theta_oldold, theta_dot_oldold, tau_beam
-  real(kind=pr), dimension(0:ns-1) ::theta_dot_new
+  real (kind=pr), dimension(-1:ns+1), intent (in) :: theta
+  real (kind=pr), dimension(0:ns-1), intent (in) :: p, theta_old, theta_dot_old, theta_oldold, theta_dot_oldold, tau_beam
+  real (kind=pr), dimension(0:ns-1) ::theta_dot_new
   integer, intent (out) :: N_nonzero
   integer :: i, T0_index, k, l, m
-  real(kind=pr) :: alpha, alpha_t, alpha_tt, C1,C2,C3,C4,D,R
-  real(kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
+  real (kind=pr) :: alpha, alpha_t, alpha_tt, C1,C2,C3,C4,D,R
+  real (kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
   
   call mouvement(time+dt, alpha, alpha_t, alpha_tt, LeadingEdge, beam_solid )
   !---------------------------------------
@@ -695,22 +647,22 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   !    dT_ns-2     =2ns+3
   !---------------------------------------
   
-  if (TimeMethodSolid == "EI1") then  
-    C1=1.0                 ! dt factor
-    C2=0.d0                 ! factor for RHS
-    C3=1.0                 ! factor before the THETA_DOT_N term
-    C4=0.d0                 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == "CN2") then  
-    C1=2.0                 ! dt factor
-    C2=1.0                 ! rhs old factor
-    C3=1.0                 ! factor before the THETA_DOT_N term
-    C4=0.d0                 ! factor before the THETA_DOT_N-1 term
-  elseif (TimeMethodSolid == "BDF2") then  
+  if (TimeMethodSolid == EulerImplicit) then  
+    C1=1.0 								! dt factor
+    C2=0.0 								! factor for RHS
+    C3=1.0 								! factor before the THETA_DOT_N term
+    C4=0.0 								! factor before the THETA_DOT_N-1 term
+  elseif (TimeMethodSolid == CrankNicholson) then  
+    C1=2.0 								! dt factor
+    C2=1.0 								! rhs old factor
+    C3=1.0 								! factor before the THETA_DOT_N term
+    C4=0.0 								! factor before the THETA_DOT_N-1 term
+  elseif (TimeMethodSolid == BDF2) then  
     R  = dt / dt_old
-    C1 = (1.+2.*R)/(1.+R)   ! dt factor
-    C2 = 0.d0      ! rhs old factor
-    C3 = ((1.+R)**2)/(1.+2.*R)   ! factor before the THETA_DOT_N term
-    C4 = (-R**2 )/(1.+2.*R)   ! factor before the THETA_DOT_N-1 term 
+    C1 = (1.+2.*R)/(1.+R) 	! dt factor
+    C2 = 0.0			! rhs old factor
+    C3 = ((1.+R)**2)/(1.+2.*R) 	! factor before the THETA_DOT_N term
+    C4 = (-R**2 )/(1.+2.*R) 	! factor before the THETA_DOT_N-1 term 
   endif
   D  = C1/dt ! this is the only entry in the jacobian for theta_dot_new
   theta_dot_new = (C1/dt) * ( theta(0:ns-1) - C3*theta_old(0:ns-1) - C4*theta_oldold ) - C2*theta_dot_old
@@ -729,23 +681,23 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   
   
  
-  T0_index = ns+4               !T0 means here the first T = T(-1)
-  J = 0.d0                ! initialize J
+  T0_index = ns+4 							!T0 means here the first T = T(-1)
+  J = 0.0								! initialize J
   !-- set first 6 eqns 
   J(2,1) = 1.0
   !----eqn 2 (special BC 1)
-  J(1,2) = (eta/(2.0*ds**3))*(-2.0*theta(-1)+2.0*theta(0))    ! dF2 / dTheta(-1)
-  J(2,2) =-(eta/(ds**3))*(theta(1)-theta(-1))        ! dF2 / dTheta(0)
-  J(3,2) = (eta/(2.0*ds**3))*(-2.0*theta(0) +2.0*theta(1))    ! dF2 / dTheta(1)
-  J(T0_index,2)   = -0.5/ds            ! dF2 / dT(-1)
-  J(T0_index+2,2) =  0.5/ds            ! dF2 / dT(+1)
+  J(1,2) = (eta/(2.0*ds**3))*(-2.0*theta(-1)+2.0*theta(0))		! dF2 / dTheta(-1)
+  J(2,2) =-(eta/(ds**3))*(theta(1)-theta(-1))				! dF2 / dTheta(0)
+  J(3,2) = (eta/(2.0*ds**3))*(-2.0*theta(0) +2.0*theta(1))		! dF2 / dTheta(1)
+  J(T0_index,2)   = -0.5/ds						! dF2 / dT(-1)
+  J(T0_index+2,2) =  0.5/ds						! dF2 / dT(+1)
   !----eqn 3 (special BC 2)
-  J(1,3) = (-0.5*eta/(ds**3))*(-3.0) - T(0)/(2.0*ds)      ! dF3 / dTheta(-1)
-  J(2,3) = (-0.5*eta/(ds**3))*(10.d0)          ! dF3 / dTheta(0)
-  J(3,3) = (-0.5*eta/(ds**3))*(-12.0)+ T(0)/(2.0*ds)      ! dF3 / dTheta(+1)
-  J(4,3) = (-0.5*eta/(ds**3))*(6.0)          ! dF3 / dTheta(+2)
-  J(5,3) = (-0.5*eta/(ds**3))*(-1.0)          ! dF3 / dTheta(+3)
-  J(T0_index+1,3) = (theta(1)-theta(-1))/(2.0*ds)      ! dF3 / dT(0)
+  J(1,3) = (-0.5*eta/(ds**3))*(-3.0) - T(0)/(2.0*ds)			! dF3 / dTheta(-1)
+  J(2,3) = (-0.5*eta/(ds**3))*(10.0)					! dF3 / dTheta(0)
+  J(3,3) = (-0.5*eta/(ds**3))*(-12.0)+ T(0)/(2.0*ds)			! dF3 / dTheta(+1)
+  J(4,3) = (-0.5*eta/(ds**3))*(6.0)					! dF3 / dTheta(+2)
+  J(5,3) = (-0.5*eta/(ds**3))*(-1.0)					! dF3 / dTheta(+3)
+  J(T0_index+1,3) = (theta(1)-theta(-1))/(2.0*ds)			! dF3 / dT(0)
   
   
   ! the following to eqns have been changed; actually, you could multiply them by any factor, but its easier to read like this
@@ -763,13 +715,11 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   J(2*ns+4,6) = 1.0 
 !tout va bien
   !-------------7th eqn: seperated 1
-  J(1,7) = T(0)*(theta(1) -theta(-1))/(2.0*ds**2) - p(0)/(2.0*ds) &
-           -(eta/(ds**4))*(-2.5*theta(0)+9.0*theta(1)-12.0*theta(2) +7.0*theta(3)-1.5*theta(4)) &
+  J(1,7) = T(0)*(theta(1) -theta(-1))/(2.0*ds**2) - p(0)/(2.0*ds) - (eta/(ds**4))*(-2.5*theta(0)+9.0*theta(1)-12.0*theta(2) +7.0*theta(3)-1.5*theta(4)) &
            +2.0*eta*(theta(1)-2.0*theta(0)+theta(-1))/(ds**4)
   J(2,7) = -2.5*eta*(theta(1)-theta(-1))/(ds**4) - 4.0*eta*(theta(1)-2.0*theta(0)+theta(-1))/(ds**4) &
            + 2.0*mue*(theta_dot_new(0)+alpha_t)*D
-  J(3,7) = -T(0)*(theta(1) -theta(-1))/(2.0*ds**2) + p(0)/(2.0*ds) &
-           +(eta/(ds**4))*(-2.5*theta(0)+9.0*theta(1)-12.0*theta(2) +7.0*theta(3)-1.5*theta(4)) &
+  J(3,7) = -T(0)*(theta(1) -theta(-1))/(2.0*ds**2) + p(0)/(2.0*ds) + (eta/(ds**4))*(-2.5*theta(0)+9.0*theta(1)-12.0*theta(2) +7.0*theta(3)-1.5*theta(4)) &
            +9.0*eta*(theta(1)-theta(-1))/(ds**4) + 2.0*eta*(theta(1)-2.0*theta(0)+theta(-1))/(ds**4)
   J(4,7) = -12.0*eta*(theta(1)-theta(-1))/(ds**4)
   J(5,7) =   7.0*eta*(theta(1)-theta(-1))/(ds**4)
@@ -779,26 +729,22 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   J(ns+6,7) = 1.0/(ds**2)
   
   !--------------8th eqn
-  J(2*ns+4,8) = (dt/(C1*mue*ds**2))* ((theta(ns)-2.0*theta(ns-1)+theta(ns-2)) &
-              + (3.0/2.0)*(theta(ns)-theta(ns-2)))
+  J(2*ns+4,8) = (dt/(C1*mue*ds**2))* ((theta(ns)-2.0*theta(ns-1)+theta(ns-2)) + (3.0/2.0)*(theta(ns)-theta(ns-2)))
   J(2*ns+3,8) = -4.0*(dt/(C1*mue))*(theta(ns)-theta(ns-2))/(2.0*ds**2)
   J(2*ns+2,8) =  1.0*(dt/(C1*mue))*(theta(ns)-theta(ns-2))/(2.0*ds**2)
   J(ns+3,8)   = -dt*eta/((C1*mue)*ds**4)
   
-  J(ns+2,8)   = (dt/(C1*mue*ds**2))   *   ( 4.0*eta/(ds**2) + (T(ns-1) &
-              + eta*( (theta(ns)-theta(ns-2))/(2.0*ds) )**2) &
-              + tau_beam(ns-1)*ds/(2.0) &   ! note we pulled 1/ds**2 out
+  J(ns+2,8)   = (dt/(C1*mue*ds**2))   *   ( 4.0*eta/(ds**2) + (T(ns-1) + eta*( (theta(ns)-theta(ns-2))/(2.0*ds) )**2) &
+	      + tau_beam(ns-1)*ds/(2.0) & 	! note we pulled 1/ds**2 out
               + eta*(theta(ns)-2.0*theta(ns-1)+theta(ns-2))*(theta(ns)-theta(ns-2))/(2.0*ds**2) &
               + (3.0*T(ns-1)-4.0*T(ns-2)+T(ns-3))/2.0         )
               
-  J(ns  ,8)   = (dt/(C1*mue*ds**2))   *   ( 4.0*eta/(ds**2) + (T(ns-1) &
-              + eta*( (theta(ns)-theta(ns-2))/(2.0*ds) )**2) &
-              - tau_beam(ns-1)*ds/(2.0) &
+  J(ns  ,8)   = (dt/(C1*mue*ds**2))   *   ( 4.0*eta/(ds**2) + (T(ns-1) + eta*( (theta(ns)-theta(ns-2))/(2.0*ds) )**2) &
+	      - tau_beam(ns-1)*ds/(2.0) &
               - eta*(theta(ns)-2.0*theta(ns-1)+theta(ns-2))*(theta(ns)-theta(ns-2))/(2.0*ds**2) &
               - (3.0*T(ns-1)-4.0*T(ns-2)+T(ns-3))/2.0         )
 
-  J(ns+1,8)   = -D + (dt/(C1*mue))*( -6.0*eta/(ds**4) -2.0*(T(ns-1) &
-                + eta*( (theta(ns)-theta(ns-2))/(2.0*ds) )**2)/(ds**2) -D*sigma)              
+  J(ns+1,8)   = -D + (dt/(C1*mue))*( -6.0*eta/(ds**4) -2.0*(T(ns-1) + eta*( (theta(ns)-theta(ns-2))/(2.0*ds) )**2)/(ds**2) -D*sigma)              
               
   J(ns-1,8)   = -dt*eta/(C1*mue*ds**4)
   
@@ -809,16 +755,13 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
     k = 8 + i !index for eqns F (row) -- that means first row is row 9
     l = i + 2 !index column (theta) -- starts @ theta_1 = index 3
     m = i + ns + 5 !index column (T) -- starts @ T(-1) = ns+5
-    J( l ,k)  = -D + (dt/(C1*mue)) * (-6.0*eta/(ds**4) &
-              -(2.0/ds**2)*(T(i)+eta*((theta(i+1)-theta(i-1))/(2.0*ds))**2 ) - D*sigma  )
+    J( l ,k)  = -D + (dt/(C1*mue)) * (-6.0*eta/(ds**4) -(2.0/ds**2)*(T(i)+eta*((theta(i+1)-theta(i-1))/(2.0*ds))**2 ) - D*sigma  )
     J( l-1,k) = (dt/(C1*mue))*( 4.0*eta/(ds**4) + (T(i)+eta*((theta(i+1)-theta(i-1))/(2.0*ds))**2 )/(ds**2)  & 
-              - tau_beam(i)/(2.0*ds) &
-              - eta*(theta(i+1)-2.0*theta(i)+theta(i-1))*(theta(i+1)-theta(i-1))/(2.0*ds**4) &
-              - (T(i+1)-T(i-1))/(2.0*ds**2)  ) 
+		- tau_beam(i)/(2.0*ds) &
+		- eta*(theta(i+1)-2.0*theta(i)+theta(i-1))*(theta(i+1)-theta(i-1))/(2.0*ds**4) - (T(i+1)-T(i-1))/(2.0*ds**2)  ) 
     J( l+1,k) = (dt/(C1*mue))*( 4.0*eta/(ds**4) + (T(i)+eta*((theta(i+1)-theta(i-1))/(2.0*ds))**2 )/(ds**2)  & 
-              + tau_beam(i)/(2.0*ds) &
-              + eta*(theta(i+1)-2.0*theta(i)+theta(i-1))*(theta(i+1)-theta(i-1))/(2.0*ds**4) &
-              + (T(i+1)-T(i-1))/(2.0*ds**2)  ) 
+		+ tau_beam(i)/(2.0*ds) &
+		+ eta*(theta(i+1)-2.0*theta(i)+theta(i-1))*(theta(i+1)-theta(i-1))/(2.0*ds**4) + (T(i+1)-T(i-1))/(2.0*ds**2)  ) 
     J( l-2,k) = -eta*dt/(C1*mue*ds**4) 
     J( l+2,k) = -eta*dt/(C1*mue*ds**4) 
     !block: dF/dT
@@ -834,11 +777,9 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
     J( l ,k)  = -4.0*eta* (theta(i+1)-2.0*theta(i)+theta(i-1))/(ds**4) + 2.0*mue*(theta_dot_new(i)+alpha_t)*D
     
     J( l-1,k) = T(i)*(theta(i+1)-theta(i-1))/(2.0*ds**2) -p(i)/(2.0*ds) +eta*(theta(i+1)-theta(i-1))/(ds**4) & 
-                 - eta* (theta(i+2)-2.0*theta(i+1)+2.0*theta(i-1)-theta(i-2))/(2.0*ds**4) &
-                 + 2.0*eta*(theta(i+1)-2.0*theta(i) +theta(i-1))/(ds**4) 
+                 - eta* (theta(i+2)-2.0*theta(i+1)+2.0*theta(i-1)-theta(i-2))/(2.0*ds**4) +2.0*eta*(theta(i+1)-2.0*theta(i) +theta(i-1))/(ds**4) 
     J( l+1,k) = -T(i)*(theta(i+1)-theta(i-1))/(2.0*ds**2) +p(i)/(2.0*ds) -eta*(theta(i+1)-theta(i-1))/(ds**4) & 
-                 + eta* (theta(i+2)-2.0*theta(i+1)+2.0*theta(i-1)-theta(i-2))/(2.0*ds**4) &
-                 + 2.0*eta*(theta(i+1)-2.0*theta(i) +theta(i-1))/(ds**4) 
+                 + eta* (theta(i+2)-2.0*theta(i+1)+2.0*theta(i-1)-theta(i-2))/(2.0*ds**4) +2.0*eta*(theta(i+1)-2.0*theta(i) +theta(i-1))/(ds**4) 
     J( l-2,k) = -eta*(theta(i+1)-theta(i-1))/(2.0*ds**4) 
     J( l+2,k) =  eta*(theta(i+1)-theta(i-1))/(2.0*ds**4) 
     !block dG/dT
@@ -854,7 +795,7 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
     !-------------------------------
     !-- count nonzero elements
     !-------------------------------
-    if (J(k,l).ne.0.d0) N_nonzero=N_nonzero+1
+    if (J(k,l).ne.0.0) N_nonzero=N_nonzero+1
     !------------------------------------------
     ! check for NaN's
     !------------------------------------------
@@ -872,7 +813,7 @@ end subroutine Jacobi
 
 
 
-!-------------------------------------------------------------------------------
+!##################################################################################################################################################################
 
 
 
@@ -881,37 +822,37 @@ end subroutine Jacobi
 subroutine GravityImpulse(time)
   implicit none
   ! gives a little gravity impulse to pertubate the beam between T0 and T1 (sinusoidal)
-  real(kind=pr), intent (in) ::  time
-  real(kind=pr) :: T0,T1,a,b,c,d,k,t
+  real (kind=pr), intent (in) ::  time
+  real (kind=pr) :: T0,T1,a,b,c,d,k,t
   
-!   if (iImpulse==1) then
-!     T0=0.75
-!     T1=0.85
-!     grav = 1.00*sin ( pi*(time-T0)/(T1-T0) )
-!     
-!     if (time<T0) grav=0.d0
-!     if (time>T1) grav=0.d0
-!    elseif (iImpulse==2) then
-!     T0=0.75
-!     T1=0.85
-!     grav = 4.00*sin ( pi*(time-T0)/(T1-T0) )
-!     
-!     if (time<T0) grav=0.d0
-!     if (time>T1) grav=0.d0
-!   elseif (iImpulse==3) then
-!     T0=2.0
-!     T1=3.0
-!     if (time <= T0) then
-!       k = 0.d0
-!     elseif ((time>=T0).and.(time<=T1)) then
-!       a = -20.d0; b= 70.d0; c=-84.0; d=35.0;
-!       t = (time-T0)/(T1-T0)
-!       k = a*t**7 + b*t**6 + c*t**5 + d*t**4
-!     elseif (time>T1) then
-!       k   = 1.0
-!     endif   
-!     grav = 0.7*k
-!   endif
+  if (iImpulse==1) then
+    T0=0.75
+    T1=0.85
+    grav = 1.00*sin ( pi*(time-T0)/(T1-T0) )
+    
+    if (time<T0) grav=0.0
+    if (time>T1) grav=0.0
+   elseif (iImpulse==2) then
+    T0=0.75
+    T1=0.85
+    grav = 4.00*sin ( pi*(time-T0)/(T1-T0) )
+    
+    if (time<T0) grav=0.0
+    if (time>T1) grav=0.0
+  elseif (iImpulse==3) then
+    T0=2.0
+    T1=3.0
+    if (time <= T0) then
+      k = 0.0
+    elseif ((time>=T0).and.(time<=T1)) then
+      a = -20.0; b= 70.0; c=-84.0; d=35.0;
+      t = (time-T0)/(T1-T0)
+      k = a*t**7 + b*t**6 + c*t**5 + d*t**4
+    elseif (time>T1) then
+      k   = 1.0
+    endif   
+    grav = 0.7*k
+  endif
 
 
 end subroutine GravityImpulse
@@ -1006,21 +947,21 @@ end subroutine RHS_beameqn
 subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_solid)
   ! note we use a TRIAG solver. the neumann condition is not in the matrix, it is set explicitly. therefore we return also T_s 
   implicit none
-  real(kind=pr), intent (in) ::        time
-  real(kind=pr),dimension(0:ns-1) ::       theta_s, theta_ss, theta_sss
-  real(kind=pr),dimension(0:ns-1) ::       tau_beam_s
-  real(kind=pr),dimension(0:ns-1), intent (in) ::      theta, theta_dot, pressure, tau_beam
-  real(kind=pr),dimension(0:ns-1), intent (out) ::      T, T_s
+  real (kind=pr), intent (in) ::				time
+  real (kind=pr), dimension (0:ns-1) :: 			theta_s, theta_ss, theta_sss
+  real (kind=pr), dimension (0:ns-1) :: 			tau_beam_s
+  real (kind=pr), dimension (0:ns-1), intent (in) ::  		theta, theta_dot, pressure, tau_beam
+  real (kind=pr), dimension (0:ns-1), intent (out) ::  		T, T_s
   type(solid) :: beam_solid
-  real(kind=pr) ::            K1, T_s0
-  real(kind=pr) ::             alpha, alpha_t, alpha_tt
-  real(kind=pr), dimension(1:6) ::         LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
-  real(kind=pr),dimension(0:ns-1) ::       diagonal_main
-  real(kind=pr),dimension(0:ns-2) ::       diagonal_up, diagonal_down
-  real(kind=pr),dimension(0:ns-3) ::       diagonal_up2
-  real(kind=pr),dimension(0:ns-1) ::       ipiv !used only for the MKL lib
-  real(kind=pr),dimension(0:ns-1) ::        rhs
-  integer ::               i, info
+  real (kind=pr) ::						K1, T_s0
+  real (kind=pr) :: 						alpha, alpha_t, alpha_tt
+  real (kind=pr), dimension(1:6) :: 				LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
+  real (kind=pr), dimension (0:ns-1) :: 			diagonal_main
+  real (kind=pr), dimension (0:ns-2) :: 			diagonal_up, diagonal_down
+  real (kind=pr), dimension (0:ns-3) :: 			diagonal_up2
+  real (kind=pr), dimension (0:ns-1) :: 			ipiv !used only for the MKL lib
+  real (kind=pr), dimension (0:ns-1) ::				rhs
+  integer :: 							i, info
   
   call mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam_solid )
   
@@ -1037,22 +978,21 @@ subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_so
   T_s0 = -eta*theta_ss(0)*theta_s(0) + K1 
 
   ! the T-eqn with Neumann / Dirchlet conditions
-  diagonal_main   = -2.0/(ds**2) - theta_s**2
-  diagonal_up     =  1.0/(ds**2)
-  diagonal_down   =  1.0/(ds**2)  
+  diagonal_main 	= -2.0/(ds**2) - theta_s**2
+  diagonal_up   	=  1.0/(ds**2)
+  diagonal_down 	=  1.0/(ds**2)  
   ! Dirichlet Condition
-  diagonal_main(ns-1)  = 1.0 ! note this point is overwritten
-  diagonal_down(ns-2)   = 0.d0 ! for the dirichlet condition   
+  diagonal_main(ns-1)	= 1.0 ! note this point is overwritten
+  diagonal_down(ns-2) 	= 0.0 ! for the dirichlet condition   
   ! Neumann Condition
-  diagonal_up(0)   = 2.0/(ds**2)
+  diagonal_up(0) 	= 2.0/(ds**2)
   
   ! construct RHS for T-equation
-  rhs(0:ns-1) = -(pressure*theta_s) -(2.*eta*theta_s*theta_sss)-(eta*theta_ss**2 ) &
-              -mue*(theta_dot + alpha_t)**2  - tau_beam_s
+  rhs(0:ns-1) 		= -(pressure*theta_s) -(2.*eta*theta_s*theta_sss)-(eta*theta_ss**2 ) -mue*(theta_dot + alpha_t)**2  - tau_beam_s
   ! Dirichlet
-  rhs(ns-1)     = 0.d0
+  rhs(ns-1) 		= 0.0
   ! Neumann
-  rhs(0)     = rhs(0) + T_s0 * 2.0/ds
+  rhs(0) 		= rhs(0) + T_s0 * 2.0/ds
 
   ! preconditioner - improve condition number of system by normalizing the diagonal
   do i=0,ns-1
@@ -1063,13 +1003,12 @@ subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_so
     diagonal_up(i)   = diagonal_up(i) / diagonal_main(i)
     diagonal_down(i) = diagonal_down(i) / diagonal_main(i+1)
   enddo  
-  diagonal_main   = 1.0
+  diagonal_main 	= 1.0
 
 
   ! solve system
-  call dgttrf( ns, diagonal_down, diagonal_main, diagonal_up, diagonal_up2, ipiv, info )      ! LU decomposition of matrix
-  call dgttrs( 'N', ns, 1, diagonal_down, diagonal_main, diagonal_up, diagonal_up2,&
-               ipiv, rhs, ns, info )  ! solve. now g is the solution  
+  call dgttrf( ns, diagonal_down, diagonal_main, diagonal_up, diagonal_up2, ipiv, info )			! LU decomposition of matrix
+  call dgttrs( 'N', ns, 1, diagonal_down, diagonal_main, diagonal_up, diagonal_up2, ipiv, rhs, ns, info )	! solve. now g is the solution  
 
   
   T = rhs  ! return tension
@@ -1091,10 +1030,10 @@ end subroutine Tension
 
 subroutine Differentiate1D (f, f_derivative, N, dx, order)
   implicit none
-  integer, intent (in)         :: order, n
-  real(kind=pr), intent (in)            :: dx
-  real(kind=pr), dimension(0:N-1)      :: f, f_derivative
-  real(kind=pr),dimension(0:N-1, 0:N-1)   :: D1, D2, D3 ,D4
+  integer, intent (in) 				:: order, n
+  real, intent (in)    				:: dx
+  real, dimension(0:N-1)			:: f, f_derivative
+  real (kind=pr), dimension (0:N-1, 0:N-1) 	:: D1, D2, D3 ,D4
   
   call create_diff_matrices (D1, D2, D3, D4, N, dx)
   
@@ -1118,17 +1057,17 @@ subroutine create_diff_matrices (D1, D2, D3, D4, nn, dx)
   integer :: i,N
   integer, intent (in) :: nn
   real(kind=pr), intent(in) :: dx
-  real(kind=pr),dimension(0:nn-1, 0:nn-1), intent (out) :: D1, D2, D3 ,D4
+  real (kind=pr), dimension (0:nn-1, 0:nn-1), intent (out) :: D1, D2, D3 ,D4
 
   !------------------------------------
   ! create diff-matrices.
   ! first derivative: x'=D1 * x
   !------------------------------------
 
-  D1=0.d0
-  D2=0.d0
-  D3=0.d0
-  D4=0.d0
+  D1=0.0
+  D2=0.0
+  D3=0.0
+  D4=0.0
 
   do i=0,nn-1 !main diag
     D1(i,i) = 0. !main
@@ -1237,6 +1176,7 @@ subroutine create_diff_matrices (D1, D2, D3, D4, nn, dx)
  !-----------------------------
 end subroutine create_diff_matrices
 
+!##################################################################################################################################################################
 
 !-------------------------------------------------------------------------------
 !   wrapper for new beam dataype for RK4
@@ -1265,27 +1205,27 @@ end subroutine RK4_wrapper
 !-------------------------------------------------------------------------------
 subroutine RK4 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
   implicit none
-  real(kind=pr), intent (in) :: dt_beam, time
-  real(kind=pr),dimension(0:ns-1, 1:6), intent (inout) :: beam
-  real(kind=pr),dimension(0:ns-1, 1:6) :: beam_old
-  real(kind=pr),dimension(0:ns-1), intent (in) :: pressure_beam, tau_beam
+  real (kind=pr), intent (in) :: dt_beam, time
+  real (kind=pr), dimension (0:ns-1, 1:6), intent (inout) :: beam
+  real (kind=pr), dimension (0:ns-1, 1:6) :: beam_old
+  real (kind=pr), dimension (0:ns-1), intent (in) :: pressure_beam, tau_beam
   type (solid) :: beam_solid
-  real(kind=pr),dimension(0:ns-1), intent (inout) :: T
-  real(kind=pr),dimension(0:ns-1) :: theta, theta_dot, T1, T2, T3, T4
-  real(kind=pr),dimension(0:ns-1) :: theta_1, theta_2, theta_3, theta_4
-  real(kind=pr),dimension(0:ns-1) :: theta_dot_1, theta_dot_2, theta_dot_3, theta_dot_4
+  real (kind=pr), dimension (0:ns-1), intent (inout) :: T
+  real (kind=pr), dimension (0:ns-1) :: theta, theta_dot, T1, T2, T3, T4
+  real (kind=pr), dimension (0:ns-1) :: theta_1, theta_2, theta_3, theta_4
+  real (kind=pr), dimension (0:ns-1) :: theta_dot_1, theta_dot_2, theta_dot_3, theta_dot_4
   beam_old=beam
   theta = beam(:,5)
   theta_dot = beam(:,6)
 
-  theta_1 = 0.d0
-  theta_2 = 0.d0
-  theta_3 = 0.d0
-  theta_4 = 0.d0
-  theta_dot_1 = 0.d0
-  theta_dot_2 = 0.d0
-  theta_dot_3 = 0.d0
-  theta_dot_4 = 0.d0
+  theta_1 = 0.0
+  theta_2 = 0.0
+  theta_3 = 0.0
+  theta_4 = 0.0
+  theta_dot_1 = 0.0
+  theta_dot_2 = 0.0
+  theta_dot_3 = 0.0
+  theta_dot_4 = 0.0
   
   T1 = T
   T2 = T
@@ -1318,14 +1258,16 @@ subroutine RK4 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid)
   !---------------------------------------------------------------------
   !     emergency brake
   !---------------------------------------------------------------------
-  if (maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0 ) then
+  if (maxval(abs(beam(:,6)-beam_old(:,6) ))>100.0 ) then
     write (*,'(A)') "??????????????????????????????????????????????????????????????????????????????????????????????????????"
+    call DisplayError()
     write (*,'(A)') " "
-    write (*,'(A)') "!!! rk4-Solver: I found maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0"
+    write (*,'(A)') "!!! rk4-Solver: I found maxval(abs(beam(:,6)-beam_old(:,6) ))>100.0"
     write (*,'(A)') "    That indicates a problem, probably artificial added mass instability."
     write (*,'(A)') "    Even though it won't make sense to continue, I make a backup, quit, and let you decide"   
     write (*,'("time=",es11.4, " dt=",es11.4)') time, dt_beam
     write (*,'(A)') "??????????????????????????????????????????????????????????????????????????????????????????????????????" 
+    continue_timestep = .false.
   endif  
   
 end subroutine RK4
@@ -1334,14 +1276,14 @@ end subroutine RK4
   
 subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
   implicit none
-  real(kind=pr), intent (in) :: dt_beam, time
-  real(kind=pr),dimension(0:ns-1, 1:6), intent (inout) :: beam
-  real(kind=pr),dimension(0:ns-1), intent(out) :: T
-  real(kind=pr),dimension(0:ns-1), intent (in) :: pressure_beam, tau_beam
+  real (kind=pr), intent (in) :: dt_beam, time
+  real (kind=pr), dimension (0:ns-1, 1:6), intent (inout) :: beam
+  real (kind=pr), dimension (0:ns-1), intent(out) :: T
+  real (kind=pr), dimension (0:ns-1), intent (in) :: pressure_beam, tau_beam
   type (solid) :: beam_solid
-  real(kind=pr),dimension(0:ns-1) :: theta, theta_dot
-  real(kind=pr),dimension(0:ns-1) :: theta_1
-  real(kind=pr),dimension(0:ns-1) :: theta_dot_1
+  real (kind=pr), dimension (0:ns-1) :: theta, theta_dot
+  real (kind=pr), dimension (0:ns-1) :: theta_1
+  real (kind=pr), dimension (0:ns-1) :: theta_dot_1
 
   theta     = beam(:,5)
   theta_dot = beam(:,6)
@@ -1356,28 +1298,26 @@ subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid)
 end subroutine EE1
 
 
-!-------------------------------------------------------------------------------
+!##################################################################################################################################################################
 
 
-subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, &
-       theta_dot_old, p, theta_oldold, theta_dot_oldold, old_rhs, tau_beam_new, beam_solid)
+subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, theta_dot_old, p, theta_oldold, theta_dot_oldold, old_rhs, tau_beam_new, beam_solid)
   implicit none
   type (solid) :: beam_solid
-  real(kind=pr), dimension(1:2*ns+4,1:2*ns+4), intent (out) :: J
-  real(kind=pr), dimension(1:2*ns+4) :: F1,F2
-  real(kind=pr), dimension(-1:ns-1), intent (in) :: T
-  real(kind=pr), dimension(-1:ns-1) :: T1, T2
-  real(kind=pr), intent (in) :: time, dt,dt_old
-  real(kind=pr), dimension(-1:ns+1), intent (in) :: theta
-  real(kind=pr), dimension(-1:ns+1) :: theta1, theta2
-  real(kind=pr), dimension(0:ns-1), intent (in) :: p, theta_old, theta_dot_old, &
-  theta_oldold,theta_dot_oldold, old_rhs, tau_beam_new
+  real (kind=pr), dimension(1:2*ns+4,1:2*ns+4), intent (out) :: J
+  real (kind=pr), dimension(1:2*ns+4) :: F1,F2
+  real (kind=pr), dimension(-1:ns-1), intent (in) :: T
+  real (kind=pr), dimension(-1:ns-1) :: T1, T2
+  real (kind=pr), intent (in) :: time, dt,dt_old
+  real (kind=pr), dimension(-1:ns+1), intent (in) :: theta
+  real (kind=pr), dimension(-1:ns+1) :: theta1, theta2
+  real (kind=pr), dimension(0:ns-1), intent (in) :: p, theta_old, theta_dot_old, theta_oldold,theta_dot_oldold, old_rhs, tau_beam_new
   integer, intent (out) :: N_nonzero
   integer :: i, k, l
 
   !---------------------------------------
-  !  NUMERIC COMPUTATION OF THE JACOBIAN
-  !  -> I think the row/column ordering in J (in IBES) is ackward; pay attention.
+  !	NUMERIC COMPUTATION OF THE JACOBIAN
+  !	-> I think the row/column ordering in J (in IBES) is ackward; pay attention.
   !---------------------------------------
  
   ! derive wrt to theta_new
@@ -1388,10 +1328,8 @@ subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, &
       theta2    = theta
       theta2(i) = theta2(i)+1.0e-6
       
-      call F_nonlinear (time, dt, dt_old, F1, theta_old, theta_dot_old, theta1, &
-      T, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam_new, beam_solid )
-      call F_nonlinear (time, dt, dt_old, F2, theta_old, theta_dot_old, theta2, &
-      T, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam_new, beam_solid )
+      call F_nonlinear (time, dt, dt_old, F1, theta_old, theta_dot_old, theta1, T, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam_new, beam_solid )
+      call F_nonlinear (time, dt, dt_old, F2, theta_old, theta_dot_old, theta2, T, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam_new, beam_solid )
       
       J(l,:)= (F2-F1)/(2.0e-6)
       l=l+1
@@ -1405,10 +1343,8 @@ subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, &
       T2=T
       T2(i) = T2(i)+1.0e-6
       
-      call F_nonlinear (time, dt, dt_old, F1, theta_old, theta_dot_old, theta, &
-      T1, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam_new, beam_solid  )
-      call F_nonlinear (time, dt, dt_old, F2, theta_old, theta_dot_old, theta, &
-      T2, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam_new, beam_solid  )
+      call F_nonlinear (time, dt, dt_old, F1, theta_old, theta_dot_old, theta, T1, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam_new, beam_solid  )
+      call F_nonlinear (time, dt, dt_old, F2, theta_old, theta_dot_old, theta, T2, p, old_rhs, theta_oldold, theta_dot_oldold, tau_beam_new, beam_solid  )
       
       J(l,:)= (F2-F1)/(2.0e-6)
       l=l+1
@@ -1418,7 +1354,7 @@ subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, &
   N_nonzero = 0
   do k = 1,2*ns+4
   do l = 1,2*ns+4
-    if (J(k,l).ne.0.d0) N_nonzero=N_nonzero+1
+    if (J(k,l).ne.0.0) N_nonzero=N_nonzero+1
   enddo
   enddo
   
@@ -1449,9 +1385,11 @@ subroutine Check_Vector_NAN_try_correct(f, msg)
      write (*,*) "??? SOLID SOLVER: Found NaN in vector at", i
      write (*,*) msg
      write (*,*) "I will try to correct this and proceed, with fingers crossed!"
-     f(i)=0.d0
+     f(i)=0.0
      endif
   enddo
 end subroutine
+ 
+end module
 
 end module solid_model
