@@ -36,7 +36,6 @@ program FLUSI
       allocate(lin(1)) ! Set up the linear term
       call get_command_argument(2,infile)
       call get_params(infile)
-      write(*,*) mue, eta, grav, ds, TimeMethodSolid, iMotion, sigma
       call OnlySolidSimulation()
   else
       if (mpirank==0) write(*,*) "nothing to do..."      

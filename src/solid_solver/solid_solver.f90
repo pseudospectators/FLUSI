@@ -51,7 +51,7 @@ module solid_model
  include "mouvement.f90"
  include "integrate_position.f90"
  include "init_beam.f90"
- include "BeamIO.f90"
+ include "save_beam.f90"
  !-----------------------------------------------------------------
  
  
@@ -75,8 +75,6 @@ module solid_model
   write (*,*) "*** information: starting OnlySolidSimulation"
   time = 0.0
   it = 0  
-  
-  write(*,*) mue, eta, grav, ds, TimeMethodSolid, iMotion, sigma
   
   !-- initialization
   call init_beams( beams )
@@ -470,7 +468,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !---------------------------------------------------------------------
   !     save number of iterations
   !---------------------------------------------------------------------    
-  open (14, file = 'IBES_iter', status = 'old') ! Append output data file
+  open (14, file = 'IBES_iter', status = 'unknown', position='append') ! Append output data file
   write (14, '(es11.4,1x,i3)') time, iter
   close (14)
   
