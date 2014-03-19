@@ -26,7 +26,7 @@ subroutine create_mask_fsi (time)
     case ("Insect")
       call Draw_Insect (time)
     case("TESTING")      
-      call Draw_flexible_plate(time)
+!       call Draw_flexible_plate(time)
     case ("plate","Plate")
       call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
     case default    

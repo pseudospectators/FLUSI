@@ -61,7 +61,9 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work) 
+  if (isavePress/=0) then
+    call cal_nlk_fsi (time,0,nlk,uk,u,vort,work) 
+  endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
   !-------------  

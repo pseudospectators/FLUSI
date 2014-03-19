@@ -2,7 +2,7 @@
 !-- Draws a flexible plate, where the deflection line is solved using the beam 
 !-- solver. 
 !-------------------------------------------------------------------------------
-subroutine Draw_flexible_plate (time)!, beam)
+subroutine Draw_flexible_plate (time, beam)
   use mpi
   use fsi_vars
   !-- use global variables for solid solver, as well as routines
@@ -10,7 +10,7 @@ subroutine Draw_flexible_plate (time)!, beam)
   implicit none
 
   real(kind=pr), intent(in) :: time
-  type(Solid) :: beam
+  type(Solid), intent(in) :: beam
   real(kind=pr) :: psi, gamma, R, tmp
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate,M1,M2,M3
@@ -18,8 +18,8 @@ subroutine Draw_flexible_plate (time)!, beam)
   real(kind=pr) :: a,b,c,alpha,beta,h
   integer :: ix,iy,iz,is
   
-  type(solid), dimension(1:nBeams) :: beams
-  real (kind=pr) :: time2=0.d0
+!   type(solid), dimension(1:nBeams) :: beams
+!   real (kind=pr) :: time2=0.d0
   
 
   
@@ -29,9 +29,10 @@ subroutine Draw_flexible_plate (time)!, beam)
   gamma = deg2rad(0.d0)
   
   !-- displacement vetor
-!--   x0_plate = (/ x0,y0,z0 /)
-  R = 0.0
-  x0_plate = (/ x0,y0+cos(psi)*R,z0+sin(psi)*R /)
+!   x0_plate = (/ 0.5*xl,0.5*yl,0.5*zl /)
+  x0_plate = 0.d0
+!   R = 0.0
+!   x0_plate = (/ x0,y0+cos(psi)*R,z0+sin(psi)*R /)
   
   call Rx(M1,psi)
   call Ry(M2,beta)
@@ -41,16 +42,16 @@ subroutine Draw_flexible_plate (time)!, beam)
   mask = 5000.d0
   
   
-    !-- generate some deflection line
-  x0=0.d0
-  y0=0.d0
-  call init_beams( beams )
-  do while ((time2<=1.25))
-    call SolidSolverWrapper( time2, dt_fixed , beams )
-    time2 = time2+dt_fixed
-  enddo
-  
-  beam = beams(1)
+!     !-- generate some deflection line
+!   x0=0.d0
+!   y0=0.d0
+!   call init_beams( beams )
+!   do while ((time2<=1.25))
+!     call SolidSolverWrapper( time2, dt_fixed , beams )
+!     time2 = time2+dt_fixed
+!   enddo
+!   
+!   beam = beams(1)
   
   
   !-- For all grid points of this subdomain
@@ -69,7 +70,7 @@ subroutine Draw_flexible_plate (time)!, beam)
         !-- if the first lagrangian marker is too far away, the second
         !-- one is as well, and we can skip the whole point, greatly
         !-- reducing the computational complexity
-        if ( a < 3.d0 ) then
+        if ( a < 4.d0*t_beam ) then
           b = dsqrt( (x_plate(1)-beam%x(is+1))**2 + (x_plate(2)-beam%y(is+1))**2 )
           !-- c is the distance between two markers, thus ds
           c = dsqrt( (beam%x(is)-beam%x(is+1))**2 + (beam%y(is)-beam%y(is+1))**2 )
@@ -98,13 +99,13 @@ subroutine Draw_flexible_plate (time)!, beam)
    enddo
   enddo
   
-  where (mask>1000.d0) mask=0.d0
+!   where (mask>1000.d0) mask=0.d0
   
   !-- at the end of thsi process, mask is the distance function from the centerline
   do iz = ra(3), rb(3)
    do iy = ra(2), rb(2)
     do ix = ra(1), rb(1)  
-      call smoothstep( tmp, mask(ix,iy,iz)-t_beam, t_beam, 3.d0*dx )
+      call smoothstep( tmp, mask(ix,iy,iz)-t_beam, 0.d0, 3.d0*dx )
       mask(ix,iy,iz) = tmp
     enddo
    enddo

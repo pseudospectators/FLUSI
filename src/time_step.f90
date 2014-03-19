@@ -3,6 +3,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   use vars
   use fsi_vars
   use p3dfft_wrapper
+  use solid_model
   implicit none
   
   integer :: inter
@@ -21,6 +22,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   logical :: continue_timestepping
+  type(solid), dimension(1:nBeams) :: beams
   
   continue_timestepping = .true.
   it_start=it
@@ -36,6 +38,11 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  !-- initialization of solid solver
+  call show_solid_model_information
+  call init_beams( beams )
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   if (mpirank == 0) write(*,*) "Start time-stepping...."
   
@@ -51,10 +58,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-     if(dry_run_without_fluid/="yes") then
-       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
-     endif
+!      if(dry_run_without_fluid/="yes") then
+!        call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+!      endif
 
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     call SolidSolverWrapper( time, dt_fixed , beams )
+     dt1=dt_fixed
+     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
      ! NOTE:    is done every itdrag time steps. this condition will be changed
@@ -98,16 +110,20 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      if (((modulo(time,tsave)<=dt1).and.(it>2)).or.(time==tmax)) then
         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
-        ! never matters,and for AB2 this is the one to be overwritten
-        ! in the next step.  This frees 3 complex arrays, which are
-        ! then used in Dump_Runtime_Backup.
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
-        
-        ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup == 1) then
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-        endif
+! !         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
+! !         ! never matters,and for AB2 this is the one to be overwritten
+! !         ! in the next step.  This frees 3 complex arrays, which are
+! !         ! then used in Dump_Runtime_Backup.
+! !         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
+! !         
+! !         ! Backup if that's specified in the PARAMS.ini file
+! !         if(iDoBackup == 1) then
+! !            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+! !         endif
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        call Draw_flexible_plate (time, beams(1))
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work) 
+        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
      endif
      
      !-----------------------------------------------
