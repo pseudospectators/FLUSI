@@ -76,11 +76,16 @@ module solid_model
   time = 0.0
   it = 0  
   
+  tmax=0.5d0
+  
+  TimeMethodSolid = "BDF2"
+  ns=128
+  
   !-- initialization
   call init_beams( beams )
 
   !--loop over time steps
-  do while ((time<tmax))
+  do while ((time<=tmax))
     !-- time stepping
     call SolidSolverWrapper( time, dt_fixed , beams )
         
@@ -89,6 +94,10 @@ module solid_model
     call SaveBeamData( time, beams, dt_fixed )
   enddo
 
+  open (14,file='end',status='replace')
+  write(14,'(128(es15.8,1x))') beams(1)%theta
+  close(14)
+  
 end subroutine
  
  
