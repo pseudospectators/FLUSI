@@ -249,7 +249,7 @@ subroutine get_params_fsi(PARAMS,i)
   ! ---------------------------------------------------
   ! Insects section
   ! ---------------------------------------------------
-  if (iMask=="Insect") then
+!   if (iMask=="Insect") then
   Insect%WingShape="none"
   call GetValue_String(PARAMS,i,"Insects","WingShape",&
        Insect%WingShape,Insect%WingShape)
@@ -320,7 +320,7 @@ subroutine get_params_fsi(PARAMS,i)
   Insect%KineFromFile="no"
   call GetValue_String(PARAMS,i,"Insects","KineFromFile",&
        Insect%KineFromFile,Insect%KineFromFile)    
-  endif
+!   endif
   
   ! ---------------------------------------------------
   ! solid model
