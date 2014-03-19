@@ -94,13 +94,14 @@ end subroutine vorticity_sponge
 subroutine penalize_vort ( vort_penalized, vort )
   use mpi
   use fsi_vars
+  implicit none
   
   ! input: vorticity in phys space
   real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   ! output: penalized vorticity in phys space
   real(kind=pr),intent(out):: vort_penalized(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: eps_inv
-  integer :: iz
+  integer :: iz,ix,iy
   eps_inv= 1.d0 / eps_sponge
   vort_penalized = 0.d0
   
