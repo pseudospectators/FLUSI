@@ -373,6 +373,7 @@ subroutine get_params_solid(PARAMS,i)
     call GetValue_Real(PARAMS,i,"SolidModel","T_release",T_release,0.0d0)
     call GetValue_Real(PARAMS,i,"SolidModel","tau",tau,0.0d0)
     
+    
     !-- time marching method for the solid
     TimeMethodSolid="BDF2"
     call GetValue_String(PARAMS,i,"SolidModel","TimeMethodSolid",TimeMethodSolid,TimeMethodSolid)

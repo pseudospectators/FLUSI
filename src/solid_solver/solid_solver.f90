@@ -19,7 +19,7 @@ module solid_model
   real(kind=pr),save :: AngleBeam
   real(kind=pr),save :: ds
   real(kind=pr),save :: T_release, tau
-  character(len=40),save :: imposed_motion_leadingedge, TimeMethodSolid
+  character(len=80),save :: imposed_motion_leadingedge, TimeMethodSolid
   
 
   !----------------------------------------------
@@ -1459,6 +1459,19 @@ subroutine Check_Vector_NAN_try_correct(f, msg)
      f(i)=0.d0
      endif
   enddo
+end subroutine
+
+
+subroutine show_solid_model_information
+  implicit none
+  write(*,*) "*&*&*&*&*&*&*"
+  write(*,'("mpirank=",i5)') mpirank
+  write(*,'("ns=",i3)') ns
+  write(*,'("mue=",es12.4," eta=",es12.4," grav=",es12.4)') mue,eta,grav
+  write(*,'("sigma=",es12.4," t_beam=",es12.4," ds=",es12.4)') sigma, t_beam, ds
+  write(*,'("T_release=",es12.4," TimeMethodSolid=",A," tau=",es12.4)') &
+  T_release, trim(TimeMethodSolid), tau
+  write(*,*) "*&*&*&*&*&*&*"
 end subroutine
 
 end module solid_model
