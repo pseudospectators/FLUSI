@@ -11,7 +11,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work)
   real(kind=pr),intent(in) :: time
   integer, intent(in) :: it
 
-  select case(method(1:3))
+  select case(method)
   case("fsi") 
      call cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   case("mhd") 

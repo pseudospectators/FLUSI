@@ -47,7 +47,7 @@ FFLGAS += -Wunused-labels
 PPFLAG= -cpp #preprocessor flag
 
 # Debug flags for gfortran
-#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
+FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
 
 # Intel compiler

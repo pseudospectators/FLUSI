@@ -1,25 +1,22 @@
 module solid_model
-  use fsi_vars
+  use fsi_vars ! for the precision statement
   implicit none
   
   !----------------------------------------------
   ! module global variables
-  !----------------------------------------------
-  
-  save ! everything is persistent
-  
+  !----------------------------------------------  
   integer,parameter :: nBeams = 1  
   integer,save :: ns
-  integer,parameter :: iMotion = 0 
+  integer,parameter :: iMotion = 1 
   real(kind=pr),save :: mue
   real(kind=pr),save :: eta
   real(kind=pr),save :: grav
   real(kind=pr),save :: sigma
-  real(kind=pr),save :: t_beam
+  real(kind=pr),save :: t_beam, L_span, N_smooth
   real(kind=pr),save :: AngleBeam
   real(kind=pr),save :: ds
   real(kind=pr),save :: T_release, tau
-  character(len=80),save :: imposed_motion_leadingedge, TimeMethodSolid
+  character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
   
 
   !----------------------------------------------
@@ -39,7 +36,6 @@ module solid_model
     ! these replace the save variables in the unst correction computation:
     real(kind=pr) :: drag_unst_new, drag_unst_old, lift_unst_new, lift_unst_old
     logical :: StartupStep, UnsteadyCorrectionsReady
-    integer :: iMouvement
   end type Solid
  
  
@@ -52,10 +48,7 @@ module solid_model
  include "integrate_position.f90"
  include "init_beam.f90"
  include "save_beam.f90"
- !-----------------------------------------------------------------
- 
- 
- 
+
  
 !-------------------------------------------------------------------------------
 !   solid solver main entry point
@@ -221,7 +214,9 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   integer, save :: iCalls=10
   logical :: ActuallyBDF2=.false., iterate=.true.
   real(kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
-
+  
+  T_dummy = 0.0
+  
   !******************************************************* 
   ! NOTE: 2013, this is extended to take more than one beam into account.
   ! however, its too hard to reprogram everything, so now
@@ -279,7 +274,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   theta_guess(ns+1) = 12. * (2.*A1-A2)
   
 
-  ! ------ set virtual node for Tension T
+  !-- set virtual node for Tension T
   ! constant of the BC, see masters thesis
   K1 = mue*(LeadingEdge(5)*cos(alpha)+LeadingEdge(6)*sin(alpha)+grav*sin(alpha))  - tau_beam_new(0) !technically, the guess is at the new time level
   ! value of the inhomogenous Neumann BC at the leading edge
@@ -290,7 +285,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   T_guess(0:ns-1) = T(0:ns-1)  
   
   
-  ! ------- rearrange the guess in the vector of unknowns x
+  !-- rearrange the guess in the vector of unknowns x
   x_guess(1:ns+3)      = theta_guess(-1:ns+1)
   x_guess(ns+4:2*ns+4) = T_guess(-1:ns-1)  
   !now we have a complete initial guess for the variables
@@ -302,6 +297,9 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     theta_old = beam_old(:,5)
     old_rhs = beam_old(:,6)           
     call RHS_beameqn(time, theta_old, old_rhs, pressure_old, T_dummy, tau_beam_old, beam_solid)
+  else
+    theta_old = 0.0
+    old_rhs=0.0
   endif  
   !--------------------------------------------------------------------
   !   Newton iteration
@@ -380,7 +378,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     !-----------------------------------------------------------
     ! CONVERGENCE CRITERION
     !-----------------------------------------------------------
-    if ( (((err<error_stop) .or. (err_rel<error_stop)).and.(iter>2))) then ! absolute error criterion
+    if ( (((err<error_stop) .or. (err_rel<error_stop)).and.(iter>2))) then
       iterate = .false.
     endif
     
@@ -388,12 +386,11 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     ! EMERGENCY BRAKE
     !-----------------------------------------------------------
     if (iter>49) then
-      write(*,*) "!!! ERROR: IBES performed like 500 iterations. this is not normal."
+      write(*,*) "!!! ERROR: IBES performed like 50 iterations. this is not normal."
       stop
     endif
     
   enddo
-
   
   !--------------------------------------------------------------------
   !    cut ghostpoints 
@@ -425,11 +422,10 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   
   beam(:,6) = (C1/dt) * ( beam(:,5) - C3*beam_old(:,5) - C4*beam_oldold(:,5) ) - C2*beam_old(:,6)
   
-  !*******************************************************
+  !-----------------------------------------------------------------------------
   ! NOTE: 2013, this is extended to take more than one beam into account.
-  ! however, its too hard to reprogram everything, so now
-  ! we force it to be compatible
-  !*******************************************************
+  ! however, its too hard to reprogram everything, so now we force it to be compatible
+  !-----------------------------------------------------------------------------
   beam_solid%x = beam(:,1)
   beam_solid%y = beam(:,2)
   beam_solid%vx = beam(:,3)
@@ -440,50 +436,40 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   beam_solid%pressure_new = pressure_new 
   beam_solid%tau_old = tau_beam_old
   beam_solid%tau_new = tau_beam_new
-  !*******************************************************
   
-  !---------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !     get deflection line (integrate_position)
-  !---------------------------------------------------------------------  
+  !-----------------------------------------------------------------------------  
   ! this beam is the new one, so its time+dt ( to get mouvement at the right instant)
   call integrate_position ( time+dt, beam_solid )
   
-  !---------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !  accelerations
-  !---------------------------------------------------------------------  
+  !-----------------------------------------------------------------------------  
   ! we have the old velocity (t_n) and the new one 
   beam_solid%ax = (beam_solid%vx - beam_old(:,3)) / dt
   beam_solid%ay = (beam_solid%vy - beam_old(:,4)) / dt
   
   
-  !---------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !       emergency brake
-  !---------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   if (maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0 ) then
-    write (*,'(A)') "??????????????????????????????????????????????????????????????????????????????????????????????????????"
-    write (*,'(A)') " "
     write (*,'(A)') "!!! IBES-Solver: I found maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0"
-    write (*,'(A)') "    That indicates a problem, probably artificial added mass instability."
-    write (*,'(A)') "    Even though it won't make sense to continue, I make a backup, quit, and let you decide"   
+    write (*,'(A)') "    That indicates a possible instability."
     write (*,'("time=",es11.4)') time
-    write (*,'(A)') "??????????????????????????????????????????????????????????????????????????????????????????????????????" 
   endif
-  if (iter>1000) then
-    write (*,'(A)') "!!! IBES solver: It took more than 1000 iterations for a single time step. This indicates convergence problems"
-    write (*,'(A)') "in the Jacobi-iteration. Reduce the time step and try again"
-  endif
-    
   
-  !---------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !     save number of iterations
-  !---------------------------------------------------------------------    
+  !-----------------------------------------------------------------------------    
   open (14, file = 'IBES_iter', status = 'unknown', position='append') ! Append output data file
   write (14, '(es11.4,1x,i3)') time, iter
   close (14)
   
-  !---------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
   !     iterate ( skipped for CN2 and EI1 )
-  !---------------------------------------------------------------------    
+  !-----------------------------------------------------------------------------    
   
   if (ActuallyBDF2 .eqv. .true.) then   ! Remember to switch back to BDF2 
     TimeMethodSolid = "BDF2" 
@@ -497,7 +483,6 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   ! for BDF2 with variable dt, we need the old time step
   ! this should be okay also when restarting, as the first CN2 step will provide us with the dt_old  
   beam_solid%dt_old = dt   
-  
 
 end subroutine IBES_solver
 
@@ -755,7 +740,8 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   J(T0_index+1,3) = (theta(1)-theta(-1))/(2.0*ds)      ! dF3 / dT(0)
   
   
-  ! the following to eqns have been changed; actually, you could multiply them by any factor, but its easier to read like this
+  ! the following to eqns have been changed; actually, you could multiply them
+  ! by any factor, but its easier to read like this
   J(ns+3,4) = (-1.0/12.0)/ds
   J(ns+2,4) = ( 2.0/3.0) /ds
   J(ns,4)   = (-2.0/3.0) /ds
@@ -877,13 +863,8 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
 end subroutine Jacobi
 
 
-
-
 !-------------------------------------------------------------------------------
 
-
-
-! -------------------------------------------------------------------------------------------------------------------------------
 
 subroutine GravityImpulse(time)
   implicit none
@@ -923,13 +904,13 @@ subroutine GravityImpulse(time)
 
 end subroutine GravityImpulse
 
-! -------------------------------------------------------------------------------------------------------------------------------
+! ------------------------------------------------------------------------------
 
 
 
 
 subroutine RHS_beameqn (time, theta, theta_dot, pressure_beam, T, tau_beam, beam_solid)
-    !------------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     ! Beam Equation right hand side at time_n
     ! Version 19.09.2012, completely debugged, gives exactly the same results as the matlab solver.
     ! INPUT
@@ -940,7 +921,7 @@ subroutine RHS_beameqn (time, theta, theta_dot, pressure_beam, T, tau_beam, beam
     ! OUTPUT:
     ! T      the tension in the beam at time time. we return it to form the complete initial guess for the implicit solvers
     !
-    !------------------------------------------------------------------------------
+    !---------------------------------------------------------------------------
     implicit none
     real(kind=pr), intent (in) ::         time
     real(kind=pr) ::              A1, A2, K2,C2
@@ -962,9 +943,9 @@ subroutine RHS_beameqn (time, theta, theta_dot, pressure_beam, T, tau_beam, beam
     !-- compute the tension in the beam
     call Tension (time, T, T_s, theta, theta_dot, pressure_beam, tau_beam, beam_solid)   
     
-    ! -------------------------------------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     ! Extend the beam with ghostpoints to fulfill the boundary conditions
-    ! -------------------------------------------------------------------------------------------------------    
+    ! --------------------------------------------------------------------------
     !-- leading edge boundary conditions (constants)
     K2 = pressure_beam(0) + mue*(LeadingEdge(6)*cos(alpha)-LeadingEdge(5)*sin(alpha)+grav*cos(alpha))
     C2 = 2.0*ds*K2 - T(0)*theta(1) + (eta/ds**2)*(10.d0*theta(0)-12.0*theta(1)+6.0*theta(2)-theta(3) )
@@ -995,9 +976,9 @@ subroutine RHS_beameqn (time, theta, theta_dot, pressure_beam, T, tau_beam, beam
     
     call Differentiate1D (pressure_beam, p_s, ns, ds, 1)
 
-    ! ---------------------------------------------------------------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     ! Last step: compute evolution equation for theta
-    ! ---------------------------------------------------------------------------------------------------------------------------------
+    ! --------------------------------------------------------------------------
     theta     = theta_dot
     theta_dot = (-p_s - eta*theta_ssss + theta_ss*(T+eta*(theta_s**2)) &
                  +2.*T_s*theta_s - mue*alpha_tt  &
@@ -1007,27 +988,27 @@ subroutine RHS_beameqn (time, theta, theta_dot, pressure_beam, T, tau_beam, beam
 end subroutine RHS_beameqn
 
 
-! ----------------------------------------------------------------------------------------------------------------------------------------
+! ------------------------------------------------------------------------------
 
 
 subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_solid)
   ! note we use a TRIAG solver. the neumann condition is not in the matrix, it is set explicitly. therefore we return also T_s 
   implicit none
-  real(kind=pr), intent (in) ::        time
-  real(kind=pr),dimension(0:ns-1) ::       theta_s, theta_ss, theta_sss
-  real(kind=pr),dimension(0:ns-1) ::       tau_beam_s
-  real(kind=pr),dimension(0:ns-1), intent (in) ::      theta, theta_dot, pressure, tau_beam
-  real(kind=pr),dimension(0:ns-1), intent (out) ::      T, T_s
+  real(kind=pr), intent (in) :: time
+  real(kind=pr),dimension(0:ns-1) :: theta_s, theta_ss, theta_sss
+  real(kind=pr),dimension(0:ns-1) :: tau_beam_s
+  real(kind=pr),dimension(0:ns-1), intent (in) ::  theta, theta_dot, pressure, tau_beam
+  real(kind=pr),dimension(0:ns-1), intent (out) :: T, T_s
   type(solid) :: beam_solid
-  real(kind=pr) ::            K1, T_s0
-  real(kind=pr) ::             alpha, alpha_t, alpha_tt
-  real(kind=pr), dimension(1:6) ::         LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
-  real(kind=pr),dimension(0:ns-1) ::       diagonal_main
-  real(kind=pr),dimension(0:ns-2) ::       diagonal_up, diagonal_down
-  real(kind=pr),dimension(0:ns-3) ::       diagonal_up2
-  real(kind=pr),dimension(0:ns-1) ::       ipiv !used only for the MKL lib
-  real(kind=pr),dimension(0:ns-1) ::        rhs
-  integer ::               i, info
+  real(kind=pr):: K1, T_s0
+  real(kind=pr):: alpha, alpha_t, alpha_tt
+  real(kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
+  real(kind=pr),dimension(0:ns-1) :: diagonal_main
+  real(kind=pr),dimension(0:ns-2) :: diagonal_up, diagonal_down
+  real(kind=pr),dimension(0:ns-3) :: diagonal_up2
+  real(kind=pr),dimension(0:ns-1) :: ipiv !used only for the MKL lib
+  real(kind=pr),dimension(0:ns-1) :: rhs
+  integer :: i, info
   
   call mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam_solid )
   
@@ -1073,8 +1054,8 @@ subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_so
   diagonal_main   = 1.0
 
 
-  ! solve system
-  call dgttrf( ns, diagonal_down, diagonal_main, diagonal_up, diagonal_up2, ipiv, info )      ! LU decomposition of matrix
+  ! solve system LU decomposition of matrix
+  call dgttrf( ns, diagonal_down, diagonal_main, diagonal_up, diagonal_up2, ipiv, info )
   call dgttrs( 'N', ns, 1, diagonal_down, diagonal_main, diagonal_up, diagonal_up2,&
                ipiv, rhs, ns, info )  ! solve. now g is the solution  
 
@@ -1094,7 +1075,7 @@ subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_so
   
 end subroutine Tension
 
-! ----------------------------------------------------------------------------------------------------------------------------------------
+! ------------------------------------------------------------------------------
 
 subroutine Differentiate1D (f, f_derivative, N, dx, order)
   implicit none
@@ -1118,7 +1099,7 @@ subroutine Differentiate1D (f, f_derivative, N, dx, order)
   
 end subroutine Differentiate1D
   
-! -------------------------------------------------------------------------------------------------------------------------------
+! ------------------------------------------------------------------------------
 
 subroutine create_diff_matrices (D1, D2, D3, D4, nn, dx)
   implicit none
@@ -1247,6 +1228,8 @@ end subroutine create_diff_matrices
 
 !-------------------------------------------------------------------------------
 !   wrapper for new beam dataype for RK4
+! This routine is called when really using RK4 for the beam (as opposed to use
+! it just for predicting the next beam)
 !-------------------------------------------------------------------------------
 subroutine RK4_wrapper ( time, dt, beam_solid )! note this is actuall only ONE beam!!
   implicit none
@@ -1326,18 +1309,14 @@ subroutine RK4 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid)
   !     emergency brake
   !---------------------------------------------------------------------
   if (maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0 ) then
-    write (*,'(A)') "??????????????????????????????????????????????????????????????????????????????????????????????????????"
-    write (*,'(A)') " "
     write (*,'(A)') "!!! rk4-Solver: I found maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0"
-    write (*,'(A)') "    That indicates a problem, probably artificial added mass instability."
-    write (*,'(A)') "    Even though it won't make sense to continue, I make a backup, quit, and let you decide"   
+    write (*,'(A)') "possible instability"
     write (*,'("time=",es11.4, " dt=",es11.4)') time, dt_beam
-    write (*,'(A)') "??????????????????????????????????????????????????????????????????????????????????????????????????????" 
   endif  
   
 end subroutine RK4
 
-! ---------------------------------------------------------------------------------------------------------------------------------------
+! ------------------------------------------------------------------------------
   
 subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
   implicit none
@@ -1432,6 +1411,9 @@ subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, &
 end subroutine Jacobi_num
 
 
+!-------------------------------------------------------------------------------
+
+
 subroutine Check_Vector_NAN(f, msg)
   real(kind=pr), intent(in) :: f(:)
   character(len=*) :: msg
@@ -1445,6 +1427,10 @@ subroutine Check_Vector_NAN(f, msg)
      endif
   enddo
 end subroutine
+
+
+!-------------------------------------------------------------------------------
+
 
 subroutine Check_Vector_NAN_try_correct(f, msg)
   real(kind=pr), intent(inout) :: f(:)
@@ -1462,16 +1448,47 @@ subroutine Check_Vector_NAN_try_correct(f, msg)
 end subroutine
 
 
+!-------------------------------------------------------------------------------
+
+
 subroutine show_solid_model_information
   implicit none
-  write(*,*) "*&*&*&*&*&*&*"
+  write(*,*) "*****************************************"
+  write(*,*) "solid solver debuging: showing all globals"
+  write(*,*) "*****************************************"
   write(*,'("mpirank=",i5)') mpirank
   write(*,'("ns=",i3)') ns
   write(*,'("mue=",es12.4," eta=",es12.4," grav=",es12.4)') mue,eta,grav
   write(*,'("sigma=",es12.4," t_beam=",es12.4," ds=",es12.4)') sigma, t_beam, ds
   write(*,'("T_release=",es12.4," TimeMethodSolid=",A," tau=",es12.4)') &
   T_release, trim(TimeMethodSolid), tau
-  write(*,*) "*&*&*&*&*&*&*"
+  write(*,*) "*******************end*******************"
 end subroutine
 
+
+!-------------------------------------------------------------------------------
+ 
+subroutine show_beam( beam)
+  use fsi_vars
+  implicit none
+  character(len=3):: str
+  type(solid),intent(in) :: beam
+  write(str,'(i3.3)') ns
+  
+  write(*,'(A,1x,32(f7.3,1x))') "beam%x", beam%x
+  write(*,'(A,1x,32(f7.3,1x))') "beam%y", beam%y
+  write(*,'(A,1x,32(f7.3,1x))') "beam%vx", beam%vx
+  write(*,'(A,1x,32(f7.3,1x))') "beam%vy", beam%vy
+  write(*,*) "x0", beam%x0
+  write(*,*) "y0", beam%y0
+  write(*,*) "dt_old", beam%dt_old
+  write(*,'(A,1x,32(f7.3,1x))') "beam%theta", beam%theta
+  write(*,'(A,1x,32(f7.3,1x))') "beam%theta_dot", beam%theta_dot  
+end subroutine show_beam
+ 
+
+
+
 end module solid_model
+
+

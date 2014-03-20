@@ -10,7 +10,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
-  select case(method(1:3))
+  select case(method)
      case("fsi") 
         call save_fields_new_fsi(time,uk,u,vort,nlk,work)
      case("mhd") 
@@ -39,7 +39,9 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  character(len=17) :: name
+  real(kind=pr):: volume
+  character(len=5) :: name
+  
 
   !--Set up file name base    
   if ( save_only_one_period == "yes" ) then
@@ -51,13 +53,10 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
     write(name,'(i5.5)') floor(time*100.d0) 
   endif
   
-  name=trim(adjustl(name))
 
   if (mpirank == 0 ) then
     write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," string=",A," ...")',advance='no') & 
-    time, &
-    isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity, &
-    trim(adjustl(name))
+    time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -110,6 +109,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   !-------------
   if (isaveMask == 1 .and. iPenalization == 1) then
     mask = mask*eps
+    call compute_mask_volume(volume)
+    if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
     mask = mask/eps
   endif

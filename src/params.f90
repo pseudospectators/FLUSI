@@ -3,7 +3,7 @@
 subroutine get_params(paramsfile) 
   use vars
 
-  character (len=80) :: paramsfile  ! The file we read the PARAMS from
+  character(len=strlen) :: paramsfile  ! The file we read the PARAMS from
   integer :: i  
   character PARAMS(nlines)*256 ! this array will contain the ascii-params file
   logical :: exist1
@@ -50,7 +50,7 @@ subroutine read_params_file(PARAMS,i,paramsfile, verbose)
   integer :: io_error
   ! This array will contain the ascii-params file
   character,intent(inout) :: PARAMS(nlines)*256
-  character(len=80) :: paramsfile ! this is the file we read the PARAMS from
+  character(len=strlen) :: paramsfile ! this is the file we read the PARAMS from
   logical, intent(in) :: verbose
 
   ! Read in the params file (root only)
@@ -234,8 +234,6 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Insects","L_chord",Insect%L_chord, 0.d0) 
   call GetValue_Real(PARAMS,i,"Insects","L_span",Insect%L_span, 0.d0) 
   
-  ! for string parameters, set the default in the first place
-  Insect%FlappingMotion_right="none"
   call GetValue_String(PARAMS,i,"Insects","FlappingMotion_right",Insect%FlappingMotion_right,"none")
   call GetValue_String(PARAMS,i,"Insects","FlappingMotion_left",Insect%FlappingMotion_left,"none")
   call GetValue_String(PARAMS,i,"Insects","BodyType",Insect%BodyType,"ellipsoid")  
@@ -256,21 +254,17 @@ subroutine get_params_fsi(PARAMS,i)
   
   ! eyes
   defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1,+1,1/)
-  call GetValue_Vector(PARAMS,i,"Insects","x_eye_r",&
-       Insect%x_eye_r, defaultvec) 
+  call GetValue_Vector(PARAMS,i,"Insects","x_eye_r",Insect%x_eye_r, defaultvec) 
        
   defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1,-1,1/)
-  call GetValue_Vector(PARAMS,i,"Insects","x_eye_l",&
-       Insect%x_eye_l, defaultvec) 
+  call GetValue_Vector(PARAMS,i,"Insects","x_eye_l",Insect%x_eye_l, defaultvec) 
        
   ! wing hinges (root points)    
   defaultvec=(/0.d0, +Insect%b_body, 0.d0 /)    
-  call GetValue_Vector(PARAMS,i,"Insects","x_pivot_l",&
-       Insect%x_pivot_l, defaultvec)  
+  call GetValue_Vector(PARAMS,i,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec)  
        
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
-  call GetValue_Vector(PARAMS,i,"Insects","x_pivot_r",&
-       Insect%x_pivot_r, defaultvec)        
+  call GetValue_Vector(PARAMS,i,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)        
               
      
   Insect%smooth = 2.0*dz
@@ -341,9 +335,8 @@ subroutine get_params_solid(PARAMS,i)
         TimeMethodSolid="BDF2"
     end select
     
-!     imposed_motion_leadingedge="fixed"
-!     call GetValue_String(PARAMS,i,"SolidModel","imposed_motion_leadingedge",&
-!     imposed_motion_leadingedge,imposed_motion_leadingedge)
+    call GetValue_String(PARAMS,i,"SolidModel","imposed_motion_leadingedge",&
+    imposed_motion_leadingedge,"fixed_middle")
 
     !-- grid spacing
     ds = 1.d0/dble(ns-1)

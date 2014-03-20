@@ -7,7 +7,8 @@ subroutine init_beams ( beams )
   integer :: n, i
   type(solid), dimension (1:nBeams), intent (out) :: beams  
   real (kind=pr) :: alpha, alpha_t, alpha_tt
-  real (kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
+  ! LeadingEdge: x, y, vx, vy, ax, ay (Array)  
+  real (kind=pr), dimension(1:6) :: LeadingEdge 
 
   write (*,'("*** initializing ",i1," beams")')  nBeams
   write (*,'("--- Beam width (2*t_beam) covers ",(f4.1)," points")') &
@@ -36,9 +37,8 @@ subroutine init_beams ( beams )
   ! define adjustable parameters for each beam 
   ! this is position and motion protocoll
   !--------------------------------------------
-  beams(1)%x0 = x0
-  beams(1)%y0 = y0
-  beams(1)%iMouvement = iMotion
+  beams(1)%x0 = 0.d0 ! always zero, translation and rotation is handled elsewhere
+  beams(1)%y0 = 0.d0 
   beams(1)%AngleBeam = AngleBeam
   beams(1)%phase = 0.d0  
   

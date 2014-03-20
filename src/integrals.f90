@@ -541,3 +541,23 @@ subroutine compute_fluid_volume(volume)
           MPI_COMM_WORLD,mpicode)
   endif
 end subroutine compute_fluid_volume
+
+
+
+! Compute the fluid volume.
+! NB: mask is a global!
+subroutine compute_mask_volume(volume)
+  use mpi
+  use vars
+  implicit none
+
+  real(kind=pr),intent(out) :: volume
+  integer :: mpicode
+  real(kind=pr) :: Lvolume ! Process-local volume
+
+  Lvolume=sum(mask)*dx*dy*dz
+     
+  call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+          MPI_COMM_WORLD,mpicode)
+          
+end subroutine compute_mask_volume

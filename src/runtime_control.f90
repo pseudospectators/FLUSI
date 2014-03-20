@@ -43,8 +43,8 @@ subroutine runtime_control_command( command )
   use vars
   use mpi
   implicit none
-  character (len=80), intent(out)     :: command
-  character (len=80)  :: file
+  character(len=strlen), intent(out)     :: command
+  character(len=strlen)  :: file
   character  :: CTRL_FILE(nlines)*256
   integer :: i
 

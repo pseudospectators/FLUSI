@@ -5,7 +5,7 @@ subroutine postprocessing()
   use vars
   use mpi
   implicit none
-  character (len=80)     :: postprocessing_mode, filename, key1,key2
+  character (len=strlen) :: postprocessing_mode, filename, key1,key2
   
   if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
   
@@ -47,7 +47,7 @@ subroutine convert_hdf2bin()
   use vars
   use mpi
   implicit none
-  character(len=80) :: fname, dsetname  
+  character(len=strlen) :: fname, dsetname  
   real(kind=pr), dimension(:,:,:), allocatable :: field
   integer, parameter :: pr_out = 4 
   integer :: ix, iy ,iz
@@ -102,7 +102,7 @@ subroutine convert_abs_vorticity()
   use p3dfft_wrapper
   use mpi
   implicit none
-  character(len=80) :: fname_ux, fname_uy, fname_uz, dsetname
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time 
@@ -187,7 +187,7 @@ subroutine convert_vorticity()
   use p3dfft_wrapper
   use mpi
   implicit none
-  character(len=80) :: fname_ux, fname_uy, fname_uz, dsetname
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time 
@@ -270,7 +270,7 @@ subroutine keyvalues(filename)
   use mpi
   implicit none
   character(len=*), intent(in) :: filename
-  character(len=80) :: dsetname
+  character(len=strlen) :: dsetname
   real(kind=pr) :: time
   real(kind=pr), dimension(:,:,:), allocatable :: field
   
