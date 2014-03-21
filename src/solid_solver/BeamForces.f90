@@ -8,11 +8,12 @@ subroutine get_surface_pressure_jump (time, beam, p)
   real(kind=pr), intent (in)   :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: xf,yf,zf,dh
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
-  real(kind=pr), dimension(:,:,:,:), allocatable :: surfaces
-  real(kind=pr), dimension(:,:,:), allocatable :: p_surface, p_surface_local
+  real(kind=pr),dimension(:,:,:,:), allocatable :: surfaces
+  real(kind=pr),dimension(:,:,:), allocatable :: p_surface, p_surface_local
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
   real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
+  real(kind=pr),dimension(:,:,:),allocatable::field_ext
   integer :: nh,is,ih,isurf,mpicode
   
   
@@ -62,15 +63,21 @@ subroutine get_surface_pressure_jump (time, beam, p)
   ! Then, we can sum over all MPI processes and have the complete pressure on
   ! the surface on all ranks
   !-----------------------------------------------------------------------------
+  allocate (field_ext(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)+1) )
+  
+  
+  call extend_array( p, field_ext )
+  
   do is=0,ns-1
   do ih=0,nh
   do isurf=1,2
     call trilinear_interp( surfaces(is,ih,isurf,1), surfaces(is,ih,isurf,2),&
-                       surfaces(is,ih,isurf,3), p, p_surface_local(is,ih,isurf))
+                       surfaces(is,ih,isurf,3), field_ext, p_surface_local(is,ih,isurf))
   enddo
   enddo
   enddo
   
+  deallocate (field_ext)
   
   call MPI_ALLREDUCE ( p_surface_local,p_surface,ns*nh*2,MPI_DOUBLE_PRECISION,&
                        MPI_SUM,MPI_COMM_WORLD,mpicode) 
