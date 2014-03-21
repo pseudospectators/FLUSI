@@ -48,7 +48,7 @@ module solid_model
  include "integrate_position.f90"
  include "init_beam.f90"
  include "save_beam.f90"
-
+ include "BeamForces.f90"
  
 !-------------------------------------------------------------------------------
 !   solid solver main entry point

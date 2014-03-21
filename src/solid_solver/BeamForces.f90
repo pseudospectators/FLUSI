@@ -1,156 +1,136 @@
-module BeamForces
-  use motion
+subroutine get_surface_pressure_jump (time, beam, p)
+  use mpi
+  use fsi_vars
+!   use solid_model
   implicit none
-contains
+  real(kind=pr),intent (in) :: time
+  type(solid),intent (inout) :: beam
+  real(kind=pr), intent (in)   :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr) :: xf,yf,zf,dh
+  real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
+  real(kind=pr), dimension(:,:,:,:), allocatable :: surfaces
+  real(kind=pr), dimension(:,:,:), allocatable :: p_surface, p_surface_local
+  real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
+  real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
+  real(kind=pr),dimension(1:3,1:3) :: M_plate
+  integer :: nh,is,ih,isurf,mpicode
+  
+  
+  !-- get relative coordinate system
+  call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt,M_plate)
+  
+  ! number of interpolation points in rigid direction (span)
+  nh = nint( L_span/min(dx,dy,dz)  )
+  ! spacing in span direction
+  dh = L_span/dble(nh)
+  
+  ! this array holds the interpolation points (2 2D arrays of 3D vectors = 4 indices)
+  allocate(surfaces(0:ns-1,0:nh,1:2,1:3))
+  allocate(p_surface(0:ns-1,0:nh,1:2))
+  allocate(p_surface_local(0:ns-1,0:nh,1:2))
 
-  subroutine GetForces ( time, beams, press, u, timelevel )
-    use share_vars
-    use FieldExport
-    implicit none
-    type(solid), dimension(1:iBeam), intent(inout) :: beams
-    real (kind=pr), intent (in)   :: time  
-    real (kind=pr), intent (in)   :: u (0:nx-1, 0:ny-1,1:2)
-    real (kind=pr), intent (in)   :: press (0:nx-1, 0:ny-1)    
-    real (kind=pr)  :: pressure_beam (0:ns-1)
-    real (kind=pr)  :: force_pressure (1:2)
-    real (kind=pr)  :: beam (0:ns-1, 1:6)
-    real (kind=pr)  :: tau_beam (0:ns-1)
-    character(len=3), intent (in) :: timelevel
-    integer :: i
-
-    !-------------------------------------------------------------------
-    ! This is a WRAPPER to call various interpolation routines for the beam
-    ! so you can compare them
-    !----------------------------------------------------------------------
-    do i = 1, iBeam
-       beam(:,1) = beams(i)%x
-       beam(:,2) = beams(i)%y
-       beam(:,3) = beams(i)%vx
-       beam(:,4) = beams(i)%vy
-       beam(:,5) = beams(i)%theta
-       beam(:,6) = beams(i)%theta_dot
-
-       call GetForcesInterp ( time, beam, pressure_beam, tau_beam,  press, u, force_pressure, 3 , i, beams(i) )
-
-       if (timelevel=="new") then
-          ! new time level
-          beams(i)%pressure_new = pressure_beam
-          beams(i)%tau_new      = tau_beam
-          beams(i)%Force_press  = force_pressure
-       elseif (timelevel=="old") then
-          ! old time level
-          beams(i)%pressure_old = pressure_beam
-          beams(i)%tau_old      = tau_beam
-          beams(i)%Force_press  = force_pressure
-       else
-          write(*,*) "error: timelevel unclear"
-          stop
-       endif
-    enddo
-
-  end subroutine GetForces
-
-
-
-
-
-  ! @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-
-
-
-
-
-  subroutine GetForcesInterp(time, beam, pressure_beam, tau_beam, press, u, force_pressure, SPL, beamnumber, beam_solid )
-    ! tradional interpolation routine: set SPL=0 linear interpolation SPL=1 bciubic with FD derivatives (cheaper) SPL=2 bicubic with spectral derivatives
-    use share_vars
-    use FieldExport
-    use Interpolation
-    implicit none
-    integer :: n
-    integer :: i
-    real (kind=pr), intent (in)   :: time
-    integer       , intent (in)   :: SPL, beamnumber
-    real (kind=pr), intent (in)   :: beam (0:ns-1, 1:6)
-    real (kind=pr), intent (out)  :: pressure_beam (0:ns-1), tau_beam(0:ns-1)
-    real (kind=pr), intent (out)  :: force_pressure (1:2)
-    real (kind=pr), intent (in)   :: press (0:nx-1, 0:ny-1)
-    real (kind=pr), intent (in)   :: u (0:nx-1, 0:ny-1,1:2)
-    type (solid)                  :: beam_solid ! we need this for compatability
-    real (kind=pr)                :: xu,yu,xb,yb,xu1,xb1,yu1,yb1
-    real (kind=pr)                :: theta(0:ns-1), sigma_beam(0:ns-1)
-    real (kind=pr)                :: alpha, alpha_t, alpha_tt, fx, fy,soft_startup,dx,dy,A1,B1,A2,B2,sigma_n1,sigma_n2,sigma_t2,sigma_t1
-    real (kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
-    real (kind=pr)                :: press_dx (0:nx-1, 0:ny-1),press_dy (0:nx-1, 0:ny-1)
-    real (kind=pr)                :: press_dxdy (0:nx-1, 0:ny-1),press_k (0:nx-1, 0:ny-1)
-    real (kind=pr), dimension (0:nx-1, 0:ny-1)  :: temp, work1, work2, work3, stress_a, stress_b
-    logical                       :: viscous_tensions
-    character(len=1)              :: beamstr
-
-    call mouvement ( time, alpha, alpha_t, alpha_tt, LeadingEdge, beam_solid )
-
-    tau_beam      = 0.0
-    pressure_beam = 0.0
-    sigma_beam    = 0.0
-
-    theta = beam(:,5) + alpha
-
-    do n = 0, ns-1
-       !top point
-       xu = beam(n,1)  - (t_beam+N_smooth*max(dy,dx)) * sin(theta(n))
-       yu = beam(n,2)  + (t_beam+N_smooth*max(dy,dx)) * cos(theta(n))
-       !bottom point
-       xb = beam(n,1)  + (t_beam+N_smooth*max(dy,dx)) * sin(theta(n))
-       yb = beam(n,2)  - (t_beam+N_smooth*max(dy,dx)) * cos(theta(n))
-       !top point (pressure)
-       xu1 = beam(n,1)  - (t_beam-0.0*N_smooth*max(dy,dx)) * sin(theta(n))
-       yu1 = beam(n,2)  + (t_beam-0.0*N_smooth*max(dy,dx)) * cos(theta(n))
-       !bottom point (pressure)
-       xb1 = beam(n,1)  + (t_beam-0.0*N_smooth*max(dy,dx)) * sin(theta(n))
-       yb1 = beam(n,2)  - (t_beam-0.0*N_smooth*max(dy,dx)) * cos(theta(n))    
-
-      pressure_beam(n) = DeltaInterpolation (xu1, yu1, press, 0.0, 0.0, xl-dx,yl-dy,"phi_4star") &
-            - DeltaInterpolation (xb1, yb1, press, 0.0, 0.0, xl-dx,yl-dy,"phi_4star")   
-      if (viscous_tensions) then    
-          A1 = DeltaInterpolation (xu, yu, stress_a, 0.0,0.0,xl-dx,yl-dy,"phi_4star")
-          B1 = DeltaInterpolation (xu, yu, stress_b, 0.0,0.0,xl-dx,yl-dy,"phi_4star")
-          A2 = DeltaInterpolation (xb, yb, stress_a, 0.0,0.0,xl-dx,yl-dy,"phi_4star")
-          B2 = DeltaInterpolation (xb, yb, stress_b, 0.0,0.0,xl-dx,yl-dy,"phi_4star")             
-      endif
-      
-    enddo
-
-    if (viscous_tensions) then
-       write (beamstr,'(i1)') beamnumber 
-
-       open (14, file = trim(dir_name)//'/'//trim(simulation_name)//'tau'//beamstr, status = 'unknown', access = 'append') ! Append output data file
-       write (14,'(1x, 128(es15.8,1x))') time, (tau_beam(n), n=0,ns-1,4)
-       close (14)
-
-       open (14, file = trim(dir_name)//'/'//trim(simulation_name)//'sigma'//beamstr, status = 'unknown', access = 'append') ! Append output data file
-       write (14,'(1x, 128(es15.8,1x))') time, (sigma_beam(n), n=0,ns-1,4)
-       close (14)
-
-       open (14, file = trim(dir_name)//'/'//trim(simulation_name)//'press'//beamstr, status = 'unknown', access = 'append') ! Append output data file
-       write (14,'(1x, 128(es15.8,1x))') time, (pressure_beam(n), n=0,ns-1,4)
-       close (14)
-    endif
-
-
-    !------------------------------------------------------------------------------------------------------------------------------
-    !--           startup (slow coupling or values from another simulation)
-    !------------------------------------------------------------------------------------------------------------------------------ 
-    if (time <= T_release) then
-       soft_startup = 0.0
-    elseif ( ( time >T_release ).and.(time<(T_release + tau)) ) then
-       soft_startup =  ((time-T_release)**3)/(-0.5*tau**3)   + 3.*((time-T_release)**2)/tau**2
-    else
-       soft_startup = 1.0
-    endif
-
-    pressure_beam = pressure_beam*soft_startup 
+  !-----------------------------------------------------------------------------
+  ! Compute the two 2D surfaces in 3D space (top and bottom)
+  !-----------------------------------------------------------------------------
+  do is=0,ns-1
+  do ih=0,nh
+    !-- top points
+    xf = beam%x(is)-t_beam*dsin(beam%theta(is))
+    yf = beam%y(is)+t_beam*dcos(beam%theta(is))
+  
+    x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
+    x = matmul( transpose(M_plate) , x_plate )
+    x = x + x0_plate
+    surfaces(is,ih,1,1:3) = x
     
-  end subroutine GetForcesInterp
-
-end module BeamForces
-
-
+    !-- bottom points
+    xf = beam%x(is)+t_beam*dsin(beam%theta(is))
+    yf = beam%y(is)-t_beam*dcos(beam%theta(is))
+    
+    x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
+    x = matmul( transpose(M_plate) , x_plate )
+    x = x + x0_plate
+    surfaces(is,ih,2,1:3) = x    
+    
+  enddo
+  enddo
+  
+  
+  !-----------------------------------------------------------------------------
+  ! Tri-linear interpolation of all points on the surface. 
+  ! If the point does not lie in the locally stores memory, zero is set
+  ! Then, we can sum over all MPI processes and have the complete pressure on
+  ! the surface on all ranks
+  !-----------------------------------------------------------------------------
+  do is=0,ns-1
+  do ih=0,nh
+  do isurf=1,2
+    call trilinear_interp( surfaces(is,ih,isurf,1), surfaces(is,ih,isurf,2),&
+                       surfaces(is,ih,isurf,3), p, p_surface_local(is,ih,isurf))
+  enddo
+  enddo
+  enddo
+  
+  
+  call MPI_ALLREDUCE ( p_surface_local,p_surface,ns*nh*2,MPI_DOUBLE_PRECISION,&
+                       MPI_SUM,MPI_COMM_WORLD,mpicode) 
+  
+  if (mpirank==0) then
+  open (14, file='surfaces.dat', status='replace')
+  
+  write (14,'(A)') 'x1=['
+  do is=0,ns-1
+  write(14,'(256(f5.2,1x))') surfaces(is,:,1,1)
+  enddo  
+  write (14,'(A)') '];'
+  
+  write (14,'(A)') 'y1=['
+  do is=0,ns-1
+  write(14,'(256(f5.2,1x))') surfaces(is,:,1,2)
+  enddo  
+  write (14,'(A)') '];'
+  
+  write (14,'(A)') 'z1=['
+  do is=0,ns-1
+  write(14,'(256(f5.2,1x))') surfaces(is,:,1,3)
+  enddo  
+  write (14,'(A)') '];'
+  
+  write (14,'(A)') 'p1=['
+  do is=0,ns-1
+  write(14,'(256(f5.2,1x))') p_surface(is,:,1)
+  enddo  
+  write (14,'(A)') '];'
+  
+  
+  
+  write (14,'(A)') 'x2=['
+  do is=0,ns-1
+  write(14,'(256(f5.2,1x))') surfaces(is,:,2,1)
+  enddo  
+  write (14,'(A)') '];'
+  
+  write (14,'(A)') 'y2=['
+  do is=0,ns-1
+  write(14,'(256(f5.2,1x))') surfaces(is,:,2,2)
+  enddo  
+  write (14,'(A)') '];'
+  
+  write (14,'(A)') 'z2=['
+  do is=0,ns-1
+  write(14,'(256(f5.2,1x))') surfaces(is,:,2,3)
+  enddo  
+  write (14,'(A)') '];'
+  
+  write (14,'(A)') 'p2=['
+  do is=0,ns-1
+  write(14,'(256(f5.2,1x))') p_surface(is,:,2)
+  enddo  
+  write (14,'(A)') '];'
+  
+  write (14,'(A)') "surface(x1,y1,z1,p1); hold on; surface(x2,y2,z2,p2)"
+  write (14,'(A)') "axis([0 4 0 4 0 4]);xlabel('x');ylabel('y');zlabel('z');grid"
+    endif
+  deallocate(surfaces, p_surface, p_surface_local)
+!   stop
+end subroutine get_surface_pressure_jump

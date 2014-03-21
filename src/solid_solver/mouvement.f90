@@ -66,14 +66,17 @@ end subroutine mouvement
 ! beta = pitch
 ! gamma = yaw
 !-------------------------------------------------------------------------------
-subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, psi_dt, beta_dt, gamma_dt )
+subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
+               psi_dt, beta_dt, gamma_dt, M_plate )
   use fsi_vars
   implicit none
   
   real(kind=pr),dimension(1:3),intent(out) :: x0_plate,v0_plate
+  real(kind=pr),dimension(1:3,1:3),intent(out)::M_plate
   real(kind=pr),intent(out)::psi,beta,gamma,psi_dt,beta_dt,gamma_dt
   real(kind=pr),intent(in)::time
   real(kind=pr)::R
+  real(kind=pr),dimension(1:3,1:3) :: M1,M2,M3
   
   select case (imposed_motion_leadingedge)
   case ("fixed_middle")  
@@ -117,4 +120,12 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, p
       stop
       
   end select  
+  
+  
+  !-- rotation matrices that take us to the relative system
+  call Rx(M1,psi)
+  call Ry(M2,beta)
+  call Rz(M3,gamma)
+  M_plate = matmul(M1,matmul(M2,M3))
+  
 end subroutine plate_coordinate_system

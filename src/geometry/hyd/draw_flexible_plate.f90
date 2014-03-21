@@ -10,10 +10,10 @@ subroutine Draw_flexible_plate (time, beam)
   implicit none
 
   real(kind=pr), intent(in) :: time
-  type(Solid), intent(in) :: beam
+  type(Solid), intent(inout) :: beam
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate,u_tmp,rot_body,v_tmp,v0_plate
-  real(kind=pr),dimension(1:3,1:3) :: M_plate,M1,M2,M3
+  real(kind=pr),dimension(1:3,1:3) :: M_plate
   !-- for the triangles:
   real(kind=pr) :: a,b,c,alpha,beta,h, safety, t1, s,s1,s2, ux,uy
   integer :: ix,iy,iz,is
@@ -24,13 +24,9 @@ subroutine Draw_flexible_plate (time, beam)
   safety = 2.d0*N_smooth*max(dx,dy,dz)
     
   !-- get relative coordinate system
-  call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt)
+  call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,&
+                               gamma,psi_dt,beta_dt,gamma_dt,M_plate)
 
-  !-- rotation matrices that take us to the relative system
-  call Rx(M1,psi)
-  call Ry(M2,beta)
-  call Rz(M3,gamma)
-  M_plate = matmul(M1,matmul(M2,M3))
   ! angular velocity of moving relative frame
   rot_body = (/psi_dt, beta_dt, gamma_dt/)
 
@@ -135,6 +131,8 @@ subroutine Draw_flexible_plate (time, beam)
     enddo
    enddo
   enddo
+  
+  call get_surface_pressure_jump (time, beam, mask)
 
   write(*,*) "warning internal division by eps"
   mask=mask/eps
