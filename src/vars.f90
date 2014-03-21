@@ -226,13 +226,26 @@ module fsi_vars
   !-----------------------------------------------------------------------------
   
   ! this function simplifies my life with the insects
-  real(kind=pr) function deg2rad(deg)
+  function deg2rad(deg)
     use vars
     implicit none
     real(kind=pr), intent(in) :: deg
+    real(kind=pr) :: deg2rad
     deg2rad=deg*pi/180.d0
     return
   end function
+  
+  function cross(a,b)
+    use vars
+    implicit none
+    real(kind=pr),dimension(1:3),intent(in) :: a,b
+    real(kind=pr),dimension(1:3) :: cross
+    cross(1) = a(2)*b(3)-a(3)*b(2)
+    cross(2) = a(3)*b(1)-a(1)*b(3)
+    cross(3) = a(1)*b(2)-a(2)*b(1)
+  end function
+    
+    
 end module fsi_vars
 
 

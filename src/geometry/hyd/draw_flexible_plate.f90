@@ -33,8 +33,7 @@ subroutine Draw_flexible_plate (time, beam)
   M_plate = matmul(M1,matmul(M2,M3))
   ! angular velocity of moving relative frame
   rot_body = (/psi_dt, beta_dt, gamma_dt/)
-  
-  
+
   mask = 0.d0
   us = 0.d0
   
@@ -87,7 +86,7 @@ subroutine Draw_flexible_plate (time, beam)
                 if ( h<= mask(ix,iy,iz) ) then
                   mask(ix,iy,iz) = h
                 
-                  !-- linear interpolation of velocity
+                  !-- linear interpolation of velocity (along the element)
                   s1 = dble(is)*ds
                   s2 = dble(is+1)*ds
                   s = s1 + dsqrt(b*b - h*h)
@@ -98,7 +97,7 @@ subroutine Draw_flexible_plate (time, beam)
                 !-- we're in a hinge zone, where it is the closest
                 !-- lagrangian marker that defines the distance (circular hinges)
                 mask(ix,iy,iz) = min(mask(ix,iy,iz),min(a,b))
-                
+                !-- assign the velocity of the closer hinge (if any)
                 if (a==mask(ix,iy,iz)) then
                   ux = beam%vx(is)
                   uy = beam%vy(is)
@@ -115,7 +114,7 @@ subroutine Draw_flexible_plate (time, beam)
       !-- convert distance function to mask function
       call smoothstep( tmp, mask(ix,iy,iz)-t_beam, 0.d0, N_smooth*max(dx,dy,dz) )
       !-- make plate finite in z-direction
-      call smoothstep( tmp2, abs(x_plate(3)), L_span, N_smooth*max(dx,dy,dz) )
+      call smoothstep( tmp2, abs(x_plate(3)), 0.5*L_span, N_smooth*max(dx,dy,dz) )
       !-- final value
       mask(ix,iy,iz) = tmp*tmp2
       
@@ -123,11 +122,12 @@ subroutine Draw_flexible_plate (time, beam)
       !-- this is the velocity in the relative system
       u_tmp = (/ux,uy,0.d0/)
       !-- add solid body rotation to the velocity field of the beam
-      v_tmp(1) = v0_plate(1) + rot_body(2)*x_plate(3)-rot_body(3)*x_plate(2)
-      v_tmp(2) = v0_plate(2) + rot_body(3)*x_plate(1)-rot_body(1)*x_plate(3)
-      v_tmp(3) = v0_plate(3) + rot_body(1)*x_plate(2)-rot_body(2)*x_plate(1)
-      ! up to now, all velocities are in the relative system, now bring them back
-      us(ix,iy,iz,1:3)=matmul(transpose(M_plate),u_tmp+v_tmp)
+      v_tmp(1) = rot_body(2)*x_plate(3)-rot_body(3)*x_plate(2)
+      v_tmp(2) = rot_body(3)*x_plate(1)-rot_body(1)*x_plate(3)
+      v_tmp(3) = rot_body(1)*x_plate(2)-rot_body(2)*x_plate(1)
+      !-- up to now, all velocities are in the relative system, now bring them back
+      !-- note v0_plate is already described in the ablosute system
+      us(ix,iy,iz,1:3)=v0_plate + matmul(transpose(M_plate),u_tmp+v_tmp)
       
       endif !-- end of bounding box checks
       endif

@@ -41,7 +41,7 @@ ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 FFLAGS += -J$(OBJDIR) # specify directory for modules.
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
 FFLAGS += -Wsurprising # warn if things might not behave as expected
-FFLAGS += -pedantic 
+FFLAGS += -pedantic -fdefault-double-8 -fdefault-real-8
 FFLAGS += -Wconversion
 FFLGAS += -Wunused-labels
 PPFLAG= -cpp #preprocessor flag
