@@ -13,8 +13,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   integer :: it_start
   real(kind=pr),intent(inout) :: time,dt0,dt1 
   real(kind=pr) :: t1,t2
-  character (len=80)  :: command ! for runtime control
-  character (len=80),intent(in)  :: params_file ! for runtime control  
+  character(len=strlen)  :: command ! for runtime control
+  character(len=strlen),intent(in)  :: params_file ! for runtime control  
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -22,13 +22,13 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   logical :: continue_timestepping
-  type(solid), dimension(1:nBeams) :: beams
+  type(solid), dimension(1) :: beams
   
   continue_timestepping = .true.
   it_start=it
   
   ! save initial conditions 
-  call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
+!   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
   
   ! initialize runtime control file
   if (mpirank == 0) call initialize_runtime_control_file()
@@ -38,11 +38,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   !-- initialization of solid solver
-  call show_solid_model_information
   call init_beams( beams )
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   if (mpirank == 0) write(*,*) "Start time-stepping...."
   
@@ -53,19 +50,17 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
      !-------------------------------------------------
-     if(iMoving == 1 .and. iPenalization == 1) call create_mask(time)
+     if(iMoving == 1 .and. iPenalization == 1) call create_mask(time, beams(1))
      
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-!      if(dry_run_without_fluid/="yes") then
-!        call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
-!      endif
+     if(dry_run_without_fluid/="yes") then
+       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+     endif
 
-!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-     call SolidSolverWrapper( time, dt_fixed , beams )
-     dt1=dt_fixed
-     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     call get_surface_pressure_jump (time, beams(1), work)
+     call SolidSolverWrapper( time, dt1 , beams )
       
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
@@ -110,20 +105,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      if (((modulo(time,tsave)<=dt1).and.(it>2)).or.(time==tmax)) then
         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-! !         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
-! !         ! never matters,and for AB2 this is the one to be overwritten
-! !         ! in the next step.  This frees 3 complex arrays, which are
-! !         ! then used in Dump_Runtime_Backup.
-! !         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
-! !         
-! !         ! Backup if that's specified in the PARAMS.ini file
-! !         if(iDoBackup == 1) then
-! !            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-! !         endif
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        call Draw_flexible_plate (time, beams(1))
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work) 
-        !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
+        ! never matters,and for AB2 this is the one to be overwritten
+        ! in the next step.  This frees 3 complex arrays, which are
+        ! then used in Dump_Runtime_Backup.
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)               
+        ! Backup if that's specified in the PARAMS.ini file
+        if(iDoBackup == 1) then
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)           
+        endif
      endif
      
      !-----------------------------------------------
@@ -206,7 +196,7 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   if(mpirank == 0) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
-     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1," dt=",es10.2,"s t=",es10.2)') &
+     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",es10.2)') &
           floor(time_left/(24.d0*3600.d0))   ,&
           floor(mod(time_left,24.*3600.d0)/3600.d0),&
           floor(mod(time_left,3600.d0)/60.d0),&

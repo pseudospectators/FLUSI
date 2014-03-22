@@ -211,7 +211,7 @@ subroutine trilinear_interp_1Ddecomp(x,field,ghosts,value)
   
   !-- point lies in the interior of the local array and we do not need the 
   !-- ghostpoints
-  if ((ix>=ixmin).and.(ix<=ixmax).and.&
+  if ((ix>=ixmin).and.(ix< ixmax).and.&
       (iy>=iymin).and.(iy<=iymax).and.&
       (iz>=izmin).and.(iz< izmax)) then
       
@@ -227,7 +227,7 @@ subroutine trilinear_interp_1Ddecomp(x,field,ghosts,value)
   
   !-- the lower z-index is the largest on the local storage, thus the next point
   !-- iz+1 is on another processor, which we synchronized previsously
-  elseif ((ix>=ixmin).and.(ix<=ixmax).and.&
+  elseif ((ix>=ixmin).and.(ix< ixmax).and.&
           (iy>=iymin).and.(iy<=iymax).and.&
           (iz>=izmin).and.(iz==izmax)) then
           
@@ -407,8 +407,9 @@ end subroutine trilinear_interp
 
 
 subroutine init_interpolation()
-!-- dealing with this kind of stuff is very difficult, so we employ a simpler
-! notation
+  !-- dealing with this kind of stuff is very difficult, so we employ a simpler
+  !-- notation
+  implicit none
   ixmin=ra(1)
   ixmax=rb(1)
   iymin=ra(2)

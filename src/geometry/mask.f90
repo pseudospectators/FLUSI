@@ -1,11 +1,13 @@
 ! Wrapper for different (possibly time-dependend) mask functions
-subroutine create_mask(time)
+subroutine create_mask(time, beam)
   use mpi
   use vars
+  use solid_model
   implicit none
 
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: eps_inv
+  type(solid), intent(in) :: beam
 
   ! Attention: mask is reset here (and not in subroutines)
   mask = 0.d0
@@ -13,7 +15,7 @@ subroutine create_mask(time)
   ! Actual mask functions:
   select case(method)
   case("fsi")
-    call create_mask_fsi(time)
+    call create_mask_fsi(time, beam)
   case("mhd")
     call create_mask_mhd()
   end select

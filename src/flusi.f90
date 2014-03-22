@@ -168,8 +168,8 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------  
   if (mpirank == 0) write(*,*) "Create mask variables...."
   ! Create mask function:
-  call create_mask(time)
-  call update_us(u)
+!   call create_mask(time)
+!   call update_us(u)
 
   !*****************************************************************************
   ! Step forward in time

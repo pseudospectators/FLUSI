@@ -32,7 +32,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
      
   case ("swimmer") 
       LeadingEdge = 0.0
-      f = 3.0
+      f = 1.0
       angle_max = deg2rad(20.d0)
       
       alpha    = angle_max * sin(2.d0*pi*f*time)
@@ -82,7 +82,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   case ("fixed_middle")  
       !-- beam is in the middle of the domain and bends in x-y direction
       !-- z direction is height
-      x0_plate = (/ 0.5*xl,0.5*yl,0.5*zl /)
+      x0_plate = (/ 0.5d0,0.5*yl,0.5*zl /)
       v0_plate = 0.d0
       psi = 0.d0
       beta = 0.d0
@@ -94,7 +94,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   case ("swimmer") 
       !-- beam is in the middle of the domain and bends in x-y direction
       !-- z direction is height
-      x0_plate = (/ 0.5*xl,0.5*yl,0.5*zl /)
+      x0_plate = (/ 0.5d0,0.5*yl,0.5*zl /)
       v0_plate = 0.d0
       psi = 0.d0
       beta = 0.d0

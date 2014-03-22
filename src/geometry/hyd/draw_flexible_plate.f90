@@ -15,13 +15,11 @@ subroutine Draw_flexible_plate (time, beam)
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate,u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   !-- for the triangles:
-  real(kind=pr) :: a,b,c,alpha,beta,h, safety, t1, s,s1,s2, ux,uy
+  real(kind=pr) :: a,b,c,alpha,beta,h, safety, s,s1,s2, ux,uy
   integer :: ix,iy,iz,is
   
-  t1=MPI_wtime()
-  
   N_smooth = 3.d0  
-  safety = 2.d0*N_smooth*max(dx,dy,dz)
+  safety = 4.d0*N_smooth*max(dx,dy,dz)
     
   !-- get relative coordinate system
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,&
@@ -132,12 +130,8 @@ subroutine Draw_flexible_plate (time, beam)
    enddo
   enddo
   
-  call get_surface_pressure_jump (time, beam, mask)
-
-  write(*,*) "warning internal division by eps"
-  mask=mask/eps
   
-  write(*,'("elapsed=",es12.4)') MPI_wtime()-t1
+
 end subroutine Draw_flexible_plate
 
 

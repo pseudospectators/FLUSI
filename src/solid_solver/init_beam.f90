@@ -10,9 +10,11 @@ subroutine init_beams ( beams )
   ! LeadingEdge: x, y, vx, vy, ax, ay (Array)  
   real (kind=pr), dimension(1:6) :: LeadingEdge 
 
-  write (*,'("*** initializing ",i1," beams")')  nBeams
-  write (*,'("--- Beam width (2*t_beam) covers ",(f4.1)," points")') &
-  2.0*t_beam/max(dy,dx)
+  if (mpirank==0) then
+    write (*,'("*** initializing ",i1," beams")')  nBeams
+    write (*,'("--- Beam width (2*t_beam) covers ",(f4.1)," points")') &
+    2.0*t_beam/max(dy,dx)
+  endif
  
   !-------------------------------------------
   ! allocate beam storage for each beam

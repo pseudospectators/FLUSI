@@ -23,7 +23,7 @@ subroutine get_params(paramsfile)
   ! Get parameter values from PARAMS
   call get_params_common(PARAMS,i)
 
-  select case(method(1:3))
+  select case(method)
      case("fsi") 
         ! Get fsi-specific parameter values from PARAMS
         call get_params_fsi(PARAMS,i)

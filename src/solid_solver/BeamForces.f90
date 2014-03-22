@@ -6,7 +6,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
   real(kind=pr), intent (in)   :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr) :: xf,yf,zf,dh
+  real(kind=pr) :: xf,yf,zf,dh, soft_startup
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
   real(kind=pr),dimension(:,:,:,:), allocatable :: surfaces
   real(kind=pr),dimension(:,:,:), allocatable :: p_surface, p_surface_local
@@ -19,9 +19,9 @@ subroutine get_surface_pressure_jump (time, beam, p)
   !-- get relative coordinate system
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt,M_plate)
   
-  ! number of interpolation points in rigid direction (span)
+  !-- number of interpolation points in rigid direction (span)
   nh = nint( L_span/min(dx,dy,dz)  )
-  ! spacing in span direction
+  !-- spacing in span direction
   dh = L_span/dble(nh)
   
   ! this array holds the interpolation points (2 2D arrays of 3D vectors = 4 indices)
@@ -29,24 +29,26 @@ subroutine get_surface_pressure_jump (time, beam, p)
   allocate(p_surface(0:ns-1,0:nh,1:2))
   allocate(p_surface_local(0:ns-1,0:nh,1:2))
 
+  surfaces = 17.d0
+  p_surface = 17.d0
+  p_surface_local = 17.d0
+  
   !-----------------------------------------------------------------------------
   ! Compute the two 2D surfaces in 3D space (top and bottom)
   !-----------------------------------------------------------------------------
   do is=0,ns-1
     do ih=0,nh
-      !-- top points
+      !-- top surface points
       xf = beam%x(is)-t_beam*dsin(beam%theta(is))
-      yf = beam%y(is)+t_beam*dcos(beam%theta(is))
-    
+      yf = beam%y(is)+t_beam*dcos(beam%theta(is))    
       x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
       surfaces(is,ih,1,1:3) = x
       
-      !-- bottom points
+      !-- bottom surface points
       xf = beam%x(is)+t_beam*dsin(beam%theta(is))
-      yf = beam%y(is)-t_beam*dcos(beam%theta(is))
-      
+      yf = beam%y(is)-t_beam*dcos(beam%theta(is))      
       x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
@@ -55,6 +57,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
     enddo
   enddo
   
+  !-- this just copies ra(1:3) and rb(1:3) in more readble names
   call init_interpolation()
   
   !-----------------------------------------------------------------------------
@@ -68,6 +71,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
     !-- 1D data decompositon
     !------------------------
     allocate (ghostsz(ixmin:ixmax,iymin:iymax) )
+    !--fetch a sheet from neighbor
     call extend_array_1D( p, ghostsz )
     
     do is=0,ns-1
@@ -80,13 +84,10 @@ subroutine get_surface_pressure_jump (time, beam, p)
     enddo
     
     deallocate (ghostsz)    
-    
-    
+
   elseif (mpisize==1) then
     !------------------------
-    do is=0,ns-1
-    write(*,*) '!-- serial run one CPU'
-    enddo
+    !-- serial run one CPU
     !------------------------
     do is=0,ns-1
       do ih=0,nh
@@ -103,6 +104,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
     !------------------------
     allocate(ghostsz(ixmin:ixmax,iymin:iymax+1))
     allocate(ghostsy(ixmin:ixmax,izmin:izmax+1))
+    !-- fetch two ghost surfaces from other CPU
     call extend_array_2D( p, ghostsz, ghostsy)
     
     do is=0,ns-1
@@ -119,65 +121,94 @@ subroutine get_surface_pressure_jump (time, beam, p)
   endif
   
   
-  call MPI_ALLREDUCE ( p_surface_local,p_surface,ns*nh*2,MPI_DOUBLE_PRECISION,&
-                       MPI_SUM,MPI_COMM_WORLD,mpicode) 
-  
-  if (mpirank==0) then
-  open (14, file='surfaces.dat', status='replace')
-  
-  write (14,'(A)') 'x1=['
-  do is=0,ns-1
-  write(14,'(256(f5.2,1x))') surfaces(is,:,1,1)
-  enddo  
-  write (14,'(A)') '];'
-  
-  write (14,'(A)') 'y1=['
-  do is=0,ns-1
-  write(14,'(256(f5.2,1x))') surfaces(is,:,1,2)
-  enddo  
-  write (14,'(A)') '];'
-  
-  write (14,'(A)') 'z1=['
-  do is=0,ns-1
-  write(14,'(256(f5.2,1x))') surfaces(is,:,1,3)
-  enddo  
-  write (14,'(A)') '];'
-  
-  write (14,'(A)') 'p1=['
-  do is=0,ns-1
-  write(14,'(256(f10.2,1x))') p_surface(is,:,1)
-  enddo  
-  write (14,'(A)') '];'
+  !-----------------------------------------------------------------------------
+  ! All CPUs now interpolated some values of p on the surfaces, if they lie in
+  ! their local memory (or on the lines between two CPUs). If not, they saved 
+  ! zero. The sum of all pressure distributions is now what we wanted to have
+  ! p_surface is available on all CPU (and it has to since all evolve the solid)
+  !-----------------------------------------------------------------------------
+  call MPI_ALLREDUCE ( p_surface_local,p_surface,size(p_surface_local),&
+                       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
   
   
   
-  write (14,'(A)') 'x2=['
-  do is=0,ns-1
-  write(14,'(256(f5.2,1x))') surfaces(is,:,2,1)
-  enddo  
-  write (14,'(A)') '];'
+    if (time <= T_release) then
+      soft_startup = 0.0
+  elseif ( ( time >T_release ).and.(time<(T_release + tau)) ) then
+      soft_startup =  ((time-T_release)**3)/(-0.5*tau**3)   + 3.*((time-T_release)**2)/tau**2
+  else
+      soft_startup = 1.0
+  endif
   
-  write (14,'(A)') 'y2=['
-  do is=0,ns-1
-  write(14,'(256(f5.2,1x))') surfaces(is,:,2,2)
-  enddo  
-  write (14,'(A)') '];'
   
-  write (14,'(A)') 'z2=['
-  do is=0,ns-1
-  write(14,'(256(f5.2,1x))') surfaces(is,:,2,3)
-  enddo  
-  write (14,'(A)') '];'
-  
-  write (14,'(A)') 'p2=['
-  do is=0,ns-1
-  write(14,'(256(f10.2,1x))') p_surface(is,:,2)
-  enddo  
-  write (14,'(A)') '];'
-  
-  write (14,'(A)') "surface(x1,y1,z1,p1); hold on; surface(x2,y2,z2,p2)"
-  write (14,'(A)') "axis([0 4 0 4 0 4]);xlabel('x');ylabel('y');zlabel('z');grid"
-    endif
-  deallocate(surfaces, p_surface, p_surface_local)
-!   stop
+  do is=0,ns-1 
+    beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+    beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+    
+    beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
+    beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
+  enddo
+      
+!   if (mpirank==0) then
+!   open (17, file='surfaces.m', status='replace')
+!   
+!   write (17,'(A)') 'x1=['
+!   do is=0,ns-1
+!   write(17,'(256(f5.2,1x))') surfaces(is,:,1,1)
+!   enddo  
+!   write (17,'(A)') '];'
+!   
+!   write (17,'(A)') 'y1=['
+!   do is=0,ns-1
+!   write(17,'(256(f5.2,1x))') surfaces(is,:,1,2)
+!   enddo  
+!   write (17,'(A)') '];'
+!   
+!   write (17,'(A)') 'z1=['
+!   do is=0,ns-1
+!   write(17,'(256(f5.2,1x))') surfaces(is,:,1,3)
+!   enddo  
+!   write (17,'(A)') '];'
+!   
+!   write (17,'(A)') 'p1=['
+!   do is=0,ns-1
+!   write(17,'(256(f10.2,1x))') p_surface(is,:,1)
+!   enddo  
+!   write (17,'(A)') '];'
+!   
+!   
+!   
+!   write (17,'(A)') 'x2=['
+!   do is=0,ns-1
+!   write(17,'(256(f5.2,1x))') surfaces(is,:,2,1)
+!   enddo  
+!   write (17,'(A)') '];'
+!   
+!   write (17,'(A)') 'y2=['
+!   do is=0,ns-1
+!   write(17,'(256(f5.2,1x))') surfaces(is,:,2,2)
+!   enddo  
+!   write (17,'(A)') '];'
+!   
+!   write (17,'(A)') 'z2=['
+!   do is=0,ns-1
+!   write(17,'(256(f5.2,1x))') surfaces(is,:,2,3)
+!   enddo  
+!   write (17,'(A)') '];'
+!   
+!   write (17,'(A)') 'p2=['
+!   do is=0,ns-1
+!   write(17,'(256(f10.2,1x))') p_surface(is,:,2)
+!   enddo  
+!   write (17,'(A)') '];'
+!   
+!   write (17,'(A)') "surface(x1,y1,z1,p1); hold on; surface(x2,y2,z2,p2)"
+!   write (17,'(A)') "axis([0 4 0 4 0 4]);xlabel('x');ylabel('y');zlabel('z');grid"
+!   close(17)
+!     endif
+    
+    
+  deallocate(surfaces)
+  deallocate(p_surface)
+  deallocate(p_surface_local)
 end subroutine get_surface_pressure_jump

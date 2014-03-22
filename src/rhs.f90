@@ -51,6 +51,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
 
   complex(kind=pr),intent(in)::   uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),dimension(:,:,:), allocatable:: workc
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -150,9 +151,14 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-- add pressure gradient
   !-----------------------------------------------  
   t1 = MPI_wtime()
+  allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))) 
+  call compute_pressure( workc ,nlk)
+  call ifft( ink=workc, outx=work )  
+  deallocate(workc)
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
   time_p = time_p + MPI_wtime() - t1
 
+  
   ! this is for the timing statistics.
   ! how much time was spend on ffts in cal_nlk?
   time_nlk_fft=time_nlk_fft + time_fft2 + time_ifft2
