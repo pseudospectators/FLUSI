@@ -16,6 +16,8 @@ subroutine init_beams ( beams )
     2.0*t_beam/max(dy,dx)
   endif
  
+  call lapack_unit_test()
+ 
   !-------------------------------------------
   ! allocate beam storage for each beam
   !-------------------------------------------

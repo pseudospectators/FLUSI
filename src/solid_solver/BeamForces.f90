@@ -6,7 +6,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
   real(kind=pr), intent (in)   :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr) :: xf,yf,zf,dh, soft_startup
+  real(kind=pr) :: xf,yf,zf,dh, soft_startup, t0
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
   real(kind=pr),dimension(:,:,:,:), allocatable :: surfaces
   real(kind=pr),dimension(:,:,:), allocatable :: p_surface, p_surface_local
@@ -15,7 +15,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   real(kind=pr),dimension(:,:),allocatable::ghostsy,ghostsz
   integer :: nh,is,ih,isurf,mpicode
-  
+  t0 = MPI_wtime()
   !-- get relative coordinate system
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt,M_plate)
   
@@ -132,7 +132,12 @@ subroutine get_surface_pressure_jump (time, beam, p)
   
   
   
-    if (time <= T_release) then
+  !-----------------------------------------------------------------------------
+  ! To avoid startup problems, we can smoothly "turn on" the coupling by 
+  ! multiplying the pressure with a startup conditioner.
+  ! Note this does not apply for gravity or imposed motion.
+  !-----------------------------------------------------------------------------  
+  if (time <= T_release) then
       soft_startup = 0.0
   elseif ( ( time >T_release ).and.(time<(T_release + tau)) ) then
       soft_startup =  ((time-T_release)**3)/(-0.5*tau**3)   + 3.*((time-T_release)**2)/tau**2
@@ -141,6 +146,10 @@ subroutine get_surface_pressure_jump (time, beam, p)
   endif
   
   
+  !-----------------------------------------------------------------------------
+  ! Average the pressure in the spanwise direction and multiply with startup 
+  ! conditioner.
+  !-----------------------------------------------------------------------------    
   do is=0,ns-1 
     beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
     beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
@@ -211,4 +220,6 @@ subroutine get_surface_pressure_jump (time, beam, p)
   deallocate(surfaces)
   deallocate(p_surface)
   deallocate(p_surface_local)
+  
+  time_surf = time_surf + MPI_wtime() - t0
 end subroutine get_surface_pressure_jump

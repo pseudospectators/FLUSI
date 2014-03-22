@@ -76,7 +76,7 @@ subroutine Start_Simulation()
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
   time_bckp=0.0; time_save=0.0; time_total=MPI_wtime(); time_u=0.0; time_sponge=0.0
-
+  time_solid=0.d0; time_drag=0.0; time_surf=0.0
 
   
   ! Set up global communicators. We have two groups, for solid and fluid CPUs
@@ -220,8 +220,11 @@ subroutine show_timings(t2)
   write(*,'("Fluid      : ",es12.4," (",f5.1,"%)")') time_fluid, 100.0*time_fluid/t2
   write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.0*time_mask/t2
   write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.0*time_save/t2
+  write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_solid, 100.0*time_solid/t2
+  write(*,'("surf forces: ",es12.4," (",f5.1,"%)")') time_surf, 100.0*time_surf/t2
+  write(*,'("drag forces: ",es12.4," (",f5.1,"%)")') time_drag, 100.0*time_drag/t2
   write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.0*time_bckp/t2
-  tmp = t2 - (time_fluid + time_mask + time_save + time_bckp)
+  tmp = t2 - (time_fluid+time_mask+time_save+time_bckp+time_solid+time_surf+time_drag)
   write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/t2
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "The time spend for the fluid decomposes into:"
@@ -235,7 +238,7 @@ subroutine show_timings(t2)
   write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.0*time_vor/time_nlk
   write(*,'("vor x u - chi*u: ",es12.4," (",f5.1,"%)")') time_curl, 100.0*time_curl/time_nlk
   write(*,'("projection     : ",es12.4," (",f5.1,"%)")') time_p, 100.0*time_p/time_nlk
-  write(*,'("sponge         : ",es12.4," (",f5.1,"%)")') tmp, 100.0*time_sponge/time_nlk
+  write(*,'("sponge         : ",es12.4," (",f5.1,"%)")') time_sponge, 100.0*time_sponge/time_nlk
   tmp = time_nlk - time_u - time_vor - time_curl - time_p  
   write(*,'("Misc           : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
   write (*,'(A)') "cal_nlk: FFTs and local operations:"

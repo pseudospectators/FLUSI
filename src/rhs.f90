@@ -36,12 +36,10 @@ end subroutine cal_nlk
 !             this is reused in save_fields to compute the pressure snapshot
 !       u:    work array, contains the velocity in phys space
 !             this is reused in the caller FluidTimestep to adjust dt
-!       work: work array, currently unused (will be used for pressure)
+!       work: pressure in physical space at time level n
 ! Side Effects:
 !      * if present, a sponge is applied to remove incoming vorticity
 !
-! To Do:
-!       * for "true" FSI, we'll need to return the pressure field in phys space
 !-------------------------------------------------------------------------------
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   use mpi
@@ -151,10 +149,16 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-- add pressure gradient
   !-----------------------------------------------  
   t1 = MPI_wtime()
-  allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))) 
-  call compute_pressure( workc ,nlk)
-  call ifft( ink=workc, outx=work )  
-  deallocate(workc)
+  if ( use_solid_model == "yes" ) then
+    !-- when doing active FSI coupling, we need the pressure.
+    !-- allocate a complex work array (we have none in spare)
+    call alloccomplex( workc )
+    call compute_pressure( workc ,nlk )
+    !-- ifft is in a module, so this argument style is fine:
+    call ifft( ink=workc, outx=work )  
+    deallocate( workc )
+  endif
+  !-- procet RHS on solenoidal manifold
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
   time_p = time_p + MPI_wtime() - t1
 

@@ -22,6 +22,7 @@ subroutine FFT_unit_test ( u, uk )
   complex(kind=pr), intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   integer :: iz,ix,iy
   real (kind=pr) :: kx, err, ky, kz
+  if (mpirank==0) write(*,*) "----------------------"
   if (mpirank==0) write(*,*) "starting FFT unit test"
   !-----------------------------------------------------------------------------
   ! derivative in X direction
@@ -139,5 +140,5 @@ subroutine FFT_unit_test ( u, uk )
       stop
     endif    
   endif  
-  
+  if (mpirank==0) write(*,*) "----------------------"
 end subroutine FFT_unit_test

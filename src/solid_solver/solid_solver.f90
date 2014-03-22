@@ -102,8 +102,10 @@ end subroutine
 subroutine SolidSolverWrapper ( time, dt, beams )
   implicit none
   real(kind=pr), intent (in) ::  dt, time
+  real(kind=pr) :: t0
   type(solid), dimension(1:nBeams), intent (inout) ::    beams
   integer :: i
+  t0 = MPI_wtime()
   
   if (time>T_release) then ! it is not nessesaire to solve the solid equation when the beam is still held fixed  
      !-------------------------------------------
@@ -138,6 +140,7 @@ subroutine SolidSolverWrapper ( time, dt, beams )
   call SolidEnergies( beams(i) )
   enddo
 
+  time_solid = time_solid + MPI_wtime() - t0
 end subroutine SolidSolverWrapper
 
 
@@ -1485,7 +1488,56 @@ subroutine show_beam( beam)
   write(*,'(A,1x,32(f7.3,1x))') "beam%theta", beam%theta
   write(*,'(A,1x,32(f7.3,1x))') "beam%theta_dot", beam%theta_dot  
 end subroutine show_beam
- 
+
+
+subroutine lapack_unit_test()
+  !-----------------------------------------------------------------------------
+  ! Minimal example for testing the Lapack library
+  ! Solves the linear system
+  ! I*x = b
+  ! where I is the identity matrix, so the solution is trivially x=b
+  !-----------------------------------------------------------------------------
+  use fsi_vars
+  implicit none
+  integer, parameter:: n = 20
+  real(kind=pr) :: a1(1:n,1:n),a2(1:n,1:n), b(1:n), x(1:n), err
+  integer :: i,error
+  integer :: ipiv(1:n)
+  a2 = 0.d0
+  a1 = 0.d0
+  b  = 7.d0
+  x  = 0.d0
+
+  if (mpirank==0) write(*,*) "--------------------------------"
+  if (mpirank==0) write(*,*) " Starting LAPACK unit test"
+  
+  ! create identity matrix
+  do i=1,n
+   a1(i,i) = 1.d0
+  enddo
+
+  !-----------------------------------------------------------------------------
+  ! first step: factorization of the matrix a1 (which is overwritten on output
+  ! so we make a copy of it)
+  !-----------------------------------------------------------------------------  
+  a2=a1 ! lapack overwrites a2 with the factorization
+  call dgetrf ( n, n, a2, n, ipiv, error )
+  
+  !-----------------------------------------------------------------------------
+  ! second step: backwards substitution
+  !-----------------------------------------------------------------------------    
+  x = b ! lapack overwrites x with the solution
+  call dgetrs( 'N', n, 1, a2, n, ipiv, x, n, error ) 
+  
+  err = maxval( x - b )
+  if ( err>1.d-12 ) then
+    write (*,*) "LAPACK unit test failed"
+    stop
+  endif
+  
+  if (mpirank==0) write(*,'(" Done. err=",es15.8)') err
+  if (mpirank==0) write(*,*) "--------------------------------"
+end subroutine lapack_unit_test
 
 
 

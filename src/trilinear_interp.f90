@@ -21,6 +21,9 @@ subroutine extend_array_1D( field, ghosts )
     stop
   endif
   
+  ! figure out where to send to and who is sending you something. In the 1D
+  ! decomp case, this is simple, as mpiranks are ordered along the z-direction
+  ! of course, everything is periodic
   destination = mpirank-1
   if (destination==-1) destination=mpisize-1
   origin = mpirank+1
@@ -48,7 +51,8 @@ subroutine extend_array_2D( field, ghostsz, ghostsy )
   use mpi 
   implicit none 
   real(kind=pr),intent (in) :: field(ixmin:ixmax,iymin:iymax,izmin:izmax)
-  real(kind=pr),intent(out) :: ghostsz(ixmin:ixmax,iymin:iymax+1) ! both include the annoying part
+  ! both include the annoying part, so slices are plus one element
+  real(kind=pr),intent(out) :: ghostsz(ixmin:ixmax,iymin:iymax+1) 
   real(kind=pr),intent(out) :: ghostsy(ixmin:ixmax,izmin:izmax+1)
   integer ::  mpicode, destination, origin, status
   !-----------------------------------------------------------------------------
@@ -391,16 +395,6 @@ subroutine trilinear_interp(x,field,value)
   c1 = c01*(1.d0-yd) + c11*yd
   
   value = c0*(1.d0-zd)+c1*zd
-  
-  if (dabs(value)>2.d0) then
-    write(*,*) ix,iy,iz
-    write(*,*) xd,yd,zd
-    write(*,*) ixmin,iymin,izmin
-    write(*,*) ixmax,iymax,izmax
-    write(*,*) value
-    write(*,*) c00, c10, c01, c11
-    write(*,*) c0,c1
-  endif
   
 end subroutine trilinear_interp
 

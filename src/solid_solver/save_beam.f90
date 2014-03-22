@@ -20,7 +20,7 @@ subroutine SaveBeamData( time, beams, dt1 )
   do i=1, nBeams ! loop over beams
     ! for naming files..
     write (beamstr,'(i1)') i        
-    open  (14, file = 'beam_data'//beamstr, status = 'old',position='append')
+    open  (14, file = 'beam_data'//beamstr, status = 'unknown',position='append')
     write (14, '(21(es15.8,1x))') &
       time,&
       beams(i)%pressure_new(ns-1),&
@@ -44,9 +44,7 @@ subroutine SaveBeamData( time, beams, dt1 )
       beams(i)%E_elastic,&
       beams(i)%E_pot
     close (14)
-  enddo 
-
- 
+  enddo  
   
   !--------------------------------------------------------------
   ! save leading edge motions
@@ -55,7 +53,7 @@ subroutine SaveBeamData( time, beams, dt1 )
     write (beamstr,'(i1)') i 
     call mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beams(i) )
     
-    open (14, file = 'mouvement'//beamstr, status = 'old',position='append')
+    open (14, file = 'mouvement'//beamstr, status = 'unknown',position='append')
     write (14, '(10(es15.8,1x))') time, alpha, alpha_t, alpha_tt, (LeadingEdge(n), n=1,6)
     close (14)
     

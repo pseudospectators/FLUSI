@@ -12,7 +12,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! runtime_backup1,2 - no backup
   integer :: it_start
   real(kind=pr),intent(inout) :: time,dt0,dt1 
-  real(kind=pr) :: t1,t2
+  real(kind=pr) :: t1,t2,t3
   character(len=strlen)  :: command ! for runtime control
   character(len=strlen),intent(in)  :: params_file ! for runtime control  
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -69,6 +69,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !          required.
      !-------------------------------------------------
      if ( method=="fsi" ) then
+        t3 = MPI_wtime()
         ! compute unst corrections in every time step
         if (unst_corrections ==1) then
           call cal_unst_corrections ( time, dt0 )
@@ -82,6 +83,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! note dt0 is OLD time step t(n)-t(n-1)
         ! advance in time ODEs that describe rigid solids
         if (SolidDyn%idynamics==1) call rigid_solid_time_step(time,dt0,dt1,it)
+        time_drag = time_drag + MPI_wtime() - t3
      endif     
      
      !-----------------------------------------------
