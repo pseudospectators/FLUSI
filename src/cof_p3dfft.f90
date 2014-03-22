@@ -140,12 +140,14 @@ subroutine fft_initialize
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
   
-  !-- Allocate domain partitioning tables and gather sizes from all processes (only for real arrays)
+  !-- Allocate domain partitioning tables and gather sizes from all processes 
+  !-- (only for real arrays)
   allocate ( ra_table(1:3,0:mpisize-1), rb_table(1:3,0:mpisize-1) )
   call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
   call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
 
   !-- create a 2D array of size ny*nz that holds the mpirank of every point
+  !-- in the y-z plane
   allocate (yz_plane_ranks(0:ny-1,0:nz-1) )
   allocate (yz_plane_local(0:ny-1,0:nz-1) )
   
@@ -159,13 +161,12 @@ subroutine fft_initialize
   if (mpirank==0) then
     open(14,file='decomposition',status='replace')
     do n=0,ny-1
-    do L=0,nz-1
-      write(14,'(i4.4,1x)',advance='no') yz_plane_ranks(n,L)
-    enddo
-    write(14,'(A)',advance='yes') " "
+      do L=0,nz-1
+        write(14,'(i4.4,1x)',advance='no') yz_plane_ranks(n,L)
+      enddo
+      write(14,'(A)',advance='yes') " "
     enddo
     close(14)
-    stop
   endif
   
   !-----------------------------------------------------------------------------     

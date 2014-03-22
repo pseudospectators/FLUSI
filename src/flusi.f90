@@ -188,6 +188,7 @@ subroutine Start_Simulation()
   deallocate(us)
   deallocate(mask)
   deallocate(mask_color)
+  deallocate(ra_table,rb_table)
   if (iVorticitySponge=="yes") deallocate(sponge)
   ! Clean kinematics (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") call load_kine_clean

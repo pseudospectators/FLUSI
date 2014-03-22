@@ -126,6 +126,17 @@ module vars
       complex(kind=pr),dimension(:,:,:,:),allocatable :: u
       allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
     end subroutine alloccomplexnd
+    
+    integer function GetIndex(ix,nx)
+      implicit none
+      integer, intent (in) ::ix,nx
+      integer :: tmp
+      tmp=ix
+      if (tmp<0) tmp = tmp+nx
+      if (tmp>nx-1) tmp = tmp-nx
+      GetIndex=tmp
+      return
+    end function GetIndex
 end module vars
 
 

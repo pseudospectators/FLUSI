@@ -1,7 +1,7 @@
 subroutine get_surface_pressure_jump (time, beam, p)
   use mpi
   use fsi_vars
-!   use solid_model
+  use interpolation
   implicit none
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
@@ -13,9 +13,8 @@ subroutine get_surface_pressure_jump (time, beam, p)
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
   real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
-  real(kind=pr),dimension(:,:,:),allocatable::field_ext
+  real(kind=pr),dimension(:,:),allocatable::ghostsy,ghostsz
   integer :: nh,is,ih,isurf,mpicode
-  
   
   !-- get relative coordinate system
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt,M_plate)
@@ -34,28 +33,29 @@ subroutine get_surface_pressure_jump (time, beam, p)
   ! Compute the two 2D surfaces in 3D space (top and bottom)
   !-----------------------------------------------------------------------------
   do is=0,ns-1
-  do ih=0,nh
-    !-- top points
-    xf = beam%x(is)-t_beam*dsin(beam%theta(is))
-    yf = beam%y(is)+t_beam*dcos(beam%theta(is))
-  
-    x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
-    x = matmul( transpose(M_plate) , x_plate )
-    x = x + x0_plate
-    surfaces(is,ih,1,1:3) = x
+    do ih=0,nh
+      !-- top points
+      xf = beam%x(is)-t_beam*dsin(beam%theta(is))
+      yf = beam%y(is)+t_beam*dcos(beam%theta(is))
     
-    !-- bottom points
-    xf = beam%x(is)+t_beam*dsin(beam%theta(is))
-    yf = beam%y(is)-t_beam*dcos(beam%theta(is))
-    
-    x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
-    x = matmul( transpose(M_plate) , x_plate )
-    x = x + x0_plate
-    surfaces(is,ih,2,1:3) = x    
-    
+      x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
+      x = matmul( transpose(M_plate) , x_plate )
+      x = x + x0_plate
+      surfaces(is,ih,1,1:3) = x
+      
+      !-- bottom points
+      xf = beam%x(is)+t_beam*dsin(beam%theta(is))
+      yf = beam%y(is)-t_beam*dcos(beam%theta(is))
+      
+      x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
+      x = matmul( transpose(M_plate) , x_plate )
+      x = x + x0_plate
+      surfaces(is,ih,2,1:3) = x    
+      
+    enddo
   enddo
-  enddo
   
+  call init_interpolation()
   
   !-----------------------------------------------------------------------------
   ! Tri-linear interpolation of all points on the surface. 
@@ -63,21 +63,61 @@ subroutine get_surface_pressure_jump (time, beam, p)
   ! Then, we can sum over all MPI processes and have the complete pressure on
   ! the surface on all ranks
   !-----------------------------------------------------------------------------
-  allocate (field_ext(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)+1) )
+  if ((mpidims(2)==1).and.(mpisize>1)) then
+    !------------------------
+    !-- 1D data decompositon
+    !------------------------
+    allocate (ghostsz(ixmin:ixmax,iymin:iymax) )
+    call extend_array_1D( p, ghostsz )
+    
+    do is=0,ns-1
+      do ih=0,nh
+        do isurf=1,2
+          x = surfaces(is,ih,isurf,1:3)
+          call trilinear_interp_1Ddecomp( x, p, ghostsz, p_surface_local(is,ih,isurf))
+        enddo
+      enddo
+    enddo
+    
+    deallocate (ghostsz)    
+    
+    
+  elseif (mpisize==1) then
+    !------------------------
+    do is=0,ns-1
+    write(*,*) '!-- serial run one CPU'
+    enddo
+    !------------------------
+    do is=0,ns-1
+      do ih=0,nh
+        do isurf=1,2
+          x = surfaces(is,ih,isurf,1:3)
+          call trilinear_interp( x, p, p_surface_local(is,ih,isurf))
+        enddo
+      enddo
+    enddo
+    
+  else
+    !------------------------
+    !-- 2D data decomposition
+    !------------------------
+    allocate(ghostsz(ixmin:ixmax,iymin:iymax+1))
+    allocate(ghostsy(ixmin:ixmax,izmin:izmax+1))
+    call extend_array_2D( p, ghostsz, ghostsy)
+    
+    do is=0,ns-1
+      do ih=0,nh
+        do isurf=1,2
+          x = surfaces(is,ih,isurf,1:3)
+          call trilinear_interp_2Ddecomp( x, p, ghostsz,ghostsy, p_surface_local(is,ih,isurf))
+        enddo
+      enddo
+    enddo
+    
+    deallocate(ghostsz)
+    deallocate(ghostsy)
+  endif
   
-  
-  call extend_array( p, field_ext )
-  
-  do is=0,ns-1
-  do ih=0,nh
-  do isurf=1,2
-    call trilinear_interp( surfaces(is,ih,isurf,1), surfaces(is,ih,isurf,2),&
-                       surfaces(is,ih,isurf,3), field_ext, p_surface_local(is,ih,isurf))
-  enddo
-  enddo
-  enddo
-  
-  deallocate (field_ext)
   
   call MPI_ALLREDUCE ( p_surface_local,p_surface,ns*nh*2,MPI_DOUBLE_PRECISION,&
                        MPI_SUM,MPI_COMM_WORLD,mpicode) 
@@ -105,7 +145,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
   
   write (14,'(A)') 'p1=['
   do is=0,ns-1
-  write(14,'(256(f5.2,1x))') p_surface(is,:,1)
+  write(14,'(256(f10.2,1x))') p_surface(is,:,1)
   enddo  
   write (14,'(A)') '];'
   
@@ -131,7 +171,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
   
   write (14,'(A)') 'p2=['
   do is=0,ns-1
-  write(14,'(256(f5.2,1x))') p_surface(is,:,2)
+  write(14,'(256(f10.2,1x))') p_surface(is,:,2)
   enddo  
   write (14,'(A)') '];'
   

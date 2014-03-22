@@ -112,6 +112,7 @@ program mhd
   call allocreal(work)
   call allocreal(mask)
   call allocrealnd(us)
+  
 
   ! Check if at least FFT works okay
   call fft_unit_test(work,ubk(:,:,:,1))
@@ -145,7 +146,8 @@ program mhd
   deallocate(us)
   deallocate(lin)
   deallocate(work)
-
+  deallocate(ra_table,rb_table)
+  
   call fft_free 
   call MPI_FINALIZE(mpicode)
 end program mhd

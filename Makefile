@@ -10,7 +10,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
         kineloader.f90 set_fluid_solid_comms.f90 rigid_solid_time_stepper.f90 \
         add_channel.f90 add_cavity.f90 draw_flexible_plate.f90 \
         wings_geometry.f90 wings_motion.f90 body_motion.f90 \
-        body_geometry.f90 rotation_matrices.f90 stroke_plane.f90 trilinear_interp.f90
+        body_geometry.f90 rotation_matrices.f90 stroke_plane.f90 
         
 
 # Object and module directory:
@@ -18,7 +18,7 @@ OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = vars.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90
+MFILES = vars.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 trilinear_interp.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -103,8 +103,10 @@ $(OBJDIR)/kine.o: kine.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/trilinear_interp.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/trilinear_interp.o: trilinear_interp.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
 
 # Compile remaining objects from Fortran files.
 $(OBJDIR)/%.o: %.f90 $(MOBJS)
