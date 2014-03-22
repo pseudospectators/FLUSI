@@ -20,7 +20,10 @@ module vars
   integer,save :: mpisize, mpirank
   ! Local array bounds
   integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
-
+  ! Local array bounds for real arrays for all MPI processes
+  integer, dimension (:,:), allocatable, save :: ra_table, rb_table, yz_plane_ranks
+  
+  
   ! p3dfft only parameters (move to appropraite .f90 file?)
   integer,save :: mpicommcart
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
