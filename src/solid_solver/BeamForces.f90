@@ -66,7 +66,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
   ! Then, we can sum over all MPI processes and have the complete pressure on
   ! the surface on all ranks
   !-----------------------------------------------------------------------------
-  if ((mpidims(2)==1).and.(mpisize>1)) then
+  if ( ((mpidims(2)==1).or.(mpidims(1)==1)) .and. (mpisize>1) ) then
     !------------------------
     !-- 1D data decompositon
     !------------------------

@@ -66,10 +66,7 @@ subroutine add_channel()
               mask_color(ix,iy,iz) = 0
               us(ix,iy,iz,1) = 1.5*y_chan*(H_eff-y_chan)/((0.5*H_eff)**2)
               us(ix,iy,iz,2:3) = 0.d0  
-              
             endif
-            
-            
             
           case default
             write (*,*) "add_channel()::iChannel is not a known value"

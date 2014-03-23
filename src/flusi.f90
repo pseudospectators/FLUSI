@@ -72,7 +72,7 @@ subroutine Start_Simulation()
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
   nf=1 ! We are evolving one field.
-  nd=3*nf ! The one field has three components.
+  nd=3 ! The one field has three components.
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
