@@ -100,11 +100,13 @@ subroutine fft_initialize
   !------ Three-dimensional FFT                                           ------
   !-----------------------------------------------------------------------------
   
-  !-- Set up dimensions  
-  !-- !!! Note that p3dfft_setup permutes mpidims, if DIMS_C is not defined !!!
-  if (ny>mpisize) then
-     mpidims(1) = mpisize
-     mpidims(2) = 1
+  
+  !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
+  ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
+  ! along the z direction in real space. 
+  if (nz>mpisize) then
+     mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+     mpidims(2) = mpisize       ! 3rd index in real space.
   else
      mpidims(1) = 0
      mpidims(2) = 0

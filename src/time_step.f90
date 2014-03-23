@@ -28,8 +28,11 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   it_start=it
   
   !-- initialization of solid solver
-  call init_beams( beams )
+  if (use_solid_model=="yes") then
+    call init_beams( beams )
+  endif
   call create_mask(time, beams(1))
+    
   
   ! save initial conditions 
   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
@@ -63,8 +66,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
        call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
      endif
 
-     call get_surface_pressure_jump (time, beams(1), work)
-     call SolidSolverWrapper( time, dt1 , beams )
+     if (use_solid_model=="yes") then
+      call get_surface_pressure_jump (time, beams(1), work)
+      call SolidSolverWrapper( time, dt1 , beams )
+    endif
       
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
