@@ -109,6 +109,8 @@ subroutine Draw_flexible_plate (time, beam)
       call smoothstep( tmp, mask(ix,iy,iz)-t_beam, 0.d0, N_smooth*max(dx,dy,dz) )
       !-- make plate finite in z-direction
       call smoothstep( tmp2, abs(x_plate(3)), 0.5*L_span, N_smooth*max(dx,dy,dz) )
+      !-- 2D runs have infinite span
+      if (nx==4) tmp2=1.d0
       !-- final value
       mask(ix,iy,iz) = tmp*tmp2
       !-- assign mask color
@@ -159,6 +161,8 @@ subroutine Draw_flexible_plate (time, beam)
             
             !-- make plate finite in z-direction
             call smoothstep( tmp2, abs(x_plate(3)), 0.5*L_span, N_smooth*max(dx,dy,dz) )
+            !-- 2D runs have infinite span
+            if (nx==4) tmp2=1.d0
             
             !-- override mask if old value is smaller
             if (mask(ix,iy,iz)<=tmp*tmp2) then

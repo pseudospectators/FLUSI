@@ -98,11 +98,11 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       gamma_dt = 0.d0
       
   case ("turek")
-      x0_plate = (/ 1.220287d0, 0.5d0*yl, 0.8291429d0 /)
+      x0_plate = (/ 0.5d0*xl, 1.220287d0,  0.8291429d0 /)
       v0_plate = 0.d0
-      psi = deg2rad(90.d0)
-      beta = 0.d0
-      gamma = 0.d0
+      psi = deg2rad(-90.d0)
+      beta = 0.0
+      gamma = deg2rad(90.d0)
       psi_dt = 0.0
       beta_dt = 0.d0
       gamma_dt = 0.d0

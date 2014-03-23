@@ -50,7 +50,7 @@ subroutine add_channel()
             H_eff = zl-2.d0*thick_wall
                       
             z = dble(iz)*dz
-            x = dble(ix)*dx
+            y = dble(iy)*dy
             z_chan = z-thick_Wall
             
             !-- channel walls
@@ -60,7 +60,7 @@ subroutine add_channel()
               us(ix,iy,iz,:) = 0.d0  
             endif
               
-            if ((x<=usponge).and.(z>=thick_Wall).and.(z<=zl-thick_Wall)) then
+            if ((y<=usponge).and.(z>=thick_Wall).and.(z<=zl-thick_Wall)) then
               !-- velocity sponge
               mask(ix,iy,iz) = 1.d0
               mask_color(ix,iy,iz) = 0

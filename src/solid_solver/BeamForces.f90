@@ -26,12 +26,12 @@ subroutine get_surface_pressure_jump (time, beam, p)
   dh = L_span/dble(nh)
   allocate(heights(0:nh))
   
-  if (ny>4) then
+  if (nx>4) then
     !-- "true" 3D case
     do ih=0,nh
       heights(ih) = dble(ih)*dh -0.5d0*L_span
     enddo
-  elseif (ny==4) then
+  elseif (nx==4) then
     !-- in 2D case, just interpolate always the same position (subsequent avg
     !-- leaves value untouched)
     heights = 0.d0
