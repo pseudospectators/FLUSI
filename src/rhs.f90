@@ -131,7 +131,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
     enddo
   enddo
   ! to Fourier space
-  call fft3(nlk,vort)  
+  call fft3( inx=vort, outk=nlk )  
   time_curl = time_curl + MPI_wtime() - t1  
   
   !-----------------------------------------------

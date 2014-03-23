@@ -85,7 +85,7 @@ module solid_model
         
     it   = it+1
     time = dble(it)*dt_fixed
-    call SaveBeamData( time, beams, dt_fixed )
+    call SaveBeamData( time, beams )
   enddo
 
   open (14,file='end',status='replace')
