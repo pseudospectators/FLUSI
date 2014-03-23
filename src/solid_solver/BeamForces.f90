@@ -41,7 +41,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
     allocate(heights(0:nh))
     !-- in 2D case, just interpolate always the same position (subsequent avg
     !-- leaves value untouched)
-    heights = xl
+    heights = 0.d0
   endif
   
   
@@ -53,7 +53,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
   surfaces = 17.d0
   p_surface = 17.d0
   p_surface_local = 17.d0
-  
+
   !-----------------------------------------------------------------------------
   ! Compute the two 2D surfaces in 3D space (top and bottom)
   !-----------------------------------------------------------------------------
@@ -65,7 +65,6 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
       x_plate = (/ xf,yf,heights(ih)/)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
-!       if (nx==1) x(1)=0.0
       surfaces(is,ih,1,1:3) = x
 
       
@@ -75,7 +74,6 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
       x_plate = (/ xf,yf,heights(ih)/)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
-!       if (nx==1) x(1)=0.0
       surfaces(is,ih,2,1:3) = x    
     enddo
   enddo
@@ -103,7 +101,6 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
       do ih=0,nh
         do isurf=1,2
           x = surfaces(is,ih,isurf,1:3)
-!           write(*,'(3(es12.4,1x))') x
           call trilinear_interp_1Ddecomp( x, p, ghostsz, p_surface_local(is,ih,isurf))
         enddo
       enddo

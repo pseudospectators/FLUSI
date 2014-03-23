@@ -99,6 +99,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       
   case ("turek")
       x0_plate = (/ 0.5d0*xl, 1.220287d0,  0.8291429d0 /)
+      if (nx==1) x0_plate(1)=0.d0
       v0_plate = 0.d0
       psi = deg2rad(-90.d0)
       beta = 0.0

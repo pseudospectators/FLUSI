@@ -208,29 +208,21 @@ subroutine trilinear_interp_1Ddecomp(x,field,ghosts,value)
   ix = floor(x(1)/dx)
   iy = floor(x(2)/dy)
   iz = floor(x(3)/dz)
-  
+
   xd = (x(1)-dble(ix)*dx)/dx !-- i think this should reduce to
   yd = (x(2)-dble(iy)*dy)/dy
   zd = (x(3)-dble(iz)*dz)/dz
   
   !-- point lies in the interior of the local array and we do not need the 
   !-- ghostpoints
-  if ((((ix>=ixmin).and.(ix<=ixmax)).or.(nx==1)).and.&
-          (iy>=iymin).and.(iy<=iymax).and.&
-          (iz>=izmin).and.(iz< izmax)) then
-
-      if (nx>1) then  
-        c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(ix+1,iy  ,iz  )*xd
-        c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(ix+1,iy+1,iz  )*xd
-        c01 = field(ix  ,iy  ,iz+1)*(1.d0-xd)+field(ix+1,iy  ,iz+1)*xd
-        c11 = field(ix  ,iy+1,iz+1)*(1.d0-xd)+field(ix+1,iy+1,iz+1)*xd
-      else 
-        ! 2d simulation
-        c00 = field(0  ,iy  ,iz  )
-        c10 = field(0  ,iy+1,iz  )
-        c01 = field(0  ,iy  ,iz+1)
-        c11 = field(0  ,iy+1,iz+1)
-      endif
+  if ((((ix>=ixmin).and.(ix<=ixmax))).and.&
+        (iy>=iymin).and.(iy<=iymax).and.&
+        (iz>=izmin).and.(iz< izmax)) then
+  
+      c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
+      c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
+      c01 = field(ix  ,iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
+      c11 = field(ix  ,iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
       
       c0 = c00*(1.d0-yd) + c10*yd
       c1 = c01*(1.d0-yd) + c11*yd
@@ -240,21 +232,14 @@ subroutine trilinear_interp_1Ddecomp(x,field,ghosts,value)
           
   !-- the lower z-index is the largest on the local storage, thus the next point
   !-- iz+1 is on another processor, which we synchronized previsously
-  elseif ((((ix>=ixmin).and.(ix<=ixmax)).or.(nx==1)).and.&
+  elseif(((ix>=ixmin).and.(ix<=ixmax)).and.&
           (iy>=iymin).and.(iy<=iymax).and.&
           (iz>=izmin).and.(iz==izmax)) then
-      if (nx>1) then
-        c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(ix+1,iy  ,iz  )*xd
-        c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(ix+1,iy+1,iz  )*xd
-        c01 = ghosts(ix  ,iy  )*(1.d0-xd)+ghosts(ix+1,iy  )*xd
-        c11 = ghosts(ix  ,iy+1)*(1.d0-xd)+ghosts(ix+1,iy+1)*xd
-      else
-        ! 2d simulation
-        c00 = field(0  ,iy  ,iz  )
-        c10 = field(0  ,iy+1,iz  )
-        c01 = ghosts(0  ,iy  )
-        c11 = ghosts(0  ,iy+1)
-      endif
+          
+      c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
+      c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
+      c01 = ghosts(ix  ,iy  )    *(1.d0-xd)+ghosts(per(ix+1,nx),iy  )    *xd
+      c11 = ghosts(ix  ,iy+1)    *(1.d0-xd)+ghosts(per(ix+1,nx),iy+1)    *xd
       
       c0 = c00*(1.d0-yd) + c10*yd
       c1 = c01*(1.d0-yd) + c11*yd
@@ -406,18 +391,10 @@ subroutine trilinear_interp(x,field,value)
   yd = (x(2)-dble(iy)*dy)/dy
   zd = (x(3)-dble(iz)*dz)/dz
   
-  if (nx>1) then  
-    c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(ix+1,iy  ,iz  )*xd
-    c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(ix+1,iy+1,iz  )*xd
-    c01 = field(ix  ,iy  ,iz+1)*(1.d0-xd)+field(ix+1,iy  ,iz+1)*xd
-    c11 = field(ix  ,iy+1,iz+1)*(1.d0-xd)+field(ix+1,iy+1,iz+1)*xd
-  else 
-    ! 2d simulation
-    c00 = field(0  ,iy  ,iz  )
-    c10 = field(0  ,iy+1,iz  )
-    c01 = field(0  ,iy  ,iz+1)
-    c11 = field(0  ,iy+1,iz+1)
-  endif
+  c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
+  c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
+  c01 = field(ix  ,iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
+  c11 = field(ix  ,iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
   
   c0 = c00*(1.d0-yd) + c10*yd
   c1 = c01*(1.d0-yd) + c11*yd
