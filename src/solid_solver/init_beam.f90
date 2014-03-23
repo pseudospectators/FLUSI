@@ -10,7 +10,8 @@ subroutine init_beams ( beams )
   ! LeadingEdge: x, y, vx, vy, ax, ay (Array)  
   real (kind=pr), dimension(1:6) :: LeadingEdge
   character(len=strlen) :: fname
-
+  character(len=1)  :: beamstr
+  
   if (mpirank==0) then
     write (*,'("*** initializing ",i1," beams")')  nBeams
     write (*,'("--- Beam width (2*t_beam) covers ",(f4.1)," points")') &
@@ -36,6 +37,14 @@ subroutine init_beams ( beams )
     allocate ( beams(i)%tau_old(0:ns-1) )
     allocate ( beams(i)%tau_new(0:ns-1) )    
     allocate ( beams(i)%beam_oldold(0:ns-1,1:6) )    
+    ! overwrite beam files if not retaking a backup
+    if ( index(inicond,'backup::') == 0 ) then
+      write (beamstr,'(i1)') i
+      open  (14, file = 'beam_data'//beamstr//'.t', status = 'replace')
+      close (14)
+      open  (14, file = 'mouvement'//beamstr//'.t', status = 'replace')
+      close (14)      
+    endif
   enddo 
   
   !---------------------------------------------
