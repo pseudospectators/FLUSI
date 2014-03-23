@@ -14,6 +14,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
   real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   real(kind=pr),dimension(:,:),allocatable::ghostsy,ghostsz
+  real(kind=pr),dimension(:),allocatable::heights
   integer :: nh,is,ih,isurf,mpicode
   t0 = MPI_wtime()
   !-- get relative coordinate system
@@ -23,6 +24,19 @@ subroutine get_surface_pressure_jump (time, beam, p)
   nh = nint( L_span/min(dx,dy,dz)  )
   !-- spacing in span direction
   dh = L_span/dble(nh)
+  allocate(heights(0:nh))
+  
+  if (ny>4) then
+    !-- "true" 3D case
+    do ih=0,nh
+      heights(ih) = dble(ih)*dh -0.5d0*L_span
+    enddo
+  elseif (ny==4) then
+    !-- in 2D case, just interpolate always the same position (subsequent avg
+    !-- leaves value untouched)
+    heights = 0.d0
+  endif
+  
   
   ! this array holds the interpolation points (2 2D arrays of 3D vectors = 4 indices)
   allocate(surfaces(0:ns-1,0:nh,1:2,1:3))
@@ -41,21 +55,23 @@ subroutine get_surface_pressure_jump (time, beam, p)
       !-- top surface points
       xf = beam%x(is)-t_beam*dsin(beam%theta(is))
       yf = beam%y(is)+t_beam*dcos(beam%theta(is))    
-      x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
+      x_plate = (/ xf,yf,heights(ih)/)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
       surfaces(is,ih,1,1:3) = x
+
       
       !-- bottom surface points
       xf = beam%x(is)+t_beam*dsin(beam%theta(is))
       yf = beam%y(is)-t_beam*dcos(beam%theta(is))      
-      x_plate = (/ xf,yf,dble(ih)*dh-0.5d0*L_span /)
+      x_plate = (/ xf,yf,heights(ih)/)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
       surfaces(is,ih,2,1:3) = x    
-      
     enddo
   enddo
+  
+  deallocate( heights )
   
   !-- this just copies ra(1:3) and rb(1:3) in more readble names
   call init_interpolation()
