@@ -27,12 +27,17 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   continue_timestepping = .true.
   it_start=it
   
-  !-- initialization of solid solver
+  !-- some solid solver tests
   if (use_solid_model=="yes") then
     call init_beams( beams )
+    call create_mask(time, beams(1))
+    !-- interpolate the mask at the beam surfaces
+    call get_surface_pressure_jump (time, beams(1), mask*eps, testing=.true.)
+    !-- reset surface pressure to initial value:
+    call init_beams( beams )
   endif
-  call create_mask(time, beams(1))
-    
+  
+  call create_mask(time, beams(1))  
   
   ! save initial conditions 
   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    

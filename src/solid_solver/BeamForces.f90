@@ -1,10 +1,11 @@
-subroutine get_surface_pressure_jump (time, beam, p)
+subroutine get_surface_pressure_jump (time, beam, p, testing)
   use mpi
   use fsi_vars
   use interpolation
   implicit none
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
+  logical, intent(in), optional :: testing
   real(kind=pr), intent (in)   :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: xf,yf,zf,dh, soft_startup, t0
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
@@ -17,6 +18,7 @@ subroutine get_surface_pressure_jump (time, beam, p)
   real(kind=pr),dimension(:),allocatable::heights
   integer :: nh,is,ih,isurf,mpicode
   t0 = MPI_wtime()
+  
   !-- get relative coordinate system
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt,M_plate)
   
@@ -147,6 +149,33 @@ subroutine get_surface_pressure_jump (time, beam, p)
                        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
   
   
+  !-----------------------------------------------------------------------------
+  ! Testing. Interpolate the mask function (given by p from external) at the beam
+  ! surfaces. the value should be in the range 0.05 and 0.60 (roughly). ideally,
+  ! the value should be 0.5
+  !-----------------------------------------------------------------------------
+  if (present(testing)) then
+  if ((testing).and.(root)) then
+    write(*,'(80("-"))')
+    write(*,*) "Surface Interpolation test, top surface:"
+    do is=0,ns-1
+      do ih=0,nh
+        write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)
+      enddo
+      write(*,*) " "
+    enddo
+    write(*,*) "---"
+    write(*,*) "Surface Interpolation test, bottom surface:"
+    do is=0,ns-1
+      do ih=0,nh
+        write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)
+      enddo
+      write(*,*) " "
+    enddo
+    write(*,*) "Ideal value is 0.5 except at the borders"
+    write(*,'(80("-"))  ')
+  endif
+  endif
   
   !-----------------------------------------------------------------------------
   ! To avoid startup problems, we can smoothly "turn on" the coupling by 

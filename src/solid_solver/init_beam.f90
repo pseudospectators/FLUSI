@@ -38,7 +38,7 @@ subroutine init_beams ( beams )
     allocate ( beams(i)%tau_new(0:ns-1) )    
     allocate ( beams(i)%beam_oldold(0:ns-1,1:6) )    
     ! overwrite beam files if not retaking a backup
-    if ( index(inicond,'backup::') == 0 ) then
+    if ((index(inicond,'backup::') == 0).and.(root)) then
       write (beamstr,'(i1)') i
       open  (14, file = 'beam_data'//beamstr//'.t', status = 'replace')
       close (14)
