@@ -16,7 +16,7 @@ subroutine extend_array_1D( field, ghosts )
   real(kind=pr),intent(out) :: ghosts(ixmin:ixmax,iymin:iymax)
   integer ::  mpicode, destination, origin,status
 
-  if (mpidims(2)/=1) then
+  if ((mpidims(2)/=1).and.(mpidims(1)/=1)) then
     write(*,*) "Fail: trying to use extend_array_1D with 2D data decompostion"
     stop
   endif

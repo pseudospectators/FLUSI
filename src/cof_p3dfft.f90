@@ -103,7 +103,7 @@ subroutine fft_initialize
   !-- Set up dimensions  
   !-- !!! Note that p3dfft_setup permutes mpidims, if DIMS_C is not defined !!!
   if (ny>mpisize) then
-     mpidims(1) = mpisize / mpidims(1)
+     mpidims(1) = mpisize
      mpidims(2) = 1
   else
      mpidims(1) = 0
