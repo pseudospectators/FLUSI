@@ -15,7 +15,7 @@ subroutine Draw_flexible_plate (time, beam)
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate,u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   !-- for the triangles:
-  real(kind=pr) :: a,b,c,alpha,beta,h, safety, s,s1,s2, ux,uy
+  real(kind=pr) :: a,b,c,alpha,beta,h, safety, s,s1,s2, ux,uy, R
   integer :: ix,iy,iz,is
   
   N_smooth = 3.d0  
@@ -131,7 +131,46 @@ subroutine Draw_flexible_plate (time, beam)
   enddo
   
   
-
+  !-----------------------------------------------------------------------------
+  ! Add cylinder add leading edge, if desired. Required for Turek's validation
+  ! test case.
+  !-----------------------------------------------------------------------------
+  if (has_cylinder=="yes") then 
+    !-- For all grid points of this subdomain
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          !-- global coordinates
+          x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz/)
+          !-- in the plate system
+          x_plate = matmul( M_plate, x-x0_plate )
+          !-- move the cylinder
+          x_plate(1) = x_plate(1)+R_cylinder
+          
+          !-- check z-size in plate coordinate sytem (thus spanwise)
+          if ((x_plate(3)>=-(0.5*L_span+safety)).and.(x_plate(3)<=(0.5*L_span+safety))) then
+          !-- check if inside cylinder 
+          if ((x_plate(1)>=-(R_cylinder+safety)).and.(x_plate(1)<=(R_cylinder+safety))) then
+          if ((x_plate(2)>=-(R_cylinder+safety)).and.(x_plate(2)<=(R_cylinder+safety))) then
+            ! add smoothed cylinder
+            R = dsqrt( x_plate(1)**2 + x_plate(2)**2 )
+            call smoothstep ( tmp, R, R_cylinder, N_smooth*max(dx,dy,dz) )
+            
+            !-- make plate finite in z-direction
+            call smoothstep( tmp2, abs(x_plate(3)), 0.5*L_span, N_smooth*max(dx,dy,dz) )
+            
+            !-- override mask if old value is smaller
+            if (mask(ix,iy,iz)<=tmp*tmp2) then
+              mask(ix,iy,iz) = tmp*tmp2
+              us(ix,iy,iz,:) = 0.d0
+            endif
+          endif
+          endif
+          endif
+        enddo
+      enddo
+    enddo
+  endif
 end subroutine Draw_flexible_plate
 
 
