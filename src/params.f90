@@ -88,7 +88,7 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Resolution","nx",nx, 4)
   call GetValue_Int(PARAMS,i,"Resolution","ny",ny, 4)
   call GetValue_Int(PARAMS,i,"Resolution","nz",nz, 4)
-  
+    
   ! Geometry section
   call GetValue_Real(PARAMS,i,"Geometry","xl",xl, 1.d0)
   call GetValue_Real(PARAMS,i,"Geometry","yl",yl, 1.d0)
@@ -99,6 +99,13 @@ subroutine get_params_common(PARAMS,i)
   dx=xl/dble(nx)
   dy=yl/dble(ny)
   dz=zl/dble(nz) 
+  
+  if (nx==1) then
+    if (root) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"    
+    dx = max(dz,dy)
+    xl = dx
+    if (root) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
+  endif
     
   ! Geometry section
   call GetValue_Real(PARAMS,i,"Geometry","Size",length, 0.d0)

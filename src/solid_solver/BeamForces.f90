@@ -22,21 +22,26 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
   !-- get relative coordinate system
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt,M_plate)
   
-  !-- number of interpolation points in rigid direction (span)
-  nh = nint( L_span/min(dx,dy,dz)  )
-  !-- spacing in span direction
-  dh = L_span/dble(nh)
-  allocate(heights(0:nh))
   
-  if (nx>4) then
+  if (nx>1) then
     !-- "true" 3D case
+    !-- number of interpolation points in rigid direction (span)
+    nh = nint( L_span/min(dx,dy,dz)  )
+    !-- spacing in span direction
+    dh = L_span/dble(nh)
+    allocate(heights(0:nh))
     do ih=0,nh
       heights(ih) = dble(ih)*dh -0.5d0*L_span
     enddo
-  elseif (nx==4) then
+    
+  elseif (nx==1) then
+  
+    nh = 0
+    dh = 1.d0
+    allocate(heights(0:nh))
     !-- in 2D case, just interpolate always the same position (subsequent avg
     !-- leaves value untouched)
-    heights = 0.d0
+    heights = xl
   endif
   
   
@@ -60,6 +65,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
       x_plate = (/ xf,yf,heights(ih)/)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
+!       if (nx==1) x(1)=0.0
       surfaces(is,ih,1,1:3) = x
 
       
@@ -69,6 +75,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
       x_plate = (/ xf,yf,heights(ih)/)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
+!       if (nx==1) x(1)=0.0
       surfaces(is,ih,2,1:3) = x    
     enddo
   enddo
@@ -96,6 +103,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
       do ih=0,nh
         do isurf=1,2
           x = surfaces(is,ih,isurf,1:3)
+!           write(*,'(3(es12.4,1x))') x
           call trilinear_interp_1Ddecomp( x, p, ghostsz, p_surface_local(is,ih,isurf))
         enddo
       enddo
@@ -158,16 +166,16 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
   if ((testing).and.(root)) then
     write(*,'(80("-"))')
     write(*,*) "Surface Interpolation test, top surface:"
-    do is=0,ns-1
-      do ih=0,nh
+    do ih=0,nh
+      do is=0,ns-1      
         write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)
       enddo
       write(*,*) " "
     enddo
     write(*,*) "---"
     write(*,*) "Surface Interpolation test, bottom surface:"
-    do is=0,ns-1
-      do ih=0,nh
+    do ih=0,nh
+      do is=0,ns-1      
         write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)
       enddo
       write(*,*) " "
