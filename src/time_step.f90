@@ -110,7 +110,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
-       if (use_solid_model=='yes') then
+       if ((use_solid_model=='yes').and.(root)) then
           call SaveBeamData( time, beams )
        endif
      endif
