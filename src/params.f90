@@ -88,6 +88,23 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Resolution","nx",nx, 4)
   call GetValue_Int(PARAMS,i,"Resolution","ny",ny, 4)
   call GetValue_Int(PARAMS,i,"Resolution","nz",nz, 4)
+  
+  ! Geometry section
+  call GetValue_Real(PARAMS,i,"Geometry","xl",xl, 1.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","yl",yl, 1.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","zl",zl, 1.d0)
+      
+  ! lattice spacing is global (since we allow to specify reals in multiples of
+  ! grid points, we nedd that value now.)
+  dx=xl/dble(nx)
+  dy=yl/dble(ny)
+  dz=zl/dble(nz) 
+    
+  ! Geometry section
+  call GetValue_Real(PARAMS,i,"Geometry","Size",length, 0.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","r1",r1,1.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","r2",r2,1.0681415d0)
+  call GetValue_Real(PARAMS,i,"Geometry","r3",r3,1.206371d0)
 
   ! Time section
   call GetValue_Int(PARAMS,i,"Time","nt",nt, 9999999)
@@ -130,16 +147,6 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Penalization","pseuderrmin",pseudoerrmin,3d-4)
   call GetValue_Real(PARAMS,i,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
 
-  ! Geometry section
-  call GetValue_Real(PARAMS,i,"Geometry","xl",xl, 1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","yl",yl, 1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","zl",zl, 1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","Size",length, 0.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","r1",r1,1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","r2",r2,1.0681415d0)
-  call GetValue_Real(PARAMS,i,"Geometry","r3",r3,1.206371d0)
-
-
   ! Saving section
   call GetValue_Int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
   call GetValue_Int(PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 
@@ -167,11 +174,7 @@ subroutine get_params_common(PARAMS,i)
   ! scaling for FFTs
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl  
-  ! lattice spacing is global
-  dx=xl/dble(nx)
-  dy=yl/dble(ny)
-  dz=zl/dble(nz) 
+  scalez=2.d0*pi/zl
 end subroutine get_params_common
 
 
@@ -409,9 +412,18 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
   if (mpirank==0) then
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
-        read (value, *) params_real    
-        write (value,'(g10.3)') params_real
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        if ( index(value,'*dx') == 0 ) then
+          !-- value to be read is in absolute form (i.e. we just read the value)
+          read (value, *) params_real    
+          write (value,'(g10.3)') params_real
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        else
+          !-- the value is given in gridpoints (e.g. thickness=5*dx)
+          read (value(1:index(value,'*dx')-1),*) params_real
+          params_real = params_real*max(dx,dy,dz)
+          write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/max(dx,dy,dz)
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        endif 
      else
         write (value,'(g10.3)') defaultvalue
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
