@@ -27,8 +27,12 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   continue_timestepping = .true.
   it_start=it
   
+  !-- initialization of solid solver
+  call init_beams( beams )
+  call create_mask(time, beams(1))
+  
   ! save initial conditions 
-!   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
+  call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
   
   ! initialize runtime control file
   if (root) call initialize_runtime_control_file()
@@ -38,9 +42,9 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   if (root) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
-  !-- initialization of solid solver
-  call init_beams( beams )
 
+  
+  
   if (root) write(*,*) "Start time-stepping...."
   
   ! Loop over time steps

@@ -10,7 +10,7 @@ subroutine add_channel()
   use fsi_vars
   implicit none
   integer :: ix,iy,iz
-  real (kind=pr) :: thick_wall, y, z, pos_wall
+  real (kind=pr) :: thick_wall, x,y, z, pos_wall, usponge, H_eff, y_chan
   
   ! Wall parameters
   thick_wall = 0.2d0
@@ -42,6 +42,34 @@ subroutine add_channel()
               ! external boxes have color 0 (important for forces)
               mask_color(ix,iy,iz) = 0
             endif
+            
+          case ("turek")
+            ! Turek walls: 
+            thick_wall = 0.2577143d0
+            usponge = 0.5060014d0
+            H_eff = yl-2.d0*thick_wall
+                      
+            y = dble(iy)*dy
+            x = dble(ix)*dx
+            y_chan = y-thick_Wall
+            
+            !-- channel walls
+            if ((y<=thick_Wall).or.(y>=yl-thick_Wall)) then
+              mask(ix,iy,iz) = 1.d0
+              mask_color(ix,iy,iz) = 0
+              us(ix,iy,iz,:) = 0.d0  
+            endif
+              
+            if ((x<=usponge).and.(y>=thick_Wall).and.(y<=yl-thick_Wall)) then
+              !-- velocity sponge
+              mask(ix,iy,iz) = 1.d0
+              mask_color(ix,iy,iz) = 0
+              us(ix,iy,iz,1) = 1.5*y_chan*(H_eff-y_chan)/((0.5*H_eff)**2)
+              us(ix,iy,iz,2:3) = 0.d0  
+              
+            endif
+            
+            
             
           case default
             write (*,*) "add_channel()::iChannel is not a known value"

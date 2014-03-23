@@ -111,7 +111,8 @@ subroutine Draw_flexible_plate (time, beam)
       call smoothstep( tmp2, abs(x_plate(3)), 0.5*L_span, N_smooth*max(dx,dy,dz) )
       !-- final value
       mask(ix,iy,iz) = tmp*tmp2
-      
+      !-- assign mask color
+      if (mask(ix,iy,iz) > 0.d0) mask_color(ix,iy,iz)=1
       
       !-- this is the velocity in the relative system
       u_tmp = (/ux,uy,0.d0/)
@@ -162,6 +163,7 @@ subroutine Draw_flexible_plate (time, beam)
             !-- override mask if old value is smaller
             if (mask(ix,iy,iz)<=tmp*tmp2) then
               mask(ix,iy,iz) = tmp*tmp2
+              mask_color(ix,iy,iz) = 1
               us(ix,iy,iz,:) = 0.d0
             endif
           endif

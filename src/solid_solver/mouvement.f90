@@ -49,6 +49,12 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
      alpha_t  = 0.0
      alpha_tt = 0.0
      
+  case ("turek")
+     LeadingEdge = 0.0
+     alpha    = 0.0
+     alpha_t  = 0.0
+     alpha_tt = 0.0    
+     
   case default
       if (mpirank==0) write(*,*) "mouvement:: imposed_motion_leadingedge undefined"
       if (mpirank==0) write(*,*) imposed_motion_leadingedge
@@ -83,6 +89,16 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       !-- beam is in the middle of the domain and bends in x-y direction
       !-- z direction is height
       x0_plate = (/ 0.5d0,0.5*yl,0.5*zl /)
+      v0_plate = 0.d0
+      psi = 0.d0
+      beta = 0.d0
+      gamma = 0.d0
+      psi_dt = 0.0
+      beta_dt = 0.d0
+      gamma_dt = 0.d0
+      
+  case ("turek")
+      x0_plate = (/ 1.220287d0, 0.8291429d0, 0.5d0*zl /)
       v0_plate = 0.d0
       psi = 0.d0
       beta = 0.d0
