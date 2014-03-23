@@ -31,17 +31,17 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
 !   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
   
   ! initialize runtime control file
-  if (mpirank == 0) call initialize_runtime_control_file()
+  if (root) call initialize_runtime_control_file()
    
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup)
-  if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
+  if (root) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
   !-- initialization of solid solver
   call init_beams( beams )
 
-  if (mpirank == 0) write(*,*) "Start time-stepping...."
+  if (root) write(*,*) "Start time-stepping...."
   
   ! Loop over time steps
   t1=MPI_wtime()
@@ -83,6 +83,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! note dt0 is OLD time step t(n)-t(n-1)
         ! advance in time ODEs that describe rigid solids
         if (SolidDyn%idynamics==1) call rigid_solid_time_step(time,dt0,dt1,it)
+        !-- global timing measurement
         time_drag = time_drag + MPI_wtime() - t3
      endif     
      
@@ -113,8 +114,12 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! then used in Dump_Runtime_Backup.
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)               
         ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup == 1) then
+        if(iDoBackup==1) then
            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)           
+        endif
+        !-- backup solid solver, if using it
+        if((iDoBackup==1).and.(use_solid_model=="yes").and.(method=="fsi")) then
+          call dump_solid_backup( time, beams, nbackup )
         endif
      endif
      
@@ -134,24 +139,28 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! execute it
         select case ( command )
         case ("reload_params")
-          if (mpirank==0) write (*,*) "runtime control: Reloading PARAMS file.."
+          if (root) write (*,*) "runtime control: Reloading PARAMS file.."
           ! read all parameters from the params.ini file
           call get_params(params_file)           
           ! overwrite control file
-          if (mpirank == 0) call initialize_runtime_control_file()
+          if (root) call initialize_runtime_control_file()
         case ("save_stop")
-          if (mpirank==0) write (*,*) "runtime control: Safely stopping..."
+          if (root) write (*,*) "runtime control: Safely stopping..."
           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+          !-- backup solid solver, if using it
+          if((use_solid_model=="yes").and.(method=="fsi")) then
+            call dump_solid_backup( time, beams, nbackup )
+          endif
           continue_timestepping = .false. ! this will stop the time loop
           ! overwrite control file
-          if (mpirank == 0) call initialize_runtime_control_file()
+          if (root) call initialize_runtime_control_file()
         end select
      endif 
      
-     if(mpirank==0) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
+     if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
   end do
 
-  if(mpirank==0) then
+  if(root) then
      write(*,'("Finished time stepping; did it=",i5," time steps")') it
   endif
 end subroutine time_step
@@ -169,7 +178,7 @@ subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
   real(kind=pr),intent(inout) :: time,t2,t1,dt1
   integer,intent(inout) :: it,it_start
   
-  if (mpirank == 0) then
+  if (root) then
   ! t2 is time [sec] per time step
   t2 = (MPI_wtime() - t1) / dble(it-it_start)
   
@@ -195,7 +204,7 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   ! this is done every 300 time steps, but it may happen that this is too seldom
   ! or too oftern. in future versions, maybe we try doing it once in an hour or
   ! so. we also output a first estimate after 20 time steps
-  if(mpirank == 0) then  
+  if(root) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
      write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",es10.2)') &

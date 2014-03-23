@@ -8,7 +8,8 @@ subroutine init_beams ( beams )
   type(solid), dimension (1:nBeams), intent (out) :: beams  
   real (kind=pr) :: alpha, alpha_t, alpha_tt
   ! LeadingEdge: x, y, vx, vy, ax, ay (Array)  
-  real (kind=pr), dimension(1:6) :: LeadingEdge 
+  real (kind=pr), dimension(1:6) :: LeadingEdge
+  character(len=strlen) :: fname
 
   if (mpirank==0) then
     write (*,'("*** initializing ",i1," beams")')  nBeams
@@ -17,7 +18,7 @@ subroutine init_beams ( beams )
   endif
  
   call lapack_unit_test()
- 
+  
   !-------------------------------------------
   ! allocate beam storage for each beam
   !-------------------------------------------
@@ -89,4 +90,12 @@ subroutine init_beams ( beams )
     call integrate_position (0.d0, beams(i))
   enddo
   
+  
+  !-------------------------------------------
+  ! If we resume a backup, read from file (all ranks do that)
+  !-------------------------------------------
+  if ( index(inicond,'backup::') /= 0 ) then
+    fname = inicond(index(inicond,'::')+2:index(inicond,'.'))//'fsi_bckp'
+    call read_solid_backup( beams, trim(adjustl(fname)) )
+  endif
 end subroutine init_beams

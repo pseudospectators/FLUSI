@@ -33,7 +33,7 @@ program mhd
   call MPI_INIT(mpicode)
   call MPI_COMM_SIZE(MPI_COMM_WORLD,mpisize,mpicode)
   call MPI_COMM_RANK(MPI_COMM_WORLD,mpirank,mpicode)
-
+  if (mpirank==0) root=.true.
   
   ! Set method information in vars module:
   method="mhd" ! We are doing fluid-structure intergrep actions

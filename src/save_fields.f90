@@ -432,17 +432,14 @@ subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   if ((method=="fsi").and.(mpirank==0)) then
   if (iMask=="Insect") then
   if ((Insect%BodyMotion=="takeoff").and.(Insect%KineFromFile=="simplified_dynamic")) then
-    write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
-    open(10, file=filename//".rigidsolver", form='formatted', status='replace') 
+    write (*,'(A)',advance="no") "insect bckp in "//filename//".fsi_bckp"
+    open(10, file=filename//".fsi_bckp", form='formatted', status='replace') 
     write(10, *) SolidDyn%var_new, SolidDyn%var_this,&
                  SolidDyn%rhs_this, SolidDyn%rhs_old
     close(10)
   endif
   endif
   endif
-  
-  
-  
   
   nbackup = 1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic

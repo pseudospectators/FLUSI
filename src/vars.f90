@@ -98,6 +98,8 @@ module vars
   integer, save :: ncpu, ncpu_fluid, ncpu_solid
   ! communicators:
   integer, save :: MPI_COMM_FLUID, MPI_COMM_SOLID
+  ! only root rank has this true:
+  logical, save :: root=.false.
   
   contains 
 

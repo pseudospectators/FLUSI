@@ -7,7 +7,6 @@ module solid_model
   !----------------------------------------------  
   integer,parameter :: nBeams = 1  
   integer,save :: ns
-  integer,parameter :: iMotion = 1 
   real(kind=pr),save :: mue
   real(kind=pr),save :: eta
   real(kind=pr),save :: grav
@@ -16,7 +15,9 @@ module solid_model
   real(kind=pr),save :: AngleBeam
   real(kind=pr),save :: ds
   real(kind=pr),save :: T_release, tau
+  real(kind=pr),save :: R_cylinder
   character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
+  character(len=strlen),save :: has_cylinder
   
 
   !----------------------------------------------
@@ -1508,8 +1509,8 @@ subroutine lapack_unit_test()
   b  = 7.d0
   x  = 0.d0
 
-  if (mpirank==0) write(*,*) "--------------------------------"
-  if (mpirank==0) write(*,*) " Starting LAPACK unit test"
+  if (root) write(*,*) "--------------------------------"
+  if (root) write(*,*) " Starting LAPACK unit test"
   
   ! create identity matrix
   do i=1,n
@@ -1535,12 +1536,102 @@ subroutine lapack_unit_test()
     stop
   endif
   
-  if (mpirank==0) write(*,'(" Done. err=",es15.8)') err
-  if (mpirank==0) write(*,*) "--------------------------------"
+  if (root) write(*,'(" Done. err=",es15.8)') err
+  if (root) write(*,*) "--------------------------------"
 end subroutine lapack_unit_test
 
 
 
+!-------------------------------------------------------------------------
+! dump runtime backup for the solid solver
+!-------------------------------------------------------------------------
+subroutine dump_solid_backup( time, beams, nbackup )
+  use fsi_vars
+  implicit none
+  
+  real(kind=pr), intent(in) :: time
+  type(solid), dimension(1:nBeams), intent(in) :: beams
+  integer, intent (in):: nbackup
+  integer :: i
+  character(len=24) :: filename
+  
+  !-- only root rank dumps backup
+  if (root) then
+    write(*,'(A)',advance='no') "Backuping solid solver..."
+    write(filename,'("runtime_backup",i1,".fsi_bckp")') 1-nbackup
+    write(*,'(A)',advance='no') "file="//filename
+    write(*,'(" time=",e11.4)',advance='no') time
+    open(14,file=filename,status='replace',form='unformatted')
+    
+    write(14) time
+    write(14) ns, nBeams
+    
+    do i=1,nBeams      
+      write(14) beams(i)%x, beams(i)%y, beams(i)%vx, beams(i)%vy
+      write(14) beams(i)%theta, beams(i)%theta_dot, beams(i)%ax, beams(i)%ay
+      write(14) beams(i)%pressure_old, beams(i)%pressure_new
+      write(14) beams(i)%tau_old, beams(i)%tau_new
+      write(14) beams(i)%beam_oldold
+      write(14) beams(i)%Force, beams(i)%Force_unst, beams(i)%Force_press
+      write(14) beams(i)%Inertial_Force, beams(i)%x0, beams(i)%y0, beams(i)%AngleBeam
+      write(14) beams(i)%phase, beams(i)%dt_old, beams(i)%drag_unst_new
+      write(14) beams(i)%drag_unst_old, beams(i)%lift_unst_new, beams(i)%lift_unst_old
+      write(14) beams(i)%StartupStep, beams(i)%UnsteadyCorrectionsReady
+    enddo
+    
+    close(14)
+    write(*,'(A)',advance='yes') "...DONE!"
+  endif
+end subroutine dump_solid_backup
+
+
+
+!-------------------------------------------------------------------------
+! read runtime backup for the solid solver
+!-------------------------------------------------------------------------
+subroutine read_solid_backup( beams, filename )
+  use fsi_vars
+  implicit none
+  
+  type(solid), dimension(1:nBeams), intent(inout) :: beams
+  integer :: ns_file, nBeams_file, i
+  character(len=*), intent(in) :: filename
+  real(kind=pr) :: time
+  
+  !-- all ranks read from file 
+  if (root) write(*,'(A)',advance='no') "Reading in backup of solid solver: "//filename
+  
+  open(14,file=filename,status='old',form='unformatted',action='read')
+  read(14) time
+  read(14) ns_file, nBeams_file
+
+  if (root) write(*,'("(time=",e11.4,")")',advance='no') time
+  
+  if ((ns_file/=ns).or.(nBeams_file/=nBeams)) then
+    write(*,*) "Cant retake solid backup: resolution ns or beam number doesnt match"
+    stop
+  endif
+  
+  do i =1, nBeams  
+    read(14) beams(i)%x, beams(i)%y, beams(i)%vx, beams(i)%vy
+    read(14) beams(i)%theta, beams(i)%theta_dot, beams(i)%ax, beams(i)%ay
+    read(14) beams(i)%pressure_old, beams(i)%pressure_new
+    read(14) beams(i)%tau_old, beams(i)%tau_new
+    read(14) beams(i)%beam_oldold
+    read(14) beams(i)%Force, beams(i)%Force_unst, beams(i)%Force_press
+    read(14) beams(i)%Inertial_Force, beams(i)%x0, beams(i)%y0, beams(i)%AngleBeam
+    read(14) beams(i)%phase, beams(i)%dt_old, beams(i)%drag_unst_new
+    read(14) beams(i)%drag_unst_old, beams(i)%lift_unst_new, beams(i)%lift_unst_old
+    read(14) beams(i)%StartupStep, beams(i)%UnsteadyCorrectionsReady
+  enddo
+  
+  close(14)
+
+  if (root) write(*,'(A)',advance='yes') "...DONE!"
+end subroutine read_solid_backup
+
+
+  
 end module solid_model
 
 

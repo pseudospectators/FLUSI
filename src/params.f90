@@ -323,7 +323,8 @@ subroutine get_params_solid(PARAMS,i)
     call GetValue_Real(PARAMS,i,"SolidModel","tau",tau,0.0d0)
     call GetValue_Real(PARAMS,i,"SolidModel","N_smooth",N_smooth,3.0d0)
     call GetValue_Real(PARAMS,i,"SolidModel","L_span",L_span,1.0d0)
-    
+    call GetValue_String(PARAMS,i,"SolidModel","has_cylinder",has_cylinder,"no")
+    call GetValue_Real(PARAMS,i,"SolidModel","R_cylinder",R_cylinder,0.0d0)
     !-- time marching method for the solid
     call GetValue_String(PARAMS,i,"SolidModel","TimeMethodSolid",TimeMethodSolid,"BDF2")
     
@@ -468,9 +469,9 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
         endif
      else
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
-             " (THIS IS THE DEFAULT VALUE!)"
         params_string = defaultvalue
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "&
+             //adjustl(trim(defaultvalue))//" (THIS IS THE DEFAULT VALUE!)"
      endif
   endif
 
@@ -617,41 +618,41 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
 
   !------------------------------------------------------------------
   do i=1, actual_lines     ! loop over the lines of PARAMS.ini file
-     if ((PARAMS(i)(1:1).ne.'#').and.&
-          (PARAMS(i)(1:1).ne.';').and.&
-          (PARAMS(i)(1:1).ne.'!')) then   ! ignore commented lines compleetly
+  if ((PARAMS(i)(1:1).ne.'#').and.&
+      (PARAMS(i)(1:1).ne.';').and.&
+      (PARAMS(i)(1:1).ne.'!')) then   ! ignore commented lines completely
 
 
-        if (PARAMS(i)(1:1) == '[') then   ! the first char would have to be '['
-           do j = 2, maxline    ! then we look fot the corrresponding ']'
-              if (PARAMS(i)(j:j) == ']') then  ! we found it
-                 if (section == PARAMS(i)(2:j-1)) then ! is this the section we"re looking for?
-                    foundsection = .true.   ! yes, it is
-                    exit
-                 endif
+    if (PARAMS(i)(1:1) == '[') then   ! the first char would have to be '['
+        do j = 2, maxline    ! then we look fot the corrresponding ']'
+          if (PARAMS(i)(j:j) == ']') then  ! we found it
+              if (section == PARAMS(i)(2:j-1)) then ! is this the section we"re looking for?
+                foundsection = .true.   ! yes, it is
+                exit
               endif
-           enddo
-        else      
-           if (foundsection .eqv. .true.) then  ! yes we found the section, now we're looking for the keyword
-              do j=1, maxline    ! scan the line
-                 if (PARAMS(i)(j:j) == '=') then  ! found the '='
-                    if (keyword == PARAMS(i)(1:j-1)) then ! is this the keyword you're looking for?
-                       do k = j+1, maxline   ! everything behind the '=' and before ';' is the value
-                          if (PARAMS(i)(k:k) == ';') then  ! found the delimiter
-                             value = PARAMS(i)(j+1:k-1)  ! value is between '=', and ';'   
-                             exit
-                          endif
-                       enddo
-                       if ((value == '').and.(mpirank==0)) then
-                          write (*,'(A)') "??? Though found the keyword, I'm unable to find value for variable --> "& 
-                               //trim(keyword)//" <-- maybe missing delimiter (;)?"    
-                       endif
+          endif
+        enddo
+    else      
+        if (foundsection .eqv. .true.) then  ! yes we found the section, now we're looking for the keyword
+          do j=1, maxline    ! scan the line
+              if (PARAMS(i)(j:j) == '=') then  ! found the '='
+                if (keyword == PARAMS(i)(1:j-1)) then ! is this the keyword you're looking for?
+                    do k = j+1, maxline   ! everything behind the '=' and before ';' is the value
+                      if (PARAMS(i)(k:k) == ';') then  ! found the delimiter
+                          value = PARAMS(i)(j+1:k-1)  ! value is between '=', and ';'   
+                          exit
+                      endif
+                    enddo
+                    if ((value == '').and.(mpirank==0)) then
+                      write (*,'(A)') "??? Though found the keyword, I'm unable to find value for variable --> "& 
+                            //trim(keyword)//" <-- maybe missing delimiter (;)?"    
                     endif
-                 endif
-              enddo
-           endif
+                endif
+              endif
+          enddo
         endif
+    endif
 
-     endif
+  endif
   enddo
 end subroutine getvalue

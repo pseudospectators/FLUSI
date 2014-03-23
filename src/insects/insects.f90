@@ -344,9 +344,9 @@ subroutine dynamics_insect_init(idynamics)
         if (mpirank==0) then
           !-- backup files are called "runtime_backup0.h5.rigidsolver"
           write (*,*) "------"
-          write (*,*) "Insect solver is resuming from file="//inicond(9:len_trim(inicond))//".rigidsolver"
+          write (*,*) "Insect solver is resuming from file="//inicond(9:len_trim(inicond))//".fsi_bckp"
           !-- open file
-          open(10, file=inicond(9:len_trim(inicond))//".rigidsolver", form='formatted', status='old') 
+          open(10, file=inicond(9:len_trim(inicond))//".fsi_bckp", form='formatted', status='old') 
           read(10, *) SolidDyn%var_new, SolidDyn%var_this, SolidDyn%rhs_this, SolidDyn%rhs_old
           write (*,*) SolidDyn%var_new
           write (*,*) SolidDyn%var_this
