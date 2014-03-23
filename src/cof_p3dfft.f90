@@ -98,25 +98,23 @@ subroutine fft_initialize
   !-----------------------------------------------------------------------------
   !------ Three-dimensional FFT                                           ------
   !-----------------------------------------------------------------------------
-  
-    !-- Set up dimensions  
-  !-- !!! Note that p3dfft_setup permutes mpidims, if DIMS_C is not defined !!!
-  if (ny>mpisize) then
+  !-- Set up dimensions
+  if ( ny>ncpu_fluid ) then
      mpidims(1) = 1
-     mpidims(2) = mpisize / mpidims(1)
+     mpidims(2) = ncpu_fluid
   else
      mpidims(1) = 0
      mpidims(2) = 0
-     call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
+     call MPI_Dims_create(ncpu_fluid,nmpidims,mpidims,mpicode)
      if(mpidims(1) > mpidims(2)) then
         mpidims(1) = mpidims(2)
-        mpidims(2) = mpisize / mpidims(1)
+        mpidims(2) = ncpu_fluid / mpidims(1)
      endif
   endif
 
   !-- Check dimensions
-  if(mpidims(1)*mpidims(2)/=mpisize) then
-     print *, 'wrong mpidims: change mpisize'
+  if(mpidims(1)*mpidims(2)/=ncpu_fluid) then
+     print *, 'wrong mpidims: change ncpu_fluid'
      stop
   endif
 
@@ -129,7 +127,7 @@ subroutine fft_initialize
   endif
 
   !-- Initialize P3DFFT
-  call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
+  call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_FLUID, overwrite=.false.)
 
   !-- Get local sizes
   call p3dfft_get_dims(ra,rb,rs,1)  ! real blocks
@@ -139,59 +137,59 @@ subroutine fft_initialize
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
 
-  !-----------------------------------------------------------------------------     
-  ! ------ Multiple one-dimensional FFTs                                  ------
-  !-----------------------------------------------------------------------------
-  !-- Create Cartesian topology for one-dimensional transforms
-  call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/.false.,.false./),&
-       .false.,mpicommcart,mpicode)
-  ! call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/0,0/),0,mpicommcart,mpicode)
-  call MPI_CART_COORDS(mpicommcart,mpirank,nmpidims,mpicoords,mpicode)
-
-  !-- Restrict communications to slabs:
-  !-- Communicate between processes which have the same second(for idir=1) or third(for idir=2) index in the cartesian topology
-  do idir = 1,2
-     subcart(3-idir) = .true.
-     subcart(idir) = .false.
-     call MPI_CART_SUB(mpicommcart,subcart,mpicommslab(idir),mpicode)
-  enddo
-
-  !-- Create FFTW plans for all possible sizes
-  ! extents of arrays before and after transpose x->y
-  call trextents(1,(/nx,ny,nz/),mpidims,mpicoords,ka,kb,ks,kat,kbt,kst)
-
-  ! allocate plan for transform with x leading
-  L = nx
-  n = ks(2)*ks(3)
-  allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
-  call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(1),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
-       FFTW_ESTIMATE)
-  call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(1),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
-       FFTW_ESTIMATE)
-  deallocate(f,ft )
-
-  ! allocate plan for transform with y leading
-  L = ny
-  n = kst(2)*kst(3)
-  allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
-  call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(2),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
-       FFTW_ESTIMATE)
-  call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(2),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
-       FFTW_ESTIMATE)
-  deallocate(f,ft )
-
-  ! extents of arrays before and after transpose y->z
-  call trextents(2,(/ny,nx,nz/),mpidims,mpicoords,ka,kb,ks,kat,kbt,kst)
-
-  ! allocate plan for transform with z leading
-  L = nz
-  n = kst(2)*kst(3)
-  allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
-  call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(3),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
-       FFTW_ESTIMATE)
-  call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(3),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
-       FFTW_ESTIMATE)
-  deallocate(f,ft )
+! !   !-----------------------------------------------------------------------------     
+! !   ! ------ Multiple one-dimensional FFTs                                  ------
+! !   !-----------------------------------------------------------------------------
+! !   !-- Create Cartesian topology for one-dimensional transforms
+! !   call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/.false.,.false./),&
+! !        .false.,mpicommcart,mpicode)
+! !   ! call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/0,0/),0,mpicommcart,mpicode)
+! !   call MPI_CART_COORDS(mpicommcart,mpirank,nmpidims,mpicoords,mpicode)
+! ! 
+! !   !-- Restrict communications to slabs:
+! !   !-- Communicate between processes which have the same second(for idir=1) or third(for idir=2) index in the cartesian topology
+! !   do idir = 1,2
+! !      subcart(3-idir) = .true.
+! !      subcart(idir) = .false.
+! !      call MPI_CART_SUB(mpicommcart,subcart,mpicommslab(idir),mpicode)
+! !   enddo
+! ! 
+! !   !-- Create FFTW plans for all possible sizes
+! !   ! extents of arrays before and after transpose x->y
+! !   call trextents(1,(/nx,ny,nz/),mpidims,mpicoords,ka,kb,ks,kat,kbt,kst)
+! ! 
+! !   ! allocate plan for transform with x leading
+! !   L = nx
+! !   n = ks(2)*ks(3)
+! !   allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
+! !   call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(1),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
+! !        FFTW_ESTIMATE)
+! !   call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(1),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
+! !        FFTW_ESTIMATE)
+! !   deallocate(f,ft )
+! ! 
+! !   ! allocate plan for transform with y leading
+! !   L = ny
+! !   n = kst(2)*kst(3)
+! !   allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
+! !   call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(2),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
+! !        FFTW_ESTIMATE)
+! !   call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(2),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
+! !        FFTW_ESTIMATE)
+! !   deallocate(f,ft )
+! ! 
+! !   ! extents of arrays before and after transpose y->z
+! !   call trextents(2,(/ny,nx,nz/),mpidims,mpicoords,ka,kb,ks,kat,kbt,kst)
+! ! 
+! !   ! allocate plan for transform with z leading
+! !   L = nz
+! !   n = kst(2)*kst(3)
+! !   allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
+! !   call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(3),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
+! !        FFTW_ESTIMATE)
+! !   call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(3),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
+! !        FFTW_ESTIMATE)
+! !   deallocate(f,ft )
 
 end subroutine fft_initialize
 
@@ -214,11 +212,11 @@ subroutine fft_free
 
   call p3dfft_clean
 
-  !-- Clean 1d workspaces
-  do j = 1,3
-     call dfftw_destroy_plan(Desc_Handle_1D_f(j))
-     call dfftw_destroy_plan(Desc_Handle_1D_b(j))
-  enddo
+! !   !-- Clean 1d workspaces
+! !   do j = 1,3
+! !      call dfftw_destroy_plan(Desc_Handle_1D_f(j))
+! !      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
+! !   enddo
 
 
 end subroutine fft_free
