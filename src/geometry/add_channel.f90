@@ -64,8 +64,10 @@ subroutine add_channel()
               !-- velocity sponge
               mask(ix,iy,iz) = 1.d0
               mask_color(ix,iy,iz) = 0
-              us(ix,iy,iz,1) = 1.5*z_chan*(H_eff-z_chan)/((0.5*H_eff)**2)
-              us(ix,iy,iz,2:3) = 0.d0  
+              us(ix,iy,iz,1:3) = 0.d0  
+              ! note in 2D flows, we set nx=4 and run in the y-z plane where
+              ! y is the axial direction
+              us(ix,iy,iz,2) = 1.5*z_chan*(H_eff-z_chan)/((0.5*H_eff)**2)              
             endif
             
           case default
