@@ -275,8 +275,8 @@ subroutine trilinear_interp_2Ddecomp(x,field,ghostsz,ghostsy,value)
   real(kind=pr)::c000,c100,c001,c101,c110,c111,c011,c010
   integer :: ix,iy,iz
   
-  if(nx==1) write(*,*) "trilinear_interp_2Ddecomp not ready for 2D"
-  if(nx==1) stop
+!   if(nx==1) write(*,*) "trilinear_interp_2Ddecomp not ready for 2D"
+!   if(nx==1) stop
   
   ix = floor(x(1)/dx)
   iy = floor(x(2)/dy)
@@ -293,52 +293,52 @@ subroutine trilinear_interp_2Ddecomp(x,field,ghostsz,ghostsy,value)
       (iz>=izmin).and.(iz< izmax)) then
       
     c000 = field(ix  ,iy  ,iz  )
-    c100 = field(ix+1,iy  ,iz  )
+    c100 = field(per(ix+1,nx),iy  ,iz  )
     c010 = field(ix  ,iy+1,iz  )
-    c110 = field(ix+1,iy+1,iz  )
+    c110 = field(per(ix+1,nx),iy+1,iz  )
     c001 = field(ix  ,iy  ,iz+1)
-    c101 = field(ix+1,iy  ,iz+1)
+    c101 = field(per(ix+1,nx),iy  ,iz+1)
     c011 = field(ix  ,iy+1,iz+1)
-    c111 = field(ix+1,iy+1,iz+1)
+    c111 = field(per(ix+1,nx),iy+1,iz+1)
   
   elseif ((ix>=ixmin).and.(ix< ixmax).and.&
           (iy>=iymin).and.(iy< iymax).and.&
           (iz>=izmin).and.(iz==izmax)) then
 
     c000 = field(ix  ,iy  ,iz  )
-    c100 = field(ix+1,iy  ,iz  )
+    c100 = field(per(ix+1,nx),iy  ,iz  )
     c010 = field(ix  ,iy+1,iz  )
-    c110 = field(ix+1,iy+1,iz  )
+    c110 = field(per(ix+1,nx),iy+1,iz  )
     c001 = ghostsz(ix  ,iy  )
-    c101 = ghostsz(ix+1,iy  )
+    c101 = ghostsz(per(ix+1,nx),iy  )
     c011 = ghostsz(ix  ,iy+1)
-    c111 = ghostsz(ix+1,iy+1)
+    c111 = ghostsz(per(ix+1,nx),iy+1)
           
   elseif ((ix>=ixmin).and.(ix< ixmax).and.&
           (iy>=iymin).and.(iy==iymax).and.&
           (iz>=izmin).and.(iz< izmax)) then
  
     c000 = field(ix  ,iy  ,iz  )
-    c100 = field(ix+1,iy  ,iz  )
+    c100 = field(per(ix+1,nx),iy  ,iz  )
     c010 = ghostsy(ix,iz)
-    c110 = ghostsy(ix+1,iz)
+    c110 = ghostsy(per(ix+1,nx),iz)
     c001 = field(ix  ,iy  ,iz+1)
-    c101 = field(ix+1,iy  ,iz+1)
+    c101 = field(per(ix+1,nx),iy  ,iz+1)
     c011 = ghostsy(ix,iz+1)
-    c111 = ghostsy(ix+1,iz+1)
+    c111 = ghostsy(per(ix+1,nx),iz+1)
  
   elseif ((ix>=ixmin).and.(ix< ixmax).and.&
           (iy>=iymin).and.(iy==iymax).and.&
           (iz>=izmin).and.(iz==izmax)) then
           
     c000 = field(ix  ,iy  ,iz  )
-    c100 = field(ix+1,iy  ,iz  )
+    c100 = field(per(ix+1,nx),iy  ,iz  )
     c010 = ghostsy(ix,iz)
-    c110 = ghostsy(ix+1,iz)
+    c110 = ghostsy(per(ix+1,nx),iz)
     c001 = ghostsz(ix,iy)
-    c101 = ghostsz(ix+1,iy)
+    c101 = ghostsz(per(ix+1,nx),iy)
     c011 = ghostsy(ix,iz+1)
-    c111 = ghostsz(ix+1,iy+1) ! or ghostsy(ix+1.iz+1)
+    c111 = ghostsz(per(ix+1,nx),iy+1) ! or ghostsy(ix+1.iz+1)
           
   !-- point is not on the local grid, return zero
   else    
