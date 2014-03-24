@@ -4,7 +4,7 @@ program FLUSI
   use solid_model
   implicit none
   integer                :: mpicode
-  character (len=80)     :: infile
+  character (len=strlen) :: infile
 
   ! Initialize MPI, get size and rank
   call MPI_INIT (mpicode)

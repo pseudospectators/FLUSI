@@ -84,8 +84,8 @@ subroutine Draw_flexible_plate (time, beam)
                   s1 = dble(is)*ds
                   s2 = dble(is+1)*ds
                   s = s1 + dsqrt(b*b - h*h)
-                  ux = beam%vx(is) + ((s-s1)/(s2-s1))*(beam%vx(is+1)-beam%vx(is))
-                  uy = beam%vy(is) + ((s-s1)/(s2-s1))*(beam%vy(is+1)-beam%vy(is))
+                  ux = beam%vx(is+1) + ((s-s1)/(s2-s1))*(beam%vx(is)-beam%vx(is+1))
+                  uy = beam%vy(is+1) + ((s-s1)/(s2-s1))*(beam%vy(is)-beam%vy(is+1))
                 endif
             else
                 !-- we're in a hinge zone, where it is the closest

@@ -24,9 +24,6 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   logical :: continue_timestepping
   type(solid), dimension(1) :: beams
   
-  integer :: ix,iy,iz
-  real (kind=pr) :: x, y, z
-  
   continue_timestepping = .true.
   it_start=it
   
@@ -36,9 +33,9 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
     call surface_interpolation_testing( time, beams(1) )
     call init_beams( beams )
   endif
-  
+
   call create_mask(time, beams(1))  
-  
+
   ! save initial conditions 
   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
   
@@ -49,15 +46,13 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! nlk(:,:,:,:,n0) when retaking a backup)
   if (root) write(*,*) "Initial output of integral quantities...."
   call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
-
-
   
   
   if (root) write(*,*) "Start time-stepping...."
   
   ! Loop over time steps
   t1=MPI_wtime()
-  do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
+  do while ((time<=tmax).and.(it<=nt).and.(continue_timestepping))
      dt0=dt1
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
@@ -73,14 +68,13 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
 
      if (use_solid_model=="yes") then
       call get_surface_pressure_jump (time, beams(1), work)
-      call SolidSolverWrapper( time, dt1 , beams )
-      
+      call SolidSolverWrapper( time, dt1 , beams )      
     endif
       
-     if (modulo(it,22)==0) then
-        call surface_interpolation_testing( time, beams(1) )
-      call create_mask(time, beams(1))
-    endif
+!      if (modulo(it,22)==0) then
+!         call surface_interpolation_testing( time, beams(1) )
+!       call create_mask(time, beams(1))
+!     endif
       
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
