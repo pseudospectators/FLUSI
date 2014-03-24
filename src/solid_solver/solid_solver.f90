@@ -1,3 +1,4 @@
+
 module solid_model
   use fsi_vars ! for the precision statement
   implicit none
@@ -389,7 +390,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     !-----------------------------------------------------------
     ! EMERGENCY BRAKE
     !-----------------------------------------------------------
-    if (iter>49) then
+    if (iter>250) then
       write(*,*) "!!! ERROR: IBES performed like 50 iterations. this is not normal."
       stop
     endif
@@ -467,9 +468,11 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !-----------------------------------------------------------------------------
   !     save number of iterations
   !-----------------------------------------------------------------------------    
+  if (root) then
   open (14, file = 'IBES_iter', status = 'unknown', position='append') ! Append output data file
   write (14, '(es11.4,1x,i3)') time, iter
   close (14)
+  endif
   
   !-----------------------------------------------------------------------------
   !     iterate ( skipped for CN2 and EI1 )

@@ -44,6 +44,8 @@ subroutine init_beams ( beams )
       close (14)
       open  (14, file = 'mouvement'//beamstr//'.t', status = 'replace')
       close (14)      
+      open  (14, file='IBES_iter', status='replace')
+      close (14)
     endif
   enddo 
   
