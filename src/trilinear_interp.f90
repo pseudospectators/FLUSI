@@ -209,20 +209,20 @@ subroutine trilinear_interp_1Ddecomp(x,field,ghosts,value)
   iy = floor(x(2)/dy)
   iz = floor(x(3)/dz)
 
-  xd = (x(1)-dble(ix)*dx)/dx !-- i think this should reduce to
+  xd = (x(1)-dble(ix)*dx)/dx
   yd = (x(2)-dble(iy)*dy)/dy
   zd = (x(3)-dble(iz)*dz)/dz
   
   !-- point lies in the interior of the local array and we do not need the 
   !-- ghostpoints
-  if ((((ix>=ixmin).and.(ix<=ixmax))).and.&
+  if ((((ix>=ixmin).and.(ix<=ixmax)).or.(nx==1)).and.&
         (iy>=iymin).and.(iy<=iymax).and.&
         (iz>=izmin).and.(iz< izmax)) then
   
-      c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
-      c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
-      c01 = field(ix  ,iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
-      c11 = field(ix  ,iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
+      c00 = field(per(ix,nx),iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
+      c10 = field(per(ix,nx),iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
+      c01 = field(per(ix,nx),iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
+      c11 = field(per(ix,nx),iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
       
       c0 = c00*(1.d0-yd) + c10*yd
       c1 = c01*(1.d0-yd) + c11*yd
@@ -232,14 +232,14 @@ subroutine trilinear_interp_1Ddecomp(x,field,ghosts,value)
           
   !-- the lower z-index is the largest on the local storage, thus the next point
   !-- iz+1 is on another processor, which we synchronized previsously
-  elseif(((ix>=ixmin).and.(ix<=ixmax)).and.&
+  elseif((((ix>=ixmin).and.(ix<=ixmax)).or.(nx==1)).and.&
           (iy>=iymin).and.(iy<=iymax).and.&
           (iz>=izmin).and.(iz==izmax)) then
           
-      c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
-      c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
-      c01 = ghosts(ix  ,iy  )    *(1.d0-xd)+ghosts(per(ix+1,nx),iy  )    *xd
-      c11 = ghosts(ix  ,iy+1)    *(1.d0-xd)+ghosts(per(ix+1,nx),iy+1)    *xd
+      c00 = field(per(ix,nx) ,iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
+      c10 = field(per(ix,nx) ,iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
+      c01 = ghosts(per(ix,nx),iy  )    *(1.d0-xd)+ghosts(per(ix+1,nx),iy  )    *xd
+      c11 = ghosts(per(ix,nx),iy+1)    *(1.d0-xd)+ghosts(per(ix+1,nx),iy+1)    *xd
       
       c0 = c00*(1.d0-yd) + c10*yd
       c1 = c01*(1.d0-yd) + c11*yd
@@ -275,9 +275,6 @@ subroutine trilinear_interp_2Ddecomp(x,field,ghostsz,ghostsy,value)
   real(kind=pr)::c000,c100,c001,c101,c110,c111,c011,c010
   integer :: ix,iy,iz
   
-!   if(nx==1) write(*,*) "trilinear_interp_2Ddecomp not ready for 2D"
-!   if(nx==1) stop
-  
   ix = floor(x(1)/dx)
   iy = floor(x(2)/dy)
   iz = floor(x(3)/dz)
@@ -292,52 +289,52 @@ subroutine trilinear_interp_2Ddecomp(x,field,ghostsz,ghostsy,value)
       (iy>=iymin).and.(iy< iymax).and.&
       (iz>=izmin).and.(iz< izmax)) then
       
-    c000 = field(ix  ,iy  ,iz  )
+    c000 = field(per(ix,nx)  ,iy  ,iz  )
     c100 = field(per(ix+1,nx),iy  ,iz  )
-    c010 = field(ix  ,iy+1,iz  )
+    c010 = field(per(ix,nx)  ,iy+1,iz  )
     c110 = field(per(ix+1,nx),iy+1,iz  )
-    c001 = field(ix  ,iy  ,iz+1)
+    c001 = field(per(ix,nx)  ,iy  ,iz+1)
     c101 = field(per(ix+1,nx),iy  ,iz+1)
-    c011 = field(ix  ,iy+1,iz+1)
+    c011 = field(per(ix,nx)  ,iy+1,iz+1)
     c111 = field(per(ix+1,nx),iy+1,iz+1)
   
   elseif ((ix>=ixmin).and.(ix< ixmax).and.&
           (iy>=iymin).and.(iy< iymax).and.&
           (iz>=izmin).and.(iz==izmax)) then
 
-    c000 = field(ix  ,iy  ,iz  )
+    c000 = field(per(ix,nx)  ,iy  ,iz  )
     c100 = field(per(ix+1,nx),iy  ,iz  )
-    c010 = field(ix  ,iy+1,iz  )
+    c010 = field(per(ix,nx)  ,iy+1,iz  )
     c110 = field(per(ix+1,nx),iy+1,iz  )
-    c001 = ghostsz(ix  ,iy  )
+    c001 = ghostsz(per(ix,nx)  ,iy  )
     c101 = ghostsz(per(ix+1,nx),iy  )
-    c011 = ghostsz(ix  ,iy+1)
+    c011 = ghostsz(per(ix,nx)  ,iy+1)
     c111 = ghostsz(per(ix+1,nx),iy+1)
           
   elseif ((ix>=ixmin).and.(ix< ixmax).and.&
           (iy>=iymin).and.(iy==iymax).and.&
           (iz>=izmin).and.(iz< izmax)) then
  
-    c000 = field(ix  ,iy  ,iz  )
+    c000 = field(per(ix,nx)  ,iy  ,iz  )
     c100 = field(per(ix+1,nx),iy  ,iz  )
-    c010 = ghostsy(ix,iz)
+    c010 = ghostsy(per(ix,nx),iz)
     c110 = ghostsy(per(ix+1,nx),iz)
-    c001 = field(ix  ,iy  ,iz+1)
+    c001 = field(per(ix,nx)  ,iy  ,iz+1)
     c101 = field(per(ix+1,nx),iy  ,iz+1)
-    c011 = ghostsy(ix,iz+1)
+    c011 = ghostsy(per(ix,nx),iz+1)
     c111 = ghostsy(per(ix+1,nx),iz+1)
  
   elseif ((ix>=ixmin).and.(ix< ixmax).and.&
           (iy>=iymin).and.(iy==iymax).and.&
           (iz>=izmin).and.(iz==izmax)) then
           
-    c000 = field(ix  ,iy  ,iz  )
+    c000 = field(per(ix,nx)  ,iy  ,iz  )
     c100 = field(per(ix+1,nx),iy  ,iz  )
-    c010 = ghostsy(ix,iz)
+    c010 = ghostsy(per(ix,nx),iz)
     c110 = ghostsy(per(ix+1,nx),iz)
-    c001 = ghostsz(ix,iy)
+    c001 = ghostsz(per(ix,nx),iy)
     c101 = ghostsz(per(ix+1,nx),iy)
-    c011 = ghostsy(ix,iz+1)
+    c011 = ghostsy(per(ix,nx),iz+1)
     c111 = ghostsz(per(ix+1,nx),iy+1) ! or ghostsy(ix+1.iz+1)
           
   !-- point is not on the local grid, return zero
@@ -391,10 +388,10 @@ subroutine trilinear_interp(x,field,value)
   yd = (x(2)-dble(iy)*dy)/dy
   zd = (x(3)-dble(iz)*dz)/dz
   
-  c00 = field(ix  ,iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
-  c10 = field(ix  ,iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
-  c01 = field(ix  ,iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
-  c11 = field(ix  ,iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
+  c00 = field(per(ix,nx)  ,iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
+  c10 = field(per(ix,nx)  ,iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
+  c01 = field(per(ix,nx)  ,iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
+  c11 = field(per(ix,nx)  ,iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
   
   c0 = c00*(1.d0-yd) + c10*yd
   c1 = c01*(1.d0-yd) + c11*yd

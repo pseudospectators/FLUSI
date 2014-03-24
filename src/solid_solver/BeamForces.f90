@@ -5,7 +5,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
   implicit none
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
-  logical, intent(in), optional :: testing
+  character(len=*), intent(in), optional :: testing
   real(kind=pr), intent (in)   :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: xf,yf,zf,dh, soft_startup, t0
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
@@ -160,24 +160,30 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
   ! the value should be 0.5
   !-----------------------------------------------------------------------------
   if (present(testing)) then
-  if ((testing).and.(root)) then
+  if (((testing=="mask").or.(testing=="linear")).and.(root)) then
     write(*,'(80("-"))')
-    write(*,*) "Surface Interpolation test, top surface:"
+    write(*,*) testing//" Interpolation test, top surface:"
     do ih=0,nh
       do is=0,ns-1      
-        write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)
+        if (testing=="mask") then
+          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)
+        elseif (testing=="linear") then
+          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)-surfaces(is,ih,1,2)*surfaces(is,ih,1,3)
+        endif
       enddo
       write(*,*) " "
     enddo
-    write(*,*) "---"
-    write(*,*) "Surface Interpolation test, bottom surface:"
+    write(*,*) testing//" Interpolation test, bottom surface:"
     do ih=0,nh
-      do is=0,ns-1      
-        write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)
+      do is=0,ns-1
+        if (testing=="mask") then
+          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)
+        elseif (testing=="linear") then
+          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)-surfaces(is,ih,2,2)*surfaces(is,ih,2,3)
+        endif
       enddo
       write(*,*) " "
     enddo
-    write(*,*) "Ideal value is 0.5 except at the borders"
     write(*,'(80("-"))  ')
   endif
   endif
@@ -200,13 +206,15 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
   ! Average the pressure in the spanwise direction and multiply with startup 
   ! conditioner.
   !-----------------------------------------------------------------------------    
-  do is=0,ns-1 
-    beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
-    beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
-    
-    beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
-    beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
-  enddo
+  if (.not.(present(testing))) then
+    do is=0,ns-1 
+      beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+      beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+      
+      beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
+      beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
+    enddo
+  endif
       
 !   if (mpirank==0) then
 !   open (17, file='surfaces.m', status='replace')
@@ -273,3 +281,35 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
   
   time_surf = time_surf + MPI_wtime() - t0
 end subroutine get_surface_pressure_jump
+
+
+
+subroutine surface_interpolation_testing( time, beam )
+  use mpi
+  use fsi_vars
+  use interpolation
+  implicit none
+  real(kind=pr),intent (in) :: time
+  type(solid),intent (inout) :: beam
+  integer :: ix,iy,iz
+  real(kind=pr) :: x,y,z
+  
+  call create_mask(time, beam)
+  !-- interpolate the mask at the beam surfaces
+  call get_surface_pressure_jump (time, beam, mask*eps, testing="mask")
+  
+  
+  do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do iz=ra(3),rb(3)
+        x=dble(ix)*dx
+        y=dble(iy)*dy
+        z=dble(iz)*dz
+        mask(ix,iy,iz)=y*z
+      enddo
+    enddo
+  enddo 
+  call get_surface_pressure_jump (time, beam, mask, testing="linear")
+  
+  
+end subroutine

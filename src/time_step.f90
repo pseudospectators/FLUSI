@@ -24,16 +24,16 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   logical :: continue_timestepping
   type(solid), dimension(1) :: beams
   
+  integer :: ix,iy,iz
+  real (kind=pr) :: x, y, z
+  
   continue_timestepping = .true.
   it_start=it
   
   !-- some solid solver tests
   if (use_solid_model=="yes") then
     call init_beams( beams )
-    call create_mask(time, beams(1))
-    !-- interpolate the mask at the beam surfaces
-    call get_surface_pressure_jump (time, beams(1), mask*eps, testing=.true.)
-    !-- reset surface pressure to initial value:
+    call surface_interpolation_testing( time, beams(1) )
     call init_beams( beams )
   endif
   
@@ -74,6 +74,12 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      if (use_solid_model=="yes") then
       call get_surface_pressure_jump (time, beams(1), work)
       call SolidSolverWrapper( time, dt1 , beams )
+      
+    endif
+      
+     if (modulo(it,22)==0) then
+        call surface_interpolation_testing( time, beams(1) )
+      call create_mask(time, beams(1))
     endif
       
      !-------------------------------------------------
