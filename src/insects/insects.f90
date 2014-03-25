@@ -214,25 +214,18 @@ subroutine dynamics_insect(time,it)
   implicit none
 
   integer, intent(in) :: it
-  integer :: ilegs  ! legs force: 0=off; 1=on
   real (kind=pr), intent (in) :: time
   real (kind=pr) :: accx,accz,mass_solid,mass_fluid,gravity
   real (kind=pr) :: time_ref,length_ref,density_ref
   real (kind=pr) :: anglegs,kzlegsmax,dzlegsmax,t0,tmaxlegs,kzlegs0,anglegsend
   real (kind=pr) :: kxlegs,kzlegs,fxlegs,fzlegs,fxaero,fzaero,displacement_z
 
-  ! reference values
-  time_ref = 3.664845d-3 ! in s
-  length_ref = 2.39d-3   ! in m
-  density_ref = 1.225d0  ! in kg/m3
-
   ! mass
-  mass_solid = 0.91d-6 / (density_ref*length_ref**3)
-!  mass_solid = 2.0*0.91d-6 / (density_ref*length_ref**3)  ! heavy, x2
+  mass_solid = Insect%mass_solid
   mass_fluid = 0.0d0  ! TODO
 
   ! gravity acceleration
-  gravity = -9.81d0*time_ref*time_ref/length_ref
+  gravity = Insect%gravity
 
   select case (Insect%BodyMotion)
   case ("takeoff")
@@ -241,22 +234,17 @@ subroutine dynamics_insect(time,it)
       ! Current body center displacement
       displacement_z = SolidDyn%var_new(2)
 
-      ! Legs model parameters
-      ilegs = 1
-!       anglegsend = 0.25d0*pi ! case 1 and 3
-      anglegsend = 0.5d0*pi ! case2
-!      kzlegsmax = 0.057d0 / (density_ref*length_ref**3/time_ref**2) ! case1
-      kzlegsmax = 0.024d0 / (density_ref*length_ref**3/time_ref**2) ! case2
-!      kzlegsmax = 0.08d0 / (density_ref*length_ref**3/time_ref**2) ! case3
-      dzlegsmax = 0.00065d0 / length_ref
-      t0 = 0.0005d0 / time_ref
-      tmaxlegs = t0 + 0.0013d0 / time_ref
+      anglegsend = Insect%anglegsend
+      kzlegsmax = Insect%kzlegsmax 
+      dzlegsmax = Insect%dzlegsmax
+      t0 = Insect%t0legs
+      tmaxlegs = t0 + Insect%tlinlegs
       kzlegs0 = (mass_solid-mass_fluid)*(-gravity) / dzlegsmax  
 
       ! Legs force
       fxlegs = 0.0d0
       fzlegs = 0.0d0
-      if (ilegs>0) then
+      if (Insect%ilegs>0) then
         ! If legs touch the ground
         if (displacement_z<dzlegsmax) then
           ! Compute torsion spring stiffness and angle

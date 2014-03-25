@@ -209,6 +209,8 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_String(PARAMS,i,"Penalization","iChannel",iChannel,iChannel) 
   if (iChannel=="0") iChannel="no" ! for downward compatibility with older ini files
   if (iChannel=="1") iChannel="xy" ! for downward compatibility with older ini files
+  call GetValue_Real(PARAMS,i,"Penalization","thick_wall",thick_wall,0.2d0)
+  call GetValue_Real(PARAMS,i,"Penalization","pos_wall",pos_wall,0.3d0)
   
   ! ---------------------------------------------------
   ! sponge
@@ -315,11 +317,32 @@ subroutine get_params_fsi(PARAMS,i)
      
   Insect%smooth = 2.0*dz
 
-  ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
+  ! flag: read kinematics from file
   Insect%KineFromFile="no"
   call GetValue_String(PARAMS,i,"Insects","KineFromFile",&
        Insect%KineFromFile,Insect%KineFromFile)    
-  
+ 
+  ! Takeoff 
+  call GetValue_Real(PARAMS,i,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)
+  call GetValue_Real(PARAMS,i,"Insects","z_takeoff",Insect%z_takeoff, 0.86d0)
+  call GetValue_Real(PARAMS,i,"Insects","mass_solid",&
+       Insect%mass_solid, 54.414118839786745d0)
+  call GetValue_Real(PARAMS,i,"Insects","gravity",&
+       Insect%gravity, -0.055129281110537755d0)
+
+  ! Legs model parameters
+  call GetValue_Int(PARAMS,i,"Insects","ilegs",Insect%ilegs, 1)
+  call GetValue_Real(PARAMS,i,"Insects","anglegsend",&
+       Insect%anglegsend, 0.7853981633974483d0)
+  call GetValue_Real(PARAMS,i,"Insects","kzlegsmax",&
+       Insect%kzlegsmax,64.24974647375242d0)
+  call GetValue_Real(PARAMS,i,"Insects","dzlegsmax",&
+       Insect%dzlegsmax,0.2719665271966527d0)
+  call GetValue_Real(PARAMS,i,"Insects","t0legs",&
+       Insect%t0legs,0.13643141797265643d0)
+  call GetValue_Real(PARAMS,i,"Insects","tlinlegs",&
+       Insect%tlinlegs,0.3547216867289067d0)
+
   ! ---------------------------------------------------
   ! DONE..
   ! ---------------------------------------------------

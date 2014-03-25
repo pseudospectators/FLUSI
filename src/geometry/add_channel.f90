@@ -10,12 +10,7 @@ subroutine add_channel()
   use fsi_vars
   implicit none
   integer :: ix,iy,iz
-  real (kind=pr) :: thick_wall, y, z, pos_wall
-  
-  ! Wall parameters
-  thick_wall = 0.2d0
-  pos_wall = 0.3d0
-  
+  real (kind=pr) :: y, z
   
   ! loop over the physical space
   do ix = ra(1), rb(1)

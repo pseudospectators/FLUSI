@@ -145,6 +145,10 @@ module fsi_vars
   ! cavity mask:
   character(len=80), save :: iCavity, iChannel
   integer, save :: cavity_size
+  ! wall thickness
+  real(kind=pr),save :: thick_wall
+  ! wall position (solid from pos_wall to pos_wall+thick_wall)
+  real(kind=pr),save :: pos_wall 
   
   ! save forces and use unsteady corrections?
   integer, save :: compute_forces  
@@ -176,7 +180,7 @@ module fsi_vars
   type InsectParams ! documentaion see insect.f90
     character(len=80) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
     character(len=80) :: FlappingMotion_right, FlappingMotion_left
-    character(len=80) :: KineFromFile ! kinematics from file (Dmitry, 14 Nov 2013)
+    character(len=80) :: KineFromFile
     ! parameters for body:
     real(kind=pr) :: L_body, b_body, R_head, R_eye
     ! parameters for wing shape:
@@ -190,6 +194,11 @@ module fsi_vars
     real(kind=pr) :: distance_from_sponge
     ! Wings and body forces
     type(Integrals), dimension(1:2) :: PartIntegrals
+    ! Takeoff parameters
+    real(kind=pr) :: x_takeoff, z_takeoff, mass_solid, gravity 
+    ! Legs model parameters
+    integer :: ilegs
+    real(kind=pr) :: anglegsend, kzlegsmax, dzlegsmax, t0legs, tlinlegs
   end type InsectParams  
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver

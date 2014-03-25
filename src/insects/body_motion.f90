@@ -89,25 +89,18 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
 
   case ("takeoff")  ! Takeoff kinematics read from file (Dmitry, 14 Nov 2013)
     if (Insect%KineFromFile=="yes") then
+      ! interpolate.
       call body_kine_interp(time,beta,xc(3),xc(1),beta_dt,vc(3),vc(1))
-      ! takeoff velocity factor
-      !xc(3) = xc(3) * 0.1d0
-      !vc(3) = vc(3) * 0.1d0
-      !xc(1) = xc(1) * 1.0d0
-      !vc(1) = vc(1) * 1.0d0
       ! x coordinate
-      xc(1) = xc(1)+ 2.0d0 !0.5d0*xl
+      xc(1) = xc(1) + Insect%x_takeoff
       ! y coordinate
       xc(2) = 0.5d0*yl
       vc(2) = 0.0d0
       ! vertical position corrected
-      xc(3) = xc(3) + 0.3d0 + 0.56d0 !(ground+legs)
-!      xc(3) = xc(3) + 0.3d0 + 2.0d0 !(far from the ground)
+      xc(3) = xc(3) + Insect%z_takeoff
       ! convert pitch angle to flusi conventions
-      beta = -beta
-      beta = deg2rad(beta)
-      beta_dt = -beta_dt
-      beta_dt = deg2rad(beta_dt)
+      beta = deg2rad(-beta)
+      beta_dt = deg2rad(-beta_dt)
       ! zero heading and yaw
       psi = 0.0d0
       psi_dt = 0.0d0
@@ -129,9 +122,8 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
       gamma = 0.0d0
       gamma_dt = 0.0d0
       ! Use data from flight dynamics solver
-      xc(1) = SolidDyn%var_new(1) + 2.0d0
-      xc(3) = SolidDyn%var_new(2) + 0.3d0 + 0.56d0 !(ground+legs)
-!       xc(3) = SolidDyn%var_new(2) + 0.3d0 + 2.0d0 !(far from the ground)
+      xc(1) = SolidDyn%var_new(1) + Insect%x_takeoff
+      xc(3) = SolidDyn%var_new(2) + Insect%z_takeoff
       vc(1) = SolidDyn%var_new(3)
       vc(3) = SolidDyn%var_new(4)
     endif
