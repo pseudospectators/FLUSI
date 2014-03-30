@@ -15,14 +15,18 @@ module vars
   character(len=strlen), save :: dry_run_without_fluid ! just save mask function
   integer,save :: nf ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd ! number of fields (3 for NS, 6 for MHD)
+  integer,save :: ng ! number of ghostpoints (if used)
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize, mpirank
   ! Local array bounds
   integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
+  ! Local array bounds with ghost points
+  integer,dimension (1:3),save :: ga,gb
   ! Local array bounds for real arrays for all MPI processes
   integer, dimension (:,:), allocatable, save :: ra_table, rb_table, yz_plane_ranks
-  
+  ! for simplicity, store what decomposition we use 
+  character(len=strlen), save :: decomposition
   
   ! p3dfft only parameters (move to appropraite .f90 file?)
   integer,save :: mpicommcart

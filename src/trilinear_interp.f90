@@ -1,10 +1,10 @@
 module interpolation
-use vars
-use mpi 
-
-integer,save :: ixmin,ixmax,iymin,iymax,izmin,izmax
-
- contains
+  use vars
+  use mpi 
+  !-----------------------------------------------------------------------------
+  integer,save :: ixmin,ixmax,iymin,iymax,izmin,izmax
+  !-----------------------------------------------------------------------------
+  contains
 
 
 
@@ -399,6 +399,56 @@ subroutine trilinear_interp(x,field,value)
   value = c0*(1.d0-zd)+c1*zd
   
 end subroutine trilinear_interp
+
+
+!-------------------------------------------------------------------------------
+! Trilinear interpolation of the field at the location (x,y,z)
+! If the point does not lie in the local memory, zero is returned.
+! follows closely http://en.wikipedia.org/wiki/Trilinear_interpolation
+! Serial version (can also be used in MPI when being sure that the point is
+! inside the memory)
+!-------------------------------------------------------------------------------
+subroutine trilinear_interp_ghosts(x,field,value)
+  use vars
+  use mpi
+  implicit none
+  real(kind=pr),dimension(1:3),intent (in) :: x
+  real(kind=pr),intent(out) :: value  
+  real(kind=pr),intent(in) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr)::xd,yd,zd
+  real(kind=pr)::c00,c10,c01,c11,c0,c1
+  integer :: ix,iy,iz
+  
+  ix = floor(x(1)/dx)
+  iy = floor(x(2)/dy)
+  iz = floor(x(3)/dz)
+
+  xd = (x(1)-dble(ix)*dx)/dx
+  yd = (x(2)-dble(iy)*dy)/dy
+  zd = (x(3)-dble(iz)*dz)/dz
+  
+  !-- note border are ra/rb and not ga/gb
+  if ((((ix>=ra(1)).and.(ix<=rb(1))).or.(nx==1)).and.&
+        (iy>=ra(2)).and.(iy<=rb(2)).and.&
+        (iz>=ra(3)).and.(iz<=rb(3))) then
+  
+      c00 = field(per(ix,nx),iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
+      c10 = field(per(ix,nx),iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
+      c01 = field(per(ix,nx),iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
+      c11 = field(per(ix,nx),iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
+      
+      c0 = c00*(1.d0-yd) + c10*yd
+      c1 = c01*(1.d0-yd) + c11*yd
+      
+      value = c0*(1.d0-zd)+c1*zd
+  else  
+      !-- point is not on the local grid, return a very small value 
+      !-- (afterwards we take the max)
+      value = -9.9d10
+  endif
+     
+end subroutine trilinear_interp_ghosts
+
 
 
 

@@ -35,6 +35,9 @@ program mhd
   call MPI_COMM_RANK(MPI_COMM_WORLD,mpirank,mpicode)
   if (mpirank==0) root=.true.
   
+  ! MHD does not use ghost points
+  ng=0
+  
   ! Set method information in vars module:
   method="mhd" ! We are doing fluid-structure intergrep actions
   nf=2 ! We are evolving two fields: u and B.

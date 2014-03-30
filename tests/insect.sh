@@ -64,7 +64,8 @@ do
         sad=$((sad+1))
         echo -e ":[ Sad: output file not found"
     fi
-    
+    echo " "
+    echo " "
     
   done
 done

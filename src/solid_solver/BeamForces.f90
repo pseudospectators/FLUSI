@@ -6,7 +6,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
   character(len=*), intent(in), optional :: testing, timelevel
-  real(kind=pr), intent (in)   :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr), intent (in)   :: p(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr) :: xf,yf,zf,dh, soft_startup, t0
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
   real(kind=pr),dimension(:,:,:,:), allocatable :: surfaces
@@ -89,59 +89,72 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   ! Then, we can sum over all MPI processes and have the complete pressure on
   ! the surface on all ranks
   !-----------------------------------------------------------------------------
-  if ( ((mpidims(2)==1).or.(mpidims(1)==1)) .and. (mpisize>1) ) then
-    !------------------------
-    !-- 1D data decompositon
-    !------------------------
-    allocate (ghostsz(ixmin:ixmax,iymin:iymax) )
-    !--fetch a sheet from neighbor
-    call extend_array_1D( p, ghostsz )
-    
-    do is=0,ns-1
-      do ih=0,nh
-        do isurf=1,2
-          x = surfaces(is,ih,isurf,1:3)
-          call trilinear_interp_1Ddecomp( x, p, ghostsz, p_surface_local(is,ih,isurf))
-        enddo
+  call synchronize_ghosts ( p )
+  
+  do is=0,ns-1
+    do ih=0,nh
+      do isurf=1,2
+        x = surfaces(is,ih,isurf,1:3)
+        call trilinear_interp_ghosts( x, p, p_surface_local(is,ih,isurf))
       enddo
     enddo
-    
-    deallocate (ghostsz)    
-
-  elseif (mpisize==1) then
-    !------------------------
-    !-- serial run one CPU
-    !------------------------
-    do is=0,ns-1
-      do ih=0,nh
-        do isurf=1,2
-          x = surfaces(is,ih,isurf,1:3)
-          call trilinear_interp( x, p, p_surface_local(is,ih,isurf))
-        enddo
-      enddo
-    enddo
-    
-  else
-    !------------------------
-    !-- 2D data decomposition
-    !------------------------
-    allocate(ghostsz(ixmin:ixmax,iymin:iymax+1))
-    allocate(ghostsy(ixmin:ixmax,izmin:izmax+1))
-    !-- fetch two ghost surfaces from other CPU
-    call extend_array_2D( p, ghostsz, ghostsy)
-    
-    do is=0,ns-1
-      do ih=0,nh
-        do isurf=1,2
-          x = surfaces(is,ih,isurf,1:3)
-          call trilinear_interp_2Ddecomp( x, p, ghostsz,ghostsy, p_surface_local(is,ih,isurf))
-        enddo
-      enddo
-    enddo
-    
-    deallocate(ghostsz)
-    deallocate(ghostsy)
-  endif
+  enddo
+  
+  
+  
+!   if ( ((mpidims(2)==1).or.(mpidims(1)==1)) .and. (mpisize>1) ) then
+!     !------------------------
+!     !-- 1D data decompositon
+!     !------------------------
+!     allocate (ghostsz(ixmin:ixmax,iymin:iymax) )
+!     !--fetch a sheet from neighbor
+!     call extend_array_1D( p, ghostsz )
+!     
+!     do is=0,ns-1
+!       do ih=0,nh
+!         do isurf=1,2
+!           x = surfaces(is,ih,isurf,1:3)
+!           call trilinear_interp_1Ddecomp( x, p, ghostsz, p_surface_local(is,ih,isurf))
+!         enddo
+!       enddo
+!     enddo
+!     
+!     deallocate (ghostsz)    
+! 
+!   elseif (mpisize==1) then
+!     !------------------------
+!     !-- serial run one CPU
+!     !------------------------
+!     do is=0,ns-1
+!       do ih=0,nh
+!         do isurf=1,2
+!           x = surfaces(is,ih,isurf,1:3)
+!           call trilinear_interp( x, p, p_surface_local(is,ih,isurf))
+!         enddo
+!       enddo
+!     enddo
+!     
+!   else
+!     !------------------------
+!     !-- 2D data decomposition
+!     !------------------------
+!     allocate(ghostsz(ixmin:ixmax,iymin:iymax+1))
+!     allocate(ghostsy(ixmin:ixmax,izmin:izmax+1))
+!     !-- fetch two ghost surfaces from other CPU
+!     call extend_array_2D( p, ghostsz, ghostsy)
+!     
+!     do is=0,ns-1
+!       do ih=0,nh
+!         do isurf=1,2
+!           x = surfaces(is,ih,isurf,1:3)
+!           call trilinear_interp_2Ddecomp( x, p, ghostsz,ghostsy, p_surface_local(is,ih,isurf))
+!         enddo
+!       enddo
+!     enddo
+!     
+!     deallocate(ghostsz)
+!     deallocate(ghostsy)
+!   endif
   
   
   !-----------------------------------------------------------------------------
@@ -150,9 +163,10 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   ! zero. The sum of all pressure distributions is now what we wanted to have
   ! p_surface is available on all CPU (and it has to since all evolve the solid)
   !-----------------------------------------------------------------------------
+!   call MPI_ALLREDUCE ( p_surface_local,p_surface,size(p_surface_local),&
+!                        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
   call MPI_ALLREDUCE ( p_surface_local,p_surface,size(p_surface_local),&
-                       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-  
+                       MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode) 
   
   !-----------------------------------------------------------------------------
   ! Testing. Interpolate the mask function (given by p from external) at the beam
@@ -297,32 +311,38 @@ end subroutine get_surface_pressure_jump
 
 
 
-subroutine surface_interpolation_testing( time, beam )
+subroutine surface_interpolation_testing( time, beam, work )
   use mpi
   use fsi_vars
   use interpolation
   implicit none
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
+  real(kind=pr),intent(inout):: work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer :: ix,iy,iz
   real(kind=pr) :: x,y,z
   
+  !-- create mask
   call create_mask(time, beam)
+  !-- copy mask in extended array (the one with ghost points)
+  work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask*eps
   !-- interpolate the mask at the beam surfaces
-  call get_surface_pressure_jump (time, beam, mask*eps, testing="mask")
-  
-  
+  call get_surface_pressure_jump (time, beam, work, testing="mask")
+
+  work=0.d0
+  !-- the array "mask" with some values (analytic)
   do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)
       do iz=ra(3),rb(3)
         x=dble(ix)*dx
         y=dble(iy)*dy
         z=dble(iz)*dz
-        mask(ix,iy,iz)=y*z
+        work(ix,iy,iz)=y*z
       enddo
     enddo
   enddo 
-  call get_surface_pressure_jump (time, beam, mask, testing="linear")
+  !-- interpolate these values on the surface and compare to exact solution
+  call get_surface_pressure_jump (time, beam, work, testing="linear")
   
   
 end subroutine

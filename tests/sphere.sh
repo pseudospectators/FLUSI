@@ -20,7 +20,7 @@ sad=0
 echo "Sphere unit test: phase one"
 
 # list of prefixes the test generates
-prefixes=(ux uy uz p vorx vory vorz)
+prefixes=(ux uy uz p vorx vory vorz mask)
 # list of possible times (no need to actually have them)
 times=(00000 00100 00200)
 # run actual test
@@ -63,7 +63,8 @@ do
         sad=$((sad+1))
         echo -e ":[ Sad: output file not found"
     fi
-    
+    echo " "
+    echo " "
     
   done
 done

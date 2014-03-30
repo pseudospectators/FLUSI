@@ -73,6 +73,7 @@ subroutine Start_Simulation()
   method="fsi" ! We are doing fluid-structure interactions
   nf=1 ! We are evolving one field.
   nd=3 ! The one field has three components.
+  ng=3 ! one ghost point layer
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
@@ -132,8 +133,8 @@ subroutine Start_Simulation()
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   ! vorticity in physical space
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
-  ! real valued work array
-  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  ! real valued work array (with ghost points)
+  allocate(work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
   ! mask color function (distinguishes between different parts of the mask
@@ -295,7 +296,10 @@ subroutine initialize_time_series_files()
   close (14)    
   
   open  (14,file='meanflow.t',status='replace')
-  close (14)  
+  close (14) 
+  
+  open  (14,file='fuck',status='replace')
+  close (14) 
   
 end subroutine
 

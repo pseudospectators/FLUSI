@@ -17,7 +17,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   character(len=strlen),intent(in)  :: params_file ! for runtime control  
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  ! note the work array is extendible with ghost points
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
@@ -30,22 +31,27 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   !-- some solid solver tests
   if (use_solid_model=="yes") then
     call init_beams( beams )
-    call surface_interpolation_testing( time, beams(1) )
+    call surface_interpolation_testing( time, beams(1), work )
     call init_beams( beams )
   endif
 
   call create_mask(time, beams(1))  
-
+stop
   ! save initial conditions 
-  call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
-  
+  call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),&
+                       work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+stop
+                       
+                       
   ! initialize runtime control file
   if (root) call initialize_runtime_control_file()
    
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup)
   if (root) write(*,*) "Initial output of integral quantities...."
-  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),&
+                       work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   
   
   if (root) write(*,*) "Start time-stepping...."
@@ -63,23 +69,17 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      ! advance fluid/B-field in time
      !-------------------------------------------------
      if(dry_run_without_fluid/="yes") then
-       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,&
+                          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),explin,it)
      endif
-
-     
      
      if (use_solid_model=="yes") then
-      call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
-      call pressure_given_uk(uk,work)
-      call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
-      call SolidSolverWrapper( time, dt1 , beams )      
-    endif
-      
-!      if (modulo(it,22)==0) then
-!         call surface_interpolation_testing( time, beams(1) )
-!       call create_mask(time, beams(1))
-!     endif
-      
+       call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
+       call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+       call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
+       call SolidSolverWrapper( time, dt1 , beams )      
+     endif
+     
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
      ! NOTE:    is done every itdrag time steps. this condition will be changed
@@ -118,7 +118,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      ! units or itdrag time steps
      !-------------------------------------------------
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
-       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),&
+                            work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
        if ((use_solid_model=='yes').and.(root)) then
           call SaveBeamData( time, beams )
        endif
@@ -133,10 +134,12 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)               
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),&
+                             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
         ! Backup if that's specified in the PARAMS.ini file
         if(iDoBackup==1) then
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)           
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+                                    work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
         endif
         !-- backup solid solver, if using it
         if((iDoBackup==1).and.(use_solid_model=="yes").and.(method=="fsi")) then
@@ -167,7 +170,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
           if (root) call initialize_runtime_control_file()
         case ("save_stop")
           if (root) write (*,*) "runtime control: Safely stopping..."
-          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+                                   work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
           !-- backup solid solver, if using it
           if((use_solid_model=="yes").and.(method=="fsi")) then
             call dump_solid_backup( time, beams, nbackup )

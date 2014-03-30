@@ -10,7 +10,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
         kineloader.f90 set_fluid_solid_comms.f90 rigid_solid_time_stepper.f90 \
         add_channel.f90 add_cavity.f90 draw_flexible_plate.f90 \
         wings_geometry.f90 wings_motion.f90 body_motion.f90 \
-        body_geometry.f90 rotation_matrices.f90 stroke_plane.f90 
+        body_geometry.f90 rotation_matrices.f90 stroke_plane.f90 ghostpoints.f90
         
 
 # Object and module directory:
@@ -47,7 +47,8 @@ FFLGAS += -Wunused-labels
 PPFLAG= -cpp #preprocessor flag
 
 # Debug flags for gfortran
-FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
+#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb -fbacktrace -fwhole-file -fcheck=all
+#FFLAGS += -Waliasing -Wimplicit-interface -Wunused-parameter -Wcharacter-truncation -Wline-truncation
 endif
 
 # Intel compiler
