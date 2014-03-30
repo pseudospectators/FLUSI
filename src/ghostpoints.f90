@@ -174,11 +174,4 @@ subroutine synchronize_ghosts ( field )
                       origin,& ! recv tag
                       MPI_COMM_WORLD,status,mpicode)                            
   endif
-  
-!   write(str,'(i3.3)') mpirank
-!   do iy=ga(2),gb(2)
-!   open(14,file='fuck'//str,status='unknown',position='append')
-!   write(14,'(100(f6.2,1x))') field(0,iy,:)
-!   close(14)
-!   enddo
 end subroutine synchronize_ghosts
