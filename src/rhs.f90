@@ -215,9 +215,39 @@ subroutine compute_pressure(pk,nlk)
 end subroutine compute_pressure
 
 
+!-------------------------------------------------------------------------------
+! Compute the pressure in an inefficient way given only the velocity
+!-------------------------------------------------------------------------------
+subroutine pressure_given_uk(uk,press)
+  use mpi
+  use p3dfft_wrapper
+  use vars
+  implicit none
+
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,k2
+  real(kind=pr),intent(inout):: press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(in):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr) :: imag   ! imaginary unit
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: nlk
+  
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
+  
+  call cal_nlk_fsi (0.d0,0,nlk,uk,u,vort,press) 
+  
+  deallocate (nlk,u,vort)
+end subroutine 
+
+
+
+!-------------------------------------------------------------------------------
 ! Add the gradient of the pressure to the nonlinear term, which is the actual
 ! projection scheme used in this code. The non-linear term comes in with NL and
 ! penalization and leaves divergence free
+!-------------------------------------------------------------------------------
 subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   use mpi
   use vars

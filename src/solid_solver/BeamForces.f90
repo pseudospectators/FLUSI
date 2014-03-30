@@ -1,11 +1,11 @@
-subroutine get_surface_pressure_jump (time, beam, p, testing)
+subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   use mpi
   use fsi_vars
   use interpolation
   implicit none
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
-  character(len=*), intent(in), optional :: testing
+  character(len=*), intent(in), optional :: testing, timelevel
   real(kind=pr), intent (in)   :: p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: xf,yf,zf,dh, soft_startup, t0
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
@@ -204,15 +204,28 @@ subroutine get_surface_pressure_jump (time, beam, p, testing)
   
   !-----------------------------------------------------------------------------
   ! Average the pressure in the spanwise direction and multiply with startup 
-  ! conditioner.
+  ! conditioner. 
   !-----------------------------------------------------------------------------    
   if (.not.(present(testing))) then
     do is=0,ns-1 
-      beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
-      beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
-      
-      beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
-      beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
+      if (present(timelevel)) then
+        if (timelevel=="old") then
+          !-- store result of interpolation at OLD timelevel
+          beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+          beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
+        elseif (timelevel=="new") then
+          !-- store result of interpolation at NEW timelevel
+          beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)        
+          beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
+        endif
+      else
+        ! write into both
+        beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+        beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+        
+        beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
+        beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
+      endif      
     enddo
   endif
       
