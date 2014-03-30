@@ -25,7 +25,7 @@ subroutine synchronize_ghosts ( field )
   izmax=rb(3)
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  if (decomposition=="1D") then
+  if ((decomposition=="1D").and.(ng>0)) then
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
     destination = per( mpirank+1, mpisize )             ! send to your right
@@ -57,7 +57,7 @@ subroutine synchronize_ghosts ( field )
                       MPI_COMM_WORLD,status,mpicode)                 
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  elseif (decomposition=="2D") then
+  elseif ((decomposition=="2D").and.(ng>0)) then
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
     destination = yz_plane_ranks(iymin,per(izmax+1,nz)) ! send to your right
@@ -175,10 +175,10 @@ subroutine synchronize_ghosts ( field )
                       MPI_COMM_WORLD,status,mpicode)                            
   endif
   
-  write(str,'(i3.3)') mpirank
-  do iy=ga(2),gb(2)
-  open(14,file='fuck'//str,status='unknown',position='append')
-  write(14,'(100(f6.2,1x))') field(0,iy,:)
-  close(14)
-  enddo
+!   write(str,'(i3.3)') mpirank
+!   do iy=ga(2),gb(2)
+!   open(14,file='fuck'//str,status='unknown',position='append')
+!   write(14,'(100(f6.2,1x))') field(0,iy,:)
+!   close(14)
+!   enddo
 end subroutine synchronize_ghosts
