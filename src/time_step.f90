@@ -36,12 +36,11 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   endif
 
   call create_mask(time, beams(1))  
-stop
+
   ! save initial conditions 
   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),&
                        work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-stop
                        
                        
   ! initialize runtime control file

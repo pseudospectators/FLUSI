@@ -73,7 +73,7 @@ subroutine Start_Simulation()
   method="fsi" ! We are doing fluid-structure interactions
   nf=1 ! We are evolving one field.
   nd=3 ! The one field has three components.
-  ng=3 ! one ghost point layer
+  ng=1 ! one ghost point layer
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
@@ -297,10 +297,6 @@ subroutine initialize_time_series_files()
   
   open  (14,file='meanflow.t',status='replace')
   close (14) 
-  
-  open  (14,file='fuck',status='replace')
-  close (14) 
-  
 end subroutine
 
 
