@@ -19,7 +19,6 @@ module solid_model
   real(kind=pr),save :: R_cylinder
   character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
   character(len=strlen),save :: has_cylinder
-  
 
   !----------------------------------------------
   ! Solid datatype
@@ -215,7 +214,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   real(kind=pr) :: err_rel, R
   real(kind=pr) :: dt_old
   real(kind=pr), parameter :: error_stop = 1.0e-7
-  integer :: n,N_nonzero,k,iter
+  integer :: n,iter
   integer, save :: iCalls=10
   logical :: ActuallyBDF2=.false., iterate=.true.
   real(kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
@@ -333,14 +332,14 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     !-------------------------------------------------------------------------
     !  Create Jacobi Matrix and Compress it to the sparse format.
     !-------------------------------------------------------------------------    
-    call Jacobi(time, dt, dt_old, J, N_nonzero , T_act, theta_act, beam_old(:,5), beam_old(:,6), pressure_new,&
+    call Jacobi(time, dt, dt_old, J, T_act, theta_act, beam_old(:,5), beam_old(:,6), pressure_new,&
                 beam_oldold(:,5), beam_oldold(:,6), tau_beam_new, beam_solid)
 
     !-------------------------------------------------------------------------
     !  self-test. occasionally, check if Jacobian is okay
     !-------------------------------------------------------------------------     
     if (mod(iCalls,4607)==0) then
-      call Jacobi_num(time, dt,dt_old, J2, k, T_act, theta_act, beam_old(:,5), beam_old(:,6),&
+      call Jacobi_num(time, dt,dt_old, J2, T_act, theta_act, beam_old(:,5), beam_old(:,6),&
                       pressure_new, beam_oldold(:,5), beam_oldold(:,6), old_rhs, tau_beam_new, beam_solid)
       J2_norm = J2
       where (abs(J2_norm)<1.0e-7) J2_norm=1.0
@@ -505,9 +504,11 @@ subroutine Solve_LGS ( J, F, x)
   implicit none
   real(kind=pr),dimension(1:2*ns+4,1:2*ns+4), intent(in) :: J
   real(kind=pr),dimension(1:2*ns+4), intent(out) :: x
-  real(kind=pr),dimension(1:2*ns+4), intent(out) :: F
+  real(kind=pr),dimension(1:2*ns+4), intent(in) :: F
   real(kind=pr),dimension(1:2*ns+4,1:2*ns+4) :: J2
-  integer :: error, ipiv(1:2*ns+4), i
+  real(kind=pr) :: t0
+  integer :: error, ipiv(1:2*ns+4)  
+  t0 = MPI_wtime()
   
   J2 = transpose(J)
   call dgetrf( 2*ns+4, 2*ns+4, J2 , 2*ns+4, ipiv, error )
@@ -523,17 +524,7 @@ subroutine Solve_LGS ( J, F, x)
     stop
   endif
   
-  !!!!!!!!!!!!!!!!!!!!
-  ! check for NaN's
-  !!!!!!!!!!!!!!!!!!!!
-  do i = 1, 2*ns + 4
-  if (isnan(x(i))) then
-    write (*,*) "OhOh. Something went wrong in the Linear solver for the solid"
-    write (*,*) "May I suggest to kill yourself as you'll never find this mistake?"
-    stop
-  endif
-  enddo
-  
+  time_LAPACK = time_LAPACK + MPI_wtime() - t0
 end subroutine
 
 
@@ -663,7 +654,7 @@ end subroutine F_nonlinear
 
 !-------------------------------------------------------------------------------
 
-subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_dot_old,&
+subroutine Jacobi(time, dt, dt_old, J, T, theta, theta_old, theta_dot_old,&
                   p, theta_oldold, theta_dot_oldold, tau_beam, beam_solid)
   implicit none
   real(kind=pr), dimension(1:2*ns+4,1:2*ns+4), intent (out) :: J
@@ -673,7 +664,6 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   real(kind=pr), dimension(-1:ns+1), intent (in) :: theta
   real(kind=pr), dimension(0:ns-1), intent (in) :: p, theta_old, theta_dot_old, theta_oldold, theta_dot_oldold, tau_beam
   real(kind=pr), dimension(0:ns-1) ::theta_dot_new
-  integer, intent (out) :: N_nonzero
   integer :: i, T0_index, k, l, m
   real(kind=pr) :: alpha, alpha_t, alpha_tt, C1,C2,C3,C4,D,R
   real(kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
@@ -715,19 +705,6 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   theta_dot_new = (C1/dt) * ( theta(0:ns-1) - C3*theta_old(0:ns-1) - C4*theta_oldold ) - C2*theta_dot_old
   
   
-  call Check_Vector_NAN ( theta_old, "theta_old" )
-  call Check_Vector_NAN ( theta_dot_old, "theta_dot_old" )
-  call Check_Vector_NAN ( theta, "theta" )
-  call Check_Vector_NAN ( T, "T" )
-  call Check_Vector_NAN ( p, "p" )
-  call Check_Vector_NAN ( theta_oldold, "theta_oldold" )
-  call Check_Vector_NAN ( theta_dot_oldold, "theta_dot_oldold" )
-  call Check_Vector_NAN ( tau_beam, "tau_beam" )
-  call Check_Vector_NAN ( theta_dot_new, "theta_dot_new" )
-  call Check_Vector_NAN ( theta_oldold, "theta_oldold" )
-  
-  
- 
   T0_index = ns+4               !T0 means here the first T = T(-1)
   J = 0.d0                ! initialize J
   !-- set first 6 eqns 
@@ -761,7 +738,7 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
   J(ns-1,5) = (-1.0/12.0)/ds**2 !
 
   J(2*ns+4,6) = 1.0 
-!tout va bien
+
   !-------------7th eqn: seperated 1
   J(1,7) = T(0)*(theta(1) -theta(-1))/(2.0*ds**2) - p(0)/(2.0*ds) &
            -(eta/(ds**4))*(-2.5*theta(0)+9.0*theta(1)-12.0*theta(2) +7.0*theta(3)-1.5*theta(4)) &
@@ -846,27 +823,6 @@ subroutine Jacobi(time, dt, dt_old, J, N_nonzero , T, theta, theta_old, theta_do
     J( m-1,k) = 1.0/(ds**2) 
     J( m+1,k) = 1.0/(ds**2) 
   enddo
-  
-  
-  N_nonzero = 0
-  do k = 1,2*ns+4
-  do l = 1,2*ns+4
-    !-------------------------------
-    !-- count nonzero elements
-    !-------------------------------
-    if (J(k,l).ne.0.d0) N_nonzero=N_nonzero+1
-    !------------------------------------------
-    ! check for NaN's
-    !------------------------------------------
-    if (isnan(J(k,l))) then
-      write (*,*) "!!! !!! NaN in Jacobian..."
-      stop
-    endif  
-  enddo
-  enddo
-  
-  
-  
 end subroutine Jacobi
 
 
@@ -1352,7 +1308,7 @@ end subroutine EE1
 !-------------------------------------------------------------------------------
 
 
-subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, &
+subroutine Jacobi_num(time, dt,dt_old, J, T, theta, theta_old, &
        theta_dot_old, p, theta_oldold, theta_dot_oldold, old_rhs, tau_beam_new, beam_solid)
   implicit none
   type (solid) :: beam_solid
@@ -1365,7 +1321,6 @@ subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, &
   real(kind=pr), dimension(-1:ns+1) :: theta1, theta2
   real(kind=pr), dimension(0:ns-1), intent (in) :: p, theta_old, theta_dot_old, &
   theta_oldold,theta_dot_oldold, old_rhs, tau_beam_new
-  integer, intent (out) :: N_nonzero
   integer :: i, k, l
 
   !---------------------------------------
@@ -1406,15 +1361,6 @@ subroutine Jacobi_num(time, dt,dt_old, J, N_nonzero , T, theta, theta_old, &
       J(l,:)= (F2-F1)/(2.0e-6)
       l=l+1
   enddo
-
-    !-- count nonzero elements
-  N_nonzero = 0
-  do k = 1,2*ns+4
-  do l = 1,2*ns+4
-    if (J(k,l).ne.0.d0) N_nonzero=N_nonzero+1
-  enddo
-  enddo
-  
 end subroutine Jacobi_num
 
 

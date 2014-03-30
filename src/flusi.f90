@@ -78,7 +78,7 @@ subroutine Start_Simulation()
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
   time_bckp=0.0; time_save=0.0; time_total=MPI_wtime(); time_u=0.0; time_sponge=0.0
-  time_solid=0.d0; time_drag=0.0; time_surf=0.0
+  time_solid=0.d0; time_drag=0.0; time_surf=0.0; time_LAPACK=0.0
 
   
   ! Set up global communicators. We have two groups, for solid and fluid CPUs
@@ -234,6 +234,10 @@ subroutine show_timings(t2)
   write(*,'("cal_vis: ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
   tmp = time_fluid - time_nlk - time_vis
   write(*,'("explin:  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
+  write(*,'(A)') '--------------------------------------'
+  write(*,'(A)') "solid solver decomposes into:"
+  write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_LAPACK, &
+        100.0*time_LAPACK/time_solid
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "cal_nlk decomposes into:"
   write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk
