@@ -92,7 +92,11 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
     do ih=0,nh
       do isurf=1,2
         x = surfaces(is,ih,isurf,1:3)
-        call trilinear_interp_ghosts( x, p, p_surface_local(is,ih,isurf))
+        if (interp=='linear') then
+          call trilinear_interp_ghosts( x, p, p_surface_local(is,ih,isurf))
+        elseif (interp=='delta') then
+          call delta_interpolation( x, p, p_surface_local(is,ih,isurf))
+        endif
       enddo
     enddo
   enddo
