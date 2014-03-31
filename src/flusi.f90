@@ -43,7 +43,6 @@ subroutine Start_Simulation()
   use p3dfft_wrapper
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
-  integer                :: mpicode
   real(kind=pr)          :: t1,t2
   real(kind=pr)          :: time,dt0,dt1
   integer                :: n0=0,n1=1,it

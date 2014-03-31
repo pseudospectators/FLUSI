@@ -4,7 +4,7 @@ subroutine create_mask_fsi (time)
   use fsi_vars
   implicit none
   real(kind=pr), intent(in) :: time
-  real(kind=pr) :: t1, eps_inv
+  real(kind=pr) :: t1
   t1 = MPI_wtime() 
   
   ! reset everything

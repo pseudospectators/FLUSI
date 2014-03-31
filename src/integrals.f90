@@ -36,8 +36,8 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr), intent(in) :: time
-  real(kind=pr) :: kx, ky, kz, locmax, maxdiv,maxdiv_fluid, maxdiv_loc
-  complex(kind=pr) :: imag ! imaginary unit
+  real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc
+!  complex(kind=pr) :: imag ! imaginary unit
   integer :: ix,iy,iz,mpicode
 
   !-----------------------------------------------------------

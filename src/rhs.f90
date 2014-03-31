@@ -57,8 +57,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz,chi2
   real(kind=pr) :: penalx,penaly,penalz
-  integer, intent(in) :: it
-  integer :: ix,iz,iy,mpicode, i
+  integer, intent(in) :: it ! This is unused
+  integer :: ix,iz,iy
   
   ! performance measurement in global variables
   t0         = MPI_wtime()

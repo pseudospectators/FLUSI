@@ -19,7 +19,7 @@ subroutine Draw_Insect ( time )
   real(kind=pr) :: x(1:3), x_body(1:3), x_wing_l(1:3), x_wing_r(1:3)
   real(kind=pr) :: x_eye_r(1:3), x_eye_l(1:3)
   real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
-  real(kind=pr) :: xc_body(1:3), alpha_l, phi_l, phi_r, alpha_r, eta_l, eta_r
+  real(kind=pr) :: xc_body(1:3), alpha_l, phi_l, phi_r, alpha_r
   real(kind=pr) :: alpha_dt_l, alpha_dt_r, phi_dt_l, phi_dt_r
   real(kind=pr) :: theta_dt_l, theta_dt_r, eta_stroke, theta_r, theta_l
   real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
@@ -216,7 +216,6 @@ subroutine dynamics_insect(time,it)
   integer, intent(in) :: it
   real (kind=pr), intent (in) :: time
   real (kind=pr) :: accx,accz,mass_solid,mass_fluid,gravity
-  real (kind=pr) :: time_ref,length_ref,density_ref
   real (kind=pr) :: anglegs,kzlegsmax,dzlegsmax,t0,tmaxlegs,kzlegs0,anglegsend
   real (kind=pr) :: kxlegs,kzlegs,fxlegs,fzlegs,fxaero,fzaero,displacement_z
 

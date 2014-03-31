@@ -192,7 +192,7 @@ subroutine cal_unst_corrections ( time, dt )
   real(kind=pr),dimension(0:5) :: force_newx, force_newy, force_newz
   real(kind=pr),dimension(0:5) :: torque_newx, torque_newy, torque_newz
   
-  integer :: mpicode, ix, iy, iz, partid
+  integer :: mpicode, ix, iy, iz
   integer(kind=2) :: color
   
   !-----------------------------------------------------------------------------

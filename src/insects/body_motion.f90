@@ -23,7 +23,7 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(out) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
   real(kind=pr), intent(out) :: xc(1:3), vc(1:3)
-  real(kind=pr) :: f,T,R
+  real(kind=pr) :: T,R
   
   select case (Insect%BodyMotion)
   case ("fixed")

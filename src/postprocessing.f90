@@ -66,7 +66,7 @@ subroutine convert_hdf2bin()
   dsetname = fname ( 1:index( fname, '_' )-1 )
   call fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
   
-  write (*,'("Converting ",A," to ",A,".binary. Resolution is" 3(i4,1x))') &
+  write (*,'("Converting ",A," to ",A,".binary. Resolution is",3(i4,1x))') &
         trim(fname), trim(fname), nx,ny,nz
   write (*,'("time=",es12.4," xl=",es12.4," yl=",es12.4," zl=",es12.4)') &
         time, xl, yl, zl
