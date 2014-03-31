@@ -73,16 +73,16 @@ subroutine delta_interpolation(x,field,value)
 
   N_support = 3
   
-  if (ng/=N_support) then
+  if ( ng/=N_support ) then
     write(*,*) "Error: number of ghostpoints not suitable for delta interp"
     stop
   endif
   
   
   !-- note border are ra/rb and not ga/gb
-  if ((((ix>=ra(1)).and.(ix<=rb(1))).or.(nx==1)).and.&
-        (iy>=ra(2)).and.(iy<=rb(2)).and.&
-        (iz>=ra(3)).and.(iz<=rb(3))) then
+  if ((((ix0>=ra(1)).and.(ix0<=rb(1))).or.(nx==1)).and.&
+        (iy0>=ra(2)).and.(iy0<=rb(2)).and.&
+        (iz0>=ra(3)).and.(iz0<=rb(3))) then
       
       value = 0.d0
       
@@ -98,7 +98,7 @@ subroutine delta_interpolation(x,field,value)
             dely = delta(abs(yy - x(2)),dy)
             delz = delta(abs(zz - x(3)),dz) 
             
-            value = value + delx*dely*delz*field(ix,iy,iz)
+            value = value + delx*dely*delz*field( per(ix,nx),per(iy,ny),per(iz,nz) )
             
           enddo
         enddo
@@ -116,7 +116,7 @@ end subroutine delta_interpolation
 real (kind=pr) function delta(x,dx1)
   use vars
   real(kind=pr), intent(in) :: x,dx1
-  real(kind=pr) :: r,s
+  real(kind=pr) :: r
   !----------------------------------
   ! This function returns a delta kernel
   ! see Yang, Zhang, Li: A smoothing technique for discrete delta functions [...] JCP 228 (2009)
@@ -130,7 +130,7 @@ real (kind=pr) function delta(x,dx1)
   elseif ( (r>=1.5) .and. (r<=2.5)   ) then
     delta = (17./16.) - (pi/64.) - (3.*r/4.) + ((r**2)/8.) + (r-2.)*sqrt(-14.+16.*r-4.*r**2)/16. +asin(sqrt(2.)*(r-2.))/16.
   elseif ( (r>=2.5)    ) then
-    delta = 0.0;
+    delta = 0.0
   endif  
   
 end function

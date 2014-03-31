@@ -47,8 +47,8 @@ FFLAGS += -fdefault-double-8 -fdefault-real-8 -fpack-derived
 PPFLAG= -cpp #preprocessor flag
 
 # Debug flags for gfortran
-#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb -fbacktrace -fwhole-file -fcheck=all
-#FFLAGS += -Waliasing -Wimplicit-interface -Wunused-parameter -Wcharacter-truncation -Wline-truncation
+FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb -fbacktrace -fwhole-file -fcheck=all
+FFLAGS += -Waliasing -Wimplicit-interface -Wunused-parameter -Wcharacter-truncation -Wline-truncation
 endif
 
 # Intel compiler
