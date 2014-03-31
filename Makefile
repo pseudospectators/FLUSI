@@ -18,7 +18,7 @@ OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = vars.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 trilinear_interp.f90
+MFILES = vars.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 interpolation.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -104,9 +104,9 @@ $(OBJDIR)/kine.o: kine.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/trilinear_interp.o
+$(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/trilinear_interp.o: trilinear_interp.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
 
 # Compile remaining objects from Fortran files.

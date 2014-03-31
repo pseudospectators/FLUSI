@@ -101,9 +101,9 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       x0_plate = (/ 0.5d0*xl, 1.220287d0,  0.8291429d0 /)
       if (nx==1) x0_plate(1)=0.d0
       v0_plate = 0.d0
-      psi = deg2rad(-90.d0)
+      psi = deg2rad(+90.d0)
       beta = 0.0
-      gamma = deg2rad(90.d0)
+      gamma = deg2rad(+90.d0)
       psi_dt = 0.0
       beta_dt = 0.d0
       gamma_dt = 0.d0
@@ -121,7 +121,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       gamma_dt = 0.d0
       
   case ("flapper")
-      R = 1.0 ! you need to change that in the above as well
+      R = 1.0 ! you need to change that in the above routine as well
       psi = deg2rad(45.d0)*dsin(time)
       psi_dt = deg2rad(45.d0)*dcos(time)
       x0_plate = (/ 0.5*xl, 0.5*yl+R*dsin(-psi), 0.5*zl+R*dcos(-psi) /)

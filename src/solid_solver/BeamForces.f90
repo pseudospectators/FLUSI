@@ -79,10 +79,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   enddo
   
   deallocate( heights )
-  
-  !-- this just copies ra(1:3) and rb(1:3) in more readble names
-  call init_interpolation()
-  
+    
   !-----------------------------------------------------------------------------
   ! Tri-linear interpolation of all points on the surface. 
   ! If the point does not lie in the locally stores memory, zero is set
@@ -100,71 +97,12 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
     enddo
   enddo
   
-  
-  
-!   if ( ((mpidims(2)==1).or.(mpidims(1)==1)) .and. (mpisize>1) ) then
-!     !------------------------
-!     !-- 1D data decompositon
-!     !------------------------
-!     allocate (ghostsz(ixmin:ixmax,iymin:iymax) )
-!     !--fetch a sheet from neighbor
-!     call extend_array_1D( p, ghostsz )
-!     
-!     do is=0,ns-1
-!       do ih=0,nh
-!         do isurf=1,2
-!           x = surfaces(is,ih,isurf,1:3)
-!           call trilinear_interp_1Ddecomp( x, p, ghostsz, p_surface_local(is,ih,isurf))
-!         enddo
-!       enddo
-!     enddo
-!     
-!     deallocate (ghostsz)    
-! 
-!   elseif (mpisize==1) then
-!     !------------------------
-!     !-- serial run one CPU
-!     !------------------------
-!     do is=0,ns-1
-!       do ih=0,nh
-!         do isurf=1,2
-!           x = surfaces(is,ih,isurf,1:3)
-!           call trilinear_interp( x, p, p_surface_local(is,ih,isurf))
-!         enddo
-!       enddo
-!     enddo
-!     
-!   else
-!     !------------------------
-!     !-- 2D data decomposition
-!     !------------------------
-!     allocate(ghostsz(ixmin:ixmax,iymin:iymax+1))
-!     allocate(ghostsy(ixmin:ixmax,izmin:izmax+1))
-!     !-- fetch two ghost surfaces from other CPU
-!     call extend_array_2D( p, ghostsz, ghostsy)
-!     
-!     do is=0,ns-1
-!       do ih=0,nh
-!         do isurf=1,2
-!           x = surfaces(is,ih,isurf,1:3)
-!           call trilinear_interp_2Ddecomp( x, p, ghostsz,ghostsy, p_surface_local(is,ih,isurf))
-!         enddo
-!       enddo
-!     enddo
-!     
-!     deallocate(ghostsz)
-!     deallocate(ghostsy)
-!   endif
-  
-  
   !-----------------------------------------------------------------------------
   ! All CPUs now interpolated some values of p on the surfaces, if they lie in
   ! their local memory (or on the lines between two CPUs). If not, they saved 
-  ! zero. The sum of all pressure distributions is now what we wanted to have
+  ! -9.9e10. The max of all pressure distributions is now what we wanted to have
   ! p_surface is available on all CPU (and it has to since all evolve the solid)
   !-----------------------------------------------------------------------------
-!   call MPI_ALLREDUCE ( p_surface_local,p_surface,size(p_surface_local),&
-!                        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
   call MPI_ALLREDUCE ( p_surface_local,p_surface,size(p_surface_local),&
                        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode) 
   
@@ -243,65 +181,6 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
     enddo
   endif
       
-!   if (mpirank==0) then
-!   open (17, file='surfaces.m', status='replace')
-!   
-!   write (17,'(A)') 'x1=['
-!   do is=0,ns-1
-!   write(17,'(256(f5.2,1x))') surfaces(is,:,1,1)
-!   enddo  
-!   write (17,'(A)') '];'
-!   
-!   write (17,'(A)') 'y1=['
-!   do is=0,ns-1
-!   write(17,'(256(f5.2,1x))') surfaces(is,:,1,2)
-!   enddo  
-!   write (17,'(A)') '];'
-!   
-!   write (17,'(A)') 'z1=['
-!   do is=0,ns-1
-!   write(17,'(256(f5.2,1x))') surfaces(is,:,1,3)
-!   enddo  
-!   write (17,'(A)') '];'
-!   
-!   write (17,'(A)') 'p1=['
-!   do is=0,ns-1
-!   write(17,'(256(f10.2,1x))') p_surface(is,:,1)
-!   enddo  
-!   write (17,'(A)') '];'
-!   
-!   
-!   
-!   write (17,'(A)') 'x2=['
-!   do is=0,ns-1
-!   write(17,'(256(f5.2,1x))') surfaces(is,:,2,1)
-!   enddo  
-!   write (17,'(A)') '];'
-!   
-!   write (17,'(A)') 'y2=['
-!   do is=0,ns-1
-!   write(17,'(256(f5.2,1x))') surfaces(is,:,2,2)
-!   enddo  
-!   write (17,'(A)') '];'
-!   
-!   write (17,'(A)') 'z2=['
-!   do is=0,ns-1
-!   write(17,'(256(f5.2,1x))') surfaces(is,:,2,3)
-!   enddo  
-!   write (17,'(A)') '];'
-!   
-!   write (17,'(A)') 'p2=['
-!   do is=0,ns-1
-!   write(17,'(256(f10.2,1x))') p_surface(is,:,2)
-!   enddo  
-!   write (17,'(A)') '];'
-!   
-!   write (17,'(A)') "surface(x1,y1,z1,p1); hold on; surface(x2,y2,z2,p2)"
-!   write (17,'(A)') "axis([0 4 0 4 0 4]);xlabel('x');ylabel('y');zlabel('z');grid"
-!   close(17)
-!     endif
-    
-    
   deallocate(surfaces)
   deallocate(p_surface)
   deallocate(p_surface_local)
@@ -310,7 +189,16 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
 end subroutine get_surface_pressure_jump
 
 
-
+!-------------------------------------------------------------------------------
+! Testing routine for the surface interpolation, called in every run. First, we
+! interpolate the mask function at the beams's surface - the value must be close 
+! to 0.5. If not, then mask function and solid model are not consistently defned.
+! Second, we interpolate and analytic function f=(y*z) to compare with the exact
+! value. the error should be zero
+!
+! subroutine GET_SURFACE_PRESSURE_JUMP has an optional argument for this testing
+!
+!-------------------------------------------------------------------------------
 subroutine surface_interpolation_testing( time, beam, work )
   use mpi
   use fsi_vars

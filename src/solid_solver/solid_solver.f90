@@ -19,6 +19,7 @@ module solid_model
   real(kind=pr),save :: R_cylinder
   character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
   character(len=strlen),save :: has_cylinder
+  character(len=strlen),save :: interp
 
   !----------------------------------------------
   ! Solid datatype
@@ -61,9 +62,9 @@ module solid_model
   real (kind=pr) :: time
   integer :: it,nsave
 
-  open (14, file = 'beam_data1', status = 'replace')
+  open (14, file = 'beam_data1.t', status = 'replace')
   close(14)
-  open (14, file = 'mouvement1', status = 'replace')
+  open (14, file = 'mouvement1.t', status = 'replace')
   close(14)
   
   write (*,*) "*** information: starting OnlySolidSimulation"
@@ -88,10 +89,6 @@ module solid_model
     call SaveBeamData( time, beams )
   enddo
 
-  open (14,file='end',status='replace')
-  write(14,'(128(es15.8,1x))') beams(1)%theta
-  close(14)
-  
 end subroutine
  
  

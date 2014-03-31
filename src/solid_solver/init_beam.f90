@@ -84,6 +84,13 @@ subroutine init_beams ( beams )
     beams(i)%drag_unst_old = 0.d0
     beams(i)%lift_unst_new = 0.d0
     beams(i)%lift_unst_old = 0.d0
+    beams(i)%Force = 0.d0
+    beams(i)%Force_unst = 0.d0
+    beams(i)%Force_press = 0.d0
+    beams(i)%Inertial_Force = 0.d0
+    beams(i)%E_kinetic = 0.d0
+    beams(i)%E_elastic = 0.d0
+    beams(i)%E_pot = 0.d0
     beams(i)%UnsteadyCorrectionsReady = .false.
     beams(i)%StartupStep = .true.
     beams(i)%dt_old = 0.d0

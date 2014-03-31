@@ -55,6 +55,7 @@ subroutine Start_Simulation()
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use solid_model
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   real(kind=pr)          :: t1,t2
@@ -73,7 +74,6 @@ subroutine Start_Simulation()
   method="fsi" ! We are doing fluid-structure interactions
   nf=1 ! We are evolving one field.
   nd=3 ! The one field has three components.
-  ng=1 ! one ghost point layer
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
@@ -105,6 +105,17 @@ subroutine Start_Simulation()
   call get_command_argument(1,infile)
   ! read all parameters from that file
   call get_params(infile)
+  
+  !-- ghost points
+  if (use_solid_model=="yes") then
+    if (interp=='linear') ng=1
+    if (interp=='delta') ng=3
+  else
+    ! we dont need ghosts when not solving the solid model
+    ng=0
+  endif
+  
+  if (root) write(*,'("Set up ng=",i1," ghost points")') ng
   
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
