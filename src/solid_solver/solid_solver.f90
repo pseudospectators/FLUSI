@@ -17,6 +17,7 @@ module solid_model
   real(kind=pr),save :: ds
   real(kind=pr),save :: T_release, tau
   real(kind=pr),save :: R_cylinder
+  real(kind=pr), parameter :: error_stop = 1.0e-6  
   character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
   character(len=strlen),save :: has_cylinder
   character(len=strlen),save :: interp
@@ -62,19 +63,15 @@ module solid_model
   real (kind=pr) :: time
   integer :: it,nsave
 
-  open (14, file = 'beam_data1.t', status = 'replace')
-  close(14)
-  open (14, file = 'mouvement1.t', status = 'replace')
-  close(14)
+  ! in case you forgot to set it
+  if (itdrag==0) itdrag=10
+  if (dt_fixed<=1.0d-10) dt_fixed=1.d-3
   
   write (*,*) "*** information: starting OnlySolidSimulation"
   time = 0.0
   it = 0  
   
-  tmax=0.5d0
-  
-  TimeMethodSolid = "BDF2"
-  ns=128
+  call show_solid_model_information
   
   !-- initialization
   call init_beams( beams )
@@ -86,7 +83,10 @@ module solid_model
         
     it   = it+1
     time = dble(it)*dt_fixed
+    
+    if (modulo(it,itdrag)==0) then
     call SaveBeamData( time, beams )
+    endif
   enddo
 
 end subroutine
@@ -127,7 +127,7 @@ subroutine SolidSolverWrapper ( time, dt, beams )
      ! the beams are not yet released, but its leading edges may move
      !-------------------------------------------
      do i = 1, nBeams
-     call integrate_position (time+dt, beams(i))
+      call integrate_position (time+dt, beams(i))
      enddo
   endif
   
@@ -209,8 +209,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   real(kind=pr),dimension(1:ns+1) :: T_act
   real(kind=pr) :: alpha, alpha_t, alpha_tt, err, A1, A2, K1, K2, T_s0, theta_ss0, theta_s0, C2,C1,C3,C4
   real(kind=pr) :: err_rel, R
-  real(kind=pr) :: dt_old
-  real(kind=pr), parameter :: error_stop = 1.0e-7
+  real(kind=pr) :: dt_old  
   integer :: n,iter
   integer, save :: iCalls=10
   logical :: ActuallyBDF2=.false., iterate=.true.
@@ -387,8 +386,8 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     ! EMERGENCY BRAKE
     !-----------------------------------------------------------
     if (iter>250) then
-      write(*,*) "!!! ERROR: IBES performed like 50 iterations. this is not normal."
-      stop
+      write(*,*) "!!! ERROR: IBES performed like 250 iterations. this is not normal."
+      iterate=.false.
     endif
     
   enddo
@@ -465,7 +464,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !     save number of iterations
   !-----------------------------------------------------------------------------    
   if (root) then
-  open (14, file = 'IBES_iter', status = 'unknown', position='append') ! Append output data file
+  open (14, file = 'IBES_iter.t', status = 'unknown', position='append') ! Append output data file
   write (14, '(es11.4,1x,i3)') time, iter
   close (14)
   endif

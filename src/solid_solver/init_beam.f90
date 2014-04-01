@@ -40,11 +40,11 @@ subroutine init_beams ( beams )
     ! overwrite beam files if not retaking a backup
     if ((index(inicond,'backup::') == 0).and.(root)) then
       write (beamstr,'(i1)') i
-      open  (14, file = 'beam_data'//beamstr//'.t', status = 'replace')
+      open  (14, file='beam_data'//beamstr//'.t', status = 'replace')
       close (14)
-      open  (14, file = 'mouvement'//beamstr//'.t', status = 'replace')
+      open  (14, file='mouvement'//beamstr//'.t', status = 'replace')
       close (14)      
-      open  (14, file='IBES_iter', status='replace')
+      open  (14, file='IBES_iter.t', status='replace')
       close (14)
     endif
   enddo 

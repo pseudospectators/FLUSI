@@ -112,7 +112,7 @@ subroutine Draw_flexible_plate (time, beam)
       call smoothstep( tmp, mask(ix,iy,iz)-t_beam, 0.d0, N_smooth*max(dx,dy,dz) )
       !-- make plate finite in z-direction
       if ((nx>1).and.(ny>1).and.(nz>1)) then
-        call smoothstep( tmp2, abs(x_plate(3)), 0.5*L_span, N_smooth*max(dx,dy,dz) )
+        call smoothstep( tmp2, abs(x_plate(3)), 0.5d0*L_span, N_smooth*max(dx,dy,dz) )
       else
         !-- 2D runs have infinite span
         tmp2=1.d0
@@ -179,7 +179,7 @@ subroutine Draw_flexible_plate (time, beam)
             endif
             
             !-- velocity field of the cylinder (in relative system)
-            v_tmp = cross( x_plate, (/0.0,0.0,-alpha_t/) )
+            v_tmp = cross( x_plate, (/0.d0,0.d0,-alpha_t/) )
             u_tmp = matmul(transpose(M_plate),v_tmp)
             
             !-- override mask if old value is smaller
