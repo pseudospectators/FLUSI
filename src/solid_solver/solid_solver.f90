@@ -385,9 +385,9 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     !-----------------------------------------------------------
     ! EMERGENCY BRAKE
     !-----------------------------------------------------------
-    if (iter>250) then
-      write(*,*) "!!! ERROR: IBES performed like 250 iterations. this is not normal."
-      iterate=.false.
+    if (iter>1000) then
+      write(*,*) "!!! ERROR: IBES performed like 1000 iterations. this is not normal."
+      stop
     endif
     
   enddo
