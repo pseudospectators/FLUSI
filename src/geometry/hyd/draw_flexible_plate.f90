@@ -15,7 +15,10 @@ subroutine Draw_flexible_plate (time, beam)
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate,u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   !-- for the triangles:
-  real(kind=pr) :: a,b,c,alpha,beta,h, safety, s,s1,s2, ux,uy, R
+  real(kind=pr) :: a,b,c,alpha,beta,h,safety, s,s1,s2, ux,uy, R  
+  !-- for leading edge state:
+  real(kind=pr) :: alpha_t, alpha_tt 
+  real(kind=pr), dimension(1:6) :: LeadingEdge
   integer :: ix,iy,iz,is
   
   N_smooth = 3.d0  
@@ -139,9 +142,13 @@ subroutine Draw_flexible_plate (time, beam)
   
   !-----------------------------------------------------------------------------
   ! Add cylinder add leading edge, if desired. Required for Turek's validation
-  ! test case.
+  ! test case, and other cases. Note the angle ALPHA, which describes the leading
+  ! edge angle WITHIN THE RELATIVE SYSTEM
   !-----------------------------------------------------------------------------
   if (has_cylinder=="yes") then 
+    !-- fetch leading edge motion state (the cylinder may rotate)
+    call mouvement ( time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
+    
     !-- For all grid points of this subdomain
     do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
@@ -150,8 +157,9 @@ subroutine Draw_flexible_plate (time, beam)
           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz/)
           !-- in the plate system
           x_plate = matmul( M_plate, x-x0_plate )
-          !-- move the cylinder
-          x_plate(1) = x_plate(1)+R_cylinder
+          !-- move the cylinder (in the direction normal to alpha, along L.E.)
+          x_plate(1) = x_plate(1) + R_cylinder*dcos(alpha)
+          x_plate(2) = x_plate(2) + R_cylinder*dsin(alpha)
           
           !-- check z-size in plate coordinate sytem (thus spanwise)
           if ((x_plate(3)>=-(0.5*L_span+safety)).and.(x_plate(3)<=(0.5*L_span+safety))) then
@@ -170,11 +178,15 @@ subroutine Draw_flexible_plate (time, beam)
               tmp2=1.d0
             endif
             
+            !-- velocity field of the cylinder (in relative system)
+            v_tmp = cross( x_plate, (/0.0,0.0,-alpha_t/) )
+            u_tmp = matmul(transpose(M_plate),v_tmp)
+            
             !-- override mask if old value is smaller
-            if (mask(ix,iy,iz)<=tmp*tmp2) then
+            if (mask(ix,iy,iz)<tmp*tmp2) then
               mask(ix,iy,iz) = tmp*tmp2
               mask_color(ix,iy,iz) = 1
-              us(ix,iy,iz,:) = 0.d0
+              us(ix,iy,iz,:) = u_tmp
             endif
           endif
           endif
