@@ -105,7 +105,7 @@ subroutine SolidSolverWrapper ( time, dt, beams )
   integer :: i
   t0 = MPI_wtime()
   
-  if (time>T_release) then ! it is not nessesaire to solve the solid equation when the beam is still held fixed  
+  if (time>=T_release) then ! it is not nessesaire to solve the solid equation when the beam is still held fixed  
      !-------------------------------------------
      ! the beams are released, call IBES solvers
      !-------------------------------------------
@@ -116,6 +116,8 @@ subroutine SolidSolverWrapper ( time, dt, beams )
             call IBES_solver (time, dt, beams(i))    
           case ("RK4")
             call RK4_wrapper (time, dt, beams(i))
+          case ("EE1")
+            call EE1_wrapper (time, dt, beams(i))
           case default
             write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
                 TimeMethodSolid
@@ -1206,6 +1208,7 @@ subroutine RK4_wrapper ( time, dt, beam_solid )! note this is actuall only ONE b
   
   call RK4( time, dt, beam, beam_solid%pressure_old, T, beam_solid%tau_old, &
             beam_solid )
+  call integrate_position( time, beam_solid )                 
 end subroutine RK4_wrapper
 
 
@@ -1274,6 +1277,35 @@ subroutine RK4 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid)
   endif  
   
 end subroutine RK4
+
+
+!-------------------------------------------------------------------------------
+!   wrapper for new beam dataype for RK4
+! This routine is called when really using RK4 for the beam (as opposed to use
+! it just for predicting the next beam)
+!-------------------------------------------------------------------------------
+subroutine EE1_wrapper ( time, dt, beam_solid )! note this is actuall only ONE beam!!
+  implicit none
+  real(kind=pr), intent (in) :: dt, time
+  type (solid), intent(inout) :: beam_solid
+  real(kind=pr),dimension(0:ns-1) :: T
+  real(kind=pr),dimension(0:ns-1, 1:6) :: beam
+
+  if (time<1.0e-8) write(*,*) "euler says hi"
+  
+  beam(:,1) = beam_solid%x
+  beam(:,2) = beam_solid%y
+  beam(:,3) = beam_solid%vx
+  beam(:,4) = beam_solid%vy
+  beam(:,5) = beam_solid%theta
+  beam(:,6) = beam_solid%theta_dot
+  
+  call EE1( time, dt, beam, beam_solid%pressure_old, T, beam_solid%tau_old, &
+            beam_solid )
+            
+  call integrate_position( time, beam_solid )         
+end subroutine EE1_wrapper
+
 
 ! ------------------------------------------------------------------------------
   

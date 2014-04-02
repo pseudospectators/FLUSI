@@ -343,7 +343,7 @@ subroutine get_params_solid(PARAMS,i)
     call GetValue_String(PARAMS,i,"SolidModel","TimeMethodSolid",TimeMethodSolid,"BDF2")
     
     select case (TimeMethodSolid)
-      case ("RK4","CN2","BDF2","EI1")
+      case ("RK4","CN2","BDF2","EI1","EE1")
         if (mpirank==0) write(*,*) "Solid solver is ", TimeMethodSolid
       case default
         if (mpirank==0) write(*,*) "Solid solver is UNDEFINED, using BDF2"
