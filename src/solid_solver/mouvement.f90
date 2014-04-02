@@ -33,7 +33,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
   case ("swimmer") 
       LeadingEdge = 0.0
       f = 1.0 !-- normalizaton -> f is unity
-      angle_max = deg2rad(25.d0)
+      angle_max = deg2rad(50.d0)
       
       alpha    = angle_max * sin(2.d0*pi*f*time)
       alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
@@ -44,6 +44,14 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
                         R_cylinder*(alpha_t**2)*(-dcos(alpha))
       LeadingEdge(6) =  R_cylinder*alpha_tt*dcos(alpha) + &
                         R_cylinder*(alpha_t**2)*(-dsin(alpha))
+                        
+  case ("swimmer_simplified") 
+      LeadingEdge = 0.0
+      f = 1.0 !-- normalizaton -> f is unity
+      angle_max = deg2rad(50.d0)
+      alpha    = angle_max * sin(2.d0*pi*f*time)
+      alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
+      alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
   
   case ("flapper")
      R=1.d0
@@ -118,13 +126,32 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       !-- beam is in the middle of the domain and bends in x-y direction
       !-- z direction is height      
       f = 1.0 !-- normalizaton -> f is unity
-      angle_max = deg2rad(25.d0)      
+      angle_max = deg2rad(50.d0)      
       alpha    = angle_max * sin(2.d0*pi*f*time)
       alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
       alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
       !-- note (/ x0,y0,z0 /) marks center of cylinder
       x0_plate = (/ x0,y0,z0 /) + R_cylinder*(/dcos(alpha),dsin(alpha),0.d0/)
       v0_plate = R_cylinder*alpha_t*(/-dsin(alpha),dcos(alpha),0.d0/)
+      !-- no rotation of relative system in swimmer case
+      psi = 0.d0
+      beta = 0.d0
+      gamma = 0.d0
+      psi_dt = 0.d0
+      beta_dt = 0.d0
+      gamma_dt = 0.d0
+      
+  case ("swimmer_simplified") 
+      !-- beam is in the middle of the domain and bends in x-y direction
+      !-- z direction is height      
+      f = 1.0 !-- normalizaton -> f is unity
+      angle_max = deg2rad(50.d0)      
+      alpha    = angle_max * sin(2.d0*pi*f*time)
+      alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
+      alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
+      !-- note (/ x0,y0,z0 /) marks center of cylinder
+      x0_plate = (/ x0,y0,z0 /)
+      v0_plate = 0.d0
       !-- no rotation of relative system in swimmer case
       psi = 0.d0
       beta = 0.d0
