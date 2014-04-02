@@ -325,6 +325,8 @@ subroutine get_params_solid(PARAMS,i)
     !-- density / stiffness / gravity
     call GetValue_Real(PARAMS,i,"SolidModel","mue",mue,1.0d0)
     call GetValue_Real(PARAMS,i,"SolidModel","eta",eta,1.0d0)
+    call GetValue_Real(PARAMS,i,"SolidModel","f",frequ,1.0d0)
+    call GetValue_Real(PARAMS,i,"SolidModel","angle",AngleBeam,1.0d0)
     call GetValue_Real(PARAMS,i,"SolidModel","gravity",grav,0.0d0)
     !-- beam thickness
     call GetValue_Real(PARAMS,i,"SolidModel","t_beam",t_beam,0.05d0)

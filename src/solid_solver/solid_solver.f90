@@ -13,7 +13,7 @@ module solid_model
   real(kind=pr),save :: grav
   real(kind=pr),save :: sigma
   real(kind=pr),save :: t_beam, L_span, N_smooth
-  real(kind=pr),save :: AngleBeam
+  real(kind=pr),save :: AngleBeam, frequ
   real(kind=pr),save :: ds
   real(kind=pr),save :: T_release, tau
   real(kind=pr),save :: R_cylinder
