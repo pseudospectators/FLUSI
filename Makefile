@@ -108,10 +108,10 @@ $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod
+	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
 
 tidy:
-	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod
+	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
 
 # If the object directory doesn't exist, create it.
 .PHONY: directories
