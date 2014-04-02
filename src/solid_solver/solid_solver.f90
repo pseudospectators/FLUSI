@@ -140,6 +140,10 @@ subroutine SolidSolverWrapper ( time, dt, beams )
   call SolidEnergies( beams(i) )
   enddo
 
+  do i = 1, nBeams
+    call Check_Vector_NAN( beams(i)%theta_dot, "main wrapper")
+  enddo
+  
   time_solid = time_solid + MPI_wtime() - t0
 end subroutine SolidSolverWrapper
 
@@ -1208,7 +1212,15 @@ subroutine RK4_wrapper ( time, dt, beam_solid )! note this is actuall only ONE b
   
   call RK4( time, dt, beam, beam_solid%pressure_old, T, beam_solid%tau_old, &
             beam_solid )
-  call integrate_position( time, beam_solid )                 
+            
+  beam_solid%x = beam(:,1)
+  beam_solid%y = beam(:,2)
+  beam_solid%vx = beam(:,3)
+  beam_solid%vy = beam(:,4)
+  beam_solid%theta = beam(:,5)
+  beam_solid%theta_dot = beam(:,6)            
+            
+  call integrate_position( time, beam_solid )                
 end subroutine RK4_wrapper
 
 
@@ -1300,14 +1312,20 @@ subroutine EE1_wrapper ( time, dt, beam_solid )! note this is actuall only ONE b
   beam(:,5) = beam_solid%theta
   beam(:,6) = beam_solid%theta_dot
   
-  call EE1( time, dt, beam, beam_solid%pressure_old, T, beam_solid%tau_old, &
-            beam_solid )
-            
+  call EE1( time, dt, beam, beam_solid%pressure_old, T, beam_solid%tau_old, beam_solid )
+
+  beam_solid%x = beam(:,1)
+  beam_solid%y = beam(:,2)
+  beam_solid%vx = beam(:,3)
+  beam_solid%vy = beam(:,4)
+  beam_solid%theta = beam(:,5)
+  beam_solid%theta_dot = beam(:,6)
+  
   call integrate_position( time, beam_solid )         
 end subroutine EE1_wrapper
 
 
-! ------------------------------------------------------------------------------
+!-------------------------------------------------------------------------------
   
 subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
   implicit none
@@ -1330,6 +1348,8 @@ subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid)
 
   beam(:,5) = theta + dt_beam * theta_1
   beam(:,6) = theta_dot + dt_beam * theta_dot_1
+  
+  call Check_Vector_NAN( beam(:,6), "euler explicit")
 end subroutine EE1
 
 

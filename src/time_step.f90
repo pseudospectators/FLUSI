@@ -73,9 +73,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      endif
      
      if (use_solid_model=="yes") then
-       call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
+!        call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
 !        call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 !        call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
+      call get_surface_pressure_jump (time, beams(1), work)
        call SolidSolverWrapper( time, dt1 , beams )      
      endif
      
