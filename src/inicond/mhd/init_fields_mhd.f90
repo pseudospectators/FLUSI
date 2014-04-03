@@ -49,20 +49,20 @@ integer,intent (inout) :: n1,it
      
      ! transform everything to fourier space
      do i = 1,nd
-      call fft(ubk(:,:,:,i),wj(:,:,:,i))
+        call fft(ubk(:,:,:,i),wj(:,:,:,i))
      enddo
-     
+
   case default
      if(inicond(1:8) == "backup::") then
-call read_runtime_backup(inicond(9:len(inicond)),&
+        call read_runtime_backup(inicond(9:len(inicond)),&
              time,dt0,dt1,n1,it,ubk,nlk,explin,wj(:,:,:,1))
      else
-if (mpirank==0) then
-write (*,*) inicond
+        if (mpirank==0) then
+           write (*,*) inicond
            write (*,*) '??? ERROR: Invalid initial condition'
         endif
-call abort
-endif
+        call abort
+     endif
 end select
 
   ! Ensure that initial conditions are divergence-free by performing a

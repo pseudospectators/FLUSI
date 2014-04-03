@@ -42,10 +42,13 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
-     if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
-        if (mpirank == 0) write(*,*) "Out of walltime!"
-        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-        continue_timestepping=.false.   
+ 
+     if(idobackup == 1) then
+        if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+           if (mpirank == 0) write(*,*) "Out of walltime!"
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+           continue_timestepping=.false.
+        endif
      endif
 
      dt0=dt1
@@ -99,8 +102,6 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         continue_timestepping=.false.   
      endif
 
-
-     
      !-------------------------------------------------
      ! Output of INTEGRALS after every tintegral time 
      ! units or itdrag time steps
@@ -122,7 +123,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         
      endif
 
-     if(iDoBackup == 1) then
+     if(idobackup == 1) then
         ! Backup if that's specified in the PARAMS.ini file
         if(truntimenext < (MPI_wtime()-time_total)/3600.d0) then
            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
@@ -162,6 +163,11 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      
      if(mpirank==0) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
   end do
+
+  ! Create a restart file after time-stepping is done.
+  if(idobackup == 1) then
+     call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+  endif
 
   if(mpirank==0) then
      write(*,'("Finished time stepping; did it=",i5," time steps")') it
