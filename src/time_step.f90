@@ -42,13 +42,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
-     if(wtimemax > 0) then
-        if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
-           if (mpirank == 0) write(*,*) "Out of walltime!"
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-           continue_timestepping=.false.   
-        endif
-        
+     if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+        if (mpirank == 0) write(*,*) "Out of walltime!"
+        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+        continue_timestepping=.false.   
      endif
 
      dt0=dt1
@@ -93,6 +90,16 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time=time + dt1
      it=it + 1
+
+     ! If we hit the wall-time limit (specified in the params file)
+     ! then save the restart data and stop the program.
+     if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+        if (mpirank == 0) write(*,*) "Out of walltime!"
+        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+        continue_timestepping=.false.   
+     endif
+
+
      
      !-------------------------------------------------
      ! Output of INTEGRALS after every tintegral time 
