@@ -61,7 +61,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
       angle_max = deg2rad(AngleBeam)  
       y    = angle_max * sin(2.d0*pi*frequ*time)
       yt   = angle_max * cos(2.d0*pi*frequ*time) * (2.d0*pi*frequ)
-      ytt  = -1.d0 * angle_max * sin(2.d0*pi*frequ*time) * (2.d0*pi*frequf)**2
+      ytt  = -1.d0 * angle_max * sin(2.d0*pi*frequ*time) * (2.d0*pi*frequ)**2
       
       !-- motion protocoll times startup conditioner
       alpha = k*y
