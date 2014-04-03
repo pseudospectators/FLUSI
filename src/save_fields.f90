@@ -321,7 +321,7 @@ end subroutine Write_XMF
 
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
-subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
+subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   use mpi
   use vars
   use fsi_vars
@@ -438,14 +438,11 @@ subroutine dump_Runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   endif
   endif
   
-  
-  
-  
   nbackup = 1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
 
   if(mpirank == 0) write(*,'(A)') "...DONE!"
-end subroutine dump_Runtime_backup
+end subroutine dump_runtime_backup
 
 
 ! This routine dumps a single field "field" as a dataset "dsetname" to

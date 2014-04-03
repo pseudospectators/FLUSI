@@ -37,7 +37,7 @@ module vars
   real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
   real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
   real(kind=pr),save :: time_sponge
-  
+
   ! The mask array.  TODO: move out of shave_vars?
   real(kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
   integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color ! mask color function
@@ -63,7 +63,9 @@ module vars
   ! compute drag force every itdrag time steps and compute unst corrections if
   ! you've told to do so.
   integer,save :: itdrag, unst_corrections
-  
+  real(kind=pr),save :: truntime, truntimenext ! Number of hours bet
+  real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
+
 
   ! Time-stepping parameters
   real(kind=pr),save :: tmax
@@ -207,11 +209,11 @@ module fsi_vars
     integer :: idynamics
     ! vector of unknowns at new time step
     real(kind=pr), dimension(1:4) :: var_new
-    ! vector of unknowns at current time step                                                                                                                
+    ! vector of unknowns at current time step
     real(kind=pr), dimension(1:4) :: var_this
-    ! rhs at current time step                                                                                                                
+    ! rhs at current time step
     real(kind=pr), dimension(1:4) :: rhs_this
-    ! rhs at previous time step                                                                                                                
+    ! rhs at previous time step
     real(kind=pr), dimension(1:4) :: rhs_old
   end type SolidDynType
   !-----------------------------------------------------------------------------

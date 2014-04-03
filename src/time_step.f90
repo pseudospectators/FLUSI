@@ -26,7 +26,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   it_start=it
   
   ! save initial conditions 
-  call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)    
+  call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
   
   ! initialize runtime control file
   if (mpirank == 0) call initialize_runtime_control_file()
@@ -42,6 +42,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
+     if(wtimemax > 0) then
+        if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+           if (mpirank == 0) write(*,*) "Out of walltime!"
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+           continue_timestepping=.false.   
+        endif
+        
+     endif
+
      dt0=dt1
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
@@ -104,9 +113,13 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! then used in Dump_Runtime_Backup.
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
         
+     endif
+
+     if(iDoBackup == 1) then
         ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup == 1) then
+        if(truntimenext < (MPI_wtime()-time_total)/3600.d0) then
            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+           truntimenext = truntimenext+truntime
         endif
      endif
      
@@ -114,7 +127,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      ! Output how much time remains
      !-----------------------------------------------
      if ((modulo(it,300)==0).or.(it==20)) then
-       call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
      endif
      
      !-----------------------------------------------
@@ -184,9 +197,10 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   integer,intent(inout) :: it,it_start
   real(kind=pr):: time_left
 
-  ! this is done every 300 time steps, but it may happen that this is too seldom
-  ! or too oftern. in future versions, maybe we try doing it once in an hour or
-  ! so. we also output a first estimate after 20 time steps
+  ! This is done every 300 time steps, but it may happen that this is
+  ! too seldom or too often. in future versions, maybe we try doing it
+  ! once in an hour or so. We also output a first estimate after 20
+  ! time steps.
   if(mpirank == 0) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))

@@ -159,6 +159,9 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
   call GetValue_Int(PARAMS,i,"Saving","iSaveXMF",iSaveXMF, 1) ! default is yes
   call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
+  call GetValue_Real(PARAMS,i,"Saving","truntime",truntime, 1.d0)
+  truntimenext=0d0
+  call GetValue_Real(PARAMS,i,"Saving","wtimemax",wtimemax, 0.d0)
   call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
   call GetValue_Int(PARAMS,i,"Saving","itdrag",itdrag,99999)
   
@@ -461,7 +464,7 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
   character (len=80), intent (inout) :: defaultvalue 
   integer actual_lines
   integer mpicode
-
+  
   !------------------
   ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
   !------------------  
@@ -469,10 +472,10 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
         params_string = value
-        ! its a bit dirty but it avoids filling the screen with "nothing" anytime we check
-        ! the runtime control file
+        ! its a bit dirty but it avoids filling the screen with
+        ! "nothing" anytime we check the runtime control file
         if (keyword.ne."runtime_control") then 
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+           write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
         endif
      else
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
