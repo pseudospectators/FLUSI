@@ -13,25 +13,26 @@
 subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
   implicit none
   type(solid), intent(in) :: beam
-  real (kind=pr), intent(out) :: alpha, alpha_t, alpha_tt 
-  real (kind=pr), intent(in) :: time
+  real(kind=pr), intent(out) :: alpha, alpha_t, alpha_tt 
+  real(kind=pr), intent(in) :: time
   ! LeadingEdge: x, y, vx, vy, ax, ay (Array)
-  real (kind=pr), dimension(1:6), intent(out) :: LeadingEdge
-  real(kind=pr)::f,angle_max, R
-
+  real(kind=pr), dimension(1:6), intent(out) :: LeadingEdge
+  real(kind=pr) :: f,angle_max, R
+  real(kind=pr) :: a,b,c,d,k,kt,ktt,y,yt,ytt
+  
+   LeadingEdge = 0.0
 
   select case (imposed_motion_leadingedge)
   case ("fixed_middle")
      !--------------------------------------------------------------------------
      ! fixed
      !--------------------------------------------------------------------------
-     LeadingEdge = 0.0
      alpha    = beam%AngleBeam*pi/180.0
      alpha_t  = 0.0
      alpha_tt = 0.0
      
   case ("swimmer") 
-      LeadingEdge = 0.0
+      ! swimmer including the leading edge cylinder
       f = frequ !-- normalizaton -> f is unity
       angle_max = deg2rad(AngleBeam)
       alpha    = angle_max * sin(2.d0*pi*f*time)
@@ -45,13 +46,28 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
                         R_cylinder*(alpha_t**2)*(-dsin(alpha))
                         
   case ("swimmer_simplified") 
-      LeadingEdge = 0.0
-      f = frequ !-- normalizaton -> f is unity
-      angle_max = deg2rad(AngleBeam)   
-      alpha    = angle_max * sin(2.d0*pi*f*time)
-      alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
-      alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
-  
+      ! simplified swimmer without the leading edge cylinder
+      ! startup conditioner is applied on the first period (attention assumes
+      ! T=1 period time)
+      if (time <= 1.0) then
+        a = -20.d0; b= 70.d0; c=-84.d0; d=35.d0;
+        k    = a*time**7 + b*time**6 + c*time**5 + d*time**4
+        kt  = 7.d0*a*time**6 + 6.d0*b*time**5 + 5.d0*c*time**4 + 4.d0*d*time**3
+        ktt = 42.d0*a*time**5 + 30.d0*b*time**4 + 20.d0*c*time**3 + 12.d0*d*time**2     
+      else
+        k = 1.d0; kt = 0.d0; ktt = 0.d0
+      endif     
+      !-- actual motion protocoll 
+      angle_max = deg2rad(AngleBeam)  
+      y    = angle_max * sin(2.d0*pi*frequ*time)
+      yt   = angle_max * cos(2.d0*pi*frequ*time) * (2.d0*pi*frequ)
+      ytt  = -1.d0 * angle_max * sin(2.d0*pi*frequ*time) * (2.d0*pi*frequf)**2
+      
+      !-- motion protocoll times startup conditioner
+      alpha = k*y
+      alpha_t = kt*y + yt*k
+      alpha_tt = ktt*y + ytt*k + 2.*kt*yt 
+
   case ("flapper")
      R=1.d0
      LeadingEdge = 0.0 ! note that both x,y and u,v are zero (v0_plate contains the velocity)
@@ -63,7 +79,6 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
      alpha_tt = 0.0
      
   case ("turek")
-     LeadingEdge = 0.0
      alpha    = 0.0
      alpha_t  = 0.0
      alpha_tt = 0.0    
@@ -141,17 +156,9 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       gamma_dt = 0.d0
       
   case ("swimmer_simplified") 
-      !-- beam is in the middle of the domain and bends in x-y direction
-      !-- z direction is height      
-      f = frequ !-- normalizaton -> f is unity
-      angle_max = deg2rad(AngleBeam)        
-      alpha    = angle_max * sin(2.d0*pi*f*time)
-      alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
-      alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
-      !-- note (/ x0,y0,z0 /) marks center of cylinder
       x0_plate = (/ x0,y0,z0 /)
       v0_plate = 0.d0
-      !-- no rotation of relative system in swimmer case
+
       psi = 0.d0
       beta = 0.d0
       gamma = 0.d0
