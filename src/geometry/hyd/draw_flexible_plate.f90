@@ -21,7 +21,6 @@ subroutine Draw_flexible_plate (time, beam)
   real(kind=pr), dimension(1:6) :: LeadingEdge
   integer :: ix,iy,iz,is
   
-  N_smooth = 3.d0  
   safety = 4.d0*N_smooth*max(dx,dy,dz)
     
   !-- get relative coordinate system

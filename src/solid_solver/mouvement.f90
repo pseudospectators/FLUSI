@@ -45,7 +45,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
       LeadingEdge(6) =  R_cylinder*alpha_tt*dcos(alpha) + &
                         R_cylinder*(alpha_t**2)*(-dsin(alpha))
                         
-  case ("swimmer_simplified") 
+  case ("swimmer_simplified","swimmer_simplified_2D") 
       ! simplified swimmer without the leading edge cylinder
       ! startup conditioner is applied on the first period (attention assumes
       ! T=1 period time)
@@ -165,6 +165,17 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       psi_dt = 0.d0
       beta_dt = 0.d0
       gamma_dt = 0.d0
+
+  case ("swimmer_simplified_2D") 
+      x0_plate = (/ 0.d0,y0,z0 /)
+      v0_plate = 0.d0
+
+      psi = deg2rad(+90.d0)
+      beta = 0.0
+      gamma = deg2rad(+90.d0)
+      psi_dt = 0.0
+      beta_dt = 0.d0
+      gamma_dt = 0.d0    
       
   case ("flapper")
       R = 1.0 ! you need to change that in the above routine as well
