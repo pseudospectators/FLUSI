@@ -34,18 +34,17 @@ ifeq ($(FC),f77)
 FC = mpif90
 endif
 
+
+
 # GNU compiler
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
 FFLAGS += -J$(OBJDIR) # specify directory for modules.
 FFLAGS += -Wall # warn for unused and uninitialzied variables 
-FFLAGS += -Wsurprising # warn if things might not behave as expected
+#FFLAGS += -Werror # warnings are errors
 FFLAGS += -pedantic 
-FFLAGS += -Wconversion
-FFLGAS += -Wunused-labels
 PPFLAG= -cpp #preprocessor flag
-
-# Debug flags for gfortran
+# Debug flags for gfortran:
 #FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
 
