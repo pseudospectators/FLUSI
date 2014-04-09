@@ -37,31 +37,32 @@ subroutine init_beams ( beams )
     allocate ( beams(i)%tau_old(0:ns-1) )
     allocate ( beams(i)%tau_new(0:ns-1) )    
     allocate ( beams(i)%beam_oldold(0:ns-1,1:6) )    
-    ! overwrite beam files if not retaking a backup
+  
+    !------------------------------------------------
+    !-- overwrite beam files if not retaking a backup
+    !------------------------------------------------
     if ((index(inicond,'backup::') == 0).and.(root)) then
       write (beamstr,'(i1)') i
-      open  (14, file='beam_data'//beamstr//'.t', status = 'replace')
-      close (14)
-      open  (14, file='mouvement'//beamstr//'.t', status = 'replace')
-      close (14)      
-      open  (14, file='IBES_iter.t', status='replace')
-      close (14)
+      call init_empty_file('beam_data'//beamstr//'.t')
+      call init_empty_file('mouvement'//beamstr//'.t')
+      call init_empty_file('IBES_iter.t')
+      call init_empty_file('beam_x'//beamstr//'.t')
+      call init_empty_file('beam_y'//beamstr//'.t')
+      call init_empty_file('beam_p'//beamstr//'.t')
     endif
-  enddo 
   
-  !---------------------------------------------
-  ! define adjustable parameters for each beam 
-  ! this is position and motion protocoll
-  !--------------------------------------------
-  beams(1)%x0 = 0.d0 ! always zero, translation and rotation is handled elsewhere
-  beams(1)%y0 = 0.d0 
-  beams(1)%AngleBeam = AngleBeam
-  beams(1)%phase = 0.d0  
-  
-  !---------------------------------------------
-  ! loop over beams and initialize them
-  !---------------------------------------------
-  do i = 1, nBeams
+    !---------------------------------------------
+    ! define adjustable parameters for each beam 
+    ! this is position and motion protocoll
+    !--------------------------------------------
+    beams(i)%x0 = 0.d0 ! always zero, translation and rotation is handled elsewhere
+    beams(i)%y0 = 0.d0 
+    beams(i)%AngleBeam = AngleBeam
+    beams(i)%phase = 0.d0  
+    
+    !--------------------------------------
+    !-- initialize beam
+    !--------------------------------------
     ! fetch leading edge position 
     call mouvement(0.d0, alpha, alpha_t, alpha_tt, LeadingEdge, beams(i) )
     ! initialize as zero

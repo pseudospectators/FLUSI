@@ -391,8 +391,9 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     !-----------------------------------------------------------
     ! EMERGENCY BRAKE
     !-----------------------------------------------------------
-    if (iter>1000) then
-      write(*,*) "!!! ERROR: IBES performed like 1000 iterations. this is not normal."
+    if ((iter>1000).and.(root)) then
+      
+      write(*,*) "!!! ERROR: IBES performed like 1000 iterations. this is not normal. time=", time
       stop
     endif
     
@@ -460,7 +461,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !-----------------------------------------------------------------------------
   !       emergency brake
   !-----------------------------------------------------------------------------
-  if (maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0 ) then
+  if ((maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0 ).and.(root)) then
     write (*,'(A)') "!!! IBES-Solver: I found maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0"
     write (*,'(A)') "    That indicates a possible instability."
     write (*,'("time=",es11.4)') time

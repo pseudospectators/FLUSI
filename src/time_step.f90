@@ -22,6 +22,14 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  
+  complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old
+  type(solid), dimension(1) :: beams_old
+  real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_iter0
+  real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa, ROC
+  logical :: iterate
+  
+  
   logical :: continue_timestepping
   type(solid), dimension(1) :: beams
   
@@ -40,8 +48,9 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! save initial conditions 
   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),&
                        work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-
-                       
+  !!!!!!!
+  call alloccomplexnd(uk_old)                       
+  !!!!!!
                        
   ! initialize runtime control file
   if (root) call initialize_runtime_control_file()
@@ -55,30 +64,87 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   
   if (root) write(*,*) "Start time-stepping...."
   
+  call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
+  call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+  if (root) call init_empty_file('iterations.t')
+  
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax).and.(it<=nt).and.(continue_timestepping))
      dt0=dt1
-     !-------------------------------------------------
-     ! If the mask is time-dependend,we create it here
-     !-------------------------------------------------
-     if(iMoving == 1 .and. iPenalization == 1) call create_mask(time, beams(1))
+     uk_old = uk
      
-     !-------------------------------------------------
-     ! advance fluid/B-field in time
-     !-------------------------------------------------
-     if(dry_run_without_fluid/="yes") then
-       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,&
-                          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),explin,it)
+     beams(1)%pressure_new = beams(1)%pressure_old
+     beams_old = beams
+          
+     inter = 0
+     iterate = .true.
+     deltap_new = 0.d0
+     deltap_old = 0.d0
+     upsilon_new = 0.d0
+     upsilon_old = 0.d0
+     
+     do while (iterate)
+     
+        ! create mask
+        call create_mask(time, beams(1))
+        ! advance fluid to n+1
+        uk=uk_old
+        call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,&
+                            work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),explin,inter)
+   
+        ! get forces at new time level
+        bpress_iter0 = beams(1)%pressure_new ! exit of the old iteration
+        call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+        call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
+        
+        ! relaxation
+        ! whats the diff betw new interp press and last iteration's step?
+        deltap_new = bpress_iter0 - beams(1)%pressure_new
+        if (inter==0) then
+          upsilon_new = 0.d0
+        else
+          bruch = (sum((deltap_old-deltap_new)*deltap_new))&
+                  / (sum((deltap_old-deltap_new)**2))
+          upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
+        endif
+        kappa = 1.d0 - upsilon_new
+        ! new iteration pressure is old one plus star
+        beams(1)%pressure_new = (1.d0-kappa)*bpress_iter0 + kappa*beams(1)%pressure_new
+          
+        
+        ! solid step
+        beams_old(1)%pressure_new = beams(1)%pressure_new
+        beams = beams_old ! advance from timelevel n
+        call SolidSolverWrapper( time, dt1, beams )
+        
+        ! convergence test
+        ROC = dsqrt( sum((beams(1)%pressure_new-bpress_iter0)**2)) / ns
+        if ((ROC<1.0e-5).or.(inter>100)) then
+          iterate = .false.
+        endif
+      
+        ! iterate
+        deltap_old = deltap_new
+        upsilon_old = upsilon_new
+        inter = inter + 1
+        
+        if (root) then
+          write(*,'("t=",es12.4," dt=",es12.4," inter=",i4," ROC=",es15.8," p_end=",es15.8," kappa=",es15.8)') &
+          time,dt1,inter,ROC,beams(1)%pressure_new(ns-1), kappa
+        endif
+     enddo
+     
+     if (root) then
+      open (15, file='iterations.t',status='unknown',position='append')
+      write(15,'(2(es15.8,1x),i3)') time, dt1, inter
+      close(15)
      endif
      
-     if (use_solid_model=="yes") then
-       call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
-       call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-       call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
-!      call get_surface_pressure_jump (time, beams(1), work)
-       call SolidSolverWrapper( time, dt1 , beams )      
-     endif
+     
+     ! end of iteration
+     if(root) write(*,*) "---"
      
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)

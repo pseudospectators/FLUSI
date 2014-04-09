@@ -135,6 +135,7 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Allocate memory:
   !-----------------------------------------------------------------------------
+  ! integrating factors (we have one in the FSI case and two in MHD)
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   ! velocity in Fourier space
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
@@ -307,11 +308,8 @@ subroutine initialize_time_series_files()
   close (14)
   
   ! this file contains, time, iteration#, time step and performance
-  open  (14,file='timestep.t',status='replace')
-  close (14)    
-  
-  open  (14,file='meanflow.t',status='replace')
-  close (14) 
+  call init_empty_file('timestep.t')
+  call init_empty_file('meanflow.t')
 end subroutine
 
 

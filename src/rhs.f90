@@ -58,6 +58,11 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   real(kind=pr) :: penalx,penaly,penalz
   integer, intent(in) :: it
   integer :: ix,iz,iy,mpicode, i
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  real(kind=pr), dimension(:,:,:,:), allocatable :: utmp  
+  call allocrealnd(utmp)
+  !!!!!!!!!!!!!!!!!!!!!!!!
+  
   
   ! performance measurement in global variables
   t0         = MPI_wtime()
@@ -71,12 +76,25 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   usz     = 0.d0  
   chi2    = 0.d0
 
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  if (it>0) then
+    utmp=u
+  endif
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  
   !-----------------------------------------------
   !-- Calculate velocity in physical space
   !-----------------------------------------------
   t1 = MPI_wtime()
   call ifft3 (u, uk)
   time_u = time_u + MPI_wtime() - t1
+  
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  if (it==0) then
+!     if(root) write(*,*) "ii"
+    utmp=u
+  endif
+  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
   !-----------------------------------------------
   !-- Compute vorticity
@@ -118,9 +136,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         usz = us(ix,iy,iz,3)
         
         ! actual penalization term
-        penalx = -chi*(ux-usx)
-        penaly = -chi*(uy-usy)
-        penalz = -chi*(uz-usz)
+        penalx = -chi*(utmp(ix,iy,iz,1)-usx)
+        penaly = -chi*(utmp(ix,iy,iz,2)-usy)
+        penalz = -chi*(utmp(ix,iy,iz,3)-usz)
         
         ! we overwrite the vorticity with the NL terms in phys space
         ! note this is indeed -(vor x u) (negative sign)
@@ -155,7 +173,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
     call alloccomplex( workc )
     call compute_pressure( workc ,nlk )
     !-- ifft is in a module, so this argument style is fine:
-    call ifft( ink=workc, outx=work )  
+    call ifft( ink=workc, outx=work )
     deallocate( workc )
   endif
   !-- procet RHS on solenoidal manifold
@@ -168,6 +186,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   time_nlk_fft=time_nlk_fft + time_fft2 + time_ifft2
   ! how much time was spend on cal_nlk
   time_nlk=time_nlk + MPI_wtime() - t0
+  
+  deallocate(utmp)
 end subroutine cal_nlk_fsi
 
 

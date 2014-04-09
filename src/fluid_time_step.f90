@@ -1,6 +1,31 @@
 ! Wrapper for different time marching methods
 ! FIXME: add documentation: which arguments are used for what?  What
 ! are their dimensions?
+!-------------------------------------------------------------------------------
+! INPUT
+! time, dt0, dt1: time, dt0=t^n - t^n-1, dt1= t^n+1-t^n
+! u             work array (input value is overwritten)
+! uk            velocity in F-space at time level n
+! vort          work array (input value is overwritten)
+! expvis        integrating factor(s). if dt did not change, the input value is 
+!               used to advance in time. otherwise, the exponential term is 
+!               recomputed with the new time step
+! work          work array 
+! nlk           right hand side work array. holds the RHS at time level (n-1)
+!               which we need for AB2. The second part of it is the work array 
+!               used to store the new RHS at (t)
+!-------------------------------------------------------------------------------
+! OUTPUT
+! u             velocity in phys space at time level (n) (th OLD level)
+! uk            velocity in fourier space at the new time level (n+1)
+! nlk           contains the RHS at time (n) and (n-1). in the next time step,
+!               one can overwrite (n-1) and (n) becomes (n-1)
+! work          pressure in phys space, if the flag use_solid_model==yes, and 
+!               the penalized vorticity when using sponge==yes. Otherwise, not
+!               used.
+! expvis        the integrating factor(s) which are updated if the dt changes
+! vort          the vorticity at time level (n) in phys space
+!-------------------------------------------------------------------------------
 subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   use mpi
   use p3dfft_wrapper
@@ -10,8 +35,7 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   real (kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: n0,n1,it
   complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  complex (kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
   real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -26,7 +50,8 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   case("RK2")
      call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   case("AB2")
-     if(it == 0) then
+!      if(it == 0) then
+     if(time == 0.d0) then
         call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
      else
         call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
@@ -182,7 +207,9 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
      do i=1,3
         l=i+3*(j-1)
         uk(:,:,:,l)=(uk(:,:,:,l) + dt1*nlk (:,:,:,l,n0))*expvis(:,:,:,j)
+        if (it==0) then
         nlk(:,:,:,l,n0)=nlk (:,:,:,l,n0)*expvis(:,:,:,j)
+        endif
      enddo
   enddo
 
@@ -225,19 +252,20 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
 
   ! Multiply be integrating factor (always!) 
   do j=1,nf
-     do i=1,3
-        a=i+3*(j-1)
-        uk(:,:,:,a)=(&
-             uk(:,:,:,a) +b10*nlk(:,:,:,a,n0) +b11*nlk(:,:,:,a,n1)&
-             )*expvis(:,:,:,j)
-        nlk(:,:,:,a,n0)=nlk(:,:,:,a,n0)*expvis(:,:,:,j)
-     enddo
+  do i=1,3
+    a=i+3*(j-1)
+    uk(:,:,:,a)=(uk(:,:,:,a)+b10*nlk(:,:,:,a,n0)+b11*nlk(:,:,:,a,n1))*expvis(:,:,:,j)
+    if (it==0) then
+    nlk(:,:,:,a,n0)=nlk(:,:,:,a,n0)*expvis(:,:,:,j)
+    endif
+  enddo
   enddo
 end subroutine adamsbashforth
 
 
+!-------------------------------------------------------------------------------
 ! Set the time step based on the CFL condition and penalization
-! stability contidion.
+! stability contidion. If dt_fixed is set, 
 subroutine adjust_dt(dt1,u)
   use vars
   use mpi
@@ -248,9 +276,9 @@ subroutine adjust_dt(dt1,u)
   real (kind=pr), intent (out) :: dt1
   real(kind=pr) :: umax
 
-  if (dt_fixed>0.0) then
-     dt1=dt_fixed
-  else
+!  if (dt_fixed>0.0) then
+!     dt1=dt_fixed
+!  else
 
      ! Determine the maximum velocity/magnetic field value, divided by
      ! grid size to determine the CFL condition.
@@ -280,17 +308,17 @@ subroutine adjust_dt(dt1,u)
         
         ! Don't jump past save-points: if the time-step is larger than
         ! the time interval between outputs, decrease the time-step.
-        if(tsave > 0.d0 .and. dt1 > tsave) then
-           dt1=tsave
-        endif
-        if(tintegral > 0.d0 .and. dt1 > tintegral) then
-           dt1=tintegral
-        endif
+!         if(tsave > 0.d0 .and. dt1 > tsave) then
+!            dt1=tsave
+!         endif
+!         if(tintegral > 0.d0 .and. dt1 > tintegral) then
+!            dt1=tintegral
+!         endif
      endif
-
+if (dt_fixed>0.d0) dt1=min(dt1,dt_fixed)
      ! Broadcast time step to all processes
      call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
-  endif
+!  endif
   
 end subroutine adjust_dt
 

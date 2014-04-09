@@ -47,8 +47,8 @@ FFLAGS += -J$(OBJDIR) # specify directory for modules.
 PPFLAG= -cpp #preprocessor flag
 
 # Debug flags for gfortran
-FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb -fbacktrace -fwhole-file -fcheck=all
-FFLAGS += -Waliasing -Wimplicit-interface -Wunused-parameter -Wcharacter-truncation -Wline-truncation
+#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb -fbacktrace -fwhole-file -fcheck=all
+#FFLAGS += -Waliasing -Wimplicit-interface -Wunused-parameter -Wcharacter-truncation -Wline-truncation
 endif
 
 # Intel compiler
