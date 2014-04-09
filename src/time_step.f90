@@ -26,7 +26,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old
   type(solid), dimension(1) :: beams_old
   real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_iter0
-  real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa, ROC
+  real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa, ROC1,ROC2, norm
   logical :: iterate
   
   
@@ -103,10 +103,12 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! whats the diff betw new interp press and last iteration's step?
         deltap_new = bpress_iter0 - beams(1)%pressure_new
         if (inter==0) then
-          upsilon_new = 0.d0
+          upsilon_new = 0.0d0
+          ! von scheven normalizes with the explicit scheme, which is what we do now
+          norm = sqrt(sum((beams(1)%pressure_new-beams(1)%pressure_old)**2))    
         else
-          bruch = (sum((deltap_old-deltap_new)*deltap_new))&
-                  / (sum((deltap_old-deltap_new)**2))
+          bruch = (sum((deltap_old-deltap_new)*deltap_new)) &
+                / (sum((deltap_old-deltap_new)**2))
           upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
         endif
         kappa = 1.d0 - upsilon_new
@@ -120,8 +122,9 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         call SolidSolverWrapper( time, dt1, beams )
         
         ! convergence test
-        ROC = dsqrt( sum((beams(1)%pressure_new-bpress_iter0)**2)) / ns
-        if ((ROC<1.0e-5).or.(inter>100)) then
+        ROC1 = dsqrt( sum((beams(1)%pressure_new-bpress_iter0)**2)) / ns
+        ROC2 = dsqrt( sum((beams(1)%pressure_new-bpress_iter0)**2)) / norm 
+        if (((ROC2<1.0e-3).or.(inter>100)).or.(it<2)) then
           iterate = .false.
         endif
       
@@ -131,14 +134,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         inter = inter + 1
         
         if (root) then
-          write(*,'("t=",es12.4," dt=",es12.4," inter=",i4," ROC=",es15.8," p_end=",es15.8," kappa=",es15.8)') &
-          time,dt1,inter,ROC,beams(1)%pressure_new(ns-1), kappa
+          write(*,'("t=",es12.4," dt=",es12.4," inter=",i3," ROC=",es15.8,&
+                    " ROC2=",es15.8," p_end=",es15.8," kappa=",es15.8)') &
+          time,dt1,inter,ROC1,ROC2,beams(1)%pressure_new(ns-1), kappa
         endif
      enddo
      
      if (root) then
       open (15, file='iterations.t',status='unknown',position='append')
-      write(15,'(2(es15.8,1x),i3)') time, dt1, inter
+      write(15,'(2(es15.8,1x),i3,2(es15.8,1x))') time, dt1, inter, ROC1, ROC2
       close(15)
      endif
      
