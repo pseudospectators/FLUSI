@@ -56,10 +56,10 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
   case("AB2")
      if(it == 0) then
         call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,0)
      else
         call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,0)
      endif
   case("Euler")
      call euler(time,it,dt0,dt1,u,uk,nlk,vort, &
@@ -157,10 +157,10 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
     uk = uk_old
     if(it == 0) then
       call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,inter)
     else
       call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,inter)
     endif
     
     !---------------------------------------------------------------------------
@@ -284,10 +284,10 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
   !---------------------------------------------------------------------------
   if(it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-         work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+         work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,0)
   else
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-         work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+         work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,0)
   endif
   
   !---------------------------------------------------------------------------
@@ -342,10 +342,10 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,
   !---------------------------------------------------------------------------
   if(it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,0)
   else
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,0)
   endif
   
   !---------------------------------------------------------------------------
@@ -469,14 +469,14 @@ end subroutine euler
 
 ! Note this is not an optimized Euler. It only does things we need for AB2.
 ! FIXME: add documentation: which arguments are used for what?
-subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
+subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis,iter)
   use mpi
   use p3dfft_wrapper
   use vars
   implicit none
 
   real(kind=pr),intent (inout) :: time,dt1,dt0
-  integer,intent (in) :: n0,it
+  integer,intent (in) :: n0,it,iter
   complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
@@ -500,8 +500,10 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
      do i=1,3
         l=i+3*(j-1)
         uk(:,:,:,l)=(uk(:,:,:,l) + dt1*nlk (:,:,:,l,n0))*expvis(:,:,:,j)
-        if (it==0) then
-        nlk(:,:,:,l,n0)=nlk (:,:,:,l,n0)*expvis(:,:,:,j)
+        ! for iterative FSI schemes, this step has to be done only once. all other
+        ! schemes must call with iter=0 or else this is NOT called
+        if (iter == 0) then
+          nlk(:,:,:,l,n0)=nlk (:,:,:,l,n0)*expvis(:,:,:,j)
         endif
      enddo
   enddo
@@ -511,14 +513,14 @@ end subroutine euler_startup
 
 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
+subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,iter)
   use mpi
   use vars
   use p3dfft_wrapper
   implicit none
 
   real(kind=pr),intent (inout) :: time,dt1,dt0
-  integer,intent (in) :: n0,n1,it
+  integer,intent (in) :: n0,n1,it,iter
   complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
@@ -548,8 +550,10 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   do i=1,3
     a=i+3*(j-1)
     uk(:,:,:,a)=(uk(:,:,:,a)+b10*nlk(:,:,:,a,n0)+b11*nlk(:,:,:,a,n1))*expvis(:,:,:,j)
-    if (it==0) then
-    nlk(:,:,:,a,n0)=nlk(:,:,:,a,n0)*expvis(:,:,:,j)
+    ! for iterative FSI schemes, this step has to be done only once. all other
+    ! schemes must call with iter=0 or else this is NOT called
+    if (iter == 0) then
+      nlk(:,:,:,a,n0)=nlk(:,:,:,a,n0)*expvis(:,:,:,j)
     endif
   enddo
   enddo
