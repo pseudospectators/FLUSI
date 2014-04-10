@@ -391,7 +391,10 @@ subroutine FSI_RK2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis,beams)
   type(solid),dimension(1),intent(inout) :: beams
   type(solid),dimension(1):: beams_old
   integer :: i
-
+  ! Compute integrating factor, only done if necessary (i.e. time step
+  ! has changed)
+  if (dt1 .ne. dt0) call cal_vis(dt1,expvis)
+  
   call create_mask(time, beams(1))
   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
@@ -403,10 +406,6 @@ subroutine FSI_RK2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis,beams)
   do i=1,3
     nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,1)
   enddo
-
-  ! Compute integrating factor, only done if necessary (i.e. time step
-  ! has changed)
-  if (dt1 .ne. dt0) call cal_vis(dt1,expvis)
 
   !-- Do the actual euler step. note nlk is already multiplied by vis
   do i=1,3
@@ -452,6 +451,12 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: i,j,l
 
+  ! Compute integrating factor, only done if necessary (i.e. time step
+  ! has changed)
+  if (dt1 .ne. dt0) then
+     call cal_vis(dt1,expvis)
+  endif
+  
   ! Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work)
   call adjust_dt(dt1,u)
@@ -463,12 +468,6 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
         nlk(:,:,:,l,0)=nlk(:,:,:,l,0)*expvis(:,:,:,j)
      enddo
   enddo
-
-  ! Compute integrating factor, only done if necessary (i.e. time step
-  ! has changed)
-  if (dt1 .ne. dt0) then
-     call cal_vis(dt1,expvis)
-  endif
 
   !-- Do the actual euler step. note nlk is already multiplied by vis
   do j=1,nf
