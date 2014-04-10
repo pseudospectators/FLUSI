@@ -73,6 +73,9 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
   case("FSI_AB2_semiimplicit")
       call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
             expvis,beams)
+  case("FSI_RK2")
+      call FSI_RK2(time,it,dt0,dt1,u,uk,nlk,vort,&
+          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,beams)
   case default
      if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
      stop
@@ -365,6 +368,71 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,
 end subroutine FSI_AB2_semiimplicit
 
 
+
+!-------------------------------------------------------------------------------
+! FIXME: add documentation: which arguments are used for what?
+!-------------------------------------------------------------------------------
+subroutine FSI_RK2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis,beams)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  use solid_model
+  implicit none
+
+  real(kind=pr),intent (inout) :: time,dt1,dt0
+  integer,intent (in) :: it
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! note the work array is extendible with ghost points
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  type(solid),dimension(1),intent(inout) :: beams
+  type(solid),dimension(1):: beams_old
+  integer :: i
+
+  call create_mask(time, beams(1))
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
+  call adjust_dt(dt1,u)
+
+  beams_old = beams
+  
+  ! multiply the RHS with the viscosity
+  do i=1,3
+    nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,1)
+  enddo
+
+  ! Compute integrating factor, only done if necessary (i.e. time step
+  ! has changed)
+  if (dt1 .ne. dt0) call cal_vis(dt1,expvis)
+
+  !-- Do the actual euler step. note nlk is already multiplied by vis
+  do i=1,3
+    uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,1) + dt1*nlk(:,:,:,i,0))
+  enddo
+
+  ! RHS using the euler velocity
+  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))) 
+  ! the pressure is now at the intermediate time step
+  call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
+  call SolidSolverWrapper( time, dt1, beams )
+  call create_mask(time, beams(1))
+  ! RHS with the modified beam
+  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))) 
+  ! advance to new time level
+  do i=1,nd
+     uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
+  enddo
+  call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  beams = beams_old
+  call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
+  call SolidSolverWrapper( time, dt1, beams )
+end subroutine FSI_RK2
+
+
+
 !-------------------------------------------------------------------------------
 ! FIXME: add documentation: which arguments are used for what?
 !-------------------------------------------------------------------------------
@@ -412,7 +480,6 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
 
   ! RHS using the euler velocity
   call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work ) 
-  call adjust_dt(dt1,u)
 
   ! do the actual time step. note the minus sign!!
   ! in the original formulation, it reads 
