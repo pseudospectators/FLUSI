@@ -310,6 +310,7 @@ subroutine initialize_time_series_files()
   ! this file contains, time, iteration#, time step and performance
   call init_empty_file('timestep.t')
   call init_empty_file('meanflow.t')
+  call init_empty_file('iterations.t')
 end subroutine
 
 

@@ -22,14 +22,6 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  
-  complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old
-  type(solid), dimension(1) :: beams_old
-  real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_iter0
-  real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa, ROC1,ROC2, norm
-  logical :: iterate
-  
-  
   logical :: continue_timestepping
   type(solid), dimension(1) :: beams
   
@@ -47,10 +39,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
 
   ! save initial conditions 
   call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),&
-                       work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  !!!!!!!
-  call alloccomplexnd(uk_old)                       
-  !!!!!!
+       work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
                        
   ! initialize runtime control file
   if (root) call initialize_runtime_control_file()
@@ -58,97 +47,26 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup)
   if (root) write(*,*) "Initial output of integral quantities...."
-  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),&
-                       work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0), &
+       work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   
   
   if (root) write(*,*) "Start time-stepping...."
-  
-  call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
-  call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-
-  if (root) call init_empty_file('iterations.t')
   
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax).and.(it<=nt).and.(continue_timestepping))
      dt0=dt1
-     uk_old = uk
-     
-     beams(1)%pressure_new = beams(1)%pressure_old
-     beams_old = beams
-          
-     inter = 0
-     iterate = .true.
-     deltap_new = 0.d0
-     deltap_old = 0.d0
-     upsilon_new = 0.d0
-     upsilon_old = 0.d0
-     
-     do while (iterate)
-     
-        ! create mask
-        call create_mask(time, beams(1))
-        ! advance fluid to n+1
-        uk=uk_old
-        call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,&
-                            work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),explin,inter)
-   
-        ! get forces at new time level
-        bpress_iter0 = beams(1)%pressure_new ! exit of the old iteration
-        call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-        call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
-        
-        ! relaxation
-        ! whats the diff betw new interp press and last iteration's step?
-        deltap_new = bpress_iter0 - beams(1)%pressure_new
-        if (inter==0) then
-          upsilon_new = 0.0d0
-          ! von scheven normalizes with the explicit scheme, which is what we do now
-          norm = sqrt(sum((beams(1)%pressure_new-beams(1)%pressure_old)**2))    
-        else
-          bruch = (sum((deltap_old-deltap_new)*deltap_new)) &
-                / (sum((deltap_old-deltap_new)**2))
-          upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
-        endif
-        kappa = 1.d0 - upsilon_new
-        ! new iteration pressure is old one plus star
-        beams(1)%pressure_new = (1.d0-kappa)*bpress_iter0 + kappa*beams(1)%pressure_new
-          
-        
-        ! solid step
-        beams_old(1)%pressure_new = beams(1)%pressure_new
-        beams = beams_old ! advance from timelevel n
-        call SolidSolverWrapper( time, dt1, beams )
-        
-        ! convergence test
-        ROC1 = dsqrt( sum((beams(1)%pressure_new-bpress_iter0)**2)) / ns
-        ROC2 = dsqrt( sum((beams(1)%pressure_new-bpress_iter0)**2)) / norm 
-        if (((ROC2<1.0e-3).or.(inter>100)).or.(it<2)) then
-          iterate = .false.
-        endif
-      
-        ! iterate
-        deltap_old = deltap_new
-        upsilon_old = upsilon_new
-        inter = inter + 1
-        
-        if (root) then
-          write(*,'("t=",es12.4," dt=",es12.4," inter=",i3," ROC=",es15.8,&
-                    " ROC2=",es15.8," p_end=",es15.8," kappa=",es15.8)') &
-          time,dt1,inter,ROC1,ROC2,beams(1)%pressure_new(ns-1), kappa
-        endif
-     enddo
-     
-     if (root) then
-      open (15, file='iterations.t',status='unknown',position='append')
-      write(15,'(2(es15.8,1x),i3,2(es15.8,1x))') time, dt1, inter, ROC1, ROC2
-      close(15)
-     endif
-     
-     
-     ! end of iteration
-     if(root) write(*,*) "---"
+
+     !-------------------------------------------------
+     ! If the mask is time-dependend,we create it here
+     !-------------------------------------------------
+     if((iMoving==1).and.(iPenalization==1)) call create_mask(time, beams(1))
+
+     !-------------------------------------------------
+     ! advance fluid/B-field in time
+     !-------------------------------------------------
+     call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,beams)
      
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
@@ -189,7 +107,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),&
-                            work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+            work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
        if ((use_solid_model=='yes').and.(root)) then
           call SaveBeamData( time, beams )
        endif
@@ -205,11 +123,11 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),&
-                             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
         ! Backup if that's specified in the PARAMS.ini file
         if(iDoBackup==1) then
            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-                                    work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+                work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
         endif
         !-- backup solid solver, if using it
         if((iDoBackup==1).and.(use_solid_model=="yes").and.(method=="fsi")) then
@@ -241,7 +159,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         case ("save_stop")
           if (root) write (*,*) "runtime control: Safely stopping..."
           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-                                   work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+               work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
           !-- backup solid solver, if using it
           if((use_solid_model=="yes").and.(method=="fsi")) then
             call dump_solid_backup( time, beams, nbackup )

@@ -26,40 +26,47 @@
 ! expvis        the integrating factor(s) which are updated if the dt changes
 ! vort          the vorticity at time level (n) in phys space
 !-------------------------------------------------------------------------------
-subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
+subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
   use mpi
   use p3dfft_wrapper
   use vars
+  use solid_model
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
+  real(kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: n0,n1,it
-  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real (kind=pr) :: t1
-
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! note the work array is extendible with ghost points
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  type(solid),dimension(1),intent(inout)::beams
+  real(kind=pr) :: t1
   t1=MPI_wtime()  
-  ! Note that in the new version, dealiasing is done in cal_vis.
 
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
   case("RK2")
-     call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+     call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,&
+          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
   case("AB2")
-!      if(it == 0) then
-     if(time == 0.d0) then
-        call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
+     if(it == 0) then
+        call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
      else
-        call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
-     end if
+        call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+     endif
   case("Euler")
-     call euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+     call euler(time,it,dt0,dt1,u,uk,nlk,vort, &
+          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+  case("AB2_FSI_iteration")
+     call AB2_FSI_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+          expvis,beams)
   case default
-     if (mpirank == 0) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
+     if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
      stop
   end select
 
@@ -73,22 +80,184 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
 end subroutine FluidTimestep
 
 
+
+
+
+!-------------------------------------------------------------------------------
+! FSI scheme based on AB2/EE1 for the fluid, iterates coupling conditions.
+! adapted from the 2D codes (V12), based on the PhD thesis of von Scheven
+!-------------------------------------------------------------------------------
+subroutine AB2_FSI_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  use solid_model
+  implicit none
+
+  real(kind=pr),intent(inout) :: time,dt1,dt0
+  integer,intent (in) :: n0,n1,it
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! note the work array is extendible with ghost points
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  type(solid),dimension(1),intent(inout) :: beams
+  
+  !-- iteration specific variables 
+  complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
+  type(solid), dimension(1) :: beams_old
+  real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_old_iterating
+  real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa, ROC1,ROC2, norm
+  real(kind=pr):: omega_old, omega_new
+  integer :: inter
+  logical :: iterate
+  
+  ! useful error messages
+  if (use_solid_model/="yes") stop("using AB2_FSI_iteration without solid model?")
+  
+  ! allocate extra space for velocity in Fourier space
+  call alloccomplexnd(uk_old)    
+  ! copy velocity at time level (n)
+  uk_old = uk
+  
+  ! initialize iteration variables
+  inter = 0
+  iterate = .true.
+  deltap_new = 0.d0
+  deltap_old = 0.d0
+  upsilon_new = 0.d0
+  upsilon_old = 0.d0
+  beams_old = beams
+  omega_old = 0.5d0
+  omega_new = 0.5d0
+  
+  ! predictor for the pressure     
+  beams(1)%pressure_new = beams(1)%pressure_old
+  
+  ! begin main iteration loop
+  do while (iterate)     
+    !---------------------------------------------------------------------------
+    ! create mask
+    !---------------------------------------------------------------------------
+    call create_mask(time, beams(1))
+    
+    !---------------------------------------------------------------------------
+    ! advance fluid to from (n) to (n+1)
+    !---------------------------------------------------------------------------
+    uk = uk_old
+    if(it == 0) then
+      call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+    else
+      call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+    endif
+    
+    !---------------------------------------------------------------------------
+    ! get forces at new time level
+    !---------------------------------------------------------------------------
+    bpress_old_iterating = beams(1)%pressure_new ! exit of the old iteration
+    call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+    call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
+    
+    !---------------------------------------------------------------------------
+    ! relaxation
+    !---------------------------------------------------------------------------
+    ! whats the diff betw new interp press and last iteration's step?
+    deltap_new = bpress_old_iterating - beams(1)%pressure_new
+    !------------
+    if (inter==0) then
+      upsilon_new = 0.0d0
+      ! von scheven normalizes with the explicit scheme, which is what we do now
+      norm = sqrt(sum((beams(1)%pressure_new-beams(1)%pressure_old)**2))    
+    else
+      bruch = (sum((deltap_old-deltap_new)*deltap_new)) &
+            / (sum((deltap_old-deltap_new)**2))
+      upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
+    endif
+    kappa = 1.d0 - upsilon_new
+    !------------
+!         if (inter==0) then
+!           omega_new=0.5d0
+!           norm = sqrt(sum((beams(1)%pressure_new-beams(1)%pressure_old)**2))
+!         else
+!           bruch = (sum((deltap_new-deltap_old)*deltap_old)) &
+!                 / (sum((deltap_old-deltap_new)**2))
+!           omega_new = - omega_old * bruch
+!         endif
+!         kappa=omega_new
+    
+    ! new iteration pressure is old one plus star
+    beams(1)%pressure_new = (1.d0-kappa)*bpress_old_iterating &
+                          + kappa*beams(1)%pressure_new
+                          
+    !---------------------------------------------------------------------------  
+    ! advance solid model from (n) to (n+1)
+    !---------------------------------------------------------------------------
+    beams_old(1)%pressure_new = beams(1)%pressure_new
+    beams = beams_old ! advance from timelevel n
+    call SolidSolverWrapper( time, dt1, beams )
+    
+    !---------------------------------------------------------------------------
+    ! convergence test
+    !---------------------------------------------------------------------------
+    ROC1 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / ns
+    ROC2 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / norm 
+    if (((ROC2<1.0e-2).or.(inter>100)).or.(it<2)) then
+      iterate = .false.
+    endif
+  
+    ! iterate
+    deltap_old = deltap_new
+    upsilon_old = upsilon_new
+    inter = inter + 1
+    omega_old=omega_new
+    
+    if (root) then
+      write(*,'("t=",es12.4," dt=",es12.4," inter=",i3," ROC=",es15.8,&
+                " ROC2=",es15.8," p_end=",es15.8," kappa=",es15.8)') &
+      time,dt1,inter,ROC1,ROC2,beams(1)%pressure_new(ns-1), kappa
+    endif
+  enddo
+  
+  ! dump iteration information to disk
+  if (root) then
+    open (15, file='iterations.t',status='unknown',position='append')
+    write(15,'(2(es15.8,1x),i3,2(es15.8,1x))') time, dt1, inter, ROC1, ROC2
+    close(15)
+  endif
+  
+  ! mark end of time step
+  if(root) write(*,*) "---"
+  
+  ! free work array
+  deallocate (uk_old)
+end subroutine AB2_FSI_iteration
+
+
+
+
+
+!-------------------------------------------------------------------------------
 ! FIXME: add documentation: which arguments are used for what?
+!-------------------------------------------------------------------------------
 subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use mpi
   use vars
   use p3dfft_wrapper
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
+  real(kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: it
-  complex (kind=pr),intent (inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent (inout)::&
+  complex(kind=pr),intent (inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent (inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: i,j,l
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
@@ -144,15 +313,15 @@ subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use p3dfft_wrapper
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
+  real(kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: it
-  complex (kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout):: &
+  complex(kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout):: &
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout) :: work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: i,j,l
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
@@ -182,15 +351,15 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
   use vars
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
+  real(kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: n0,it
-  complex (kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout)::&
+  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: i,j,l
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
@@ -224,16 +393,16 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   use p3dfft_wrapper
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
+  real(kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: n0,n1,it
-  complex (kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout)::&
+  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real (kind=pr) :: b10,b11
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr) :: b10,b11
   integer :: i,j,a
 
   ! Calculate fourier coeffs of nonlinear rhs and forcing
@@ -271,9 +440,9 @@ subroutine adjust_dt(dt1,u)
   use mpi
   implicit none
 
-  real (kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   integer :: mpicode
-  real (kind=pr), intent (out) :: dt1
+  real(kind=pr), intent (out) :: dt1
   real(kind=pr) :: umax
 
 !  if (dt_fixed>0.0) then
@@ -343,8 +512,8 @@ subroutine set_mean_flow(uk,time)
   use fsi_vars
   implicit none
   
-  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real (kind=pr),intent (inout) :: time
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent (inout) :: time
 
   if(iMeanFlow == 1) then
      ! Force zero mode for mean flow
@@ -366,7 +535,7 @@ subroutine maxabs(umax,ub)
   use mpi
   implicit none
 
-  real (kind=pr), intent(in) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr), intent(in) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(out) :: umax
   real(kind=pr),dimension(nf) :: uloc
   integer i,j
@@ -399,7 +568,7 @@ subroutine maxabs1(umax,ub)
   use mpi
   implicit none
 
-  real (kind=pr), intent(in) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr), intent(in) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(out) :: umax
   real(kind=pr),dimension(nd) :: u_loc,u_loc_red
   integer :: i,j  
