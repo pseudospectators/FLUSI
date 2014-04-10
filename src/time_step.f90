@@ -61,7 +61,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
      !-------------------------------------------------
-     if((iMoving==1).and.(iPenalization==1)) call create_mask(time, beams(1))
+     if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
+       ! for FSI schemes, the mask is created in fluidtimestep
+       call create_mask(time, beams(1))
+     endif
 
      !-------------------------------------------------
      ! advance fluid/B-field in time

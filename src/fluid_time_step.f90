@@ -1,6 +1,5 @@
-! Wrapper for different time marching methods
-! FIXME: add documentation: which arguments are used for what?  What
-! are their dimensions?
+!-------------------------------------------------------------------------------
+!          MAIN WRAPPER FOR DIFFERENT TIME MARCHING METHODS
 !-------------------------------------------------------------------------------
 ! INPUT
 ! time, dt0, dt1: time, dt0=t^n - t^n-1, dt1= t^n+1-t^n
@@ -14,6 +13,8 @@
 ! nlk           right hand side work array. holds the RHS at time level (n-1)
 !               which we need for AB2. The second part of it is the work array 
 !               used to store the new RHS at (t)
+! beams         the solid model datatype, which is advanced in the FSI time
+!               steppers.
 !-------------------------------------------------------------------------------
 ! OUTPUT
 ! u             velocity in phys space at time level (n) (th OLD level)
@@ -25,6 +26,7 @@
 !               used.
 ! expvis        the integrating factor(s) which are updated if the dt changes
 ! vort          the vorticity at time level (n) in phys space
+! beams         the solid model at the new time level
 !-------------------------------------------------------------------------------
 subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
   use mpi
@@ -62,9 +64,15 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
   case("Euler")
      call euler(time,it,dt0,dt1,u,uk,nlk,vort, &
           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
-  case("AB2_FSI_iteration")
-     call AB2_FSI_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+  case("FSI_AB2_iteration")
+     call FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
           expvis,beams)
+  case("FSI_AB2_staggered")
+      call FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+            expvis,beams)
+  case("FSI_AB2_semiimplicit")
+      call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+            expvis,beams)
   case default
      if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
      stop
@@ -87,7 +95,7 @@ end subroutine FluidTimestep
 ! FSI scheme based on AB2/EE1 for the fluid, iterates coupling conditions.
 ! adapted from the 2D codes (V12), based on the PhD thesis of von Scheven
 !-------------------------------------------------------------------------------
-subroutine AB2_FSI_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
+subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
   use mpi
   use vars
   use p3dfft_wrapper
@@ -110,12 +118,12 @@ subroutine AB2_FSI_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
   type(solid), dimension(1) :: beams_old
   real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_old_iterating
   real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa, ROC1,ROC2, norm
-  real(kind=pr):: omega_old, omega_new
+  real(kind=pr)::omega_old, omega_new
   integer :: inter
   logical :: iterate
   
   ! useful error messages
-  if (use_solid_model/="yes") stop("using AB2_FSI_iteration without solid model?")
+  if (use_solid_model/="yes") stop("using FSI_AB2_iteration without solid model?")
   
   ! allocate extra space for velocity in Fourier space
   call alloccomplexnd(uk_old)    
@@ -234,10 +242,127 @@ subroutine AB2_FSI_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
   
   ! free work array
   deallocate (uk_old)
-end subroutine AB2_FSI_iteration
+end subroutine FSI_AB2_iteration
 
 
 
+!-------------------------------------------------------------------------------
+! explicit FSi scheme, cheapest and simplest possible. Advances first the fluid
+! then the solid, and computes the solid with the pressure from the old time 
+! level (n), avoiding computing it at the new level, which saves about 50%
+! with respect to FSI_AB2_semiimplicit. The latter may however be more accurat
+! or stable.
+!-------------------------------------------------------------------------------
+subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  use solid_model
+  implicit none
+
+  real(kind=pr),intent(inout) :: time,dt1,dt0
+  integer,intent (in) :: n0,n1,it
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! note the work array is extendible with ghost points
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  type(solid),dimension(1),intent(inout) :: beams
+  
+  ! useful error messages
+  if (use_solid_model/="yes") stop("using FSI_AB2_staggered without solid model?")
+  
+  !---------------------------------------------------------------------------
+  ! create mask
+  !---------------------------------------------------------------------------
+  call create_mask(time, beams(1))
+  
+  !---------------------------------------------------------------------------
+  ! advance fluid to from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  if(it == 0) then
+    call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+         work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+  else
+    call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+         work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+  endif
+  
+  !---------------------------------------------------------------------------
+  ! get forces at new time level (save to both beam%pressure_new and 
+  ! beam%pressure_old)
+  !---------------------------------------------------------------------------
+  call get_surface_pressure_jump (time, beams(1), work)
+  
+  !---------------------------------------------------------------------------  
+  ! advance solid model from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  call SolidSolverWrapper( time, dt1, beams )
+    
+end subroutine FSI_AB2_staggered
+
+
+!-------------------------------------------------------------------------------
+! semi implicit explicit staggered scheme for FSI simulations, uses AB2 for the
+! fluid (or euler on startup) and evaluates the pressure at both old and new 
+! time level. since computing the pressure is almost as expensive as doing a full
+! fluid time step, this scheme is twice as expensive as its explicit counterpart
+! FSI_AB2_staggered.
+!-------------------------------------------------------------------------------
+subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  use solid_model
+  implicit none
+
+  real(kind=pr),intent(inout) :: time,dt1,dt0
+  integer,intent (in) :: n0,n1,it
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! note the work array is extendible with ghost points
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  type(solid),dimension(1),intent(inout) :: beams
+  
+  ! useful error messages
+  if (use_solid_model/="yes") stop("using FSI_AB2_semiimplicit without solid model?")
+  
+  !---------------------------------------------------------------------------
+  ! create mask
+  !---------------------------------------------------------------------------
+  call create_mask(time, beams(1))
+  
+  !---------------------------------------------------------------------------
+  ! advance fluid to from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  if(it == 0) then
+    call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+  else
+    call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+          work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis)
+  endif
+  
+  !---------------------------------------------------------------------------
+  ! get forces at old/new time level
+  !---------------------------------------------------------------------------
+  ! TODO: do we need that? not for BDF I think
+  call get_surface_pressure_jump (time, beams(1), work, timelevel="old")
+  ! TODO: the following still has to be optimized
+  call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
+  
+  !---------------------------------------------------------------------------  
+  ! advance solid model from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  call SolidSolverWrapper( time, dt1, beams )
+    
+end subroutine FSI_AB2_semiimplicit
 
 
 !-------------------------------------------------------------------------------
@@ -251,12 +376,11 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
 
   real(kind=pr),intent (inout) :: time,dt1,dt0
   integer,intent (in) :: it
-  complex(kind=pr),intent (inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent (inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: i,j,l
 
@@ -445,49 +569,45 @@ subroutine adjust_dt(dt1,u)
   real(kind=pr), intent (out) :: dt1
   real(kind=pr) :: umax
 
-!  if (dt_fixed>0.0) then
-!     dt1=dt_fixed
-!  else
+  ! Determine the maximum velocity/magnetic field value, divided by
+  ! grid size to determine the CFL condition.
+  ! call maxabs1(umax,u) ! Max in each direction
+  call maxabs(umax,u) ! Max magnitude
 
-     ! Determine the maximum velocity/magnetic field value, divided by
-     ! grid size to determine the CFL condition.
-     ! call maxabs1(umax,u) ! Max in each direction
-     call maxabs(umax,u) ! Max magnitude
+  !--Adjust time step at 0th process
+  if(mpirank == 0) then
+    if(.NOT.(umax.eq.umax)) then
+        write(*,*) "Evolved field contains a NAN: aborting run."
+        stop
+    endif
+  
+    ! Impose the CFL condition.
+    if (umax >= 1.0d-8) then
+        dt1=cfl/umax
+    else
+        dt1=1.0d-2
+    endif
 
-     !--Adjust time step at 0th process
-     if(mpirank == 0) then
-        if(.NOT.(umax.eq.umax)) then
-           write(*,*) "Evolved field contains a NAN: aborting run."
-           stop
-        endif
-     
-     ! Impose the CFL condition.
-        if (umax >= 1.0d-8) then
-           dt1=cfl/umax
-        else
-           dt1=1.0d-2
-        endif
+    ! Round the time-step to one digit to reduce calls to cal_vis
+    call truncate(dt1,dt1) 
 
-        ! Round the time-step to one digit to reduce calls to cal_vis
-        call truncate(dt1,dt1) 
-
-        ! Impose penalty stability condition: dt cannot be less than 1/eps/
-        if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
-        ! time step is smaller than eps 
-        
-        ! Don't jump past save-points: if the time-step is larger than
-        ! the time interval between outputs, decrease the time-step.
-!         if(tsave > 0.d0 .and. dt1 > tsave) then
-!            dt1=tsave
-!         endif
-!         if(tintegral > 0.d0 .and. dt1 > tintegral) then
-!            dt1=tintegral
-!         endif
-     endif
-if (dt_fixed>0.d0) dt1=min(dt1,dt_fixed)
-     ! Broadcast time step to all processes
-     call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
-!  endif
+    ! Impose penalty stability condition: dt cannot be less than 1/eps/
+    if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
+    ! time step is smaller than eps 
+    
+    ! Don't jump past save-points: if the time-step is larger than
+    ! the time interval between outputs, decrease the time-step.
+    if(tsave > 0.d0 .and. dt1 > tsave) dt1=tsave
+    if(tintegral > 0.d0 .and. dt1 > tintegral) dt1=tintegral
+    
+    ! fixed time step
+    if(dt_fixed>0.d0) dt1=min(dt1,dt_fixed)
+  endif
+  
+  
+  
+  ! Broadcast time step to all processes
+  call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
   
 end subroutine adjust_dt
 

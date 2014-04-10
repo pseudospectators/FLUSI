@@ -114,15 +114,15 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         vorz = vort(ix,iy,iz,3)
         
         ! local variables for penalization
-        chi  = mask(ix,iy,iz)          
+        chi = mask(ix,iy,iz)          
         usx = us(ix,iy,iz,1)
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
         
         ! actual penalization term
-        penalx = -chi*(u(ix,iy,iz,1)-usx)
-        penaly = -chi*(u(ix,iy,iz,2)-usy)
-        penalz = -chi*(u(ix,iy,iz,3)-usz)
+        penalx = -chi*(ux-usx)
+        penaly = -chi*(uy-usy)
+        penalz = -chi*(uz-usz)
         
         ! we overwrite the vorticity with the NL terms in phys space
         ! note this is indeed -(vor x u) (negative sign)

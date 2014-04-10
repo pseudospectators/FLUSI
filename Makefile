@@ -39,15 +39,15 @@ endif
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
 FFLAGS += -J$(OBJDIR) # specify directory for modules.
-# FFLAGS += -Wall # warn for unused and uninitialzied variables 
-# FFLAGS += -Wsurprising # warn if things might not behave as expected
+ FFLAGS += -Wall # warn for unused and uninitialzied variables 
+ FFLAGS += -Wsurprising # warn if things might not behave as expected
 #xFFLAGS += -fdefault-double-8 -fdefault-real-8 -fpack-derived
-# FFLAGS += -Wconversion
-# FFLGAS += -Wunused-labels -pedantic 
+ FFLAGS += -Wconversion
+ FFLGAS += -Wunused-labels -pedantic 
 PPFLAG= -cpp #preprocessor flag
 
 # Debug flags for gfortran
-#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb -fbacktrace -fwhole-file -fcheck=all
+FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb -fbacktrace -fwhole-file -fcheck=all
 #FFLAGS += -Waliasing -Wimplicit-interface -Wunused-parameter -Wcharacter-truncation -Wline-truncation
 endif
 
