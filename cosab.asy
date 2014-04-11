@@ -1,19 +1,7 @@
+// compute A \codt B /(||A|| ||B|| + eps)
 size(10cm,10cm);
 
 real paletteheight=6cm;
-
-// Take 2D cuts from images datasets in binary format.
-
-// To transform flusi .h5 files to binary, use hdf2binary (which just
-// wraps h5dump).
-
-// Specify the contour lines to be drawn:
-// asy -f pdf cut2d.asy -u "con=new real[] {-2,2};"
-
-// Specify the legend name via command-line arguments:
-// asy -f pdf cut2d.asy -u "legend=\"$v$\""
-// (currently deprecated).
-
 
 import graph;
 import palette;
@@ -24,14 +12,40 @@ int nx=getint("nx");
 int ny=getint("ny");
 int nz=getint("nz");
 
-string legend="";
+string filenameAx=getstring("Ax");
+string filenameAy=getstring("Ay");
+string filenameAz=getstring("Az");
+string filenameBx=getstring("Bx");
+string filenameBy=getstring("By");
+string filenameBz=getstring("Bz");
+
 real[] con={};
-string filename="";
+
 usersetting();
 
-string name;
-if(filename == "") name=getstring("filename");
-else name=filename;
+real[][][] Ax=readfile(nx,ny,nz,filenameAx);
+real[][][] Ay=readfile(nx,ny,nz,filenameAy);
+real[][][] Az=readfile(nx,ny,nz,filenameAz);
+real[][][] Bx=readfile(nx,ny,nz,filenameBx);
+real[][][] By=readfile(nx,ny,nz,filenameBy);
+real[][][] Bz=readfile(nx,ny,nz,filenameBz);
+
+real[][][] f=new real[nx][ny][nz];
+for(int i=0; i < nx; ++i) {
+  for(int j=0; j < ny; ++j) {
+    for(int k=0; k < nz; ++k) {
+      real ax=Ax[i][j][k];
+      real ay=Ay[i][j][k];
+      real az=Az[i][j][k];
+      real bx=Bx[i][j][k];
+      real by=By[i][j][k];
+      real bz=Bz[i][j][k];
+      f[i][j][k]=(ax*bx+ay*by+az*bz)
+	/sqrt((ax*ax+ay*ay+az*az)*(bx*bx+by*by+bz*bz) +1e-5);
+    }
+  }
+}
+
 // Select direction of cross-section
 string cutdir=getstring("cut direction: x,y,z");
 int idir;
@@ -45,31 +59,16 @@ if(cutdir != "x" && cutdir != "y" && cutdir != "z") {
 }
 int c=getint(cutdir+"-height");
 
-real[][][] f=readfile(nx,ny,nz,name);
-
-// Optionally set the field to zero if the mask is not set to zero.
-bool usemask=getstring("use mask") =="y";
-if(usemask) maskit(f,nx,ny,nz);
+// Take a 2D cut of the file
+real[][] f2=cut2(f,nx,ny,nz,c,idir);
 
 real[][][] mask;
 real[][] mask2;
-
 bool boundsmask=getstring("use mask for bounds") =="y";
 if(boundsmask) {
   string maskname=getstring("mask filename");
   mask=readfile(nx,ny,nz,maskname);
   mask2=cut2(mask,nx,ny,nz,c,idir);
-}
-  
-// Take a 2D cut of the file
-real[][] f2=cut2(f,nx,ny,nz,c,idir);
-
-bool submean=getstring("subtract mean value") =="y";
-if(submean) {
-  real meanval=getreal("mean value");
-  for(int i=0; i < f2.length; ++i)
-    for(int j=0; j < f2[i].length; ++j) 
-      f2[i][j] -= meanval;
 }
 
 pair a=(0,0);
@@ -80,24 +79,27 @@ real f2max=-realMax;
 real f2min=realMax;
 for(int i=0; i < f2.length; ++i) {
   for(int j=0; j < f2[i].length; ++j) {
-    if(!boundsmask ||mask2[i][i]==0.0) {
+    //    if(!boundsmask ||mask2[i][i]==0.0) {
       if(f2[i][j] > f2max) f2max=f2[i][j];
       if(f2[i][j] < f2min) f2min=f2[i][j];
-    }
+      //    }
   }
 }
+
 write("range: "+string(f2min)+" "+string(f2max));
 real f2absmax=max(abs(f2max),abs(f2min));
 
-// Choose a palette:
-//pen[] Palette=BWRainbow();
 pen[] Palette=paraview_cooltowarm;
+
+bool drawshape=false;
+
+if(drawshape) {
 
 // Draw image and specify colour bar:
 bounds range;
 bool symbar=getstring("symmetric colour bar (y/n)") =="y";
 if(symbar)
-  range=image(f2,Range(-f2absmax,f2absmax),a,b,Palette);
+  range=image(f2,Range(-1,1),a,b,Palette);
 else
   range=image(f2,Full,a,b,Palette);  // Full colour bar
 
@@ -113,6 +115,7 @@ if(con.length > 0) {
   draw(Labels,contour(f2,a,b,con));
 }
 
+
 // Draw shape and remove wall region from image:
 string shape=getstring("boundary shape");
 if(shape == "circle") clipellipse(b.x,b.y,currentpicture);
@@ -125,4 +128,40 @@ palette(bar,barlegend,range,(0,0),(0.5cm,paletteheight),Right,Palette,
         PaletteTicks(ptick=linewidth(0.5*linewidth())));
 add(bar.fit(),point(E),30E);
 
-//label(legend+", "+"$i_"+cutdir+"$"+"="+string(c),point(N),N);
+} else {
+  import graph;
+  import stats;
+  size(400,200,IgnoreAspect);
+
+  
+  bool boundsmask=getstring("use mask for bounds") =="y";
+  real[][][] mask;
+  real[][] mask2;
+  
+  if(boundsmask) {
+    string maskname=getstring("mask filename");
+    mask=readfile(nx,ny,nz,maskname);
+    mask2=cut2(mask,nx,ny,nz,c,idir);
+  }
+  
+  
+  real[] a={};
+  for(int i=0; i < nx; ++i) {
+    for(int j=0; j < ny; ++j) {
+      for(int k=0; k < nz; ++k) {
+	//if(!boundsmask || mask[i][j][k]==0.0) {
+	if(mask[i][j][k]==0.0) {
+	  a.push(f[i][j][k]);
+	}
+      }
+    }
+  }
+  // Calculate "optimal" number of bins a la Shimazaki and Shinomoto.
+  int N=10*bins(a);
+  write("using "+string(N)+" bins");
+  histogram(a,min(a),max(a),N,normalize=true,lightblue,low=0,bars=false);
+  
+  xaxis("$A\cdot{}B/AB$",BottomTop,LeftTicks);
+  yaxis("count",LeftRight,RightTicks(trailingzero));
+  
+}
