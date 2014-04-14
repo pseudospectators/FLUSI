@@ -16,7 +16,7 @@ scale(Linear,Log);
 // asy ekvt.asy -u "tmax=30"
 
 // Use usersetting() to get optional 
-string runlegs;
+string runlegs="";
 real tmax=realMax;
 real[] startstops;
 usersetting();
@@ -24,6 +24,7 @@ usersetting();
 //startstops= new real[] {60,130};
 
 bool myleg=((runlegs == "") ? false: true);
+myleg=false;
 string[] legends=set_legends(runlegs);
 
 string yvar=getstring("y variable: Ekin,Ekinx,Ekiny,Ekinz");
@@ -138,6 +139,6 @@ draw_another(myleg,legends,n);
 yaxis(yvar,LeftRight,LeftTicks);
 xaxis("time",BottomTop,LeftTicks);
   
-attach(legend(),point(plain.E),20plain.E);
+//attach(legend(),point(plain.E),20plain.E);
 
 

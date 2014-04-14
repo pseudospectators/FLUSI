@@ -41,7 +41,7 @@ for(int i=0; i < nx; ++i) {
       real by=By[i][j][k];
       real bz=Bz[i][j][k];
       f[i][j][k]=(ax*bx+ay*by+az*bz)
-	/sqrt((ax*ax+ay*ay+az*az)*(bx*bx+by*by+bz*bz) +1e-5);
+	/sqrt((ax*ax+ay*ay+az*az)*(bx*bx+by*by+bz*bz) +1e-10);
     }
   }
 }
@@ -157,11 +157,13 @@ add(bar.fit(),point(E),30E);
     }
   }
   // Calculate "optimal" number of bins a la Shimazaki and Shinomoto.
-  int N=10*bins(a);
+  //int N=10*bins(a);
+  int N=100;
   write("using "+string(N)+" bins");
   histogram(a,min(a),max(a),N,normalize=true,lightblue,low=0,bars=false);
+  //histogram(a,min(a),max(a),N,normalize=true,low=0,bars=false);
   
   xaxis("$A\cdot{}B/AB$",BottomTop,LeftTicks);
   yaxis("count",LeftRight,RightTicks(trailingzero));
-  
+  //xequals(-1/sqrt(2));
 }

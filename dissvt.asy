@@ -62,8 +62,8 @@ while(flag) {
     // get time:
     real[] t=a[0];
     pen p=Pentype(n);
-    // if(n == 0) p+=longdashed;
-    // if(n == 2) p=darkgreen+solid;
+    if(n == 0) p+=longdashed;
+    if(n == 2) p=darkgreen+solid;
     
     string legend=myleg ? legends[n] : texify(run);
     if(ypos > 0) {
