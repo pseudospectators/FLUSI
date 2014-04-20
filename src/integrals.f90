@@ -36,7 +36,7 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr), intent(in) :: time
-  real(kind=pr) :: kx, ky, kz, locmax, maxdiv,maxdiv_fluid, maxdiv_loc
+  real(kind=pr) :: kx, ky, kz, locmax, maxdiv,maxdiv_fluid, maxdiv_loc, volume
   complex(kind=pr) :: imag ! imaginary unit
   integer :: ix,iy,iz,mpicode
 
@@ -89,7 +89,19 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
      write (14,'(4(es12.5,1x))') time, dreal(uk(0,0,0,1:3))
      close (14)
   endif
-
+  
+  !-----------------------------------------------------------
+  ! mask volume
+  !-----------------------------------------------------------
+  mask = mask*eps
+  call compute_mask_volume(volume)
+  mask = mask/eps
+  if(mpirank == 0) then
+    open(14,file='mask_volume.t',status='unknown',position='append')
+    write (14,'(2(es15.8,1x))') time,volume
+    close(14)
+  endif
+  
 end subroutine write_integrals_fsi
 
 
