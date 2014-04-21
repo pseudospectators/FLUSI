@@ -69,8 +69,13 @@ subroutine Draw_flexible_plate (time, beam)
             !-- c is the distance between two markers, thus ds
             c = dsqrt( (beam%x(is)-beam%x(is+1))**2 + (beam%y(is)-beam%y(is+1))**2 )
             !-- angles in the triangle (Law of cosines)
-            alpha = acos ( (b*b+c*c-a*a)/(2.d0*b*c) )
-            beta  = acos ( (a*a+c*c-b*b)/(2.d0*a*c) )
+            tmp  = (b*b+c*c-a*a)/(2.d0*b*c)
+            tmp2 = (a*a+c*c-b*b)/(2.d0*a*c)            
+            alpha = acos ( tmp  )
+            beta  = acos ( tmp2 )
+            ! catch exceptions
+            if ((tmp<-1.d0).or.(tmp>1.d0)) alpha=0.d0
+            if ((tmp2<-1.d0).or.(tmp2>1.d0)) beta=0.d0
             
             !-- height of the triangle: this is what we were looking for!
             h = dsin(alpha)*b

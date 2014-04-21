@@ -76,20 +76,24 @@ subroutine smoothstep(f,x,t,h)
       !-------------------------------------------------
       ! h - delta (gradient thickness)
       ! t - thickness (radius)
-      GradientERF = abs( ( exp(-(2.0*1.0)**2)  - 1.0 )/sqrt(pi) )
+      GradientERF = dabs( ( dexp(-(2.d0*1.d0)**2)  - 1.d0 )/dsqrt(pi) )
       delta = h*GradientERF
-      f = 0.5*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
+      f = 0.5d0*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
   case ("cos")
       !-------------------------------------------------
       ! cos shaped smoothing (compact in phys.space)
       !-------------------------------------------------
       if (x<=t-h) then
-        f = 1.0
+        f = 1.d0
       elseif (((t-h)<x).and.(x<(t+h))) then
-        f = 0.5*(1.+cos((x-t+h)*pi/(2.0*h)) )
+        f = 0.5d0*(1.d0+dcos((x-t+h)*pi/(2.d0*h)) )
       else
-        f = 0.0
+        f = 0.d0
       endif
+  case default
+      !-------------------------------------------------
+      write(*,*) "Smoothing parameter not rightly set", iSmoothing
+      stop
   end select
   
 end subroutine smoothstep
