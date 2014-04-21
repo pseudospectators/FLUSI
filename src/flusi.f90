@@ -233,19 +233,19 @@ subroutine show_timings(t2)
   write(*,'("Time Stepping contributions:")')
   write(*,'("Fluid      : ",es12.4," (",f5.1,"%)")') time_fluid, 100.0*time_fluid/t2
   write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.0*time_mask/t2
-  write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.0*time_save/t2
-  write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_solid, 100.0*time_solid/t2
-  write(*,'("surf forces: ",es12.4," (",f5.1,"%)")') time_surf, 100.0*time_surf/t2
+  write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.0*time_save/t2  
   write(*,'("drag forces: ",es12.4," (",f5.1,"%)")') time_drag, 100.0*time_drag/t2
   write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.0*time_bckp/t2
-  tmp = t2 - (time_fluid+time_mask+time_save+time_bckp+time_solid+time_surf+time_drag)
+  tmp = t2 - (time_fluid+time_mask+time_save+time_bckp+time_drag)
   write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/t2
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "The time spend for the fluid decomposes into:"
-  write(*,'("cal_nlk: ",es12.4," (",f5.1,"%)")') time_nlk, 100.0*time_nlk/time_fluid
-  write(*,'("cal_vis: ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
+  write(*,'("cal_nlk    : ",es12.4," (",f5.1,"%)")') time_nlk, 100.0*time_nlk/time_fluid
+  write(*,'("cal_vis    : ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
+  write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_solid, 100.0*time_solid/time_fluid
+  write(*,'("surf forces: ",es12.4," (",f5.1,"%)")') time_surf, 100.0*time_surf/time_fluid
   tmp = time_fluid - time_nlk - time_vis
-  write(*,'("explin:  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
+  write(*,'("misc       :  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "solid solver decomposes into:"
   write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_LAPACK, &

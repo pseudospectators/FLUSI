@@ -178,7 +178,6 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
     !---------------------------------------------------------------------------
     ! whats the diff betw new interp press and last iteration's step?
     deltap_new = bpress_old_iterating - beams(1)%pressure_new
-    !------------
     if (inter==0) then
       upsilon_new = 0.0d0
       ! von scheven normalizes with the explicit scheme, which is what we do now
@@ -189,17 +188,6 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
       upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
     endif
     kappa = 1.d0 - upsilon_new
-    !------------
-!         if (inter==0) then
-!           omega_new=0.5d0
-!           norm = sqrt(sum((beams(1)%pressure_new-beams(1)%pressure_old)**2))
-!         else
-!           bruch = (sum((deltap_new-deltap_old)*deltap_old)) &
-!                 / (sum((deltap_old-deltap_new)**2))
-!           omega_new = - omega_old * bruch
-!         endif
-!         kappa=omega_new
-    
     ! new iteration pressure is old one plus star
     beams(1)%pressure_new = (1.d0-kappa)*bpress_old_iterating &
                           + kappa*beams(1)%pressure_new
@@ -216,7 +204,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
     !---------------------------------------------------------------------------
     ROC1 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / ns
     ROC2 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / norm 
-    if (((ROC2<1.0e-2).or.(inter>100)).or.(it<2)) then
+    if (((ROC2<1.0e-3).or.(inter==100)).or.(it<2)) then
       iterate = .false.
     endif
   
@@ -425,8 +413,9 @@ subroutine FSI_RK2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis,beams)
      uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
   enddo
   call pressure_given_uk(uk,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  beams = beams_old
   call get_surface_pressure_jump (time, beams(1), work, timelevel="new")
+  beams_old(1)%pressure_new=beams(1)%pressure_new
+  beams = beams_old
   call SolidSolverWrapper( time, dt1, beams )
 end subroutine FSI_RK2
 
