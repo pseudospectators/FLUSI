@@ -321,7 +321,7 @@ subroutine get_params_solid(PARAMS,i)
     !-- beam resolution
     call GetValue_Int(PARAMS,i,"SolidModel","ns",ns, 32)
     !-- interpolation method
-    call GetValue_String(PARAMS,i,"SolidModel","interp",interp,"linear")
+    call GetValue_String(PARAMS,i,"SolidModel","interp",interp,"delta")
     !-- density / stiffness / gravity
     call GetValue_Real(PARAMS,i,"SolidModel","mue",mue,1.0d0)
     call GetValue_Real(PARAMS,i,"SolidModel","eta",eta,1.0d0)

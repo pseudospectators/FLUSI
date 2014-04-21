@@ -311,6 +311,7 @@ subroutine initialize_time_series_files()
   call init_empty_file('timestep.t')
   call init_empty_file('meanflow.t')
   call init_empty_file('iterations.t')
+  call init_empty_file('mask_volume.t')
 end subroutine
 
 
