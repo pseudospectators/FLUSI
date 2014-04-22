@@ -12,7 +12,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! runtime_backup1,2 - no backup
   integer :: it_start
   real(kind=pr),intent(inout) :: time,dt0,dt1 
-  real(kind=pr) :: t1,t2,t3
+  real(kind=pr) :: t1,t2,t3,t4
   character(len=strlen)  :: command ! for runtime control
   character(len=strlen),intent(in)  :: params_file ! for runtime control  
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -56,6 +56,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax).and.(it<=nt).and.(continue_timestepping))
+     t4=MPI_wtime()
      dt0=dt1
 
      !-------------------------------------------------
@@ -173,7 +174,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         end select
      endif 
      
-     if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
+     if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1,t4)
   end do
 
   if(root) then
@@ -185,24 +186,25 @@ end subroutine time_step
 !-------------------------------------------------------------------------------
 ! dump information about performance, time, time step and iteration
 ! number to disk. this helps estimating how many time steps will be 
-! required when passing to higher resolution.
+! required when passing to higher resolution. This routine is called after every
+! time step
 !-------------------------------------------------------------------------------
-subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
+subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1,t3)
   use vars
   implicit none
 
-  real(kind=pr),intent(inout) :: time,t2,t1,dt1
+  real(kind=pr),intent(inout) :: time,t2,t1,dt1,t3  
   integer,intent(inout) :: it,it_start
   
-  if (root) then
-  ! t2 is time [sec] per time step
+  ! t2 is time [sec] per time step, averaged
   t2 = (MPI_wtime() - t1) / dble(it-it_start)
+  ! t3 is the time per time step, not averaged (on input, t3 is start point of 
+  ! time step
+  t3 = MPI_wtime() - t3
   
   open  (14,file='timestep.t',status='unknown',position='append')
-  write (14,'(e12.5,A,i7.7,A,es12.5,A,es12.5)') time,tab,it,tab,dt1,tab,t2
+  write (14,'(i7.7,1x,es12.4,1x,3(es15.8,1x))') it,time,dt1,t2,t3
   close (14)
-  endif
- 
 end subroutine save_time_stepping_info
 
 
