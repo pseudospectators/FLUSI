@@ -54,23 +54,17 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
-  real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz,chi2
-  real(kind=pr) :: penalx,penaly,penalz
+  real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   integer, intent(in) :: it
-  integer :: ix,iz,iy,mpicode, i  
+  integer :: ix,iz,iy  
   
   ! performance measurement in global variables
   t0         = MPI_wtime()
   time_fft2  = 0.d0 ! time_fft2 is the time spend on ffts during cal_nlk only
   time_ifft2 = 0.d0 ! time_ifft2 is the time spend on iffts during cal_nlk only
-  penalx     = 0.d0
-  penaly     = 0.d0
-  penalz     = 0.d0  
   usx     = 0.d0
   usy     = 0.d0
   usz     = 0.d0  
-  chi2    = 0.d0
-
   
   !-----------------------------------------------
   !-- Calculate velocity in physical space
@@ -78,7 +72,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   t1 = MPI_wtime()
   call ifft3 (u, uk)
   time_u = time_u + MPI_wtime() - t1
-
   
   !-----------------------------------------------
   !-- Compute vorticity
@@ -95,7 +88,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-- vorticity sponge term
   !-----------------------------------------------
   t1 = MPI_wtime()
-  call vorticity_sponge( work, vort )  
+  if (iVorticitySponge == "yes") then
+    call vorticity_sponge( work, vort )  
+  endif
   time_sponge = time_sponge + MPI_wtime() - t1
     
   !-----------------------------------------------
@@ -119,16 +114,11 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
         
-        ! actual penalization term
-        penalx = -chi*(ux-usx)
-        penaly = -chi*(uy-usy)
-        penalz = -chi*(uz-usz)
-        
         ! we overwrite the vorticity with the NL terms in phys space
         ! note this is indeed -(vor x u) (negative sign)
-        vort(ix,iy,iz,1) = uy*vorz - uz*vory + penalx
-        vort(ix,iy,iz,2) = uz*vorx - ux*vorz + penaly
-        vort(ix,iy,iz,3) = ux*vory - uy*vorx + penalz
+        vort(ix,iy,iz,1) = uy*vorz - uz*vory - chi*(ux-usx)
+        vort(ix,iy,iz,2) = uz*vorx - ux*vorz - chi*(uy-usy)
+        vort(ix,iy,iz,3) = ux*vory - uy*vorx - chi*(uz-usz)
       enddo
     enddo
   enddo

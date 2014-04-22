@@ -232,11 +232,17 @@ subroutine show_timings(t2)
   write(*,'(A)') '--------------------------------------'
   write(*,'("Time Stepping contributions:")')
   write(*,'("Fluid      : ",es12.4," (",f5.1,"%)")') time_fluid, 100.0*time_fluid/t2
+  if (use_solid_model/="yes") then ! when doing FSI, this is a part of fluid time step
   write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.0*time_mask/t2
+  endif
   write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.0*time_save/t2  
   write(*,'("drag forces: ",es12.4," (",f5.1,"%)")') time_drag, 100.0*time_drag/t2
   write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.0*time_bckp/t2
+  if (use_solid_model/="yes") then
   tmp = t2 - (time_fluid+time_mask+time_save+time_bckp+time_drag)
+  else
+  tmp = t2 - (time_fluid+time_save+time_bckp+time_drag)
+  endif
   write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/t2
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "The time spend for the fluid decomposes into:"
@@ -244,12 +250,15 @@ subroutine show_timings(t2)
   write(*,'("cal_vis    : ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
   write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_solid, 100.0*time_solid/time_fluid
   write(*,'("surf forces: ",es12.4," (",f5.1,"%)")') time_surf, 100.0*time_surf/time_fluid
-  tmp = time_fluid - time_nlk - time_vis
-  write(*,'("misc       :  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
+  tmp = time_fluid - time_nlk - time_vis - time_solid - time_surf
+  if (use_solid_model=="yes") then
+  write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.0*time_mask/time_fluid
+  tmp = tmp - time_mask
+  endif  
+  write(*,'("misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "solid solver decomposes into:"
-  write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_LAPACK, &
-        100.0*time_LAPACK/time_solid
+  write(*,'("Lapack: ",es12.4," (",f5.1,"%)")') time_LAPACK,100.0*time_LAPACK/time_solid
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "cal_nlk decomposes into:"
   write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk
