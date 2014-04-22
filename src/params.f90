@@ -152,7 +152,7 @@ subroutine get_params_common(PARAMS,i)
 
 
   ! Saving section
-  call GetValue_Int(PARAMS,i,"Saving","idobackup",iDoBackup, 1)
+  call GetValue_Int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
   call GetValue_Int(PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 
   call GetValue_Int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
   call GetValue_Int(PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 1)  
