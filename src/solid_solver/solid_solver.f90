@@ -1422,7 +1422,7 @@ subroutine Check_Vector_NAN(f, msg)
   integer :: a, i
   a = size(f)
   do i=1,a
-    if (isnan(f(i))) then
+    if (.not.(f(i).eq.f(i))) then
      write (*,*) "??? SOLID SOLVER: Found NaN in vector at", i
      write (*,*) msg
      stop
@@ -1440,7 +1440,7 @@ subroutine Check_Vector_NAN_try_correct(f, msg)
   integer :: a, i
   a = size(f)
   do i=1,a
-    if (isnan(f(i))) then
+    if (.not.(f(i).eq.f(i))) then
      write (*,*) "??? SOLID SOLVER: Found NaN in vector at", i
      write (*,*) msg
      write (*,*) "I will try to correct this and proceed, with fingers crossed!"
