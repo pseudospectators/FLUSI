@@ -39,6 +39,15 @@ program FLUSI
       call get_command_argument(2,infile)
       call get_params(infile)
       call OnlySolidSimulation()
+      
+  elseif ( infile == "--convertfsibckp") then
+      method="fsi" ! We are doing fluid-structure interactions
+      nf=1 ! We are evolving one field.
+      nd=3*nf ! The one field has three components.
+      allocate(lin(1)) ! Set up the linear term
+      call get_command_argument(2,infile)
+      call get_params(infile)
+      call convert_solid_bckp_ascii()
   else
       if (mpirank==0) write(*,*) "nothing to do..."      
   endif
