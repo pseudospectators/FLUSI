@@ -20,7 +20,7 @@
 ! TO DO:
 !       merge with vorticity2velocity in init_fields_fsi
 ! ------------------------------------------------------------------------------
-subroutine vorticity_sponge( work, vort )
+subroutine vorticity_sponge( vort, work )
   use mpi
   use p3dfft_wrapper
   use fsi_vars  
@@ -29,8 +29,8 @@ subroutine vorticity_sponge( work, vort )
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
   integer :: i, ix, iy, iz
   
-  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   
   ! loop over components
   do i=1,3  
@@ -115,17 +115,21 @@ subroutine penalize_vort ( vort_penalized, vort )
         do iz = ra(3), rb(3) 
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
-          if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif
-          
-          if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif     
-          
-          if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif
+            !------------------------
+            if (nx>4) then ! skip this direction for 2D runs...
+            if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif
+            endif
+            !------------------------
+            if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif    
+            !------------------------
+            if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif
+            !------------------------
           endif
         enddo
       enddo

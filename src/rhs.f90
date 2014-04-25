@@ -81,7 +81,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   call curl (nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
               uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
   ! transform it to physical space
-  call ifft3 (vort, nlk)  
+  call ifft3 ( outx=vort, ink=nlk )  
   time_vor = time_vor + MPI_wtime() - t1  
   
   !-----------------------------------------------
@@ -89,7 +89,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-----------------------------------------------
   t1 = MPI_wtime()
   if (iVorticitySponge == "yes") then
-    call vorticity_sponge( work, vort )  
+    call vorticity_sponge( vort, work )  
   endif
   time_sponge = time_sponge + MPI_wtime() - t1
     
