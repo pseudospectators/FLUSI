@@ -3,7 +3,7 @@ program FLUSI
   use fsi_vars
   implicit none
   integer                :: mpicode
-  character (len=80)     :: infile
+  character (len=strlen)     :: infile
 
   ! Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
@@ -46,7 +46,7 @@ subroutine Start_Simulation()
   real(kind=pr)          :: t1,t2
   real(kind=pr)          :: time,dt0,dt1
   integer                :: n0=0,n1=1,it
-  character (len=80)     :: infile
+  character (len=strlen)     :: infile
   ! Arrays needed for simulation
   real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort

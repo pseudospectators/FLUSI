@@ -1,7 +1,10 @@
 !-------------------------------------------------------------------------------
-! Wrapper for different postprocessing tools
+! runtime control routines
+! flusi regularily reads from a file runtime_control.ini if it should do some-
+! thing, such as abort, reload_params or save data.
 !-------------------------------------------------------------------------------
 subroutine Initialize_runtime_control_file()
+  ! overwrites the file again with the standard runtime_control file
   use vars
   use mpi
   implicit none
@@ -40,12 +43,13 @@ end subroutine Initialize_runtime_control_file
 
 
 subroutine runtime_control_command( command )
+  ! reads runtime control command
   use vars
   use mpi
   implicit none
-  character (len=80), intent(out)     :: command
-  character (len=80)  :: file
-  character  :: CTRL_FILE(nlines)*256
+  character(len=strlen), intent(out)     :: command
+  character(len=strlen) :: file
+  character(len=strlen), dimension(1:nlines) :: CTRL_FILE
   integer :: i
 
   file ="runtime_control.ini"

@@ -4,13 +4,16 @@ module vars
   implicit none
 
   character*1,save:: tab ! Fortran lacks a native tab, so we set one up.
-
+  ! Used in params.f90
+  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
+  integer,parameter :: strlen=80   ! standard string length
+  
   ! Precision of doubles
   integer,parameter :: pr = 8 
 
   ! Method variables set in the program file:
   character(len=3),save:: method ! mhd  or fsi
-  character(len=80), save :: dry_run_without_fluid ! just save mask function
+  character(len=strlen), save :: dry_run_without_fluid ! just save mask function
   integer,save :: nf ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd ! number of fields (3 for NS, 6 for MHD)
 
@@ -25,9 +28,6 @@ module vars
   integer,save :: mpicommcart
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
   
-  ! Used in params.f90
-  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
-
   real(kind=pr),save :: pi ! 3.14....
 
   real(kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
@@ -71,24 +71,24 @@ module vars
   real(kind=pr),save :: tmax
   real(kind=pr),save :: cfl
   integer,save :: nt
-  character(len=80),save :: iTimeMethodFluid
+  character(len=strlen),save :: iTimeMethodFluid
 
   ! Physical parameters:
   real(kind=pr),save :: nu
 
   ! Initial conditions:
-  character(len=80),save :: inicond, file_ux,file_uy,file_uz
-  character(len=80),save :: file_bx,file_by,file_bz
+  character(len=strlen),save :: inicond, file_ux,file_uy,file_uz
+  character(len=strlen),save :: file_bx,file_by,file_bz
   real(kind=pr),save :: omega1 ! FIXME: what is omega1?
 
 
   ! Boundary conditions:
-  character(len=80),save :: iMask
+  character(len=strlen),save :: iMask
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: dt_fixed
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
-  character(len=80) :: iSmoothing ! how to smooth the mask
+  character(len=strlen) :: iSmoothing ! how to smooth the mask
   real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
 
   ! Am I a fluid or a solid CPU?
@@ -137,7 +137,7 @@ module fsi_vars
   ! be changed in future versions
   complex(kind=pr), allocatable, save:: sponge(:,:,:,:)
   ! switch for vorticity sponge:
-  character(len=80), save :: iVorticitySponge, iSpongeType
+  character(len=strlen), save :: iVorticitySponge, iSpongeType
   real(kind=pr), save :: eps_sponge
   integer, save :: sponge_thickness
   
@@ -145,7 +145,7 @@ module fsi_vars
   real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart  
   
   ! cavity mask:
-  character(len=80), save :: iCavity, iChannel
+  character(len=strlen), save :: iCavity, iChannel
   integer, save :: cavity_size
   ! wall thickness
   real(kind=pr),save :: thick_wall
@@ -157,7 +157,7 @@ module fsi_vars
   
   ! for periodically repeating flows, it may be better to always have only 
   ! one set of files on the disk
-  character(len=80) :: save_only_one_period
+  character(len=strlen) :: save_only_one_period
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
@@ -180,9 +180,9 @@ module fsi_vars
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
   type InsectParams ! documentaion see insect.f90
-    character(len=80) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
-    character(len=80) :: FlappingMotion_right, FlappingMotion_left
-    character(len=80) :: KineFromFile
+    character(len=strlen) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
+    character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
+    character(len=strlen) :: KineFromFile
     ! parameters for body:
     real(kind=pr) :: L_body, b_body, R_head, R_eye
     ! parameters for wing shape:

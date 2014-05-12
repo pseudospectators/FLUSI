@@ -12,8 +12,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   integer :: it_start
   real(kind=pr),intent(inout) :: time,dt0,dt1 
   real(kind=pr) :: t1,t2
-  character (len=80)  :: command ! for runtime control
-  character (len=80),intent(in)  :: params_file ! for runtime control  
+  character(len=strlen)  :: command ! for runtime control
+  character(len=strlen),intent(in)  :: params_file ! for runtime control  
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))

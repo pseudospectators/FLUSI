@@ -3,20 +3,13 @@
 subroutine get_params(paramsfile) 
   use vars
 
-  character (len=80) :: paramsfile  ! The file we read the PARAMS from
+  character(len=strlen) :: paramsfile  ! The file we read the PARAMS from
   integer :: i  
   ! this array contains the entire ascii-params file
-  character(len=256), dimension(1:nlines) :: PARAMS
-  logical :: exist1
+  character(len=strlen), dimension(1:nlines) :: PARAMS
   
   ! check if the specified file exists
-  inquire ( file=paramsfile, exist=exist1 )
-  
-  if (((paramsfile=="").or.(exist1.eqv..false.)).and.(mpirank==0)) then
-    write(*,*) "Please specify the params file!"
-    write(*,*) "eg: mhd PARAMS or flusi PARAMS"
-    stop
-  endif
+  call check_file_exists( paramsfile )
   
   ! Read the paramsfile and put the length i and the text in PARAMS
   call read_params_file(PARAMS,i,paramsfile,.true.)
@@ -50,8 +43,8 @@ subroutine read_params_file(PARAMS,i,paramsfile, verbose)
   integer,intent(out) :: i
   integer :: io_error
   ! This array will contain the ascii-params file
-  character(len=256), dimension(1:nlines), intent(inout) :: PARAMS
-  character(len=80) :: paramsfile ! this is the file we read the PARAMS from
+  character(len=strlen), dimension(1:nlines), intent(inout) :: PARAMS
+  character(len=strlen) :: paramsfile ! this is the file we read the PARAMS from
   logical, intent(in) :: verbose
 
   ! Read in the params file (root only)
@@ -84,7 +77,7 @@ subroutine get_params_common(PARAMS,i)
 
   integer,intent(in) :: i
   ! Contains the ascii-params file
-  character(len=256), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
 
   ! Resolution section
   call GetValue_Int(PARAMS,i,"Resolution","nx",nx, 4)
@@ -201,7 +194,7 @@ subroutine get_params_fsi(PARAMS,i)
 
   integer,intent(in) :: i
   ! Contains the ascii-params file
-  character(len=256), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
   
   ! ---------------------------------------------------
   ! penalization / cavity
@@ -371,7 +364,7 @@ subroutine get_params_mhd(PARAMS,i)
 
   integer,intent(in) :: i
   ! Contains the ascii-params file
-  character(len=256), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
 
   ! MHD section
   call GetValue_Real(PARAMS,i,"MHD","eta",eta,4.5d-2)
@@ -412,11 +405,11 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
   use vars
   use mpi
   implicit none
-  character section*(*) ! What section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=80)  value    ! returns the value
+  character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  character(len=strlen) :: value    ! returns the value
   ! Contains the ascii-params file
-  character(len=256), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
   real (kind=pr) :: params_real, defaultvalue 
   integer actual_lines
   integer mpicode
@@ -463,13 +456,13 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
   use mpi
   implicit none
   
-  character section*(*) ! what section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=80)  value    ! returns the value
+  character(len=*), intent(in) :: section ! what section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  character(len=strlen)  value    ! returns the value
   ! Contains the ascii-params file
-  character(len=256), dimension(1:nlines), intent(in) :: PARAMS
-  character (len=80), intent (inout) :: params_string
-  character (len=80), intent (inout) :: defaultvalue 
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen), intent (inout) :: params_string
+  character(len=strlen), intent (inout) :: defaultvalue 
   integer actual_lines
   integer mpicode
   
@@ -517,14 +510,14 @@ subroutine GetValue_vector (PARAMS, actual_lines, section, keyword, params_vecto
   use vars
   use mpi
   implicit none
-  character section*(*) ! What section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=80)  value    ! returns the value
+  character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  character(len=strlen)  value    ! returns the value
   ! Contains the ascii-params file
-  character(len=256), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
   real (kind=pr) :: params_vector(1:3), defaultvalue(1:3)
-  integer actual_lines
-  integer mpicode
+  integer, intent(in) :: actual_lines
+  integer :: mpicode
 
   ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
   if (mpirank==0) then
@@ -568,13 +561,13 @@ subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
   use vars
   implicit none
 
-  character section*(*) ! What section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=80)  value    ! returns the value
+  character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  character(len=strlen) ::  value    ! returns the value
   ! Contains the ascii-params file
-  character(len=256), dimension(1:nlines), intent(in) :: PARAMS
-  integer params_int, actual_lines, defaultvalue
-  integer mpicode
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  integer :: params_int, actual_lines, defaultvalue
+  integer :: mpicode
 
   !------------------
   ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
@@ -622,7 +615,7 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
   character(len=*), intent(in) :: keyword   ! what keyword do you look for? for example nx=128
   character(len=*), intent(inout) :: value   ! returns the value
-  character(len=256), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
   integer, intent(in) ::  actual_lines   ! how many lines did you actually read?  
   integer :: i
   integer :: index1,index2
