@@ -152,10 +152,9 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
   call GetValue_Int(PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 1)  
   call GetValue_Int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
-  call GetValue_Int(PARAMS,i,"Saving","iSaveXMF",iSaveXMF, 1) ! default is yes
+  call GetValue_Int(PARAMS,i,"Saving","iSaveXMF",iSaveXMF, 0) ! default is no
   call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
-  call GetValue_Real(PARAMS,i,"Saving","truntime",truntime, 1.d0)
-  truntimenext=0d0
+  call GetValue_Real(PARAMS,i,"Saving","truntime",truntime, 1.d0)  
   call GetValue_Real(PARAMS,i,"Saving","wtimemax",wtimemax, 8760.d0) ! 1 year
   call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
   call GetValue_Int(PARAMS,i,"Saving","itdrag",itdrag,99999)
