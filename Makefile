@@ -39,16 +39,15 @@ endif
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
 FFLAGS += -J$(OBJDIR) # specify directory for modules.
- FFLAGS += -Wall # warn for unused and uninitialzied variables 
- FFLAGS += -Wsurprising # warn if things might not behave as expected
-#xFFLAGS += -fdefault-double-8 -fdefault-real-8 -fpack-derived
- FFLAGS += -Wconversion
- FFLGAS += -Wunused-labels -pedantic 
+FFLAGS += -Wall # warn for unused and uninitialzied variables 
+FFLAGS += -Wsurprising # warn if things might not behave as expected
+FFLAGS += -pedantic 
+FFLAGS += -Wconversion
+FFLGAS += -Wunused-labels
 PPFLAG= -cpp #preprocessor flag
 
 # Debug flags for gfortran
-FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb -fbacktrace -fwhole-file -fcheck=all
-#FFLAGS += -Waliasing -Wimplicit-interface -Wunused-parameter -Wcharacter-truncation -Wline-truncation
+#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
 
 # Intel compiler
@@ -114,10 +113,10 @@ $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod
+	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
 
 tidy:
-	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod
+	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
 
 # If the object directory doesn't exist, create it.
 .PHONY: directories

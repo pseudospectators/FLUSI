@@ -66,8 +66,8 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr) :: dangle_posi_dt,dangle_elev_dt,dangle_feth_dt ! Comp. w. Maeda
   real(kind=pr) :: a_posi(1:4),b_posi(1:4),a_elev(1:4),b_elev(1:4),a_feth(1:4),b_feth(1:4)
   real(kind=pr) :: a0_alpha, a0_phi, a0_theta, s,c
-  real(kind=pr) :: tau, phia, la, ta, dtt, t1, phic, phicdeg, ua
-  real(kind=pr) :: alphac, alphacdeg, dtr, tr0
+  real(kind=pr) :: phicdeg
+  real(kind=pr) :: alphacdeg
   integer :: i
   
   select case ( protocoll )

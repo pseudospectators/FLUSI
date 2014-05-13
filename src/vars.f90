@@ -4,11 +4,12 @@ module vars
   implicit none
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
+  ! Used in params.f90
+  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
+  integer,parameter :: strlen=80   ! standard string length
 
   ! Precision of doubles
   integer,parameter :: pr = 8 
-  ! standard length of strings. to be used everywhere to reduce complications
-  integer,parameter :: strlen=80
 
   ! Method variables set in the program file:
   character(len=strlen),save:: method ! mhd  or fsi
@@ -32,8 +33,6 @@ module vars
   integer,save :: mpicommcart
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
   
-  ! Used in params.f90
-  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
 
   real(kind=pr),save :: pi ! 3.14....
 
@@ -63,14 +62,16 @@ module vars
 
   ! Parameters to set which files are saved and how often:
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
-  integer,save :: iDoBackup
+  integer,save :: idobackup
   integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
   ! compute drag force every itdrag time steps and compute unst corrections if
   ! you've told to do so.
   integer,save :: itdrag, unst_corrections
-  
+  real(kind=pr),save :: truntime, truntimenext ! Number of hours bet
+  real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
+
 
   ! Time-stepping parameters
   real(kind=pr),save :: tmax
@@ -171,12 +172,13 @@ module fsi_vars
   real(kind=pr), save :: eps_sponge
   integer, save :: sponge_thickness
   
-  ! Wings and body mask
-  real (kind=pr),dimension (:,:,:,:),allocatable :: maskpart  
-  
   ! cavity mask:
   character(len=strlen), save :: iCavity, iChannel
   integer, save :: cavity_size
+  ! wall thickness
+  real(kind=pr),save :: thick_wall
+  ! wall position (solid from pos_wall to pos_wall+thick_wall)
+  real(kind=pr),save :: pos_wall 
   
   ! save forces and use unsteady corrections?
   integer, save :: compute_forces  
@@ -189,7 +191,7 @@ module fsi_vars
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
   integer,save :: iMeanFlow
   integer,save :: iSaveSolidVelocity
-  
+
   character(len=strlen),save :: use_solid_model
   !-----------------------------------------------------------------------------
   ! The derived integral quantities for fluid-structure interactions.
@@ -223,6 +225,11 @@ module fsi_vars
     real(kind=pr) :: distance_from_sponge
     ! Wings and body forces
     type(Integrals), dimension(1:2) :: PartIntegrals
+    ! Takeoff parameters
+    real(kind=pr) :: x_takeoff, z_takeoff, mass_solid, gravity 
+    ! Legs model parameters
+    integer :: ilegs
+    real(kind=pr) :: anglegsend, kzlegsmax, dzlegsmax, t0legs, tlinlegs
   end type InsectParams  
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver
@@ -231,11 +238,11 @@ module fsi_vars
     integer :: idynamics
     ! vector of unknowns at new time step
     real(kind=pr), dimension(1:4) :: var_new
-    ! vector of unknowns at current time step                                                                                                                
+    ! vector of unknowns at current time step
     real(kind=pr), dimension(1:4) :: var_this
-    ! rhs at current time step                                                                                                                
+    ! rhs at current time step
     real(kind=pr), dimension(1:4) :: rhs_this
-    ! rhs at previous time step                                                                                                                
+    ! rhs at previous time step
     real(kind=pr), dimension(1:4) :: rhs_old
   end type SolidDynType
   !-----------------------------------------------------------------------------

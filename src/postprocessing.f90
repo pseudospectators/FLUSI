@@ -5,7 +5,7 @@ subroutine postprocessing()
   use vars
   use mpi
   implicit none
-  character (len=strlen) :: postprocessing_mode, filename, key1,key2
+  character(len=strlen)     :: postprocessing_mode, filename, key1,key2
   
   if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
   
@@ -66,7 +66,7 @@ subroutine convert_hdf2bin()
   dsetname = fname ( 1:index( fname, '_' )-1 )
   call fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
   
-  write (*,'("Converting ",A," to ",A,".binary. Resolution is" 3(i4,1x))') &
+  write (*,'("Converting ",A," to ",A,".binary. Resolution is",3(i4,1x))') &
         trim(fname), trim(fname), nx,ny,nz
   write (*,'("time=",es12.4," xl=",es12.4," yl=",es12.4," zl=",es12.4)') &
         time, xl, yl, zl
@@ -102,7 +102,7 @@ subroutine convert_abs_vorticity()
   use p3dfft_wrapper
   use mpi
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
+  character(len=80) :: fname_ux, fname_uy, fname_uz, dsetname
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time 

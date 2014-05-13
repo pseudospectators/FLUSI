@@ -5,7 +5,7 @@ program mhd
   implicit none
 
   integer :: mpicode
-  character(len=80) :: infile
+  character(len=strlen) :: infile
   real(kind=pr) :: time,dt0,dt1 ! FIXME: move to vars.
   integer :: n0=0,n1=1
   integer :: it

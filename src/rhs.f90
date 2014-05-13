@@ -39,7 +39,6 @@ end subroutine cal_nlk
 !       work: pressure in physical space at time level n
 ! Side Effects:
 !      * if present, a sponge is applied to remove incoming vorticity
-!
 !-------------------------------------------------------------------------------
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   use mpi
@@ -56,7 +55,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   integer, intent(in) :: it
-  integer :: ix,iz,iy  
+  integer :: ix,iz,iy,mpicode, i
   
   ! performance measurement in global variables
   t0         = MPI_wtime()
@@ -65,7 +64,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   usx     = 0.d0
   usy     = 0.d0
   usz     = 0.d0  
-  
+
   !-----------------------------------------------
   !-- Calculate velocity in physical space
   !-----------------------------------------------
@@ -150,7 +149,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
     call ifft( ink=workc, outx=work )
     deallocate( workc )
   endif
-  !-- procet RHS on solenoidal manifold
+  !-- project RHS on solenoidal manifold
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
   time_p = time_p + MPI_wtime() - t1
 

@@ -57,6 +57,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   t1=MPI_wtime()
   do while ((time<=tmax).and.(it<=nt).and.(continue_timestepping))
      t4=MPI_wtime()
+
+     if(idobackup == 1) then
+        if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+           if (mpirank == 0) write(*,*) "Out of walltime!"
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+           continue_timestepping=.false.
+        endif
+     endif
+
      dt0=dt1
 
      !-------------------------------------------------
@@ -70,8 +79,10 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-     call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,beams)
-     
+     if(dry_run_without_fluid/="yes") then
+       call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,beams)
+     endif
+
      !-------------------------------------------------
      ! Compute hydrodynamic forces at time level n (FSI only)
      ! NOTE:    is done every itdrag time steps. this condition will be changed
@@ -104,7 +115,15 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time=time + dt1
      it=it + 1
-     
+
+     ! If we hit the wall-time limit (specified in the params file)
+     ! then save the restart data and stop the program.
+     if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+        if (mpirank == 0) write(*,*) "Out of walltime!"
+        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+        continue_timestepping=.false.   
+     endif
+
      !-------------------------------------------------
      ! Output of INTEGRALS after every tintegral time 
      ! units or itdrag time steps
@@ -126,16 +145,20 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),&
-             work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
+     endif
+     
+     if(idobackup == 1) then    
         ! Backup if that's specified in the PARAMS.ini file
-        if(iDoBackup==1) then
+        if(truntimenext < (MPI_wtime()-time_total)/3600.d0) then
+           !-- backup fluid/b field
            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
                 work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-        endif
-        !-- backup solid solver, if using it
-        if((iDoBackup==1).and.(use_solid_model=="yes").and.(method=="fsi")) then
-          call dump_solid_backup( time, beams, nbackup )
+           !-- backup solid solver, if using it
+           if((use_solid_model=="yes").and.(method=="fsi")) then
+             call dump_solid_backup( time, beams, nbackup )
+           endif
+           truntimenext = truntimenext+truntime
         endif
      endif
      
@@ -219,9 +242,10 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   integer,intent(inout) :: it,it_start
   real(kind=pr):: time_left
 
-  ! this is done every 300 time steps, but it may happen that this is too seldom
-  ! or too oftern. in future versions, maybe we try doing it once in an hour or
-  ! so. we also output a first estimate after 20 time steps
+  ! This is done every 300 time steps, but it may happen that this is
+  ! too seldom or too often. in future versions, maybe we try doing it
+  ! once in an hour or so. We also output a first estimate after 20
+  ! time steps.
   if(root) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))

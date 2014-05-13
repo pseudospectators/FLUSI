@@ -67,10 +67,11 @@ subroutine Start_Simulation()
   use solid_model
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
+  integer                :: mpicode
   real(kind=pr)          :: t1,t2
   real(kind=pr)          :: time,dt0,dt1
   integer                :: n0=0,n1=1,it
-  character (len=80)     :: infile
+  character (len=strlen)     :: infile
   ! Arrays needed for simulation
   real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
@@ -82,7 +83,7 @@ subroutine Start_Simulation()
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
   nf=1 ! We are evolving one field.
-  nd=3 ! The one field has three components.
+  nd=3*nf ! The one field has three components.
 
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;

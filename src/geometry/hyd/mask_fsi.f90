@@ -6,7 +6,7 @@ subroutine create_mask_fsi (time, beam )
   implicit none
   real(kind=pr), intent(in) :: time
   type(solid), intent(in) :: beam
-  real(kind=pr) :: t1, eps_inv
+  real(kind=pr) :: t1
   t1 = MPI_wtime() 
   
   ! reset everything

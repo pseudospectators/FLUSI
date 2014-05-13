@@ -19,6 +19,5 @@ module kine
   ! The unsteady correction is thus treated implicitly
   real (kind=prk), dimension (4), save :: kine_now,kine_old
   ! All peremeters are normalized as everywhere else in the code
-  real (kind=prk), save :: m_solid,m_fluid,gravity
 end module kine
 

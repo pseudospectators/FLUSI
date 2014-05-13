@@ -5,17 +5,11 @@ subroutine get_params(paramsfile)
 
   character(len=strlen) :: paramsfile  ! The file we read the PARAMS from
   integer :: i  
-  character PARAMS(nlines)*256 ! this array will contain the ascii-params file
-  logical :: exist1
+  ! this array contains the entire ascii-params file
+  character(len=strlen), dimension(1:nlines) :: PARAMS
   
   ! check if the specified file exists
-  inquire ( file=paramsfile, exist=exist1 )
-  
-  if (((paramsfile=="").or.(exist1.eqv..false.)).and.(mpirank==0)) then
-    write(*,*) "Please specify the params file!"
-    write(*,*) "eg: mhd PARAMS or flusi PARAMS"
-    stop
-  endif
+  call check_file_exists( paramsfile )
   
   ! Read the paramsfile and put the length i and the text in PARAMS
   call read_params_file(PARAMS,i,paramsfile,.true.)
@@ -49,7 +43,7 @@ subroutine read_params_file(PARAMS,i,paramsfile, verbose)
   integer,intent(out) :: i
   integer :: io_error
   ! This array will contain the ascii-params file
-  character,intent(inout) :: PARAMS(nlines)*256
+  character(len=strlen), dimension(1:nlines), intent(inout) :: PARAMS
   character(len=strlen) :: paramsfile ! this is the file we read the PARAMS from
   logical, intent(in) :: verbose
 
@@ -82,7 +76,8 @@ subroutine get_params_common(PARAMS,i)
   implicit none
 
   integer,intent(in) :: i
-  character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
 
   ! Resolution section
   call GetValue_Int(PARAMS,i,"Resolution","nx",nx, 4)
@@ -162,6 +157,9 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
   call GetValue_Int(PARAMS,i,"Saving","iSaveXMF",iSaveXMF, 0) ! default is no
   call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
+  call GetValue_Real(PARAMS,i,"Saving","truntime",truntime, 1.d0)
+  truntimenext=0d0
+  call GetValue_Real(PARAMS,i,"Saving","wtimemax",wtimemax, 8760.d0) ! 1 year
   call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
   call GetValue_Int(PARAMS,i,"Saving","itdrag",itdrag,99999)
   
@@ -170,7 +168,7 @@ subroutine get_params_common(PARAMS,i)
   if (dry_run_without_fluid=="yes") then
     write(*,*) "Attention! This is a dry run without fluid"
     write(*,*) "Deactivating all useless save-switches..."
-    iDoBackup=0
+    idobackup=0
     iSavePress=0
     iSaveVelocity=0
     iSaveVorticity=0
@@ -192,7 +190,8 @@ subroutine get_params_fsi(PARAMS,i)
   implicit none
 
   integer,intent(in) :: i
-  character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
   real(kind=pr), dimension(1:3) :: defaultvec
   ! ---------------------------------------------------
   ! penalization / cavity
@@ -204,6 +203,8 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_String(PARAMS,i,"Penalization","iChannel",iChannel,"no") 
   if (iChannel=="0") iChannel="no" ! for downward compatibility with older ini files
   if (iChannel=="1") iChannel="xy" ! for downward compatibility with older ini files
+  call GetValue_Real(PARAMS,i,"Penalization","thick_wall",thick_wall,0.2d0)
+  call GetValue_Real(PARAMS,i,"Penalization","pos_wall",pos_wall,0.3d0)
   
   ! ---------------------------------------------------
   ! sponge
@@ -280,13 +281,35 @@ subroutine get_params_fsi(PARAMS,i)
   Insect%smooth = 2.0*dz
 
   ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
-  call GetValue_String(PARAMS,i,"Insects","KineFromFile",Insect%KineFromFile,"no")    
+  call GetValue_String(PARAMS,i,"Insects","KineFromFile",Insect%KineFromFile,"no")     
   
+ 
+  ! Takeoff 
+  call GetValue_Real(PARAMS,i,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)
+  call GetValue_Real(PARAMS,i,"Insects","z_takeoff",Insect%z_takeoff, 0.86d0)
+  call GetValue_Real(PARAMS,i,"Insects","mass_solid",&
+       Insect%mass_solid, 54.414118839786745d0)
+  call GetValue_Real(PARAMS,i,"Insects","gravity",&
+       Insect%gravity, -0.055129281110537755d0)
+
+  ! Legs model parameters
+  call GetValue_Int(PARAMS,i,"Insects","ilegs",Insect%ilegs, 1)
+  call GetValue_Real(PARAMS,i,"Insects","anglegsend",&
+       Insect%anglegsend, 0.7853981633974483d0)
+  call GetValue_Real(PARAMS,i,"Insects","kzlegsmax",&
+       Insect%kzlegsmax,64.24974647375242d0)
+  call GetValue_Real(PARAMS,i,"Insects","dzlegsmax",&
+       Insect%dzlegsmax,0.2719665271966527d0)
+  call GetValue_Real(PARAMS,i,"Insects","t0legs",&
+       Insect%t0legs,0.13643141797265643d0)
+  call GetValue_Real(PARAMS,i,"Insects","tlinlegs",&
+       Insect%tlinlegs,0.3547216867289067d0)
+
   ! ---------------------------------------------------
   ! solid model
   ! ---------------------------------------------------
   call get_params_solid( PARAMS, i )
-  
+
   ! ---------------------------------------------------
   ! DONE..
   ! ---------------------------------------------------
@@ -311,7 +334,8 @@ subroutine get_params_solid(PARAMS,i)
   implicit none
 
   integer,intent(in) :: i
-  character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
 
   !-- solid model is deactivated by default
   call GetValue_String(PARAMS,i,"SolidModel","use_solid_model",use_solid_model,"no")
@@ -370,7 +394,8 @@ subroutine get_params_mhd(PARAMS,i)
   implicit none
 
   integer,intent(in) :: i
-  character,intent(in) :: PARAMS(nlines)*256 ! Contains the ascii-params file
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
 
   ! MHD section
   call GetValue_Real(PARAMS,i,"MHD","eta",eta,4.5d-2)
@@ -405,19 +430,20 @@ end subroutine get_params_mhd
 !       defaultvalue: if the we can't find the parameter, we return this and warn
 ! Output:
 !       params_real: this is the parameter you were looking for
+!-------------------------------------------------------------------------------
 subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
      defaultvalue)
   use vars
   use mpi
   implicit none
-  character section*(*) ! What section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=strlen)  value    ! returns the value
-  character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
-  real(kind=pr), intent(out) :: params_real
-  real(kind=pr), intent(in) :: defaultvalue 
-  integer, intent(in) :: actual_lines
-  integer :: mpicode
+  character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  character(len=strlen) :: value    ! returns the value
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  real (kind=pr) :: params_real, defaultvalue 
+  integer actual_lines
+  integer mpicode
 
   ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
   if (mpirank==0) then
@@ -470,15 +496,16 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
   use mpi
   implicit none
   
-  character section*(*) ! what section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=strlen)  value    ! returns the value
-  character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
-  character (len=strlen), intent (out) :: params_string
-  character (len=*), intent (in) :: defaultvalue 
-  integer, intent(in) :: actual_lines
+  character(len=*), intent(in) :: section ! what section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  character(len=strlen)  value    ! returns the value
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen), intent (inout) :: params_string
+  character(len=*), intent (in) :: defaultvalue 
+  integer actual_lines
   integer mpicode
-
+  
   !------------------
   ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
   !------------------  
@@ -486,15 +513,15 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
         params_string = value
-        ! its a bit dirty but it avoids filling the screen with "nothing" anytime we check
-        ! the runtime control file
+        ! its a bit dirty but it avoids filling the screen with
+        ! "nothing" anytime we check the runtime control file
         if (keyword.ne."runtime_control") then 
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+           write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
         endif
      else
+        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+             " (THIS IS THE DEFAULT VALUE!)"
         params_string = defaultvalue
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "&
-             //adjustl(trim(defaultvalue))//" (THIS IS THE DEFAULT VALUE!)"
      endif
   endif
 
@@ -523,14 +550,14 @@ subroutine GetValue_vector (PARAMS, actual_lines, section, keyword, params_vecto
   use vars
   use mpi
   implicit none
-  character section*(*) ! What section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=strlen)  value    ! returns the value
-  character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
-  real(kind=pr),intent(out) :: params_vector(1:3)
-  real(kind=pr),intent(in)  :: defaultvalue(1:3)
+  character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  character(len=strlen)  value    ! returns the value
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  real (kind=pr) :: params_vector(1:3), defaultvalue(1:3)
   integer, intent(in) :: actual_lines
-  integer mpicode
+  integer :: mpicode
 
   ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
   if (mpirank==0) then
@@ -574,13 +601,13 @@ subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
   use vars
   implicit none
 
-  character section*(*) ! What section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character (len=strlen)  value    ! returns the value
-  character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
-  integer, intent(out) :: params_int
-  integer, intent(in)  :: actual_lines, defaultvalue
-  integer mpicode
+  character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  character(len=strlen) ::  value    ! returns the value
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  integer :: params_int, actual_lines, defaultvalue
+  integer :: mpicode
 
   !------------------
   ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
@@ -627,55 +654,63 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   use mpi
   implicit none
 
-  character section*(*) ! What section do you look for? for example [Resolution]
-  character keyword*(*)   ! what keyword do you look for? for example nx=128
-  character value*(*)   ! returns the value
-  character PARAMS(nlines)*256  ! this is the complete PARAMS.ini file
-  integer actual_lines   ! how many lines did you actually read?  
-  integer :: maxline = 256  ! how many characters per line?
-  integer i, j,k
-  logical foundsection
+  character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword   ! what keyword do you look for? for example nx=128
+  character(len=*), intent(inout) :: value   ! returns the value
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  integer, intent(in) ::  actual_lines   ! how many lines did you actually read?  
+  integer :: i
+  integer :: index1,index2
+  logical :: foundsection
 
   foundsection = .false.
   value = ''
 
-  !------------------------------------------------------------------
-  do i=1, actual_lines     ! loop over the lines of PARAMS.ini file
-  if ((PARAMS(i)(1:1).ne.'#').and.&
-      (PARAMS(i)(1:1).ne.';').and.&
-      (PARAMS(i)(1:1).ne.'!')) then   ! ignore commented lines completely
+  !-- loop over the lines of PARAMS.ini file
+  do i=1, actual_lines
+     !-- ignore commented lines completely
+     if ((PARAMS(i)(1:1).ne.'#').and.(PARAMS(i)(1:1).ne.';').and.&
+         (PARAMS(i)(1:1).ne.'!')) then
 
-
-    if (PARAMS(i)(1:1) == '[') then   ! the first char would have to be '['
-        do j = 2, maxline    ! then we look fot the corrresponding ']'
-          if (PARAMS(i)(j:j) == ']') then  ! we found it
-              if (section == PARAMS(i)(2:j-1)) then ! is this the section we"re looking for?
-                foundsection = .true.   ! yes, it is
-                exit
-              endif
-          endif
-        enddo
-    else      
-        if (foundsection .eqv. .true.) then  ! yes we found the section, now we're looking for the keyword
-          do j=1, maxline    ! scan the line
-              if (PARAMS(i)(j:j) == '=') then  ! found the '='
-                if (keyword == PARAMS(i)(1:j-1)) then ! is this the keyword you're looking for?
-                    do k = j+1, maxline   ! everything behind the '=' and before ';' is the value
-                      if (PARAMS(i)(k:k) == ';') then  ! found the delimiter
-                          value = PARAMS(i)(j+1:k-1)  ! value is between '=', and ';'   
-                          exit
-                      endif
-                    enddo
-                    if ((value == '').and.(mpirank==0)) then
-                      write (*,'(A)') "??? Though found the keyword, I'm unable to find value for variable --> "& 
-                            //trim(keyword)//" <-- maybe missing delimiter (;)?"    
-                    endif
-                endif
-              endif
-          enddo
+        !-- does this line contain the "[section]" statement?
+        if (index(PARAMS(i),'['//section//']')==1) then
+          ! yes, it does
+          foundsection = .true.
+        elseif (PARAMS(i)(1:1) == '[') then
+          ! we're already at the next section mark, so we leave the section we
+          ! were looking for again
+          foundsection = .false.          
         endif
-    endif
-
-  endif
+                
+        !-- we're inside the section we want
+        if (foundsection) then
+          if (index(PARAMS(i),keyword//'=')==1) then
+            if (index(PARAMS(i),';')/=0) then
+              ! found "keyword=" in this line, as well as the delimiter ";" 
+              index1 = index(PARAMS(i),'=')+1
+              index2 = index(PARAMS(i),';')-1
+              value = PARAMS(i)(index1:index2)
+              exit ! leave do loop
+            else              
+              ! found "keyword=" in this line, but delimiter ";" is missing.
+              ! proceed, but this may fail (e.g. value=999commentary or 
+              ! value=999\newline fails)
+              write (*,'(A)') "Though found the keyword, I'm unable to find &
+                   &value for variable --> "//trim(keyword)//" <-- &
+                   &missing delimiter (;)"              
+              index1 = index(PARAMS(i),'=')+1
+              index2 = index(PARAMS(i),' ')-1
+              value = PARAMS(i)(index1:index2)
+              write (*,'(A)') "As you forgot to set ; at the end of your value,&
+                    & I try to extract a value nonetheless. Proceed, with&
+                    & fingers crossed (there is no guarantee this will work)"
+              write (*,'(A)') "Extracted --->"//trim(value)//"<-----"       
+              exit
+            endif
+          endif
+        endif
+        
+     endif
   enddo
 end subroutine getvalue
+
