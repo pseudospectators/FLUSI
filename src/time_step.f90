@@ -25,30 +25,33 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   continue_timestepping = .true.
   it_start=it
   
-  ! save initial conditions 
-  call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+  ! save initial conditions (if not resuming a backup)
+  if (index(inicond,'backup::')==0) then
+    call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+  endif
   
   ! initialize runtime control file
   if (mpirank == 0) call initialize_runtime_control_file()
    
   ! After init, output integral quantities. (note we can overwrite only 
-  ! nlk(:,:,:,:,n0) when retaking a backup)
-  if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
-  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
-
+  ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
+  if (index(inicond,'backup::')==0) then
+    if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
+    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+  endif
 
   if (mpirank == 0) write(*,*) "Start time-stepping...."
   
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
- 
-     if(idobackup == 1) then
-        if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
-           if (mpirank == 0) write(*,*) "Out of walltime!"
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
-           continue_timestepping=.false.
-        endif
+     !-------------------------------------------------
+     ! escape from loop if walltime is about to be exceeded
+     !-------------------------------------------------
+     if ((idobackup==1).and.(wtimemax < (MPI_wtime()-time_total)/3600.d0)) then
+         if (mpirank == 0) write(*,*) "Out of walltime!"
+         call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work)
+         continue_timestepping=.false.
      endif
 
      dt0=dt1
