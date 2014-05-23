@@ -180,19 +180,18 @@ subroutine DrawSphere(ix,iy,iz,x,R0)
   endif  
 end subroutine
 
-! as long as we have only spherical eyes, this is just a wrapper
+! routine DrawEye is only called if the flag Insect%HasEye=='yes'
 subroutine DrawEye(ix,iy,iz,x)
   use fsi_vars
   use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x(1:3)
-  if (Insect%HasEye=="yes") then
   call DrawSphere(ix,iy,iz,x,Insect%R_eye)
-  endif
 end subroutine
 
-! as long as we have only spherical heads, this is just a wrapper
+
+! routine DrawHead is only called if the flag Insect%HasHead=='yes'
 subroutine DrawHead(ix,iy,iz,x)
   use fsi_vars
   use mpi
@@ -200,43 +199,41 @@ subroutine DrawHead(ix,iy,iz,x)
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x(1:3)
   real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,steps
-  if (Insect%HasHead=="yes") then
   
-     select case (Insect%BodyType)
-     case ('ellipsoid')  
-      ! an ellipsoid body goes with a spherical head
-      call DrawSphere(ix,iy,iz,x,Insect%R_head)
+  select case (Insect%BodyType)
+  case ('ellipsoid')  
+  ! an ellipsoid body goes with a spherical head
+  call DrawSphere(ix,iy,iz,x,Insect%R_head)
 
-     case ('drosophila')
-      ! drosophilae have different heads.
+  case ('drosophila')
+  ! drosophilae have different heads.
 
-     case ('drosophila_maeda')  
-      ! ellipsoid head, assumes xc_head=0 in .ini file
-      x_head = 0.17d0
-      z_head = -0.1d0
-      dx_head = 0.5d0*  0.185d0
-      dz_head = 0.5d0*  0.27d0
-      ! check if inside the surrounding box (save comput. time)
-      if ( dabs(x(2)) <= dz_head + Insect%safety ) then
-      if ( dabs(x(3)-z_head) <= dz_head + Insect%safety ) then
-      ! check for length inside ellipsoid:
-      if ( dabs(x(1)-x_head) < dx_head + Insect%safety ) then
-        R  = dsqrt ( x(2)**2 + (x(3)-z_head)**2 )
-        ! this gives the R(x) shape
-        if ( ((x(1)-x_head)/dx_head)**2 <= 1.d0) then
-        R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
-        if ( R < R0 + Insect%safety ) then
-          mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
-          ! body parts have the color "2"
-          mask_color(ix,iy,iz) = 2
-        endif
-        endif
-      endif
-      endif
-      endif
-
-     case default
-      ! do nothing
-     end select 
+  case ('drosophila_maeda')  
+  ! ellipsoid head, assumes xc_head=0 in .ini file
+  x_head = 0.17d0
+  z_head = -0.1d0
+  dx_head = 0.5d0*  0.185d0
+  dz_head = 0.5d0*  0.27d0
+  ! check if inside the surrounding box (save comput. time)
+  if ( dabs(x(2)) <= dz_head + Insect%safety ) then
+  if ( dabs(x(3)-z_head) <= dz_head + Insect%safety ) then
+  ! check for length inside ellipsoid:
+  if ( dabs(x(1)-x_head) < dx_head + Insect%safety ) then
+    R  = dsqrt ( x(2)**2 + (x(3)-z_head)**2 )
+    ! this gives the R(x) shape
+    if ( ((x(1)-x_head)/dx_head)**2 <= 1.d0) then
+    R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
+    if ( R < R0 + Insect%safety ) then
+      mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+      ! body parts have the color "2"
+      mask_color(ix,iy,iz) = 2
+    endif
+    endif
   endif
+  endif
+  endif
+
+  case default
+  ! do nothing
+  end select 
 end subroutine

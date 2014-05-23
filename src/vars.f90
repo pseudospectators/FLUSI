@@ -179,7 +179,7 @@ module fsi_vars
   end type Integrals  
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
-  type InsectParams ! documentaion see insect.f90
+  type InsectParams ! documentation see insect.f90
     character(len=strlen) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
     character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
     character(len=strlen) :: KineFromFile
@@ -201,6 +201,12 @@ module fsi_vars
     ! Legs model parameters
     integer :: ilegs
     real(kind=pr) :: anglegsend, kzlegsmax, dzlegsmax, t0legs, tlinlegs
+    ! Fourier coefficients for wings
+    real(kind=pr), allocatable, dimension(:) :: ai,bi
+    real(kind=pr) :: a0
+    real(kind=pr) :: xc,yc ! describes the origin of the wings system
+    integer :: n_fft
+    
   end type InsectParams  
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver

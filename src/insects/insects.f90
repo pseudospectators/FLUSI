@@ -27,7 +27,22 @@ subroutine Draw_Insect ( time )
   real(kind=pr), dimension(1:3)::rot_l, rot_r,rot_body,xc_head,xc_eye_l,&
   xc_eye_r, xc_pivot_r,xc_pivot_l, x_head, vc_body, v_tmp
   integer :: ix, iy, iz
+  ! tell the code what type of subroutine to call for the wings: fourier or simple
+  logical :: fourier_wing = .true. ! almost always we have this
+  logical :: HasEye = .false., HasHead=.true.
   
+  !-- decide what wing routine to call (call simplified wing 
+  ! routines that don't use fourier)
+  if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
+  if (Insect%WingShape=='rectangular') fourier_wing = .false.
+  !-- decide if to call draw_eye (logicals are much much faster)
+  if (Insect%HasEye=="yes")  HasEye = .true.
+  !-- decide if to call draw_head (logicals are much much faster)
+  if (Insect%HasHead=="yes") HasHead=.true.
+    
+  !-- define the wings fourier coeffients, but only once  
+  if (fourier_wing) call Setup_Wing_Fourier_coefficients()  
+    
   Insect%safety = 2.d0*dz
   Insect%smooth = 1.d0*dz
   
@@ -120,15 +135,24 @@ subroutine Draw_Insect ( time )
            ! call body subroutines
            !--------------------------------------
            call DrawBody(ix,iy,iz,x_body)
-           call DrawHead(ix,iy,iz,x_head)
-           call DrawEye(ix,iy,iz,x_eye_r)
-           call DrawEye(ix,iy,iz,x_eye_l)
+           if (HasHead) then
+             call DrawHead(ix,iy,iz,x_head)
+           endif
+           if (HasEye) then
+             call DrawEye(ix,iy,iz,x_eye_r)
+             call DrawEye(ix,iy,iz,x_eye_l)
+           endif
            
            !--------------------------------------
            ! wings
            !--------------------------------------
-           call DrawWing(ix,iy,iz,x_wing_l,M_wing_l,rot_l)
-           call DrawWing(ix,iy,iz,x_wing_r,M_wing_r,rot_r)
+           if (fourier_wing) then
+             call DrawWing_Fourier(ix,iy,iz,x_wing_l,M_wing_l,rot_l)
+             call DrawWing_Fourier(ix,iy,iz,x_wing_r,M_wing_r,rot_r)
+           else 
+             call DrawWing_simple(ix,iy,iz,x_wing_l,M_wing_l,rot_l)
+             call DrawWing_simple(ix,iy,iz,x_wing_r,M_wing_r,rot_r)
+           endif
            
            !--------------------------------------
            ! add solid body rotation in the body-reference frame
