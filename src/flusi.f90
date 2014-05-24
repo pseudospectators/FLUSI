@@ -241,30 +241,49 @@ subroutine initialize_time_series_files()
   implicit none
   tab = char(9) ! set horizontal tab character 
   
-  open  (14,file='forces.t',status='replace')
-  write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                    "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                    "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                    "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
-  close (14)
-
   ! For insect wing/body forces
   if (iMask=='Insect') then
+  open  (14,file='forces.t',status='replace')
+    write (14,'(27A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst",tab,&
+                      "Aero_Power"
+    close (14)
     open  (14,file='forces_part1.t',status='replace')
-    write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+    write (14,'(27A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
                       "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
                       "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
+                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst",tab,&
+                      "Aero_Power"
+    close (14)
     open  (14,file='forces_part2.t',status='replace')
-    write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+    write (14,'(27A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
                       "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
                       "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
+                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst",tab,&
+                      "Aero_Power"
+    close (14)
+    open  (14,file='forces_part3.t',status='replace')
+    write (14,'(27A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst",tab,&
+                      "Aero_Power"
+    close (14)
     open  (14,file='kinematics.t',status='replace')
     write (14,'(27A)') "% time",tab,"xc_body",tab,"yc_body",tab,"zc_body",tab,&
                       "psi",tab,"beta",tab,"gamma",tab,"eta_stroke",tab,&
                       "alpha_l",tab,"phi_l",tab,"theta_l",tab,&
                       "alpha_r",tab,"phi_r",tab,"theta_r"
+    close (14)
+  ! If this is not an insect
+  else 
+    open  (14,file='forces.t',status='replace')
+    write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
+                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
+                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
+                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
     close (14)
   endif    
 

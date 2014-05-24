@@ -23,10 +23,11 @@ subroutine Draw_Insect ( time )
   real(kind=pr) :: alpha_dt_l, alpha_dt_r, phi_dt_l, phi_dt_r
   real(kind=pr) :: theta_dt_l, theta_dt_r, eta_stroke, theta_r, theta_l
   real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
-  M1,M2,M3, M_stroke_l, M_stroke_r
+  M1, M2, M3, M_stroke_l, M_stroke_r, M_body_inv, M_wing_l_inv, M_wing_r_inv
   real(kind=pr), dimension(1:3)::rot_l, rot_r,rot_body,xc_head,xc_eye_l,&
   xc_eye_r, xc_pivot_r,xc_pivot_l, x_head, vc_body, v_tmp
   integer :: ix, iy, iz
+  integer :: color_body, color_l, color_r
   ! tell the code what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
   logical :: HasEye = .false., HasHead=.true.
@@ -70,6 +71,8 @@ subroutine Draw_Insect ( time )
   call FlappingMotion_right(time, phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r )
   call FlappingMotion_left (time, phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l )  
   call StrokePlane (time, eta_stroke)
+
+  Insect%vc_body = vc_body   ! This is required for aerodynamic power
 
   !-------------------------------------------------------
   ! write kinematics to disk (Dmitry, 28 Oct 2013)
@@ -115,7 +118,34 @@ subroutine Draw_Insect ( time )
   rot_r = (/-phi_dt_r,-alpha_dt_r, theta_dt_r /) ! no need to inverse theta_dt sign
   rot_body = (/psi_dt, beta_dt, gamma_dt /)
 
-  
+  !-------------------------------------------------------
+  ! inverse of the rotation matrices
+  !-------------------------------------------------------     
+  M_body_inv = transpose(M_body)
+  M_wing_l_inv = transpose(M_wing_l)
+  M_wing_r_inv = transpose(M_wing_r)
+
+  !-------------------------------------------------------
+  ! angular velocity in the global reference frame
+  !-------------------------------------------------------
+  Insect%rot_body_glob = matmul(M_body_inv, rot_body)
+  Insect%rot_l_glob = matmul(M_body_inv, matmul(M_wing_l_inv, rot_l) + rot_body)
+  Insect%rot_r_glob = matmul(M_body_inv, matmul(M_wing_r_inv, rot_r) + rot_body) 
+ 
+  !-------------------------------------------------------
+  ! vector from body centre to left/right pivot point in global reference frame, 
+  ! for aerodynamic power
+  !-------------------------------------------------------
+  Insect%x_pivot_l_glob = matmul(M_body_inv, xc_pivot_l)
+  Insect%x_pivot_r_glob = matmul(M_body_inv, xc_pivot_r) 
+
+  !-------------------------------------------------------
+  ! colors for Diptera (one body, two wings)
+  !-------------------------------------------------------  
+  color_body = 1
+  color_l = 2
+  color_r = 3
+
   do ix = ra(1), rb(1)
      do iy = ra(2), rb(2)
         do iz = ra(3), rb(3)
@@ -134,24 +164,24 @@ subroutine Draw_Insect ( time )
            !--------------------------------------
            ! call body subroutines
            !--------------------------------------
-           call DrawBody(ix,iy,iz,x_body)
+           call DrawBody(ix,iy,iz,x_body,color_body)
            if (HasHead) then
-             call DrawHead(ix,iy,iz,x_head)
+             call DrawHead(ix,iy,iz,x_head,color_body)
            endif
            if (HasEye) then
-             call DrawEye(ix,iy,iz,x_eye_r)
-             call DrawEye(ix,iy,iz,x_eye_l)
+             call DrawEye(ix,iy,iz,x_eye_r,color_body)
+             call DrawEye(ix,iy,iz,x_eye_l,color_body)
            endif
            
            !--------------------------------------
            ! wings
            !--------------------------------------
            if (fourier_wing) then
-             call DrawWing_Fourier(ix,iy,iz,x_wing_l,M_wing_l,rot_l)
-             call DrawWing_Fourier(ix,iy,iz,x_wing_r,M_wing_r,rot_r)
+             call DrawWing_Fourier(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
+             call DrawWing_Fourier(ix,iy,iz,x_wing_r,M_wing_r,rot_r,color_r)
            else 
-             call DrawWing_simple(ix,iy,iz,x_wing_l,M_wing_l,rot_l)
-             call DrawWing_simple(ix,iy,iz,x_wing_r,M_wing_r,rot_r)
+             call DrawWing_simple(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
+             call DrawWing_simple(ix,iy,iz,x_wing_r,M_wing_r,rot_r,color_r)
            endif
            
            !--------------------------------------
@@ -378,4 +408,55 @@ subroutine dynamics_insect_init(idynamics)
 end subroutine dynamics_insect_init
 
 
+! Compute aerodynamic power
+subroutine aero_power(apowtotal)
+  use fsi_vars
+  use mpi
+  implicit none
+
+  integer :: color_body, color_l, color_r
+  real(kind=pr), dimension(1:3) :: omrel, vrel
+  real(kind=pr), intent(out) :: apowtotal
+
+  ! colors for Diptera (one body, two wings)
+  color_body = 1
+  color_l = 2
+  color_r = 3
+
+  ! body
+  Insect%PartIntegrals(color_body)%APow = - ( sum( Insect%vc_body * &
+   (Insect%PartIntegrals(color_body)%Force + Insect%PartIntegrals(color_body)%Force_unst) ) + &
+   sum( Insect%rot_body_glob * (Insect%PartIntegrals(color_body)%Torque + &
+   Insect%PartIntegrals(color_body)%Torque_unst) ) )
+
+  ! wings
+  ! all torques are computed with respect to body centre, therefore,
+  ! an extra term appears (vrel)
+  ! left wing
+  omrel = Insect%rot_body_glob-Insect%rot_l_glob
+  vrel(1) = omrel(2)*Insect%x_pivot_l_glob(3)-omrel(3)*Insect%x_pivot_l_glob(2)
+  vrel(2) = omrel(3)*Insect%x_pivot_l_glob(1)-omrel(1)*Insect%x_pivot_l_glob(3)
+  vrel(3) = omrel(1)*Insect%x_pivot_l_glob(2)-omrel(2)*Insect%x_pivot_l_glob(1)
+
+  Insect%PartIntegrals(color_l)%APow = - ( sum( (Insect%vc_body + vrel) * &
+   (Insect%PartIntegrals(color_l)%Force + Insect%PartIntegrals(color_l)%Force_unst) ) + &
+   sum( Insect%rot_l_glob * (Insect%PartIntegrals(color_l)%Torque + &
+   Insect%PartIntegrals(color_l)%Torque_unst) ) )
+
+  ! right wing
+  omrel = Insect%rot_body_glob-Insect%rot_r_glob
+  vrel(1) = omrel(2)*Insect%x_pivot_r_glob(3)-omrel(3)*Insect%x_pivot_r_glob(2)
+  vrel(2) = omrel(3)*Insect%x_pivot_r_glob(1)-omrel(1)*Insect%x_pivot_r_glob(3)
+  vrel(3) = omrel(1)*Insect%x_pivot_r_glob(2)-omrel(2)*Insect%x_pivot_r_glob(1)
+
+  Insect%PartIntegrals(color_r)%APow = - ( sum( (Insect%vc_body + vrel) * &
+   (Insect%PartIntegrals(color_r)%Force + Insect%PartIntegrals(color_r)%Force_unst) ) + &
+   sum( Insect%rot_r_glob * (Insect%PartIntegrals(color_r)%Torque + &
+   Insect%PartIntegrals(color_r)%Torque_unst) ) )
+
+  ! Total aerodynamic power
+  apowtotal = Insect%PartIntegrals(color_body)%APow + &
+   Insect%PartIntegrals(color_l)%APow + Insect%PartIntegrals(color_r)%APow
+
+end subroutine aero_power
 
