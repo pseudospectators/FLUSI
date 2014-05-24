@@ -172,6 +172,7 @@ module fsi_vars
      real(kind=pr) :: Dissip
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume
+     real(kind=pr) :: APow
      real(kind=pr),dimension(1:3) :: Force
      real(kind=pr),dimension(1:3) :: Force_unst
      real(kind=pr),dimension(1:3) :: Torque
@@ -194,8 +195,8 @@ module fsi_vars
     real(kind=pr), dimension(1:3) :: x_head,x_eye_r,x_eye_l,x_pivot_l,x_pivot_r
     ! parameter for hovering:
     real(kind=pr) :: distance_from_sponge
-    ! Wings and body forces
-    type(Integrals), dimension(1:2) :: PartIntegrals
+    ! Wings and body forces (1:body,2:left wing,3:right wing)
+    type(Integrals), dimension(1:3) :: PartIntegrals
     ! Takeoff parameters
     real(kind=pr) :: x_takeoff, z_takeoff, mass_solid, gravity 
     ! Legs model parameters
@@ -206,7 +207,14 @@ module fsi_vars
     real(kind=pr) :: a0
     real(kind=pr) :: xc,yc ! describes the origin of the wings system
     integer :: n_fft
-    
+    ! Angular velocities of wings and body
+    real(kind=pr), dimension(1:3) :: rot_body_glob, rot_l_glob, rot_r_glob
+    ! Body centre velocity
+    real(kind=pr), dimension(1:3) :: vc_body 
+    ! Vector from body centre to left/right pivot point in global reference
+    ! frame 
+    real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob    
+
   end type InsectParams  
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver

@@ -7,7 +7,7 @@
 ! conditions (thickness and spanwise length) and then the shape
 ! function since this saves many evaluations of the shape.
 !-------------------------------------------------------------------------------
-subroutine DrawWing_simple(ix,iy,iz,x_wing,M,rot)
+subroutine DrawWing_simple(ix,iy,iz,x_wing,M,rot,icolor)
   use fsi_vars
   use mpi
   implicit none
@@ -15,6 +15,7 @@ subroutine DrawWing_simple(ix,iy,iz,x_wing,M,rot)
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp
   integer, intent(in) :: ix,iy,iz
+  integer, intent(in) :: icolor
   integer :: i
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
   !*****************************************************************************
@@ -68,8 +69,8 @@ subroutine DrawWing_simple(ix,iy,iz,x_wing,M,rot)
     
     if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
       mask(ix,iy,iz) = mask_tmp
-      ! wings have the color "1"
-      mask_color(ix,iy,iz) = 1
+      ! wings have the color "icolor"
+      mask_color(ix,iy,iz) = icolor
       !------------------------------------------------
       ! solid body rotation
       ! Attention: the Matrix transpose(M) brings us back to the body
@@ -96,11 +97,12 @@ end subroutine DrawWing_simple
 ! before calling this subroutine. Fourier series is evaluated in
 ! Radius_Fourier
 !-------------------------------------------------------------------------------
-subroutine DrawWing_Fourier(ix,iy,iz,x_wing,M,rot)
+subroutine DrawWing_Fourier(ix,iy,iz,x_wing,M,rot,icolor)
   use fsi_vars
   use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
+  integer, intent(in) :: icolor
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
   real(kind=pr) :: R, R0, steps, R_tmp, Radius_Fourier
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
@@ -132,8 +134,8 @@ subroutine DrawWing_Fourier(ix,iy,iz,x_wing,M,rot)
     !-----------------------------------------
     if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
       mask(ix,iy,iz) = mask_tmp
-      ! wings have the color "1"
-      mask_color(ix,iy,iz) = 1
+      ! wings have the color "icolor"
+      mask_color(ix,iy,iz) = icolor
       !------------------------------------------------
       ! solid body rotation
       ! Attention: the Matrix transpose(M) brings us back to the body
