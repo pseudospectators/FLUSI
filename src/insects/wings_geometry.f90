@@ -160,19 +160,34 @@ real(kind=pr) function Radius_Fourier(theta)
   use fsi_vars
   use mpi
   implicit none
-  integer :: i
-  real(kind=pr) :: R0, f
+  integer :: i,j, n_radius
+  real(kind=pr) :: R0, f, theta2, dphi, Rtest
   real(kind=pr), intent(in) :: theta
   
-  R0 = Insect%a0/2.d0
-  f = 2.d0*pi  
+  n_radius = 25000
+  dphi = (2.d0*pi) / (dble(n_radius-1))
   
-  do i = 1, Insect%n_fft
-    R0 = R0 + Insect%ai(i)*dcos(f*dble(i)*theta) &
-            + Insect%bi(i)*dsin(f*dble(i)*theta)
-  enddo
+  !-- evaluate the entire R(theta) once with very fine resolution, so when 
+  !-- calling it for the second time we only need linear interpolation.
+  if (.not.allocated(Insect%R0)) then    
+    allocate(Insect%R0(1:n_radius))
+    !-- loop over all thetas
+    do j = 1, n_radius
+      R0 = Insect%a0/2.d0
+      theta2 = dble(j-1) * dphi
+      !-- evaluate Fourier series
+      do i = 1, Insect%n_fft
+        R0 = R0 + Insect%ai(i)*dcos(2.d0*pi*dble(i)*theta2) &
+                + Insect%bi(i)*dsin(2.d0*pi*dble(i)*theta2)
+      enddo
+      Insect%R0(j)=R0
+    enddo
+  endif
+
   
-  Radius_Fourier = R0
+  !--  linear interpolation, if already stored the radius
+  j = floor( theta / dphi ) + 1
+  Radius_Fourier = Insect%R0(j) + ((theta-dble(j-1)*dphi) / dphi) * (Insect%R0(j+1)-Insect%R0(j))
 end function
 
 !-------------------------------------------------------------------------------

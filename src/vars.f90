@@ -205,6 +205,7 @@ module fsi_vars
     real(kind=pr), allocatable, dimension(:) :: ai,bi
     real(kind=pr) :: a0
     real(kind=pr) :: xc,yc ! describes the origin of the wings system
+    real(kind=pr), allocatable, dimension(:) :: R0
     integer :: n_fft
     
   end type InsectParams  
