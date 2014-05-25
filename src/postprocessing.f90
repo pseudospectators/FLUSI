@@ -46,6 +46,7 @@ end subroutine postprocessing
 subroutine convert_hdf2bin()
   use vars
   use mpi
+  use basic_operators
   implicit none
   character(len=strlen) :: fname, dsetname  
   real(kind=pr), dimension(:,:,:), allocatable :: field
@@ -101,6 +102,7 @@ subroutine convert_abs_vorticity()
   use vars
   use p3dfft_wrapper
   use mpi
+  use basic_operators
   implicit none
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
@@ -151,7 +153,7 @@ subroutine convert_abs_vorticity()
   call fft (uk(:,:,:,2),u(:,:,:,2))
   call fft (uk(:,:,:,3),u(:,:,:,3))
   
-  call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   
   call ifft (u(:,:,:,1),uk(:,:,:,1))
   call ifft (u(:,:,:,2),uk(:,:,:,2))
@@ -185,6 +187,7 @@ end subroutine convert_abs_vorticity
 subroutine convert_vorticity()
   use vars
   use p3dfft_wrapper
+  use basic_operators
   use mpi
   implicit none
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
@@ -232,7 +235,7 @@ subroutine convert_vorticity()
   call fft (uk(:,:,:,2),u(:,:,:,2))
   call fft (uk(:,:,:,3),u(:,:,:,3))
   
-  call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   
   call ifft (u(:,:,:,1),uk(:,:,:,1))
   call ifft (u(:,:,:,2),uk(:,:,:,2))

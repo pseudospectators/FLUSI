@@ -53,6 +53,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
   use mpi
   use p3dfft_wrapper
   use fsi_vars
+  use basic_operators
   implicit none
 
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -92,10 +93,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
   !-----------------------------------------------
   t1 = MPI_wtime()
   ! nlk is temporarily used for vortk
-  call curl (nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-       uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
+  call curl ( ink=uk, outk=nlk )
   ! transform it to physical space
-  call ifft3 (vort, nlk)  
+  call ifft3 ( ink=nlk, outx=vort)  
   time_vor = time_vor + MPI_wtime() - t1  
   
   !-----------------------------------------------
@@ -137,7 +137,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
     enddo
   enddo
   ! to Fourier space
-  call fft3(nlk,vort)  
+  call fft3( inx=vort,outk=nlk )  
   time_curl = time_curl + MPI_wtime() - t1  
   
   !-----------------------------------------------
@@ -288,6 +288,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -373,7 +374,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! of nlk are free.
 
   ! Add the curl to the magnetic source term:
-  call curl_inplace(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
+  call curl(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
 
   ! Penalization for B-field:
   if(iPenalization == 1) then
@@ -400,86 +401,6 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   call div_field_nul(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
 end subroutine cal_nlk_mhd
 
-
-! Given three components of an input fields in Fourier space, compute
-! the curl in physical space.  Arrays are 3-dimensional.
-subroutine curl(out1,out2,out3,in1,in2,in3)
-  use mpi
-  use p3dfft_wrapper
-  use vars
-  implicit none
-
-  ! input field in Fourier space
-  complex(kind=pr),intent(in)::in1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(in)::in2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(in)::in3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  ! output field in Fourier space
-  complex(kind=pr),intent(out)::out1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(out)::out2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(out)::out3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-
-           out1(iz,iy,ix)=imag*(ky*in3(iz,iy,ix) -kz*in2(iz,iy,ix))
-           out2(iz,iy,ix)=imag*(kz*in1(iz,iy,ix) -kx*in3(iz,iy,ix))
-           out3(iz,iy,ix)=imag*(kx*in2(iz,iy,ix) -ky*in1(iz,iy,ix))
-        enddo
-     enddo
-  enddo
-end subroutine curl
-
-
-! Given three components of a fields in Fourier space, compute the
-! curl in physical space.  Arrays are 3-dimensional.
-subroutine curl_inplace(fx,fy,fz)
-  use mpi
-  use vars
-  use p3dfft_wrapper
-  implicit none
-
-  ! Field in Fourier space
-  complex(kind=pr),intent(inout)::fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-  complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-           
-           t1=fx(iz,iy,ix)
-           t2=fy(iz,iy,ix)
-           t3=fz(iz,iy,ix)
-
-           fx(iz,iy,ix)=imag*(ky*t3 - kz*t2)
-           fy(iz,iy,ix)=imag*(kz*t1 - kx*t3)
-           fz(iz,iy,ix)=imag*(kx*t2 - ky*t1)
-        enddo
-     enddo
-  enddo
-end subroutine curl_inplace
 
 
 ! Render the input field divergence-free via a Helmholtz

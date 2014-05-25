@@ -32,6 +32,7 @@ end subroutine save_fields_new
 subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   use fsi_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -83,7 +84,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
     ! store the total pressure in the work array
     call compute_pressure(nlk(:,:,:,1),nlk)
     ! total pressure in phys-space
-    call ifft(work(:,:,:,1),nlk(:,:,:,1))
+    call ifft( ink=nlk(:,:,:,1), outx=work(:,:,:,1) )
     ! get actuall pressure (we're in the rotational formulation)
     work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
     call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
@@ -94,9 +95,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   !-------------   
   if (isaveVorticity==1) then
     ! cal_nlk overwrote the vorticity, recompute it
-    call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),& 
-               uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
-    call ifft3(vort,nlk)      
+    call curl( ink=uk, outk=nlk)
+    call ifft3( ink=nlk, outx=vort )
     !-- save Vorticity
     if (isaveVorticity == 1) then
       call save_field_hdf5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
@@ -1168,6 +1168,7 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   use mpi
   use mhd_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(in) :: time

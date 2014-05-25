@@ -18,7 +18,7 @@ OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = vars.f90 kine.f90 cof_p3dfft.f90
+MFILES = vars.f90 kine.f90 cof_p3dfft.f90 basic_operators.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -102,6 +102,9 @@ $(OBJDIR)/kine.o: kine.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+
 
 # Compile remaining objects from Fortran files.
 $(OBJDIR)/%.o: %.f90 $(MOBJS)

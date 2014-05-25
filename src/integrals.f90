@@ -37,6 +37,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(in)::time
@@ -51,39 +52,12 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
   !-----------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)
   !-----------------------------------------------------------
-  do iz=ca(1),cb(1)          
-    !-- wavenumber in z-direction
-    kz = wave_z(iz)       
-    do iy=ca(2), cb(2)
-      !-- wavenumber in y-direction
-      ky = wave_y(iy)      
-      do ix=ca(3), cb(3)
-        !-- wavenumber in x-direction
-        kx = wave_x(ix)
-        work3c(iz,iy,ix,1)=kx*uk(iz,iy,ix,1)+ky*uk(iz,iy,ix,2)+kz*uk(iz,iy,ix,3)
-        work3c(iz,iy,ix,1)=dcmplx(0.d0,1.d0)*work3c(iz,iy,ix,1)
-      enddo
-    enddo
-  enddo
+  call divergence( ink=uk, outk=work3c(:,:,:,1) )
+  call ifft( ink=work3c(:,:,:,1), outx=work1 ) ! work1 is now div in phys space
 
-  call ifft(work1,work3c(:,:,:,1)) ! work1 is now div in phys space
-
-  maxdiv_loc=maxval(abs(work1))
-  call MPI_REDUCE(maxdiv_loc,maxdiv,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-       MPI_COMM_WORLD,mpicode)
-
-  if (iPenalization==1) then
-     maxdiv_loc=maxval(abs(work1*(1.d0-mask*eps)))
-     call MPI_REDUCE(maxdiv_loc,maxdiv_fluid,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-          MPI_COMM_WORLD,mpicode)       
-  else
-     maxdiv_fluid = maxdiv
-  endif
-
-  ! FIXME: there is already the file d.t which contains the divergence.
   if(mpirank == 0) then
      open(14,file='divu.t',status='unknown',position='append')
-     write (14,'(3(e12.5,A))') time,tab,maxdiv,tab,maxdiv_fluid,tab
+     write (14,'(4(e12.5,1x))') time,fieldmax(work1),fieldmax(work1*(1.d0-mask*eps))
      close(14)
   endif
 
@@ -109,6 +83,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   use mpi
   use mhd_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   complex (kind=pr),intent(in)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
