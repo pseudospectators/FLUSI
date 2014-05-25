@@ -62,10 +62,11 @@ subroutine Start_Simulation()
   nf=1 ! We are evolving one field.
   nd=3*nf ! The one field has three components.
 
-  time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0;
-  time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0;
+  time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0
+  time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0
   time_bckp=0.0; time_save=0.0; time_total=MPI_wtime(); time_u=0.0; time_sponge=0.0
-
+  time_insect_head=0.0; time_insect_body=0.0; time_insect_eye=0.0
+  time_insect_wings=0.0; time_insect_vel=0.0
 
   
   ! Set up global communicators. We have two groups, for solid and fluid CPUs
@@ -245,28 +246,37 @@ subroutine show_timings(t2)
   write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.0*time_mask/t2
   write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.0*time_save/t2
   write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.0*time_bckp/t2
-  tmp = t2 - (time_fluid + time_mask + time_save + time_bckp)
+  tmp = t2 - (time_fluid + time_mask + time_save + time_bckp + time_save)
   write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/t2
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "The time spend for the fluid decomposes into:"
   write(*,'("cal_nlk: ",es12.4," (",f5.1,"%)")') time_nlk, 100.0*time_nlk/time_fluid
   write(*,'("cal_vis: ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
   tmp = time_fluid - time_nlk - time_vis
-  write(*,'("explin:  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
+  write(*,'("misc:  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "cal_nlk decomposes into:"
   write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk
   write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.0*time_vor/time_nlk
   write(*,'("vor x u - chi*u: ",es12.4," (",f5.1,"%)")') time_curl, 100.0*time_curl/time_nlk
   write(*,'("projection     : ",es12.4," (",f5.1,"%)")') time_p, 100.0*time_p/time_nlk
-  write(*,'("sponge         : ",es12.4," (",f5.1,"%)")') tmp, 100.0*time_sponge/time_nlk
+  write(*,'("sponge         : ",es12.4," (",f5.1,"%)")') time_sponge, 100.0*time_sponge/time_nlk
   tmp = time_nlk - time_u - time_vor - time_curl - time_p  
   write(*,'("Misc           : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
   write (*,'(A)') "cal_nlk: FFTs and local operations:"
   write(*,'("FFTs           : ",es12.4," (",f5.1,"%)")') time_nlk_fft, 100.0*time_nlk_fft/time_nlk
   tmp = time_nlk-time_nlk_fft
   write(*,'("local          : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
-
+  if (iMask=="Insect") then
+  write(*,'(A)') '--------------------------------------'
+  write(*,'(A)') 'Insect mask generation decomposes into:'
+  write(*,'("Body : ",es12.4," (",f5.1,"%)")') time_insect_body, 100.0*time_insect_body/time_mask
+  write(*,'("Eyes : ",es12.4," (",f5.1,"%)")') time_insect_eye,  100.0*time_insect_eye/time_mask
+  write(*,'("Head : ",es12.4," (",f5.1,"%)")') time_insect_head, 100.0*time_insect_head/time_mask
+  write(*,'("Wings: ",es12.4," (",f5.1,"%)")') time_insect_wings,100.0*time_insect_wings/time_mask  
+  write(*,'("veloc: ",es12.4," (",f5.1,"%)")') time_insect_vel,  100.0*time_insect_vel/time_mask  
+  write(*,'(A)') '--------------------------------------'
+  endif
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') 'Finalizing computation....'
   write(*,'(A)') '--------------------------------------'

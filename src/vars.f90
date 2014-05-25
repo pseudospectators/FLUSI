@@ -36,7 +36,8 @@ module vars
   real(kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2
   real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
   real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-  real(kind=pr),save :: time_sponge
+  real(kind=pr),save :: time_sponge,time_insect_head,time_insect_body
+  real(kind=pr),save :: time_insect_eye,time_insect_wings, time_insect_vel
 
   ! The mask array.  TODO: move out of shave_vars?
   real(kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function

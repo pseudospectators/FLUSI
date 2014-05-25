@@ -20,7 +20,7 @@ subroutine Draw_Insect ( time )
   real(kind=pr) :: x_eye_r(1:3), x_eye_l(1:3)
   real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
   real(kind=pr) :: xc_body(1:3), alpha_l, phi_l, phi_r, alpha_r
-  real(kind=pr) :: alpha_dt_l, alpha_dt_r, phi_dt_l, phi_dt_r
+  real(kind=pr) :: alpha_dt_l, alpha_dt_r, phi_dt_l, phi_dt_r, t1
   real(kind=pr) :: theta_dt_l, theta_dt_r, eta_stroke, theta_r, theta_l
   real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
   M1, M2, M3, M_stroke_l, M_stroke_r, M_body_inv, M_wing_l_inv, M_wing_r_inv
@@ -146,58 +146,133 @@ subroutine Draw_Insect ( time )
   color_l = 2
   color_r = 3
 
+  !-------------------------------------------------------
+  ! Draw indivudual parts of the Diptera. Separate loops are faster
+  ! since the compiler can optimize them better
+  !-------------------------------------------------------
+  ! BODY
+  !-------------------------------------------------------
+  t1 = MPI_wtime()
   do ix = ra(1), rb(1)
      do iy = ra(2), rb(2)
         do iz = ra(3), rb(3)
-           !--------------------------------------
-           ! define the various coordinate systems
-           ! we are going to use
-           !--------------------------------------
+           !-- define the various coordinate systems we are going to use
+           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           x_body   = matmul(M_body,x-xc_body)
+           
+           !-- call body subroutines
+           call DrawBody(ix,iy,iz,x_body,color_body)
+        enddo
+     enddo
+  enddo
+  time_insect_body = time_insect_body + MPI_wtime() - t1
+  
+  !-------------------------------------------------------
+  ! Eyes (not always present)
+  !-------------------------------------------------------
+  t1 = MPI_wtime()
+  if (HasEye) then           
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+           !-- define the various coordinate systems we are going to use
+           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           x_body   = matmul(M_body,x-xc_body)
+           x_eye_l  = x_body - xc_eye_l
+           x_eye_r  = x_body - xc_eye_r
+           
+           !-- call body subroutines
+           call DrawEye(ix,iy,iz,x_eye_r,color_body)
+           call DrawEye(ix,iy,iz,x_eye_l,color_body)
+        enddo
+     enddo
+  enddo  
+  endif
+  time_insect_eye = time_insect_eye + MPI_wtime() - t1
+  
+  !-------------------------------------------------------
+  ! Head (not always present)
+  !-------------------------------------------------------
+  t1 = MPI_wtime()
+  if (HasHead) then           
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+           !-- define the various coordinate systems we are going to use
            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
            x_body   = matmul(M_body,x-xc_body)
            x_head   = x_body - xc_head
-           x_eye_l  = x_body - xc_eye_l
-           x_eye_r  = x_body - xc_eye_r
+           !-- call body subroutines
+           call DrawHead(ix,iy,iz,x_head,color_body)
+        enddo
+     enddo
+  enddo  
+  endif
+  time_insect_head = time_insect_head + MPI_wtime() - t1
+  
+  !-------------------------------------------------------
+  ! Wings (two subfunctions, for simple wings and those described
+  ! by Fourier series)
+  !-------------------------------------------------------
+  t1 = MPI_wtime()
+  if (fourier_wing) then
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+           !-- define the various coordinate systems we are going to use
+           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           x_body   = matmul(M_body,x-xc_body)
            x_wing_l = matmul(M_wing_l,x_body-xc_pivot_l)
            x_wing_r = matmul(M_wing_r,x_body-xc_pivot_r)
            
-           !--------------------------------------
-           ! call body subroutines
-           !--------------------------------------
-           call DrawBody(ix,iy,iz,x_body,color_body)
-           if (HasHead) then
-             call DrawHead(ix,iy,iz,x_head,color_body)
-           endif
-           if (HasEye) then
-             call DrawEye(ix,iy,iz,x_eye_r,color_body)
-             call DrawEye(ix,iy,iz,x_eye_l,color_body)
-           endif
+           !-- call wing subroutines
+           call DrawWing_Fourier(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
+           call DrawWing_Fourier(ix,iy,iz,x_wing_r,M_wing_r,rot_r,color_r)
+        enddo
+     enddo
+  enddo  
+  
+  else
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+           !-- define the various coordinate systems we are going to use
+           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           x_body   = matmul(M_body,x-xc_body)
+           x_wing_l = matmul(M_wing_l,x_body-xc_pivot_l)
+           x_wing_r = matmul(M_wing_r,x_body-xc_pivot_r)
            
-           !--------------------------------------
-           ! wings
-           !--------------------------------------
-           if (fourier_wing) then
-             call DrawWing_Fourier(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
-             call DrawWing_Fourier(ix,iy,iz,x_wing_r,M_wing_r,rot_r,color_r)
-           else 
-             call DrawWing_simple(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
-             call DrawWing_simple(ix,iy,iz,x_wing_r,M_wing_r,rot_r,color_r)
-           endif
-           
-           !--------------------------------------
+           !-- call wing subroutines
+           call DrawWing_simple(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
+           call DrawWing_simple(ix,iy,iz,x_wing_r,M_wing_r,rot_r,color_r)
+        enddo
+     enddo
+  enddo   
+  endif
+  time_insect_wings = time_insect_wings + MPI_wtime() - t1
+  
+  !-------------------------------------------------------
+  ! Add solid body rotation (i.e. the velocity field that originates
+  ! from the body rotation and translation. Until now, the wing velocities
+  ! were the only ones set plus they are in the body reference frame
+  !-------------------------------------------------------
+  t1 = MPI_wtime()
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)           
            ! add solid body rotation in the body-reference frame
-           !--------------------------------------
            if (mask(ix,iy,iz) > 0.d0) then
             ! add solid body rotation to the translational velocity field
             v_tmp(1) = vc_body(1)+rot_body(2)*x_body(3)-rot_body(3)*x_body(2)
             v_tmp(2) = vc_body(2)+rot_body(3)*x_body(1)-rot_body(1)*x_body(3)
             v_tmp(3) = vc_body(3)+rot_body(1)*x_body(2)-rot_body(2)*x_body(1)
             
-            us(ix,iy,iz,1:3)=matmul(transpose(M_body),us(ix,iy,iz,1:3)+v_tmp)
+            us(ix,iy,iz,1:3)=matmul(M_body_inv,us(ix,iy,iz,1:3)+v_tmp)
            endif
         enddo
-    enddo
-  enddo
+     enddo
+  enddo  
+  time_insect_vel = time_insect_vel + MPI_wtime() - t1
 end subroutine Draw_Insect
 
 
