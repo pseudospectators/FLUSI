@@ -1,5 +1,5 @@
 ! Wrapper for writing integral quantities to file
-subroutine write_integrals(time,uk,u,vort,nlk,work)
+subroutine write_integrals(time,uk,u,vort,nlk,work,workc)
   use mpi
   use vars
   implicit none
@@ -8,12 +8,14 @@ subroutine write_integrals(time,uk,u,vort,nlk,work)
   real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr), intent(in) :: time
 
   select case(method)
   case("fsi")
-     call write_integrals_fsi(time,uk,u,vort,nlk,work)
+     call write_integrals_fsi(time,uk,u,vort,nlk,work,workc)
   case("mhd")
      call write_integrals_mhd(time,uk,u,vort,nlk,work)
   case default
@@ -24,7 +26,7 @@ end subroutine write_integrals
 
 
 ! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
+subroutine write_integrals_fsi(time,uk,u,vort,nlk,work,workc)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -35,6 +37,8 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc
 !  complex(kind=pr) :: imag ! imaginary unit

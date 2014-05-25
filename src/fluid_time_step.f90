@@ -1,7 +1,7 @@
 ! Wrapper for different time marching methods
 ! FIXME: add documentation: which arguments are used for what?  What
 ! are their dimensions?
-subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
+subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis,it)
   use mpi
   use p3dfft_wrapper
   use vars
@@ -16,6 +16,8 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   real(kind=pr)::t1
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
 
   t1=MPI_wtime()  
   ! Note that in the new version, dealiasing is done in cal_vis.
@@ -23,15 +25,15 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
   case("RK2")
-     call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+     call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis)
   case("AB2")
      if(it == 0) then
-        call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
+        call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,expvis)
      else
-        call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
+        call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis)
      end if
   case("Euler")
-     call euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+     call euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis)
   case default
      if (mpirank == 0) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
      stop
@@ -48,7 +50,7 @@ end subroutine FluidTimestep
 
 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis)
   use mpi
   use vars
   use p3dfft_wrapper
@@ -59,6 +61,8 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -66,7 +70,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   integer::i,j,l
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work)
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc)
   call adjust_dt(dt1,u)
 
   !-- multiply the RHS with the viscosity, first the velocity
@@ -101,7 +105,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   endif
 
   !-- RHS using the euler velocity
-  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work ) 
+  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc) 
   call adjust_dt(dt1,u)
 
   ! do the actual time step. note the minus sign.in the original formulation, it
@@ -120,7 +124,7 @@ end subroutine rungekutta2
 
 ! This is standard Euler-explicit time marching. It does not serve as
 ! startup scheme for AB2.
-subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
+subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis)
   use mpi
   use vars
   use p3dfft_wrapper
@@ -131,6 +135,8 @@ subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   complex(kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout):: &
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)        
   real(kind=pr),intent(inout)::work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -138,7 +144,7 @@ subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work)
+  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc)
   call adjust_dt(dt1,u)
 
   !-- Compute integrating factor, if necesssary
@@ -163,7 +169,7 @@ end subroutine euler
 
 ! Note this is not an optimized Euler. It only does things we need for AB2.
 ! FIXME: add documentation: which arguments are used for what?
-subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
+subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,expvis)
   use mpi
   use p3dfft_wrapper
   use vars
@@ -174,6 +180,8 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
   complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -181,7 +189,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
   integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc)
   call adjust_dt(dt1,u)
 
   !-- Compute integrating factor, if necesssary
@@ -211,7 +219,7 @@ end subroutine euler_startup
 
 
 ! FIXME: add documentation: which arguments are used for what?
-subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
+subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis)
   use mpi
   use vars
   use p3dfft_wrapper
@@ -222,6 +230,8 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)        
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -230,7 +240,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   integer::i,j,a
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc)
   call adjust_dt(dt1,u)
 
   !-- Calculate velocity at new time step 

@@ -133,9 +133,6 @@ module fsi_vars
   use vars
   implicit none
   
-  ! the sponge term is temporarily set in a global variable, but this will
-  ! be changed in future versions
-  complex(kind=pr), allocatable, save:: sponge(:,:,:,:)
   ! switch for vorticity sponge:
   character(len=strlen), save :: iVorticitySponge, iSpongeType
   real(kind=pr), save :: eps_sponge

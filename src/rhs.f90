@@ -1,19 +1,21 @@
 ! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
-subroutine cal_nlk(time,it,nlk,uk,u,vort,work)
+subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc)
   use vars
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(in) :: time
   integer, intent(in) :: it
 
-  select case(method(1:3))
+  select case(method)
   case("fsi") 
-     call cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
+     call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   case("mhd") 
      call cal_nlk_mhd(nlk,uk,u,vort)
   case default
@@ -37,23 +39,27 @@ end subroutine cal_nlk
 !       u:    work array, contains the velocity in phys space
 !             this is reused in the caller FluidTimestep to adjust dt
 !       work: work array, currently unused (will be used for pressure)
+!       workc: cmplx work array, for sponge and/or passive scalar,
+!              and/or FSI (temp array for pressure later)
 ! Side Effects:
 !      * if present, a sponge is applied to remove incoming vorticity
 !
 ! To Do:
 !       * for "true" FSI, we'll need to return the pressure field in phys space
 !-------------------------------------------------------------------------------
-subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
+subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   use mpi
   use p3dfft_wrapper
   use fsi_vars
   implicit none
 
-  complex(kind=pr),intent(in)::   uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
   real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz,chi2
   real(kind=pr) :: penalx,penaly,penalz
@@ -71,7 +77,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   usy     = 0.d0
   usz     = 0.d0  
   chi2    = 0.d0
-
   !-----------------------------------------------
   !-- Calculate velocity in physical space
   !-----------------------------------------------
@@ -94,7 +99,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-- vorticity sponge term
   !-----------------------------------------------
   t1 = MPI_wtime()
-  call vorticity_sponge( work, vort )  
+  call vorticity_sponge( vort, work, workc )  
   time_sponge = time_sponge + MPI_wtime() - t1
     
   !-----------------------------------------------
@@ -140,9 +145,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   !-----------------------------------------------
   t1 = MPI_wtime()
   if (iVorticitySponge == "yes") then
-    nlk(:,:,:,1) = nlk(:,:,:,1) + sponge(:,:,:,1)
-    nlk(:,:,:,2) = nlk(:,:,:,2) + sponge(:,:,:,2)
-    nlk(:,:,:,3) = nlk(:,:,:,3) + sponge(:,:,:,3)
+    nlk(:,:,:,1) = nlk(:,:,:,1) + workc(:,:,:,1)
+    nlk(:,:,:,2) = nlk(:,:,:,2) + workc(:,:,:,2)
+    nlk(:,:,:,3) = nlk(:,:,:,3) + workc(:,:,:,3)
   endif
   time_sponge = time_sponge + MPI_wtime() - t1  
   

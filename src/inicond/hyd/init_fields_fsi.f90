@@ -1,5 +1,5 @@
 ! Set initial conditions for fsi code.
-subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
+subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin,workc)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -7,14 +7,12 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
 
   integer,intent (inout) :: n1,it
   real (kind=pr),intent (inout) :: time,dt1,dt0
-  complex (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd),&
-       intent(inout) :: uk
-  complex (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1),&
-       intent(inout) :: work_nlk
-  real (kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd),&
-       intent(inout) :: vort
-  real (kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),&
-       intent(inout) :: explin
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
+  complex(kind=pr),intent(inout)::work_nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z,r,a,gamma0,x00,r00,omega
 

@@ -28,6 +28,8 @@ program mhd
 
   ! work is a 3-dimensional array. FIXME: what is it used in?
   real(kind=pr),dimension(:,:,:),allocatable :: work
+  ! workc is complex work array, currently unused in the MHD case
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
   
   ! Initialize MPI, get size and rank
   call MPI_INIT(mpicode)
@@ -109,6 +111,7 @@ program mhd
   call allocrealnd(wj)
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
+  allocate(workc(1:1,1:1,1:1,1:1))
   call allocreal(work)
   call allocreal(mask)
   call allocrealnd(us)
@@ -123,7 +126,7 @@ program mhd
 
   ! Initialize vorticity or read values from a backup file
   if (mpirank == 0) write(*,*) "Set up initial conditions:"
-  call init_fields(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
+  call init_fields(n1,time,it,dt0,dt1,ubk,nlk,wj,explin,workc)
   n0=1 - n1 !important to do this now in case we're retaking a backp
   
   if (mpirank == 0) write(*,*) "Create mask variables:"
@@ -132,7 +135,7 @@ program mhd
   call update_us(ub)
   
   if (mpirank == 0) write(*,*) "Start time-stepping:"
-  call time_step(ub,ubk,nlk,wj,work,explin,infile,time,dt0,dt1,n0,n1,it)
+  call time_step(ub,ubk,nlk,wj,work,workc,explin,infile,time,dt0,dt1,n0,n1,it)
 
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
   
@@ -145,6 +148,7 @@ program mhd
   deallocate(us)
   deallocate(lin)
   deallocate(work)
+  deallocate(workc)
 
   call fft_free 
   call MPI_FINALIZE(mpicode)

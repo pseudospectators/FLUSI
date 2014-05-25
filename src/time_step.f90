@@ -1,4 +1,4 @@
-subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it)
+subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0,n1,it)
   use mpi
   use vars
   use fsi_vars
@@ -15,6 +15,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   character(len=strlen)  :: command ! for runtime control
   character(len=strlen),intent(in)  :: params_file ! for runtime control  
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3,0:1)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -27,7 +29,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   
   ! save initial conditions (if not resuming a backup)
   if (index(inicond,'backup::')==0) then
-    call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+    call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
   endif
   
   ! initialize runtime control file
@@ -37,7 +39,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
   if (index(inicond,'backup::')==0) then
     if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
-    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
   endif
 
   if (mpirank == 0) write(*,*) "Start time-stepping...."
@@ -64,7 +66,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      ! advance fluid/B-field in time
      !-------------------------------------------------
      if(dry_run_without_fluid/="yes") then
-       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,explin,it)
+       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,explin,it)
      endif
 
      !-------------------------------------------------
@@ -122,7 +124,7 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work)       
+        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)       
         
      endif
 

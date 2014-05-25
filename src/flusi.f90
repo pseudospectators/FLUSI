@@ -2,8 +2,8 @@ program FLUSI
   use mpi
   use fsi_vars
   implicit none
-  integer                :: mpicode
-  character (len=strlen)     :: infile
+  integer :: mpicode
+  character (len=strlen) :: infile
 
   ! Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
@@ -44,7 +44,7 @@ subroutine Start_Simulation()
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   real(kind=pr)          :: t1,t2
-  real(kind=pr)          :: time,dt0,dt1
+  real(kind=pr)          :: time,dt0,dt1,memory, mem_field
   integer                :: n0=0,n1=1,it
   character (len=strlen)     :: infile
   ! Arrays needed for simulation
@@ -52,6 +52,8 @@ subroutine Start_Simulation()
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
   real(kind=pr),dimension(:,:,:),allocatable :: work
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  ! complex work array, used for sponge and/or passive scalar
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
   complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk
 
   
@@ -109,35 +111,72 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Allocate memory:
   !-----------------------------------------------------------------------------
+  mem_field = dble(nx)*dble(ny)*dble(nz)*8.0
+  memory = 0.0
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
+  memory = memory + dble(nf)*mem_field
+  
   ! velocity in Fourier space
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
+  memory = memory + dble(nd)*mem_field
+  
   ! right hand side of navier-stokes
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
+  memory = memory + 2.0*dble(nd)*mem_field
+  
   ! velocity in physical space
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  memory = memory + dble(nd)*mem_field
+  
   ! vorticity in physical space
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
+  memory = memory + dble(nd)*mem_field
+  
   ! real valued work array
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  memory = memory + mem_field
+  
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
+  memory = memory + mem_field
+  
   ! mask color function (distinguishes between different parts of the mask
-  allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
+  allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  memory = memory + mem_field/4.d0
+  
   ! solid body velocities
-  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))  
-  ! vorticity sponge
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)) 
+  memory = memory + dble(nd)*mem_field
+  
+  ! vorticity sponge, work array that is used for sponge and/or passive scalar
   if (iVorticitySponge=="yes") then
-    allocate (sponge(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd) )
+    allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) )
+    memory = memory + dble(3)*mem_field
+    if (mpirank==0) write(*,*) "workc is fully allocated"
+  else
+    allocate (workc(1:1,1:1,1:1,1:1))
+    if (mpirank==0) write(*,*) "workc is not allocated"
   endif
+  
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") then
      call load_kine_init(mpirank,MPI_DOUBLE_PRECISION,MPI_INTEGER)
   endif
+  
   ! If required, initialize rigid solid dynamics solver
   ! and set idynamics flag on or off
   call rigid_solid_init(SolidDyn%idynamics)
 
+  ! show memory consumption for information
+  if (mpirank==0) then
+    write(*,'(80("-"))')
+    write(*,'("FLUSI allocated ",f7.1"MB (",f5.1,"GB) of memory in total")')&
+    memory/(1.0d6),memory/(1.0d9)
+    write(*,'("which is ",f7.1,"MB (",f4.1,"GB) per CPU")') &
+    memory/(1.0d6)/dble(mpisize),memory/(1.0d9)/dble(mpisize)
+    write(*,'(80("-"))')
+  endif
+  
   !-----------------------------------------------------------------------------
   ! check if at least FFT works okay
   !-----------------------------------------------------------------------------
@@ -147,7 +186,7 @@ subroutine Start_Simulation()
   ! Initial condition
   !-----------------------------------------------------------------------------
   if (mpirank == 0) write(*,*) "Set up initial conditions...."
-  call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
+  call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
   n0=1 - n1 !important to do this now in case we're retaking a backp
   
   !-----------------------------------------------------------------------------
@@ -162,7 +201,7 @@ subroutine Start_Simulation()
   ! Step forward in time
   !*****************************************************************************
   t1 = MPI_wtime()
-  call time_step(u,uk,nlk,vort,work,explin,infile,time,dt0,dt1,n0,n1,it)
+  call time_step(u,uk,nlk,vort,work,workc,explin,infile,time,dt0,dt1,n0,n1,it)
   t2 = MPI_wtime() - t1
   
   !-----------------------------------------------------------------------------
@@ -170,12 +209,11 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   deallocate(lin)
   deallocate(explin)
-  deallocate(vort,work)
+  deallocate(vort,work,workc)
   deallocate(u,uk,nlk)
   deallocate(us)
   deallocate(mask)
   deallocate(mask_color)
-  if (iVorticitySponge=="yes") deallocate(sponge)
   ! Clean kinematics (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") call load_kine_clean
   

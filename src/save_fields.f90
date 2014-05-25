@@ -1,18 +1,20 @@
 ! Wrapper for saving fields routine
-subroutine save_fields_new(time,uk,u,vort,nlk,work)
+subroutine save_fields_new(time,uk,u,vort,nlk,work,workc)
   use vars
   implicit none
 
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
-  select case(method(1:3))
+  select case(method)
      case("fsi") 
-        call save_fields_new_fsi(time,uk,u,vort,nlk,work)
+        call save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
      case("mhd") 
         call save_fields_new_mhd(time,uk,u,vort,nlk)
      case default
@@ -28,7 +30,7 @@ end subroutine save_fields_new
 ! The latest version calls cal_nlk_fsi to avoid redudant code. 
 ! note cal_nlk_fsi returns the NL+penal term in phys space in the work
 ! array "vort" which is why we have to recompute the vorticity
-subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
+subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   use fsi_vars
   use p3dfft_wrapper
   implicit none
@@ -36,6 +38,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -61,7 +65,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work) 
+  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc) 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
   !-------------  
