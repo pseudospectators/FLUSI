@@ -141,7 +141,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the passive scalar(s)
   !-----------------------------------------------------------------------------
-  if (use_passive_scalar==1) then
+  if ((use_passive_scalar==1).and.(index(inicond,"backup::")==0)) then
     call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1))
   endif
   

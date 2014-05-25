@@ -28,7 +28,7 @@ program mhd
 
   ! work is a 3-dimensional array. FIXME: what is it used in?
   real(kind=pr),dimension(:,:,:,:),allocatable :: work
-  ! workc is complex work array, currently unused in the MHD case
+  ! complex work array, currently unused in the MHD case (not allocated)
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
   
   ! Initialize MPI, get size and rank

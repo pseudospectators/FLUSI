@@ -387,6 +387,11 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   call dump_field_backup(work,"uy",time,dt0,dt1,n1,it,file_id)
   call ifft(work,ub(:,:,:,3))
   call dump_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
+  
+  if((method=="fsi").and.(use_passive_scalar==1)) then 
+    call ifft(work,ub(:,:,:,4))
+    call dump_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)   
+  endif
 
   if(method == "mhd") then
      ! Write the MHD backup field:
@@ -411,6 +416,14 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   call dump_field_backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,3,1))
   call dump_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
+  
+  
+  if((method=="fsi").and.(use_passive_scalar==1)) then 
+    call ifft(work,nlk(:,:,:,4,0))
+    call dump_field_backup(work,"nlkscalar0",time,dt0,dt1,n1,it,file_id)
+    call ifft(work,nlk(:,:,:,4,1))
+    call dump_field_backup(work,"nlkscalar1",time,dt0,dt1,n1,it,file_id)
+  endif
   
   if(method == "mhd") then
      ! Write the MHD backup field:
@@ -839,7 +852,7 @@ end subroutine Read_Single_File
 ! Load backup data from disk to initialize run for restart
 subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   use mpi
-  use vars
+  use fsi_vars
   use p3dfft_wrapper
   use hdf5
   implicit none
@@ -887,6 +900,11 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   call read_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,3),work)
 
+  if((method=="fsi").and.(use_passive_scalar==1)) then 
+    call read_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)
+    call fft(uk(:,:,:,4),work)
+  endif
+  
   if(method == "mhd") then
      ! Read MHD backup field:
      call read_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
@@ -911,6 +929,13 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   call read_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,3,1),work)
 
+  if((method=="fsi").and.(use_passive_scalar==1)) then 
+    call read_field_backup(work,"nlkscalar0",time,dt0,dt1,n1,it,file_id)
+    call fft(nlk(:,:,:,4,0),work)
+    call read_field_backup(work,"nlkscalar1",time,dt0,dt1,n1,it,file_id)
+    call fft(nlk(:,:,:,4,1),work)
+  endif
+  
   if(method == "mhd") then
      ! Read MHD nonlinear source term backup too:
      call read_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
