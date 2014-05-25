@@ -6,9 +6,8 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work,workc)
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
@@ -38,9 +37,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   character(len=17) :: name
@@ -85,10 +83,10 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
     ! store the total pressure in the work array
     call compute_pressure(nlk(:,:,:,1),nlk)
     ! total pressure in phys-space
-    call ifft(work,nlk(:,:,:,1))
+    call ifft(work(:,:,:,1),nlk(:,:,:,1))
     ! get actuall pressure (we're in the rotational formulation)
-    work = work - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-    call save_field_hdf5(time,'./p_'//name,work,"p")
+    work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+    call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
   endif
      
   !-------------  
@@ -129,8 +127,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   ! passive scalar
   !-------------
   if (use_passive_scalar==1) then
-    call ifft ( ink=uk(:,:,:,4), outx=work )
-    call save_field_hdf5(time,'./scalar_'//name,work,"scalar")
+    call ifft ( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
+    call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
   endif
   
   

@@ -21,7 +21,7 @@
 ! TO DO:
 !       merge with vorticity2velocity in init_fields_fsi
 ! ------------------------------------------------------------------------------
-subroutine vorticity_sponge( vort, work, workc )
+subroutine vorticity_sponge( vort, work1, workc )
   use mpi
   use p3dfft_wrapper
   use fsi_vars  
@@ -30,17 +30,17 @@ subroutine vorticity_sponge( vort, work, workc )
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
   integer :: i, ix, iy, iz
   real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))  
+  real(kind=pr),intent(inout):: work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))  
   ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   
   if (iVorticitySponge == "yes") then    
     ! loop over components
     do i=1,3  
       ! penalize this vorticity component in the work array
-      call penalize_vort ( work, vort(:,:,:,i) )
+      call penalize_vort ( work1, vort(:,:,:,i) )
       ! transform it to fourier space and store it in the sponge array workc
-      call fft ( inx=work, outk=workc(:,:,:,i)  )  
+      call fft ( inx=work1, outk=workc(:,:,:,i)  )  
     enddo  
     
     

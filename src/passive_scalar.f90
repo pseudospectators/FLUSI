@@ -3,7 +3,7 @@
 ! vectors), in future revisions this will be called for *each* passive scalar
 ! while for starters we have only one.
 !-------------------------------------------------------------------------------
-subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc, work )
+subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
   use mpi
   use p3dfft_wrapper
   use fsi_vars
@@ -13,9 +13,8 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc, work )
   integer, intent(in) :: it
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
+  complex(kind=pr),intent(inout)::workc1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) 
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   
   real(kind=pr) :: kx,ky,kz,chi,w,D,maxi,t1
@@ -63,13 +62,13 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc, work )
         do ix=ca(3),cb(3)
           kx=wave_x(ix)
           k = (/kx, ky ,kz /)
-          workc(iz,iy,ix) = uk(iz,iy,ix) * imag * k(id)
+          workc1(iz,iy,ix) = uk(iz,iy,ix) * imag * k(id)
         enddo
       enddo
     enddo
     
     ! step 2: 
-    call ifft ( ink=workc, outx=work(:,:,:,1))
+    call ifft ( ink=workc1, outx=work(:,:,:,1))
     work(:,:,:,2) = work(:,:,:,1)
     
     ! step 3
@@ -83,9 +82,9 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc, work )
       enddo
     enddo
     ! step 4
-    call fft ( inx=work(:,:,:,1), outk=workc )
+    call fft ( inx=work(:,:,:,1), outk=workc1 )
     ! step 5
-    nlk = nlk + workc
+    nlk = nlk + workc1
     
     !-------------------------------------------------------------
     
@@ -103,7 +102,7 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc, work )
     enddo
     
     ! step 7
-    call fft( inx=work(:,:,:,2), outk=workc )
+    call fft( inx=work(:,:,:,2), outk=workc1 )
     
     ! step 8: compute id-component of gradient theta in f-space
     do iz=ca(1),cb(1)
@@ -113,12 +112,12 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc, work )
         do ix=ca(3),cb(3)
           kx=wave_x(ix)
           k = (/kx, ky ,kz /)
-          workc(iz,iy,ix) = workc(iz,iy,ix) * imag * k(id)
+          workc1(iz,iy,ix) = workc1(iz,iy,ix) * imag * k(id)
         enddo
       enddo
     enddo
     ! step 9
-    nlk = nlk + workc   
+    nlk = nlk + workc1   
   enddo
   time_scalar = time_scalar + MPI_wtime() - t1
 end subroutine cal_nlk_scalar

@@ -27,7 +27,7 @@ program mhd
   real(kind=pr),dimension(:,:,:,:),allocatable :: wj
 
   ! work is a 3-dimensional array. FIXME: what is it used in?
-  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr),dimension(:,:,:,:),allocatable :: work
   ! workc is complex work array, currently unused in the MHD case
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
   
@@ -42,6 +42,10 @@ program mhd
   nf=2 ! We are evolving two fields: u and B.
   nd=3*nf ! Each field has three dimensions, for six total.
   neq=nd ! the vector of unknowns has 6 dimensions (ux,uy,uz,bx,by,bz)
+  
+  nrw = 1 ! number of real work arrays in work
+  ncw = 0 ! number of complex work arrays in workc
+  
   allocate(lin(nf)) ! Set up the linear term
   
   ! this helps displaying the walltime (in the global var time_total)
@@ -107,18 +111,17 @@ program mhd
 
   ! Allocate memory:
   allocate(ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-!  call alloccomplexnd(ubk)
   call allocrealnd(ub)
   call allocrealnd(wj)
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1))
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
-  allocate(workc(1:1,1:1,1:1,1:1))
-  call allocreal(work)
+  allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw))
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
   call allocreal(mask)
   call allocrealnd(us)
 
   ! Check if at least FFT works okay
-  call fft_unit_test(work,ubk(:,:,:,1))
+  call fft_unit_test(ub(:,:,:,1),ubk(:,:,:,1))
 
   time=0.0
   it=0

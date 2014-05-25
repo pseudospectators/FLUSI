@@ -5,9 +5,8 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc)
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(in) :: time
@@ -56,8 +55,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
@@ -99,7 +98,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   !-- vorticity sponge term
   !-----------------------------------------------
   t1 = MPI_wtime()
-  call vorticity_sponge( vort, work(:,:,:,1), workc )  
+  if (iVorticitySponge == "yes") then
+     call vorticity_sponge( vort, work(:,:,:,1), workc )  
+  endif
   time_sponge = time_sponge + MPI_wtime() - t1
     
   !-----------------------------------------------
@@ -157,7 +158,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   ! passive scalar (currently only one)
   !-----------------------------------------------
   if ((use_passive_scalar==1).and.(compute_scalar)) then
-    call cal_nlk_scalar( time,it, u, uk(:,:,:,4), nlk(:,:,:,4), workc(:,:,:,1:1), work )
+    call cal_nlk_scalar( time,it, u, uk(:,:,:,4), nlk(:,:,:,4), workc(:,:,:,1), work )
   endif
   
   ! this is for the timing statistics.

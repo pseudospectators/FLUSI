@@ -63,7 +63,7 @@ subroutine Start_Simulation()
   nd=3*nf ! The one field has three components.
   neq=nd
   nrw=1 ! number of real valued work arrays
-  ncw=1 ! number of complex values work arrays 
+  ncw=0 ! number of complex values work arrays 
 
   ! initialize timing variables
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0
@@ -116,7 +116,7 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Allocate memory:
   !-----------------------------------------------------------------------------
-  ! reserve additional space for scalars:
+  ! reserve additional space for scalars?
   if (use_passive_scalar==1) then
     neq = neq + n_scalars
     compute_scalar=.true.
@@ -124,6 +124,7 @@ subroutine Start_Simulation()
   
   mem_field = dble(nx)*dble(ny)*dble(nz)*8.0
   memory = 0.0
+  
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   memory = memory + dble(nf)*mem_field
   
@@ -146,13 +147,14 @@ subroutine Start_Simulation()
   ! real valued work array(s)
   if (use_passive_scalar==1) then
     ! allocate two work arrays
-    allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2))
-    memory = memory + 2.0*mem_field
+    nrw = 2
   else
     ! allocate one work array
-    allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:1))
-    memory = memory + mem_field
+    nrw = 1
   endif
+  
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
+  memory = memory + dble(nrw)*mem_field
   
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
@@ -168,19 +170,11 @@ subroutine Start_Simulation()
   
   ! vorticity sponge, work array that is used for sponge and/or passive scalar
   if (iVorticitySponge=="yes") then
-    allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) )
-    memory = memory + dble(3)*mem_field
-    if (mpirank==0) write(*,*) "workc is fully allocated (3 arrays)"
+    ncw = 3
   else
-    if (use_passive_scalar==1) then
-      allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:1) )
-      memory = memory + dble(2)*mem_field
-      if (mpirank==0) write(*,*) "workc is partly allocated (1 array)"
-    else
-      allocate (workc(1:1,1:1,1:1,1:1))
-      if (mpirank==0) write(*,*) "workc is not allocated (0 arrays)"
-    endif
+    if (use_passive_scalar==1) ncw = 1
   endif
+  allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
   
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") then

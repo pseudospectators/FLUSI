@@ -9,8 +9,8 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,workc)
   real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr), intent(in) :: time
 
   select case(method)
@@ -26,7 +26,7 @@ end subroutine write_integrals
 
 
 ! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time,uk,u,vort,nlk,work,workc)
+subroutine write_integrals_fsi(time,uk,u,vort,nlk,work1,workc)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -36,9 +36,8 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work,workc)
   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
+  real(kind=pr),intent(inout):: work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc
 !  complex(kind=pr) :: imag ! imaginary unit
@@ -63,14 +62,14 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work,workc)
     enddo
   enddo
 
-  call ifft(work,nlk(:,:,:,1)) ! work is now div in phys space
+  call ifft(work1,nlk(:,:,:,1)) ! work1 is now div in phys space
 
-  maxdiv_loc=maxval(abs(work))
+  maxdiv_loc=maxval(abs(work1))
   call MPI_REDUCE(maxdiv_loc,maxdiv,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
        MPI_COMM_WORLD,mpicode)
 
   if (iPenalization==1) then
-     maxdiv_loc=maxval(abs(work*(1.d0-mask*eps)))
+     maxdiv_loc=maxval(abs(work1*(1.d0-mask*eps)))
      call MPI_REDUCE(maxdiv_loc,maxdiv_fluid,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
           MPI_COMM_WORLD,mpicode)       
   else
