@@ -57,8 +57,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
 
   if (mpirank == 0 ) then
     write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," string=",A," ...")',advance='no') & 
-    time, &
-    isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity, &
+    time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity, &
     trim(adjustl(name))
   endif
 

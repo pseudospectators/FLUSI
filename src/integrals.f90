@@ -1,21 +1,28 @@
+!-------------------------------------------------------------------------------
 ! Wrapper for writing integral quantities to file
-subroutine write_integrals(time,uk,u,vort,nlk,work,workc)
+! Input:
+!       uk: the neq-component vector of the unknowns in F-space
+! Input/Output:
+!       u, vort: two 3D-work arrays (free on entry and exit)
+!       nlk: 3D complex work array (free on entry and exit)
+! Output:
+!       all output is done directly to hard disk in the *.t files
+!-------------------------------------------------------------------------------
+subroutine write_integrals(time,uk,u,vort,nlk,work)
   use mpi
   use vars
   implicit none
 
-  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(in):: time
 
   select case(method)
   case("fsi")
-     call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),workc)
+     call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1))
   case("mhd")
      call write_integrals_mhd(time,uk,u,vort,nlk,work(:,:,:,1))
   case default
@@ -26,21 +33,19 @@ end subroutine write_integrals
 
 
 ! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time,uk,u,vort,nlk,work1,workc)
+subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
   implicit none
 
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout):: work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(in)::time
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::work3r(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)  
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc
-!  complex(kind=pr) :: imag ! imaginary unit
   integer :: ix,iy,iz,mpicode
 
   !-----------------------------------------------------------
@@ -55,14 +60,13 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work1,workc)
       do ix=ca(3), cb(3)
         !-- wavenumber in x-direction
         kx = wave_x(ix)
-        nlk(iz,iy,ix,1)=&
-            (kx*uk(iz,iy,ix,1)+ky*uk(iz,iy,ix,2)+kz*uk(iz,iy,ix,3))
-        nlk(iz,iy,ix,1)=dcmplx(0.d0,1.d0)*nlk(iz,iy,ix,1)
+        work3c(iz,iy,ix,1)=kx*uk(iz,iy,ix,1)+ky*uk(iz,iy,ix,2)+kz*uk(iz,iy,ix,3)
+        work3c(iz,iy,ix,1)=dcmplx(0.d0,1.d0)*work3c(iz,iy,ix,1)
       enddo
     enddo
   enddo
 
-  call ifft(work1,nlk(:,:,:,1)) ! work1 is now div in phys space
+  call ifft(work1,work3c(:,:,:,1)) ! work1 is now div in phys space
 
   maxdiv_loc=maxval(abs(work1))
   call MPI_REDUCE(maxdiv_loc,maxdiv,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
@@ -107,7 +111,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   use p3dfft_wrapper
   implicit none
 
-  complex (kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex (kind=pr),intent(in)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real (kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)

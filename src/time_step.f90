@@ -113,7 +113,7 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
      ! units or itdrag time steps
      !-------------------------------------------------
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
-       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
+       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
      endif
     
      !-------------------------------------------------
@@ -126,7 +126,6 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
         call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)       
-        
      endif
 
      if(idobackup == 1) then
