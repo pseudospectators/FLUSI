@@ -23,7 +23,7 @@ subroutine Draw_Insect ( time )
   real(kind=pr) :: alpha_dt_l, alpha_dt_r, phi_dt_l, phi_dt_r, t1
   real(kind=pr) :: theta_dt_l, theta_dt_r, eta_stroke, theta_r, theta_l
   real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
-  M1, M2, M3, M_stroke_l, M_stroke_r, M_body_inv, M_wing_l_inv, M_wing_r_inv
+  M1, M2, M3, M_stroke_l, M_stroke_r, M_body_inv, M_wing_l_inv, M_wing_r_inv  
   real(kind=pr), dimension(1:3)::rot_l, rot_r,rot_body,xc_head,xc_eye_l,&
   xc_eye_r, xc_pivot_r,xc_pivot_l, x_head, vc_body, v_tmp
   integer :: ix, iy, iz
@@ -181,7 +181,7 @@ subroutine Draw_Insect ( time )
            x_eye_l  = x_body - xc_eye_l
            x_eye_r  = x_body - xc_eye_r
            
-           !-- call body subroutines
+           !-- call eye subroutines
            call DrawEye(ix,iy,iz,x_eye_r,color_body)
            call DrawEye(ix,iy,iz,x_eye_l,color_body)
         enddo

@@ -1,5 +1,5 @@
 ! Set initial conditions for fsi code.
-subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin,workc)
+subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -7,10 +7,10 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin,workc)
 
   integer,intent (inout) :: n1,it
   real (kind=pr),intent (inout) :: time,dt1,dt0
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  complex(kind=pr),intent(inout)::work_nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: ix,iy,iz
@@ -22,7 +22,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin,workc)
   it = 0
   
   uk = dcmplx(0.0d0,0.0d0)
-  work_nlk = dcmplx(0.0d0,0.0d0)
+  nlk = dcmplx(0.0d0,0.0d0)
   explin = 0.0
   vort = 0.0d0
 
@@ -70,7 +70,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin,workc)
            end do
         end do
      end do
-     call Vorticity2Velocity(uk, work_nlk(:,:,:,:,0), vort)
+     call Vorticity2Velocity(uk, nlk(:,:,:,:,0), vort)
 
   case("turbulence")
      !--------------------------------------------------
@@ -78,22 +78,23 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin,workc)
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
      call random_seed()
+     call create_masK( 0.d0 )
      do iz=ra(3), rb(3)
         do iy=ra(2), rb(2)
            do ix=ra(1), rb(1)
               call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,1)=50.d0*(2.0d0*r - 1.d0) 
-              !* (1.d0-eps*mask(ix,iy,iz))
+              vort (ix,iy,iz,1)=500.d0*(2.0d0*r - 1.d0) &
+              * (1.d0-eps*mask(ix,iy,iz))
               call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,2)=50.d0*(2.0d0*r - 1.d0)
-              !* (1.d0-eps*mask(ix,iy,iz))
+              vort (ix,iy,iz,2)=500.d0*(2.0d0*r - 1.d0)&
+              * (1.d0-eps*mask(ix,iy,iz))
               call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,3)=50.d0*(2.0d0*r - 1.d0)
-              !* (1.d0-eps*mask(ix,iy,iz))
+              vort (ix,iy,iz,3)=500.d0*(2.0d0*r - 1.d0)&
+              * (1.d0-eps*mask(ix,iy,iz))
            end do
         end do
      end do
-     call Vorticity2Velocity (uk, work_nlk(:,:,:,:,0), vort)
+     call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
 
   case("MeanFlow")
      !--------------------------------------------------
@@ -126,7 +127,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin,workc)
         if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
              inicond(9:len(inicond))
         call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
-             work_nlk,explin,vort(:,:,:,1))
+             nlk,explin,vort(:,:,:,1))
      else
         !--------------------------------------------------
         ! unknown inicond : error
@@ -136,6 +137,14 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin,workc)
         call abort
      endif
   end select
+  
+  !-----------------------------------------------------------------------------
+  ! If module is in use, initialize also the passive scalar(s)
+  !-----------------------------------------------------------------------------
+  if (use_passive_scalar==1) then
+    call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1))
+  endif
+  
 end subroutine init_fields_fsi
 
 

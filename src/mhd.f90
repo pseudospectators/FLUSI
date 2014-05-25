@@ -41,6 +41,7 @@ program mhd
   method="mhd" ! We are doing fluid-structure intergrep actions
   nf=2 ! We are evolving two fields: u and B.
   nd=3*nf ! Each field has three dimensions, for six total.
+  neq=nd ! the vector of unknowns has 6 dimensions (ux,uy,uz,bx,by,bz)
   allocate(lin(nf)) ! Set up the linear term
   
   ! this helps displaying the walltime (in the global var time_total)
@@ -105,11 +106,11 @@ program mhd
   endif
 
   ! Allocate memory:
-  allocate(ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
+  allocate(ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
 !  call alloccomplexnd(ubk)
   call allocrealnd(ub)
   call allocrealnd(wj)
-  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1))
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   allocate(workc(1:1,1:1,1:1,1:1))
   call allocreal(work)

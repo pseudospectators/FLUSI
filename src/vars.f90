@@ -16,6 +16,10 @@ module vars
   character(len=strlen), save :: dry_run_without_fluid ! just save mask function
   integer,save :: nf ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd ! number of fields (3 for NS, 6 for MHD)
+  integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD, 4 for 
+                      ! passive scalar (ux,uy,uz,theta)
+  integer,save :: nrw ! number of real work arrays in work
+  integer,save :: ncw !number of complex work arrays in workc
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize, mpirank
@@ -36,7 +40,7 @@ module vars
   real(kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_fft2
   real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u, time_ifft2
   real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-  real(kind=pr),save :: time_sponge,time_insect_head,time_insect_body
+  real(kind=pr),save :: time_sponge,time_insect_head,time_insect_body, time_scalar
   real(kind=pr),save :: time_insect_eye,time_insect_wings, time_insect_vel
 
   ! The mask array.  TODO: move out of shave_vars?
@@ -161,7 +165,14 @@ module fsi_vars
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
   integer,save :: iMeanFlow
   integer,save :: iSaveSolidVelocity
-
+  
+  ! parameters for passive scalar advection
+  integer, save :: use_passive_scalar
+  integer, save :: n_scalars
+  real(kind=pr),save :: kappa
+  character(len=strlen),save :: inicond_scalar, stop_on_fail
+  real(kind=pr), save :: eps_scalar
+  logical, save :: compute_scalar
   !-----------------------------------------------------------------------------
   ! The derived integral quantities for fluid-structure interactions.
   type Integrals

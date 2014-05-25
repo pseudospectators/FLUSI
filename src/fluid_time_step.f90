@@ -9,13 +9,13 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis,it)
 
   real(kind=pr),intent(inout)::time,dt1,dt0
   integer,intent(in)::n0,n1,it
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr)::t1
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
 
@@ -58,16 +58,16 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis)
 
   real(kind=pr),intent(inout)::time,dt1,dt0
   integer,intent(in)::it
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  integer::i,j,l
+  integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc)
@@ -132,12 +132,12 @@ subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis)
 
   real(kind=pr),intent(inout)::time,dt1,dt0
   integer,intent(in)::it
-  complex(kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout):: &
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)        
-  real(kind=pr),intent(inout)::work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
@@ -172,20 +172,21 @@ end subroutine euler
 subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,expvis)
   use mpi
   use p3dfft_wrapper
-  use vars
+  use fsi_vars
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
   integer,intent(in)::n0,it
-  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr)::t1
   integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
@@ -214,6 +215,13 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,expvis)
     enddo
   endif    
   
+  if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
+    !-- advance passive scalar (no integrating factor here!!)
+    t1 = MPI_wtime()
+    uk(:,:,:,4)=uk(:,:,:,4) + dt1*nlk(:,:,:,4,n0)
+    time_scalar = time_scalar + MPI_wtime() - t1
+  endif
+  
   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
 end subroutine euler_startup
 
@@ -221,23 +229,23 @@ end subroutine euler_startup
 ! FIXME: add documentation: which arguments are used for what?
 subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis)
   use mpi
-  use vars
+  use fsi_vars
   use p3dfft_wrapper
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
   integer,intent(in)::n0,n1,it
-  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)        
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr)::b10,b11
-  integer::i,j,a
+  real(kind=pr)::b10,b11,t1
+  integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc)
@@ -272,6 +280,12 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis)
     enddo
   endif    
   
+  if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
+    !-- advance passive scalar (no integrating factor here!!)
+    t1 = MPI_wtime()
+    uk(:,:,:,4)=uk(:,:,:,4)+b10*nlk(:,:,:,4,n0)+b11*nlk(:,:,:,4,n1)
+    time_scalar = time_scalar + MPI_wtime() - t1
+  endif
 end subroutine adamsbashforth
 
 
@@ -356,7 +370,7 @@ subroutine set_mean_flow(uk,time)
   use fsi_vars
   implicit none
   
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout)::time
 
   if(iMeanFlow == 1) then

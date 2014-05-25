@@ -7,9 +7,9 @@ subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
 
 integer,intent (inout) :: n1,it
   real (kind=pr),intent (inout) :: time,dt1,dt0
-  complex (kind=pr),intent (out):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex (kind=pr),intent (out):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex (kind=pr),intent (out)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   real(kind=pr),intent (inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: i

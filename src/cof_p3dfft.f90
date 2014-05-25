@@ -124,12 +124,12 @@ subroutine fft_initialize
   endif
 
   !-- Stop if the sizes are odd or smaller than 4
-  if(nx<4 .or. ny<4 .or. nz<4 .or. modulo(nx,2)==1 .or. modulo(ny,2)==1 .or. modulo(nz,2)==1 ) then
-     if(mpirank == 0 ) then
-        print *, 'nx, ny, nz must be even and not smaller than 4'
-     endif
-     stop
-  endif
+!   if(modulo(nx,2)==1 .or. modulo(ny,2)==1 .or. modulo(nz,2)==1 ) then
+!      if(mpirank == 0 ) then
+!         print *, 'nx, ny, nz must be even'
+!      endif
+!      stop
+!   endif
 
   !-- Initialize P3DFFT
   call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)

@@ -17,7 +17,7 @@ subroutine get_params(paramsfile)
   ! Get parameter values from PARAMS
   call get_params_common(PARAMS,i)
 
-  select case(method(1:3))
+  select case(method)
      case("fsi") 
         ! Get fsi-specific parameter values from PARAMS
         call get_params_fsi(PARAMS,i)
@@ -173,15 +173,21 @@ subroutine get_params_common(PARAMS,i)
   endif
   
   ! Set other parameters (all procs)
-  pi=4.d0 *datan(1.d0)
+  pi = 4.d0 *datan(1.d0)
   ! scaling for FFTs
-  scalex=2.d0*pi/xl
-  scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl  
+  scalex = 2.d0*pi/xl
+  scaley = 2.d0*pi/yl
+  scalez = 2.d0*pi/zl  
   ! lattice spacing is global
-  dx=xl/dble(nx)
-  dy=yl/dble(ny)
-  dz=zl/dble(nz) 
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz) 
+  
+  if (nx==1) then
+    !--2D simulation
+    dx = dy
+  endif
+  
 end subroutine get_params_common
 
 
@@ -342,6 +348,21 @@ subroutine get_params_fsi(PARAMS,i)
        Insect%tlinlegs,0.3547216867289067d0)
 
   ! ---------------------------------------------------
+  ! passive scalar section
+  ! ---------------------------------------------------
+  call GetValue_Int(PARAMS,i,"PassiveScalar","use_passive_scalar",&
+       use_passive_scalar,0)
+  call GetValue_Int(PARAMS,i,"PassiveScalar","n_scalars",&
+       n_scalars,0)
+  call GetValue_Real(PARAMS,i,"PassiveScalar","kappa",&
+       kappa, 0.1d0)   
+  call GetValue_Real(PARAMS,i,"PassiveScalar","eps_scalar",&
+       eps_scalar, eps)       
+  call GetValue_String(PARAMS,i,"PassiveScalar","inicond_scalar",&
+       inicond_scalar,"right_left_discontinuous") 
+  call GetValue_String(PARAMS,i,"PassiveScalar","stop_on_fail",&
+       stop_on_fail,"no")
+  ! ---------------------------------------------------
   ! DONE..
   ! ---------------------------------------------------
        
@@ -461,7 +482,7 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
   ! Contains the ascii-params file
   character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
   character(len=strlen), intent (inout) :: params_string
-  character(len=strlen), intent (inout) :: defaultvalue 
+  character(len=*), intent (in) :: defaultvalue 
   integer actual_lines
   integer mpicode
   

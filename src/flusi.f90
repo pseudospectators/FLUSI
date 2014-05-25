@@ -50,7 +50,7 @@ subroutine Start_Simulation()
   ! Arrays needed for simulation
   real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
-  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr),dimension(:,:,:,:),allocatable :: work
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   ! complex work array, used for sponge and/or passive scalar
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
@@ -61,12 +61,16 @@ subroutine Start_Simulation()
   method="fsi" ! We are doing fluid-structure interactions
   nf=1 ! We are evolving one field.
   nd=3*nf ! The one field has three components.
+  neq=nd
+  nrw=1 ! number of real valued work arrays
+  ncw=1 ! number of complex values work arrays 
 
+  ! initialize timing variables
   time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0
   time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0
   time_bckp=0.0; time_save=0.0; time_total=MPI_wtime(); time_u=0.0; time_sponge=0.0
   time_insect_head=0.0; time_insect_body=0.0; time_insect_eye=0.0
-  time_insect_wings=0.0; time_insect_vel=0.0
+  time_insect_wings=0.0; time_insect_vel=0.0; time_scalar=0.0
 
   
   ! Set up global communicators. We have two groups, for solid and fluid CPUs
@@ -112,17 +116,23 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Allocate memory:
   !-----------------------------------------------------------------------------
+  ! reserve additional space for scalars:
+  if (use_passive_scalar==1) then
+    neq = neq + n_scalars
+    compute_scalar=.true.
+  endif
+  
   mem_field = dble(nx)*dble(ny)*dble(nz)*8.0
   memory = 0.0
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   memory = memory + dble(nf)*mem_field
   
   ! velocity in Fourier space
-  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
   memory = memory + dble(nd)*mem_field
   
   ! right hand side of navier-stokes
-  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1))
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1))
   memory = memory + 2.0*dble(nd)*mem_field
   
   ! velocity in physical space
@@ -133,15 +143,22 @@ subroutine Start_Simulation()
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
   memory = memory + dble(nd)*mem_field
   
-  ! real valued work array
-  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  memory = memory + mem_field
+  ! real valued work array(s)
+  if (use_passive_scalar==1) then
+    ! allocate two work arrays
+    allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2))
+    memory = memory + 2.0*mem_field
+  else
+    ! allocate one work array
+    allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:1))
+    memory = memory + mem_field
+  endif
   
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
   memory = memory + mem_field
   
-  ! mask color function (distinguishes between different parts of the mask
+  ! mask color function (distinguishes between different parts of the mask)
   allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   memory = memory + mem_field/4.d0
   
@@ -153,10 +170,16 @@ subroutine Start_Simulation()
   if (iVorticitySponge=="yes") then
     allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) )
     memory = memory + dble(3)*mem_field
-    if (mpirank==0) write(*,*) "workc is fully allocated"
+    if (mpirank==0) write(*,*) "workc is fully allocated (3 arrays)"
   else
-    allocate (workc(1:1,1:1,1:1,1:1))
-    if (mpirank==0) write(*,*) "workc is not allocated"
+    if (use_passive_scalar==1) then
+      allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:1) )
+      memory = memory + dble(2)*mem_field
+      if (mpirank==0) write(*,*) "workc is partly allocated (1 array)"
+    else
+      allocate (workc(1:1,1:1,1:1,1:1))
+      if (mpirank==0) write(*,*) "workc is not allocated (0 arrays)"
+    endif
   endif
   
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
@@ -171,7 +194,7 @@ subroutine Start_Simulation()
   ! show memory consumption for information
   if (mpirank==0) then
     write(*,'(80("-"))')
-    write(*,'("FLUSI allocated ",f7.1"MB (",f5.1,"GB) of memory in total")')&
+    write(*,'("FLUSI allocated ",f7.1,"MB (",f5.1,"GB) of memory in total")')&
     memory/(1.0d6),memory/(1.0d9)
     write(*,'("which is ",f7.1,"MB (",f4.1,"GB) per CPU")') &
     memory/(1.0d6)/dble(mpisize),memory/(1.0d9)/dble(mpisize)
@@ -181,7 +204,7 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! check if at least FFT works okay
   !-----------------------------------------------------------------------------
-  call fft_unit_test(work,uk(:,:,:,1))
+  call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
   
   !-----------------------------------------------------------------------------
   ! Initial condition
@@ -255,6 +278,10 @@ subroutine show_timings(t2)
   tmp = time_fluid - time_nlk - time_vis
   write(*,'("misc:  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
   write(*,'(A)') '--------------------------------------'
+  if (use_passive_scalar==1) then
+  write(*,'("passive scalar : ",es12.4," (",f5.1,"%)")') time_scalar, 100.0*time_scalar/t2
+  write(*,'(A)') '--------------------------------------'
+  endif
   write(*,'(A)') "cal_nlk decomposes into:"
   write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk
   write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.0*time_vor/time_nlk

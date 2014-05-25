@@ -4,8 +4,8 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work,workc)
   implicit none
 
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -36,8 +36,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   implicit none
 
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -124,6 +124,15 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
     call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
     call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
   endif
+  
+  !------------
+  ! passive scalar
+  !-------------
+  if (use_passive_scalar==1) then
+    call ifft ( ink=uk(:,:,:,4), outx=work )
+    call save_field_hdf5(time,'./scalar_'//name,work,"scalar")
+  endif
+  
   
   if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields_new_fsi
@@ -336,7 +345,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   real(kind=pr),intent(inout) :: time,dt1,dt0
   integer,intent(inout) :: n1,nbackup,it
   complex(kind=pr),intent(in) :: ub(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(in)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+  complex(kind=pr),intent(in)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   character(len=18) :: filename
@@ -840,9 +849,9 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   character(len=*),intent(in) :: filename
   real(kind=pr),intent(out) :: time,dt1,dt0
   integer,intent(out) :: n1,it
-  complex(kind=pr), intent(out) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr), intent(out) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(out)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   real(kind=pr),intent(out) :: explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
@@ -1139,8 +1148,8 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   implicit none
 
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   character(len=17) :: name

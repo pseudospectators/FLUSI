@@ -3,11 +3,11 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc)
   use vars
   implicit none
 
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(in) :: time
@@ -53,11 +53,11 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   use fsi_vars
   implicit none
 
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent (in) :: time
@@ -99,7 +99,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   !-- vorticity sponge term
   !-----------------------------------------------
   t1 = MPI_wtime()
-  call vorticity_sponge( vort, work, workc )  
+  call vorticity_sponge( vort, work(:,:,:,1), workc )  
   time_sponge = time_sponge + MPI_wtime() - t1
     
   !-----------------------------------------------
@@ -123,16 +123,11 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
         
-        ! actual penalization term
-        penalx = -chi*(ux-usx)
-        penaly = -chi*(uy-usy)
-        penalz = -chi*(uz-usz)
-        
         ! we overwrite the vorticity with the NL terms in phys space
         ! note this is indeed -(vor x u) (negative sign)
-        vort(ix,iy,iz,1) = uy*vorz - uz*vory + penalx
-        vort(ix,iy,iz,2) = uz*vorx - ux*vorz + penaly
-        vort(ix,iy,iz,3) = ux*vory - uy*vorx + penalz
+        vort(ix,iy,iz,1) = uy*vorz - uz*vory -chi*(ux-usx)
+        vort(ix,iy,iz,2) = uz*vorx - ux*vorz -chi*(uy-usy)
+        vort(ix,iy,iz,3) = ux*vory - uy*vorx -chi*(uz-usz)
       enddo
     enddo
   enddo
@@ -152,12 +147,19 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   time_sponge = time_sponge + MPI_wtime() - t1  
   
   !-----------------------------------------------
-  !-- add pressure gradient
+  ! add pressure gradient
   !-----------------------------------------------  
   t1 = MPI_wtime()
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
   time_p = time_p + MPI_wtime() - t1
 
+  !-----------------------------------------------
+  ! passive scalar (currently only one)
+  !-----------------------------------------------
+  if ((use_passive_scalar==1).and.(compute_scalar)) then
+    call cal_nlk_scalar( time,it, u, uk(:,:,:,4), nlk(:,:,:,4), workc(:,:,:,1:1), work )
+  endif
+  
   ! this is for the timing statistics.
   ! how much time was spend on ffts in cal_nlk?
   time_nlk_fft=time_nlk_fft + time_fft2 + time_ifft2
@@ -280,8 +282,8 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   use p3dfft_wrapper
   implicit none
 
-  complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
    !  real(kind=pr) :: t1,t0
