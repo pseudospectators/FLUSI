@@ -7,16 +7,15 @@ subroutine FluidTimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,it)
   use vars
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
-  integer,intent (in) :: n0,n1,it
-  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real (kind=pr) :: t1
+  real(kind=pr),intent(inout)::time,dt1,dt0
+  integer,intent(in)::n0,n1,it
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr)::t1
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
 
   t1=MPI_wtime()  
   ! Note that in the new version, dealiasing is done in cal_vis.
@@ -55,56 +54,65 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use p3dfft_wrapper
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
-  integer,intent (in) :: it
-  complex (kind=pr),intent (inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent (inout)::&
+  real(kind=pr),intent(inout)::time,dt1,dt0
+  integer,intent(in)::it
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  integer :: i,j,l
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  integer::i,j,l
 
-  ! Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
+  !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
-  ! multiply the RHS with the viscosity
-  do j=1,nf
-     do i=1,3
-        l=i+3*(j-1)
-        nlk(:,:,:,l,0)=nlk(:,:,:,l,0)*expvis(:,:,:,j)
-     enddo
+  !-- multiply the RHS with the viscosity, first the velocity
+  do i=1,3
+    nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,1)
   enddo
 
-  ! Compute integrating factor, only done if necessary (i.e. time step
-  ! has changed)
+  !-- then, if present, the B-field
+  if (method=="mhd") then
+    do i=4,6
+      nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,2)
+    enddo
+  endif
+  
+  !-- Compute integrating factor, only done if necessary (i.e. time step
+  !-- has changed)
   if (dt1 .ne. dt0) then
      call cal_vis(dt1,expvis)
   endif
 
   !-- Do the actual euler step. note nlk is already multiplied by vis
-  do j=1,nf
-     do i=1,3
-        l=i+3*(j-1)
-        uk(:,:,:,l)=(uk(:,:,:,l)*expvis(:,:,:,j) + dt1*nlk(:,:,:,l,0))
-     enddo
+  do i=1,3
+    !-- advance fluid vecolity
+    uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,1) + dt1*nlk(:,:,:,i,0))
   enddo
+  
+  if (method=="mhd") then
+    do i=4,6
+      !-- advance B-field
+      uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,2) + dt1*nlk(:,:,:,i,0))
+    enddo
+  endif
 
-  ! RHS using the euler velocity
+  !-- RHS using the euler velocity
   call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work ) 
   call adjust_dt(dt1,u)
 
-  ! do the actual time step. note the minus sign!!
-  ! in the original formulation, it reads 
-  ! u^n+1=u^n + dt/2*( N(u^n)*vis + N(u_euler) )
+  ! do the actual time step. note the minus sign.in the original formulation, it
+  ! reads: u^n+1=u^n + dt/2*( N(u^n)*vis + N(u_euler) )
   ! but we don't want to save u_euler seperately, we want to overwrite
   ! u^n with it!  so the formulation reads
   ! u^n+1=u_euler - dt*N(u^n)*vis + dt/2*( N(u^n)*vis + N(u_euler) )
   !-- which yields simply
   !-- u^n+1=u_euler + dt/2*( -N(u^n)*vis + N(u_euler) )
   do i=1,nd
+     !-- advance all nd fields 
      uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
   enddo
 end subroutine rungekutta2
@@ -112,40 +120,44 @@ end subroutine rungekutta2
 
 ! This is standard Euler-explicit time marching. It does not serve as
 ! startup scheme for AB2.
-! FIXME: add documentation: which arguments are used for what?
 subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,expvis)
   use mpi
   use vars
   use p3dfft_wrapper
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
-  integer,intent (in) :: it
-  complex (kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout):: &
+  real(kind=pr),intent(inout)::time,dt1,dt0
+  integer,intent(in)::it
+  complex(kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout):: &
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  integer :: i,j,l
+  real(kind=pr),intent(inout)::work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  integer::i
 
-  ! Calculate fourier coeffs of nonlinear rhs and forcing
+  !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
-  ! Compute integrating factor, if necesssary
+  !-- Compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
      call cal_vis(dt1,expvis)
   endif
 
-  ! Multiply be integrating factor (always!)
-  do j=1,nf
-     do i=1,3
-        l=i+3*(j-1)
-        uk(:,:,:,l)=(uk(:,:,:,l) + dt1*nlk(:,:,:,l,1))*expvis(:,:,:,j)
-     enddo
+  !-- Advance in time, multiply by the integrating factor (always!)
+  do i=1,3
+    !-- advance fluid velocity
+    uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,1))*expvis(:,:,:,1)
   enddo
+  
+  if (method=="mhd") then
+    do i=4,6
+      !-- advance B-field
+      uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,1))*expvis(:,:,:,2)
+    enddo
+  endif
 end subroutine euler
 
 
@@ -157,35 +169,43 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,expvis)
   use vars
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
-  integer,intent (in) :: n0,it
-  complex (kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout)::&
+  real(kind=pr),intent(inout)::time,dt1,dt0
+  integer,intent(in)::n0,it
+  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  integer :: i,j,l
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  integer::i
 
-  ! Calculate fourier coeffs of nonlinear rhs and forcing
+  !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
-  ! Compute integrating factor, if necesssary
+  !-- Compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
      call cal_vis(dt1,expvis)
   endif
 
-  ! Multiply be integrating factor (always!)
-  do j=1,nf
-     do i=1,3
-        l=i+3*(j-1)
-        uk(:,:,:,l)=(uk(:,:,:,l) + dt1*nlk (:,:,:,l,n0))*expvis(:,:,:,j)
-        nlk(:,:,:,l,n0)=nlk (:,:,:,l,n0)*expvis(:,:,:,j)
-     enddo
+  !-- Advance in time, multiply by the integrating factor
+  do i=1,3
+    !-- advance fluid velocity
+    uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,n0))*expvis(:,:,:,1)
+    !-- multiply RHS with integrating factor
+    nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
   enddo
-
+  
+  if (method=="mhd") then
+    do i=4,6
+      !-- advance B-field
+      uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,n0))*expvis(:,:,:,2)
+      !-- multiply RHS with integrating factor
+      nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,2)
+    enddo
+  endif    
+  
   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
 end subroutine euler_startup
 
@@ -197,42 +217,51 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis)
   use p3dfft_wrapper
   implicit none
 
-  real (kind=pr),intent (inout) :: time,dt1,dt0
-  integer,intent (in) :: n0,n1,it
-  complex (kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex (kind=pr),intent(inout)::&
+  real(kind=pr),intent(inout)::time,dt1,dt0
+  integer,intent(in)::n0,n1,it
+  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  complex(kind=pr),intent(inout)::&
        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd,0:1)
-  real (kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real (kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real (kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real (kind=pr) :: b10,b11
-  integer :: i,j,a
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr)::b10,b11
+  integer::i,j,a
 
-  ! Calculate fourier coeffs of nonlinear rhs and forcing
+  !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work)
   call adjust_dt(dt1,u)
 
-  ! Calculate velocity at new time step 
-  ! (2nd order Adams-Bashforth with exact integration of diffusion term)
+  !-- Calculate velocity at new time step 
+  !-- (2nd order Adams-Bashforth with exact integration of diffusion term)
   b10=dt1/dt0*(0.5*dt1 + dt0)
   b11=-0.5*dt1*dt1/dt0
 
-  ! compute integrating factor, if necesssary
+  !-- compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
      call cal_vis(dt1,expvis)
   endif
 
-  ! Multiply be integrating factor (always!) 
-  do j=1,nf
-     do i=1,3
-        a=i+3*(j-1)
-        uk(:,:,:,a)=(&
-             uk(:,:,:,a) +b10*nlk(:,:,:,a,n0) +b11*nlk(:,:,:,a,n1)&
-             )*expvis(:,:,:,j)
-        nlk(:,:,:,a,n0)=nlk(:,:,:,a,n0)*expvis(:,:,:,j)
-     enddo
+  !-- Advance in time, multiply by the integrating factor
+  do i=1,3
+    ! advance fluid velocity
+    uk(:,:,:,i)=(uk(:,:,:,i)+b10*nlk(:,:,:,i,n0)+b11*nlk(:,:,:,i,n1))&
+        *expvis(:,:,:,1)
+    ! multiply RHS with integrating factor
+    nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
   enddo
+  
+  if (method=="mhd") then
+    do i=4,6
+      ! advance B-field
+      uk(:,:,:,i)=(uk(:,:,:,i)+b10*nlk(:,:,:,i,n0)+b11*nlk(:,:,:,i,n1))&
+          *expvis(:,:,:,2)
+      ! multiply RHS with integrating factor
+      nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,2)
+    enddo
+  endif    
+  
 end subroutine adamsbashforth
 
 
@@ -243,10 +272,10 @@ subroutine adjust_dt(dt1,u)
   use mpi
   implicit none
 
-  real (kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  integer :: mpicode
-  real (kind=pr), intent (out) :: dt1
-  real(kind=pr) :: umax
+  real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  integer::mpicode
+  real(kind=pr), intent(out)::dt1
+  real(kind=pr)::umax
 
   if (dt_fixed>0.0) then
      dt1=dt_fixed
@@ -272,7 +301,7 @@ subroutine adjust_dt(dt1,u)
         endif
 
         ! Round the time-step to one digit to reduce calls to cal_vis
-        call truncate(dt1,dt1) 
+        call truncate(dt1) 
 
         ! Impose penalty stability condition: dt cannot be less than 1/eps/
         if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
@@ -295,17 +324,19 @@ subroutine adjust_dt(dt1,u)
 end subroutine adjust_dt
 
 
-! FIXME: add documentation
-subroutine truncate(a,b)
-  ! rounds time step (from 1.246262e-2 to 1.2e-2)
+! Truncate = round a real number to one significant digit, i.e. from 1.246262e-2
+! to 1.2e-2. This slightly modifies the CFL condition (if the time step is 
+! dictated by CFL and not by penalization), but allows to keep the time step
+! constant over more time steps, which is more efficient.
+subroutine truncate(a)
   use vars
   implicit none
 
-  real(kind=pr) :: a,b
-  character (len=7) :: str
+  real(kind=pr),intent(inout)::a
+  character(len=7)::str
 
   write (str,'(es7.1)') a
-  read (str,*) b
+  read (str,*) a
 end subroutine truncate
 
 
@@ -315,8 +346,8 @@ subroutine set_mean_flow(uk,time)
   use fsi_vars
   implicit none
   
-  complex (kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  real (kind=pr),intent (inout) :: time
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
+  real(kind=pr),intent(inout)::time
 
   if(iMeanFlow == 1) then
      ! Force zero mode for mean flow
@@ -338,11 +369,11 @@ subroutine maxabs(umax,ub)
   use mpi
   implicit none
 
-  real (kind=pr), intent(in) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(out) :: umax
-  real(kind=pr),dimension(nf) :: uloc
+  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(out)::umax
+  real(kind=pr),dimension(nf)::uloc
   integer i,j
-  integer :: mpicode
+  integer::mpicode
   
   ! Find the max velocity for each field.
   do i=1,nf
@@ -371,11 +402,11 @@ subroutine maxabs1(umax,ub)
   use mpi
   implicit none
 
-  real (kind=pr), intent(in) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(out) :: umax
-  real(kind=pr),dimension(nd) :: u_loc,u_loc_red
-  integer :: i,j  
-  integer :: mpicode
+  real(kind=pr), intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(out)::umax
+  real(kind=pr),dimension(nd)::u_loc,u_loc_red
+  integer::i,j  
+  integer::mpicode
   
   do j=0,nf-1
      u_loc(1+3*j)=maxval(abs(ub(:,:,:,1+3*j)))/dx

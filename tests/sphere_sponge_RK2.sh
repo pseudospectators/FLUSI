@@ -4,31 +4,31 @@
 # FLUSI (FSI) unit test
 # This file contains one specific unit test, and it is called by unittest.sh
 #-------------------------------------------------------------------------------
-# complete insect test (time consuming but worthwhile)
+# SPHERE unit test
+# Tests the flow past a sphere at Reynolds number 100
+# Using RK2 and vorticity sponge, unlike the second test case ("sphere")
 #-------------------------------------------------------------------------------
 
 # set up mpi command (this may be machine dependent!!)
 nprocs=$(nproc)
 mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
-params="insect.ini"
+params="sphere_sponge_RK2.ini"
 
 happy=0
 sad=0
 
-echo "big insect test"
+echo "Sphere unit test: phase one"
 
 # list of prefixes the test generates
-prefixes=(mask p usx usy usz ux uy uz vorx vory vorz)
+prefixes=(ux uy uz p vorx vory vorz)
 # list of possible times (no need to actually have them)
-times=(00000 00010 00020 00030 00040 00050)
+times=(00000 00100 00200)
 # run actual test
 ${mpi_command} ./flusi ${params}
 echo "============================"
 echo "run done, analyzing data now"
 echo "============================"
-
-
 
 # loop over all HDF5 files an generate keyvalues using flusi
 for p in ${prefixes[@]}
@@ -40,7 +40,7 @@ do
     # will be transformed into this *.key file
     keyfile=${p}"_"${t}".key"
     # which we will compare to this *.ref file
-    reffile=./insect/${p}"_"${t}".ref" 
+    reffile=./sphere_sponge_RK2/${p}"_"${t}".ref" 
     
     if [ -f $file ]; then    
         # get four characteristic values describing the field
@@ -69,19 +69,20 @@ do
   done
 done
 
+
 #-------------------------------------------------------------------------------
 #                               time series
 #-------------------------------------------------------------------------------
 
-files=(forces.t forces_part1.t forces_part2.t)
-columns=(1 2 4 5 9 12)
+files=(forces.t)
+columns=(1 2 3 4 9 10)
 for file in ${files[@]}
 do
 for col in ${columns[@]}
 do
     echo "comparing" $file "column" $col
     new=$(awk -v col=$col '(NR>1) { print  $col }' $file | tail -n1)
-    old=$(awk -v col=$col '(NR>1) { print  $col }' insect/$file | tail -n1)
+    old=$(awk -v col=$col '(NR>1) { print  $col }' sphere_sponge_RK2/$file | tail -n1)
     if [ $new == $old ]; then
       echo ":D HAPPY! timeseries comparison for " $file "column=" $col "succeded"
       happy=$((happy+1))
@@ -93,26 +94,6 @@ done
 done
 
 
-columns=(1 2 4 5 6 7 8 9 12 13 14)
-file=kinematics.t
-for col in ${columns[@]}
-do
-    echo "comparing" $file "column" $col
-    new=$(awk -v col=$col '(NR>1) { print  $col }' $file | tail -n1)
-    old=$(awk -v col=$col '(NR>1) { print  $col }' insect/$file | tail -n1)
-    if [ $new == $old ]; then
-      echo ":D HAPPY! timeseries comparison for " $file "column=" $col "succeded"
-      happy=$((happy+1))
-    else
-      echo ":(( Sad: timeseries comparison for " $file " failed"
-      sad=$((sad+1))
-    fi
-done
-
-
-#-------------------------------------------------------------------------------
-#                               cleanup
-#-------------------------------------------------------------------------------
 rm -f *.key
 rm -f *.h5
 rm -f drag_data
@@ -121,7 +102,6 @@ rm -f runtime*.ini
 
 echo -e "\thappy tests: \t" $happy 
 echo -e "\tsad tests: \t" $sad
-
 
 #-------------------------------------------------------------------------------
 #                               RETURN

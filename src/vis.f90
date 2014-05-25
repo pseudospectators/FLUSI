@@ -4,7 +4,8 @@
 !  is computed only if the time step changes. Is does rarely, because
 !  we round it to one digit.  also, dealiasing is done here (multiply
 !  aliased avenumbers by zero).
-
+!  Note the distinct fields 1..nf have different viscosities, which are stored 
+!  in the lin(1:nf) array
 subroutine cal_vis(dt,vis)
   use vars
   use mpi

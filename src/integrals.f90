@@ -11,7 +11,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr), intent(in) :: time
 
-  select case(method(1:3))
+  select case(method)
   case("fsi")
      call write_integrals_fsi(time,uk,u,vort,nlk,work)
   case("mhd")
