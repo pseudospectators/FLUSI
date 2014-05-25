@@ -73,7 +73,7 @@ done
 #                               time series
 #-------------------------------------------------------------------------------
 
-files=(forces.t forces_part1.t forces_part2.t)
+files=(forces.t forces_part1.t forces_part2.t forces_part3.t)
 columns=(1 2 4 5 9 12)
 for file in ${files[@]}
 do
