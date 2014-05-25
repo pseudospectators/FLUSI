@@ -14,7 +14,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc)
 
   select case(method)
   case("fsi") 
-     call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
+     call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, .true., .true.)
   case("mhd") 
      call cal_nlk_mhd(nlk,uk,u,vort)
   case default
@@ -31,10 +31,13 @@ end subroutine cal_nlk
 ! Input:
 !       time: guess what!
 !       uk: 4D field of velocity in Fourier space
+!       projection: logical, turns on or off projection. when called from 
+!                   save_fields_new, we set .false. because we want to have the
+!                   entire pressure field to save it
+!      scalar: logical. for the same reason as above, we can skip the scalar
 ! Output:
 !       nlk:  The right hand side of penalized Navier-Stokes in Fourier space
-!       vort: work array, contains NL+penal term in phys space
-!             this is reused in save_fields to compute the pressure snapshot
+!       vort: work array, can be reused immediatly (is free after this routine)
 !       u:    work array, contains the velocity in phys space
 !             this is reused in the caller FluidTimestep to adjust dt
 !       work: work array, currently unused (will be used for pressure)
@@ -46,7 +49,7 @@ end subroutine cal_nlk
 ! To Do:
 !       * for "true" FSI, we'll need to return the pressure field in phys space
 !-------------------------------------------------------------------------------
-subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
+subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
   use mpi
   use p3dfft_wrapper
   use fsi_vars
@@ -54,7 +57,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
 
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -63,6 +65,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz,chi2
   real(kind=pr) :: penalx,penaly,penalz
   integer, intent(in) :: it ! This is unused
+  ! these logicals are used in save_fields, where we do not need these parts
+  logical, intent(in) :: projection, scalar
   integer :: ix,iz,iy
   
   ! performance measurement in global variables
@@ -89,7 +93,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   t1 = MPI_wtime()
   ! nlk is temporarily used for vortk
   call curl (nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-              uk(:,:,:,1), uk(:,:,:,2), uk(:,:,:,3)) 
+       uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
   ! transform it to physical space
   call ifft3 (vort, nlk)  
   time_vor = time_vor + MPI_wtime() - t1  
@@ -151,14 +155,17 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   ! add pressure gradient
   !-----------------------------------------------  
   t1 = MPI_wtime()
-  call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+  if (projection) then
+    call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+  endif
   time_p = time_p + MPI_wtime() - t1
 
   !-----------------------------------------------
-  ! passive scalar (currently only one)
+  ! passive scalar (currently only one) the work array vort is now free
+  ! so use it in cal_nlk_scalar
   !-----------------------------------------------
-  if ((use_passive_scalar==1).and.(compute_scalar)) then
-    call cal_nlk_scalar( time,it, u, uk(:,:,:,4), nlk(:,:,:,4), workc(:,:,:,1), work )
+  if ((use_passive_scalar==1).and.(compute_scalar).and.(scalar)) then
+    call cal_nlk_scalar( time,it,u,uk(:,:,:,4),nlk(:,:,:,4),workc(:,:,:,1),vort )
   endif
   
   ! this is for the timing statistics.

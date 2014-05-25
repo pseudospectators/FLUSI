@@ -65,6 +65,8 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
      ! advance fluid/B-field in time
      !-------------------------------------------------
      if(dry_run_without_fluid/="yes") then
+       ! note: the array "vort" is a real work array and has neither input nor
+       ! output values after fluid time stepper
        call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,explin,it)
      endif
 

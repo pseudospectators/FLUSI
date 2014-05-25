@@ -145,13 +145,8 @@ subroutine Start_Simulation()
   memory = memory + dble(nd)*mem_field
   
   ! real valued work array(s)
-  if (use_passive_scalar==1) then
-    ! allocate three work arrays
-    nrw = 3
-  else
-    ! allocate one work array
-    nrw = 1
-  endif
+  ! allocate one work array
+  nrw = 1
   
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
   memory = memory + dble(nrw)*mem_field

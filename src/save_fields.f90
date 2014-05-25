@@ -63,7 +63,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc) 
+  ! no projection, we do this here (also no passive scalar)
+  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc, .false. , .false.) 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
   !-------------  
@@ -79,7 +80,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   ! Pressure
   !-------------
   if (isavePress == 1) then  
-    call fft3(nlk,vort) ! nlk now NL+penal term in Fourier space
+    ! we called cal_nlk and told it not to project
     ! store the total pressure in the work array
     call compute_pressure(nlk(:,:,:,1),nlk)
     ! total pressure in phys-space
