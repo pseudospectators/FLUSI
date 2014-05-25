@@ -49,6 +49,7 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
   !-- initialization
   nlk = dcmplx(0.d0,0.d0)
   imag = dcmplx(0.d0,1.d0)
+  work(:,:,:,3) = 0.d0
   
   !------------------------------------------------------------------------------
   ! compute right hand side of passive scalar, component by component
@@ -67,29 +68,25 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
       enddo
     enddo
     
-    ! step 2: 
+    ! step 2: a-component of gradient to x-space, make a copy
     call ifft ( ink=workc1, outx=work(:,:,:,1))
+    ! step 3: make a copy
     work(:,:,:,2) = work(:,:,:,1)
     
-    ! step 3
+    ! step 4 one compontent of transport operator, add it to R3
     do ix=ra(1),rb(1)
       do iy=ra(2),rb(2)
         do iz=ra(3),rb(3) 
           chi = mask(ix,iy,iz)*eps
           w = -( (1.d0-chi)*u(ix,iy,iz,id) + chi*us(ix,iy,iz,id) )
-          work(ix,iy,iz,1) = work(ix,iy,iz,1)*w
+          work(ix,iy,iz,3) = work(ix,iy,iz,3) + work(ix,iy,iz,1)*w
         enddo
       enddo
     enddo
-    ! step 4
-    call fft ( inx=work(:,:,:,1), outk=workc1 )
-    ! step 5
-    nlk = nlk + workc1
     
     !-------------------------------------------------------------
-    
 
-    ! step 6
+    ! step 5 use backup of step 3 and compute inner product for div op
     do ix=ra(1),rb(1)
       do iy=ra(2),rb(2)
         do iz=ra(3),rb(3) 
@@ -101,10 +98,10 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
       enddo
     enddo
     
-    ! step 7
+    ! step 6
     call fft( inx=work(:,:,:,2), outk=workc1 )
     
-    ! step 8: compute id-component of gradient theta in f-space
+    ! step 7: compute id-component of gradient theta in f-space
     do iz=ca(1),cb(1)
       kz=wave_z(iz)
       do iy=ca(2),cb(2)
@@ -116,8 +113,18 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
         enddo
       enddo
     enddo
-    ! step 9
+    ! step 8
     nlk = nlk + workc1   
   enddo
+  
+  
+  ! step 10
+  call fft ( inx=work(:,:,:,3), outk=workc1 )
+  ! step 11
+  nlk = nlk + workc1
+  
+  ! dealiasing
+  call dealias1( nlk )
+  
   time_scalar = time_scalar + MPI_wtime() - t1
 end subroutine cal_nlk_scalar

@@ -146,8 +146,8 @@ subroutine Start_Simulation()
   
   ! real valued work array(s)
   if (use_passive_scalar==1) then
-    ! allocate two work arrays
-    nrw = 2
+    ! allocate three work arrays
+    nrw = 3
   else
     ! allocate one work array
     nrw = 1
