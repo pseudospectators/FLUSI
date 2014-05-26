@@ -18,7 +18,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
   ! LeadingEdge: x, y, vx, vy, ax, ay (Array)
   real(kind=pr), dimension(1:6), intent(out) :: LeadingEdge
   real(kind=pr) :: f,angle_max, R
-  real(kind=pr) :: a,b,c,d,k,kt,ktt,y,yt,ytt
+  real(kind=pr) :: a,b,c,d,k,kt,ktt,y,yt,ytt, t
   
    LeadingEdge = 0.0
 
@@ -47,13 +47,13 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
                         
   case ("swimmer_simplified","swimmer_simplified_2D") 
       ! simplified swimmer without the leading edge cylinder
-      ! startup conditioner is applied on the first period (attention assumes
-      ! T=1 period time)
-      if (time <= 1.0) then
+      ! startup conditioner is applied on the first period
+      t = time * frequ 
+      if (t <= 1.0) then
         a = -20.d0; b= 70.d0; c=-84.d0; d=35.d0;
-        k    = a*time**7 + b*time**6 + c*time**5 + d*time**4
-        kt  = 7.d0*a*time**6 + 6.d0*b*time**5 + 5.d0*c*time**4 + 4.d0*d*time**3
-        ktt = 42.d0*a*time**5 + 30.d0*b*time**4 + 20.d0*c*time**3 + 12.d0*d*time**2     
+        k    = a*t**7 + b*t**6 + c*t**5 + d*t**4
+        kt  = 7.d0*a*t**6 + 6.d0*b*t**5 + 5.d0*c*t**4 + 4.d0*d*t**3
+        ktt = 42.d0*a*t**5 + 30.d0*b*t**4 + 20.d0*c*t**3 + 12.d0*d*t**2     
       else
         k = 1.d0; kt = 0.d0; ktt = 0.d0
       endif     
@@ -66,7 +66,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
       !-- motion protocoll times startup conditioner
       alpha = k*y
       alpha_t = kt*y + yt*k
-      alpha_tt = ktt*y + ytt*k + 2.*kt*yt 
+      alpha_tt = ktt*y + ytt*k + 2.d0*kt*yt 
 
   case ("flapper")
      R=1.d0

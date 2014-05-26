@@ -128,6 +128,10 @@ subroutine Draw_flexible_plate (time, beam)
         !-- 2D runs have infinite span
         tmp2=1.d0
       endif
+      
+      ! plate is very large - span is infinite
+      if (L_span > zl) tmp2 = 1.d0
+      
       !-- final value
       mask(ix,iy,iz) = tmp*tmp2
       !-- assign mask color
