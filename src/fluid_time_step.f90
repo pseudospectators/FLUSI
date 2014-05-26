@@ -293,6 +293,7 @@ end subroutine adamsbashforth
 subroutine adjust_dt(dt1,u)
   use vars
   use mpi
+  use basic_operators
   implicit none
 
   real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -301,34 +302,38 @@ subroutine adjust_dt(dt1,u)
   real(kind=pr)::umax
 
   if (dt_fixed>0.0) then
+     !-- fix the time step no matter what. the result may be unstable.
      dt1=dt_fixed
   else
-
-     ! Determine the maximum velocity/magnetic field value, divided by
-     ! grid size to determine the CFL condition.
-     ! call maxabs1(umax,u) ! Max in each direction
-     call maxabs(umax,u) ! Max magnitude
-
-     !--Adjust time step at 0th process
+     !-- Determine the maximum velocity/magnetic field value     
+     if (method=="mhd") then
+       !-- MHD needs to respect CFL for magnetic field as well
+       umax = max( fieldmaxabs(u(:,:,:,1:3)), fieldmaxabs(u(:,:,:,4:6)) )
+     else
+       !-- FSI runs just need to respect CFL for velocity
+       umax = fieldmaxabs(u(:,:,:,1:3))
+     endif
+     
+     !-- Adjust time step at 0th process
      if(mpirank == 0) then
         if(.NOT.(umax.eq.umax)) then
            write(*,*) "Evolved field contains a NAN: aborting run."
            stop
         endif
      
-     ! Impose the CFL condition.
+        !-- Impose the CFL condition.
         if (umax >= 1.0d-8) then
-           dt1=cfl/umax
+           dt1=min(dx,dy,dz)*cfl/umax
         else
+           !-- umax is very very small
            dt1=1.0d-2
         endif
 
-        ! Round the time-step to one digit to reduce calls to cal_vis
+        !-- Round the time-step to one digit to reduce calls of cal_vis
         call truncate(dt1) 
 
-        ! Impose penalty stability condition: dt cannot be less than 1/eps/
+        !-- Impose penalty stability condition: dt cannot be larger than eps
         if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
-        ! time step is smaller than eps 
         
         ! Don't jump past save-points: if the time-step is larger than
         ! the time interval between outputs, decrease the time-step.
@@ -338,6 +343,9 @@ subroutine adjust_dt(dt1,u)
         if(tintegral > 0.d0 .and. dt1 > tintegral) then
            dt1=tintegral
         endif
+        
+        !-- impose max dt, if specified
+        if (dt_max>0) dt1=min(dt1,dt_max)
      endif
 
      ! Broadcast time step to all processes
@@ -383,66 +391,3 @@ subroutine set_mean_flow(uk,time)
      endif
   endif
 end subroutine set_mean_flow
-
-
-! Set umax to be the maximum of the magnitude of the velocity divided
-! by the grid spacing.
-subroutine maxabs(umax,ub)
-  use vars
-  use mpi
-  implicit none
-
-  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(out)::umax
-  real(kind=pr),dimension(nf)::uloc
-  integer i,j
-  integer::mpicode
-  
-  ! Find the max velocity for each field.
-  do i=1,nf
-     j=(i-1)*3
-     uloc(i)=maxval(&
-          ub(:,:,:,1+j)*ub(:,:,:,1+j)/(dx*dx)+&
-          ub(:,:,:,2+j)*ub(:,:,:,2+j)/(dy*dy)+&
-          ub(:,:,:,3+j)*ub(:,:,:,3+j)/(dz*dz)&
-          )
-     uloc(i)=dsqrt(uloc(i))
-  enddo
-
-  ! Make uloc(1) the max local velocity for all fields.
-  do i=2,nf
-     if(uloc(1) < uloc(i)) uloc(1)=uloc(i) 
-  enddo
-
-  ! Set umax to be the maximum for all fields over all procs.
-  call MPI_REDUCE(uloc(1),umax,1,MPI_DOUBLE_PRECISION,MPI_MAX,0,MPI_COMM_WORLD,mpicode)
-end subroutine maxabs
-
-! Set umax to be the max velocity in each direction divided by the
-! grid spacing.
-subroutine maxabs1(umax,ub)
-  use vars
-  use mpi
-  implicit none
-
-  real(kind=pr), intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(out)::umax
-  real(kind=pr),dimension(nd)::u_loc,u_loc_red
-  integer::i,j  
-  integer::mpicode
-  
-  do j=0,nf-1
-     u_loc(1+3*j)=maxval(abs(ub(:,:,:,1+3*j)))/dx
-     u_loc(2+3*j)=maxval(abs(ub(:,:,:,2+3*j)))/dy
-     u_loc(3+3*j)=maxval(abs(ub(:,:,:,3+3*j)))/dz
-  enddo
-
-  call MPI_REDUCE(u_loc,u_loc_red,nd,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
-       MPI_COMM_WORLD,mpicode)
-  
-  umax=0.d0
-  do i=1,nd
-     umax=max(umax,u_loc(i))
-  enddo
-end subroutine maxabs1
-

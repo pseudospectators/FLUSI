@@ -55,9 +55,11 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
   call divergence( ink=uk, outk=work3c(:,:,:,1) )
   call ifft( ink=work3c(:,:,:,1), outx=work1 ) ! work1 is now div in phys space
 
+  maxdiv = fieldmax(work1)
+  maxdiv_fluid = fieldmax(work1*(1.d0-mask*eps))
   if(mpirank == 0) then
      open(14,file='divu.t',status='unknown',position='append')
-     write (14,'(4(e12.5,1x))') time,fieldmax(work1),fieldmax(work1*(1.d0-mask*eps))
+     write (14,'(4(e12.5,1x))') time,maxdiv,maxdiv_fluid
      close(14)
   endif
 

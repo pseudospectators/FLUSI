@@ -10,6 +10,10 @@ module basic_operators
   module procedure curl, curl_inplace, curl3
  end interface
  
+ interface fieldmaxabs
+  module procedure fieldmaxabs, fieldmaxabs3
+ end interface
+ 
  
  contains
  
@@ -190,6 +194,7 @@ subroutine divergence( ink, outk )
   enddo
 end subroutine divergence
   
+  
 ! returns the globally largest value of a given (real) field
 real(kind=pr) function fieldmax( inx )
   use mpi
@@ -222,5 +227,47 @@ real(kind=pr) function fieldmin( inx )
   ! return the value    
   fieldmin = min_global
 end function fieldmin
+
+
+! returns the globally largest value of a given vector field
+! (L2-norm)
+real(kind=pr) function fieldmaxabs3( inx )
+  use mpi
+  use vars
+  implicit none
+  real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr) :: max_local, max_global
+  integer :: mpicode
+
+  max_local = maxval( inx(:,:,:,1)*inx(:,:,:,1) + inx(:,:,:,2)*inx(:,:,:,2) &
+            + inx(:,:,:,3)*inx(:,:,:,3) )
+  max_local = dsqrt( max_local )
+  call MPI_ALLREDUCE (max_local,max_global,1,&
+       MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  ! return the value    
+  fieldmaxabs3 = max_global
+end function fieldmaxabs3
+
+
+! returns the globally largest value of a given vector field
+! (L2-norm)
+real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
+  use mpi
+  use vars
+  implicit none
+  real(kind=pr),intent(in):: inx1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in):: inx2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in):: inx3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr) :: max_local, max_global
+  integer :: mpicode
+
+  max_local = maxval( inx1*inx1 + inx2*inx2  + inx3*inx3 )
+  max_local = dsqrt( max_local )
+  
+  call MPI_ALLREDUCE (max_local,max_global,1,&
+       MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  ! return the value    
+  fieldmaxabs = max_global
+end function fieldmaxabs
   
 end module basic_operators

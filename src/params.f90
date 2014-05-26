@@ -93,6 +93,7 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Time","Tmax",Tmax,1.d9)
   call GetValue_Real(PARAMS,i,"Time","CFL",cfl,0.1d0)
   call GetValue_Real(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
+  call GetValue_Real(PARAMS,i,"Time","dt_max",dt_max,0.d0)
 
   ! Reynolds number section:
   call GetValue_Real(PARAMS,i,"ReynoldsNumber","nu",nu,1.d-2)  
