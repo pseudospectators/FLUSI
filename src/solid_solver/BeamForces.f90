@@ -75,6 +75,13 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
       x = matmul( transpose(M_plate) , x_plate )
       x = x + x0_plate
       surfaces(is,ih,2,1:3) = x    
+      
+      if (root) then
+      if((x(1)<-dx).or.(x(1)>xl+dx).or.(x(2)<-dy).or.(x(2)>yl+dy).or.(x(3)<-dz).or.(x(3)>zl+dz)) then
+        write(*,*) "ERROR: Surface constuction yielded values outside valid bound."
+        stop
+      endif
+      endif
     enddo
   enddo
   
@@ -124,7 +131,8 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
         if (testing=="mask") then
           write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)
         elseif (testing=="linear") then
-          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)-surfaces(is,ih,1,2)*surfaces(is,ih,1,3)
+          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)&
+          -sin(surfaces(is,ih,1,2))*cos(surfaces(is,ih,1,3))
         endif
       enddo
       write(*,*) " "
@@ -135,7 +143,8 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
         if (testing=="mask") then
           write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)
         elseif (testing=="linear") then
-          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)-surfaces(is,ih,2,2)*surfaces(is,ih,2,3)
+          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)&
+          -sin(surfaces(is,ih,2,2))*cos(surfaces(is,ih,2,3))
         endif
       enddo
       write(*,*) " "
@@ -152,7 +161,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   if (time <= T_release) then
       soft_startup = 0.0
   elseif ( ( time >T_release ).and.(time<(T_release + tau)) ) then
-      soft_startup =  ((time-T_release)**3)/(-0.5*tau**3)   + 3.*((time-T_release)**2)/tau**2
+      soft_startup =  ((time-T_release)**3)/(-0.5*tau**3) + 3.*((time-T_release)**2)/tau**2
   else
       soft_startup = 1.0
   endif
@@ -229,7 +238,7 @@ subroutine surface_interpolation_testing( time, beam, work )
         x=dble(ix)*dx
         y=dble(iy)*dy
         z=dble(iz)*dz
-        work(ix,iy,iz)=y*z
+        work(ix,iy,iz)=sin(y)*cos(z)
       enddo
     enddo
   enddo 

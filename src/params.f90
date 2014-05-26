@@ -376,7 +376,8 @@ subroutine get_params_solid(PARAMS,i)
     
     call GetValue_String(PARAMS,i,"SolidModel","imposed_motion_leadingedge",&
     imposed_motion_leadingedge,"fixed_middle")
-
+    call GetValue_String(PARAMS,i,"SolidModel","infinite",&
+    infinite,"no")
     !-- grid spacing
     ds = 1.d0/dble(ns-1)
   endif

@@ -30,8 +30,11 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
   
   !-- some solid solver tests
   if (use_solid_model=="yes") then
+    if (root) write(*,*) "initializing beam"
     call init_beams( beams )
+    if (root) write(*,*) "surface interp test"
     call surface_interpolation_testing( time, beams(1), work )
+    if (root) write(*,*) "initializing beam"
     call init_beams( beams )
   endif
 

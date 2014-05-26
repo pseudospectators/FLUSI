@@ -21,6 +21,7 @@ module solid_model
   character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
   character(len=strlen),save :: has_cylinder
   character(len=strlen),save :: interp
+  character(len=strlen),save :: infinite
 
   !----------------------------------------------
   ! Solid datatype
