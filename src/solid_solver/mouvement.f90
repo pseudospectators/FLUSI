@@ -86,7 +86,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
   case default
       if (mpirank==0) write(*,*) "mouvement:: imposed_motion_leadingedge undefined"
       if (mpirank==0) write(*,*) imposed_motion_leadingedge
-      stop
+      call kill()
       
   end select
 
@@ -191,7 +191,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   case default
       if (mpirank==0) write(*,*) "plate_coordinate_system:: imposed_motion_leadingedge undefined"
       if (mpirank==0) write(*,*) imposed_motion_leadingedge      
-      stop
+      call kill()
       
   end select  
   

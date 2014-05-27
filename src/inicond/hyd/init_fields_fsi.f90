@@ -135,7 +135,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
         !--------------------------------------------------
         if (mpirank==0) write (*,*) inicond
         if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
-        call abort
+        call kill()
      endif
   end select
 end subroutine init_fields_fsi

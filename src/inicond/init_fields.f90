@@ -21,7 +21,7 @@ subroutine init_fields(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
      call init_fields_mhd(n1,time,it,dt0,dt1,uk,work_nlk,vort,explin)
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in init_fields."
-     call abort
+     call kill()
   end select
 end subroutine init_fields
 

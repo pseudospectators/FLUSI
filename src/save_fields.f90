@@ -17,7 +17,7 @@ subroutine save_fields_new(time,uk,u,vort,nlk,work)
         call save_fields_new_mhd(time,uk,u,vort,nlk)
      case default
         if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields_new"
-        stop
+        call kill()
   end select
 end subroutine save_fields_new
 
@@ -596,7 +596,7 @@ subroutine read_single_file_serial(filename,field)
 
   if (mpisize>1) then
     write (*,*) "this routine is currently serial only"
-    stop
+    call kill()
   endif
   
   ! check if file exist
@@ -732,7 +732,7 @@ subroutine Read_Single_File ( filename, field )
     write (*,'(A)') "read_single_file: ERROR " // trim(filename)
     write (*,'("nx=",i4,"ny=",i4,"nz=",i4)') nx,ny,nz
     write (*,'("but in file: nx=",i4,"ny=",i4,"nz=",i4)') nx_file,ny_file,nz_file
-    stop
+    call kill()
     endif
   endif
   
@@ -1053,7 +1053,7 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   if ( (nx_file.ne.nx).or.(nx_file.ne.nx).or.(nx_file.ne.nx)) then
      write (*,'(A)') "!!! Thats odd...the backup you're trying to resume doesn't have the same nx,ny,nz"
      write (*,'(A)') "I'll leave you crying and commit suicide here."
-     stop
+     call kill()
   endif
 
   deallocate (attributes)
@@ -1338,7 +1338,7 @@ subroutine check_file_exists(fname)
     inquire ( file=fname, exist=exist1 )
     if ( exist1 .eqv. .false.) then
       write (*,'("ERROR! file: ",A," not found")') trim(fname) 
-      stop
+      call kill()
     endif  
   endif
   

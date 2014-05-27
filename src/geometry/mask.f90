@@ -45,7 +45,7 @@ subroutine update_us(ub)
     case default    
         if(mpirank == 0) then
           write (*,*) "Error: unkown method in update_us; stopping."
-          stop
+          call kill()
         endif
     end select  
   endif
@@ -93,7 +93,7 @@ subroutine smoothstep(f,x,t,h)
   case default
       !-------------------------------------------------
       write(*,*) "Smoothing parameter not rightly set", iSmoothing
-      stop
+      call kill()
   end select
   
 end subroutine smoothstep

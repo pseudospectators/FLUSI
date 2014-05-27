@@ -126,7 +126,7 @@ subroutine fft_initialize
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
      print *, 'wrong mpidims: change mpisize'
-     stop
+     call kill()
   endif
 
   !-- Initialize P3DFFT

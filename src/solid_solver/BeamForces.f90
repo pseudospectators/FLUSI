@@ -79,7 +79,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
       if (root) then
       if((x(1)<-dx).or.(x(1)>xl+dx).or.(x(2)<-dy).or.(x(2)>yl+dy).or.(x(3)<-dz).or.(x(3)>zl+dz)) then
         write(*,*) "ERROR: Surface constuction yielded values outside valid bound."
-        stop
+        call kill()
       endif
       endif
     enddo

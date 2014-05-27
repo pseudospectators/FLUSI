@@ -69,7 +69,7 @@ subroutine add_channel()
             
           case default
             write (*,*) "add_channel()::iChannel is not a known value"
-            stop
+            call kill()
           end select
           !----------------
        enddo

@@ -27,7 +27,7 @@ subroutine get_params(paramsfile)
   case default
      if(mpirank == 0) then
         write(*,*) "Error! Unkonwn method in get_params; stopping."
-        stop
+        call kill()
      end if
   end select
 end subroutine get_params

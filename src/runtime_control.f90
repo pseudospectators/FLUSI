@@ -65,3 +65,12 @@ subroutine runtime_control_command( command )
   ! all MPI procs now know what to do.
   return
 end subroutine runtime_control_command
+
+
+subroutine kill
+  use vars
+  use mpi
+  
+  if (mpirank==0) write(*,*) "Killing run..."
+  call MPI_abort()
+end subroutine kill

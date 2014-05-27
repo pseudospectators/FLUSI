@@ -78,7 +78,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,beams)
   case default
      if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-     stop
+     call kill()
   end select
 
   ! Force zero mode for mean flow
@@ -126,7 +126,10 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
   logical :: iterate
   
   ! useful error messages
-  if (use_solid_model/="yes") stop("using FSI_AB2_iteration without solid model?")
+  if (use_solid_model/="yes") then
+    write(*,*) "using FSI_AB2_iteration without solid model?"
+    call kill()
+  endif
   
   ! allocate extra space for velocity in Fourier space
   call alloccomplexnd(uk_old)    
@@ -267,7 +270,10 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
   type(solid),dimension(1),intent(inout) :: beams
   
   ! useful error messages
-  if (use_solid_model/="yes") stop("using FSI_AB2_staggered without solid model?")
+  if (use_solid_model/="yes") then 
+   write(*,*) "using FSI_AB2_staggered without solid model?"
+   call kill()
+  endif
   
   !---------------------------------------------------------------------------
   ! create mask
@@ -325,7 +331,10 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,
   type(solid),dimension(1),intent(inout) :: beams
   
   ! useful error messages
-  if (use_solid_model/="yes") stop("using FSI_AB2_semiimplicit without solid model?")
+  if (use_solid_model/="yes") then 
+   write(*,*) "using FSI_AB2_staggered without solid model?"
+   call kill()
+  endif
   
   !---------------------------------------------------------------------------
   ! create mask
@@ -641,7 +650,7 @@ subroutine adjust_dt(dt1,u)
   if(mpirank == 0) then
     if(.NOT.(umax.eq.umax)) then
         write(*,*) "Evolved field contains a NAN: aborting run."
-        stop
+        call kill()
     endif
   
     ! Impose the CFL condition.

@@ -122,7 +122,7 @@ subroutine convert_abs_vorticity()
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
      write (*,*) "Error in arguments, files do not start with ux uy and uz"
      write (*,*) "note files have to be in the right order"
-     stop
+     call kill()
   endif
   
   
@@ -208,7 +208,7 @@ subroutine convert_vorticity()
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
      write (*,*) "Error in arguments, files do not start with ux uy and uz"
      write (*,*) "note files have to be in the right order"
-     stop
+     call kill()
   endif
   
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
@@ -276,7 +276,7 @@ subroutine keyvalues(filename)
   
   if (mpisize>1) then
     write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"
-    stop 
+    call kill() 
   endif  
   
   call check_file_exists( filename )
@@ -322,7 +322,7 @@ subroutine compare_key(key1,key2)
   
   if ( exist1.eqv..false. .or. exist2.eqv..false. ) then
     write (*,*) "Input file not found..."
-    stop
+    call kill()
   endif  
   
   open  (14, file = key1, status = 'unknown', action='read')
