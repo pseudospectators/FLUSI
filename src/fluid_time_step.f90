@@ -215,9 +215,11 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
     omega_old=omega_new
     
     if (root) then
-      write(*,'("t=",es12.4," dt=",es12.4," inter=",i3," ROC=",es15.8,&
+      open (15, file='iterations_log.t',status='unknown',position='append')
+      write(15,'("t=",es12.4," dt=",es12.4," inter=",i3," ROC=",es15.8,&
                 " ROC2=",es15.8," p_end=",es15.8," kappa=",es15.8)') &
       time,dt1,inter,ROC1,ROC2,beams(1)%pressure_new(ns-1), kappa
+      close (15)
     endif
   enddo
   
@@ -226,10 +228,12 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
     open (15, file='iterations.t',status='unknown',position='append')
     write(15,'(2(es15.8,1x),i3,2(es15.8,1x))') time, dt1, inter, ROC1, ROC2
     close(15)
-  endif
   
-  ! mark end of time step
-  if(root) write(*,*) "---"
+    ! mark end of time step
+    open (15, file='iterations_log.t',status='unknown',position='append')
+    write(15,'("---")')
+    close(15)
+  endif
   
   ! free work array
   deallocate (uk_old)
