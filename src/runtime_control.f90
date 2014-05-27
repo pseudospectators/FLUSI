@@ -70,7 +70,9 @@ end subroutine runtime_control_command
 subroutine kill
   use vars
   use mpi
+  implicit none
+  integer :: mpicode
   
   if (mpirank==0) write(*,*) "Killing run..."
-  call MPI_abort()
+  call MPI_abort(MPI_COMM_WORLD,666,mpicode)
 end subroutine kill
