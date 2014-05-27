@@ -50,7 +50,7 @@ subroutine rigid_solid_rhs(time,it)
     if (mpirank == 0) then
         write (*,*) &
         "rigidsolidtimestepper.f90::rigid_solid_rhs case not defined"
-        call kill()
+        call suicide()
     endif
   end select
 end subroutine rigid_solid_rhs

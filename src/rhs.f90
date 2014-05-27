@@ -18,7 +18,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work)
      call cal_nlk_mhd(nlk,uk,u,vort)
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
-     call kill()
+     call suicide()
   end select
 end subroutine cal_nlk
 

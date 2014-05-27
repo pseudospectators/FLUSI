@@ -146,7 +146,7 @@ subroutine DrawBody(ix,iy,iz,x_body)
   case default
     if (mpirank==0) then
     write (*,*) "In DrawBody: unkown body type."
-    call kill()
+    call suicide()
     endif
   end select
   

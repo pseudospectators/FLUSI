@@ -75,7 +75,7 @@ subroutine delta_interpolation(x,field,value)
   
   if ( ng/=N_support ) then
     write(*,*) "Error: number of ghostpoints not suitable for delta interp"
-    call kill()
+    call suicide()
   endif
   
   

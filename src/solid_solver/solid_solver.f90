@@ -122,7 +122,7 @@ subroutine SolidSolverWrapper ( time, dt, beams )
           case default
             write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
                 TimeMethodSolid
-            call kill()
+            call suicide()
         end select
      enddo
   else 
@@ -365,7 +365,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
           write(*,'(A)') "IBES error, mismatch in Jacobian (numeric vs analytic)"
           write (*,*) time, iter
           close (14)
-          call kill()
+          call suicide()
       endif
       iCalls = 0
     endif
@@ -395,7 +395,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     if ((iter>1000).and.(root)) then
       
       write(*,*) "!!! ERROR: IBES performed like 1000 iterations. this is not normal. time=", time
-      call kill()
+      call suicide()
     endif
     
   enddo
@@ -518,14 +518,14 @@ subroutine Solve_LGS ( J, F, x)
   call dgetrf( 2*ns+4, 2*ns+4, J2 , 2*ns+4, ipiv, error )
   if (error .ne. 0) then
     write(*,*) "!!! Crutial: dgetrf error.", error
-    call kill()
+    call suicide()
   endif
   
   x = F
   call dgetrs( 'N', 2*ns+4, 1, J2, 2*ns+4, ipiv, x, 2*ns+4, error )
   if (error .ne. 0) then 
     write(*,*) "!!! Crutial: dgetrs error.", error
-    call kill()
+    call suicide()
   endif
   
   time_LAPACK = time_LAPACK + MPI_wtime() - t0
@@ -1035,7 +1035,7 @@ subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_so
  
   if (info.ne.0) then 
   write (*,*) '!!! MKL linear solver was experiencing trouble.', info
-  call kill()
+  call suicide()
   endif
   
  
@@ -1426,7 +1426,7 @@ subroutine Check_Vector_NAN(f, msg)
     if (.not.(f(i).eq.f(i))) then
      write (*,*) "??? SOLID SOLVER: Found NaN in vector at", i
      write (*,*) msg
-     call kill()
+     call suicide()
      endif
   enddo
 end subroutine
@@ -1532,7 +1532,7 @@ subroutine lapack_unit_test()
   err = maxval( x - b )
   if ( err>1.d-12 ) then
     write (*,*) "LAPACK unit test failed"
-    call kill()
+    call suicide()
   endif
   
   if (root) write(*,'(" Done. err=",es15.8)') err
@@ -1611,7 +1611,7 @@ subroutine read_solid_backup( beams, filename )
   
   if ((ns_file/=ns).or.(nBeams_file/=nBeams)) then
     write(*,*) "Cant retake solid backup: resolution ns or beam number doesnt match"
-    call kill()
+    call suicide()
   endif
   
   do i =1, nBeams  
@@ -1657,7 +1657,7 @@ subroutine read_solid_backup_binary( beams, filename )
   
   if ((ns_file/=ns).or.(nBeams_file/=nBeams)) then
     write(*,*) "Cant retake solid backup: resolution ns or beam number doesnt match"
-    call kill()
+    call suicide()
   endif
   
   do i =1, nBeams  

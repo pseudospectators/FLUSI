@@ -486,7 +486,7 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   case default
     if (mpirank==0) then
     write (*,*) "insects.f90::FlappingMotion: motion case (protocoll) undefined"
-    call kill()
+    call suicide()
     endif    
   end select
   

@@ -18,7 +18,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work)
      call write_integrals_mhd(time,uk,u,vort,nlk,work)
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
-     call kill()
+     call suicide()
   end select
 end subroutine write_integrals
 

@@ -90,7 +90,7 @@ subroutine update_us_mhd()
         if(mpirank == 0) then
            write (*,*) &
                 "iMask not properly set for mhd in update_us_mhd; stopping."
-           call kill()
+           call suicide()
         endif
      end select
   endif

@@ -132,7 +132,7 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     if (mpirank==0) then
     write (*,*) Insect%BodyMotion
     write (*,*) "insects.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
-    call kill()
+    call suicide()
     endif
   end select
   

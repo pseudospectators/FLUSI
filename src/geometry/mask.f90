@@ -93,7 +93,7 @@ subroutine smoothstep(f,x,t,h)
   case default
       !-------------------------------------------------
       write(*,*) "Smoothing parameter not rightly set", iSmoothing
-      call kill()
+      call suicide()
   end select
   
 end subroutine smoothstep

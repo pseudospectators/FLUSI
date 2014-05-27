@@ -78,7 +78,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,beams)
           work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,beams)
   case default
      if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-     call kill()
+     call suicide()
   end select
 
   ! Force zero mode for mean flow
@@ -128,7 +128,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
   ! useful error messages
   if (use_solid_model/="yes") then
     write(*,*) "using FSI_AB2_iteration without solid model?"
-    call kill()
+    call suicide()
   endif
   
   ! allocate extra space for velocity in Fourier space
@@ -272,7 +272,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,bea
   ! useful error messages
   if (use_solid_model/="yes") then 
    write(*,*) "using FSI_AB2_staggered without solid model?"
-   call kill()
+   call suicide()
   endif
   
   !---------------------------------------------------------------------------
@@ -333,7 +333,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,expvis,
   ! useful error messages
   if (use_solid_model/="yes") then 
    write(*,*) "using FSI_AB2_staggered without solid model?"
-   call kill()
+   call suicide()
   endif
   
   !---------------------------------------------------------------------------
@@ -650,7 +650,7 @@ subroutine adjust_dt(dt1,u)
   if(mpirank == 0) then
     if(.NOT.(umax.eq.umax)) then
         write(*,*) "Evolved field contains a NAN: aborting run."
-        call kill()
+        call suicide()
     endif
   
     ! Impose the CFL condition.
