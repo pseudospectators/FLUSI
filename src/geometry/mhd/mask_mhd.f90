@@ -19,7 +19,7 @@ subroutine create_mask_mhd()
         if(mpirank == 0) then
            write (*,*) &
                 "iMask not properly set for mhd in create_mask_mhd; stopping."
-           call kill()
+           call suicide()
         endif
      end select
   endif

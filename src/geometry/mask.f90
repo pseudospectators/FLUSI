@@ -45,7 +45,7 @@ subroutine update_us(ub)
     case default    
         if(mpirank == 0) then
           write (*,*) "Error: unkown method in update_us; stopping."
-          call kill()
+          call suicide()
         endif
     end select  
   endif

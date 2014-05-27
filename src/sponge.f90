@@ -133,6 +133,34 @@ subroutine penalize_vort ( vort_penalized, vort )
           endif
         enddo
       enddo
+    enddo
+    
+  case ("cavity_open_z")
+    !--------------------------------------------
+    ! sponge for the cavity type (ie we set a solid wall
+    ! around the domain and kill the vorticity in front
+    ! of if). But you can also use it without the solid wall
+    ! ie iCavity=no and iSponge=yes, iSpongeType=cavity
+    !--------------------------------------------
+    do ix = ra(1), rb(1)
+      do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3) 
+          ! do not use vorticity sponge and solid wall simulateously
+          if (mask(ix,iy,iz) < 1e-12) then
+            !------------------------
+            if (nx>4) then ! skip this direction for 2D runs...
+            if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif
+            endif
+            !------------------------
+            if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif    
+            !------------------------
+          endif
+        enddo
+      enddo
     enddo       
 
   case ("xmin_xmax_ymin_ymax")

@@ -33,7 +33,7 @@ subroutine create_mask_fsi (time, beam )
       call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
     case default    
       write (*,*) "iMask="//iMask//" not properly set; stopping."
-      call kill()
+      call suicide()
     end select
   endif
 
