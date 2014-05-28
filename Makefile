@@ -35,6 +35,7 @@ ifeq ($(FC),f77)
 FC = mpif90
 endif
 
+
 # GNU compiler
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
@@ -63,6 +64,7 @@ endif
 ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 FFLAGS += -qmoddir=$(OBJDIR)
 FFLAGS += -I$(OBJDIR)
+DIFORT=-DTURING 
 PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
 endif
 
