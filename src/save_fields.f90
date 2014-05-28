@@ -212,8 +212,13 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
   call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
   ! Create the file collectively. (existing files are overwritten)
+#ifdef TURING  
+  call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+  file_id, error, access_prp = plist_id)
+#else
   call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-       file_id, error, access_prp = plist_id)
+  file_id, error, access_prp = plist_id)
+#endif 
   ! this closes the property list plist_id (we'll re-use it)
   call h5pclose_f(plist_id, error)
 

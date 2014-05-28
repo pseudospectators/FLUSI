@@ -62,6 +62,7 @@ endif
 ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 FFLAGS += -qmoddir=$(OBJDIR)
 FFLAGS += -I$(OBJDIR)
+DIFORT=-WF,-DTURING # this defines the TURING with the IBM compiler
 PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
 endif
 
