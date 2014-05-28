@@ -46,7 +46,6 @@ FFLAGS += -pedantic
 FFLAGS += -Wconversion
 FFLGAS += -Wunused-labels
 PPFLAG= -cpp #preprocessor flag
-
 # Debug flags for gfortran
 #FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 endif
@@ -64,8 +63,8 @@ endif
 ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 FFLAGS += -qmoddir=$(OBJDIR)
 FFLAGS += -I$(OBJDIR)
-DIFORT=-DTURING 
-PPFLAG= -qsuffix=cpp=f90  #preprocessor flag
+DIFORT=-WF,-DTURING # this defines the TURING with the IBM compiler
+PPFLAG=-qsuffix=cpp=f90  #preprocessor flag
 endif
 
 PROGRAMS = flusi mhd

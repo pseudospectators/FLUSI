@@ -16,11 +16,6 @@ program FLUSI
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
 
-#ifdef TURING
-write(*,*) "hihi" 
-stop
-#endif
-  
   if ( index(infile,'.ini') > 0) then  
       !-------------------------------------------------------------------------
       ! the file is an *.ini file -> we run a normal simulation 
