@@ -47,7 +47,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   if ( save_only_one_period == "yes" ) then
     ! overwrite files from last period to save disk space
     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-    write(name,'(i5.5)') floor( (time-real(floor(time)))*100.d0 )
+    write(name,'(i5.5)') floor( (time-real(floor(time/tsave_period)))*100.d0 )
   else
     ! name is just the time
     write(name,'(i5.5)') floor(time*100.d0) 

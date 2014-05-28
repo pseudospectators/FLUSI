@@ -142,7 +142,8 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      !-------------------------------------------------
      ! Output FIELDS (after tsave)
      !-------------------------------------------------
-     if (((modulo(time,tsave)<=dt1).and.(it>2)).or.(time==tmax)) then
+     if (((modulo(time,tsave)<=dt1).and.(time>+tsave_first).and.(it>2))&
+        .or.(time==tmax)) then
         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
         ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
@@ -203,6 +204,18 @@ subroutine time_step(u,uk,nlk,vort,work,explin,params_file,time,dt0,dt1,n0,n1,it
      if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1,t4)
   end do
 
+  ! save final backup so we can resume where we left 
+  if(idobackup==1) then
+    if (root) write (*,*) "final backup..."
+    call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+        work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+    !-- backup solid solver, if using it
+    if((use_solid_model=="yes").and.(method=="fsi")) then
+      call dump_solid_backup( time, beams, nbackup )
+    endif    
+  endif
+  
+  
   if(root) then
      write(*,'("Finished time stepping; did it=",i5," time steps")') it
   endif

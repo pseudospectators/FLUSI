@@ -161,6 +161,11 @@ subroutine get_params_common(PARAMS,i)
   truntimenext=0d0
   call GetValue_Real(PARAMS,i,"Saving","wtimemax",wtimemax, 8760.d0) ! 1 year
   call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
+  call GetValue_Real(PARAMS,i,"Saving","tintegral",tsave_first,0.0d0)
+  call GetValue_Real(PARAMS,i,"Saving","tintegral",tsave_period,1.0d0)
+  call GetValue_String(PARAMS,i,"Saving","save_only_one_period",&
+       save_only_one_period,"no")  
+  
   call GetValue_Int(PARAMS,i,"Saving","itdrag",itdrag,99999)
   
   !-- dry run, just the mask function
@@ -226,7 +231,6 @@ subroutine get_params_fsi(PARAMS,i)
   ! Saving section
   ! ---------------------------------------------------
   call GetValue_Int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
-  call GetValue_String(PARAMS,i,"Saving","save_only_one_period",save_only_one_period,"no")  
 
   ! ---------------------------------------------------
   ! MeanFlow section
@@ -520,6 +524,7 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
            write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
         endif
      else
+        value = defaultvalue
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
              " (THIS IS THE DEFAULT VALUE!)"
         params_string = defaultvalue

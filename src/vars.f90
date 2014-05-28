@@ -66,12 +66,16 @@ module vars
   integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
+  real(kind=pr),save :: tsave_first ! don't save before this time
   ! compute drag force every itdrag time steps and compute unst corrections if
   ! you've told to do so.
   integer,save :: itdrag, unst_corrections
   real(kind=pr),save :: truntime, truntimenext ! Number of hours bet
   real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
-
+  ! for periodically repeating flows, it may be better to always have only 
+  ! one set of files on the disk
+  character(len=strlen),save :: save_only_one_period
+  real(kind=pr),save :: tsave_period ! then this is period time
 
   ! Time-stepping parameters
   real(kind=pr),save :: tmax
@@ -183,9 +187,7 @@ module fsi_vars
   ! save forces and use unsteady corrections?
   integer, save :: compute_forces  
   
-  ! for periodically repeating flows, it may be better to always have only 
-  ! one set of files on the disk
-  character(len=strlen),save :: save_only_one_period
+  
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean
