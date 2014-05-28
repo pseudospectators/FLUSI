@@ -25,7 +25,8 @@ subroutine StrokePlane ( time, eta_stroke )
   case ("flapper")   ! Comparison with Dickinson et al. (Dmitry, 19 Nov 2013)
     eta_stroke = deg2rad(0.d0)
   case ("takeoff")
-    eta_stroke = deg2rad(-28.d0) ! 62-90, Fontaine et al., fig 13 (Dmitry, 14 Nov 2013)
+!    eta_stroke = deg2rad(-28.d0) ! 62-90, Fontaine et al., fig 13 (Dmitry, 14 Nov 2013)
+    eta_stroke = Insect%eta_stroke ! read from file
   case default
     if (mpirank==0) then
     write (*,*) "insects.f90::StrokePlane: motion case (Insect%BodyMotion) undefined"
