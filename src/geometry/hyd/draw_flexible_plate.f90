@@ -78,7 +78,7 @@ subroutine Draw_flexible_plate (time, beam)
           c2 = dsqrt( b**2-h**2)
           
           !-- are both sides a,b small enough for the point to lie within the beam?
-          if ((a<=dmax).and.(b<=dmax).and.((c1<=c).and.(c2<=c))) then          
+          if ((a<=dmax).and.(b<=dmax).and.(c1<c).and.(c2<c).and.(c1>0.d0).and.(c2>0.d0)) then          
             !-----------------------------------------------------------------
             !-- we're in the area of the line segment, where the
             !-- height of the triangle defines the distance function

@@ -487,7 +487,6 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   integer :: error, mpierror, i  ! error flags
 
   ! what follows is for the attribute "time"
-  integer, parameter :: arank = 1
   integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
   character(len=4) :: aname ! attribute name
   real (kind=pr), dimension (:), allocatable :: attributes
@@ -976,7 +975,6 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   integer :: error  ! error flags
 
   ! what follows is for the attribute "time"
-  integer, parameter :: arank = 1
   integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
   integer(hid_t) :: aspace_id     ! Attribute Dataspace identifier
   !integer(hid_t) :: atype_id      ! Attribute Dataspace identifier
