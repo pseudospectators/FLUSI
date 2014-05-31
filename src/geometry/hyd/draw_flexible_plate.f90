@@ -26,7 +26,7 @@ subroutine Draw_flexible_plate (time, beam)
     
   !-- get relative coordinate system
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,&
-                               gamma,psi_dt,beta_dt,gamma_dt,M_plate)
+       gamma,psi_dt,beta_dt,gamma_dt,M_plate)
 
   ! angular velocity of moving relative frame
   rot_body = (/psi_dt, beta_dt, gamma_dt/)

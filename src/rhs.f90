@@ -48,7 +48,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
 
   complex(kind=pr),intent(in)::   uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-  complex(kind=pr),dimension(:,:,:), allocatable:: workc
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -118,6 +117,10 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         vort(ix,iy,iz,1) = uy*vorz - uz*vory - chi*(ux-usx)
         vort(ix,iy,iz,2) = uz*vorx - ux*vorz - chi*(uy-usy)
         vort(ix,iy,iz,3) = ux*vory - uy*vorx - chi*(uz-usz)
+        
+!         if (is_nan(vort(ix,iy,iz,1))) call suicide("NaN in nl_x")
+!         if (is_nan(vort(ix,iy,iz,2))) call suicide("NaN in nl_y")
+!         if (is_nan(vort(ix,iy,iz,3))) call suicide("NaN in nl_z")
       enddo
     enddo
   enddo
@@ -142,12 +145,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   t1 = MPI_wtime()
   if ( use_solid_model == "yes" ) then
     !-- when doing active FSI coupling, we need the pressure.
-    !-- allocate a complex work array (we have none in spare)
-    call alloccomplex( workc )
-    call compute_pressure( workc ,nlk )
+    call compute_pressure( sponge(:,:,:,1) ,nlk )
     !-- ifft is in a module, so this argument style is fine:
-    call ifft( ink=workc, outx=work )
-    deallocate( workc )
+    call ifft( ink=sponge(:,:,:,1), outx=work )
   endif
   !-- project RHS on solenoidal manifold
   call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))

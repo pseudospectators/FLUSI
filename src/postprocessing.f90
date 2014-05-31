@@ -347,7 +347,7 @@ subroutine compare_key(key1,key2)
   elseif ((a1-a2<1.d-09) .and. (b2-b1<1.d-09) .and. (c2-c1<1.e-09) .and. (d2-d1<1.d-09)) then
     ! not so cool but no catastrophy
     write (*,*) "WARNING"
-    call exit(2)            
+    call exit(0)            
   else
     ! very bad
     write (*,*) "ERROR"

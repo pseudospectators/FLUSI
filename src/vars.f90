@@ -2,6 +2,10 @@
 module vars
   use mpi
   implicit none
+  
+  interface suicide
+    module procedure suicide1,suicide2
+  end interface
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
   ! Used in params.f90
@@ -137,7 +141,7 @@ module vars
       complex(kind=pr),dimension(:,:,:,:),allocatable :: u
       allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
     end subroutine alloccomplexnd
-    
+    !---------------------------------------------------------------------------
     integer function GetIndex(ix,nx)
       implicit none
       integer, intent (in) ::ix,nx
@@ -148,7 +152,7 @@ module vars
       GetIndex=tmp
       return
     end function GetIndex
-    
+    !---------------------------------------------------------------------------
     integer function per(ix,nx)
       implicit none
       integer, intent (in) ::ix,nx
@@ -160,6 +164,33 @@ module vars
       per=tmp
       return
     end function per
+    !---------------------------------------------------------------------------
+    subroutine suicide1
+      use mpi
+      implicit none
+      integer :: mpicode
+      
+      if (mpirank==0) write(*,*) "Killing run..."
+      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+    end subroutine suicide1
+    !---------------------------------------------------------------------------
+    subroutine suicide2(msg)
+      use mpi
+      implicit none
+      integer :: mpicode
+      character(len=*), intent(in) :: msg
+      
+      if (mpirank==0) write(*,*) "Killing run..."
+      if (mpirank==0) write(*,*) msg
+      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+    end subroutine suicide2
+    !---------------------------------------------------------------------------
+    logical function is_nan( x )
+      implicit none
+      real(kind=pr)::x
+      is_nan = .false.
+      if (.not.(x.eq.x)) is_nan=.true.
+    end function
 end module vars
 
 

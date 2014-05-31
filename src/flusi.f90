@@ -166,6 +166,9 @@ subroutine Start_Simulation()
   ! vorticity sponge
   if (iVorticitySponge=="yes") then
     allocate (sponge(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd) )
+  else
+    ! work array for pressure
+    allocate (sponge(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:1) )
   endif
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") then

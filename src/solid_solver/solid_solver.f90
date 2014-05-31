@@ -106,45 +106,54 @@ subroutine SolidSolverWrapper ( time, dt, beams )
   integer :: i
   t0 = MPI_wtime()
   
+  do i = 1, nBeams
+  !------------------------------------------
+  ! check if input values are okay
+  !------------------------------------------
+  if (Vector_isNAN(beams(i)%pressure_new).or.&
+      Vector_isNAN(beams(i)%pressure_old).or.&
+      Vector_isNAN(beams(i)%tau_new).or.&
+      Vector_isNAN(beams(i)%tau_old) ) then
+    if (root) write(*,*) "SolidSolver: input values contain NaNs"
+    ! at this occasion, check if mask and us contain NaNs
+    if (root) write(*,*) "Checking mask and us for NaNs"
+!     call ! TODO
+    call suicide()
+  endif
+  
   if (time>=T_release) then ! it is not nessesaire to solve the solid equation when the beam is still held fixed  
-     !-------------------------------------------
-     ! the beams are released, call IBES solvers
-     !-------------------------------------------
-     ! all implicit solvers are in one subroutine
-     do i = 1, nBeams
-        select case (TimeMethodSolid)
-          case ("CN2","BDF2","EI1")
-            call IBES_solver (time, dt, beams(i))    
-          case ("RK4")
-            call RK4_wrapper (time, dt, beams(i))
-          case ("EE1")
-            call EE1_wrapper (time, dt, beams(i))
-          case default
-            write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
-                TimeMethodSolid
-            call suicide()
-        end select
-     enddo
+    !-------------------------------------------
+    ! the beams are released, call IBES solvers
+    !-------------------------------------------
+    ! all implicit solvers are in one subroutine
+    select case (TimeMethodSolid)
+      case ("CN2","BDF2","EI1")
+        call IBES_solver (time, dt, beams(i))    
+      case ("RK4")
+        call RK4_wrapper (time, dt, beams(i))
+      case ("EE1")
+        call EE1_wrapper (time, dt, beams(i))
+      case default
+        write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
+            TimeMethodSolid
+        call suicide()
+    end select
   else 
-     !-------------------------------------------
-     ! the beams are not yet released, but its leading edges may move
-     !-------------------------------------------
-     do i = 1, nBeams
-      call integrate_position (time+dt, beams(i))
-     enddo
+    !-------------------------------------------
+    ! the beams are not yet released, but its leading edges may move
+    !-------------------------------------------
+    call integrate_position (time+dt, beams(i))
   endif
   
   !-------------------------------------------
   ! compute energies and stuff
   !-------------------------------------------
-  do i = 1, nBeams
   call SolidEnergies( beams(i) )
-  enddo
 
-  do i = 1, nBeams
-    call Check_Vector_NAN( beams(i)%theta_dot, "main wrapper")
+  !-- check if everything seems okay, if not show beam and suicide
+  call show_beam_on_error( beams(i) )
+
   enddo
-  
   time_solid = time_solid + MPI_wtime() - t0
 end subroutine SolidSolverWrapper
 
@@ -392,8 +401,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
     !-----------------------------------------------------------
     ! EMERGENCY BRAKE
     !-----------------------------------------------------------
-    if ((iter>1000).and.(root)) then
-      
+    if ((iter>1000).and.(root)) then      
       write(*,*) "!!! ERROR: IBES performed like 1000 iterations. this is not normal. time=", time
       call suicide()
     endif
@@ -458,7 +466,6 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   beam_solid%ax = (beam_solid%vx - beam_old(:,3)) / dt
   beam_solid%ay = (beam_solid%vy - beam_old(:,4)) / dt
   
-  
   !-----------------------------------------------------------------------------
   !       emergency brake
   !-----------------------------------------------------------------------------
@@ -472,15 +479,14 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !     save number of iterations
   !-----------------------------------------------------------------------------    
   if (root) then
-  open (14, file = 'IBES_iter.t', status = 'unknown', position='append') ! Append output data file
-  write (14, '(es11.4,1x,i3)') time, iter
-  close (14)
+    open (14, file = 'IBES_iter.t', status = 'unknown', position='append')
+    write (14, '(es11.4,1x,i3)') time, iter
+    close (14)
   endif
   
   !-----------------------------------------------------------------------------
   !     iterate ( skipped for CN2 and EI1 )
   !-----------------------------------------------------------------------------    
-  
   if (ActuallyBDF2 .eqv. .true.) then   ! Remember to switch back to BDF2 
     TimeMethodSolid = "BDF2" 
     ActuallyBDF2 = .false.
@@ -581,22 +587,6 @@ subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T
   
   theta_dot_new = (C1/dt)*(theta(0:ns-1)-C3*theta_old(0:ns-1)-C4*theta_oldold)-C2*theta_dot_old
   
-  call Check_Vector_NAN ( theta_old, "theta_old" )
-  call Check_Vector_NAN ( theta_dot_old, "theta_dot_old" )
-  call Check_Vector_NAN ( theta, "theta" )
-  call Check_Vector_NAN ( T, "T" )
-  call Check_Vector_NAN ( p, "p" )
-  call Check_Vector_NAN ( old_rhs, "old_rhs" )
-  call Check_Vector_NAN ( theta_oldold, "theta_oldold" )
-  call Check_Vector_NAN ( theta_dot_oldold, "theta_dot_oldold" )
-  call Check_Vector_NAN ( tau_beam, "tau_beam" )
-  call Check_Vector_NAN ( theta_dot_new, "theta_dot_new" )
-  call Check_Vector_NAN ( tau_s, "tau_s" )
-  call Check_Vector_NAN ( theta_oldold, "theta_oldold" )
-  
-  
-  
-  
   ! first we set the 8 special eqns at the beginning 
   F(1) = theta(0) 
   F(2) = (T(1)-T(-1))/(2.0*ds)  +  (eta/(2.0*ds**3))*(theta(-1)-&
@@ -646,14 +636,7 @@ subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T
     + eta*( (theta(i+1)-2.0*theta(i)+theta(i-1))/(ds**2) )**2 &
     + mue*( theta_dot_new(i) + alpha_t )**2 &
     - tau_s(i)
-    
   enddo 
-
-  !------------------------------------------
-  ! check for NaN's
-  !------------------------------------------
-  call Check_Vector_NAN (F, "F_nonlinear")
-
 end subroutine F_nonlinear
 
 !-------------------------------------------------------------------------------
@@ -839,36 +822,6 @@ subroutine GravityImpulse(time)
   real(kind=pr), intent (in) ::  time
   real(kind=pr) :: T0,T1,a,b,c,d,k,t
   
-!   if (iImpulse==1) then
-!     T0=0.75
-!     T1=0.85
-!     grav = 1.00*sin ( pi*(time-T0)/(T1-T0) )
-!     
-!     if (time<T0) grav=0.d0
-!     if (time>T1) grav=0.d0
-!    elseif (iImpulse==2) then
-!     T0=0.75
-!     T1=0.85
-!     grav = 4.00*sin ( pi*(time-T0)/(T1-T0) )
-!     
-!     if (time<T0) grav=0.d0
-!     if (time>T1) grav=0.d0
-!   elseif (iImpulse==3) then
-!     T0=2.0
-!     T1=3.0
-!     if (time <= T0) then
-!       k = 0.d0
-!     elseif ((time>=T0).and.(time<=T1)) then
-!       a = -20.d0; b= 70.d0; c=-84.0; d=35.0;
-!       t = (time-T0)/(T1-T0)
-!       k = a*t**7 + b*t**6 + c*t**5 + d*t**4
-!     elseif (time>T1) then
-!       k   = 1.0
-!     endif   
-!     grav = 0.7*k
-!   endif
-
-
 end subroutine GravityImpulse
 
 ! ------------------------------------------------------------------------------
@@ -1037,9 +990,6 @@ subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_so
   write (*,*) '!!! MKL linear solver was experiencing trouble.', info
   call suicide()
   endif
-  
- 
-  
 end subroutine Tension
 
 ! ------------------------------------------------------------------------------
@@ -1062,6 +1012,9 @@ subroutine Differentiate1D (f, f_derivative, N, dx, order)
       f_derivative = matmul(D3,f)
     case(4)
       f_derivative = matmul(D4,f)
+    case default
+      if (root) write(*,*) "Differentiate1D wrong choice"
+      call suicide()
   end select
   
 end subroutine Differentiate1D
@@ -1305,8 +1258,6 @@ subroutine EE1_wrapper ( time, dt, beam_solid )! note this is actuall only ONE b
   real(kind=pr),dimension(0:ns-1) :: T
   real(kind=pr),dimension(0:ns-1, 1:6) :: beam
 
-  if (time<1.0e-8) write(*,*) "euler says hi"
-  
   beam(:,1) = beam_solid%x
   beam(:,2) = beam_solid%y
   beam(:,3) = beam_solid%vx
@@ -1350,8 +1301,7 @@ subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid)
 
   beam(:,5) = theta + dt_beam * theta_1
   beam(:,6) = theta_dot + dt_beam * theta_dot_1
-  
-  call Check_Vector_NAN( beam(:,6), "euler explicit")
+ 
 end subroutine EE1
 
 
@@ -1371,7 +1321,7 @@ subroutine Jacobi_num(time, dt,dt_old, J, T, theta, theta_old, &
   real(kind=pr), dimension(-1:ns+1) :: theta1, theta2
   real(kind=pr), dimension(0:ns-1), intent (in) :: p, theta_old, theta_dot_old, &
   theta_oldold,theta_dot_oldold, old_rhs, tau_beam_new
-  integer :: i, k, l
+  integer :: i, l
 
   !---------------------------------------
   !  NUMERIC COMPUTATION OF THE JACOBIAN
@@ -1417,38 +1367,18 @@ end subroutine Jacobi_num
 !-------------------------------------------------------------------------------
 
 
-subroutine Check_Vector_NAN(f, msg)
+logical function Vector_isNAN(f)
   real(kind=pr), intent(in) :: f(:)
-  character(len=*) :: msg
   integer :: a, i
   a = size(f)
+  Vector_isNAN = .false.
   do i=1,a
     if (.not.(f(i).eq.f(i))) then
-     write (*,*) "??? SOLID SOLVER: Found NaN in vector at", i
-     write (*,*) msg
-     call suicide()
-     endif
+      Vector_isNAN = .true.
+      return
+    endif
   enddo
-end subroutine
-
-
-!-------------------------------------------------------------------------------
-
-
-subroutine Check_Vector_NAN_try_correct(f, msg)
-  real(kind=pr), intent(inout) :: f(:)
-  character(len=*) :: msg
-  integer :: a, i
-  a = size(f)
-  do i=1,a
-    if (.not.(f(i).eq.f(i))) then
-     write (*,*) "??? SOLID SOLVER: Found NaN in vector at", i
-     write (*,*) msg
-     write (*,*) "I will try to correct this and proceed, with fingers crossed!"
-     f(i)=0.d0
-     endif
-  enddo
-end subroutine
+end function
 
 
 !-------------------------------------------------------------------------------
@@ -1471,23 +1401,69 @@ end subroutine
 
 !-------------------------------------------------------------------------------
  
-subroutine show_beam( beam)
+subroutine show_beam( beam )
   use fsi_vars
   implicit none
-  character(len=3):: str
+  character(len=20):: str
   type(solid),intent(in) :: beam
-  write(str,'(i3.3)') ns
-  
-  write(*,'(A,1x,32(f7.3,1x))') "beam%x", beam%x
-  write(*,'(A,1x,32(f7.3,1x))') "beam%y", beam%y
-  write(*,'(A,1x,32(f7.3,1x))') "beam%vx", beam%vx
-  write(*,'(A,1x,32(f7.3,1x))') "beam%vy", beam%vy
-  write(*,*) "x0", beam%x0
-  write(*,*) "y0", beam%y0
-  write(*,*) "dt_old", beam%dt_old
-  write(*,'(A,1x,32(f7.3,1x))') "beam%theta", beam%theta
-  write(*,'(A,1x,32(f7.3,1x))') "beam%theta_dot", beam%theta_dot  
+  if (root) then
+    write(str,'("(A,1x,",i3.3,"(f7.3,1x))")') nx
+    write(*,str) "beam%x ", beam%x
+    write(*,str) "beam%y ", beam%y
+    write(*,str) "beam%vx", beam%vx
+    write(*,str) "beam%vy", beam%vy
+    write(*,*) "x0", beam%x0
+    write(*,*) "y0", beam%y0
+    write(*,*) "dt_old", beam%dt_old
+    write(*,str) "beam%theta    ", beam%theta
+    write(*,str) "beam%theta_dot", beam%theta_dot  
+    write(*,str) "beam%pressure_new", beam%pressure_new
+    write(*,str) "beam%pressure_old", beam%pressure_old
+    write(*,str) "beam%tau_new", beam%tau_new
+    write(*,str) "beam%tau_old", beam%tau_old
+    write(*,str) "beam%beam_oldold(:,1)", beam%beam_oldold(:,1)
+    write(*,str) "beam%beam_oldold(:,2)", beam%beam_oldold(:,2)
+    write(*,str) "beam%beam_oldold(:,3)", beam%beam_oldold(:,3)
+    write(*,str) "beam%beam_oldold(:,4)", beam%beam_oldold(:,4)
+    write(*,str) "beam%beam_oldold(:,5)", beam%beam_oldold(:,5)
+    write(*,str) "beam%beam_oldold(:,6)", beam%beam_oldold(:,6)
+    write(*,*) "-->end beam<--"
+  endif
 end subroutine show_beam
+
+
+!-------------------------------------------------------------------------------
+
+
+subroutine show_beam_on_error( beam )
+  use fsi_vars
+  implicit none
+  type(solid),intent(in) :: beam
+  if ( Vector_isNAN(beam%x).or.&
+       Vector_isNAN(beam%y).or.&
+       Vector_isNAN(beam%vx).or.&
+       Vector_isNAN(beam%vy).or.&
+       Vector_isNAN(beam%theta).or.&
+       Vector_isNAN(beam%theta_dot).or.&
+       Vector_isNAN(beam%pressure_new).or.&
+       Vector_isNAN(beam%pressure_old).or.&
+       Vector_isNAN(beam%tau_new).or.&
+       Vector_isNAN(beam%tau_old).or.&
+       Vector_isNAN(beam%beam_oldold(:,1)).or.&
+       Vector_isNAN(beam%beam_oldold(:,2)).or.&
+       Vector_isNAN(beam%beam_oldold(:,3)).or.&
+       Vector_isNAN(beam%beam_oldold(:,4)).or.&
+       Vector_isNAN(beam%beam_oldold(:,5)).or.&
+       Vector_isNAN(beam%beam_oldold(:,6)) &
+     ) then
+     
+     call show_beam( beam )
+     call suicide()  
+  endif
+end subroutine show_beam_on_error
+
+
+!-------------------------------------------------------------------------------
 
 
 subroutine lapack_unit_test()
@@ -1684,9 +1660,6 @@ subroutine convert_solid_bckp_ascii
   use fsi_vars
   implicit none
   type(solid), dimension(1:nBeams) :: beams
-  integer :: i 
-  real(kind=pr):: time
-  character(len=24) :: filename
   
   inicond="nothing"
   call init_beams( beams )
@@ -1694,6 +1667,7 @@ subroutine convert_solid_bckp_ascii
   call dump_solid_backup( 0.d0, beams, 0 )
   
 end subroutine
+
 
   
 end module solid_model
