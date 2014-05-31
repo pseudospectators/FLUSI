@@ -117,7 +117,11 @@ subroutine SolidSolverWrapper ( time, dt, beams )
     if (root) write(*,*) "SolidSolver: input values contain NaNs"
     ! at this occasion, check if mask and us contain NaNs
     if (root) write(*,*) "Checking mask and us for NaNs"
-!     call ! TODO
+    call checknan_real( mask, "mask")
+    call checknan_real( us(:,:,:,1), "usx")
+    call checknan_real( us(:,:,:,2), "usy")
+    call checknan_real( us(:,:,:,3), "usz")
+    ! time to go..
     call suicide()
   endif
   
