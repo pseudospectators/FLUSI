@@ -76,6 +76,14 @@ subroutine init_passive_scalar(uk,work,workc)
     !-- transform this to F-space
     call fft ( inx=work(:,:,:,1), outk=uk )  
 
+  case ("empty")
+    !---------------------------------------------------------------------------
+    !-- initialize scalar zero everywhere
+    work(:,:,:,1) = 0.d0
+    !-- transform this to F-space
+    call fft ( inx=work(:,:,:,1), outk=uk )  
+
+    
   case default
     if (mpirank==0) then
       write(*,*) "init_passive_scalar:: unknown inicond_scalar="//inicond_scalar

@@ -145,6 +145,11 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
 end subroutine cal_nlk_scalar
 
 
+!-------------------------------------------------------------------------------
+! source term for passive scalar, dirichlet condition
+! note here we have to use eps instead of eps_scalar, since
+! this term imposed a dt<eps stability condition
+!-------------------------------------------------------------------------------
 subroutine scalar_source ( time, theta )
   use mpi
   use p3dfft_wrapper
@@ -153,7 +158,7 @@ subroutine scalar_source ( time, theta )
 
   real(kind=pr),intent(in) :: time
   real(kind=pr),intent(inout)::theta(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr) :: x,y,z
+  real(kind=pr) :: x,y,z,chi
   integer :: ix,iy,iz
   
   do ix=ra(1),rb(1)
@@ -162,7 +167,14 @@ subroutine scalar_source ( time, theta )
         x = dble(ix)*dx
         y = dble(iy)*dy
         z = dble(iz)*dz
+        chi = 0.d0
+        if ((z>=0.40*zl).and.(z<=0.60*zl)) then
+        if ((y>=0.05*yl).and.(y<=0.10*yl)) then
+          chi = -(theta(ix,iy,iz)-1.d0) / eps
+        endif
+        endif
         
+        theta(ix,iy,iz)=chi
       enddo
     enddo
   enddo
