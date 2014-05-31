@@ -630,71 +630,85 @@ end subroutine adamsbashforth
 
 !-------------------------------------------------------------------------------
 ! Set the time step based on the CFL condition and penalization
-! stability contidion. If dt_fixed is set, 
+! stability contidion.
 subroutine adjust_dt(dt1,u)
   use vars
   use mpi
+  use basic_operators
   implicit none
 
-  real(kind=pr), intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  integer :: mpicode
-  real(kind=pr), intent (out) :: dt1
-  real(kind=pr) :: umax
+  real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  integer::mpicode
+  real(kind=pr), intent(out)::dt1
+  real(kind=pr)::umax
 
-  ! Determine the maximum velocity/magnetic field value, divided by
-  ! grid size to determine the CFL condition.
-  ! call maxabs1(umax,u) ! Max in each direction
-  call maxabs(umax,u) ! Max magnitude
+  if (dt_fixed>0.0) then
+     !-- fix the time step no matter what. the result may be unstable.
+     dt1=dt_fixed
+  else
+     !-- Determine the maximum velocity/magnetic field value     
+     if (method=="mhd") then
+       !-- MHD needs to respect CFL for magnetic field as well
+       umax = max( fieldmaxabs(u(:,:,:,1:3)), fieldmaxabs(u(:,:,:,4:6)) )
+     else
+       !-- FSI runs just need to respect CFL for velocity
+       umax = fieldmaxabs(u(:,:,:,1:3))
+     endif
+     
+     !-- Adjust time step at 0th process
+     if(mpirank == 0) then
+        if(.NOT.(umax.eq.umax)) then
+           write(*,*) "Evolved field contains a NAN: aborting run."
+           stop
+        endif
+     
+        !-- Impose the CFL condition.
+        if (umax >= 1.0d-8) then
+           dt1=min(dx,dy,dz)*cfl/umax
+        else
+           !-- umax is very very small
+           dt1=1.0d-2
+        endif
 
-  !--Adjust time step at 0th process
-  if(mpirank == 0) then
-    if(.NOT.(umax.eq.umax)) then
-        write(*,*) "Evolved field contains a NAN: aborting run."
-        call suicide()
-    endif
-  
-    ! Impose the CFL condition.
-    if (umax >= 1.0d-8) then
-        dt1=cfl/umax
-    else
-        dt1=1.0d-2
-    endif
+        !-- Round the time-step to one digit to reduce calls of cal_vis
+        call truncate(dt1) 
 
-    ! Round the time-step to one digit to reduce calls to cal_vis
-    call truncate(dt1,dt1) 
+        !-- Impose penalty stability condition: dt cannot be larger than eps
+        if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
+        
+        ! Don't jump past save-points: if the time-step is larger than
+        ! the time interval between outputs, decrease the time-step.
+        if(tsave > 0.d0 .and. dt1 > tsave) then
+           dt1=tsave
+        endif
+        if(tintegral > 0.d0 .and. dt1 > tintegral) then
+           dt1=tintegral
+        endif
+        
+        !-- impose max dt, if specified
+        if (dt_max>0.d0) dt1=min(dt1,dt_max)
+     endif
 
-    ! Impose penalty stability condition: dt cannot be less than 1/eps/
-    if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
-    ! time step is smaller than eps 
-    
-    ! Don't jump past save-points: if the time-step is larger than
-    ! the time interval between outputs, decrease the time-step.
-    if(tsave > 0.d0 .and. dt1 > tsave) dt1=tsave
-    if(tintegral > 0.d0 .and. dt1 > tintegral) dt1=tintegral
-    
-    ! fixed time step
-    if(dt_fixed>0.d0) dt1=min(dt1,dt_fixed)
+     ! Broadcast time step to all processes
+     call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
   endif
-  
-  
-  
-  ! Broadcast time step to all processes
-  call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
   
 end subroutine adjust_dt
 
 
-! FIXME: add documentation
-subroutine truncate(a,b)
-  ! rounds time step (from 1.246262e-2 to 1.2e-2)
+! Truncate = round a real number to one significant digit, i.e. from 1.246262e-2
+! to 1.2e-2. This slightly modifies the CFL condition (if the time step is 
+! dictated by CFL and not by penalization), but allows to keep the time step
+! constant over more time steps, which is more efficient.
+subroutine truncate(a)
   use vars
   implicit none
 
-  real(kind=pr) :: a,b
-  character (len=7) :: str
+  real(kind=pr),intent(inout)::a
+  character(len=7)::str
 
   write (str,'(es7.1)') a
-  read (str,*) b
+  read (str,*) a
 end subroutine truncate
 
 

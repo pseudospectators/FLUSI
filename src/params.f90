@@ -114,6 +114,7 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_String(PARAMS,i,"Time","iTimeMethodFluid", iTimeMethodFluid,"AB2")  
   call GetValue_Real(PARAMS,i,"Time","Tmax",Tmax,1.d9)
   call GetValue_Real(PARAMS,i,"Time","CFL",cfl,0.1d0)
+  call GetValue_Real(PARAMS,i,"Time","dt_max",dt_max,0.d0)
   call GetValue_Real(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
 
   ! Reynolds number section:
@@ -161,8 +162,8 @@ subroutine get_params_common(PARAMS,i)
   truntimenext=0d0
   call GetValue_Real(PARAMS,i,"Saving","wtimemax",wtimemax, 8760.d0) ! 1 year
   call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
-  call GetValue_Real(PARAMS,i,"Saving","tintegral",tsave_first,0.0d0)
-  call GetValue_Real(PARAMS,i,"Saving","tintegral",tsave_period,1.0d0)
+  call GetValue_Real(PARAMS,i,"Saving","tsave_first",tsave_first,0.0d0)
+  call GetValue_Real(PARAMS,i,"Saving","tsave_period",tsave_period,1.0d0)
   call GetValue_String(PARAMS,i,"Saving","save_only_one_period",&
        save_only_one_period,"no")  
   

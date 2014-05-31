@@ -28,6 +28,7 @@ subroutine write_integrals_fsi(time,uk,u,vort,nlk,work)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -114,6 +115,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   use mpi
   use mhd_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   complex (kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)

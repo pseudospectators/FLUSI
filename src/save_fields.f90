@@ -31,6 +31,7 @@ end subroutine save_fields_new
 subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work)
   use fsi_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -1139,6 +1140,7 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   use mpi
   use mhd_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(in) :: time

@@ -44,6 +44,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
   use mpi
   use p3dfft_wrapper
   use fsi_vars
+  use basic_operators
   implicit none
 
   complex(kind=pr),intent(in)::   uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -304,6 +305,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -415,87 +417,6 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! Helmholtz decomposition.
   call div_field_nul(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
 end subroutine cal_nlk_mhd
-
-
-! Given three components of an input fields in Fourier space, compute
-! the curl in physical space.  Arrays are 3-dimensional.
-subroutine curl(out1,out2,out3,in1,in2,in3)
-  use mpi
-  use p3dfft_wrapper
-  use vars
-  implicit none
-
-  ! input field in Fourier space
-  complex(kind=pr),intent(in)::in1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(in)::in2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(in)::in3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  ! output field in Fourier space
-  complex(kind=pr),intent(out)::out1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(out)::out2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(out)::out3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-
-           out1(iz,iy,ix)=imag*(ky*in3(iz,iy,ix) -kz*in2(iz,iy,ix))
-           out2(iz,iy,ix)=imag*(kz*in1(iz,iy,ix) -kx*in3(iz,iy,ix))
-           out3(iz,iy,ix)=imag*(kx*in2(iz,iy,ix) -ky*in1(iz,iy,ix))
-        enddo
-     enddo
-  enddo
-end subroutine curl
-
-
-! Given three components of a fields in Fourier space, compute the
-! curl in physical space.  Arrays are 3-dimensional.
-subroutine curl_inplace(fx,fy,fz)
-  use mpi
-  use vars
-  use p3dfft_wrapper
-  implicit none
-
-  ! Field in Fourier space
-  complex(kind=pr),intent(inout)::fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-
-  complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-  imag = dcmplx(0.d0,1.d0)
-  
-  ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-           
-           t1=fx(iz,iy,ix)
-           t2=fy(iz,iy,ix)
-           t3=fz(iz,iy,ix)
-
-           fx(iz,iy,ix)=imag*(ky*t3 - kz*t2)
-           fy(iz,iy,ix)=imag*(kz*t1 - kx*t3)
-           fz(iz,iy,ix)=imag*(kx*t2 - ky*t1)
-        enddo
-     enddo
-  enddo
-end subroutine curl_inplace
 
 
 ! Render the input field divergence-free via a Helmholtz
