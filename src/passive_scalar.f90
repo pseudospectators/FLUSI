@@ -117,14 +117,54 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
     nlk = nlk + workc1   
   enddo
   
-  
   ! step 10
   call fft ( inx=work(:,:,:,3), outk=workc1 )
   ! step 11
   nlk = nlk + workc1
+
+  !---------------------------------------
+  ! source term (fix values of scalar at some points)
+  !---------------------------------------
+  if (source_term=="yes") then
+    !-- get scalar in X-space
+    call ifft ( ink=uk, outx=work(:,:,:,1) )
+    !-- compute source term (in X-space)
+    call scalar_source ( time, work(:,:,:,1) )
+    !-- source term to K-space
+    call fft ( inx=work(:,:,:,1), outk=workc1 )
+    !-- add it to existing NLK terms
+    nlk = nlk + workc1
+  endif
   
+  !--------------------------------
   ! dealiasing
+  !--------------------------------
   call dealias1( nlk )
   
   time_scalar = time_scalar + MPI_wtime() - t1
 end subroutine cal_nlk_scalar
+
+
+subroutine scalar_source ( time, theta )
+  use mpi
+  use p3dfft_wrapper
+  use fsi_vars
+  implicit none
+
+  real(kind=pr),intent(in) :: time
+  real(kind=pr),intent(inout)::theta(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr) :: x,y,z
+  integer :: ix,iy,iz
+  
+  do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do iz=ra(3),rb(3)  
+        x = dble(ix)*dx
+        y = dble(iy)*dy
+        z = dble(iz)*dz
+        
+      enddo
+    enddo
+  enddo
+
+end subroutine scalar_source

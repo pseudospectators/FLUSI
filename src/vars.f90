@@ -171,6 +171,7 @@ module fsi_vars
   integer, save :: n_scalars
   real(kind=pr),save :: kappa
   character(len=strlen),save :: inicond_scalar, stop_on_fail
+  character(len=strlen),save :: source_term
   real(kind=pr), save :: eps_scalar
   logical, save :: compute_scalar
   !-----------------------------------------------------------------------------

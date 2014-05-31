@@ -345,7 +345,7 @@ subroutine adjust_dt(dt1,u)
         endif
         
         !-- impose max dt, if specified
-        if (dt_max>0) dt1=min(dt1,dt_max)
+        if (dt_max>0.d0) dt1=min(dt1,dt_max)
      endif
 
      ! Broadcast time step to all processes

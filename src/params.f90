@@ -363,6 +363,8 @@ subroutine get_params_fsi(PARAMS,i)
        inicond_scalar,"right_left_discontinuous") 
   call GetValue_String(PARAMS,i,"PassiveScalar","stop_on_fail",&
        stop_on_fail,"no")
+  call GetValue_String(PARAMS,i,"PassiveScalar","source_term",&
+       source_term,"no")
   ! ---------------------------------------------------
   ! DONE..
   ! ---------------------------------------------------
