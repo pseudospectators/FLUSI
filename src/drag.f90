@@ -22,7 +22,7 @@ subroutine cal_drag ( time, u )
   
   integer :: ix,iy,iz, mpicode,partid
   integer(kind=2) :: color
-  real(kind=pr) :: penalx,penaly,penalz,xlev,ylev,zlev
+  real(kind=pr) :: penalx,penaly,penalz,xlev,ylev,zlev,apowtotal
   ! we can choose up to 6 different colors
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
   character(len=1024) :: forcepartfilename
@@ -82,20 +82,14 @@ subroutine cal_drag ( time, u )
                   
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
-    ! WINGS:
-    call MPI_ALLREDUCE (forcex(1),Insect%PartIntegrals(1)%Force(1),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-    call MPI_ALLREDUCE (forcey(1),Insect%PartIntegrals(1)%Force(2),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-    call MPI_ALLREDUCE (forcez(1),Insect%PartIntegrals(1)%Force(3),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    ! BODY:
-    call MPI_ALLREDUCE (forcex(2),Insect%PartIntegrals(2)%Force(1),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-    call MPI_ALLREDUCE (forcey(2),Insect%PartIntegrals(2)%Force(2),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-    call MPI_ALLREDUCE (forcez(2),Insect%PartIntegrals(2)%Force(3),1,&
-                    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)                    
+    do partid = 1,3
+      call MPI_ALLREDUCE (forcex(partid),Insect%PartIntegrals(partid)%Force(1),1,&
+                      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+      call MPI_ALLREDUCE (forcey(partid),Insect%PartIntegrals(partid)%Force(2),1,&
+                      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+      call MPI_ALLREDUCE (forcez(partid),Insect%PartIntegrals(partid)%Force(3),1,&
+                      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+    enddo
   endif
   
   ! in the global structure, we store all contributions with color > 0, so we
@@ -111,24 +105,20 @@ subroutine cal_drag ( time, u )
   call MPI_ALLREDUCE ( sum(torquez(1:5)),GlobalIntegrals%Torque(3),1,&
           MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
           
-  ! the insects have forces on the wing and body separate
+  ! the insects have torques on the wing and body separate
   if (iMask=="Insect") then
-    ! WINGS:
-    call MPI_ALLREDUCE (torquex(1),Insect%PartIntegrals(1)%Torque(1),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-    call MPI_ALLREDUCE (torquey(1),Insect%PartIntegrals(1)%Torque(2),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-    call MPI_ALLREDUCE (torquez(1),Insect%PartIntegrals(1)%Torque(3),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    ! BODY:
-    call MPI_ALLREDUCE (torquex(2),Insect%PartIntegrals(2)%Torque(1),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-    call MPI_ALLREDUCE (torquey(2),Insect%PartIntegrals(2)%Torque(2),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-    call MPI_ALLREDUCE (torquez(2),Insect%PartIntegrals(2)%Torque(3),1,&
-            MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)                    
+    do partid = 1,3
+      call MPI_ALLREDUCE (torquex(partid),Insect%PartIntegrals(partid)%Torque(1),1,&
+              MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+      call MPI_ALLREDUCE (torquey(partid),Insect%PartIntegrals(partid)%Torque(2),1,&
+              MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+      call MPI_ALLREDUCE (torquez(partid),Insect%PartIntegrals(partid)%Torque(3),1,&
+              MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+    enddo
   endif
-  
+ 
+  ! compute aerodynamic power
+  if (iMask=="Insect") call aero_power(apowtotal)
   
   !---------------------------------------------------------------------------
   ! write time series to disk
@@ -136,24 +126,32 @@ subroutine cal_drag ( time, u )
   ! have been computed ( call cal_unst_corrections first! )
   !---------------------------------------------------------------------------
   if(mpirank == 0) then
-    open(14,file='forces.t',status='unknown',position='append')
-    write (14,'(13(e12.5,1x))') time, GlobalIntegrals%Force, &
-    GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
-    GlobalIntegrals%Torque_unst
-    close(14)
-    
-    ! currently, only insects have different colors
     if (iMask=="Insect") then
-    do partid=1,2
-    write (forcepartfilename, "(A11,I1,A2)") "forces_part", partid, ".t"
-    open(14,file=trim(forcepartfilename),status='unknown',position='append')
-    write (14,'(13(e12.5,1x))') time, Insect%PartIntegrals(partid)%Force, &
-    Insect%PartIntegrals(partid)%Force_unst, Insect%PartIntegrals(partid)%Torque, &
-    Insect%PartIntegrals(partid)%Torque_unst
-    close(14)
-    enddo
+      ! Aerodynamic power is only computed for insects
+      open(14,file='forces.t',status='unknown',position='append')
+      write (14,'(14(e12.5,1x))') time, GlobalIntegrals%Force, &
+      GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
+      GlobalIntegrals%Torque_unst, apowtotal
+      close(14)
+      ! currently, only insects have different colors
+      if (iMask=="Insect") then
+      do partid=1,3
+        write (forcepartfilename, "(A11,I1,A2)") "forces_part", partid, ".t"
+        open(14,file=trim(forcepartfilename),status='unknown',position='append')
+        write (14,'(14(e12.5,1x))') time, Insect%PartIntegrals(partid)%Force, &
+        Insect%PartIntegrals(partid)%Force_unst, Insect%PartIntegrals(partid)%Torque, &
+        Insect%PartIntegrals(partid)%Torque_unst, Insect%PartIntegrals(partid)%APow
+        close(14)
+      enddo
+      endif
+    else    
+      ! Not an insect insects
+      open(14,file='forces.t',status='unknown',position='append')
+      write (14,'(13(e12.5,1x))') time, GlobalIntegrals%Force, &
+      GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
+      GlobalIntegrals%Torque_unst
+      close(14)
     endif
-    
   endif
 end subroutine cal_drag
 
@@ -192,7 +190,7 @@ subroutine cal_unst_corrections ( time, dt )
   real(kind=pr),dimension(0:5) :: force_newx, force_newy, force_newz
   real(kind=pr),dimension(0:5) :: torque_newx, torque_newy, torque_newz
   
-  integer :: mpicode, ix, iy, iz
+  integer :: mpicode, ix, iy, iz, partid
   integer(kind=2) :: color
   
   !-----------------------------------------------------------------------------
@@ -228,24 +226,22 @@ subroutine cal_unst_corrections ( time, dt )
     GlobalIntegrals%Force_unst = GlobalIntegrals%Force_unst / dt
     
     if (iMask=="Insect") then
-      ! for the insects, we save separately the WING...
-      Insect%PartIntegrals(1)%Force_unst(1) = force_newx(1)-force_oldx(1)
-      Insect%PartIntegrals(1)%Force_unst(2) = force_newy(1)-force_oldy(1)
-      Insect%PartIntegrals(1)%Force_unst(3) = force_newz(1)-force_oldz(1)
-      Insect%PartIntegrals(1)%Force_unst = Insect%PartIntegrals(1)%Force_unst / dt
-      ! ... and the BODY
-      Insect%PartIntegrals(2)%Force_unst(1) = force_newx(2)-force_oldx(2)
-      Insect%PartIntegrals(2)%Force_unst(2) = force_newy(2)-force_oldy(2)
-      Insect%PartIntegrals(2)%Force_unst(3) = force_newz(2)-force_oldz(2)
-      Insect%PartIntegrals(2)%Force_unst = Insect%PartIntegrals(2)%Force_unst / dt
+      ! for the insects, we save separately the WINGs and the BODY
+      do partid = 1,3
+        Insect%PartIntegrals(partid)%Force_unst(1) = force_newx(partid)-force_oldx(partid)
+        Insect%PartIntegrals(partid)%Force_unst(2) = force_newy(partid)-force_oldy(partid)
+        Insect%PartIntegrals(partid)%Force_unst(3) = force_newz(partid)-force_oldz(partid)
+        Insect%PartIntegrals(partid)%Force_unst = Insect%PartIntegrals(partid)%Force_unst / dt
+      enddo
     endif
   else
     ! we cannot compute the time derivative, because we lack the old value of the
     ! integral. As a hack, return zero.
     GlobalIntegrals%Force_unst = 0.d0    
     if (iMask=="Insect") then
-      Insect%PartIntegrals(1)%Force_unst = 0.d0
-      Insect%PartIntegrals(2)%Force_unst = 0.d0
+      do partid = 1,3
+        Insect%PartIntegrals(partid)%Force_unst = 0.d0
+      enddo
     endif
   endif  
   
@@ -298,24 +294,22 @@ subroutine cal_unst_corrections ( time, dt )
     GlobalIntegrals%Torque_unst(3) = sum(torque_newz(1:5))-sum(torque_oldz(1:5))
     GlobalIntegrals%Torque_unst = GlobalIntegrals%Torque_unst / dt
     if (iMask=="Insect") then
-      ! for the insects, we save separately the WING...
-      Insect%PartIntegrals(1)%Torque_unst(1) = torque_newx(1)-torque_oldx(1)
-      Insect%PartIntegrals(1)%Torque_unst(2) = torque_newy(1)-torque_oldy(1)
-      Insect%PartIntegrals(1)%Torque_unst(3) = torque_newz(1)-torque_oldz(1)
-      Insect%PartIntegrals(1)%Torque_unst = Insect%PartIntegrals(1)%Torque_unst / dt
-      ! ... and the BODY
-      Insect%PartIntegrals(2)%Torque_unst(1) = torque_newx(2)-torque_oldx(2)
-      Insect%PartIntegrals(2)%Torque_unst(2) = torque_newy(2)-torque_oldy(2)
-      Insect%PartIntegrals(2)%Torque_unst(3) = torque_newz(2)-torque_oldz(2)
-      Insect%PartIntegrals(2)%Torque_unst = Insect%PartIntegrals(2)%Torque_unst / dt
+      ! for the insects, we save separately the WINGs and the BODY
+      do partid = 1,3
+        Insect%PartIntegrals(partid)%Torque_unst(1) = torque_newx(partid)-torque_oldx(partid)
+        Insect%PartIntegrals(partid)%Torque_unst(2) = torque_newy(partid)-torque_oldy(partid)
+        Insect%PartIntegrals(partid)%Torque_unst(3) = torque_newz(partid)-torque_oldz(partid)
+        Insect%PartIntegrals(partid)%Torque_unst = Insect%PartIntegrals(partid)%Torque_unst / dt
+      enddo
     endif    
   else
     ! we cannot compute the time derivative, because we lack the old value of the
     ! integral. As a hack, return zero.
     GlobalIntegrals%Torque_unst = 0.d0   
     if (iMask=="Insect") then
-      Insect%PartIntegrals(1)%Torque_unst = 0.d0
-      Insect%PartIntegrals(2)%Torque_unst = 0.d0
+      do partid = 1,3
+        Insect%PartIntegrals(partid)%Torque_unst = 0.d0
+      enddo
     endif
   endif  
   
