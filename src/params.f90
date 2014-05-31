@@ -319,7 +319,10 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Vector(PARAMS,i,"Insects","x_pivot_r",&
        Insect%x_pivot_r, Insect%x_pivot_r)        
               
-     
+  ! stroke plane angle: used for some types of kinematics!
+  call GetValue_Real(PARAMS,i,"Insects","eta_stroke",&
+       Insect%eta_stroke, -0.488692190558412d0) ! Fontaine et al 2009
+ 
   Insect%smooth = 2.0*dz
 
   ! flag: read kinematics from file

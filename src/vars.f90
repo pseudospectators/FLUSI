@@ -225,6 +225,8 @@ module fsi_vars
     ! Vector from body centre to left/right pivot point in global reference
     ! frame 
     real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob    
+    ! Stroke angle
+    real(kind=pr) :: eta_stroke
 
   end type InsectParams  
   !-----------------------------------------------------------------------------
