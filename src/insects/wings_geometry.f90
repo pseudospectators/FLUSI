@@ -333,7 +333,8 @@ subroutine Setup_Wing_Fourier_coefficients()
     !Insect%xc = 0.0 ! original mesh 
     Insect%xc = 0.0473 ! shifted towards t.e. to 1/4 of the root chord ("+" sign here)
     !Insect%xc = -0.0728 ! shifted towards l.e., to 0.2cmean from the l.e. (Liu and Aono BB 2009)
-    Insect%yc = 0.7
+    !Insect%yc = 0.7
+    Insect%yc = 0.729
   case ('flapper_sane')
     !********************************************
     !  Mechanical model from Sane and Dickinson, JEB 205, 2002 
