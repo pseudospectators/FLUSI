@@ -177,7 +177,7 @@ if(drawshape) {
     for(int i=0; i < N; ++i ) {
       write(fout,x[i],freq[i]);
       write(fout,endl);
-      write(x[i],freq[i]);
+      //      write(x[i],freq[i]);
     }
     close(fout);
   }
