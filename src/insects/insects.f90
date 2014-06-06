@@ -501,10 +501,6 @@ subroutine aero_power(apowtotal)
   ! body is not driven directly, therefore the power is set to zero
   Insect%PartIntegrals(color_body)%APow = 0.0d0
 
-  ! wings
-  ! all torques are computed with respect to body centre, therefore,
-  ! an extra term appears (force cross position of the pivot point)
-
   ! left wing
   ! relative angular velocity
   omrel = Insect%rot_l_glob - Insect%rot_body_glob
@@ -513,19 +509,6 @@ subroutine aero_power(apowtotal)
   ! initialize it as the moment with respect to insect's centre point
   momrel = Insect%PartIntegrals(color_l)%Torque + &
            Insect%PartIntegrals(color_l)%Torque_unst
-
-  ! add correction
-  momrel(1) = momrel(1) + &
-           Insect%PartIntegrals(color_l)%Force(3) * Insect%x_pivot_l_glob(2) - &
-           Insect%PartIntegrals(color_l)%Force(2) * Insect%x_pivot_l_glob(3)
-
-  momrel(2) = momrel(2) + &
-           Insect%PartIntegrals(color_l)%Force(1) * Insect%x_pivot_l_glob(3) - &
-           Insect%PartIntegrals(color_l)%Force(3) * Insect%x_pivot_l_glob(1)
-
-  momrel(3) = momrel(3) + &
-           Insect%PartIntegrals(color_l)%Force(2) * Insect%x_pivot_l_glob(1) - &
-           Insect%PartIntegrals(color_l)%Force(1) * Insect%x_pivot_l_glob(2)
 
   ! aerodynamic power
   Insect%PartIntegrals(color_l)%APow = - sum( momrel * omrel )
@@ -538,19 +521,6 @@ subroutine aero_power(apowtotal)
   ! initialize it as the moment with respect to insect's centre point
   momrel = Insect%PartIntegrals(color_r)%Torque + &
            Insect%PartIntegrals(color_r)%Torque_unst
-
-  ! add correction
-  momrel(1) = momrel(1) + &
-           Insect%PartIntegrals(color_r)%Force(3) * Insect%x_pivot_r_glob(2) - &
-           Insect%PartIntegrals(color_r)%Force(2) * Insect%x_pivot_r_glob(3)
-
-  momrel(2) = momrel(2) + &
-           Insect%PartIntegrals(color_r)%Force(1) * Insect%x_pivot_r_glob(3) - &
-           Insect%PartIntegrals(color_r)%Force(3) * Insect%x_pivot_r_glob(1)
-
-  momrel(3) = momrel(3) + &
-           Insect%PartIntegrals(color_r)%Force(2) * Insect%x_pivot_r_glob(1) - &
-           Insect%PartIntegrals(color_r)%Force(1) * Insect%x_pivot_r_glob(2)
 
   ! aerodynamic power
   Insect%PartIntegrals(color_r)%APow = - sum( momrel * omrel )

@@ -5,8 +5,9 @@
 ! the mask are colored differently.
 ! Color         Description
 !   0           Boring parts (channel walls, cavity)
-!   1           Interesting parts (e.g. a cylinder), for the insects this is WINGS
-!   2           Other parts, for the insects, this is BODY
+!   1           Interesting parts (e.g. a cylinder), for the insects this is BODY
+!   2           Other parts, for the insects, this is LEFT WING
+!   3           For the insects, this is RIGHT WING
 ! Currently, we store the torque / forces over all colors greater than 0 in the
 ! global structure "GlobalIntegrals". If we're running in "insects" mode, the 
 ! colors 1 and 2 are the forces on wings and body, respectively. These are stored
@@ -20,11 +21,12 @@ subroutine cal_drag ( time, u )
   real(kind=pr),intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(in) :: time
   
-  integer :: ix,iy,iz, mpicode,partid
+  integer :: ix,iy,iz,mpicode
   integer(kind=2) :: color
   real(kind=pr) :: penalx,penaly,penalz,xlev,ylev,zlev,apowtotal
   ! we can choose up to 6 different colors
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
+  real(kind=pr) :: torquex0,torquey0,torquez0
   character(len=1024) :: forcepartfilename
   
   forcex  = 0.d0
@@ -33,6 +35,9 @@ subroutine cal_drag ( time, u )
   torquex = 0.d0
   torquey = 0.d0
   torquez = 0.d0
+  torquex0 = 0.d0
+  torquey0 = 0.d0
+  torquez0 = 0.d0
   
   !---------------------------------------------------------------------------
   ! loop over penalization term (this saves a work array)
@@ -45,11 +50,6 @@ subroutine cal_drag ( time, u )
         penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
         penalz = -mask(ix,iy,iz)*(u(ix,iy,iz,3)-us(ix,iy,iz,3))
         
-        ! for torque moment
-        xlev = dble(ix)*dx - x0
-        ylev = dble(iy)*dy - y0
-        zlev = dble(iz)*dz - z0
-        
         ! what color does the point have?
         color = mask_color(ix,iy,iz)
         
@@ -57,6 +57,32 @@ subroutine cal_drag ( time, u )
         forcex(color) = forcex(color) - penalx
         forcey(color) = forcey(color) - penaly
         forcez(color) = forcez(color) - penalz
+
+        ! for torque moment with respect to (x0,y0,z0)
+        xlev = dble(ix)*dx - x0
+        ylev = dble(iy)*dy - y0
+        zlev = dble(iz)*dz - z0
+ 
+        ! compute moment with respect to (x0,y0,z0)
+        torquex0 = torquex0 - (ylev*penalz - zlev*penaly)
+        torquey0 = torquey0 - (zlev*penalx - xlev*penalz)
+        torquez0 = torquez0 - (xlev*penaly - ylev*penalx)
+
+        ! for insects, moment of the body is computed with respect to (x0,y0,z0)
+        ! but for the wings it is computed with respect tot the pivot points
+        if (iMask=="Insect") then
+          if (color==2) then
+            xlev = xlev - Insect%x_pivot_l_glob(1)
+            ylev = ylev - Insect%x_pivot_l_glob(2)
+            zlev = zlev - Insect%x_pivot_l_glob(3)
+          elseif (color==3) then
+            xlev = xlev - Insect%x_pivot_r_glob(1)
+            ylev = ylev - Insect%x_pivot_r_glob(2)
+            zlev = zlev - Insect%x_pivot_r_glob(3)
+          endif
+        endif
+
+        ! Compute moments relative to each part
         torquex(color) = torquex(color) - (ylev*penalz - zlev*penaly)
         torquey(color) = torquey(color) - (zlev*penalx - xlev*penalz)
         torquez(color) = torquez(color) - (xlev*penaly - ylev*penalx)
@@ -82,37 +108,41 @@ subroutine cal_drag ( time, u )
                   
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
-    do partid = 1,3
-      call MPI_ALLREDUCE (forcex(partid),Insect%PartIntegrals(partid)%Force(1),1,&
+    do color = 1,3
+      call MPI_ALLREDUCE (forcex(color),Insect%PartIntegrals(color)%Force(1),1,&
                       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-      call MPI_ALLREDUCE (forcey(partid),Insect%PartIntegrals(partid)%Force(2),1,&
+      call MPI_ALLREDUCE (forcey(color),Insect%PartIntegrals(color)%Force(2),1,&
                       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-      call MPI_ALLREDUCE (forcez(partid),Insect%PartIntegrals(partid)%Force(3),1,&
+      call MPI_ALLREDUCE (forcez(color),Insect%PartIntegrals(color)%Force(3),1,&
                       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
     enddo
   endif
   
   ! in the global structure, we store all contributions with color > 0, so we
   ! only EXCLUDE channel / cavity walls (the boring stuff)                  
+  torquex0 = torquex0*dx*dy*dz
+  torquey0 = torquey0*dx*dy*dz
+  torquez0 = torquez0*dx*dy*dz  
   torquex = torquex*dx*dy*dz
   torquey = torquey*dx*dy*dz
   torquez = torquez*dx*dy*dz  
-  
-  call MPI_ALLREDUCE ( sum(torquex(1:5)),GlobalIntegrals%Torque(1),1,&
+ 
+  ! Integral moment with respect to (x0,y0,z0) 
+  call MPI_ALLREDUCE ( torquex0,GlobalIntegrals%Torque(1),1,&
           MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-  call MPI_ALLREDUCE ( sum(torquey(1:5)),GlobalIntegrals%Torque(2),1,&
+  call MPI_ALLREDUCE ( torquey0,GlobalIntegrals%Torque(2),1,&
           MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-  call MPI_ALLREDUCE ( sum(torquez(1:5)),GlobalIntegrals%Torque(3),1,&
+  call MPI_ALLREDUCE ( torquez0,GlobalIntegrals%Torque(3),1,&
           MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
           
   ! the insects have torques on the wing and body separate
   if (iMask=="Insect") then
-    do partid = 1,3
-      call MPI_ALLREDUCE (torquex(partid),Insect%PartIntegrals(partid)%Torque(1),1,&
+    do color = 1,3
+      call MPI_ALLREDUCE (torquex(color),Insect%PartIntegrals(color)%Torque(1),1,&
               MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-      call MPI_ALLREDUCE (torquey(partid),Insect%PartIntegrals(partid)%Torque(2),1,&
+      call MPI_ALLREDUCE (torquey(color),Insect%PartIntegrals(color)%Torque(2),1,&
               MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-      call MPI_ALLREDUCE (torquez(partid),Insect%PartIntegrals(partid)%Torque(3),1,&
+      call MPI_ALLREDUCE (torquez(color),Insect%PartIntegrals(color)%Torque(3),1,&
               MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
     enddo
   endif
@@ -135,12 +165,12 @@ subroutine cal_drag ( time, u )
       close(14)
       ! currently, only insects have different colors
       if (iMask=="Insect") then
-      do partid=1,3
-        write (forcepartfilename, "(A11,I1,A2)") "forces_part", partid, ".t"
+      do color=1,3
+        write (forcepartfilename, "(A11,I1,A2)") "forces_part", color, ".t"
         open(14,file=trim(forcepartfilename),status='unknown',position='append')
-        write (14,'(14(e12.5,1x))') time, Insect%PartIntegrals(partid)%Force, &
-        Insect%PartIntegrals(partid)%Force_unst, Insect%PartIntegrals(partid)%Torque, &
-        Insect%PartIntegrals(partid)%Torque_unst, Insect%PartIntegrals(partid)%APow
+        write (14,'(14(e12.5,1x))') time, Insect%PartIntegrals(color)%Force, &
+        Insect%PartIntegrals(color)%Force_unst, Insect%PartIntegrals(color)%Torque, &
+        Insect%PartIntegrals(color)%Torque_unst, Insect%PartIntegrals(color)%APow
         close(14)
       enddo
       endif
@@ -183,14 +213,19 @@ subroutine cal_unst_corrections ( time, dt )
   real(kind=pr),dimension(0:5),save :: torque_oldx = 0.d0
   real(kind=pr),dimension(0:5),save :: torque_oldy = 0.d0
   real(kind=pr),dimension(0:5),save :: torque_oldz = 0.d0
+  real(kind=pr),save :: torque_oldx0 = 0.d0
+  real(kind=pr),save :: torque_oldy0 = 0.d0
+  real(kind=pr),save :: torque_oldz0 = 0.d0
   real(kind=pr) :: xlev,ylev,zlev,norm,usx,usy,usz
   ! we have up to 6 different colors
   real(kind=pr),dimension(0:5) :: force_new_locx, force_new_locy, force_new_locz
   real(kind=pr),dimension(0:5) :: torque_new_locx, torque_new_locy, torque_new_locz
+  real(kind=pr) :: torque_new_locx0, torque_new_locy0, torque_new_locz0
   real(kind=pr),dimension(0:5) :: force_newx, force_newy, force_newz
   real(kind=pr),dimension(0:5) :: torque_newx, torque_newy, torque_newz
+  real(kind=pr) :: torque_newx0, torque_newy0, torque_newz0
   
-  integer :: mpicode, ix, iy, iz, partid
+  integer :: mpicode, ix, iy, iz
   integer(kind=2) :: color
   
   !-----------------------------------------------------------------------------
@@ -227,11 +262,11 @@ subroutine cal_unst_corrections ( time, dt )
     
     if (iMask=="Insect") then
       ! for the insects, we save separately the WINGs and the BODY
-      do partid = 1,3
-        Insect%PartIntegrals(partid)%Force_unst(1) = force_newx(partid)-force_oldx(partid)
-        Insect%PartIntegrals(partid)%Force_unst(2) = force_newy(partid)-force_oldy(partid)
-        Insect%PartIntegrals(partid)%Force_unst(3) = force_newz(partid)-force_oldz(partid)
-        Insect%PartIntegrals(partid)%Force_unst = Insect%PartIntegrals(partid)%Force_unst / dt
+      do color = 1,3
+        Insect%PartIntegrals(color)%Force_unst(1) = force_newx(color)-force_oldx(color)
+        Insect%PartIntegrals(color)%Force_unst(2) = force_newy(color)-force_oldy(color)
+        Insect%PartIntegrals(color)%Force_unst(3) = force_newz(color)-force_oldz(color)
+        Insect%PartIntegrals(color)%Force_unst = Insect%PartIntegrals(color)%Force_unst / dt
       enddo
     endif
   else
@@ -239,8 +274,8 @@ subroutine cal_unst_corrections ( time, dt )
     ! integral. As a hack, return zero.
     GlobalIntegrals%Force_unst = 0.d0    
     if (iMask=="Insect") then
-      do partid = 1,3
-        Insect%PartIntegrals(partid)%Force_unst = 0.d0
+      do color = 1,3
+        Insect%PartIntegrals(color)%Force_unst = 0.d0
       enddo
     endif
   endif  
@@ -256,6 +291,9 @@ subroutine cal_unst_corrections ( time, dt )
   torque_new_locx = 0.d0
   torque_new_locy = 0.d0
   torque_new_locz = 0.d0
+  torque_new_locx0 = 0.d0
+  torque_new_locy0 = 0.d0
+  torque_new_locz0 = 0.d0
   
   do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)
@@ -268,8 +306,27 @@ subroutine cal_unst_corrections ( time, dt )
         usx = us(ix,iy,iz,1)*mask(ix,iy,iz)*eps
         usy = us(ix,iy,iz,2)*mask(ix,iy,iz)*eps
         usz = us(ix,iy,iz,3)*mask(ix,iy,iz)*eps
-        
+
+        ! moment with respect to (x0,y0,z0)
+        torque_new_locx0 = torque_new_locx0 + (ylev*usz - zlev*usy)
+        torque_new_locy0 = torque_new_locy0 + (zlev*usx - xlev*usz)
+        torque_new_locz0 = torque_new_locz0 + (xlev*usy - ylev*usx)   
+
         color = mask_color(ix,iy,iz)
+
+        ! for insects, moment of the body is computed with respect to (x0,y0,z0)
+        ! but for the wings it is computed with respect tot the pivot points
+        if (iMask=="Insect") then
+          if (color==2) then
+            xlev = xlev - Insect%x_pivot_l_glob(1)
+            ylev = ylev - Insect%x_pivot_l_glob(2)
+            zlev = zlev - Insect%x_pivot_l_glob(3)
+          elseif (color==3) then
+            xlev = xlev - Insect%x_pivot_r_glob(1)
+            ylev = ylev - Insect%x_pivot_r_glob(2)
+            zlev = zlev - Insect%x_pivot_r_glob(3)
+          endif
+        endif
         
         torque_new_locx(color) = torque_new_locx(color) + (ylev*usz - zlev*usy)
         torque_new_locy(color) = torque_new_locy(color) + (zlev*usx - xlev*usz)
@@ -281,25 +338,31 @@ subroutine cal_unst_corrections ( time, dt )
   torque_new_locx = torque_new_locx*dx*dy*dz
   torque_new_locy = torque_new_locy*dx*dy*dz
   torque_new_locz = torque_new_locz*dx*dy*dz
-  
+  torque_new_locx0 = torque_new_locx0*dx*dy*dz
+  torque_new_locy0 = torque_new_locy0*dx*dy*dz
+  torque_new_locz0 = torque_new_locz0*dx*dy*dz
+ 
   call MPI_ALLREDUCE(torque_new_locx,torque_newx,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
   call MPI_ALLREDUCE(torque_new_locy,torque_newy,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)   
   call MPI_ALLREDUCE(torque_new_locz,torque_newz,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)     
+  call MPI_ALLREDUCE(torque_new_locx0,torque_newx0,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+  call MPI_ALLREDUCE(torque_new_locy0,torque_newy0,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)   
+  call MPI_ALLREDUCE(torque_new_locz0,torque_newz0,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)     
   
   
   if (is_possible) then
     ! here, we store the unsteady corrections for all nonzero colors in the global struct
-    GlobalIntegrals%Torque_unst(1) = sum(torque_newx(1:5))-sum(torque_oldx(1:5))
-    GlobalIntegrals%Torque_unst(2) = sum(torque_newy(1:5))-sum(torque_oldy(1:5))
-    GlobalIntegrals%Torque_unst(3) = sum(torque_newz(1:5))-sum(torque_oldz(1:5))
+    GlobalIntegrals%Torque_unst(1) = torque_newx0-torque_oldx0
+    GlobalIntegrals%Torque_unst(2) = torque_newy0-torque_oldy0
+    GlobalIntegrals%Torque_unst(3) = torque_newz0-torque_oldz0
     GlobalIntegrals%Torque_unst = GlobalIntegrals%Torque_unst / dt
     if (iMask=="Insect") then
       ! for the insects, we save separately the WINGs and the BODY
-      do partid = 1,3
-        Insect%PartIntegrals(partid)%Torque_unst(1) = torque_newx(partid)-torque_oldx(partid)
-        Insect%PartIntegrals(partid)%Torque_unst(2) = torque_newy(partid)-torque_oldy(partid)
-        Insect%PartIntegrals(partid)%Torque_unst(3) = torque_newz(partid)-torque_oldz(partid)
-        Insect%PartIntegrals(partid)%Torque_unst = Insect%PartIntegrals(partid)%Torque_unst / dt
+      do color = 1,3
+        Insect%PartIntegrals(color)%Torque_unst(1) = torque_newx(color)-torque_oldx(color)
+        Insect%PartIntegrals(color)%Torque_unst(2) = torque_newy(color)-torque_oldy(color)
+        Insect%PartIntegrals(color)%Torque_unst(3) = torque_newz(color)-torque_oldz(color)
+        Insect%PartIntegrals(color)%Torque_unst = Insect%PartIntegrals(color)%Torque_unst / dt
       enddo
     endif    
   else
@@ -307,8 +370,8 @@ subroutine cal_unst_corrections ( time, dt )
     ! integral. As a hack, return zero.
     GlobalIntegrals%Torque_unst = 0.d0   
     if (iMask=="Insect") then
-      do partid = 1,3
-        Insect%PartIntegrals(partid)%Torque_unst = 0.d0
+      do color = 1,3
+        Insect%PartIntegrals(color)%Torque_unst = 0.d0
       enddo
     endif
   endif  
@@ -317,6 +380,9 @@ subroutine cal_unst_corrections ( time, dt )
   torque_oldx = torque_newx
   torque_oldy = torque_newy
   torque_oldz = torque_newz  
+  torque_oldx0 = torque_newx0
+  torque_oldy0 = torque_newy0
+  torque_oldz0 = torque_newz0
   
   ! now we sure have the old value in the next step
   is_possible = .true.
