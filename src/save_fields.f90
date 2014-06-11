@@ -740,7 +740,7 @@ subroutine Read_Single_File ( filename, field )
   ! the dataset is named the same way as the file: (this is convention)
   dsetname = filename ( 1:index( filename, '_' )-1 )
   if (mpirank==0) then
-    write (*,'("Reading file ",A)') trim(adjustl(filename))
+    write (*,'("Reading file ",A,"  .....")',advance='no') trim(adjustl(filename))
   endif
   
   !-----------------------------------------------------------------------------
@@ -848,6 +848,9 @@ subroutine Read_Single_File ( filename, field )
   call h5fclose_f(file_id,error)
   call H5close_f(error)
   
+  if (mpirank==0) then
+    write (*,'("...DONE! ")',advance='yes')
+  endif
   
 end subroutine Read_Single_File
 

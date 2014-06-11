@@ -200,8 +200,9 @@ subroutine convert_vorticity()
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
-  real(kind=pr) :: time 
+  real(kind=pr) :: time,t1
   
+  t1 = MPI_wtime()
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
@@ -209,11 +210,6 @@ subroutine convert_vorticity()
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
-
-  
-  if (mpirank == 0) then
-    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
-  endif
 
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
      write (*,*) "Error in arguments, files do not start with ux uy and uz"
@@ -253,13 +249,15 @@ subroutine convert_vorticity()
   fname_uy='vory'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
   fname_uz='vorz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
   
-  if (mpirank == 0) then
-    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
-  endif
     
   call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vorx")
+  if (mpirank==0) write(*,*) "Wrote vorx to "//trim(fname_ux)
   call save_field_hdf5 ( time,fname_uy,u(:,:,:,2),"vory")
+  if (mpirank==0) write(*,*) "Wrote vory to "//trim(fname_uy)
   call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"vorz")
+  if (mpirank==0) write(*,*) "Wrote vorz to "//trim(fname_uz)
+  
+  if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1
   
   deallocate (u)
   deallocate (uk)
