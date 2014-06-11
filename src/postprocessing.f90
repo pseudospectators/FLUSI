@@ -14,6 +14,9 @@ subroutine postprocessing()
   call get_command_argument(2,postprocessing_mode)
   ! it then depends on the second argument what follows
   
+  if (mpirank==0) write(*,*) "mpisize=",mpisize
+  
+  
   !-----------------
   ! check what to do
   !-----------------     
