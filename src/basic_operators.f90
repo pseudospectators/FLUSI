@@ -193,7 +193,65 @@ subroutine divergence( ink, outk )
     enddo
   enddo
 end subroutine divergence
+
+
+! computes laplace(ink) for a scalar valued field and returns it in the same array
+subroutine laplacien_inplace( ink )
+  use mpi
+  use p3dfft_wrapper
+  use vars
+  implicit none
+  complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,k2
+
+  do iz=ca(1),cb(1)          
+    !-- wavenumber in z-direction
+    kz = wave_z(iz)
+    do iy=ca(2), cb(2)
+      !-- wavenumber in y-direction
+      ky = wave_y(iy)
+      do ix=ca(3), cb(3)
+        !-- wavenumber in x-direction
+        kx = wave_x(ix)
+        k2 = kx*kx + ky*ky + kz*kz
+        ink(iz,iy,ix) = -k2*ink(iz,iy,ix)
+      enddo
+    enddo
+  enddo
+end subroutine laplacien_inplace
+  
+  
+! computes laplace(ink) for a scalar valued field and returns it in the same array
+! note wavenumbers are reduced to second order accuracy (for the Q-criterion, 
+! the result is nicer if filtered)
+subroutine laplacien_inplace_filtered( ink )
+  use mpi
+  use p3dfft_wrapper
+  use vars
+  implicit none
+  complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,k2
+
+  do iz=ca(1),cb(1)          
+    !-- wavenumber in z-direction
+    kz = dsin( dz*wave_z(iz) )/ dz
+    do iy=ca(2), cb(2)
+      !-- wavenumber in y-direction
+      ky = dsin( dy*wave_y(iy) )/dy
+      do ix=ca(3), cb(3)
+        !-- wavenumber in x-direction
+        kx = dsin(dx*wave_x(ix))/dx
+        k2 = kx*kx + ky*ky + kz*kz
+        ink(iz,iy,ix) = -k2*ink(iz,iy,ix)
+      enddo
+    enddo
+  enddo
+end subroutine laplacien_inplace_filtered
+
   
 ! returns the globally largest value of a given (real) field
 real(kind=pr) function fieldmax( inx )

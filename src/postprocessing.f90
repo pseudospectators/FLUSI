@@ -31,6 +31,10 @@ subroutine postprocessing()
     call convert_abs_vorticity()    
   case ("--hdf2bin")
     call convert_hdf2bin()
+  case ("--p2Q")
+    call pressure_to_Qcriterion()
+  case ("--extract-subset")
+    call extract_subset()
   end select
       
   if (mpirank==0) write (*,*) "*** bye bye ***"   
@@ -357,3 +361,261 @@ subroutine compare_key(key1,key2)
     call exit(1)
   endif 
 end subroutine compare_key
+
+
+
+!-------------------------------------------------------------------------------
+! pressure_to_Qcriterion()
+! converts a given pressure field and outputs the Q-criterion, computed with 
+! second order and periodic boundary conditions. Alternatively, one 
+! may use distint postprocessing tools, such as paraview, and compute the Q-crit
+! there, but the accuracy may be different. 
+! note the precision is reduced to second order (by using the effective 
+! wavenumber), since spurious oscillations appear when computing it with
+! spectral precision
+!-------------------------------------------------------------------------------
+! call:
+! ./flusi --postprocessing --p2Q p_00000.h5 Q_00000.h5
+!-------------------------------------------------------------------------------
+subroutine pressure_to_Qcriterion()
+  use mpi
+  use vars
+  use basic_operators
+  use p3dfft_wrapper
+  implicit none
+  character(len=strlen) :: fname_p, fname_Q
+  complex(kind=pr),dimension(:,:,:),allocatable :: pk
+  real(kind=pr),dimension(:,:,:),allocatable :: p
+  real(kind=pr)::time,maxi,mini
+  
+  ! get file to read pressure from and check if this is present
+  call get_command_argument(3,fname_p)
+  call check_file_exists( fname_p )
+  ! get filename to save Q criterion to
+  call get_command_argument(4,fname_Q)
+
+  ! read in information from the file
+  call fetch_attributes( fname_p, "p", nx, ny, nz, xl, yl, zl, time )
+  
+  if (mpirank==0) then
+    write(*,'("Computing Q criterion from  file ",A," saving to ",&
+    & A," nx=",i4," ny=",i4," nz=",i4, &
+    &"xl=",es12.4," yl=",es12.4," zl=",es12.4 )') &
+    trim(fname_p), trim(fname_Q), nx,nx,nz,xl,yl,zl
+  endif
+  
+  pi=4.d0 * datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl  
+  
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+  
+  call fft_initialize() ! also initializes the domain decomp
+  
+  allocate(p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(pk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  
+  call read_single_file(fname_p, p)
+  call fft(inx=p, outk=pk)
+  ! Q-criterion is 0.5*laplace(P)
+  ! see http://books.google.de/books?id=FWmsrNv3BYoC&pg=PA23&lpg=PA23&dq=q-criterion&source=bl&ots=CW-1NPn9p0&sig=Zi_Z2iw-ZuDqJqYctM9OUrb5WMA&hl=de&sa=X&ei=ZBCXU9nHGInVPPTRgagO&ved=0CCgQ6AEwADgK#v=onepage&q=q-criterion&f=false
+  call laplacien_inplace_filtered(pk)
+  call ifft(ink=pk, outx=p)
+  p=0.5d0*p
+  
+  call save_field_hdf5(time, trim(fname_Q(1:index(fname_Q,'.h5')-1)), p, "Q")
+  
+  maxi = fieldmax(P)
+  mini = fieldmin(P)
+  
+  if (mpirank==0) then
+    write(*,'("Q-criterion 2nd order maxval=",es12.4," minval=",es12.4)') maxi,mini
+  endif
+  
+  deallocate(p,pk)
+  call fft_free()
+end subroutine pressure_to_Qcriterion
+
+
+!-------------------------------------------------------------------------------
+! extract subset
+! loads a file to memory and extracts a subset, writing to a different file. We
+! assume here that you do this for visualization; in this case, one usually keeps
+! the original, larger files. For simplicity, ensure all files follow FLUSI 
+! naming convention, it is thus recommended to use a subfolder.
+!-------------------------------------------------------------------------------
+! call:
+! ./flusi --postprocessing --extract-subset ux_00000.h5 resized/ux_00000.h5 128:1:256 128:2:1024 1:1:end
+!-------------------------------------------------------------------------------
+subroutine extract_subset()
+  use mpi
+  use vars
+  implicit none
+  character(len=strlen) :: fname_in, fname_out, dsetname_in, dsetname_out
+  character(len=strlen) :: xset,yset,zset
+  real(kind=pr)::time
+  integer :: ix,iy,iz,i
+  ! reduced domain size
+  integer :: nx1,nx2, ny1,ny2, nz1,nz2, nxs,nys,nzs
+  ! sizes of the new array
+  integer :: nx_red, ny_red, nz_red, ix_red, iy_red, iz_red
+  ! reduced domain extends
+  real(kind=pr) :: xl1, yl1, zl1
+  ! original field
+  real(kind=pr), dimension(:,:,:), allocatable :: field_in
+  ! reduced field
+  real(kind=pr), dimension(:,:,:), allocatable :: field_out
+
+  if (mpisize/=1) then
+    write(*,*) "./flusi --postprocessing --extract-subset is a SERIAL routine, use 1CPU only"
+    stop
+  endif
+  
+  ! get file to read pressure from and check if this is present
+  call get_command_argument(3,fname_in)
+  call check_file_exists( fname_in )
+  
+  ! get filename to save Q criterion to
+  call get_command_argument(4,fname_out)  
+  
+  dsetname_in = fname_in ( 1:index( fname_in, '_' )-1 )
+  dsetname_out = fname_out ( 1:index( fname_out, '_' )-1 )
+  
+  call fetch_attributes( fname_in, dsetname_in, nx, ny, nz, xl, yl, zl, time )
+  
+  call get_command_argument(5,xset)
+  call get_command_argument(6,yset)
+  call get_command_argument(7,zset)
+  
+  ! red in subset from command line. it is given in the form 
+  ! ixmin:xspacing:ixmax as a string.
+  read (xset(1:index(xset,':')-1) ,*) nx1
+  read (xset(index(xset,':',.true.)+1:len_trim(xset)),*) nx2
+  read (xset(index(xset,':')+1:index(xset,':',.true.)-1),*) nxs
+  
+  read (yset(1:index(yset,':')-1) ,*) ny1
+  read (yset(index(yset,':',.true.)+1:len_trim(yset)),*) ny2
+  read (yset(index(yset,':')+1:index(yset,':',.true.)-1),*) nys
+  
+  read (zset(1:index(zset,':')-1) ,*) nz1
+  read (zset(index(zset,':',.true.)+1:len_trim(zset)),*) nz2
+  read (zset(index(zset,':')+1:index(zset,':',.true.)-1),*) nzs
+  
+  
+  ! stop if subset exceeds array bounds
+  if ( nx1<0 .or. nx2>nx-1 .or. ny1<0 .or. ny2>ny-1 .or. nz1<0 .or. nz2>nz-1) then
+    write (*,*) "subset indices exceed array bounds....proceed, but correct mistake"
+    nx1 = max(nx1,0)
+    ny1 = max(ny1,0)
+    nz1 = max(nz1,0)
+    nx2 = min(nx-1,nx2)
+    ny2 = min(ny-1,ny2)
+    nz2 = min(nz-1,nz2)
+  endif
+  
+  
+  write(*,'("Cropping field from " &
+  &,"0:",i4," | 0:",i4," | 0:",i4,&
+  &"   to subset   "&
+  &,i4,":",i2,":",i4," | ",i4,":",i2,":",i4," | ",i4,":",i2,":",i4)')&
+  nx-1,ny-1,nz-1,nx1,nxs,nx2,ny1,nys,ny2,nz1,nzs,nz2
+  
+    
+  
+  allocate ( field_in(0:nx-1,0:ny-1,0:nz-1) ) 
+  call read_single_file_serial(fname_in,field_in)
+  
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+  
+  
+  !-----------------------------------------------------------------------------
+  ix = nx1
+  nx_red = 1
+  do while (ix<=nx2)
+    nx_red = nx_red + 1
+    ix = ix+nxs
+  enddo
+  ! we counted one too far
+  ix = ix-nxs
+  nx_red = nx_red -1
+  ! warn if spacing does not allow to take last point into account
+  if (ix /= nx2) then
+    write(*,'("Warning, with the spacing ",i2," you provided we extract "&
+    &,i4,":",i4, " rather then what you specified (last point is missing)" )') &
+    nxs,nx1,ix
+  endif
+  !-----------------------------------------------------------------------------
+  iy = ny1
+  ny_red = 1
+  do while (iy<=ny2)
+    ny_red = ny_red + 1
+    iy = iy+nys
+  enddo
+  ! we counted one too far
+  iy = iy-nys
+  ny_red = ny_red -1
+  ! warn if spacing does not allow to take last point into account
+  if (iy /= ny2) then
+    write(*,'("Warning, with the spacing ",i2," you provided we extract "&
+    &,i4,":",i4, " rather then what you specified (last point is missing)" )') &
+    nys,ny1,iy
+  endif
+  !-----------------------------------------------------------------------------
+  iz=nz1
+  nz_red = 1
+  do while (iz<=nz2)
+    iz = iz+nzs
+    nz_red = nz_red+1
+  enddo
+  ! we counted one too far
+  nz_red = nz_red-1
+  iz = iz-nzs
+  ! warn if spacing does not allow to take last point into account
+  if (iz /= nz2) then
+    write(*,'("Warning, with the spacing ",i2," you provided we extract "&
+    &,i4,":",i4, " rather then what you specified (last point is missing)" )') &
+    nzs,nz1,iz
+  endif
+  !-----------------------------------------------------------------------------
+  write (*,'("Size of subset is ",3(i4,1x))') nx_red, ny_red, nz_red
+  !-----------------------------------------------------------------------------
+  
+  ! we figured out how big the subset array is
+  allocate ( field_out(0:nx_red-1,0:ny_red-1,0:nz_red-1) )
+  
+  ! fill the target field
+  do ix_red = 0, nx_red-1
+    do iy_red = 0, ny_red-1
+      do iz_red = 0, nz_red-1
+        ix = nx1 + ix_red*nxs
+        iy = ny1 + iy_red*nys
+        iz = nz1 + iz_red*nzs
+        field_out(ix_red,iy_red,iz_red) = field_in(ix,iy,iz)
+      enddo
+    enddo
+  enddo
+  
+  write(*,*) maxval(field_out), maxval(field_in)
+  
+  ! set up dimensions (for the pseudo-MPI-chunking)
+  ra = 0
+  rb(1) = nx_red-1
+  rb(2) = ny_red-1
+  rb(3) = nz_red-1
+  nx = nx_red
+  ny = ny_red
+  nz = nz_red  
+  xl = dble(nx1 + (nx_red-1)*nxs)*dx - dble(nx1)*dx
+  yl = dble(ny1 + (ny_red-1)*nys)*dy - dble(ny1)*dy
+  zl = dble(nz1 + (nz_red-1)*nzs)*dz - dble(nz1)*dz
+  
+  
+  call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field_out, dsetname_out )
+  
+  deallocate (field_in, field_out)
+end subroutine extract_subset
