@@ -6,6 +6,9 @@ subroutine postprocessing()
   use mpi
   implicit none
   character(len=strlen)     :: postprocessing_mode, filename, key1,key2
+  real(kind=pr) :: t1
+  
+  t1=MPI_wtime()
   
   if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
   
@@ -40,6 +43,7 @@ subroutine postprocessing()
     call extract_subset()
   end select
       
+  if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1    
   if (mpirank==0) write (*,*) "*** bye bye ***"   
 end subroutine postprocessing
 
@@ -142,6 +146,9 @@ subroutine convert_abs_vorticity()
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl  
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
     
   call fft_initialize() ! also initializes the domain decomp
   
@@ -187,25 +194,25 @@ end subroutine convert_abs_vorticity
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5
+! ./flusi --postprocessing --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --second-order
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
-! can be done in parallel
+! can be done in parallel. the flag --second order can be used for filtering
 subroutine convert_vorticity()
   use vars
   use p3dfft_wrapper
   use basic_operators
   use mpi
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, order
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
-  real(kind=pr) :: time,t1
+  real(kind=pr) :: time
   
-  t1 = MPI_wtime()
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
+  call get_command_argument(6,order)
   
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
@@ -223,7 +230,10 @@ subroutine convert_vorticity()
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl  
+  scalez=2.d0*pi/zl 
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
     
   call fft_initialize() ! also initializes the domain decomp
   
@@ -238,7 +248,13 @@ subroutine convert_vorticity()
   call fft (uk(:,:,:,2),u(:,:,:,2))
   call fft (uk(:,:,:,3),u(:,:,:,3))
   
-  call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  if (order=="--second-order") then
+    if (mpirank==0) write(*,*) "Using second order precision.."
+    call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  else
+    if (mpirank==0) write(*,*) "Using spectral precision.."
+    call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  endif
   
   call ifft (u(:,:,:,1),uk(:,:,:,1))
   call ifft (u(:,:,:,2),uk(:,:,:,2))
@@ -257,7 +273,7 @@ subroutine convert_vorticity()
   call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"vorz")
   if (mpirank==0) write(*,*) "Wrote vorz to "//trim(fname_uz)
   
-  if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1
+ 
   
   deallocate (u)
   deallocate (uk)
@@ -603,7 +619,7 @@ subroutine extract_subset()
   
   write(*,*) maxval(field_out), maxval(field_in)
   
-  ! set up dimensions (for the pseudo-MPI-chunking)
+  ! set up dimensions in global variables, since save_field_hdf5 relies on this
   ra = 0
   rb(1) = nx_red-1
   rb(2) = ny_red-1
@@ -611,9 +627,9 @@ subroutine extract_subset()
   nx = nx_red
   ny = ny_red
   nz = nz_red  
-  xl = dble(nx1 + (nx_red-1)*nxs)*dx - dble(nx1)*dx
-  yl = dble(ny1 + (ny_red-1)*nys)*dy - dble(ny1)*dy
-  zl = dble(nz1 + (nz_red-1)*nzs)*dz - dble(nz1)*dz
+  xl = dx+dble(nx1 + (nx_red-1)*nxs)*dx - dble(nx1)*dx
+  yl = dy+dble(ny1 + (ny_red-1)*nys)*dy - dble(ny1)*dy
+  zl = dz+dble(nz1 + (nz_red-1)*nzs)*dz - dble(nz1)*dz
   
   
   call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field_out, dsetname_out )

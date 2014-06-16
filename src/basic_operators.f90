@@ -2,7 +2,10 @@
 ! this module contains basic elementary operators, and as it is a module
 ! function overloading can be used.
 ! List of functions:
-!       * curl
+!       * curl (inplace / out of place / second order precision)
+!       * divergence
+!       * field min/max values
+!       * laplace operator (for scalars +- second order)
 !-------------------------------------------------------------------------------
 module basic_operators
  !-- interface for curl operators
@@ -133,6 +136,49 @@ end subroutine curl3_inplace
 
 
 ! Given three components of an input fields in Fourier space, compute
+! the curl in physical space.  Arrays are 3-dimensional. The precision is reduced
+! to second order in space, since this kind of filtering may help in postprocessing
+subroutine curl_2nd (fx,fy,fz)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  ! Field in Fourier space
+  complex(kind=pr),intent(inout)::fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout)::fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+
+  complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz
+  complex(kind=pr) :: imag   ! imaginary unit
+
+  imag = dcmplx(0.d0,1.d0)
+  
+  ! Compute curl of given field in Fourier space:
+  do iz=ca(1),cb(1)
+     kz=dsin(dz*wave_z(iz))/ dz ! (reduced to 2nd order)
+     do iy=ca(2),cb(2)
+        ky=dsin(dy*wave_y(iy))/dy ! (reduced to 2nd order)
+        do ix=ca(3),cb(3)
+           kx=dsin(dx*wave_x(ix))/dx ! (reduced to 2nd order)
+           
+           t1=fx(iz,iy,ix)
+           t2=fy(iz,iy,ix)
+           t3=fz(iz,iy,ix)
+
+           fx(iz,iy,ix)=imag*(ky*t3 - kz*t2)
+           fy(iz,iy,ix)=imag*(kz*t1 - kx*t3)
+           fz(iz,iy,ix)=imag*(kx*t2 - ky*t1)
+        enddo
+     enddo
+  enddo
+
+end subroutine curl_2nd
+
+
+! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl3(ink,outk)
   use mpi
@@ -237,13 +283,13 @@ subroutine laplacien_inplace_filtered( ink )
   real(kind=pr) :: kx,ky,kz,k2
 
   do iz=ca(1),cb(1)          
-    !-- wavenumber in z-direction
+    !-- wavenumber in z-direction (reduced to 2nd order)
     kz = dsin( dz*wave_z(iz) )/ dz
     do iy=ca(2), cb(2)
-      !-- wavenumber in y-direction
+      !-- wavenumber in y-direction  (reduced to 2nd order)
       ky = dsin( dy*wave_y(iy) )/dy
       do ix=ca(3), cb(3)
-        !-- wavenumber in x-direction
+        !-- wavenumber in x-direction  (reduced to 2nd order)
         kx = dsin(dx*wave_x(ix))/dx
         k2 = kx*kx + ky*ky + kz*kz
         ink(iz,iy,ix) = -k2*ink(iz,iy,ix)
