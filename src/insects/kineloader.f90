@@ -116,7 +116,7 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
   integer, parameter :: pr = 8
   integer :: i0,i1
   integer, intent(in) :: n
-  real(kind=pr) :: x,z,ap0,ap1,ax0,ax1,dx
+  real(kind=pr) :: x,z,ap0,ap1,ax0,ax1,dx,d2pdx2_i0,d2pdx2_i1
   real(kind=pr), intent(in) :: xi
   real(kind=pr), intent(in) :: xphi(1:n),phi(1:n),dpdx(1:n)
   real(kind=pr), intent(out) :: phi_interp,dpdx_interp
@@ -142,11 +142,18 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
   phi_interp=(phi(i0)*ap0+phi(i1)*ap1)+dx*(dpdx(i0)*ax0+dpdx(i1)*ax1)
 
   ! Phi_x
-  ap0 = 6.0d0*x*x-6.0d0*x !df(x)
-  ap1 = -(6.0d0*z*z-6.0d0*z) !-df(1.0d0-x)
-  ax0 = 3.0d0*x*x-4.0d0*x+1.0d0 !dg(x)
-  ax1 = 3.0d0*z*z-4.0d0*z+1.0d0 ! dg(1.0d0-x)
-  dpdx_interp=(phi(i0)*ap0+phi(i1)*ap1)/dx+(dpdx(i0)*ax0+dpdx(i1)*ax1)
+  if ((i0>1).and.(i1<n)) then
+     d2pdx2_i0 = 0.5d0*(dpdx(i1)-dpdx(i0-1))/dx
+     d2pdx2_i1 = 0.5d0*(dpdx(i1+1)-dpdx(i0))/dx
+     dpdx_interp=(dpdx(i0)*ap0+dpdx(i1)*ap1)+dx*(d2pdx2_i0*ax0+d2pdx2_i1*ax1)
+  else
+     ap0 = 6.0d0*x*x-6.0d0*x !df(x)
+     ap1 = -(6.0d0*z*z-6.0d0*z) !-df(1.0d0-x)
+     ax0 = 3.0d0*x*x-4.0d0*x+1.0d0 !dg(x)
+     ax1 = 3.0d0*z*z-4.0d0*z+1.0d0 ! dg(1.0d0-x)
+     dpdx_interp=(phi(i0)*ap0+phi(i1)*ap1)/dx+(dpdx(i0)*ax0+dpdx(i1)*ax1)
+  endif
 
 end subroutine
+
 
