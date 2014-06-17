@@ -10,7 +10,7 @@ subroutine DrawBody(ix,iy,iz,x_body,icolor)
   real(kind=pr) :: rbc, x0bc, z0bc, thbc1, thbc2, xcs, zcs
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x_body(1:3)
-  real(kind=pr),intent(in) :: icolor
+  integer(kind=2),intent(in) :: icolor
   
   select case (Insect%BodyType)
   case ('ellipsoid')  
@@ -165,7 +165,7 @@ subroutine DrawSphere(ix,iy,iz,x,R0,icolor)
   real(kind=pr), intent(in) :: R0
   real(kind=pr) :: R, steps
   integer, intent(in) :: ix,iy,iz
-  integer, intent(in) :: icolor
+  integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
   
   if (abs(x(1))<R0+Insect%safety) then
@@ -188,7 +188,7 @@ subroutine DrawEye(ix,iy,iz,x,icolor)
   use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
-  integer, intent(in) :: icolor
+  integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
   call DrawSphere(ix,iy,iz,x,Insect%R_eye,icolor)
 end subroutine
@@ -200,7 +200,7 @@ subroutine DrawHead(ix,iy,iz,x,icolor)
   use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
-  integer, intent(in) :: icolor
+  integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
   real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,steps
   

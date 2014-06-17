@@ -30,7 +30,7 @@ subroutine Draw_Insect ( time )
   rot_b_psi, rot_b_beta, rot_b_gamma, &
   xc_head, xc_eye_l, xc_eye_r, xc_pivot_r,xc_pivot_l, x_head, vc_body, v_tmp
   integer :: ix, iy, iz
-  integer :: color_body, color_l, color_r
+  integer(kind=2) :: color_body, color_l, color_r
   ! tell the code what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
   logical :: HasEye = .false., HasHead=.true.

@@ -15,7 +15,7 @@ subroutine DrawWing_simple(ix,iy,iz,x_wing,M,rot,icolor)
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp
   integer, intent(in) :: ix,iy,iz
-  integer, intent(in) :: icolor
+  integer(kind=2), intent(in) :: icolor
   integer :: i
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
   !*****************************************************************************
@@ -102,7 +102,7 @@ subroutine DrawWing_Fourier(ix,iy,iz,x_wing,M,rot,icolor)
   use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
-  integer, intent(in) :: icolor
+  integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
   real(kind=pr) :: R, R0, steps, R_tmp, Radius_Fourier
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
