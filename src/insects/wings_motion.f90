@@ -226,12 +226,6 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     alpha_dt = -feth_dt
     theta_dt = -elev_dt
     
-!    if(mpirank == 0) then
-!    open(14,file='motion.t',status='unknown',position='append')
-!    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-!    close(14)
-!    endif
-    
   case ("flapper_sane")
     !---------------------------------------------------------------------------
     ! motion protocol from Sane and Dickinson, JEB 204, 2607-2626 (2001)
@@ -532,12 +526,6 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     ! *** III. elevation ***
     theta = 0.0d0
     theta_dt = 0.0d0
-
-    !if(mpirank == 0) then
-    !open(14,file='motion.t',status='unknown',position='append')
-    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-    !close(14)
-    !endif
    
   case ("takeoff")
     !--------------------------------------------------
