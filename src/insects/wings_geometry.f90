@@ -396,6 +396,7 @@ subroutine Setup_Wing_Fourier_coefficients()
     ! of the mechanical robot
     !********************************************        
     Insect%n_fft = 20 
+    allocate ( Insect%ai(1:Insect%n_fft), Insect%bi(1:Insect%n_fft) )
     Insect%a0 = 0.6442788 
     Insect%ai = (/0.0482978,-0.1208378,0.0061008,0.0356718,-0.0148328,-0.0109958,&
     0.0110268,0.0018538,-0.0061998,0.0015458,0.0025508,-0.0017538,&
