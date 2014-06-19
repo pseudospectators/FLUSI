@@ -7,7 +7,7 @@ subroutine draw_sphere
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
-  N_smooth = 2.d0
+  N_smooth = 1.d0
 
   do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)

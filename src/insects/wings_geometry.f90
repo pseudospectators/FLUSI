@@ -390,6 +390,28 @@ subroutine Setup_Wing_Fourier_coefficients()
     -1.9762601237675826E-4/)
     Insect%xc = 0.0  
     Insect%yc = 0.6
+  case ('flapper_dickinsonII')
+    !********************************************
+    ! Digitized from Dickinson et al 1999 Science, figure 1A, drawing
+    ! of the mechanical robot
+    !********************************************        
+    Insect%n_fft = 20 
+    Insect%a0 = 0.6442788 
+    Insect%ai = (/0.0482978,-0.1208378,0.0061008,0.0356718,-0.0148328,-0.0109958,&
+    0.0110268,0.0018538,-0.0061998,0.0015458,0.0025508,-0.0017538,&
+    -0.0002578,0.0015018,-0.0003158,-0.0006048,0.0007168,-0.0001568,&
+    -0.0005018,0.0004118/)
+    Insect%bi = (/-0.0521708,0.0051828,0.0369428,-0.0002868,-0.0177448,0.0023218,&
+    0.0081378,-0.0036288,-0.0038168,0.0031348,0.0011858,-0.0023828,&
+    -0.0001638,0.0016098,-0.0004768,-0.0007188,0.0007228,0.0002278,&
+    -0.0005798,0.0001228/)
+    Insect%yc = 0.5282438 
+    Insect%xc = -0.1184548 
+    
+    ! overwrite this because otherwise the wing is not entirely in the 
+    ! bounding box. (I actually do not recall why the L_span and L_chord are 
+    ! in the params file at all...)
+    Insect%L_span = 1.2
   case default
     write (*,*) "Insect module: trying to set up fourier descriptors for wing&
                 & shape but the type Insect%WingShape is unknown!"
