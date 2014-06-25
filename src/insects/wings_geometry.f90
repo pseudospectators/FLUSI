@@ -413,6 +413,32 @@ subroutine Setup_Wing_Fourier_coefficients()
     ! bounding box. (I actually do not recall why the L_span and L_chord are 
     ! in the params file at all...)
     Insect%L_span = 1.2
+  case ('robofly_dickinson')
+    !********************************************
+    ! Digitized from the hand drawn figure M. Dickinson sent via email, which
+    ! contained the exact location of the pivot point. He also sent a CAD drawing
+    ! which looks slightly different, and had no pivot point marked.
+    !********************************************        
+    Insect%n_fft = 28 
+    allocate ( Insect%ai(1:Insect%n_fft), Insect%bi(1:Insect%n_fft) )
+    Insect%a0 = 0.5313628 
+    Insect%ai = (/-0.0245658,-0.0842918,0.0218028,0.0105418,-0.0095288,0.0012928,&
+    0.0021928,0.0000328,-0.0007648,-0.0015808,0.0013808,0.0013068,&
+    -0.0010748,0.0002408,-0.0000378,-0.0010888,0.0008248,0.0004708,&
+    -0.0003988,0.0002658,-0.0003178,-0.0004218,0.0002768,0.0000818,&
+    0.0000318,0.0001228,-0.0001918,-0.0000558/)
+    Insect%bi = (/-0.0905448,0.0278058,0.0392558,-0.0125248,-0.0159598,0.0048268,&
+    0.0038898,-0.0028828,0.0012618,0.0012998,-0.0019058,0.0003118,&
+    0.0003198,-0.0004298,0.0006388,-0.0000648,-0.0002308,0.0002518,&
+    -0.0003948,0.0000928,0.0004478,-0.0003078,-0.0000888,0.0001638,&
+    -0.0002348,0.0001398,0.0001398,-0.0002358/)
+    Insect%xc = 0.4645238 
+    Insect%yc = -0.0716018 
+    
+    ! overwrite this because otherwise the wing is not entirely in the 
+    ! bounding box. (I actually do not recall why the L_span and L_chord are 
+    ! in the params file at all...)
+    Insect%L_span = 1.05
   case default
     write (*,*) "Insect module: trying to set up fourier descriptors for wing&
                 & shape but the type Insect%WingShape is unknown!"
