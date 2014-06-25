@@ -453,8 +453,8 @@ subroutine Setup_Wing_Fourier_coefficients()
     0.0003198,-0.0004298,0.0006388,-0.0000648,-0.0002308,0.0002518,&
     -0.0003948,0.0000928,0.0004478,-0.0003078,-0.0000888,0.0001638,&
     -0.0002348,0.0001398,0.0001398,-0.0002358/)
-    Insect%xc = 0.4645238 
-    Insect%yc = -0.0716018 
+    Insect%yc = 0.4645238 
+    Insect%xc = -0.0716018 
     
     ! overwrite this because otherwise the wing is not entirely in the 
     ! bounding box. (I actually do not recall why the L_span and L_chord are 
