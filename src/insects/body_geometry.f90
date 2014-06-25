@@ -84,7 +84,7 @@ subroutine DrawBody(ix,iy,iz,x_body,icolor)
     
   
   
-  case ('drosophila_maeda')
+  case ('drosophila_maeda','drosophila_slim')
     ! ------------------------------------
     ! approximation to mesh from Maeda
     ! similar to Aono et al.
@@ -108,12 +108,16 @@ subroutine DrawBody(ix,iy,iz,x_body,icolor)
     ! body center coordinates at s
     xcs = x0bc + (x-x0bc)*rbc/sqrt((x-x0bc)**2+(z-z0bc)**2)
     zcs = z0bc + (z-z0bc)*rbc/sqrt((x-x0bc)**2+(z-z0bc)**2)
-    ! distance to the body center at s
-    R = sqrt( (x-xcs)**2 + y**2 + (z-zcs)**2 )
 
     ! check if inside body bounds (in s-direction)
     if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then    
       R0 = 0.0d0
+      ! round section by default
+      if (Insect%BodyType == 'drosophila_slim') then 
+        a_body = 1.09d0
+      else
+        a_body = 1.0d0
+      endif
       ! distortion of s
       s1 = 1.0d0 - ( s + 0.08d0*tanh(30.0d0*s) ) / (1.0d0+0.08d0*tanh(30.0d0))
       s1 = ( s1 + 0.04d0*tanh(60.0d0*s1) ) / (1.0d0+0.04d0*tanh(60.0d0))
@@ -127,9 +131,14 @@ subroutine DrawBody(ix,iy,iz,x_body,icolor)
       elseif ((x1 >= 0.6333d0) .and. (x1 <=1.075d0 )) then
         ! we're in the THORAX 
         R0 = max( -2.1667d0*x1**2 + 3.4661d0*x1 - 1.2194d0, 0.d0)
+        ! slim body
+        if (Insect%BodyType == 'drosophila_slim') &
+          a_body = 1.09d0-0.19d0*(x1-0.6333d0)*(x1-1.075d0)/0.0488d0
       endif
       ! distortion of R0
       R0 = 0.8158996d0 * (1.0d0+0.6d0*(1.0d0-s)**2) * R0
+      ! distance to the body center at s
+      R = sqrt( (x-xcs)**2 + (a_body*y)**2 + (z-zcs)**2 )
 
       ! smoothing
       if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
@@ -202,7 +211,7 @@ subroutine DrawHead(ix,iy,iz,x,icolor)
   integer, intent(in) :: ix,iy,iz
   integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
-  real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,steps
+  real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,steps,a_head
   
   select case (Insect%BodyType)
   case ('ellipsoid')  
@@ -212,7 +221,7 @@ subroutine DrawHead(ix,iy,iz,x,icolor)
   case ('drosophila')
   ! drosophilae have different heads.
 
-  case ('drosophila_maeda')  
+  case ('drosophila_maeda','drosophila_slim')  
   ! ellipsoid head, assumes xc_head=0 in .ini file
   x_head = 0.17d0
   z_head = -0.1d0
@@ -223,7 +232,12 @@ subroutine DrawHead(ix,iy,iz,x,icolor)
   if ( dabs(x(3)-z_head) <= dz_head + Insect%safety ) then
   ! check for length inside ellipsoid:
   if ( dabs(x(1)-x_head) < dx_head + Insect%safety ) then
-    R  = dsqrt ( x(2)**2 + (x(3)-z_head)**2 )
+    if (Insect%BodyType == 'drosophila_slim') then
+      a_head = 1.09d0
+    else
+      a_head = 1.0d0
+    endif
+    R  = dsqrt ( (a_head*x(2))**2 + (x(3)-z_head)**2 )
     ! this gives the R(x) shape
     if ( ((x(1)-x_head)/dx_head)**2 <= 1.d0) then
     R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
