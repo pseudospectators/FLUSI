@@ -195,6 +195,15 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       
   end select  
   
+  if (mpirank==0) then
+   if (max(v0_plate)>0.d0) then
+   write(*,*) "thomas, please be sure to check if the angular velocities are okay here so that you don't do the&
+   & same mistake twice."
+   call suicide()
+   endif
+  endif
+   
+  
   
   !-- rotation matrices that take us to the relative system
   call Rx(M1,psi)
