@@ -192,49 +192,6 @@ module vars
       is_nan = .false.
       if (.not.(x.eq.x)) is_nan=.true.
     end function
-    !-----------------------------------------------
-        subroutine checknan_real( field, msg)
-      implicit none
-      integer::ix,iy,iz
-      real(kind=pr),intent(in):: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-      character(len=*), intent(in) :: msg
-      integer :: foundnan, foundnans,mpicode
-      foundnan = 0
-      do ix=ra(1),rb(1)
-      do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)  
-      if (.not.(field(ix,iy,iz).eq.field(ix,iy,iz))) foundnan = 1
-      enddo
-      enddo
-      enddo  
-      
-      call MPI_ALLREDUCE (foundnan,foundnans,1,&
-                    MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-                    
-      if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans      
-    end subroutine checknan_real
-    
-    subroutine checknan_cmplx( field, msg )
-      implicit none
-      integer::ix,iy,iz
-      complex(kind=pr),intent(in)::field(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-      character(len=*), intent(in) :: msg
-      integer :: foundnan, foundnans,mpicode
-      foundnan = 0
-      do iz=ca(1),cb(1)
-      do iy=ca(2),cb(2)
-      do ix=ca(3),cb(3)
-      if (.not.(aimag(field(iz,iy,ix)).eq.aimag(field(iz,iy,ix)))) foundnan = 1
-      if (.not.(real(field(iz,iy,ix)).eq.real(field(iz,iy,ix)))) foundnan = 1
-      enddo
-      enddo
-      enddo  
-      
-      call MPI_ALLREDUCE (foundnan,foundnans,1,&
-                    MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-                    
-      if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans
-    end subroutine checknan_cmplx
 end module vars
 
 

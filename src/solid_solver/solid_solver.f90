@@ -1,6 +1,7 @@
 
 module solid_model
   use fsi_vars ! for the precision statement
+  use basic_operators 
   implicit none
   
   !----------------------------------------------
@@ -57,7 +58,7 @@ module solid_model
 !-------------------------------------------------------------------------------
 !   solid solver main entry point
 !-------------------------------------------------------------------------------
- subroutine OnlySolidSimulation()
+subroutine OnlySolidSimulation()
   use fsi_vars
   implicit none
   type(solid), dimension(1:nBeams) :: beams
@@ -107,56 +108,55 @@ subroutine SolidSolverWrapper ( time, dt, beams )
   t0 = MPI_wtime()
   
   do i = 1, nBeams
-  !------------------------------------------
-  ! check if input values are okay
-  !------------------------------------------
-  if (Vector_isNAN(beams(i)%pressure_new).or.&
-      Vector_isNAN(beams(i)%pressure_old).or.&
-      Vector_isNAN(beams(i)%tau_new).or.&
-      Vector_isNAN(beams(i)%tau_old) ) then
-    if (root) write(*,*) "SolidSolver: input values contain NaNs"
-    ! at this occasion, check if mask and us contain NaNs
-    if (root) write(*,*) "Checking mask and us for NaNs"
-    call checknan_real( mask, "mask")
-    call checknan_real( us(:,:,:,1), "usx")
-    call checknan_real( us(:,:,:,2), "usy")
-    call checknan_real( us(:,:,:,3), "usz")
-    ! time to go..
-    call suicide()
-  endif
-  
-  if (time>=T_release) then ! it is not nessesaire to solve the solid equation when the beam is still held fixed  
-    !-------------------------------------------
-    ! the beams are released, call IBES solvers
-    !-------------------------------------------
-    ! all implicit solvers are in one subroutine
-    select case (TimeMethodSolid)
-      case ("CN2","BDF2","EI1")
-        call IBES_solver (time, dt, beams(i))    
-      case ("RK4")
-        call RK4_wrapper (time, dt, beams(i))
-      case ("EE1")
-        call EE1_wrapper (time, dt, beams(i))
-      case default
-        write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
-            TimeMethodSolid
+      !------------------------------------------
+      ! check if input values are okay
+      !------------------------------------------
+      if (Vector_isNAN(beams(i)%pressure_new).or.&
+          Vector_isNAN(beams(i)%pressure_old).or.&
+          Vector_isNAN(beams(i)%tau_new).or.&
+          Vector_isNAN(beams(i)%tau_old) ) then
+        if (root) write(*,*) "SolidSolver: input values contain NaNs"
+        ! at this occasion, check if mask and us contain NaNs
+        if (root) write(*,*) "Checking mask and us for NaNs"
+        call checknan_real( mask, "mask")
+        call checknan_real( us(:,:,:,1), "usx")
+        call checknan_real( us(:,:,:,2), "usy")
+        call checknan_real( us(:,:,:,3), "usz")
+        ! time to go..
         call suicide()
-    end select
-  else 
-    !-------------------------------------------
-    ! the beams are not yet released, but its leading edges may move
-    !-------------------------------------------
-    call integrate_position (time+dt, beams(i))
-  endif
-  
-  !-------------------------------------------
-  ! compute energies and stuff
-  !-------------------------------------------
-  call SolidEnergies( beams(i) )
+      endif
+      
+      if (time>=T_release) then 
+        !-------------------------------------------
+        ! the beams are released, call IBES solvers
+        !-------------------------------------------
+        ! all implicit solvers are in one subroutine
+        select case (TimeMethodSolid)
+          case ("CN2","BDF2","EI1")
+            call IBES_solver (time, dt, beams(i))    
+          case ("RK4")
+            call RK4_wrapper (time, dt, beams(i))
+          case ("EE1")
+            call EE1_wrapper (time, dt, beams(i))
+          case default
+            write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
+                TimeMethodSolid
+            call suicide()
+        end select
+      else 
+        !-------------------------------------------
+        ! the beams are not yet released, but their leading edges may move
+        !-------------------------------------------
+        call integrate_position (time+dt, beams(i))
+      endif
+      
+      !-------------------------------------------
+      ! compute energies and stuff
+      !-------------------------------------------
+      call SolidEnergies( beams(i) )
 
-  !-- check if everything seems okay, if not show beam and suicide
-  call show_beam_on_error( beams(i) )
-
+      !-- check if everything seems okay, if not show beam and suicide
+      call show_beam_on_error( beams(i) )
   enddo
   time_solid = time_solid + MPI_wtime() - t0
 end subroutine SolidSolverWrapper

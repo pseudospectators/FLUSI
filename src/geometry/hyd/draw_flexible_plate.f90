@@ -72,10 +72,10 @@ subroutine Draw_flexible_plate (time, beam)
           !-- c is the distance between two markers, thus ds
           c = dsqrt( (beam%x(is)-beam%x(is+1))**2 + (beam%y(is)-beam%y(is+1))**2 )                    
           !-- height of the triangle: this is what we were looking for! (distance)
-          h = dsqrt( a**2 - ((a**2+c**2-b**2)/(2.d0*c))**2)          
+          h = dsqrt( a**2 - ((a**2+c**2-b**2)/(2.d0*c))**2)
           ! two parts on base side (i.e. on the centerline)
-          c1 = dsqrt( a**2-h**2)
-          c2 = dsqrt( b**2-h**2)
+          c1 = dsqrt( a**2-h**2 )
+          c2 = dsqrt( b**2-h**2 )
           
           !-- are both sides a,b small enough for the point to lie within the beam?
           if ((a<=dmax).and.(b<=dmax).and.(c1<c).and.(c2<c).and.(c1>0.d0).and.(c2>0.d0)) then          

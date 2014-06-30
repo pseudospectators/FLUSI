@@ -118,10 +118,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work)
         vort(ix,iy,iz,1) = uy*vorz - uz*vory - chi*(ux-usx)
         vort(ix,iy,iz,2) = uz*vorx - ux*vorz - chi*(uy-usy)
         vort(ix,iy,iz,3) = ux*vory - uy*vorx - chi*(uz-usz)
-        
-!         if (is_nan(vort(ix,iy,iz,1))) call suicide("NaN in nl_x")
-!         if (is_nan(vort(ix,iy,iz,2))) call suicide("NaN in nl_y")
-!         if (is_nan(vort(ix,iy,iz,3))) call suicide("NaN in nl_z")
       enddo
     enddo
   enddo
