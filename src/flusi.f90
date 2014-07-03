@@ -294,6 +294,9 @@ subroutine show_timings(t2)
   write(*,'(A)') '--------------------------------------'
   endif
   write(*,'(A)') '--------------------------------------'
+  write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') &
+       t2, nint( t2*dble(ncpu)/3600.d0 )
+  write(*,'(A)') '--------------------------------------'
   write(*,'(A)') 'Finalizing computation....'
   write(*,'(A)') '--------------------------------------'
 end subroutine show_timings
