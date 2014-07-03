@@ -16,6 +16,9 @@ subroutine noncircular_cylinder
   real(kind=pr) :: y,z,tmp, R, N_smooth, a0, theta, R0, safety
   real(kind=pr),dimension(:),allocatable :: ai,bi
 
+  !-----------------------------------------------------------------------------
+  ! Phase 1: read in shape information from file
+  !-----------------------------------------------------------------------------
   ! learn how many Fourier coefficients to expect
   if (mpirank==0) then
     ! open input file
@@ -42,8 +45,10 @@ subroutine noncircular_cylinder
   call MPI_BCAST( ai,nfft,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
   call MPI_BCAST( bi,nfft,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
   
-  ! all CPU now know what shape to use
   
+  !-----------------------------------------------------------------------------
+  ! Phase 2: construct mask function
+  !-----------------------------------------------------------------------------
   N_smooth = 1.5d0
   safety = 2.d0*N_smooth*max(dz,dy)
 
