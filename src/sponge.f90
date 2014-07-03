@@ -194,7 +194,24 @@ subroutine penalize_vort ( vort_penalized, vort )
           endif
         enddo
       enddo
-    enddo   
+    enddo  
+    
+  case ("2D_frame")
+    !--------------------------------------------
+    ! Thomas, 3 Jul 2014
+    ! frame around domain, "cavity" for 2D. note nx=1.
+    !--------------------------------------------
+    do iy = ra(2), rb(2)
+      do iz = ra(3), rb(3)
+        if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then
+          vort_penalized(:,iy,iz) = -vort(:,iy,iz)*eps_inv
+        endif
+        
+        if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
+          vort_penalized(:,iy,iz) = -vort(:,iy,iz)*eps_inv
+        endif
+      enddo
+    enddo
  
   case ("top_cover")
     !--------------------------------------------
