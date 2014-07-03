@@ -27,6 +27,8 @@ subroutine create_mask_fsi (time)
       call Draw_Insect (time)
     case ("plate","Plate")
       call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
+    case ("noncircular_cylinder")
+      call noncircular_cylinder()
     case("none")
       mask = 0.d0
     case default    
