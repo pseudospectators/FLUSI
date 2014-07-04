@@ -97,8 +97,8 @@ subroutine get_params_common(PARAMS,i)
   
   if (nx==1) then
     if (mpirank==0) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"
-    dx = max(dz,dy)
-    xl = dx
+    dx = 1.d0 !max(dz,dy)
+    xl = 1.d0
     if (mpirank==0) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
   endif
   
@@ -195,12 +195,6 @@ subroutine get_params_common(PARAMS,i)
   scalex = 2.d0*pi/xl
   scaley = 2.d0*pi/yl
   scalez = 2.d0*pi/zl  
-  ! lattice spacing is global
-  dx = xl/dble(nx)
-  dy = yl/dble(ny)
-  dz = zl/dble(nz) 
-  
-  
 end subroutine get_params_common
 
 
