@@ -1385,3 +1385,14 @@ subroutine check_file_exists(fname)
   endif
   
 end subroutine check_file_exists
+
+
+! overwrite and initialize file
+subroutine init_empty_file( fname )
+  use vars
+  implicit none
+character (len=*), intent(in) :: fname
+  
+  open (15, file=fname,status='replace')
+  close(15)
+end subroutine

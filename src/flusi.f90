@@ -230,6 +230,8 @@ subroutine Start_Simulation()
   ! Clean kinematics (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") call load_kine_clean
   
+  call init_empty_file("success")
+  
   call fft_free 
   !-------------------------
   ! Show the breakdown of timing information
