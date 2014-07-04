@@ -84,6 +84,25 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Int(PARAMS,i,"Resolution","ny",ny, 4)
   call GetValue_Int(PARAMS,i,"Resolution","nz",nz, 4)
 
+  ! Geometry section
+  call GetValue_Real(PARAMS,i,"Geometry","xl",xl, 1.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","yl",yl, 1.d0)
+  call GetValue_Real(PARAMS,i,"Geometry","zl",zl, 1.d0)
+  
+  ! lattice spacing is global (since we allow to specify reals in multiples of
+  ! grid points, we nedd that value now.)
+  dx=xl/dble(nx)
+  dy=yl/dble(ny)
+  dz=zl/dble(nz)
+  
+  if (nx==1) then
+    if (mpirank==0) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"
+    dx = max(dz,dy)
+    xl = dx
+    if (mpirank==0) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
+  endif
+  
+  
   ! Time section
   call GetValue_Int(PARAMS,i,"Time","nt",nt, 9999999)
   ! This is the default value. ifort complains when just putting it in the call
@@ -138,9 +157,6 @@ subroutine get_params_common(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
 
   ! Geometry section
-  call GetValue_Real(PARAMS,i,"Geometry","xl",xl, 1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","yl",yl, 1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","zl",zl, 1.d0)
   call GetValue_Real(PARAMS,i,"Geometry","Size",length, 0.d0)
   call GetValue_Real(PARAMS,i,"Geometry","r1",r1,1.d0)
   call GetValue_Real(PARAMS,i,"Geometry","r2",r2,1.0681415d0)
@@ -184,10 +200,6 @@ subroutine get_params_common(PARAMS,i)
   dy = yl/dble(ny)
   dz = zl/dble(nz) 
   
-  if (nx==1) then
-    !--2D simulation
-    dx = dy
-  endif
   
 end subroutine get_params_common
 

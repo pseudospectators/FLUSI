@@ -168,6 +168,8 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
      
      if(mpirank==0) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
   end do
+  
+  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
 
   ! Create a restart file after time-stepping is done.
   if(idobackup == 1) then
