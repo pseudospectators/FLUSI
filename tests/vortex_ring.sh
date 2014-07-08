@@ -36,6 +36,7 @@ for p in ${prefixes[@]}
 do  
   for t in ${times[@]}
   do
+    echo "--------------------------------------------------------------------"
     # *.h5 file coming out of the code
     file=${p}"_"${t}".h5"
     # will be transformed into this *.key file

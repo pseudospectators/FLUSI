@@ -47,8 +47,8 @@ subroutine Draw_Insect ( time )
   !-- define the wings fourier coeffients, but only once  
   if (fourier_wing) call Setup_Wing_Fourier_coefficients()  
     
-  Insect%safety = 2.d0*dz
-  Insect%smooth = 1.d0*dz
+  Insect%safety = 2.0d0*max(dz,dy,dx)
+  Insect%smooth = 1.0d0*max(dz,dy,dx)
   
   ! some checks
   if ((mpirank==0).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
@@ -56,10 +56,10 @@ subroutine Draw_Insect ( time )
     stop
   endif
   
-  !------------------------------------
+  !-----------------------------------------------------------------------------
   ! this is the relative coordinates (in the body system)
   ! of some interesting points on the insect (head, eyes, hinges)
-  !------------------------------------
+  !-----------------------------------------------------------------------------
   xc_head = Insect%x_head
   xc_eye_l = Insect%x_eye_l
   xc_eye_r = Insect%x_eye_r
@@ -67,9 +67,9 @@ subroutine Draw_Insect ( time )
   xc_pivot_l = Insect%x_pivot_l
   
   
-  !--------------------------
+  !-----------------------------------------------------------------------------
   ! fetch current motion state
-  !--------------------------
+  !-----------------------------------------------------------------------------
   call BodyMotion ( time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc_body, vc_body )
   call FlappingMotion_right(time, phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r )
   call FlappingMotion_left (time, phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l )  
@@ -77,9 +77,9 @@ subroutine Draw_Insect ( time )
 
   Insect%vc_body = vc_body   ! This is required for aerodynamic power
 
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! write kinematics to disk (Dmitry, 28 Oct 2013)
-  !-------------------------------------------------------     
+  !-----------------------------------------------------------------------------
   if(mpirank == 0) then
     open(17,file='kinematics.t',status='unknown',position='append')
     write (17,'(14(e12.5,1x))') time, xc_body, psi, beta, gamma, eta_stroke, &
@@ -87,9 +87,9 @@ subroutine Draw_Insect ( time )
     close(17)
   endif
 
-  !-------------------------------
+  !-----------------------------------------------------------------------------
   ! define the rotation matrices to change between coordinate systems
-  !-------------------------------
+  !-----------------------------------------------------------------------------
   call Rx(M1_b,psi)
   call Ry(M2_b,beta)
   call Rz(M3_b,gamma)
@@ -114,9 +114,9 @@ subroutine Draw_Insect ( time )
   call Rx(M3_r,-phi_r)
   M_wing_r = matmul(M1_r,matmul(M2_r,matmul(M3_r,M_stroke_r)))
 
-  !------------------------------------
+  !-----------------------------------------------------------------------------
   ! angular velocity vectors
-  !------------------------------------
+  !-----------------------------------------------------------------------------
   rot_l_alpha = (/ 0.0d0, alpha_dt_l, 0.0d0 /)
   rot_l_theta = (/ 0.0d0, 0.0d0, theta_dt_l /) 
   rot_l_phi = (/ phi_dt_l, 0.0d0, 0.0d0 /)
@@ -139,38 +139,38 @@ subroutine Draw_Insect ( time )
   rot_body = matmul(M_body,matmul(transpose(M3_b),rot_b_gamma+ &
           matmul(transpose(M2_b),rot_b_beta+matmul(transpose(M1_b),rot_b_psi))))
 
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! inverse of the rotation matrices
-  !-------------------------------------------------------     
+  !-----------------------------------------------------------------------------
   M_body_inv = transpose(M_body)
   M_wing_l_inv = transpose(M_wing_l)
   M_wing_r_inv = transpose(M_wing_r)
 
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! angular velocity in the global reference frame
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   Insect%rot_body_glob = matmul(M_body_inv, rot_body)
   Insect%rot_l_glob = matmul(M_body_inv, matmul(M_wing_l_inv, rot_l) + rot_body)
   Insect%rot_r_glob = matmul(M_body_inv, matmul(M_wing_r_inv, rot_r) + rot_body) 
  
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! vector from body centre to left/right pivot point in global reference frame, 
   ! for aerodynamic power
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   Insect%x_pivot_l_glob = matmul(M_body_inv, xc_pivot_l)
   Insect%x_pivot_r_glob = matmul(M_body_inv, xc_pivot_r) 
 
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! colors for Diptera (one body, two wings)
-  !-------------------------------------------------------  
+  !-----------------------------------------------------------------------------
   color_body = 1
   color_l = 2
   color_r = 3
 
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Draw indivudual parts of the Diptera. Separate loops are faster
   ! since the compiler can optimize them better
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! BODY
   !-------------------------------------------------------
   t1 = MPI_wtime()
@@ -551,4 +551,3 @@ subroutine aero_power(apowtotal)
    Insect%PartIntegrals(color_l)%APow + Insect%PartIntegrals(color_r)%APow
 
 end subroutine aero_power
-

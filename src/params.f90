@@ -357,6 +357,13 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Insects","tlinlegs",&
        Insect%tlinlegs,0.3547216867289067d0)
 
+  ! wing inertia tensor (we currentlz assume two identical wings)
+  ! this allows computing inertial power
+  call GetValue_Real(PARAMS,i,"Insects","Jxx",Insect%Jxx,0.d0)
+  call GetValue_Real(PARAMS,i,"Insects","Jyy",Insect%Jyy,0.d0)
+  call GetValue_Real(PARAMS,i,"Insects","Jzz",Insect%Jzz,0.d0)
+  call GetValue_Real(PARAMS,i,"Insects","Jxy",Insect%Jxy,0.d0)
+
   ! ---------------------------------------------------
   ! passive scalar section
   ! ---------------------------------------------------

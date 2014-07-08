@@ -20,7 +20,7 @@ sad=0
 echo "Sphere unit test: phase one"
 
 # list of prefixes the test generates
-prefixes=(ux uy uz p vorx vory vorz)
+prefixes=(ux uy uz p vorx vory vorz mask)
 # list of possible times (no need to actually have them)
 times=(00000 00100 00200)
 # run actual test
@@ -34,6 +34,7 @@ for p in ${prefixes[@]}
 do  
   for t in ${times[@]}
   do
+    echo "--------------------------------------------------------------------"
     # *.h5 file coming out of the code
     file=${p}"_"${t}".h5"
     # will be transformed into this *.key file

@@ -35,6 +35,7 @@ for p in ${prefixes[@]}
 do  
   for t in ${times[@]}
   do
+    echo "--------------------------------------------------------------------"
     # *.h5 file coming out of the code
     file=${p}"_"${t}".h5"
     # will be transformed into this *.key file
@@ -65,7 +66,7 @@ do
         echo -e ":[ Sad: output file not found"
     fi
     
-    
+    echo "--------------------------------------------------------------------"
   done
 done
 
@@ -79,6 +80,7 @@ for file in ${files[@]}
 do
 for col in ${columns[@]}
 do
+    echo "--------------------------------------------------------------------"
     echo "comparing" $file "column" $col
     new=$(awk -v col=$col '(NR>1) { print  $col }' $file | tail -n1)
     old=$(awk -v col=$col '(NR>1) { print  $col }' insect/$file | tail -n1)
@@ -89,6 +91,7 @@ do
       echo ":(( Sad: timeseries comparison for " $file " failed"
       sad=$((sad+1))
     fi
+    echo "--------------------------------------------------------------------"
 done
 done
 
@@ -97,6 +100,7 @@ columns=(1 2 4 5 6 7 8 9 12 13 14)
 file=kinematics.t
 for col in ${columns[@]}
 do
+    echo "--------------------------------------------------------------------"
     echo "comparing" $file "column" $col
     new=$(awk -v col=$col '(NR>1) { print  $col }' $file | tail -n1)
     old=$(awk -v col=$col '(NR>1) { print  $col }' insect/$file | tail -n1)
@@ -107,6 +111,7 @@ do
       echo ":(( Sad: timeseries comparison for " $file " failed"
       sad=$((sad+1))
     fi
+    echo "--------------------------------------------------------------------"
 done
 
 

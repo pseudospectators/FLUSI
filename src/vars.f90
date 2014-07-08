@@ -227,7 +227,8 @@ module fsi_vars
     real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob    
     ! Stroke angle
     real(kind=pr) :: eta_stroke
-
+    ! wing inertia 
+    real(kind=pr) :: Jxx,Jyy,Jzz,Jxy
   end type InsectParams  
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver
