@@ -23,12 +23,13 @@ subroutine Draw_Insect ( time )
   real(kind=pr) :: alpha_dt_l, alpha_dt_r, phi_dt_l, phi_dt_r, t1
   real(kind=pr) :: theta_dt_l, theta_dt_r, eta_stroke, theta_r, theta_l
   real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
-  M1_b, M2_b, M3_b, M1, M2, M3,  & 
-  M_stroke_l, M_stroke_r, M_body_inv, M_wing_l_inv, M_wing_r_inv
+    M1_b, M2_b, M3_b, M1, M2, M3,  & 
+    M_stroke_l, M_stroke_r, M_body_inv, M_wing_l_inv, M_wing_r_inv
   real(kind=pr), dimension(1:3) :: rot_l, rot_r, rot_body, &
-  rot_b_psi, rot_b_beta, rot_b_gamma, &
-  xc_head, xc_eye_l, xc_eye_r, xc_pivot_r,xc_pivot_l, x_head, vc_body, v_tmp
+    rot_b_psi, rot_b_beta, rot_b_gamma, &
+    xc_head, xc_eye_l, xc_eye_r, xc_pivot_r,xc_pivot_l, x_head, vc_body, v_tmp
   integer :: ix, iy, iz
+  integer, save :: counter = 0
   integer(kind=2) :: color_body, color_l, color_r
   ! what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
@@ -63,22 +64,15 @@ subroutine Draw_Insect ( time )
   !-----------------------------------------------------------------------------
   ! fetch current motion state
   !-----------------------------------------------------------------------------
-  call BodyMotion ( time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc_body, vc_body )
-  call FlappingMotion_right(time, phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r )
-  call FlappingMotion_left (time, phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l )  
+  call BodyMotion ( time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt,&
+       xc_body, vc_body )
+  call FlappingMotion_right(time, phi_r, alpha_r, theta_r, &
+       phi_dt_r, alpha_dt_r, theta_dt_r )
+  call FlappingMotion_left (time, phi_l, alpha_l, theta_l, &
+       phi_dt_l, alpha_dt_l, theta_dt_l )  
   call StrokePlane (time, eta_stroke)
 
   Insect%vc_body = vc_body   ! This is required for aerodynamic power
-
-  !-----------------------------------------------------------------------------
-  ! write kinematics to disk (Dmitry, 28 Oct 2013)
-  !-----------------------------------------------------------------------------
-  if(mpirank == 0) then
-    open(17,file='kinematics.t',status='unknown',position='append')
-    write (17,'(14(e12.5,1x))') time, xc_body, psi, beta, gamma, eta_stroke, &
-    alpha_l, phi_l, theta_l, alpha_r, phi_r, theta_r
-    close(17)
-  endif
 
   !-----------------------------------------------------------------------------
   ! define the rotation matrices to change between coordinate systems
@@ -111,8 +105,8 @@ subroutine Draw_Insect ( time )
   ! angular velocity vectors
   !-----------------------------------------------------------------------------
   ! body angular velocity in the body coodrinate system
-  rot_b_psi = (/ psi_dt, 0.0d0, 0.0d0 /)
-  rot_b_beta = (/ 0.0d0, beta_dt, 0.0d0 /) 
+  rot_b_psi   = (/ psi_dt, 0.0d0, 0.0d0   /)
+  rot_b_beta  = (/ 0.0d0, beta_dt, 0.0d0  /) 
   rot_b_gamma = (/ 0.0d0, 0.0d0, gamma_dt /)
   
   rot_body = matmul(M_body,matmul(transpose(M3_b),rot_b_gamma+ &
@@ -159,13 +153,26 @@ subroutine Draw_Insect ( time )
   color_body = 1
   color_l = 2
   color_r = 3
+  
+  !-----------------------------------------------------------------------------
+  ! write kinematics to disk (Dmitry, 28 Oct 2013)
+  ! do so only every itdrag time steps (Thomas, 8 Jul 2014)
+  !-----------------------------------------------------------------------------
+  counter = counter + 1
+  if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
+    open  (17,file='kinematics.t',status='unknown',position='append')
+    write (17,'(26(es12.5,1x))') time, xc_body, psi, beta, gamma, eta_stroke, &
+        alpha_l, phi_l, theta_l, alpha_r, phi_r, theta_r, rot_l, rot_r, &
+        Insect%rot_dt_l, Insect%rot_dt_r
+    close (17)
+  endif
 
   !-----------------------------------------------------------------------------
   ! Draw indivudual parts of the Diptera. Separate loops are faster
   ! since the compiler can optimize them better
   !-----------------------------------------------------------------------------
   ! BODY
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (Insect%BodyType /= "nobody") then
   do ix = ra(1), rb(1)
@@ -173,7 +180,7 @@ subroutine Draw_Insect ( time )
         do iz = ra(3), rb(3)
            !-- define the various coordinate systems we are going to use
            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-           x_body   = matmul(M_body,x-xc_body)
+           x_body = matmul(M_body,x-xc_body)
            
            !-- call body subroutines
            call DrawBody(ix,iy,iz,x_body,color_body)
@@ -283,7 +290,7 @@ subroutine Draw_Insect ( time )
             v_tmp(2) = vc_body(2)+rot_body(3)*x_body(1)-rot_body(1)*x_body(3)
             v_tmp(3) = vc_body(3)+rot_body(1)*x_body(2)-rot_body(2)*x_body(1)
             
-            us(ix,iy,iz,1:3)=matmul(M_body_inv,us(ix,iy,iz,1:3)+v_tmp)
+            us(ix,iy,iz,1:3) = matmul(M_body_inv,us(ix,iy,iz,1:3)+v_tmp)
            endif
         enddo
      enddo
