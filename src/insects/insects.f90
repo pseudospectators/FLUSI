@@ -23,26 +23,20 @@ subroutine Draw_Insect ( time )
   real(kind=pr) :: alpha_dt_l, alpha_dt_r, phi_dt_l, phi_dt_r, t1
   real(kind=pr) :: theta_dt_l, theta_dt_r, eta_stroke, theta_r, theta_l
   real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
-  M1_tmp, M2_tmp, M1_b, M2_b, M3_b, M1_l, M2_l, M3_l, M1_r, M2_r, M3_r, & 
-  M_stroke_l, M_stroke_r, M_body_inv, M_wing_l_inv, M_wing_r_inv  
+  M1_b, M2_b, M3_b, M1, M2, M3,  & 
+  M_stroke_l, M_stroke_r, M_body_inv, M_wing_l_inv, M_wing_r_inv
   real(kind=pr), dimension(1:3) :: rot_l, rot_r, rot_body, &
-  rot_l_alpha, rot_l_theta, rot_l_phi, rot_r_alpha, rot_r_theta, rot_r_phi, & 
   rot_b_psi, rot_b_beta, rot_b_gamma, &
   xc_head, xc_eye_l, xc_eye_r, xc_pivot_r,xc_pivot_l, x_head, vc_body, v_tmp
   integer :: ix, iy, iz
   integer(kind=2) :: color_body, color_l, color_r
-  ! tell the code what type of subroutine to call for the wings: fourier or simple
+  ! what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
-  logical :: HasEye = .false., HasHead=.true.
   
   !-- decide what wing routine to call (call simplified wing 
   ! routines that don't use fourier)
   if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
   if (Insect%WingShape=='rectangular') fourier_wing = .false.
-  !-- decide if to call draw_eye (logicals are much much faster)
-  if (Insect%HasEye=="yes")  HasEye = .true.
-  !-- decide if to call draw_head (logicals are much much faster)
-  if (Insect%HasHead=="yes") HasHead=.true.
     
   !-- define the wings fourier coeffients, but only once  
   if (fourier_wing) call Setup_Wing_Fourier_coefficients()  
@@ -65,8 +59,7 @@ subroutine Draw_Insect ( time )
   xc_eye_r = Insect%x_eye_r
   xc_pivot_r = Insect%x_pivot_r
   xc_pivot_l = Insect%x_pivot_l
-  
-  
+    
   !-----------------------------------------------------------------------------
   ! fetch current motion state
   !-----------------------------------------------------------------------------
@@ -95,50 +88,50 @@ subroutine Draw_Insect ( time )
   call Rz(M3_b,gamma)
   M_body = matmul(M1_b,matmul(M2_b,M3_b))
   
-  call Ry(M1_tmp,eta_stroke)
-  M_stroke_l = M1_tmp
+  call Ry(M1,eta_stroke)
+  M_stroke_l = M1
   
-  call Rx(M1_tmp,pi)
-  call Ry(M2_tmp,eta_stroke)  
-  M_stroke_r = matmul(M1_tmp,M2_tmp)
+  call Rx(M1,pi)
+  call Ry(M2,eta_stroke)  
+  M_stroke_r = matmul(M1,M2)
 
-  call Ry(M1_l,alpha_l)
-  call Rz(M2_l,theta_l)   ! Order changed (Dmitry, 7 Nov 2013)
-  call Rx(M3_l,phi_l)
-  M_wing_l = matmul(M1_l,matmul(M2_l,matmul(M3_l,M_stroke_l)))
+  call Ry(M1,alpha_l)
+  call Rz(M2,theta_l)   ! Order changed (Dmitry, 7 Nov 2013)
+  call Rx(M3,phi_l)
+  M_wing_l = matmul(M1,matmul(M2,matmul(M3,M_stroke_l)))
 
   ! note the coordinate system is rotated so we don't need to inverse the sign
   ! of theta, and the wings still rotate in opposite direction
-  call Ry(M1_r,-alpha_r)
-  call Rz(M2_r,theta_r)   ! Order changed (Dmitry, 7 Nov 2013) 
-  call Rx(M3_r,-phi_r)
-  M_wing_r = matmul(M1_r,matmul(M2_r,matmul(M3_r,M_stroke_r)))
+  call Ry(M1,-alpha_r)
+  call Rz(M2,theta_r)   ! Order changed (Dmitry, 7 Nov 2013) 
+  call Rx(M3,-phi_r)
+  M_wing_r = matmul(M1,matmul(M2,matmul(M3,M_stroke_r)))
 
   !-----------------------------------------------------------------------------
   ! angular velocity vectors
   !-----------------------------------------------------------------------------
-  rot_l_alpha = (/ 0.0d0, alpha_dt_l, 0.0d0 /)
-  rot_l_theta = (/ 0.0d0, 0.0d0, theta_dt_l /) 
-  rot_l_phi = (/ phi_dt_l, 0.0d0, 0.0d0 /)
-  rot_r_alpha = (/ 0.0d0, -alpha_dt_r, 0.0d0 /)
-  rot_r_theta = (/ 0.0d0, 0.0d0, theta_dt_r /) 
-  rot_r_phi = (/ -phi_dt_r, 0.0d0, 0.0d0 /)
+  ! body angular velocity in the body coodrinate system
   rot_b_psi = (/ psi_dt, 0.0d0, 0.0d0 /)
   rot_b_beta = (/ 0.0d0, beta_dt, 0.0d0 /) 
   rot_b_gamma = (/ 0.0d0, 0.0d0, gamma_dt /)
-
-  ! in the wing coordinate system
-  rot_l = matmul(M_wing_l,matmul(transpose(M_stroke_l),matmul(transpose(M3_l), &
-          rot_l_phi+matmul(transpose(M2_l),rot_l_theta+matmul(transpose(M1_l), &
-          rot_l_alpha)))))
-  rot_r = matmul(M_wing_r,matmul(transpose(M_stroke_r),matmul(transpose(M3_r), &
-          rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
-          rot_r_alpha)))))
-
-  ! in the body coodrinate system
+  
   rot_body = matmul(M_body,matmul(transpose(M3_b),rot_b_gamma+ &
           matmul(transpose(M2_b),rot_b_beta+matmul(transpose(M1_b),rot_b_psi))))
 
+  ! wing angular velocities in the wing coordinate system
+  call angular_velocities ( time,&
+           phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r, &
+           phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l, &
+           eta_stroke, rot_l, rot_r )
+           
+  Insect%rot_l = rot_l
+  Insect%rot_r = rot_r
+  
+  !-----------------------------------------------------------------------------
+  ! angular acceleration for wings (required for inertial power)
+  !-----------------------------------------------------------------------------
+  call angular_accel( time, Insect%rot_dt_l, Insect%rot_dt_r )
+  
   !-----------------------------------------------------------------------------
   ! inverse of the rotation matrices
   !-----------------------------------------------------------------------------
@@ -174,6 +167,7 @@ subroutine Draw_Insect ( time )
   ! BODY
   !-------------------------------------------------------
   t1 = MPI_wtime()
+  if (Insect%BodyType /= "nobody") then
   do ix = ra(1), rb(1)
      do iy = ra(2), rb(2)
         do iz = ra(3), rb(3)
@@ -186,13 +180,14 @@ subroutine Draw_Insect ( time )
         enddo
      enddo
   enddo
+  endif
   time_insect_body = time_insect_body + MPI_wtime() - t1
   
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Eyes (not always present)
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  if (HasEye) then           
+  if (Insect%HasEye=="yes") then           
   do ix = ra(1), rb(1)
      do iy = ra(2), rb(2)
         do iz = ra(3), rb(3)
@@ -211,11 +206,11 @@ subroutine Draw_Insect ( time )
   endif
   time_insect_eye = time_insect_eye + MPI_wtime() - t1
   
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Head (not always present)
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  if (HasHead) then           
+  if (Insect%HasHead=="yes") then           
   do ix = ra(1), rb(1)
      do iy = ra(2), rb(2)
         do iz = ra(3), rb(3)
@@ -231,10 +226,10 @@ subroutine Draw_Insect ( time )
   endif
   time_insect_head = time_insect_head + MPI_wtime() - t1
   
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Wings (two subfunctions, for simple wings and those described
   ! by Fourier series)
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (fourier_wing) then
       do ix = ra(1), rb(1)
@@ -271,11 +266,11 @@ subroutine Draw_Insect ( time )
   endif
   time_insect_wings = time_insect_wings + MPI_wtime() - t1
   
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Add solid body rotation (i.e. the velocity field that originates
   ! from the body rotation and translation. Until now, the wing velocities
   ! were the only ones set plus they are in the body reference frame
-  !-------------------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   do ix = ra(1), rb(1)
      do iy = ra(2), rb(2)
@@ -551,3 +546,177 @@ subroutine aero_power(apowtotal)
    Insect%PartIntegrals(color_l)%APow + Insect%PartIntegrals(color_r)%APow
 
 end subroutine aero_power
+
+
+!-------------------------------------------------------------------------------
+! Compute interial power, i.e. the power the insect would have to invest
+! when flapping its wings in vacuum. 
+! OUTPUT: 
+!       ipowtotal: total inertial power
+!       Insect%PartIntegrals%IPow: (global): individual inertial power
+! INPUT: 
+!       Insect%rot_dt_l (global): left wing angular acceleration
+!       Insect%rot_dt_r (global): right wing angular acceleration
+! MATHEMATICS:
+!       P_inertia = omega*( J*omega_dt + omega \cross (J*omega) )
+!                 = omega*( a + omega \cross b ) 
+! SEE ALSO
+!       Berman, Wang: Energy minimizing kinematics in hovering insect flight 
+!       (JFM 582, 2007), eqn 2.22 (looks a bit different)
+!-------------------------------------------------------------------------------
+subroutine inert_power(ipowtotal)
+  use fsi_vars
+  use mpi
+  implicit none
+
+  real(kind=pr), intent(out) :: ipowtotal
+  real(kind=pr), dimension(1:3) :: a,b
+  integer(kind=2) :: color_body, color_l,color_r
+  
+  ! colors for Diptera (one body, two wings)
+  color_body = 1
+  color_l = 2
+  color_r = 3
+  
+  ! LEFT WING 
+  a(1) = Insect%Jxx * Insect%rot_dt_l(1) + Insect%Jxy * Insect%rot_dt_l(2)
+  a(2) = Insect%Jxy * Insect%rot_dt_l(1) + Insect%Jxx * Insect%rot_dt_l(2)
+  a(3) = Insect%Jzz * Insect%rot_dt_l(3)
+  
+  b(1) = Insect%Jxx * Insect%rot_l(1) + Insect%Jxy * Insect%rot_l(2)
+  b(2) = Insect%Jxy * Insect%rot_l(1) + Insect%Jxx * Insect%rot_l(2)
+  b(3) = Insect%Jzz * Insect%rot_l(3)
+  
+  Insect%PartIntegrals(color_l)%IPow = &
+    Insect%rot_l(1) * (a(1)+Insect%rot_l(2)*b(3)-Insect%rot_l(3)*b(2)) +&
+    Insect%rot_l(2) * (a(2)+Insect%rot_l(3)*b(1)-Insect%rot_l(1)*b(3)) +&
+    Insect%rot_l(3) * (a(3)+Insect%rot_l(1)*b(2)-Insect%rot_l(2)*b(1)) 
+    
+  ! RIGHT WING 
+  a(1) = Insect%Jxx * Insect%rot_dt_r(1) + Insect%Jxy * Insect%rot_dt_r(2)
+  a(2) = Insect%Jxy * Insect%rot_dt_r(1) + Insect%Jxx * Insect%rot_dt_r(2)
+  a(3) = Insect%Jzz * Insect%rot_dt_r(3)
+  
+  b(1) = Insect%Jxx * Insect%rot_r(1) + Insect%Jxy * Insect%rot_r(2)
+  b(2) = Insect%Jxy * Insect%rot_r(1) + Insect%Jxx * Insect%rot_r(2)
+  b(3) = Insect%Jzz * Insect%rot_r(3)
+  
+  Insect%PartIntegrals(color_r)%IPow = &
+    Insect%rot_r(1) * (a(1)+Insect%rot_r(2)*b(3)-Insect%rot_r(3)*b(2)) +&
+    Insect%rot_r(2) * (a(2)+Insect%rot_r(3)*b(1)-Insect%rot_r(1)*b(3)) +&
+    Insect%rot_r(3) * (a(3)+Insect%rot_r(1)*b(2)-Insect%rot_r(2)*b(1)) 
+  
+  ipowtotal = Insect%PartIntegrals(color_r)%IPow + Insect%PartIntegrals(color_l)%IPow
+  
+end subroutine inert_power
+
+
+!-------------------------------------------------------------------------------
+! given the angles of each wing (and their time derivatives), compute
+! the angular velocity vectors for both wings.
+! output rot_r, rot_l are understood in the WING coordinate system.
+!-------------------------------------------------------------------------------
+subroutine angular_velocities ( time,&
+           phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r, &
+           phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l, &
+           eta_stroke, rot_l, rot_r )
+  use fsi_vars
+  use mpi 
+  implicit none
+  
+  real(kind=pr), intent(in) :: time, eta_stroke
+  real(kind=pr), intent(in) :: phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r
+  real(kind=pr), intent(in) :: phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l
+  real(kind=pr), dimension(1:3), intent(out) :: rot_l, rot_r
+  
+  real(kind=pr), dimension(1:3) :: rot_l_alpha, rot_l_theta, rot_l_phi, &
+  rot_r_alpha, rot_r_theta, rot_r_phi
+  real(kind=pr), dimension(1:3,1:3) :: M_wing_l, M_wing_r, &
+  M1_tmp, M2_tmp, M1_l, M2_l, M3_l, M1_r, M2_r, M3_r, & 
+  M_stroke_l, M_stroke_r
+  
+  !-----------------------------------------------------------------------------
+  ! define the rotation matrices to change between coordinate systems
+  !-----------------------------------------------------------------------------
+  call Ry(M1_tmp,eta_stroke)
+  M_stroke_l = M1_tmp
+  
+  call Rx(M1_tmp,pi)
+  call Ry(M2_tmp,eta_stroke)  
+  M_stroke_r = matmul(M1_tmp,M2_tmp)
+
+  call Ry(M1_l,alpha_l)
+  call Rz(M2_l,theta_l)   ! Order changed (Dmitry, 7 Nov 2013)
+  call Rx(M3_l,phi_l)
+  M_wing_l = matmul(M1_l,matmul(M2_l,matmul(M3_l,M_stroke_l)))
+
+  ! note the coordinate system is rotated so we don't need to inverse the sign
+  ! of theta, and the wings still rotate in opposite direction
+  call Ry(M1_r,-alpha_r)
+  call Rz(M2_r,theta_r)   ! Order changed (Dmitry, 7 Nov 2013) 
+  call Rx(M3_r,-phi_r)
+  M_wing_r = matmul(M1_r,matmul(M2_r,matmul(M3_r,M_stroke_r)))
+  
+  !-----------------------------------------------------------------------------
+  ! angular velocity vectors
+  !-----------------------------------------------------------------------------
+  rot_l_alpha = (/ 0.0d0, alpha_dt_l, 0.0d0 /)
+  rot_l_theta = (/ 0.0d0, 0.0d0, theta_dt_l /) 
+  rot_l_phi   = (/ phi_dt_l, 0.0d0, 0.0d0   /)
+  rot_r_alpha = (/ 0.0d0, -alpha_dt_r, 0.0d0/)
+  rot_r_theta = (/ 0.0d0, 0.0d0, theta_dt_r /) 
+  rot_r_phi   = (/ -phi_dt_r, 0.0d0, 0.0d0  /)
+  
+  ! in the wing coordinate system
+  rot_l = matmul(M_wing_l,matmul(transpose(M_stroke_l),matmul(transpose(M3_l), &
+          rot_l_phi+matmul(transpose(M2_l),rot_l_theta+matmul(transpose(M1_l), &
+          rot_l_alpha)))))
+  rot_r = matmul(M_wing_r,matmul(transpose(M_stroke_r),matmul(transpose(M3_r), &
+          rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
+          rot_r_alpha)))))
+          
+end subroutine angular_velocities
+
+
+
+!-------------------------------------------------------------------------------
+! Numerically estimate (it's a very precise estimation) the angular acceleration
+! vectors for both wings, using centered finite differences
+!-------------------------------------------------------------------------------
+subroutine angular_accel( time, rot_dt_l, rot_dt_r )
+  use fsi_vars
+  use mpi 
+  implicit none
+  real(kind=pr), intent(in) :: time
+  real(kind=pr), dimension(1:3), intent(out) :: rot_dt_l, rot_dt_r
+  
+  real(kind=pr) :: dt
+  real(kind=pr), dimension(1:3) :: rot_l_1, rot_l_2, rot_r_1, rot_r_2
+  real(kind=pr) :: eta_stroke
+  real(kind=pr) :: phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r
+  real(kind=pr) :: phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l
+  
+  dt =1.0d-7
+  
+  ! fetch motion state at time+dt
+  call FlappingMotion_right(time+dt, phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r )
+  call FlappingMotion_left (time+dt, phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l )  
+  call StrokePlane (time+dt, eta_stroke)
+  call angular_velocities ( time+dt,&
+           phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r, &
+           phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l, &
+           eta_stroke, rot_l_2, rot_r_2 ) 
+           
+  ! fetch motion state at time-dt
+  call FlappingMotion_right(time-dt, phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r )
+  call FlappingMotion_left (time-dt, phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l )  
+  call StrokePlane (time-dt, eta_stroke)
+  call angular_velocities ( time+dt,&
+           phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r, &
+           phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l, &
+           eta_stroke, rot_l_1, rot_r_1 )          
+  
+  ! use centered finite differences
+  rot_dt_l = (rot_l_2 - rot_l_1)/(2.d0*dt)
+  rot_dt_r = (rot_r_2 - rot_r_1)/(2.d0*dt)
+end subroutine angular_accel

@@ -183,6 +183,7 @@ module fsi_vars
      real(kind=pr) :: Divergence
      real(kind=pr) :: Volume
      real(kind=pr) :: APow
+     real(kind=pr) :: IPow
      real(kind=pr),dimension(1:3) :: Force
      real(kind=pr),dimension(1:3) :: Force_unst
      real(kind=pr),dimension(1:3) :: Torque
@@ -225,6 +226,10 @@ module fsi_vars
     ! Vector from body centre to left/right pivot point in global reference
     ! frame 
     real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob    
+    ! angular acceleration vectors (for the wings, required for inertial power)
+    real(kind=pr), dimension(1:3) :: rot_dt_l, rot_dt_r
+    ! angular velocity vectors (for the wings, required for inertial power)
+    real(kind=pr), dimension(1:3) :: rot_l, rot_r
     ! Stroke angle
     real(kind=pr) :: eta_stroke
     ! wing inertia 

@@ -23,7 +23,7 @@ subroutine cal_drag ( time, u )
   
   integer :: ix,iy,iz,mpicode
   integer(kind=2) :: color
-  real(kind=pr) :: penalx,penaly,penalz,xlev,ylev,zlev,apowtotal
+  real(kind=pr) :: penalx,penaly,penalz,xlev,ylev,zlev,apowtotal,ipowtotal
   ! we can choose up to 6 different colors
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
   real(kind=pr) :: torquex0,torquey0,torquez0
@@ -148,7 +148,10 @@ subroutine cal_drag ( time, u )
   endif
  
   ! compute aerodynamic power
-  if (iMask=="Insect") call aero_power(apowtotal)
+  if (iMask=="Insect") then
+    call aero_power (apowtotal)
+    call inert_power(ipowtotal)
+  endif
   
   !---------------------------------------------------------------------------
   ! write time series to disk
@@ -159,17 +162,18 @@ subroutine cal_drag ( time, u )
     if (iMask=="Insect") then
       ! Aerodynamic power is only computed for insects
       open(14,file='forces.t',status='unknown',position='append')
-      write (14,'(14(e12.5,1x))') time, GlobalIntegrals%Force, &
+      write (14,'(15(e12.5,1x))') time, GlobalIntegrals%Force, &
         GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
-        GlobalIntegrals%Torque_unst, apowtotal
+        GlobalIntegrals%Torque_unst, apowtotal, ipowtotal
       close(14)
       ! currently, only insects have different colors
       do color=1,3
         write (forcepartfilename, "(A11,I1,A2)") "forces_part", color, ".t"
         open(14,file=trim(forcepartfilename),status='unknown',position='append')
-        write (14,'(14(e12.5,1x))') time, Insect%PartIntegrals(color)%Force, &
+        write (14,'(15(e12.5,1x))') time, Insect%PartIntegrals(color)%Force, &
           Insect%PartIntegrals(color)%Force_unst, Insect%PartIntegrals(color)%Torque, &
-          Insect%PartIntegrals(color)%Torque_unst, Insect%PartIntegrals(color)%APow
+          Insect%PartIntegrals(color)%Torque_unst, Insect%PartIntegrals(color)%APow,&
+          Insect%PartIntegrals(color)%IPow
         close(14)
       enddo
     else    
