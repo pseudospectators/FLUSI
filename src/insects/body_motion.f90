@@ -45,7 +45,17 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     gamma_dt = 0.d0
     xc = (/0.5*xl, 0.5*yl,0.5*zl/)
     vc = (/0.0, 0.0, 0.0/)
-  
+
+  case ("x0y0z0")
+    psi      = 0.0
+    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
+    gamma    = 0.0
+    psi_dt   = 0.0
+    beta_dt  = 0.0
+    gamma_dt = 0.0
+
+    xc = (/x0, y0, z0/)
+    vc = (/0.0d0, 0.0d0, 0.0d0/)
   
   case ("wheeling")
     T = 20.0 ! time to do one turn    
