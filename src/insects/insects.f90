@@ -592,11 +592,11 @@ subroutine inert_power(ipowtotal)
   
   !-- LEFT WING 
   a(1) = Insect%Jxx * Insect%rot_dt_l(1) + Insect%Jxy * Insect%rot_dt_l(2)
-  a(2) = Insect%Jxy * Insect%rot_dt_l(1) + Insect%Jxx * Insect%rot_dt_l(2)
+  a(2) = Insect%Jxy * Insect%rot_dt_l(1) + Insect%Jyy * Insect%rot_dt_l(2)
   a(3) = Insect%Jzz * Insect%rot_dt_l(3)
   
   b(1) = Insect%Jxx * Insect%rot_l(1) + Insect%Jxy * Insect%rot_l(2)
-  b(2) = Insect%Jxy * Insect%rot_l(1) + Insect%Jxx * Insect%rot_l(2)
+  b(2) = Insect%Jxy * Insect%rot_l(1) + Insect%Jyy * Insect%rot_l(2)
   b(3) = Insect%Jzz * Insect%rot_l(3)
   
   Insect%PartIntegrals(color_l)%IPow = &
@@ -606,11 +606,11 @@ subroutine inert_power(ipowtotal)
     
   !-- RIGHT WING 
   a(1) = Insect%Jxx * Insect%rot_dt_r(1) + Insect%Jxy * Insect%rot_dt_r(2)
-  a(2) = Insect%Jxy * Insect%rot_dt_r(1) + Insect%Jxx * Insect%rot_dt_r(2)
+  a(2) = Insect%Jxy * Insect%rot_dt_r(1) + Insect%Jyy * Insect%rot_dt_r(2)
   a(3) = Insect%Jzz * Insect%rot_dt_r(3)
   
   b(1) = Insect%Jxx * Insect%rot_r(1) + Insect%Jxy * Insect%rot_r(2)
-  b(2) = Insect%Jxy * Insect%rot_r(1) + Insect%Jxx * Insect%rot_r(2)
+  b(2) = Insect%Jxy * Insect%rot_r(1) + Insect%Jyy * Insect%rot_r(2)
   b(3) = Insect%Jzz * Insect%rot_r(3)
   
   Insect%PartIntegrals(color_r)%IPow = &
