@@ -161,7 +161,7 @@ subroutine Draw_Insect ( time )
   counter = counter + 1
   if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
     open  (17,file='kinematics.t',status='unknown',position='append')
-    write (17,'(26(es12.5,1x))') time, xc_body, psi, beta, gamma, eta_stroke, &
+    write (17,'(26(es15.8,1x))') time, xc_body, psi, beta, gamma, eta_stroke, &
         alpha_l, phi_l, theta_l, alpha_r, phi_r, theta_r, rot_l, rot_r, &
         Insect%rot_dt_l, Insect%rot_dt_r
     close (17)
@@ -564,9 +564,14 @@ end subroutine aero_power
 ! INPUT: 
 !       Insect%rot_dt_l (global): left wing angular acceleration
 !       Insect%rot_dt_r (global): right wing angular acceleration
+!       Insect%Jxx,Jyy,Jxy,Jzz (global) Wing inertia
 ! MATHEMATICS:
 !       P_inertia = omega*( J*omega_dt + omega \cross (J*omega) )
 !                 = omega*( a + omega \cross b ) 
+!       The interia tensor is (it is specified in the PARAMS file)
+!           / Jxx Jxy 0   \
+!       J = | Jxy Jyy 0   |
+!           \ 0   0   Jzz /
 ! SEE ALSO
 !       Berman, Wang: Energy minimizing kinematics in hovering insect flight 
 !       (JFM 582, 2007), eqn 2.22 (looks a bit different)
@@ -580,12 +585,12 @@ subroutine inert_power(ipowtotal)
   real(kind=pr), dimension(1:3) :: a,b
   integer(kind=2) :: color_body, color_l,color_r
   
-  ! colors for Diptera (one body, two wings)
+  !-- colors for Diptera (one body, two wings)
   color_body = 1
   color_l = 2
   color_r = 3
   
-  ! LEFT WING 
+  !-- LEFT WING 
   a(1) = Insect%Jxx * Insect%rot_dt_l(1) + Insect%Jxy * Insect%rot_dt_l(2)
   a(2) = Insect%Jxy * Insect%rot_dt_l(1) + Insect%Jxx * Insect%rot_dt_l(2)
   a(3) = Insect%Jzz * Insect%rot_dt_l(3)
@@ -599,7 +604,7 @@ subroutine inert_power(ipowtotal)
     Insect%rot_l(2) * (a(2)+Insect%rot_l(3)*b(1)-Insect%rot_l(1)*b(3)) +&
     Insect%rot_l(3) * (a(3)+Insect%rot_l(1)*b(2)-Insect%rot_l(2)*b(1)) 
     
-  ! RIGHT WING 
+  !-- RIGHT WING 
   a(1) = Insect%Jxx * Insect%rot_dt_r(1) + Insect%Jxy * Insect%rot_dt_r(2)
   a(2) = Insect%Jxy * Insect%rot_dt_r(1) + Insect%Jxx * Insect%rot_dt_r(2)
   a(3) = Insect%Jzz * Insect%rot_dt_r(3)

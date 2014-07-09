@@ -162,7 +162,7 @@ subroutine cal_drag ( time, u )
     if (iMask=="Insect") then
       ! Aerodynamic power is only computed for insects
       open(14,file='forces.t',status='unknown',position='append')
-      write (14,'(15(e12.5,1x))') time, GlobalIntegrals%Force, &
+      write (14,'(15(es15.8,1x))') time, GlobalIntegrals%Force, &
         GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
         GlobalIntegrals%Torque_unst, apowtotal, ipowtotal
       close(14)
@@ -170,7 +170,7 @@ subroutine cal_drag ( time, u )
       do color=1,3
         write (forcepartfilename, "(A11,I1,A2)") "forces_part", color, ".t"
         open(14,file=trim(forcepartfilename),status='unknown',position='append')
-        write (14,'(15(e12.5,1x))') time, Insect%PartIntegrals(color)%Force, &
+        write (14,'(15(es15.8,1x))') time, Insect%PartIntegrals(color)%Force, &
           Insect%PartIntegrals(color)%Force_unst, Insect%PartIntegrals(color)%Torque, &
           Insect%PartIntegrals(color)%Torque_unst, Insect%PartIntegrals(color)%APow,&
           Insect%PartIntegrals(color)%IPow
@@ -179,7 +179,7 @@ subroutine cal_drag ( time, u )
     else    
       ! Not an insect, we have only one part of the force
       open(14,file='forces.t',status='unknown',position='append')
-      write (14,'(13(e12.5,1x))') time, GlobalIntegrals%Force, &
+      write (14,'(13(es15.8,1x))') time, GlobalIntegrals%Force, &
       GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
       GlobalIntegrals%Torque_unst
       close(14)

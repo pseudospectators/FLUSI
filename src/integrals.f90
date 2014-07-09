@@ -59,7 +59,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
   maxdiv_fluid = fieldmax(work1*(1.d0-mask*eps))
   if(mpirank == 0) then
      open(14,file='divu.t',status='unknown',position='append')
-     write (14,'(4(e12.5,1x))') time,maxdiv,maxdiv_fluid
+     write (14,'(4(es15.8,1x))') time,maxdiv,maxdiv_fluid
      close(14)
   endif
 
@@ -69,7 +69,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
   if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
      ! This is done only by one CPU
      open  (14,file='meanflow.t',status='unknown',position='append')
-     write (14,'(4(es12.5,1x))') time, dreal(uk(0,0,0,1:3))
+     write (14,'(4(es15.8,1x))') time, dreal(uk(0,0,0,1:3))
      close (14)
   endif
 

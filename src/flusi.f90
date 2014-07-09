@@ -308,63 +308,69 @@ end subroutine show_timings
 subroutine initialize_time_series_files()
   use fsi_vars
   implicit none
-  tab = char(9) ! set horizontal tab character 
   
   ! For insect wing/body forces
   if (iMask=='Insect') then
   open  (14,file='forces.t',status='replace')
-    write (14,'(27A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst",tab,&
-                      "Aero_Power"
+    write (14,'(15(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+                      "Forcex_unst","Forcey_unst","Forcez_unst",&
+                      "Momentx","Momenty","Momentz",&
+                      "Momentx_unst","Momenty_unst","Momentz_unst",&
+                      "Aero_Power", "Inert power"
     close (14)
     open  (14,file='forces_part1.t',status='replace')
-    write (14,'(27A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst",tab,&
-                      "Aero_Power"
+    write (14,'(15(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+                      "Forcex_unst","Forcey_unst","Forcez_unst",&
+                      "Momentx","Momenty","Momentz",&
+                      "Momentx_unst","Momenty_unst","Momentz_unst",&
+                      "Aero_Power", "Inert power"
     close (14)
     open  (14,file='forces_part2.t',status='replace')
-    write (14,'(27A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst",tab,&
-                      "Aero_Power"
+    write (14,'(15(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+                      "Forcex_unst","Forcey_unst","Forcez_unst",&
+                      "Momentx","Momenty","Momentz",&
+                      "Momentx_unst","Momenty_unst","Momentz_unst",&
+                      "Aero_Power", "Inert power"
     close (14)
     open  (14,file='forces_part3.t',status='replace')
-    write (14,'(27A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst",tab,&
-                      "Aero_Power"
+    write (14,'(15(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+                      "Forcex_unst","Forcey_unst","Forcez_unst",&
+                      "Momentx","Momenty","Momentz",&
+                      "Momentx_unst","Momenty_unst","Momentz_unst",&
+                      "Aero_Power", "Inert power"
     close (14)
     open  (14,file='kinematics.t',status='replace')
-    write (14,'(27A)') "% time",tab,"xc_body",tab,"yc_body",tab,"zc_body",tab,&
-                      "psi",tab,"beta",tab,"gamma",tab,"eta_stroke",tab,&
-                      "alpha_l",tab,"phi_l",tab,"theta_l",tab,&
-                      "alpha_r",tab,"phi_r",tab,"theta_r"
+    write (14,'(26(A15,1x))') "% time","xc_body","yc_body","zc_body",&
+                      "psi","beta","gamma","eta_stroke",&
+                      "alpha_l","phi_l","theta_l",&
+                      "alpha_r","phi_r","theta_r",&
+                      "rot_l_x","rot_l_y","rot_l_z",&
+                      "rot_r_x","rot_r_y","rot_r_z",&
+                      "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
+                      "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+                      
     close (14)
   ! If this is not an insect
   else 
     open  (14,file='forces.t',status='replace')
-    write (14,'(25A)') "% time",tab,"Forcex",tab,"Forcey",tab,"Forcez",tab,&
-                      "Forcex_unst",tab,"Forcey_unst",tab,"Forcez_unst",tab,&
-                      "Momentx",tab,"Momenty",tab,"Momentz",tab,&
-                      "Momentx_unst",tab,"Momenty_unst",tab,"Momentz_unst"
+    write (14,'(13(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+                      "Forcex_unst","Forcey_unst","Forcez_unst",&
+                      "Momentx","Momenty","Momentz",&
+                      "Momentx_unst","Momenty_unst","Momentz_unst"
     close (14)
   endif    
 
   open  (14,file='divu.t',status='replace')
-  write (14,'(13A)') "% time",tab,"max(divu)",tab
+  write (14,'(3(A15,1x))') "% time","max_div","max_div_fluid"
   close (14)
   
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
+  write (14,'(4(A15,1x))') "% time","#it","dt","avg sec per dt"
   close (14)    
   
   open  (14,file='meanflow.t',status='replace')
+  write (14,'(4(A15,1x))') "% time","mean_ux","mean_uy","mean_uz"
   close (14)  
   
 end subroutine
