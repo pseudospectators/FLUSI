@@ -56,8 +56,9 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
   character (len=*), intent(in) :: protocoll
   real(kind=pr) :: phi_max,alpha_max, phase,f
-  real(kind=pr) :: ai_phi(1:10), bi_phi(1:10), ai_theta(1:10), bi_theta(1:10)
-  real(kind=pr) :: ai_alpha(1:10), bi_alpha(1:10)
+  real(kind=pr), allocatable :: ai_phi(:), bi_phi(:)
+  real(kind=pr), allocatable :: ai_theta(:), bi_theta(:)
+  real(kind=pr), allocatable :: ai_alpha(:), bi_alpha(:)
   real(kind=pr) :: bi_alpha_flapper(1:29) ! For comparison with Sane&Dickinson
   real(kind=pr) :: ai_phi_flapper(1:31) ! For comparison with Sane&Dickinson
   real(kind=pr) :: tadv,t0adv ! For comparison with Dickinson, Ramamurti
@@ -68,18 +69,119 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr) :: a0_alpha, a0_phi, a0_theta, s,c
   real(kind=pr) :: phicdeg
   real(kind=pr) :: alphacdeg
-  integer :: i
+  integer :: i, nfft_phi, nfft_alpha, nfft_theta, mpicode
+  character(len=strlen) :: dummy
+  
+  interface
+    subroutine fseries_eval(time,u,u_dt,a0,ai,bi)
+    use fsi_vars
+    real(kind=pr), intent(in) :: a0, time
+    real(kind=pr), intent(in), dimension(:) :: ai,bi
+    real(kind=pr), intent(out) :: u, u_dt
+    end subroutine fseries_eval
+  end interface
+  
   
   select case ( protocoll )
+  case ("from_file")
+    !---------------------------------------------------------------------------
+    ! Load kinematics for one stroke from file. This can be applied for example
+    ! in hovering. if the wing motion varies appreciably between strokes,
+    ! the kinematic loader is the method of choice. The file is specified
+    ! in the params file and stored in Insect%infile
+    !---------------------------------------------------------------------------
+    call check_file_exists( Insect%infile )
+    ! learn how many Fourier coefficients to expect
+    if (mpirank==0) then
+      open(37, file=Insect%infile, form='formatted', status='old')
+      read(37,*) nfft_phi
+      read(37,*) nfft_alpha
+      read(37,*) nfft_theta
+      write(*,'("Reading kinematics: nfft_phi=",i2," nfft_alpha=",i2," nfft_theta=",i2)')&
+        nfft_phi, nfft_alpha, nfft_theta
+    endif
+    ! BCAST nfft to all procs
+    call MPI_BCAST( nfft_phi,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( nfft_alpha,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( nfft_theta,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+    
+    ! allocate fourier coefficent arrays
+    allocate ( ai_phi(1:nfft_phi), bi_phi(1:nfft_phi) ) 
+    allocate ( ai_alpha(1:nfft_alpha), bi_alpha(1:nfft_alpha) )
+    allocate ( ai_theta(1:nfft_theta), bi_theta(1:nfft_theta) )
+    
+    ! read coefficients
+    if (mpirank==0) then
+      read(37,*) dummy
+      read(37,*) dummy
+      read(37,*) a0_phi
+      read(37,*) dummy
+      read(37,*) ai_phi
+      read(37,*) dummy
+      read(37,*) bi_phi
+
+      read(37,*) dummy
+      read(37,*) dummy
+      read(37,*) a0_alpha
+      read(37,*) dummy
+      read(37,*) ai_alpha
+      read(37,*) dummy
+      read(37,*) bi_alpha
+
+      read(37,*) dummy
+      read(37,*) dummy
+      read(37,*) a0_theta
+      read(37,*) dummy
+      read(37,*) ai_theta
+      read(37,*) dummy
+      read(37,*) bi_theta
+
+      close(37)
+    endif
+    
+    call MPI_BCAST( a0_phi,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( ai_phi,nfft_phi,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( bi_phi,nfft_phi,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+  
+    call MPI_BCAST( a0_alpha,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( ai_alpha,nfft_alpha,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( bi_alpha,nfft_alpha,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    
+    call MPI_BCAST( a0_theta,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( ai_theta,nfft_theta,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( bi_theta,nfft_theta,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    
+    call fseries_eval(time,phi,phi_dt,a0_phi,ai_phi,bi_phi)
+    call fseries_eval(time,alpha,alpha_dt,a0_alpha,ai_alpha,bi_alpha)
+    call fseries_eval(time,theta,theta_dt,a0_theta,ai_theta,bi_theta)
+    
+    phi =  deg2rad(phi)
+    alpha = deg2rad(alpha)
+    theta = deg2rad(theta)
+    
+    phi_dt = deg2rad(phi_dt)
+    alpha_dt = deg2rad(alpha_dt)
+    theta_dt = deg2rad(theta_dt)
+    
+    deallocate (ai_phi, bi_phi, ai_theta, bi_theta, ai_alpha, bi_alpha )
+    
   case ("Drosophila_hovering_fry")
     !---------------------------------------------------------------------------
     ! motion protocoll digitalized from Fry et al JEB 208, 2303-2318 (2005)
     !
     ! fourier coefficients analyzed with matlab
     !---------------------------------------------------------------------------
+    nfft_alpha = 10
+    nfft_theta = 10
+    nfft_phi   = 10
+    allocate ( ai_phi(1:nfft_phi), bi_phi(1:nfft_phi) ) 
+    allocate ( ai_alpha(1:nfft_alpha), bi_alpha(1:nfft_alpha) )
+    allocate ( ai_theta(1:nfft_theta), bi_theta(1:nfft_theta) )
+    
     a0_phi   =25.4649398
     a0_alpha =-0.3056968
     a0_theta =-17.8244658  ! - sign (Dmitry, 10 Nov 2013)
+    
     ai_phi   =(/71.1061858,2.1685448,-0.1986978,0.6095268,-0.0311298,&
                -0.1255648,-0.0867778,0.0543518,0.0,0.0/)
     bi_phi   =(/5.4547058,-3.5461688,0.6260698,0.1573728,-0.0360498,-0.0205348,&
@@ -93,32 +195,9 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     bi_theta =(/-2.2839398,-3.5213068,1.9296668,-1.0832488,-0.3011748,0.1786648,&
                -0.1228608,0.0004808,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
     
-    ! mean values
-    phi = a0_phi/2.0
-    alpha = a0_alpha/2.0
-    theta = a0_theta/2.0
-    
-    phi_dt = 0.0
-    alpha_dt = 0.0
-    theta_dt = 0.0
-    
-    ! frequency
-    f = 2.d0*pi
-    
-    ! Fourier series
-    do i=1,10
-      ! allows the spaces I like with the 80 columns malcolm likes :)
-      s = dsin(f*dble(i)*time) 
-      c = dcos(f*dble(i)*time)
-      phi   = phi   + ai_phi(i)   * c + bi_phi(i)   * s
-      theta = theta + ai_theta(i) * c + bi_theta(i) * s
-      alpha = alpha + ai_alpha(i) * c + bi_alpha(i) * s
-      
-      ! you checked this in matlab, it is correct.
-      phi_dt   = phi_dt   + f*dble(i)*(-ai_phi(i)   * s + bi_phi(i)   * c)
-      theta_dt = theta_dt + f*dble(i)*(-ai_theta(i) * s + bi_theta(i) * c)
-      alpha_dt = alpha_dt + f*dble(i)*(-ai_alpha(i) * s + bi_alpha(i) * c)
-    enddo
+    call fseries_eval(time,phi,phi_dt,a0_phi,ai_phi,bi_phi)
+    call fseries_eval(time,alpha,alpha_dt,a0_alpha,ai_alpha,bi_alpha)
+    call fseries_eval(time,theta,theta_dt,a0_theta,ai_theta,bi_theta)
     
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
@@ -127,12 +206,8 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
-
-!    if(mpirank == 0) then
-!    open(14,file='motion.t',status='unknown',position='append')
-!    write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-!    close(14)
-!    endif
+    
+    deallocate (ai_phi, bi_phi, ai_theta, bi_theta, ai_alpha, bi_alpha )
 
   case ("Drosophila_hovering_sun")
     !---------------------------------------------------------------------------
@@ -140,6 +215,13 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     ! Fourier coefficients analyzed with matlab
     ! Note that it begins with UPSTROKE, unlike Fry's kinematics
     !---------------------------------------------------------------------------
+    nfft_alpha = 10
+    nfft_theta = 10
+    nfft_phi   = 10
+    allocate ( ai_phi(1:nfft_phi), bi_phi(1:nfft_phi) ) 
+    allocate ( ai_alpha(1:nfft_alpha), bi_alpha(1:nfft_alpha) )
+    allocate ( ai_theta(1:nfft_theta), bi_theta(1:nfft_theta) )
+    
     a0_phi   =38.2280144124915
     a0_alpha =1.09156750841542
     a0_theta =-17.0396438317138
@@ -168,30 +250,9 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
                 -0.0940160961803885,-0.0563224030429001,0.0533369476976694,&
                0.0507212428142968/)
     
-    ! mean values
-    phi = a0_phi/2.0
-    alpha = a0_alpha/2.0
-    theta = a0_theta/2.0
-    
-    phi_dt = 0.0
-    alpha_dt = 0.0
-    theta_dt = 0.0
-    
-    ! frequency
-    f = 2.d0*pi
-    
-    ! Fourier series
-    do i=1,10
-      s = dsin(f*dble(i)*time) 
-      c = dcos(f*dble(i)*time)
-      phi   = phi   + ai_phi(i)   * c + bi_phi(i)   * s
-      theta = theta + ai_theta(i) * c + bi_theta(i) * s
-      alpha = alpha + ai_alpha(i) * c + bi_alpha(i) * s
-      
-      phi_dt   = phi_dt   + f*dble(i)*(-ai_phi(i)   * s + bi_phi(i)   * c)
-      theta_dt = theta_dt + f*dble(i)*(-ai_theta(i) * s + bi_theta(i) * c)
-      alpha_dt = alpha_dt + f*dble(i)*(-ai_alpha(i) * s + bi_alpha(i) * c)
-    enddo
+    call fseries_eval(time,phi,phi_dt,a0_phi,ai_phi,bi_phi)
+    call fseries_eval(time,alpha,alpha_dt,a0_alpha,ai_alpha,bi_alpha)
+    call fseries_eval(time,theta,theta_dt,a0_theta,ai_theta,bi_theta)
     
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
@@ -200,6 +261,8 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
+    
+    deallocate (ai_phi, bi_phi, ai_theta, bi_theta, ai_alpha, bi_alpha )
 
   case ("Drosophila_hovering_maeda")
     !---------------------------------------------------------------------------
@@ -383,13 +446,6 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     theta = 0.0d0
     theta_dt = 0.0d0
 
-
-    !if(mpirank == 0) then
-    !open(14,file='motion.t',status='unknown',position='append')
-    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-    !close(14)
-    !endif
-    
   case ("flapper_dickinson")
     !---------------------------------------------------------------------------
     ! motion protocol from Dickinson, Lehmann and Sane, Science (1999)
@@ -483,12 +539,6 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     ! *** III. elevation ***
     theta = 0.0d0
     theta_dt = 0.0d0
-
-    !if(mpirank == 0) then
-    !open(14,file='motion.t',status='unknown',position='append')
-    !write (14,'(7(e12.5,1x))') time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt
-    !close(14)
-    !endif
 
   case ("flapper_ramamurti")
     !---------------------------------------------------------------------------
@@ -656,3 +706,35 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   end select
   
 end subroutine FlappingMotion
+
+!-------------------------------------------------------------------------------
+! evaluate a fourier series given by the coefficents a0,ai,bi
+! at the time "time", return the function value "u" and its
+! time derivative "u_dt". Uses assumed-shaped arrays, requires an interface.
+!-------------------------------------------------------------------------------
+subroutine fseries_eval(time,u,u_dt,a0,ai,bi)
+  use fsi_vars
+  implicit none
+  
+  real(kind=pr), intent(in) :: a0, time
+  real(kind=pr), intent(in), dimension(:) :: ai,bi
+  real(kind=pr), intent(out) :: u, u_dt
+  real(kind=pr) :: c,s,f
+  integer :: nfft, i
+  
+  nfft=size(ai)
+  
+  ! frequency factor
+  f = 2.d0*pi
+
+  u = 0.5d0*a0  
+  u_dt = 0.d0
+  
+  do i=1,nfft
+      ! allows the spaces I like with the 80 columns malcolm likes :)
+      s = dsin(f*dble(i)*time) 
+      c = dcos(f*dble(i)*time)
+      u    = u + ai(i)*c + bi(i)*s
+      u_dt = u_dt + f*dble(i)*(-ai(i)*s + bi(i)*c)
+    enddo
+end subroutine fseries_eval

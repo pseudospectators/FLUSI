@@ -194,7 +194,7 @@ module fsi_vars
   type InsectParams ! documentation see insect.f90
     character(len=strlen) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
     character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
-    character(len=strlen) :: KineFromFile
+    character(len=strlen) :: KineFromFile, infile
     ! parameters for body:
     real(kind=pr) :: L_body, b_body, R_head, R_eye
     ! parameters for wing shape:
@@ -218,6 +218,7 @@ module fsi_vars
     real(kind=pr) :: a0
     real(kind=pr) :: xc,yc ! describes the origin of the wings system
     real(kind=pr), allocatable, dimension(:) :: R0
+    ! number of fft coefficients for wing geometry
     integer :: n_fft
     ! Angular velocities of wings and body
     real(kind=pr), dimension(1:3) :: rot_body_glob, rot_l_glob, rot_r_glob

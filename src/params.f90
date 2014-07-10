@@ -271,13 +271,12 @@ subroutine get_params_fsi(PARAMS,i)
   call GetValue_Real(PARAMS,i,"Insects","L_span",Insect%L_span, 0.d0) 
   
   ! for string parameters, set the default in the first place
-  Insect%FlappingMotion_right="none"
   call GetValue_String(PARAMS,i,"Insects","FlappingMotion_right",&
-       Insect%FlappingMotion_right,Insect%FlappingMotion_right)
-       
-  Insect%FlappingMotion_left="none"
+       Insect%FlappingMotion_right,"none")       
   call GetValue_String(PARAMS,i,"Insects","FlappingMotion_left",&
-       Insect%FlappingMotion_left,Insect%FlappingMotion_left)
+       Insect%FlappingMotion_left,"none")       
+  call GetValue_String(PARAMS,i,"Insects","infile",&
+       Insect%infile,"none.in")
        
   Insect%BodyType="ellipsoid"
   call GetValue_String(PARAMS,i,"Insects","BodyType",&
