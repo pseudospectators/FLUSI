@@ -281,18 +281,16 @@ subroutine get_params_fsi(PARAMS,i)
   Insect%BodyType="ellipsoid"
   call GetValue_String(PARAMS,i,"Insects","BodyType",&
        Insect%BodyType,Insect%BodyType)  
-       
-  Insect%HasEye="yes"
   call GetValue_String(PARAMS,i,"Insects","HasEye",&
-       Insect%HasEye,Insect%HasEye)
-       
-  Insect%HasHead="yes"
+       Insect%HasEye,"yes")
   call GetValue_String(PARAMS,i,"Insects","HasHead",&
-       Insect%HasHead,Insect%HasHead)    
-       
-  Insect%BodyMotion="yes"
+       Insect%HasHead,"yes")
   call GetValue_String(PARAMS,i,"Insects","BodyMotion",&
-       Insect%BodyMotion,Insect%BodyMotion)        
+       Insect%BodyMotion,"yes")        
+  call GetValue_String(PARAMS,i,"Insects","LeftWing",&
+       Insect%LeftWing,"yes")        
+  call GetValue_String(PARAMS,i,"Insects","RightWing",&
+       Insect%RightWing,"yes")   
        
   call GetValue_Real(PARAMS,i,"Insects","b_body",Insect%b_body, 0.1d0) 
   call GetValue_Real(PARAMS,i,"Insects","L_body",Insect%L_body, 1.d0)

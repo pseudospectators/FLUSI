@@ -239,22 +239,21 @@ subroutine Draw_Insect ( time )
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (fourier_wing) then
+    if (Insect%RightWing=="yes") then
       do ix = ra(1), rb(1)
         do iy = ra(2), rb(2)
             do iz = ra(3), rb(3)
               !-- define the various coordinate systems we are going to use
               x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
               x_body   = matmul(M_body,x-xc_body)
-              x_wing_l = matmul(M_wing_l,x_body-xc_pivot_l)
               x_wing_r = matmul(M_wing_r,x_body-xc_pivot_r)
-              
               !-- call wing subroutines
-              call DrawWing_Fourier(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
               call DrawWing_Fourier(ix,iy,iz,x_wing_r,M_wing_r,rot_r,color_r)
             enddo
         enddo
       enddo  
-  else
+    endif
+    if (Insect%LeftWing=="yes") then
       do ix = ra(1), rb(1)
         do iy = ra(2), rb(2)
             do iz = ra(3), rb(3)
@@ -262,14 +261,41 @@ subroutine Draw_Insect ( time )
               x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
               x_body   = matmul(M_body,x-xc_body)
               x_wing_l = matmul(M_wing_l,x_body-xc_pivot_l)
-              x_wing_r = matmul(M_wing_r,x_body-xc_pivot_r)
-              
               !-- call wing subroutines
-              call DrawWing_simple(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
+              call DrawWing_Fourier(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
+            enddo
+        enddo
+      enddo  
+    endif
+  else
+    if (Insect%RightWing=="yes") then
+      do ix = ra(1), rb(1)
+        do iy = ra(2), rb(2)
+            do iz = ra(3), rb(3)
+              !-- define the various coordinate systems we are going to use
+              x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+              x_body   = matmul(M_body,x-xc_body)
+              x_wing_r = matmul(M_wing_r,x_body-xc_pivot_r)
+              !-- call wing subroutines
               call DrawWing_simple(ix,iy,iz,x_wing_r,M_wing_r,rot_r,color_r)
             enddo
         enddo
-      enddo   
+      enddo  
+    endif
+    if (Insect%LeftWing=="yes") then
+      do ix = ra(1), rb(1)
+        do iy = ra(2), rb(2)
+            do iz = ra(3), rb(3)
+              !-- define the various coordinate systems we are going to use
+              x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+              x_body   = matmul(M_body,x-xc_body)
+              x_wing_l = matmul(M_wing_l,x_body-xc_pivot_l)
+              !-- call wing subroutines
+              call DrawWing_simple(ix,iy,iz,x_wing_l,M_wing_l,rot_l,color_l)
+            enddo
+        enddo
+      enddo  
+    endif
   endif
   time_insect_wings = time_insect_wings + MPI_wtime() - t1
   
