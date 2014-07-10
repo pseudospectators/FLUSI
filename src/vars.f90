@@ -217,6 +217,7 @@ module fsi_vars
     real(kind=pr), allocatable, dimension(:) :: ai,bi
     real(kind=pr) :: a0
     real(kind=pr) :: xc,yc ! describes the origin of the wings system
+    ! fill the R0(theta) array once, then only table-lookup instead of Fseries
     real(kind=pr), allocatable, dimension(:) :: R0
     ! number of fft coefficients for wing geometry
     integer :: n_fft
@@ -235,6 +236,11 @@ module fsi_vars
     real(kind=pr) :: eta_stroke
     ! wing inertia 
     real(kind=pr) :: Jxx,Jyy,Jzz,Jxy
+    ! wing kinematics Fourier coefficients
+    real(kind=pr) :: a0_alpha, a0_phi, a0_theta
+    integer ::  nfft_phi, nfft_alpha, nfft_theta
+    real(kind=pr), allocatable, dimension(:) :: ai_phi, bi_phi, ai_theta,&
+      bi_theta, ai_alpha, bi_alpha
   end type InsectParams  
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver

@@ -229,6 +229,7 @@ subroutine Start_Simulation()
   deallocate(mask_color)
   ! Clean kinematics (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") call load_kine_clean
+  if (iMask=="Insect") call insect_clean
   
   call init_empty_file("success")
   

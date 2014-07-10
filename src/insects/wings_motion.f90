@@ -56,9 +56,6 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
   character (len=*), intent(in) :: protocoll
   real(kind=pr) :: phi_max,alpha_max, phase,f
-  real(kind=pr), allocatable :: ai_phi(:), bi_phi(:)
-  real(kind=pr), allocatable :: ai_theta(:), bi_theta(:)
-  real(kind=pr), allocatable :: ai_alpha(:), bi_alpha(:)
   real(kind=pr) :: bi_alpha_flapper(1:29) ! For comparison with Sane&Dickinson
   real(kind=pr) :: ai_phi_flapper(1:31) ! For comparison with Sane&Dickinson
   real(kind=pr) :: tadv,t0adv ! For comparison with Dickinson, Ramamurti
@@ -66,10 +63,10 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   real(kind=pr) :: dangle_posi,dangle_elev,dangle_feth ! Comp. w. Maeda
   real(kind=pr) :: dangle_posi_dt,dangle_elev_dt,dangle_feth_dt ! Comp. w. Maeda
   real(kind=pr) :: a_posi(1:4),b_posi(1:4),a_elev(1:4),b_elev(1:4),a_feth(1:4),b_feth(1:4)
-  real(kind=pr) :: a0_alpha, a0_phi, a0_theta, s,c
+  real(kind=pr) :: s,c,a0_phi
   real(kind=pr) :: phicdeg
   real(kind=pr) :: alphacdeg
-  integer :: i, nfft_phi, nfft_alpha, nfft_theta, mpicode
+  integer :: i,mpicode
   character(len=strlen) :: dummy
   
   interface
@@ -90,70 +87,76 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     ! the kinematic loader is the method of choice. The file is specified
     ! in the params file and stored in Insect%infile
     !---------------------------------------------------------------------------
-    call check_file_exists( Insect%infile )
-    ! learn how many Fourier coefficients to expect
-    if (mpirank==0) then
-      open(37, file=Insect%infile, form='formatted', status='old')
-      read(37,*) nfft_phi
-      read(37,*) nfft_alpha
-      read(37,*) nfft_theta
-      write(*,'("Reading kinematics: nfft_phi=",i2," nfft_alpha=",i2," nfft_theta=",i2)')&
-        nfft_phi, nfft_alpha, nfft_theta
+    if (.not.allocated(Insect%ai_phi)) then
+      call check_file_exists( Insect%infile )
+      ! learn how many Fourier coefficients to expect
+      if (mpirank==0) then
+        open(37, file=Insect%infile, form='formatted', status='old')
+        read(37,*) Insect%nfft_phi
+        read(37,*) Insect%nfft_alpha
+        read(37,*) Insect%nfft_theta
+        write(*,'("Reading kinematics: nfft_phi=",i2," nfft_alpha=",i2," nfft_theta=",i2)')&
+          Insect%nfft_phi, Insect%nfft_alpha, Insect%nfft_theta
+      endif
+      ! BCAST nfft to all procs
+      call MPI_BCAST( Insect%nfft_phi,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%nfft_alpha,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%nfft_theta,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+      
+      ! allocate fourier coefficent arrays
+      allocate ( Insect%ai_phi(1:Insect%nfft_phi) )
+      allocate ( Insect%bi_phi(1:Insect%nfft_phi) ) 
+      allocate ( Insect%ai_alpha(1:Insect%nfft_alpha) )
+      allocate ( Insect%bi_alpha(1:Insect%nfft_alpha) )
+      allocate ( Insect%ai_theta(1:Insect%nfft_theta) )
+      allocate ( Insect%bi_theta(1:Insect%nfft_theta) )
+      
+      ! read coefficients
+      if (mpirank==0) then
+        read(37,*) dummy
+        read(37,*) dummy
+        read(37,*) Insect%a0_phi
+        read(37,*) dummy
+        read(37,*) Insect%ai_phi
+        read(37,*) dummy
+        read(37,*) Insect%bi_phi
+
+        read(37,*) dummy
+        read(37,*) dummy
+        read(37,*) Insect%a0_alpha
+        read(37,*) dummy
+        read(37,*) Insect%ai_alpha
+        read(37,*) dummy
+        read(37,*) Insect%bi_alpha
+
+        read(37,*) dummy
+        read(37,*) dummy
+        read(37,*) Insect%a0_theta
+        read(37,*) dummy
+        read(37,*) Insect%ai_theta
+        read(37,*) dummy
+        read(37,*) Insect%bi_theta
+
+        close(37)
+      endif
+      
+      call MPI_BCAST( Insect%a0_phi,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%ai_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+    
+      call MPI_BCAST( Insect%a0_alpha,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%ai_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+      
+      call MPI_BCAST( Insect%a0_theta,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%ai_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
+      
     endif
-    ! BCAST nfft to all procs
-    call MPI_BCAST( nfft_phi,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
-    call MPI_BCAST( nfft_alpha,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
-    call MPI_BCAST( nfft_theta,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
-    
-    ! allocate fourier coefficent arrays
-    allocate ( ai_phi(1:nfft_phi), bi_phi(1:nfft_phi) ) 
-    allocate ( ai_alpha(1:nfft_alpha), bi_alpha(1:nfft_alpha) )
-    allocate ( ai_theta(1:nfft_theta), bi_theta(1:nfft_theta) )
-    
-    ! read coefficients
-    if (mpirank==0) then
-      read(37,*) dummy
-      read(37,*) dummy
-      read(37,*) a0_phi
-      read(37,*) dummy
-      read(37,*) ai_phi
-      read(37,*) dummy
-      read(37,*) bi_phi
-
-      read(37,*) dummy
-      read(37,*) dummy
-      read(37,*) a0_alpha
-      read(37,*) dummy
-      read(37,*) ai_alpha
-      read(37,*) dummy
-      read(37,*) bi_alpha
-
-      read(37,*) dummy
-      read(37,*) dummy
-      read(37,*) a0_theta
-      read(37,*) dummy
-      read(37,*) ai_theta
-      read(37,*) dummy
-      read(37,*) bi_theta
-
-      close(37)
-    endif
-    
-    call MPI_BCAST( a0_phi,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    call MPI_BCAST( ai_phi,nfft_phi,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    call MPI_BCAST( bi_phi,nfft_phi,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-  
-    call MPI_BCAST( a0_alpha,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    call MPI_BCAST( ai_alpha,nfft_alpha,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    call MPI_BCAST( bi_alpha,nfft_alpha,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    
-    call MPI_BCAST( a0_theta,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    call MPI_BCAST( ai_theta,nfft_theta,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    call MPI_BCAST( bi_theta,nfft_theta,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    
-    call fseries_eval(time,phi,phi_dt,a0_phi,ai_phi,bi_phi)
-    call fseries_eval(time,alpha,alpha_dt,a0_alpha,ai_alpha,bi_alpha)
-    call fseries_eval(time,theta,theta_dt,a0_theta,ai_theta,bi_theta)
+      
+    call fseries_eval(time,phi,phi_dt,Insect%a0_phi,Insect%ai_phi,Insect%bi_phi)
+    call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,Insect%ai_alpha,Insect%bi_alpha)
+    call fseries_eval(time,theta,theta_dt,Insect%a0_theta,Insect%ai_theta,Insect%bi_theta)
     
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
@@ -162,42 +165,41 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
-    
-    deallocate (ai_phi, bi_phi, ai_theta, bi_theta, ai_alpha, bi_alpha )
-    
   case ("Drosophila_hovering_fry")
     !---------------------------------------------------------------------------
     ! motion protocoll digitalized from Fry et al JEB 208, 2303-2318 (2005)
     !
     ! fourier coefficients analyzed with matlab
     !---------------------------------------------------------------------------
-    nfft_alpha = 10
-    nfft_theta = 10
-    nfft_phi   = 10
-    allocate ( ai_phi(1:nfft_phi), bi_phi(1:nfft_phi) ) 
-    allocate ( ai_alpha(1:nfft_alpha), bi_alpha(1:nfft_alpha) )
-    allocate ( ai_theta(1:nfft_theta), bi_theta(1:nfft_theta) )
+    if (.not.allocated(Insect%ai_alpha)) then
+      Insect%nfft_alpha = 10
+      Insect%nfft_theta = 10
+      Insect%nfft_phi   = 10
+      allocate ( Insect%ai_phi(1:Insect%nfft_phi), Insect%bi_phi(1:Insect%nfft_phi) ) 
+      allocate ( Insect%ai_alpha(1:Insect%nfft_alpha), Insect%bi_alpha(1:Insect%nfft_alpha) )
+      allocate ( Insect%ai_theta(1:Insect%nfft_theta), Insect%bi_theta(1:Insect%nfft_theta) )
+      
+      Insect%a0_phi   =25.4649398
+      Insect%a0_alpha =-0.3056968
+      Insect%a0_theta =-17.8244658  ! - sign (Dmitry, 10 Nov 2013)
+      
+      Insect%ai_phi   =(/71.1061858,2.1685448,-0.1986978,0.6095268,-0.0311298,&
+                -0.1255648,-0.0867778,0.0543518,0.0,0.0/)
+      Insect%bi_phi   =(/5.4547058,-3.5461688,0.6260698,0.1573728,-0.0360498,-0.0205348,&
+                -0.0083818,-0.0076848,0.0,0.0/)
+      Insect%ai_alpha =(/3.3288788,0.6303878,-10.9780518,2.1123398,-3.2301198,&
+                -1.4473158,0.6141758,-0.3071608,0.1458498,0.0848308/)
+      Insect%bi_alpha =(/67.5430838,0.6566888,9.9226018,3.9183988,-2.6882828,0.6433518,&
+                  -0.8792398,-0.4817838,0.0300078,-0.1015118/)
+      Insect%ai_theta =(/-3.9750378,-8.2808998,0.0611208,0.3906598,-0.4488778,0.120087,&
+                0.0717048,-0.0699578,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
+      Insect%bi_theta =(/-2.2839398,-3.5213068,1.9296668,-1.0832488,-0.3011748,0.1786648,&
+                -0.1228608,0.0004808,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
+    endif
     
-    a0_phi   =25.4649398
-    a0_alpha =-0.3056968
-    a0_theta =-17.8244658  ! - sign (Dmitry, 10 Nov 2013)
-    
-    ai_phi   =(/71.1061858,2.1685448,-0.1986978,0.6095268,-0.0311298,&
-               -0.1255648,-0.0867778,0.0543518,0.0,0.0/)
-    bi_phi   =(/5.4547058,-3.5461688,0.6260698,0.1573728,-0.0360498,-0.0205348,&
-               -0.0083818,-0.0076848,0.0,0.0/)
-    ai_alpha =(/3.3288788,0.6303878,-10.9780518,2.1123398,-3.2301198,&
-               -1.4473158,0.6141758,-0.3071608,0.1458498,0.0848308/)
-    bi_alpha =(/67.5430838,0.6566888,9.9226018,3.9183988,-2.6882828,0.6433518,&
-                -0.8792398,-0.4817838,0.0300078,-0.1015118/)
-    ai_theta =(/-3.9750378,-8.2808998,0.0611208,0.3906598,-0.4488778,0.120087,&
-               0.0717048,-0.0699578,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
-    bi_theta =(/-2.2839398,-3.5213068,1.9296668,-1.0832488,-0.3011748,0.1786648,&
-               -0.1228608,0.0004808,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
-    
-    call fseries_eval(time,phi,phi_dt,a0_phi,ai_phi,bi_phi)
-    call fseries_eval(time,alpha,alpha_dt,a0_alpha,ai_alpha,bi_alpha)
-    call fseries_eval(time,theta,theta_dt,a0_theta,ai_theta,bi_theta)
+    call fseries_eval(time,phi,phi_dt,Insect%a0_phi,Insect%ai_phi,Insect%bi_phi)
+    call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,Insect%ai_alpha,Insect%bi_alpha)
+    call fseries_eval(time,theta,theta_dt,Insect%a0_theta,Insect%ai_theta,Insect%bi_theta)
     
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
@@ -206,8 +208,6 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
-    
-    deallocate (ai_phi, bi_phi, ai_theta, bi_theta, ai_alpha, bi_alpha )
 
   case ("Drosophila_hovering_sun")
     !---------------------------------------------------------------------------
@@ -215,44 +215,46 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     ! Fourier coefficients analyzed with matlab
     ! Note that it begins with UPSTROKE, unlike Fry's kinematics
     !---------------------------------------------------------------------------
-    nfft_alpha = 10
-    nfft_theta = 10
-    nfft_phi   = 10
-    allocate ( ai_phi(1:nfft_phi), bi_phi(1:nfft_phi) ) 
-    allocate ( ai_alpha(1:nfft_alpha), bi_alpha(1:nfft_alpha) )
-    allocate ( ai_theta(1:nfft_theta), bi_theta(1:nfft_theta) )
+    if (.not.allocated(Insect%ai_alpha)) then
+      Insect%nfft_alpha = 10
+      Insect%nfft_theta = 10
+      Insect%nfft_phi   = 10
+      allocate ( Insect%ai_phi(1:Insect%nfft_phi), Insect%bi_phi(1:Insect%nfft_phi) ) 
+      allocate ( Insect%ai_alpha(1:Insect%nfft_alpha), Insect%bi_alpha(1:Insect%nfft_alpha) )
+      allocate ( Insect%ai_theta(1:Insect%nfft_theta), Insect%bi_theta(1:Insect%nfft_theta) )
+      
+      Insect%a0_phi   =38.2280144124915
+      Insect%a0_alpha =1.09156750841542
+      Insect%a0_theta =-17.0396438317138
+      Insect%ai_phi   =(/-60.4766838884452,-5.34194400577534,-2.79100982711466,&
+                  0.334561891664093,-0.0202655263017256,-0.323801616724358,&
+                  -0.474435962657283,-0.111655938200879,0.00958151551130752,&
+                  0.119666224142596/)
+      Insect%bi_phi   =(/3.00359559936894,-7.55184535084148,-1.32520563461209,&
+                  -0.297351445375239,-0.213108013812305,-0.0328282543472566,&
+                  0.0146299151981855,-0.0385423658663155,-0.512411386850196,&
+                  0.0785978606299901/)
+      Insect%ai_alpha =(/-7.73228268249956,8.09409174482393,3.98349294858406,&
+                  6.54460609657175,4.20944598804824,0.138380341939039,&
+                  1.38813149742271,0.625930107014395,0.607953761451392,&
+                  -0.688049862096416/)
+      Insect%bi_alpha =(/-52.2064112743351,-3.83568699799253,-14.8200023306913,&
+                  4.57428035662431,1.01656074807431,-0.113387395332322,&
+                  0.614350733080735,0.637197524906845,0.878128257565861,&
+                  0.271333646229075/)
+      Insect%ai_theta =(/-0.0876540586926952,-6.32825811106895,0.461710021840119,&
+                  -0.196290365124456,0.266829219535534,0.191278837298358,&
+                  0.0651359677824226,0.132751714936873,0.104342707251547,&
+                  0.0251049936194829/)  
+      Insect%bi_theta =(/5.05944308805575,-0.677547202362310,-1.30945644385840,&
+                  -0.741962147111828,-0.351209215835472,-0.0374224119537382,&
+                  -0.0940160961803885,-0.0563224030429001,0.0533369476976694,&
+                0.0507212428142968/)
+    endif
     
-    a0_phi   =38.2280144124915
-    a0_alpha =1.09156750841542
-    a0_theta =-17.0396438317138
-    ai_phi   =(/-60.4766838884452,-5.34194400577534,-2.79100982711466,&
-                0.334561891664093,-0.0202655263017256,-0.323801616724358,&
-                -0.474435962657283,-0.111655938200879,0.00958151551130752,&
-                0.119666224142596/)
-    bi_phi   =(/3.00359559936894,-7.55184535084148,-1.32520563461209,&
-                -0.297351445375239,-0.213108013812305,-0.0328282543472566,&
-                0.0146299151981855,-0.0385423658663155,-0.512411386850196,&
-                0.0785978606299901/)
-    ai_alpha =(/-7.73228268249956,8.09409174482393,3.98349294858406,&
-                6.54460609657175,4.20944598804824,0.138380341939039,&
-                1.38813149742271,0.625930107014395,0.607953761451392,&
-                -0.688049862096416/)
-    bi_alpha =(/-52.2064112743351,-3.83568699799253,-14.8200023306913,&
-                4.57428035662431,1.01656074807431,-0.113387395332322,&
-                0.614350733080735,0.637197524906845,0.878128257565861,&
-                0.271333646229075/)
-    ai_theta =(/-0.0876540586926952,-6.32825811106895,0.461710021840119,&
-                -0.196290365124456,0.266829219535534,0.191278837298358,&
-                0.0651359677824226,0.132751714936873,0.104342707251547,&
-                0.0251049936194829/)  
-    bi_theta =(/5.05944308805575,-0.677547202362310,-1.30945644385840,&
-                -0.741962147111828,-0.351209215835472,-0.0374224119537382,&
-                -0.0940160961803885,-0.0563224030429001,0.0533369476976694,&
-               0.0507212428142968/)
-    
-    call fseries_eval(time,phi,phi_dt,a0_phi,ai_phi,bi_phi)
-    call fseries_eval(time,alpha,alpha_dt,a0_alpha,ai_alpha,bi_alpha)
-    call fseries_eval(time,theta,theta_dt,a0_theta,ai_theta,bi_theta)
+    call fseries_eval(time,phi,phi_dt,Insect%a0_phi,Insect%ai_phi,Insect%bi_phi)
+    call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,Insect%ai_alpha,Insect%bi_alpha)
+    call fseries_eval(time,theta,theta_dt,Insect%a0_theta,Insect%ai_theta,Insect%bi_theta)
     
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
@@ -261,9 +263,6 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
-    
-    deallocate (ai_phi, bi_phi, ai_theta, bi_theta, ai_alpha, bi_alpha )
-
   case ("Drosophila_hovering_maeda")
     !---------------------------------------------------------------------------
     ! Drosophila hovering kinematics protocol 

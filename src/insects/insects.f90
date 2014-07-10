@@ -732,3 +732,20 @@ subroutine angular_accel( time, rot_dt_l, rot_dt_r )
   rot_dt_l = (rot_l_2 - rot_l_1)/(2.d0*dt)
   rot_dt_r = (rot_r_2 - rot_r_1)/(2.d0*dt)
 end subroutine angular_accel
+
+
+subroutine insect_clean
+  use fsi_vars
+  implicit none
+  
+  if (allocated(Insect%R0)) deallocate ( Insect%R0 )
+  if (allocated(Insect%ai)) deallocate ( Insect%ai )
+  if (allocated(Insect%bi)) deallocate ( Insect%bi )
+  
+  if (allocated(Insect%ai_phi)) deallocate ( Insect%ai_phi )
+  if (allocated(Insect%ai_alpha)) deallocate ( Insect%ai_alpha )
+  if (allocated(Insect%ai_theta)) deallocate ( Insect%ai_theta )
+  if (allocated(Insect%bi_phi)) deallocate ( Insect%bi_phi )
+  if (allocated(Insect%bi_alpha)) deallocate ( Insect%bi_alpha )
+  if (allocated(Insect%bi_theta)) deallocate ( Insect%bi_theta )
+end subroutine insect_clean
