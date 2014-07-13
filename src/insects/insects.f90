@@ -194,7 +194,7 @@ subroutine Draw_Insect ( time )
   ! Eyes (not always present)
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  if (Insect%HasEye=="yes") then           
+  if (Insect%HasEye == "yes") then           
   do ix = ra(1), rb(1)
      do iy = ra(2), rb(2)
         do iz = ra(3), rb(3)
@@ -217,7 +217,7 @@ subroutine Draw_Insect ( time )
   ! Head (not always present)
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  if (Insect%HasHead=="yes") then           
+  if (Insect%HasHead == "yes") then           
   do ix = ra(1), rb(1)
      do iy = ra(2), rb(2)
         do iz = ra(3), rb(3)
@@ -239,7 +239,7 @@ subroutine Draw_Insect ( time )
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (fourier_wing) then
-    if (Insect%RightWing=="yes") then
+    if (Insect%RightWing == "yes") then
       do ix = ra(1), rb(1)
         do iy = ra(2), rb(2)
             do iz = ra(3), rb(3)
@@ -253,7 +253,7 @@ subroutine Draw_Insect ( time )
         enddo
       enddo  
     endif
-    if (Insect%LeftWing=="yes") then
+    if (Insect%LeftWing == "yes") then
       do ix = ra(1), rb(1)
         do iy = ra(2), rb(2)
             do iz = ra(3), rb(3)
@@ -268,7 +268,7 @@ subroutine Draw_Insect ( time )
       enddo  
     endif
   else
-    if (Insect%RightWing=="yes") then
+    if (Insect%RightWing == "yes") then
       do ix = ra(1), rb(1)
         do iy = ra(2), rb(2)
             do iz = ra(3), rb(3)
@@ -282,7 +282,7 @@ subroutine Draw_Insect ( time )
         enddo
       enddo  
     endif
-    if (Insect%LeftWing=="yes") then
+    if (Insect%LeftWing == "yes") then
       do ix = ra(1), rb(1)
         do iy = ra(2), rb(2)
             do iz = ra(3), rb(3)

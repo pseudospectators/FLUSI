@@ -76,6 +76,13 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     real(kind=pr), intent(in), dimension(:) :: ai,bi
     real(kind=pr), intent(out) :: u, u_dt
     end subroutine fseries_eval
+    !----
+    subroutine hermite_eval(time,u,u_dt,ai,bi)
+    use fsi_vars
+    real(kind=pr), intent(in) :: time
+    real(kind=pr), intent(in), dimension(:) :: ai,bi
+    real(kind=pr), intent(out) :: u, u_dt
+    end subroutine hermite_eval
   end interface
   
   
@@ -85,13 +92,17 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     ! Load kinematics for one stroke from file. This can be applied for example
     ! in hovering. if the wing motion varies appreciably between strokes,
     ! the kinematic loader is the method of choice. The file is specified
-    ! in the params file and stored in Insect%infile
+    ! in the params file and stored in Insect%infile. Input Fourier coeffients
+    ! are in DEGREE, output of this function is IN RADIANT!  An example file 
+    ! (kinematics_fourier_example.in) is in the git-repository
     !---------------------------------------------------------------------------
     if (.not.allocated(Insect%ai_phi)) then
+      ! this block is excecuted only once
       call check_file_exists( Insect%infile )
       ! learn how many Fourier coefficients to expect
       if (mpirank==0) then
         open(37, file=Insect%infile, form='formatted', status='old')
+        read(37,*) dummy ! skip lines added for documentation
         read(37,*) Insect%nfft_phi
         read(37,*) Insect%nfft_alpha
         read(37,*) Insect%nfft_theta
@@ -113,7 +124,7 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
       
       ! read coefficients
       if (mpirank==0) then
-        read(37,*) dummy
+        read(37,*) dummy ! skip lines added for documentation
         read(37,*) dummy
         read(37,*) Insect%a0_phi
         read(37,*) dummy
@@ -140,20 +151,27 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
         close(37)
       endif
       
-      call MPI_BCAST( Insect%a0_phi,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( Insect%ai_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( Insect%bi_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-    
-      call MPI_BCAST( Insect%a0_alpha,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( Insect%ai_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( Insect%bi_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-      
-      call MPI_BCAST( Insect%a0_theta,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( Insect%ai_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( Insect%bi_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-      
+      call MPI_BCAST( Insect%a0_phi,1,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%ai_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%a0_alpha,1,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%ai_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%a0_theta,1,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%ai_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
     endif
       
+    ! this block is executed every time
     call fseries_eval(time,phi,phi_dt,Insect%a0_phi,Insect%ai_phi,Insect%bi_phi)
     call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,Insect%ai_alpha,Insect%bi_alpha)
     call fseries_eval(time,theta,theta_dt,Insect%a0_theta,Insect%ai_theta,Insect%bi_theta)
@@ -165,6 +183,91 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
+    
+  case ("from_file_hermite")
+    !---------------------------------------------------------------------------
+    ! motion protocol from hermite coeffients (instead of Fourier coefficients)
+    ! it is designed closely to "from_file", Insect%ai... is function values and
+    ! Insect%bi is derivatives. Insect%a0 is unused.
+    ! Input values are assumed IN DEGREE (°), output of this function is 
+    ! IN RADIANTS! An example file (kinematics_hermite_example.in) is in the
+    ! git-repository
+    !---------------------------------------------------------------------------
+    if (.not.allocated(Insect%ai_phi)) then
+      ! this block is excecuted only once
+      call check_file_exists( Insect%infile )
+      ! learn how many Fourier coefficients to expect
+      if (mpirank==0) then
+        open(37, file=Insect%infile, form='formatted', status='old')
+        read(37,*) dummy ! skip lines added for documentation
+        read(37,*) Insect%nfft_phi
+        read(37,*) Insect%nfft_alpha
+        read(37,*) Insect%nfft_theta
+        write(*,'("Reading kinematics: n_phi=",i2," n_alpha=",i2," n_theta=",i2)')&
+          Insect%nfft_phi, Insect%nfft_alpha, Insect%nfft_theta
+        write(*,*) "Using Hermite interpolation...."
+      endif
+      ! BCAST nfft to all procs
+      call MPI_BCAST( Insect%nfft_phi,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%nfft_alpha,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%nfft_theta,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+      
+      ! allocate fourier coefficent arrays
+      allocate ( Insect%ai_phi(1:Insect%nfft_phi) )
+      allocate ( Insect%bi_phi(1:Insect%nfft_phi) ) 
+      allocate ( Insect%ai_alpha(1:Insect%nfft_alpha) )
+      allocate ( Insect%bi_alpha(1:Insect%nfft_alpha) )
+      allocate ( Insect%ai_theta(1:Insect%nfft_theta) )
+      allocate ( Insect%bi_theta(1:Insect%nfft_theta) )
+      
+      ! read coefficients
+      if (mpirank==0) then
+        read(37,*) dummy ! skip lines added for documentation
+        read(37,*) dummy
+        read(37,*) Insect%ai_phi
+        read(37,*) dummy
+        read(37,*) Insect%bi_phi
+        read(37,*) dummy
+        read(37,*) dummy
+        read(37,*) Insect%ai_alpha
+        read(37,*) dummy
+        read(37,*) Insect%bi_alpha
+        read(37,*) dummy
+        read(37,*) dummy
+        read(37,*) Insect%ai_theta
+        read(37,*) dummy
+        read(37,*) Insect%bi_theta
+
+        close(37)
+      endif
+      
+      call MPI_BCAST( Insect%ai_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%ai_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%ai_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+      call MPI_BCAST( Insect%bi_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,&
+           MPI_COMM_WORLD,mpicode )
+    endif
+      
+    ! this block is executed every time
+    call hermite_eval(time,phi,phi_dt,Insect%ai_phi,Insect%bi_phi)
+    call hermite_eval(time,alpha,alpha_dt,Insect%ai_alpha,Insect%bi_alpha)
+    call hermite_eval(time,theta,theta_dt,Insect%ai_theta,Insect%bi_theta)
+    
+    phi =  deg2rad(phi)
+    alpha = deg2rad(alpha)
+    theta = deg2rad(theta)
+    
+    phi_dt = deg2rad(phi_dt)
+    alpha_dt = deg2rad(alpha_dt)
+    theta_dt = deg2rad(theta_dt)
+  
   case ("Drosophila_hovering_fry")
     !---------------------------------------------------------------------------
     ! motion protocoll digitalized from Fry et al JEB 208, 2303-2318 (2005)
@@ -730,10 +833,59 @@ subroutine fseries_eval(time,u,u_dt,a0,ai,bi)
   u_dt = 0.d0
   
   do i=1,nfft
-      ! allows the spaces I like with the 80 columns malcolm likes :)
       s = dsin(f*dble(i)*time) 
       c = dcos(f*dble(i)*time)
+      ! function value
       u    = u + ai(i)*c + bi(i)*s
+      ! derivative (in time)
       u_dt = u_dt + f*dble(i)*(-ai(i)*s + bi(i)*c)
-    enddo
+  enddo
 end subroutine fseries_eval
+
+
+!-------------------------------------------------------------------------------
+! evaluate hermite series, given by coefficients ai (function values)
+! and bi (derivative values) at the locations x. Note that x is assumed periodic;
+! do not include x=1.0.
+! a valid example is x=(0:N-1)/N
+!-------------------------------------------------------------------------------
+subroutine hermite_eval(time,u,u_dt,ai,bi)
+  use fsi_vars
+  implicit none
+  
+  real(kind=pr), intent(in) :: time
+  real(kind=pr), intent(in), dimension(:) :: ai,bi
+  real(kind=pr), intent(out) :: u, u_dt
+  real(kind=pr) :: dt,h00,h10,h01,h11,t
+  integer :: n, j1,j2
+  
+  n=size(ai)
+  
+  dt = 1.d0 / dble(n)
+  j1 = floor(time/dt) + 1
+  j2 = j1 + 1
+  ! periodization
+  if (j2 > n) j2=1
+  ! normalized time (between two data points)
+  t = (time-dble(j1-1)*dt) /dt
+  
+  ! values of hermite interpolant
+  h00 = (1.d0+2.d0*t)*((1.d0-t)**2)
+  h10 = t*((1.d0-t)**2)
+  h01 = (t**2)*(3.d0-2.d0*t)
+  h11 = (t**2)*(t-1.d0)
+  
+  ! function value
+  u = h00*ai(j1) + h10*dt*bi(j1) &
+    + h01*ai(j2) + h11*dt*bi(j2)
+  
+  ! derivative values of basis functions
+  h00 = 6.d0*t**2 - 6.d0*t
+  h10 = 3.d0*t**2 - 4.d0*t + 1.d0
+  h01 =-6.d0*t**2 + 6.d0*t 
+  h11 = 3.d0*t**2 - 2.d0*t
+  
+  ! function derivative value
+  u_dt = (h00*ai(j1) + h10*dt*bi(j1) &
+       + h01*ai(j2) + h11*dt*bi(j2) ) / dt
+end subroutine hermite_eval
