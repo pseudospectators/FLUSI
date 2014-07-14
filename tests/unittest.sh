@@ -4,7 +4,7 @@ echo "Unit-testing script for flusi/mhd pseudospectators."
 echo
 
 # list all the test scrits you want, separated by spaces
-tests=(solid_model.sh jerry.sh insect.sh sphere.sh sphere_restart.sh vortex_ring.sh mhdorszagtang.sh)
+tests=(solid_model.sh swimmer1_iteration.sh swimmer2_staggered.sh jerry.sh insect.sh sphere.sh sphere_restart.sh vortex_ring.sh mhdorszagtang.sh)
 
 # link flusi and mhd from .. to . if this isn't already done.
 if [ ! -f flusi ]; then
