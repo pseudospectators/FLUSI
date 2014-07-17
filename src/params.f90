@@ -80,106 +80,94 @@ subroutine get_params_common(PARAMS,i)
   character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
 
   ! Resolution section
-  call GetValue_Int(PARAMS,i,"Resolution","nx",nx, 4)
-  call GetValue_Int(PARAMS,i,"Resolution","ny",ny, 4)
-  call GetValue_Int(PARAMS,i,"Resolution","nz",nz, 4)
-
+  call param_int(PARAMS,i,"Resolution","nx",nx, 4)
+  call param_int(PARAMS,i,"Resolution","ny",ny, 4)
+  call param_int(PARAMS,i,"Resolution","nz",nz, 4)
+    
   ! Geometry section
-  call GetValue_Real(PARAMS,i,"Geometry","xl",xl, 1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","yl",yl, 1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","zl",zl, 1.d0)
-  
+  call param_dbl(PARAMS,i,"Geometry","xl",xl, 1.d0)
+  call param_dbl(PARAMS,i,"Geometry","yl",yl, 1.d0)
+  call param_dbl(PARAMS,i,"Geometry","zl",zl, 1.d0)
+      
   ! lattice spacing is global (since we allow to specify reals in multiples of
   ! grid points, we nedd that value now.)
   dx=xl/dble(nx)
   dy=yl/dble(ny)
-  dz=zl/dble(nz)
+  dz=zl/dble(nz) 
   
   if (nx==1) then
-    if (mpirank==0) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"
-    dx = 1.d0 !max(dz,dy)
-    xl = 1.d0
-    if (mpirank==0) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
+    if (root) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"    
+    dx = max(dz,dy)
+    xl = dx
+    if (root) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
   endif
-  
-  
+    
+  ! Geometry section
+  call param_dbl(PARAMS,i,"Geometry","Size",length, 0.d0)
+  call param_dbl(PARAMS,i,"Geometry","r1",r1,1.d0)
+  call param_dbl(PARAMS,i,"Geometry","r2",r2,1.0681415d0)
+  call param_dbl(PARAMS,i,"Geometry","r3",r3,1.206371d0)
+
   ! Time section
-  call GetValue_Int(PARAMS,i,"Time","nt",nt, 9999999)
-  ! This is the default value. ifort complains when just putting it in the call
-  iTimeMethodFluid = "AB2" 
-  call GetValue_String(PARAMS,i,"Time","iTimeMethodFluid", iTimeMethodFluid,&
-       iTimeMethodFluid)  
-  call GetValue_Real(PARAMS,i,"Time","Tmax",Tmax,1.d9)
-  call GetValue_Real(PARAMS,i,"Time","CFL",cfl,0.1d0)
-  call GetValue_Real(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
-  call GetValue_Real(PARAMS,i,"Time","dt_max",dt_max,0.d0)
+  call param_int(PARAMS,i,"Time","nt",nt, 9999999)
+  call param_str(PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid,"AB2")  
+  call param_dbl(PARAMS,i,"Time","Tmax",Tmax,1.d9)
+  call param_dbl(PARAMS,i,"Time","CFL",cfl,0.1d0)
+  call param_dbl(PARAMS,i,"Time","dt_max",dt_max,0.d0)
+  call param_dbl(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
 
   ! Reynolds number section:
-  call GetValue_Real(PARAMS,i,"ReynoldsNumber","nu",nu,1.d-2)  
+  call param_dbl(PARAMS,i,"ReynoldsNumber","nu",nu,1.d-2)  
 
   ! Initial conditions section
-  inicond = "none"
-  call GetValue_String(PARAMS,i,"InitialCondition","inicond",inicond, inicond)
-  call GetValue_Real(PARAMS,i,"InitialCondition","omega1",omega1,0.d0) 
+  call param_str(PARAMS,i,"InitialCondition","inicond",inicond, "none")
+  call param_dbl(PARAMS,i,"InitialCondition","omega1",omega1,0.d0) 
   ! if reading from file, which files?
   if (inicond=="infile") then 
-    file_ux="none"
-    call GetValue_String(PARAMS,i,"InitialCondition","file_ux",file_ux, file_ux)
-    file_uy="none"
-    call GetValue_String(PARAMS,i,"InitialCondition","file_uy",file_uy, file_uy)
-    file_uz="none"
-    call GetValue_String(PARAMS,i,"InitialCondition","file_uz",file_uz, file_uz)
+    call param_str(PARAMS,i,"InitialCondition","file_ux",file_ux, "none")
+    call param_str(PARAMS,i,"InitialCondition","file_uy",file_uy, "none")
+    call param_str(PARAMS,i,"InitialCondition","file_uz",file_uz, "none")
     ! if running in MHD mode, we also need the B-field initialized
     if (method=="mhd") then
-      file_bx="none"
-      call GetValue_String(PARAMS,i,"InitialCondition","file_bx",file_bx, file_bx)
-      file_by="none"
-      call GetValue_String(PARAMS,i,"InitialCondition","file_by",file_by, file_by)
-      file_bz="none"
-      call GetValue_String(PARAMS,i,"InitialCondition","file_bz",file_bz, file_bz)
+      call param_str(PARAMS,i,"InitialCondition","file_bx",file_bx, "none")
+      call param_str(PARAMS,i,"InitialCondition","file_by",file_by, "none")
+      call param_str(PARAMS,i,"InitialCondition","file_bz",file_bz, "none")
     endif
   endif
 
   ! Dealasing section
-  call GetValue_Int(PARAMS,i,"Dealiasing","iDealias",iDealias, 1)
+  call param_int(PARAMS,i,"Dealiasing","iDealias",iDealias, 1)
 
   ! Penalization section
-  call GetValue_Int(PARAMS,i,"Penalization","iPenalization",iPenalization, 0)
-  call GetValue_Int(PARAMS,i,"Penalization","iMoving",iMoving, 0)
-  imask="none"
-  call GetValue_String(PARAMS,i,"Penalization","iMask",iMask, iMask)
-  iSmoothing="erf" ! std choice
-  call GetValue_String(PARAMS,i,"Penalization","iSmoothing",iSmoothing,iSmoothing)
-  call GetValue_Real(PARAMS,i,"Penalization","eps",eps, 1.d-2)
-  call GetValue_Real(PARAMS,i,"Penalization","pseudoeps",pseudoeps, 1.d-2)
-  call GetValue_Real(PARAMS,i,"Penalization","pseudodt",pseudodt, 1.d-2)
-  call GetValue_Real(PARAMS,i,"Penalization","pseuderrmin",pseudoerrmin,3d-4)
-  call GetValue_Real(PARAMS,i,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
-
-  ! Geometry section
-  call GetValue_Real(PARAMS,i,"Geometry","Size",length, 0.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","r1",r1,1.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","r2",r2,1.0681415d0)
-  call GetValue_Real(PARAMS,i,"Geometry","r3",r3,1.206371d0)
-
+  call param_int(PARAMS,i,"Penalization","iPenalization",iPenalization, 0)
+  call param_int(PARAMS,i,"Penalization","iMoving",iMoving, 0)
+  call param_str(PARAMS,i,"Penalization","iMask",iMask, "none")
+  call param_str(PARAMS,i,"Penalization","iSmoothing",iSmoothing,"erf")
+  call param_dbl(PARAMS,i,"Penalization","eps",eps, 1.d-2)
+  call param_dbl(PARAMS,i,"Penalization","pseudoeps",pseudoeps, 1.d-2)
+  call param_dbl(PARAMS,i,"Penalization","pseudodt",pseudodt, 1.d-2)
+  call param_dbl(PARAMS,i,"Penalization","pseuderrmin",pseudoerrmin,3d-4)
+  call param_dbl(PARAMS,i,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
 
   ! Saving section
-  call GetValue_Int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
-  call GetValue_Int(PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 
-  call GetValue_Int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
-  call GetValue_Int(PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 1)  
-  call GetValue_Int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
-  call GetValue_Int(PARAMS,i,"Saving","iSaveXMF",iSaveXMF, 0) ! default is no
-  call GetValue_Real(PARAMS,i,"Saving","tsave",tsave, 9.d9)
-  call GetValue_Real(PARAMS,i,"Saving","truntime",truntime, 1.d0)  
-  call GetValue_Real(PARAMS,i,"Saving","wtimemax",wtimemax, 8760.d0) ! 1 year
-  call GetValue_Real(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
-  call GetValue_Int(PARAMS,i,"Saving","itdrag",itdrag,99999)
+  call param_int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
+  call param_int(PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 
+  call param_int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
+  call param_int(PARAMS,i,"Saving","iSaveVorticity",iSaveVorticity, 0)  
+  call param_int(PARAMS,i,"Saving","iSaveMask",iSaveMask, 0)
+  call param_int(PARAMS,i,"Saving","iSaveXMF",iSaveXMF, 0) ! default is no
+  call param_dbl(PARAMS,i,"Saving","tsave",tsave, 9.d9)
+  call param_dbl(PARAMS,i,"Saving","truntime",truntime, 1.d0)
+  call param_dbl(PARAMS,i,"Saving","wtimemax",wtimemax, 8760.d0) ! 1 year
+  call param_dbl(PARAMS,i,"Saving","tintegral",tintegral,0.01d0)
+  call param_dbl(PARAMS,i,"Saving","tsave_first",tsave_first,0.0d0)
+  call param_dbl(PARAMS,i,"Saving","tsave_period",tsave_period,1.0d0)
+  call param_str(PARAMS,i,"Saving","save_only_one_period",&
+       save_only_one_period,"no")  
+  call param_int(PARAMS,i,"Saving","itdrag",itdrag,99999)
   
   !-- dry run, just the mask function
-  dry_run_without_fluid="no" ! std choice
-  call GetValue_String(PARAMS,i,"DryRun","dry_run_without_fluid",&
-       dry_run_without_fluid,dry_run_without_fluid)
+  call param_str(PARAMS,i,"DryRun","dry_run_without_fluid",dry_run_without_fluid,"no")
   if (dry_run_without_fluid=="yes") then
     write(*,*) "Attention! This is a dry run without fluid"
     write(*,*) "Deactivating all useless save-switches..."
@@ -190,11 +178,11 @@ subroutine get_params_common(PARAMS,i)
   endif
   
   ! Set other parameters (all procs)
-  pi = 4.d0 *datan(1.d0)
+  pi=4.d0 *datan(1.d0)
   ! scaling for FFTs
-  scalex = 2.d0*pi/xl
-  scaley = 2.d0*pi/yl
-  scalez = 2.d0*pi/zl  
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
 end subroutine get_params_common
 
 
@@ -207,177 +195,151 @@ subroutine get_params_fsi(PARAMS,i)
   integer,intent(in) :: i
   ! Contains the ascii-params file
   character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
-  
+  real(kind=pr), dimension(1:3) :: defaultvec
   ! ---------------------------------------------------
   ! penalization / cavity
   ! ---------------------------------------------------
-  iCavity = "no"
-  call GetValue_String(PARAMS,i,"Penalization","iCavity",iCavity,iCavity) 
-  call GetValue_Int(PARAMS,i,"Penalization","cavity_size",cavity_size,0)
-  call GetValue_Int(PARAMS,i,"Penalization","compute_forces",compute_forces,1)   
-  call GetValue_Int(PARAMS,i,"Penalization","unst_corrections",unst_corrections,0)        
-  iChannel = "no"
-  call GetValue_String(PARAMS,i,"Penalization","iChannel",iChannel,iChannel) 
+  call param_str(PARAMS,i,"Penalization","iCavity",iCavity,"no") 
+  call param_int(PARAMS,i,"Penalization","cavity_size",cavity_size,0)
+  call param_int(PARAMS,i,"Penalization","compute_forces",compute_forces,1)   
+  call param_int(PARAMS,i,"Penalization","unst_corrections",unst_corrections,0)        
+  call param_str(PARAMS,i,"Penalization","iChannel",iChannel,"no") 
   if (iChannel=="0") iChannel="no" ! for downward compatibility with older ini files
   if (iChannel=="1") iChannel="xy" ! for downward compatibility with older ini files
-  call GetValue_Real(PARAMS,i,"Penalization","thick_wall",thick_wall,0.2d0)
-  call GetValue_Real(PARAMS,i,"Penalization","pos_wall",pos_wall,0.3d0)
+  call param_dbl(PARAMS,i,"Penalization","thick_wall",thick_wall,0.2d0)
+  call param_dbl(PARAMS,i,"Penalization","pos_wall",pos_wall,0.3d0)
   
   ! ---------------------------------------------------
   ! sponge
   ! ---------------------------------------------------
-  iVorticitySponge = "no"
-  call GetValue_String(PARAMS,i,"Sponge","iVorticitySponge",&
-       iVorticitySponge,iVorticitySponge)  
-  iSpongeType = "top_cover"
-  call GetValue_String(PARAMS,i,"Sponge","iSpongeType",&
-       iSpongeType,iSpongeType)         
-  call GetValue_Real(PARAMS,i,"Sponge","eps_sponge",eps_sponge, 0.d0)   
-  call GetValue_Int(PARAMS,i,"Sponge","sponge_thickness",sponge_thickness,0)
+  call param_str(PARAMS,i,"Sponge","iVorticitySponge",iVorticitySponge,"no")  
+  call param_str(PARAMS,i,"Sponge","iSpongeType",iSpongeType,"top_cover")
+  call param_dbl(PARAMS,i,"Sponge","eps_sponge",eps_sponge, 0.d0)   
+  call param_int(PARAMS,i,"Sponge","sponge_thickness",sponge_thickness,0)
   
   
   ! ---------------------------------------------------
   ! Geometry section
   ! ---------------------------------------------------
-  call GetValue_Real(PARAMS,i,"Geometry","x0",x0, 0.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","y0",y0, 0.d0)
-  call GetValue_Real(PARAMS,i,"Geometry","z0",z0, 0.d0)
+  call param_dbl(PARAMS,i,"Geometry","x0",x0, 0.d0)
+  call param_dbl(PARAMS,i,"Geometry","y0",y0, 0.d0)
+  call param_dbl(PARAMS,i,"Geometry","z0",z0, 0.d0)
   
   ! ---------------------------------------------------
   ! Saving section
   ! ---------------------------------------------------
-  call GetValue_Int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
-  save_only_one_period = "no"
-  call GetValue_String(PARAMS,i,"Saving","save_only_one_period",&
-       save_only_one_period,save_only_one_period)  
+  call param_int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
 
   ! ---------------------------------------------------
   ! MeanFlow section
   ! ---------------------------------------------------
-  call GetValue_Int(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
-  call GetValue_Real(PARAMS,i,"MeanFlow","ux",uxmean, 1.d0) 
-  call GetValue_Real(PARAMS,i,"MeanFlow","uy",uymean, 1.d0) 
-  call GetValue_Real(PARAMS,i,"MeanFlow","uz",uzmean, 1.d0) 
+  call param_int(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
+  call param_dbl(PARAMS,i,"MeanFlow","ux",uxmean, 1.d0) 
+  call param_dbl(PARAMS,i,"MeanFlow","uy",uymean, 1.d0) 
+  call param_dbl(PARAMS,i,"MeanFlow","uz",uzmean, 1.d0) 
 
   ! ---------------------------------------------------
   ! Insects section
   ! ---------------------------------------------------
-  Insect%WingShape="none"
-  call GetValue_String(PARAMS,i,"Insects","WingShape",&
-       Insect%WingShape,Insect%WingShape)
-  call GetValue_Real(PARAMS,i,"Insects","b_top",Insect%b_top, 0.d0) 
-  call GetValue_Real(PARAMS,i,"Insects","b_bot",Insect%b_bot, 0.d0) 
-  call GetValue_Real(PARAMS,i,"Insects","L_chord",Insect%L_chord, 0.d0) 
-  call GetValue_Real(PARAMS,i,"Insects","L_span",Insect%L_span, 0.d0) 
+  call param_str(PARAMS,i,"Insects","WingShape",Insect%WingShape,"none")
+  call param_dbl(PARAMS,i,"Insects","b_top",Insect%b_top, 0.d0) 
+  call param_dbl(PARAMS,i,"Insects","b_bot",Insect%b_bot, 0.d0) 
+  call param_dbl(PARAMS,i,"Insects","L_chord",Insect%L_chord, 0.d0) 
+  call param_dbl(PARAMS,i,"Insects","L_span",Insect%L_span, 0.d0) 
   
-  ! for string parameters, set the default in the first place
-  call GetValue_String(PARAMS,i,"Insects","FlappingMotion_right",&
-       Insect%FlappingMotion_right,"none")       
-  call GetValue_String(PARAMS,i,"Insects","FlappingMotion_left",&
-       Insect%FlappingMotion_left,"none")       
-  call GetValue_String(PARAMS,i,"Insects","infile",&
-       Insect%infile,"none.in")
+  call param_str(PARAMS,i,"Insects","FlappingMotion_right",Insect%FlappingMotion_right,"none")
+  call param_str(PARAMS,i,"Insects","FlappingMotion_left",Insect%FlappingMotion_left,"none")
+  call param_str(PARAMS,i,"Insects","BodyType",Insect%BodyType,"ellipsoid")  
+  call param_str(PARAMS,i,"Insects","HasEye",Insect%HasEye,"yes")
+  call param_str(PARAMS,i,"Insects","HasHead",Insect%HasHead,"yes")    
+  call param_str(PARAMS,i,"Insects","BodyMotion",Insect%BodyMotion,"yes")
+  call param_str(PARAMS,i,"Insects","LeftWing",Insect%LeftWing,"yes")
+  call param_str(PARAMS,i,"Insects","RightWing",Insect%RightWing,"yes") 
        
-  Insect%BodyType="ellipsoid"
-  call GetValue_String(PARAMS,i,"Insects","BodyType",&
-       Insect%BodyType,Insect%BodyType)  
-  call GetValue_String(PARAMS,i,"Insects","HasEye",&
-       Insect%HasEye,"yes")
-  call GetValue_String(PARAMS,i,"Insects","HasHead",&
-       Insect%HasHead,"yes")
-  call GetValue_String(PARAMS,i,"Insects","BodyMotion",&
-       Insect%BodyMotion,"yes")        
-  call GetValue_String(PARAMS,i,"Insects","LeftWing",&
-       Insect%LeftWing,"yes")        
-  call GetValue_String(PARAMS,i,"Insects","RightWing",&
-       Insect%RightWing,"yes")   
-       
-  call GetValue_Real(PARAMS,i,"Insects","b_body",Insect%b_body, 0.1d0) 
-  call GetValue_Real(PARAMS,i,"Insects","L_body",Insect%L_body, 1.d0)
-  call GetValue_Real(PARAMS,i,"Insects","R_head",Insect%R_head, 0.1d0) 
-  call GetValue_Real(PARAMS,i,"Insects","R_eye",Insect%R_eye, 0.d1) 
-  call GetValue_Real(PARAMS,i,"Insects","distance_from_sponge",Insect%distance_from_sponge, 1.d0) 
-  call GetValue_Real(PARAMS,i,"Insects","WingThickness",Insect%WingThickness, 4.0*dx) 
+  call param_dbl(PARAMS,i,"Insects","b_body",Insect%b_body, 0.1d0) 
+  call param_dbl(PARAMS,i,"Insects","L_body",Insect%L_body, 1.d0)
+  call param_dbl(PARAMS,i,"Insects","R_head",Insect%R_head, 0.1d0) 
+  call param_dbl(PARAMS,i,"Insects","R_eye",Insect%R_eye, 0.d1) 
+  call param_dbl(PARAMS,i,"Insects","distance_from_sponge",Insect%distance_from_sponge, 1.d0) 
+  call param_dbl(PARAMS,i,"Insects","WingThickness",Insect%WingThickness, 4.0*dx) 
   
   ! position vector of the head
-  Insect%x_head=(/0.5*Insect%L_body,0.d0,0.d0 /)
-  call GetValue_Vector(PARAMS,i,"Insects","x_head",&
-       Insect%x_head, Insect%x_head) 
+  call param_vct(PARAMS,i,"Insects","x_head",&
+       Insect%x_head, (/0.5*Insect%L_body,0.d0,0.d0 /) ) 
   
   ! eyes
-  Insect%x_eye_r=Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1,+1,1/)
-  call GetValue_Vector(PARAMS,i,"Insects","x_eye_r",&
-       Insect%x_eye_r, Insect%x_eye_r) 
+  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,+1.,1./)
+  call param_vct(PARAMS,i,"Insects","x_eye_r",Insect%x_eye_r, defaultvec) 
        
-  Insect%x_eye_l=Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1,-1,1/)
-  call GetValue_Vector(PARAMS,i,"Insects","x_eye_l",&
-       Insect%x_eye_l, Insect%x_eye_l) 
+  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,-1.,1./)
+  call param_vct(PARAMS,i,"Insects","x_eye_l",Insect%x_eye_l, defaultvec) 
        
   ! wing hinges (root points)    
-  Insect%x_pivot_l=(/0.d0, +Insect%b_body, 0.d0 /)    
-  call GetValue_Vector(PARAMS,i,"Insects","x_pivot_l",&
-       Insect%x_pivot_l, Insect%x_pivot_l)  
+  defaultvec=(/0.d0, +Insect%b_body, 0.d0 /)    
+  call param_vct(PARAMS,i,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec)  
        
-  Insect%x_pivot_r=(/0.d0, -Insect%b_body, 0.d0 /)
-  call GetValue_Vector(PARAMS,i,"Insects","x_pivot_r",&
-       Insect%x_pivot_r, Insect%x_pivot_r)        
+  defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
+  call param_vct(PARAMS,i,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)        
               
-  ! stroke plane angle: used for some types of kinematics!
-  call GetValue_Real(PARAMS,i,"Insects","eta_stroke",&
-       Insect%eta_stroke, -0.488692190558412d0) ! Fontaine et al 2009
- 
+     
   Insect%smooth = 2.0*dz
 
-  ! flag: read kinematics from file
-  Insect%KineFromFile="no"
-  call GetValue_String(PARAMS,i,"Insects","KineFromFile",&
-       Insect%KineFromFile,Insect%KineFromFile)    
+  ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
+  call param_str(PARAMS,i,"Insects","KineFromFile",Insect%KineFromFile,"no")     
+  
  
   ! Takeoff 
-  call GetValue_Real(PARAMS,i,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)
-  call GetValue_Real(PARAMS,i,"Insects","z_takeoff",Insect%z_takeoff, 0.86d0)
-  call GetValue_Real(PARAMS,i,"Insects","mass_solid",&
+  call param_dbl(PARAMS,i,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)
+  call param_dbl(PARAMS,i,"Insects","z_takeoff",Insect%z_takeoff, 0.86d0)
+  call param_dbl(PARAMS,i,"Insects","mass_solid",&
        Insect%mass_solid, 54.414118839786745d0)
-  call GetValue_Real(PARAMS,i,"Insects","gravity",&
+  call param_dbl(PARAMS,i,"Insects","gravity",&
        Insect%gravity, -0.055129281110537755d0)
 
   ! Legs model parameters
-  call GetValue_Int(PARAMS,i,"Insects","ilegs",Insect%ilegs, 1)
-  call GetValue_Real(PARAMS,i,"Insects","anglegsend",&
+  call param_int(PARAMS,i,"Insects","ilegs",Insect%ilegs, 1)
+  call param_dbl(PARAMS,i,"Insects","anglegsend",&
        Insect%anglegsend, 0.7853981633974483d0)
-  call GetValue_Real(PARAMS,i,"Insects","kzlegsmax",&
+  call param_dbl(PARAMS,i,"Insects","kzlegsmax",&
        Insect%kzlegsmax,64.24974647375242d0)
-  call GetValue_Real(PARAMS,i,"Insects","dzlegsmax",&
+  call param_dbl(PARAMS,i,"Insects","dzlegsmax",&
        Insect%dzlegsmax,0.2719665271966527d0)
-  call GetValue_Real(PARAMS,i,"Insects","t0legs",&
+  call param_dbl(PARAMS,i,"Insects","t0legs",&
        Insect%t0legs,0.13643141797265643d0)
-  call GetValue_Real(PARAMS,i,"Insects","tlinlegs",&
+  call param_dbl(PARAMS,i,"Insects","tlinlegs",&
        Insect%tlinlegs,0.3547216867289067d0)
 
   ! wing inertia tensor (we currentlz assume two identical wings)
   ! this allows computing inertial power
-  call GetValue_Real(PARAMS,i,"Insects","Jxx",Insect%Jxx,0.d0)
-  call GetValue_Real(PARAMS,i,"Insects","Jyy",Insect%Jyy,0.d0)
-  call GetValue_Real(PARAMS,i,"Insects","Jzz",Insect%Jzz,0.d0)
-  call GetValue_Real(PARAMS,i,"Insects","Jxy",Insect%Jxy,0.d0)
+  call param_dbl(PARAMS,i,"Insects","Jxx",Insect%Jxx,0.d0)
+  call param_dbl(PARAMS,i,"Insects","Jyy",Insect%Jyy,0.d0)
+  call param_dbl(PARAMS,i,"Insects","Jzz",Insect%Jzz,0.d0)
+  call param_dbl(PARAMS,i,"Insects","Jxy",Insect%Jxy,0.d0)
+
+
+  ! ---------------------------------------------------
+  ! solid model
+  ! ---------------------------------------------------
+  call get_params_solid( PARAMS, i )
 
   ! ---------------------------------------------------
   ! passive scalar section
   ! ---------------------------------------------------
-  call GetValue_Int(PARAMS,i,"PassiveScalar","use_passive_scalar",&
+  call param_int(PARAMS,i,"PassiveScalar","use_passive_scalar",&
        use_passive_scalar,0)
-  call GetValue_Int(PARAMS,i,"PassiveScalar","n_scalars",&
+  call param_int(PARAMS,i,"PassiveScalar","n_scalars",&
        n_scalars,0)
-  call GetValue_Real(PARAMS,i,"PassiveScalar","kappa",&
+  call param_dbl(PARAMS,i,"PassiveScalar","kappa",&
        kappa, 0.1d0)   
-  call GetValue_Real(PARAMS,i,"PassiveScalar","eps_scalar",&
+  call param_dbl(PARAMS,i,"PassiveScalar","eps_scalar",&
        eps_scalar, eps)       
-  call GetValue_String(PARAMS,i,"PassiveScalar","inicond_scalar",&
+  call param_str(PARAMS,i,"PassiveScalar","inicond_scalar",&
        inicond_scalar,"right_left_discontinuous") 
-  call GetValue_String(PARAMS,i,"PassiveScalar","stop_on_fail",&
+  call param_str(PARAMS,i,"PassiveScalar","stop_on_fail",&
        stop_on_fail,"no")
-  call GetValue_String(PARAMS,i,"PassiveScalar","source_term",&
+  call param_str(PARAMS,i,"PassiveScalar","source_term",&
        source_term,"no")
+
   ! ---------------------------------------------------
   ! DONE..
   ! ---------------------------------------------------
@@ -392,6 +354,70 @@ subroutine get_params_fsi(PARAMS,i)
 end subroutine get_params_fsi
 
 
+
+!-------------------------------------------------------------------------------
+! Read individual parameter values that are specific to the solid model only
+!-------------------------------------------------------------------------------
+subroutine get_params_solid(PARAMS,i)
+  use mpi
+  use solid_model
+  implicit none
+
+  integer,intent(in) :: i
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+
+  !-- solid model is deactivated by default
+  call param_str(PARAMS,i,"SolidModel","use_solid_model",use_solid_model,"no")
+  
+  !-- if using the solid model, look for other parameters
+  if (use_solid_model=="yes") then
+    !-- beam resolution
+    call param_int(PARAMS,i,"SolidModel","ns",ns, 32)
+    !-- interpolation method
+    call param_str(PARAMS,i,"SolidModel","interp",interp,"delta")
+    !-- density / stiffness / gravity
+    call param_dbl(PARAMS,i,"SolidModel","mue",mue,1.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","eta",eta,1.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","f",frequ,1.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","angle",AngleBeam,1.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","gravity",grav,0.0d0)
+    !-- beam thickness
+    call param_dbl(PARAMS,i,"SolidModel","t_beam",t_beam,0.05d0)
+    !-- damping
+    call param_dbl(PARAMS,i,"SolidModel","sigma",sigma,0.0d0)
+    !-- timing
+    call param_dbl(PARAMS,i,"SolidModel","T_release",T_release,0.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","tau",tau,0.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","N_smooth",N_smooth,3.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","L_span",L_span,1.0d0)
+    call param_str(PARAMS,i,"SolidModel","has_cylinder",has_cylinder,"no")
+    call param_dbl(PARAMS,i,"SolidModel","R_cylinder",R_cylinder,0.0d0)
+    !-- time marching method for the solid
+    call param_str(PARAMS,i,"SolidModel","TimeMethodSolid",TimeMethodSolid,"BDF2")
+    
+    select case (TimeMethodSolid)
+      case ("RK4","CN2","BDF2","EI1","EE1")
+        if (mpirank==0) write(*,*) "Solid solver is ", TimeMethodSolid
+      case default
+        if (mpirank==0) write(*,*) "Solid solver is UNDEFINED, using BDF2"
+        TimeMethodSolid="BDF2"
+    end select
+    
+    call param_str(PARAMS,i,"SolidModel","imposed_motion_leadingedge",&
+    imposed_motion_leadingedge,"fixed_middle")
+    call param_str(PARAMS,i,"SolidModel","infinite",&
+    infinite,"no")
+    !-- grid spacing
+    ds = 1.d0/dble(ns-1)
+  endif
+
+end subroutine get_params_solid
+
+
+
+
+
 ! Read individual parameter values from the PARAMS string for fmhd
 subroutine get_params_mhd(PARAMS,i)
   use mpi
@@ -403,17 +429,17 @@ subroutine get_params_mhd(PARAMS,i)
   character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
 
   ! MHD section
-  call GetValue_Real(PARAMS,i,"MHD","eta",eta,4.5d-2)
+  call param_dbl(PARAMS,i,"MHD","eta",eta,4.5d-2)
 
   ! MHDGeometry section
-  call GetValue_Real(PARAMS,i,"MHDGeometry","b0",b0,4.5d0)
-  call GetValue_Real(PARAMS,i,"MHDGeometry","bc",bc,3.88888888888d0)
-  call GetValue_Real(PARAMS,i,"MHDGeometry","ay",ay,1.0d0)
+  call param_dbl(PARAMS,i,"MHDGeometry","b0",b0,4.5d0)
+  call param_dbl(PARAMS,i,"MHDGeometry","bc",bc,3.88888888888d0)
+  call param_dbl(PARAMS,i,"MHDGeometry","ay",ay,1.0d0)
 
   ! Saving section
-  call GetValue_Int(PARAMS,i,"Saving","iSaveMagneticField",&
+  call param_int(PARAMS,i,"Saving","iSaveMagneticField",&
        iSaveMagneticField, 0)
-  call GetValue_Int(PARAMS,i,"Saving","iSaveCurrent",iSaveCurrent, 0)
+  call param_int(PARAMS,i,"Saving","iSaveCurrent",iSaveCurrent, 0)
 
   lin(1)=nu
   lin(2)=eta
@@ -436,7 +462,7 @@ end subroutine get_params_mhd
 ! Output:
 !       params_real: this is the parameter you were looking for
 !-------------------------------------------------------------------------------
-subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
+subroutine param_dbl (PARAMS, actual_lines, section, keyword, params_real, &
      defaultvalue)
   use vars
   use mpi
@@ -454,9 +480,18 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
   if (mpirank==0) then
      call GetValue(PARAMS, actual_lines, section, keyword, value)
      if (value .ne. '') then
-        read (value, *) params_real    
-        write (value,'(g10.3)') params_real
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        if ( index(value,'*dx') == 0 ) then
+          !-- value to be read is in absolute form (i.e. we just read the value)
+          read (value, *) params_real    
+          write (value,'(g10.3)') params_real
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        else
+          !-- the value is given in gridpoints (e.g. thickness=5*dx)
+          read (value(1:index(value,'*dx')-1),*) params_real
+          params_real = params_real*max(dx,dy,dz)
+          write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/max(dx,dy,dz)
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        endif 
      else
         write (value,'(g10.3)') defaultvalue
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
@@ -467,7 +502,7 @@ subroutine GetValue_real (PARAMS, actual_lines, section, keyword, params_real, &
   
   ! And then broadcast
   call MPI_BCAST( params_real, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode ) 
-end subroutine GetValue_real
+end subroutine param_dbl
 
 
 
@@ -486,7 +521,7 @@ end subroutine GetValue_real
 ! Output:
 !       params_string: this is the parameter you were looking for
 !-------------------------------------------------------------------------------
-subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
+subroutine param_str (PARAMS, actual_lines, section, keyword, &
      params_string, defaultvalue)
   use vars
   use mpi
@@ -515,6 +550,7 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
            write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
         endif
      else
+        value = defaultvalue
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
              " (THIS IS THE DEFAULT VALUE!)"
         params_string = defaultvalue
@@ -523,7 +559,7 @@ subroutine GetValue_string (PARAMS, actual_lines, section, keyword, &
 
   ! And then broadcast
   call MPI_BCAST( params_string, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, mpicode) 
-end subroutine GetValue_string
+end subroutine param_str
 
 
 
@@ -541,7 +577,7 @@ end subroutine GetValue_string
 ! Output:
 !       params_vector: this is the parameter you were looking for
 !-------------------------------------------------------------------------------
-subroutine GetValue_vector (PARAMS, actual_lines, section, keyword, params_vector, &
+subroutine param_vct (PARAMS, actual_lines, section, keyword, params_vector, &
      defaultvalue)
   use vars
   use mpi
@@ -573,7 +609,7 @@ subroutine GetValue_vector (PARAMS, actual_lines, section, keyword, params_vecto
   
   ! And then broadcast
   call MPI_BCAST( params_vector, 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode ) 
-end subroutine GetValue_vector
+end subroutine param_vct
 
 
 
@@ -591,7 +627,7 @@ end subroutine GetValue_vector
 ! Output:
 !       params_int: this is the parameter you were looking for
 !-------------------------------------------------------------------------------
-subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
+subroutine param_int(PARAMS, actual_lines, section, keyword, params_int,&
      defaultvalue)
   use mpi
   use vars
@@ -624,7 +660,9 @@ subroutine GetValue_Int(PARAMS, actual_lines, section, keyword, params_int,&
 
   ! And then broadcast
   call MPI_BCAST( params_int, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpicode )  
-end subroutine GetValue_Int
+end subroutine param_int
+
+
 
 
 

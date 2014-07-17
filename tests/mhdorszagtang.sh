@@ -69,12 +69,6 @@ do
   done
 done
 
-rm -f *.key
-rm -f *.xmf
-rm -f *.h5
-rm -f drag_data
-rm -f *.t
-rm -f runtime*.ini
 
 echo -e "\thappy tests: \t" $happy 
 echo -e "\tsad tests: \t" $sad

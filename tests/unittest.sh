@@ -4,7 +4,7 @@ echo "Unit-testing script for flusi/mhd pseudospectators."
 echo
 
 # list all the test scrits you want, separated by spaces
-tests=(jerry.sh insect.sh sphere_sponge_RK2.sh sphere.sh sphere_restart.sh vortex_ring.sh mhdorszagtang.sh)
+tests=(solid_model.sh jerry.sh vortexring1_AB2.sh vortexring2_RK2.sh vortexring3_EE1.sh vortexring4_sponge.sh sphere_sponge_RK2.sh sphere.sh sphere_restart.sh mhdorszagtang.sh swimmer1_iteration.sh swimmer2_staggered.sh swimmer3_semiimplicit.sh insect.sh )
 
 # link flusi and mhd from .. to . if this isn't already done.
 if [ ! -f flusi ]; then
@@ -40,6 +40,16 @@ do
 	echo -e "FAIL\tRunning test: "${test}", log in: "${logfile}
 	numfail=$(($numfail + 1))
     fi
+
+    #cleanup
+    rm -f *.key
+    rm -f *.h5
+    rm -f drag_data
+    rm -f *.t end IBES_iter
+    rm -f runtime*.ini
+    rm -f success
+    rm -f deco*
+
 
 done
 

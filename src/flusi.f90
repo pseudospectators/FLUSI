@@ -1,14 +1,17 @@
 program FLUSI
   use mpi
   use fsi_vars
+  use solid_model
   implicit none
-  integer :: mpicode
+  integer                :: mpicode
   character (len=strlen) :: infile
 
   ! Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
   call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
   call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode) 
+  
+  if (mpirank==0) root=.true.
   
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
@@ -24,6 +27,18 @@ program FLUSI
       ! the first argument tells us that we're postprocessing 
       !-------------------------------------------------------------------------
       call postprocessing()
+      
+  elseif ( infile == "--solid" ) then
+      !-------------------------------------------------------------------------
+      ! run solid model only
+      !-------------------------------------------------------------------------
+      method="fsi" ! We are doing fluid-structure interactions
+      nf=1 ! We are evolving one field.
+      nd=3*nf ! The one field has three components.
+      allocate(lin(1)) ! Set up the linear term
+      call get_command_argument(2,infile)
+      call get_params(infile)
+      call OnlySolidSimulation()
       
   else
       if (mpirank==0) write(*,*) "nothing to do..."      
@@ -41,6 +56,7 @@ subroutine Start_Simulation()
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use solid_model
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   real(kind=pr)          :: t1,t2
@@ -50,35 +66,39 @@ subroutine Start_Simulation()
   ! Arrays needed for simulation
   real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
-  real(kind=pr),dimension(:,:,:,:),allocatable :: work
+  complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  ! real valued work arrays (there will be "nrw" of them)
+  real(kind=pr),dimension(:,:,:,:),allocatable :: work  
   ! complex work array, used for sponge and/or passive scalar
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
-  complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk
+  ! pressure array, with ghost points
+  real(kind=pr),dimension(:,:,:),allocatable :: press
+  
 
   
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
-  nf=1 ! We are evolving one field.
+  nf=1    ! We are evolving one field (that means 1 integrating factor)
   nd=3*nf ! The one field has three components.
-  neq=nd
-  nrw=1 ! number of real valued work arrays
-  ncw=0 ! number of complex values work arrays 
+  neq=nd  ! number of equations, can be higher than 3 if using passive scalar
+  nrw=1   ! number of real valued work arrays
+  ncw=1   ! number of complex values work arrays (decide that later)
 
   ! initialize timing variables
-  time_fft=0.0; time_ifft=0.0; time_vis=0.0; time_mask=0.0
-  time_vor=0.0; time_curl=0.0; time_p=0.0; time_nlk=0.0; time_fluid=0.0
-  time_bckp=0.0; time_save=0.0; time_total=MPI_wtime(); time_u=0.0; time_sponge=0.0
-  time_insect_head=0.0; time_insect_body=0.0; time_insect_eye=0.0
-  time_insect_wings=0.0; time_insect_vel=0.0; time_scalar=0.0
-
+  time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0
+  time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
+  time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
+  time_insect_head=0.d0; time_insect_body=0.d0; time_insect_eye=0.d0
+  time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
+  time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   
   ! Set up global communicators. We have two groups, for solid and fluid CPUs
   ! with dedicated tasks to do. For MHD, all CPU are reserved for the fluid
   call setup_fluid_solid_communicators( 0 )
   
   
-  if (mpirank == 0) then
+  if (root) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  FLUSI'
      write(*,'(A)') '--------------------------------------'
@@ -92,11 +112,26 @@ subroutine Start_Simulation()
   ! Read input parameters
   !-----------------------------------------------------------------------------
   allocate(lin(nf)) ! Set up the linear term
-  if (mpirank == 0) write(*,'(A)') '*** info: Reading input data...'
+  if (root) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
   ! read all parameters from that file
   call get_params(infile)
+  
+  !-----------------------------------------------------------------------------
+  ! ghost points. only the "active" FSI part, i.e. with flexible obstacles, 
+  ! currently needs the ghost point system for interpolating the pressure on the
+  ! surface
+  !-----------------------------------------------------------------------------
+  if (use_solid_model=="yes") then
+    if (interp=='linear') ng=1 ! one ghost point
+    if (interp=='delta')  ng=3 ! three ghost points
+  else
+    ! we dont need ghosts when not solving the solid model
+    ng=0 ! zero ghost points
+  endif
+  
+  if (root) write(*,'("Set up ng=",i1," ghost points")') ng
   
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
@@ -118,38 +153,36 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! reserve additional space for scalars?
   if (use_passive_scalar==1) then
-    neq = neq + n_scalars
-    compute_scalar=.true.
+    ! add n_scalars to number of equations. Note the difference between neq and nd
+    neq = neq + n_scalars 
+    ! this logical "activates" the scalar. if, for example, a NaN in the scalar occurs,
+    ! it is set to false and the scalar is skipped, since the fluid can still be okay
+    compute_scalar = .true.
   endif
+
+  ! size (in bytes) of one field  
+  mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
+  memory = 0.d0
   
-  mem_field = dble(nx)*dble(ny)*dble(nz)*8.0
-  memory = 0.0
-  
+  ! integrating factors
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   memory = memory + dble(nf)*mem_field
   
-  ! velocity in Fourier space
+  ! velocity in Fourier space (possibly with passive scalar)
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-  memory = memory + dble(nd)*mem_field
+  memory = memory + dble(neq)*mem_field
   
-  ! right hand side of navier-stokes
+  ! right hand side of navier-stokes (possibly with passive scalar)
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1))
-  memory = memory + 2.0*dble(nd)*mem_field
+  memory = memory + 2.d0*dble(neq)*mem_field
   
-  ! velocity in physical space
+  ! velocity in physical space (WITHOUT passive scalar)
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   memory = memory + dble(nd)*mem_field
   
-  ! vorticity in physical space
+  ! vorticity in physical space (TODO: remove this, add it to work)
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
   memory = memory + dble(nd)*mem_field
-  
-  ! real valued work array(s)
-  ! allocate one work array
-  nrw = 1
-  
-  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
-  memory = memory + dble(nrw)*mem_field
   
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
@@ -163,14 +196,34 @@ subroutine Start_Simulation()
   allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)) 
   memory = memory + dble(nd)*mem_field
   
+  ! real valued work array(s)
+  ! allocate one work array
+  nrw = 1  
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
+  memory = memory + dble(nrw)*mem_field
+  
+  ! pressure array. this is with ghost points for interpolation
+  if (use_solid_model=="yes") then
+    allocate(press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+    memory = memory + mem_field
+  endif
+  
   ! vorticity sponge, work array that is used for sponge and/or passive scalar
   if (iVorticitySponge=="yes") then
+    ! three complex work arrays
     ncw = 3
   else
+    ! one complex work array, if using scalar
     if (use_passive_scalar==1) ncw = 1
   endif
   allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
   
+  if (mpirank==0) then 
+    write(*,'("Allocated ",i1," real and ",i1," complex work arrays")') nrw,ncw
+  endif
+  !-----------------------------------------------------------------------------
+  ! initalize some insect stuff, if used
+  !-----------------------------------------------------------------------------
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") then
      call load_kine_init(mpirank,MPI_DOUBLE_PRECISION,MPI_INTEGER)
@@ -180,7 +233,9 @@ subroutine Start_Simulation()
   ! and set idynamics flag on or off
   call rigid_solid_init(SolidDyn%idynamics)
 
+  !-----------------------------------------------------------------------------
   ! show memory consumption for information
+  !-----------------------------------------------------------------------------
   if (mpirank==0) then
     write(*,'(80("-"))')
     write(*,'("FLUSI allocated ",f7.1,"MB (",f5.1,"GB) of memory in total")')&
@@ -198,23 +253,15 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Initial condition
   !-----------------------------------------------------------------------------
-  if (mpirank == 0) write(*,*) "Set up initial conditions...."
+  if (root) write(*,*) "Set up initial conditions...."
   call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
   n0=1 - n1 !important to do this now in case we're retaking a backp
   
-  !-----------------------------------------------------------------------------
-  ! Masks for startup
-  !-----------------------------------------------------------------------------  
-  if (mpirank == 0) write(*,*) "Create mask variables...."
-  ! Create mask function:
-  call create_mask(time)
-  call update_us(u)
-
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
   t1 = MPI_wtime()
-  call time_step(u,uk,nlk,vort,work,workc,explin,infile,time,dt0,dt1,n0,n1,it)
+  call time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press,infile )
   t2 = MPI_wtime() - t1
   
   !-----------------------------------------------------------------------------
@@ -227,17 +274,24 @@ subroutine Start_Simulation()
   deallocate(us)
   deallocate(mask)
   deallocate(mask_color)
+  deallocate(ra_table,rb_table)
+  if (use_solid_model=="yes")  deallocate(press)
+  
+  
   ! Clean kinematics (Dmitry, 14 Nov 2013)
   if (Insect%KineFromFile/="no") call load_kine_clean
+  ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
   if (iMask=="Insect") call insect_clean
   
+  ! write empty success file
   call init_empty_file("success")
   
+  ! release other memory
   call fft_free 
   !-------------------------
   ! Show the breakdown of timing information
   !-------------------------
-  if (mpirank == 0) call show_timings(t2)
+  if (root) call show_timings(t2)
 end subroutine Start_Simulation
 
 
@@ -254,51 +308,78 @@ subroutine show_timings(t2)
   write(*,'(A)') '*** Timings'
   write(*,'(A)') '--------------------------------------'
   write(*,'("of the total time ",es12.4,", FLUSI spend ",es12.4," (",f5.1,"%) on FFTS")') &
-       t2, time_fft+time_ifft,100.0*(time_fft+time_ifft)/t2 
+       t2, time_fft+time_ifft,100.d0*(time_fft+time_ifft)/t2 
   write(*,'(A)') '--------------------------------------'
+  
+  
   write(*,'("Time Stepping contributions:")')
-  write(*,'("Fluid      : ",es12.4," (",f5.1,"%)")') time_fluid, 100.0*time_fluid/t2
-  write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.0*time_mask/t2
-  write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.0*time_save/t2
-  write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.0*time_bckp/t2
-  tmp = t2 - (time_fluid + time_mask + time_save + time_bckp + time_save)
-  write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/t2
+  write(*,'("Fluid      : ",es12.4," (",f5.1,"%)")') time_fluid, 100.d0*time_fluid/t2
+  if (use_solid_model/="yes") then ! when doing true FSI, this is a part of fluid time step
+    write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.d0*time_mask/t2
+  endif
+  write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.d0*time_save/t2  
+  write(*,'("drag forces: ",es12.4," (",f5.1,"%)")') time_drag, 100.d0*time_drag/t2
+  write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.d0*time_bckp/t2
+  if (use_solid_model/="yes") then
+    tmp = t2 - (time_fluid+time_mask+time_save+time_bckp+time_drag)
+  else
+    tmp = t2 - (time_fluid+time_save+time_bckp+time_drag)
+  endif
+  write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.d0*tmp/t2
+  
+  
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') "The time spend for the fluid decomposes into:"
-  write(*,'("cal_nlk: ",es12.4," (",f5.1,"%)")') time_nlk, 100.0*time_nlk/time_fluid
-  write(*,'("cal_vis: ",es12.4," (",f5.1,"%)")') time_vis, 100.0*time_vis/time_fluid
-  tmp = time_fluid - time_nlk - time_vis
-  write(*,'("misc:  ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_fluid
+  write(*,'("cal_nlk    : ",es12.4," (",f5.1,"%)")') time_nlk, 100.d0*time_nlk/time_fluid
+  write(*,'("cal_vis    : ",es12.4," (",f5.1,"%)")') time_vis, 100.d0*time_vis/time_fluid
+  write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_solid, 100.d0*time_solid/time_fluid
+  write(*,'("surf forces: ",es12.4," (",f5.1,"%)")') time_surf, 100.d0*time_surf/time_fluid
+  tmp = time_fluid - time_nlk - time_vis - time_solid - time_surf
+  if (use_solid_model=="yes") then
+    write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.d0*time_mask/time_fluid
+    tmp = tmp - time_mask
+  endif  
+  write(*,'("misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.d0*tmp/time_fluid
   write(*,'(A)') '--------------------------------------'
+  
+  
+  if (use_solid_model=="yes") then
+    write(*,'(A)') "solid solver decomposes into:"
+    write(*,'("Lapack: ",es12.4," (",f5.1,"%)")') time_LAPACK,100.d0*time_LAPACK/time_solid
+    write(*,'(A)') '--------------------------------------'
+  endif
+  
   if (use_passive_scalar==1) then
-  write(*,'("passive scalar : ",es12.4," (",f5.1,"%)")') time_scalar, 100.0*time_scalar/t2
-  write(*,'(A)') '--------------------------------------'
+    write(*,'("passive scalar : ",es12.4," (",f5.1,"%)")') time_scalar, 100.d0*time_scalar/t2
+    write(*,'(A)') '--------------------------------------'
   endif
+  
   write(*,'(A)') "cal_nlk decomposes into:"
-  write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.0*time_u/time_nlk
-  write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.0*time_vor/time_nlk
-  write(*,'("vor x u - chi*u: ",es12.4," (",f5.1,"%)")') time_curl, 100.0*time_curl/time_nlk
-  write(*,'("projection     : ",es12.4," (",f5.1,"%)")') time_p, 100.0*time_p/time_nlk
-  write(*,'("sponge         : ",es12.4," (",f5.1,"%)")') time_sponge, 100.0*time_sponge/time_nlk
+  write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.d0*time_u/time_nlk
+  write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.d0*time_vor/time_nlk
+  write(*,'("vor x u - chi*u: ",es12.4," (",f5.1,"%)")') time_curl, 100.d0*time_curl/time_nlk
+  write(*,'("projection     : ",es12.4," (",f5.1,"%)")') time_p, 100.d0*time_p/time_nlk
+  write(*,'("sponge         : ",es12.4," (",f5.1,"%)")') time_sponge, 100.d0*time_sponge/time_nlk
   tmp = time_nlk - time_u - time_vor - time_curl - time_p  
-  write(*,'("Misc           : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
+  write(*,'("Misc           : ",es12.4," (",f5.1,"%)")') tmp, 100.d0*tmp/time_nlk
   write (*,'(A)') "cal_nlk: FFTs and local operations:"
-  write(*,'("FFTs           : ",es12.4," (",f5.1,"%)")') time_nlk_fft, 100.0*time_nlk_fft/time_nlk
+  write(*,'("FFTs           : ",es12.4," (",f5.1,"%)")') time_nlk_fft, 100.d0*time_nlk_fft/time_nlk
   tmp = time_nlk-time_nlk_fft
-  write(*,'("local          : ",es12.4," (",f5.1,"%)")') tmp, 100.0*tmp/time_nlk
+  write(*,'("local          : ",es12.4," (",f5.1,"%)")') tmp, 100.d0*tmp/time_nlk
+  
   if (iMask=="Insect") then
-  write(*,'(A)') '--------------------------------------'
-  write(*,'(A)') 'Insect mask generation decomposes into:'
-  write(*,'("Body : ",es12.4," (",f5.1,"%)")') time_insect_body, 100.0*time_insect_body/time_mask
-  write(*,'("Eyes : ",es12.4," (",f5.1,"%)")') time_insect_eye,  100.0*time_insect_eye/time_mask
-  write(*,'("Head : ",es12.4," (",f5.1,"%)")') time_insect_head, 100.0*time_insect_head/time_mask
-  write(*,'("Wings: ",es12.4," (",f5.1,"%)")') time_insect_wings,100.0*time_insect_wings/time_mask  
-  write(*,'("veloc: ",es12.4," (",f5.1,"%)")') time_insect_vel,  100.0*time_insect_vel/time_mask  
-  write(*,'(A)') '--------------------------------------'
+    write(*,'(A)') '--------------------------------------'
+    write(*,'(A)') 'Insect mask generation decomposes into:'
+    write(*,'("Body : ",es12.4," (",f5.1,"%)")') time_insect_body, 100.d0*time_insect_body/time_mask
+    write(*,'("Eyes : ",es12.4," (",f5.1,"%)")') time_insect_eye,  100.d0*time_insect_eye/time_mask
+    write(*,'("Head : ",es12.4," (",f5.1,"%)")') time_insect_head, 100.d0*time_insect_head/time_mask
+    write(*,'("Wings: ",es12.4," (",f5.1,"%)")') time_insect_wings,100.d0*time_insect_wings/time_mask  
+    write(*,'("veloc: ",es12.4," (",f5.1,"%)")') time_insect_vel,  100.d0*time_insect_vel/time_mask  
+    write(*,'(A)') '--------------------------------------'
   endif
+  
   write(*,'(A)') '--------------------------------------'
-  write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') &
-       t2, nint( t2*dble(ncpu)/3600.d0 )
+  write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(ncpu)/3600.d0 )
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') 'Finalizing computation....'
   write(*,'(A)') '--------------------------------------'
@@ -373,7 +454,9 @@ subroutine initialize_time_series_files()
   open  (14,file='meanflow.t',status='replace')
   write (14,'(4(A15,1x))') "% time","mean_ux","mean_uy","mean_uz"
   close (14)  
-  
+
+  call init_empty_file('iterations.t')
+  call init_empty_file('mask_volume.t')
 end subroutine
 
 
@@ -386,7 +469,7 @@ subroutine print_domain_decomposition()
   integer :: mpicode
   
   
-  if (mpirank == 0) then
+  if (root) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '*** Domain decomposition:'
      write(*,'(A)') '--------------------------------------'

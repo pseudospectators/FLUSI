@@ -2,23 +2,32 @@
 ! this module contains basic elementary operators, and as it is a module
 ! function overloading can be used.
 ! List of functions:
-!       * curl (inplace / out of place / second order precision)
+!       * curl
 !       * divergence
-!       * field min/max values
-!       * laplace operator (for scalars +- second order)
+!       * max/min operations on real fields
+!       * check fields for NaN
 !-------------------------------------------------------------------------------
 module basic_operators
- !-- interface for curl operators
- interface curl
-  module procedure curl, curl_inplace, curl3
- end interface
+  !-- interface for curl operators
+  interface curl
+    module procedure curl, curl_inplace, curl3
+  end interface
+
+  !-- interface for maxima of fields
+  interface fieldmaxabs
+    module procedure fieldmaxabs, fieldmaxabs3
+  end interface
+
+  !-- check fields for NaN 
+  interface checknan
+    module procedure checknan_cmplx, checknan_real
+  end interface
  
- interface fieldmaxabs
-  module procedure fieldmaxabs, fieldmaxabs3
- end interface
  
- 
+!!!!!!!!!!! 
  contains
+!!!!!!!!!!! 
+ 
  
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
@@ -213,12 +222,18 @@ subroutine curl3(ink,outk)
 end subroutine curl3 
 
 
+!-------------------------------------------------------------------------------
+! compute divergence of vector valued field (ink, 4D array)
+! and returns it in outk
+!-------------------------------------------------------------------------------
 subroutine divergence( ink, outk )
   use mpi
   use p3dfft_wrapper
   use vars
   implicit none
+  ! input vector field in Fourier space
   complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  ! output scalar field in Fourier space
   complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   
   integer :: ix,iy,iz
@@ -373,5 +388,56 @@ real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
   ! return the value    
   fieldmaxabs = max_global
 end function fieldmaxabs
+  
+
+!-------------------------------------------------------------------------------
+! check a real valued field for NaNs and display warning if found
+!-------------------------------------------------------------------------------
+subroutine checknan_real( field, msg )
+  use vars
+  implicit none
+  real(kind=pr),intent(in)::field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  character(len=*),intent(in)::msg
+  integer :: foundnan,foundnans,mpicode,ix,iy,iz
+  foundnan = 0
+  do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do iz=ra(3),rb(3)  
+        if (is_nan(field(ix,iy,iz))) foundnan = 1
+      enddo
+    enddo
+  enddo  
+  
+  call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,&
+       MPI_COMM_WORLD,mpicode)  
+
+  if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans      
+end subroutine checknan_real
+
+
+!-------------------------------------------------------------------------------
+! check a complex field for NaN's, display warning if found
+!-------------------------------------------------------------------------------
+subroutine checknan_cmplx( field, msg )
+  use vars
+  implicit none
+  complex(kind=pr),intent(in)::field(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  character(len=*),intent(in)::msg
+  integer :: foundnan,foundnans,mpicode,ix,iy,iz
+  foundnan = 0
+  do iz=ca(1),cb(1)
+    do iy=ca(2),cb(2)
+      do ix=ca(3),cb(3)
+        if (is_nan(aimag(field(iz,iy,ix)))) foundnan = 1
+        if (is_nan(real (field(iz,iy,ix)))) foundnan = 1
+      enddo
+    enddo
+  enddo  
+  
+  call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,&
+       MPI_COMM_WORLD,mpicode)  
+
+  if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans
+end subroutine checknan_cmplx  
   
 end module basic_operators

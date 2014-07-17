@@ -11,7 +11,7 @@
 nprocs=$(nproc)
 mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
-params="insect.ini"
+params="insect/insect.ini"
 
 happy=0
 sad=0
@@ -74,44 +74,22 @@ done
 #                               time series
 #-------------------------------------------------------------------------------
 
-files=(forces.t forces_part1.t forces_part2.t forces_part3.t)
-columns=(1 2 4 5 9 12)
+files=(forces.t forces_part1.t forces_part2.t forces_part3.t kinematics.t)
+
 for file in ${files[@]}
 do
-for col in ${columns[@]}
-do
-    echo "--------------------------------------------------------------------"
-    echo "comparing" $file "column" $col
-    new=$(awk -v col=$col '(NR>1) { print  $col }' $file | tail -n1)
-    old=$(awk -v col=$col '(NR>1) { print  $col }' insect/$file | tail -n1)
-    if [ $new == $old ]; then
-      echo ":D HAPPY! timeseries comparison for " $file "column=" $col "succeded"
-      happy=$((happy+1))
-    else
-      echo ":(( Sad: timeseries comparison for " $file " failed"
-      sad=$((sad+1))
-    fi
-    echo "--------------------------------------------------------------------"
-done
-done
-
-
-columns=(1 2 4 5 6 7 8 9 12 13 14)
-file=kinematics.t
-for col in ${columns[@]}
-do
-    echo "--------------------------------------------------------------------"
-    echo "comparing" $file "column" $col
-    new=$(awk -v col=$col '(NR>1) { print  $col }' $file | tail -n1)
-    old=$(awk -v col=$col '(NR>1) { print  $col }' insect/$file | tail -n1)
-    if [ $new == $old ]; then
-      echo ":D HAPPY! timeseries comparison for " $file "column=" $col "succeded"
-      happy=$((happy+1))
-    else
-      echo ":(( Sad: timeseries comparison for " $file " failed"
-      sad=$((sad+1))
-    fi
-    echo "--------------------------------------------------------------------"
+  echo comparing $file time series...
+  
+  ./flusi --postprocess --compare-timeseries $file insect/$file
+  
+  result=$?
+  if [ $result == "0" ]; then
+    echo -e ":) Happy, time series: this looks okay! " $file
+    happy=$((happy+1))
+  else
+    echo -e ":[ Sad, time series: this is failed! " $file
+    sad=$((sad+1))
+  fi
 done
 
 

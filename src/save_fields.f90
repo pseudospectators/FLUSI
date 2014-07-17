@@ -1,35 +1,36 @@
 ! Wrapper for saving fields routine
-subroutine save_fields_new(time,uk,u,vort,nlk,work,workc)
+subroutine save_fields(time,uk,u,vort,nlk,work,workc)
   use vars
   implicit none
 
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
   select case(method)
      case("fsi") 
-        call save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
+        call save_fields_fsi(time,uk,u,vort,nlk,work,workc)
      case("mhd") 
-        call save_fields_new_mhd(time,uk,u,vort,nlk)
+        call save_fields_mhd(time,uk,u,vort,nlk)
      case default
-        if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields_new"
-        stop
+        if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
+        call abort()
   end select
-end subroutine save_fields_new
+  
+end subroutine save_fields
 
 
+!-------------------------------------------------------------------------------
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
 ! files. 
 ! The latest version calls cal_nlk_fsi to avoid redudant code. 
-! note cal_nlk_fsi returns the NL+penal term in phys space in the work
-! array "vort" which is why we have to recompute the vorticity
-subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
+!-------------------------------------------------------------------------------
+subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc)
   use fsi_vars
   use p3dfft_wrapper
   use basic_operators
@@ -37,38 +38,35 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
 
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  character(len=17) :: name
+  real(kind=pr):: volume
+  character(len=5) :: name
 
   !--Set up file name base    
   if ( save_only_one_period == "yes" ) then
     ! overwrite files from last period to save disk space
     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-    write(name,'(i5.5)') floor( (time-real(floor(time)))*100.d0 )
+    write(name,'(i5.5)') floor( (time-real(floor(time/tsave_period)))*100.d0 )
   else
     ! name is just the time
     write(name,'(i5.5)') floor(time*100.d0) 
   endif
   
-  name=trim(adjustl(name))
-
   if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," string=",A," ...")',advance='no') & 
-    time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity, &
-    trim(adjustl(name))
+    write(*,'("Saving data, time= ",e11.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') & 
+    time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! no projection, we do this here (also no passive scalar)
-  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc, .false. , .false.) 
+  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
   !-------------  
-  ! Velocity
+  ! Velocity (returned in x-space by cal_nlk_fsi)
   !-------------
   if (isaveVelocity == 1) then
     call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
@@ -80,11 +78,12 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   ! Pressure
   !-------------
   if (isavePress == 1) then  
-    ! we called cal_nlk and told it not to project
-    ! store the total pressure in the work array
-    call compute_pressure(nlk(:,:,:,1),nlk)
-    ! total pressure in phys-space
-    call ifft( ink=nlk(:,:,:,1), outx=work(:,:,:,1) )
+    ! compute pressure (remember NLK is *not* divergence free)
+    call compute_pressure( nlk,workc(:,:,:,1) )
+! ! !     call compute_pressure(nlk,nlk(:,:,:,1))
+! ! !     call ifft( ink=nlk(:,:,:,1), outx=work(:,:,:,1) )
+    ! total pressure in x-space
+    call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
     ! get actuall pressure (we're in the rotational formulation)
     work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
     call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
@@ -94,7 +93,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   ! Vorticity
   !-------------   
   if (isaveVorticity==1) then
-    ! cal_nlk overwrote the vorticity, recompute it
+    !-- compute vorticity:
     call curl( ink=uk, outk=nlk)
     call ifft3( ink=nlk, outx=vort )
     !-- save Vorticity
@@ -110,6 +109,8 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   !-------------
   if (isaveMask == 1 .and. iPenalization == 1) then
     mask = mask*eps
+    call compute_mask_volume(volume)
+    if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
     mask = mask/eps
   endif
@@ -133,7 +134,7 @@ subroutine save_fields_new_fsi(time,uk,u,vort,nlk,work,workc)
   
   
   if (mpirank==0) write(*,*) " ...DONE!"
-end subroutine save_fields_new_fsi
+end subroutine save_fields_fsi
 
 
 ! Write the field field_out to file filename, saving the name of the
@@ -1172,7 +1173,7 @@ end subroutine write_attribute_int
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
 ! files.
-subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
+subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
   use mpi
   use mhd_vars
   use p3dfft_wrapper
@@ -1256,7 +1257,7 @@ subroutine save_fields_new_mhd(time,ubk,ub,wj,nlk)
   endif
 
   if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."
-end subroutine save_fields_new_mhd
+end subroutine save_fields_mhd
 
 
 

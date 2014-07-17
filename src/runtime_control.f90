@@ -59,9 +59,11 @@ subroutine runtime_control_command( command )
     call read_params_file( CTRL_FILE, i, file, .false. ) ! false = non-verbose
   endif
   command = "nothing"
-  call GetValue_string(CTRL_FILE, i, "runtime_control","runtime_control", &
+  call param_str(CTRL_FILE, i, "runtime_control","runtime_control", &
                         command, command)
       
   ! all MPI procs now know what to do.
   return
 end subroutine runtime_control_command
+
+

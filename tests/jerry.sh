@@ -11,7 +11,7 @@
 nprocs=$(nproc)
 mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
-params="jerry.ini"
+params="jerry/jerry.ini"
 
 happy=0
 sad=0
@@ -63,16 +63,12 @@ do
         sad=$((sad+1))
         echo -e ":[ Sad: output file not found"
     fi
-    
+    echo " "
+    echo " "
     
   done
 done
 
-rm -f *.key
-rm -f *.h5
-rm -f drag_data
-rm -f *.t
-rm -f runtime*.ini
 
 echo -e "\thappy tests: \t" $happy 
 echo -e "\tsad tests: \t" $sad

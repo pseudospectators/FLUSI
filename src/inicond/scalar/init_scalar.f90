@@ -87,7 +87,7 @@ subroutine init_passive_scalar(uk,work,workc)
   case default
     if (mpirank==0) then
       write(*,*) "init_passive_scalar:: unknown inicond_scalar="//inicond_scalar
-      stop
+      call abort()
     endif
   end select
   

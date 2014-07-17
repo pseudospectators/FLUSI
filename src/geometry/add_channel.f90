@@ -10,7 +10,8 @@ subroutine add_channel()
   use fsi_vars
   implicit none
   integer :: ix,iy,iz
-  real (kind=pr) :: y, z
+  real (kind=pr) :: x,y, z, usponge, H_eff, z_chan
+  
   
   ! loop over the physical space
   do ix = ra(1), rb(1)
@@ -38,9 +39,37 @@ subroutine add_channel()
               mask_color(ix,iy,iz) = 0
             endif
             
+          case ("turek")                  !      z
+            ! Turek walls:                !      ^
+            thick_wall = 0.2577143d0      !      |
+            usponge = 0.5060014d0         !      |
+            H_eff = zl-2.d0*thick_wall    !      -------> y
+                      
+            z = dble(iz)*dz
+            y = dble(iy)*dy
+            z_chan = z-thick_Wall
+            
+            !-- channel walls
+            if ((z<=thick_Wall).or.(z>=zl-thick_Wall)) then
+              mask(ix,iy,iz) = 1.d0
+              mask_color(ix,iy,iz) = 0
+              us(ix,iy,iz,:) = 0.d0  
+            endif
+              
+            !-- velocity sponge (sharp, maybe smooth it to one side)  
+            if ((y<=usponge).and.(z>=thick_Wall).and.(z<=zl-thick_Wall)) then
+              mask(ix,iy,iz) = 1.d0
+              mask_color(ix,iy,iz) = 0
+              ! note in 2D flows, we set nx=1 and run in the y-z plane where
+              ! y is the axial direction
+              us(ix,iy,iz,1) = 0.d0
+              us(ix,iy,iz,2) = 1.5*z_chan*(H_eff-z_chan)/((0.5*H_eff)**2)              
+              us(ix,iy,iz,3) = 0.d0
+            endif
+            
           case default
             write (*,*) "add_channel()::iChannel is not a known value"
-            stop
+            call abort()
           end select
           !----------------
        enddo

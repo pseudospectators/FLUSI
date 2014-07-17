@@ -803,7 +803,7 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   case default
     if (mpirank==0) then
     write (*,*) "insects.f90::FlappingMotion: motion case (protocoll) undefined"
-    stop
+    call abort()
     endif    
   end select
   

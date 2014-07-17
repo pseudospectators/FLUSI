@@ -12,13 +12,9 @@ subroutine postprocessing()
   
   if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
   
-  
   ! the second argument tells us what to do with the file
   call get_command_argument(2,postprocessing_mode)
   ! it then depends on the second argument what follows
-  
-  if (mpirank==0) write(*,*) "mpisize=",mpisize
-  
   
   !-----------------
   ! check what to do
@@ -30,7 +26,9 @@ subroutine postprocessing()
   case ("--compare-keys")
     call get_command_argument(3,key1)
     call get_command_argument(4,key2)
-    call compare_key (key1,key2)         
+    call compare_key (key1,key2)     
+  case ("--compare-timeseries")
+    call compare_timeseries() 
   case ("--vorticity")
     call convert_vorticity()
   case ("--vor_abs")
@@ -44,7 +42,6 @@ subroutine postprocessing()
   end select
       
   if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1    
-  if (mpirank==0) write (*,*) "*** bye bye ***"   
 end subroutine postprocessing
 
 
@@ -135,7 +132,7 @@ subroutine convert_abs_vorticity()
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
      write (*,*) "Error in arguments, files do not start with ux uy and uz"
      write (*,*) "note files have to be in the right order"
-     stop
+     call abort()
   endif
   
   
@@ -221,7 +218,7 @@ subroutine convert_vorticity()
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
      write (*,*) "Error in arguments, files do not start with ux uy and uz"
      write (*,*) "note files have to be in the right order"
-     stop
+     call abort()
   endif
   
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
@@ -248,13 +245,7 @@ subroutine convert_vorticity()
   call fft (uk(:,:,:,2),u(:,:,:,2))
   call fft (uk(:,:,:,3),u(:,:,:,3))
   
-  if (order=="--second-order") then
-    if (mpirank==0) write(*,*) "Using second order precision.."
-    call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
-  else
-    if (mpirank==0) write(*,*) "Using spectral precision.."
-    call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
-  endif
+  call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   
   call ifft (u(:,:,:,1),uk(:,:,:,1))
   call ifft (u(:,:,:,2),uk(:,:,:,2))
@@ -300,7 +291,7 @@ subroutine keyvalues(filename)
   
   if (mpisize>1) then
     write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"
-    stop 
+    call abort() 
   endif  
   
   call check_file_exists( filename )
@@ -314,7 +305,6 @@ subroutine keyvalues(filename)
   !---------------------------------------------------------
   ! the dataset is named the same way as the file:
   dsetname = filename ( 1:index( filename, '_' )-1 )
-  write (*,*) "dsetname: ", dsetname
   call fetch_attributes( filename, dsetname, nx, ny, nz, xl, yl, zl, time )
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
   
@@ -329,6 +319,98 @@ subroutine keyvalues(filename)
 end subroutine keyvalues
 
 
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocessing --compare-timeseries forces.t ref/forces.t 
+!-------------------------------------------------------------------------------
+subroutine compare_timeseries()
+  use fsi_vars
+  implicit none
+  character(len=strlen) :: file1,file2
+  character(len=1024) :: header, line
+  character(len=15) ::format
+  real(kind=pr),dimension(:),allocatable :: values1, values2, error
+  real(kind=pr)::diff
+  integer :: i,columns,io_error,columns2
+  
+  call get_command_argument(3,file1)
+  call get_command_argument(4,file2)
+  
+  call check_file_exists(file1)
+  call check_file_exists(file2)
+  
+  !-----------------------------------------------------------------------------
+  ! how many colums are in the *.t file?
+  !-----------------------------------------------------------------------------
+  open  (14, file = file1, status = 'unknown', action='read')
+  read (14,'(A)') header
+  read (14,'(A)') line
+  columns=1
+  do i=2,len_trim(line)
+    if ((line(i:i)==" ").and.(line(i+1:i+1)/=" ")) columns=columns+1
+  enddo
+  close (14) 
+  
+  !-----------------------------------------------------------------------------
+  ! how many colums are in the second *.t file?
+  !-----------------------------------------------------------------------------
+  open  (14, file = file1, status = 'unknown', action='read')
+  read (14,'(A)') header
+  read (14,'(A)') line
+  columns2=1
+  do i=2,len_trim(line)
+    if ((line(i:i)==" ").and.(line(i+1:i+1)/=" ")) columns2=columns2+1
+  enddo
+  close (14)   
+  
+  if(columns/=columns2) then
+    write(*,*) "trying to compare two t files with different #columns..."
+    call exit(666)
+  endif
+
+  write(format,'("(",i2.2,"(es15.8,1x))")') columns
+!   write(*,*) format
+  !-----------------------------------------------------------------------------
+  ! alloc arrays, then scan line by line for errors
+  !-----------------------------------------------------------------------------
+  allocate( values1(1:columns), values2(1:columns), error(1:columns) )
+  
+  ! read in files, line by line
+  io_error=0
+  open (20, file = file1, status = 'unknown', action='read')
+  open (30, file = file2, status = 'unknown', action='read')
+  read (20,'(A)') header
+  read (30,'(A)') header
+  do while (io_error==0)
+    ! compare this line
+    read (20,*,iostat=io_error) values1
+    read (30,*,iostat=io_error) values2
+    
+    do i=1,columns
+      diff = values1(i)-values2(i)
+      ! ignore values smaller 1e-6 in ref file
+      if ((dabs(values2(i))>1.d-5).and.(diff>1.d-7)) then
+        error(i) = dabs(diff/values2(i))
+      else
+        error(i) = 0.0
+      endif
+    enddo
+    
+    if (maxval(error)>5.d-5) then 
+      write(*,*) "time series comparison failed..."
+      write(*,format) values1
+      write(*,format) values2
+      write(*,format) error
+      call exit(666)
+    endif
+  enddo
+  close (20)
+  close (30)
+  deallocate (values1,values2,error)
+end subroutine compare_timeseries
+
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocessing --compare-keys mask_00000.key saved.key
 !-------------------------------------------------------------------------------
@@ -339,15 +421,10 @@ subroutine compare_key(key1,key2)
   implicit none
   character(len=*), intent(in) :: key1,key2
   real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2
-  logical :: exist1, exist2
+  real(kind=pr) :: e1,e2,e3,e4
   
-  inquire ( file=key1, exist=exist1 )
-  inquire ( file=key2, exist=exist2 )
-  
-  if ( exist1.eqv..false. .or. exist2.eqv..false. ) then
-    write (*,*) "Input file not found..."
-    stop
-  endif  
+  call check_file_exists(key1)
+  call check_file_exists(key2) 
   
   open  (14, file = key1, status = 'unknown', action='read')
   read (14,'(4(es17.10,1x))') a1,b1,c1,d1  
@@ -359,19 +436,42 @@ subroutine compare_key(key1,key2)
   
   write (*,'("present  : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
         a1,b1,c1,d1
+              
   write (*,'("reference: max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
         a2,b2,c2,d2
-  write (*,'("differenc: max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-        a2-a1,b2-b1,c2-c1,d2-d1
+        
+  ! errors:
+  if (dabs(a2)>=1.0d-7) then
+    e1 = (a2-a1) / a2
+  else
+    e1 = (a2-a1) 
+  endif  
   
-  if ((a1-a2<1.d-12) .and. (b2-b1<1.d-12) .and. (c2-c1<1.e-12) .and. (d2-d1<1.d-12)) then
+  if (dabs(b2)>=1.0d-7) then
+    e2 = (b2-b1) / b2
+  else
+    e2 = (b2-b1) 
+  endif
+  
+  if (dabs(c2)>=1.0d-7) then
+    e3 = (c2-c1) / c2
+  else
+    e3 = (c2-c1) 
+  endif
+  
+  if (dabs(d2)>=1.0d-7) then
+    e4 = (d2-d1) / d2
+  else
+    e4 = (d2-d1) 
+  endif
+  
+  write (*,'("err(rel) : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
+        e1,e2,e3,e4
+  
+  if ((e1<1.d-6) .and. (e2<1.d-6) .and. (e3<1.d-6) .and. (e4<1.d-6)) then
     ! all cool
-    write (*,*) "SUCCES"
+    write (*,*) "OKAY..."
     call exit(0)            
-  elseif ((a1-a2<1.d-09) .and. (b2-b1<1.d-09) .and. (c2-c1<1.e-09) .and. (d2-d1<1.d-09)) then
-    ! not so cool but no catastrophy
-    write (*,*) "WARNING"
-    call exit(2)            
   else
     ! very bad
     write (*,*) "ERROR"

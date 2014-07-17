@@ -1,6 +1,7 @@
 ! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
-subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc)
-  use vars
+subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
+  use fsi_vars
+  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -9,17 +10,40 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(in) :: time
+  real(kind=pr)::t1
   integer, intent(in) :: it
 
   select case(method)
   case("fsi") 
-     call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, .true., .true.)
+    !---------------------------------------------------------------------------
+    ! FSI case. note projection is outsourced and performed here. 
+    !---------------------------------------------------------------------------
+    ! compute source-terms, *not* divergence-free
+    call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
+    
+    t1 = MPI_wtime()   
+    ! if we compute active FSI (with flexible obstacles), we need the pressure
+    if (use_solid_model=="yes") then
+      call compute_pressure( nlk,workc(:,:,:,1) )
+      ! transform it to phys space (note "press" has ghostpoints, cut them here)
+      call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+    endif
+    ! project the right hand side to the incompressible manifold
+    call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+    ! for global performance measurement
+    time_p = time_p + MPI_wtime() - t1     
+    
   case("mhd") 
+     !--------------------------------------------------------------------------
+     ! MHD case
+     !--------------------------------------------------------------------------
      call cal_nlk_mhd(nlk,uk,u,vort)
+     
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
-     call abort
+     call abort()
   end select
 end subroutine cal_nlk
 
@@ -27,70 +51,59 @@ end subroutine cal_nlk
 !-------------------------------------------------------------------------------
 ! Compute the nonlinear source term of the Navier-Stokes equation,
 ! including penalty term, in Fourier space. Seven real-valued
-! arrays are required for working memory.
+! arrays are required for working memory. The term in NLK reads
+! nlk = omega x u - chi/eta * (u-us) - sponge
 ! Input:
 !       time: guess what!
-!       uk: 4D field of velocity in Fourier space
-!       projection: logical, turns on or off projection. when called from 
-!                   save_fields_new, we set .false. because we want to have the
-!                   entire pressure field to save it
-!      scalar: logical. for the same reason as above, we can skip the scalar
+!       uk: vector field of velocity in Fourier space, holding the 3 velocity
+!           components and the passive scalar, if present
 ! Output:
-!       nlk:  The right hand side of penalized Navier-Stokes in Fourier space
+!       nlk:  The right hand side of penalized Navier-Stokes in Fourier space,
+!             ie the NL term, penalty term, sponge term (NOT THE PRESSURE)
 !       vort: work array, can be reused immediatly (is free after this routine)
-!       u:    work array, contains the velocity in phys space
-!             this is reused in the caller FluidTimestep to adjust dt
-!       work: work array, currently unused (will be used for pressure)
-!       workc: cmplx work array, for sponge and/or passive scalar,
-!              and/or FSI (temp array for pressure later)
-! Side Effects:
-!      * if present, a sponge is applied to remove incoming vorticity
+!       u:    work array, contains the velocity in phys space this is reused in 
+!             the caller FluidTimestep to adjust dt
+!       work: work array (real)
+!       workc: work array (cmplx), for sponge and/or passive scalar
 !
-! To Do:
-!       * for "true" FSI, we'll need to return the pressure field in phys space
+! NOTES:
+!       16 Jul 2014: This routine excludes the pressure. the field NLK is
+!                    NOT DIVERGENCE FREE. The projection takes place in the
+!                    caller "cal_nlk"
 !-------------------------------------------------------------------------------
-subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
+subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   use mpi
   use p3dfft_wrapper
   use fsi_vars
   use basic_operators
   implicit none
 
+  real(kind=pr),intent (in) :: time
+  integer, intent(in) :: it
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent (in) :: time
-  real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz,chi2
-  real(kind=pr) :: penalx,penaly,penalz
-  integer, intent(in) :: it ! This is unused
-  ! these logicals are used in save_fields, where we do not need these parts
-  logical, intent(in) :: projection, scalar
+  real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   integer :: ix,iz,iy
   
   ! performance measurement in global variables
   t0         = MPI_wtime()
   time_fft2  = 0.d0 ! time_fft2 is the time spend on ffts during cal_nlk only
   time_ifft2 = 0.d0 ! time_ifft2 is the time spend on iffts during cal_nlk only
-  penalx     = 0.d0
-  penaly     = 0.d0
-  penalz     = 0.d0  
-  usx     = 0.d0
-  usy     = 0.d0
-  usz     = 0.d0  
-  chi2    = 0.d0
-  !-----------------------------------------------
+
+  !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  call ifft3 (u, uk)
+  call ifft3 (outx=u, ink=uk)
   time_u = time_u + MPI_wtime() - t1
   
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   !-- Compute vorticity
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   ! nlk is temporarily used for vortk
   call curl ( ink=uk, outk=nlk )
@@ -98,18 +111,16 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
   call ifft3 ( ink=nlk, outx=vort)  
   time_vor = time_vor + MPI_wtime() - t1  
   
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   !-- vorticity sponge term
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  if (iVorticitySponge == "yes") then
-     call vorticity_sponge( vort, work(:,:,:,1), workc )  
-  endif
+  call vorticity_sponge( vort, work(:,:,:,1), workc )
   time_sponge = time_sponge + MPI_wtime() - t1
     
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   !-- Non-Linear terms
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)
@@ -123,7 +134,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
         vorz = vort(ix,iy,iz,3)
         
         ! local variables for penalization
-        chi  = mask(ix,iy,iz)          
+        chi = mask(ix,iy,iz)          
         usx = us(ix,iy,iz,1)
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
@@ -140,9 +151,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
   call fft3( inx=vort,outk=nlk )  
   time_curl = time_curl + MPI_wtime() - t1  
   
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   ! add sponge term
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (iVorticitySponge == "yes") then
     nlk(:,:,:,1) = nlk(:,:,:,1) + workc(:,:,:,1)
@@ -151,23 +162,17 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,projection,scalar)
   endif
   time_sponge = time_sponge + MPI_wtime() - t1  
   
-  !-----------------------------------------------
-  ! add pressure gradient
-  !-----------------------------------------------  
-  t1 = MPI_wtime()
-  if (projection) then
-    call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-  endif
-  time_p = time_p + MPI_wtime() - t1
-
-  !-----------------------------------------------
+  !-----------------------------------------------------------------------------
   ! passive scalar (currently only one) the work array vort is now free
   ! so use it in cal_nlk_scalar
-  !-----------------------------------------------
-  if ((use_passive_scalar==1).and.(compute_scalar).and.(scalar)) then
+  !-----------------------------------------------------------------------------
+  if ((use_passive_scalar==1).and.(compute_scalar)) then
     call cal_nlk_scalar( time,it,u,uk(:,:,:,4),nlk(:,:,:,4),workc(:,:,:,1),vort )
   endif
   
+  !-----------------------------------------------------------------------------
+  ! timings
+  !-----------------------------------------------------------------------------
   ! this is for the timing statistics.
   ! how much time was spend on ffts in cal_nlk?
   time_nlk_fft=time_nlk_fft + time_fft2 + time_ifft2
@@ -182,8 +187,10 @@ end subroutine cal_nlk_fsi
 ! terms (nlk: intent(in)) divided by k**2.
 ! so: p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
 ! note: we use rotational formulation: p is NOT the physical pressure
+! as the RHS in cal_nlk is on the left side, i.e. -(vor x u) -chi*(u-us)
+! its sign is inversed when computing the pressure
 !-------------------------------------------------------------------------------
-subroutine compute_pressure(pk,nlk)
+subroutine compute_pressure(nlk,pk)
   use mpi
   use p3dfft_wrapper
   use vars
@@ -192,13 +199,11 @@ subroutine compute_pressure(pk,nlk)
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
   complex(kind=pr),intent(out):: pk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(in):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-  complex(kind=pr) :: imag   ! imaginary unit
+  complex(kind=pr),intent(in):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr) :: imag,nlkx,nlky,nlkz
 
-  ! important remark:
   ! as the RHS in cal_nlk is on the left side, i.e. -(vor x u) -chi*(u-us)
-  ! its sign is inversed when computing the pressure. we therefore inverse the 
-  ! sign here, which was wrong in old versions.
+  ! its sign is inversed when computing the pressure
   
   imag = dcmplx(0.d0,1.d0)
 
@@ -211,8 +216,13 @@ subroutine compute_pressure(pk,nlk)
           k2=kx*kx + ky*ky + kz*kz
           if(k2 .ne. 0.0) then
             ! contains the pressure in Fourier space
-            pk(iz,iy,ix) = -imag*(kx*nlk(iz,iy,ix,1)+ky*nlk(iz,iy,ix,2)+&
-                                  kz*nlk(iz,iy,ix,3) )/k2
+            ! note "-" sign
+            nlkx = nlk(iz,iy,ix,1)
+            nlky = nlk(iz,iy,ix,2)
+            nlkz = nlk(iz,iy,ix,3)
+            pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
+!           else
+!             pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
           endif
       enddo
     enddo
@@ -220,9 +230,41 @@ subroutine compute_pressure(pk,nlk)
 end subroutine compute_pressure
 
 
+!-------------------------------------------------------------------------------
+! Compute the pressure in an inefficient way given only the velocity
+!-------------------------------------------------------------------------------
+subroutine pressure_given_uk(uk,work,workc,press)
+  use mpi
+  use p3dfft_wrapper
+  use vars
+  implicit none
+
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: nlk
+  
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
+  
+  call cal_nlk_fsi (0.d0,0,nlk,uk,u,vort,work,workc) 
+  call compute_pressure(nlk,workc(:,:,:,1))
+  call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  
+  deallocate (nlk,u,vort)
+end subroutine 
+
+
+
+!-------------------------------------------------------------------------------
 ! Add the gradient of the pressure to the nonlinear term, which is the actual
 ! projection scheme used in this code. The non-linear term comes in with NL and
 ! penalization and leaves divergence free
+!-------------------------------------------------------------------------------
 subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   use mpi
   use vars
@@ -400,7 +442,6 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! Helmholtz decomposition.
   call div_field_nul(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
 end subroutine cal_nlk_mhd
-
 
 
 ! Render the input field divergence-free via a Helmholtz

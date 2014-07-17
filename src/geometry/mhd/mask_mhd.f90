@@ -19,7 +19,7 @@ subroutine create_mask_mhd()
         if(mpirank == 0) then
            write (*,*) &
                 "iMask not properly set for mhd in create_mask_mhd; stopping."
-           stop
+           call abort()
         endif
      end select
   endif
@@ -129,7 +129,7 @@ subroutine update_us_mhd()
         if(mpirank == 0) then
            write (*,*) &
                 "iMask not properly set for mhd in update_us_mhd; stopping."
-           stop
+           call abort()
         endif
      end select
   endif

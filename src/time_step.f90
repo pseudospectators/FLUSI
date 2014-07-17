@@ -1,8 +1,9 @@
-subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0,n1,it)
+subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press,params_file)
   use mpi
   use vars
   use fsi_vars
   use p3dfft_wrapper
+  use solid_model
   implicit none
   
   integer :: inter
@@ -11,7 +12,7 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
   ! runtime_backup1,2 - no backup
   integer :: it_start
   real(kind=pr),intent(inout) :: time,dt0,dt1 
-  real(kind=pr) :: t1,t2
+  real(kind=pr) :: t1,t2,t3,t4
   character(len=strlen)  :: command ! for runtime control
   character(len=strlen),intent(in)  :: params_file ! for runtime control  
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -21,27 +22,44 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  ! pressure array. this is with ghost points for interpolation
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
+  type(solid), dimension(1) :: beams
   logical :: continue_timestepping
+ 
   truntimenext = 0d0 
   continue_timestepping = .true.
-  it_start=it
+  it_start = it
+
+  !-- some solid solver tests + initialization of beams
+  if (use_solid_model=="yes") then
+    if (root) write(*,*) "initializing beams"
+    call init_beams( beams )
+    if (root) write(*,*) "surface interp test"
+    call surface_interpolation_testing( time, beams(1), press )
+    if (root) write(*,*) "initializing beam"
+    call init_beams( beams )
+  endif
+
+  ! create startup mask
+  call create_mask( time, beams(1) )  
   
   ! save initial conditions (if not resuming a backup)
   if (index(inicond,'backup::')==0) then
-    call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
+    call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
   endif
   
   ! initialize runtime control file
-  if (mpirank == 0) call initialize_runtime_control_file()
+  if (root) call initialize_runtime_control_file()
    
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
   if (index(inicond,'backup::')==0) then
-    if (mpirank == 0) write(*,*) "Initial output of integral quantities...."
+    if (root) write(*,*) "Initial output of integral quantities...."
     call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
   endif
 
-  if (mpirank == 0) write(*,*) "Start time-stepping...."
+  if (root) write(*,*) "Start time-stepping...."
   
   ! Loop over time steps
   t1=MPI_wtime()
@@ -50,46 +68,53 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
      ! escape from loop if walltime is about to be exceeded
      !-------------------------------------------------
      if ((idobackup==1).and.(wtimemax < (MPI_wtime()-time_total)/3600.d0)) then
-         if (mpirank == 0) write(*,*) "Out of walltime!"
+         if (root) write(*,*) "Out of walltime!"
          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
          continue_timestepping=.false.
      endif
 
      dt0=dt1
+     t4=MPI_wtime()
+     
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
      !-------------------------------------------------
-     if(iMoving == 1 .and. iPenalization == 1) call create_mask(time)
-     
+     if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
+       ! for FSI schemes, the mask is created in fluidtimestep
+       call create_mask(time, beams(1))
+     endif
+
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
      if(dry_run_without_fluid/="yes") then
        ! note: the array "vort" is a real work array and has neither input nor
        ! output values after fluid time stepper
-       call fluidtimestep(time,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,explin,it)
+       call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
+            workc,explin,press,beams)
      endif
 
      !-------------------------------------------------
-     ! Compute hydrodynamic forces at time level n (FSI only)
-     ! NOTE:    is done every itdrag time steps. this condition will be changed
-     !          in future versions if free-flight (ie solving eq of motion) is
-     !          required.
+     ! Compute hydrodynamic forces at time level n (FSI only), for saving or for
+     ! solving ODEs with it (insect free flight solver)
      !-------------------------------------------------
      if ( method=="fsi" ) then
+        t3 = MPI_wtime()
         ! compute unst corrections in every time step
         if (unst_corrections ==1) then
           call cal_unst_corrections ( time, dt0 )
         endif
         ! compute drag only if required
         if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)) then
-        if (compute_forces==1) then
-          call cal_drag ( time, u ) ! note u is OLD time level
-        endif
+          if (compute_forces==1) then
+            call cal_drag ( time, u ) ! note u is OLD time level
+          endif
         endif
         ! note dt0 is OLD time step t(n)-t(n-1)
         ! advance in time ODEs that describe rigid solids
         if (SolidDyn%idynamics==1) call rigid_solid_time_step(time,dt0,dt1,it)
+        !-- global timing measurement
+        time_drag = time_drag + MPI_wtime() - t3
      endif     
      
      !-----------------------------------------------
@@ -103,7 +128,7 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
      ! If we hit the wall-time limit (specified in the params file)
      ! then save the restart data and stop the program.
      if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
-        if (mpirank == 0) write(*,*) "Out of walltime!"
+        if (root) write(*,*) "Out of walltime!"
         call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
         continue_timestepping=.false.   
      endif
@@ -114,18 +139,22 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
      !-------------------------------------------------
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+       if ((use_solid_model=='yes').and.(root)) then
+          call SaveBeamData( time, beams )
+       endif
      endif
     
      !-------------------------------------------------
      ! Output FIELDS (after tsave)
      !-------------------------------------------------
-     if (((modulo(time,tsave)<=dt1).and.(it>2)).or.(time==tmax)) then
+     if (((modulo(time,tsave)<=dt1).and.(time>+tsave_first).and.(it>2))&
+        .or.(time==tmax)) then
         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-        ! Note: we can safely delete nlk(:,:,:,1:nd,n0). for RK2 it
+        ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
-        call save_fields_new(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)       
+        call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)       
      endif
 
      if(idobackup == 1) then
@@ -152,31 +181,38 @@ subroutine time_step(u,uk,nlk,vort,work,workc,explin,params_file,time,dt0,dt1,n0
         ! execute it
         select case ( command )
         case ("reload_params")
-          if (mpirank==0) write (*,*) "runtime control: Reloading PARAMS file.."
+          if (root) write (*,*) "runtime control: Reloading PARAMS file.."
           ! read all parameters from the params.ini file
           call get_params(params_file)           
           ! overwrite control file
-          if (mpirank == 0) call initialize_runtime_control_file()
+          if (root) call initialize_runtime_control_file()
         case ("save_stop")
-          if (mpirank==0) write (*,*) "runtime control: Safely stopping..."
+          if (root) write (*,*) "runtime control: Safely stopping..."
           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
+          !-- backup solid solver, if using it
+          if((use_solid_model=="yes").and.(method=="fsi")) then
+            call dump_solid_backup( time, beams, nbackup )
+          endif
           continue_timestepping = .false. ! this will stop the time loop
           ! overwrite control file
-          if (mpirank == 0) call initialize_runtime_control_file()
+          if (root) call initialize_runtime_control_file()
         end select
      endif 
      
-     if(mpirank==0) call save_time_stepping_info (it,it_start,time,t2,t1,dt1)
-  end do
-  
-  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
+     if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1,t4)
+  enddo
 
-  ! Create a restart file after time-stepping is done.
-  if(idobackup == 1) then
-     call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
+  ! save final backup so we can resume where we left 
+  if(idobackup==1) then
+    if (root) write (*,*) "final backup..."
+    call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
+    !-- backup solid solver, if using it
+    if((use_solid_model=="yes").and.(method=="fsi")) then
+      call dump_solid_backup( time, beams, nbackup )
+    endif    
   endif
 
-  if(mpirank==0) then
+  if(root) then
      write(*,'("Finished time stepping; did it=",i5," time steps")') it
   endif
 end subroutine time_step
@@ -185,24 +221,26 @@ end subroutine time_step
 !-------------------------------------------------------------------------------
 ! dump information about performance, time, time step and iteration
 ! number to disk. this helps estimating how many time steps will be 
-! required when passing to higher resolution.
+! required when passing to higher resolution. This routine is called after every
+! time step
 !-------------------------------------------------------------------------------
-subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1)
+subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1,t3)
   use vars
   implicit none
 
-  real(kind=pr),intent(inout) :: time,t2,t1,dt1
+  real(kind=pr),intent(inout) :: time,t2,t1,dt1,t3  
   integer,intent(inout) :: it,it_start
   
-  if (mpirank == 0) then
-  ! t2 is time [sec] per time step
+  ! t2 is time [sec] per time step, averaged
   t2 = (MPI_wtime() - t1) / dble(it-it_start)
+  ! t3 is the time per time step, not averaged (on input, t3 is start point of 
+  ! time step
+  t3 = MPI_wtime() - t3
   
   open  (14,file='timestep.t',status='unknown',position='append')
-  write (14,'(es15.8,1x,i15,1x,es15.8,1x,es15.8)') time,it,dt1,t2
+  write (14,'(i7.7,1x,es12.4,1x,3(es15.8,1x))') it,time,dt1,t2,t3
   close (14)
-  endif
- 
+
 end subroutine save_time_stepping_info
 
 
@@ -221,10 +259,10 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   ! too seldom or too often. in future versions, maybe we try doing it
   ! once in an hour or so. We also output a first estimate after 20
   ! time steps.
-  if(mpirank == 0) then  
+  if(root) then  
      t2= MPI_wtime() - t1
      time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
-     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1," dt=",es10.2,"s t=",es10.2)') &
+     write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",es10.2)') &
           floor(time_left/(24.d0*3600.d0))   ,&
           floor(mod(time_left,24.*3600.d0)/3600.d0),&
           floor(mod(time_left,3600.d0)/60.d0),&

@@ -9,15 +9,13 @@
 ! the vorticity sponge term is chi_sp * (vort) / eta_sponge
 ! but this is in the vorticity formulation
 ! so we compute the streamfunctions vort = - LAPLACE(psi)
-! and then take the curl sponge = nabla \crossproduct psi
+! and then take the curl sponge = nabla \cross psi
 !
 ! INPUT: 
-!       vort: the vorticity vector
-!       work: real valued work array that will hold penalized vorticity
-!       workc: cmplx work array for sponge term (vector)
+!       vort: the vorticity vector in x-space
+!       work1: real valued work array (that will hold penalized vorticity)
 ! OUTPUT:
-!       sponge (global): the vorticity sponge term in Fourier space
-!
+!       workc: cmplx work array for sponge term (vector)
 ! TO DO:
 !       merge with vorticity2velocity in init_fields_fsi
 ! ------------------------------------------------------------------------------
@@ -31,7 +29,6 @@ subroutine vorticity_sponge( vort, work1, workc )
   integer :: i, ix, iy, iz
   real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout):: work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))  
-  ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   
   if (iVorticitySponge == "yes") then    
@@ -118,21 +115,53 @@ subroutine penalize_vort ( vort_penalized, vort )
         do iz = ra(3), rb(3) 
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
-          if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif
-          
-          if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif     
-          
-          if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
-            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-          endif
+            !------------------------
+            if (nx>4) then ! skip this direction for 2D runs...
+            if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif
+            endif
+            !------------------------
+            if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif    
+            !------------------------
+            if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif
+            !------------------------
           endif
         enddo
       enddo
-    enddo       
+    enddo
+    
+  case ("cavity_open_z")
+    !--------------------------------------------
+    ! sponge for the cavity type (ie we set a solid wall
+    ! around the domain and kill the vorticity in front
+    ! of if). But you can also use it without the solid wall
+    ! ie iCavity=no and iSponge=yes, iSpongeType=cavity
+    !--------------------------------------------
+    do ix = ra(1), rb(1)
+      do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3) 
+          ! do not use vorticity sponge and solid wall simulateously
+          if (mask(ix,iy,iz) < 1e-12) then
+            !------------------------
+            if (nx>4) then ! skip this direction for 2D runs...
+            if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif
+            endif
+            !------------------------
+            if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
+              vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+            endif    
+            !------------------------
+          endif
+        enddo
+      enddo
+    enddo      
 
   case ("xmin_xmax_ymin_ymax")
     !--------------------------------------------

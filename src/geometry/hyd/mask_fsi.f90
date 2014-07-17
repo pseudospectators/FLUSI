@@ -1,9 +1,11 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions 
-subroutine create_mask_fsi (time)
+subroutine create_mask_fsi (time, beam )
   use mpi
   use fsi_vars
+  use solid_model
   implicit none
   real(kind=pr), intent(in) :: time
+  type(solid), intent(in) :: beam
   real(kind=pr) :: t1
   t1 = MPI_wtime() 
   
@@ -25,6 +27,8 @@ subroutine create_mask_fsi (time)
       call Flapper (time)    
     case ("Insect")
       call Draw_Insect (time)
+    case("Flexibility")      
+      call Draw_flexible_plate( time, beam )
     case ("plate","Plate")
       call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
     case ("noncircular_cylinder")
@@ -33,7 +37,7 @@ subroutine create_mask_fsi (time)
       mask = 0.d0
     case default    
       write (*,*) "iMask="//iMask//" not properly set; stopping."
-      stop
+      call abort()
     end select
   endif
 

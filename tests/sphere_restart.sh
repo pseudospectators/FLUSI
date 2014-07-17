@@ -14,8 +14,8 @@
 # set up mpi command (this may be machine dependent!!)
 nprocs=$(nproc)
 mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
-# what parameter file
-params="testing_sphere.ini"
+
+
 
 happy=0
 sad=0
@@ -30,12 +30,12 @@ prefixes=(ux uy uz p vorx vory vorz)
 # list of possible times (no need to actually have them)
 times=(00000 00100 00200)
 # run first part: starting (runs untill T=1.0)
-${mpi_command} ./flusi testing_sphere_start.ini
+${mpi_command} ./flusi ./sphere/testing_sphere_start.ini
 echo -e "\t\t============================"
 echo -e "\t\t RESTARTING"
 echo -e "\t\t============================"
 # run second part: retake the simulation and run to T=2.0
-${mpi_command} ./flusi testing_sphere_restart.ini
+${mpi_command} ./flusi ./sphere/testing_sphere_restart.ini
 
 # loop over all HDF5 files an generate keyvalues using flusi
 for p in ${prefixes[@]}
@@ -72,16 +72,12 @@ do
         sad=$((sad+1))
         echo -e ":[ Sad: output file not found"
     fi
-    
+    echo " "
+    echo " "
     
   done
 done
 
-rm -f *.key
-rm -f *.h5
-rm -f drag_data
-rm -f *.t
-rm -f runtime*.ini
 
 echo -e "\thappy tests: \t" $happy 
 echo -e "\tsad tests: \t" $sad

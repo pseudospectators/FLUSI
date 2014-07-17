@@ -46,7 +46,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
   real(kind=pr),intent(inout)::work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)  
-  real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc
+  real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume
   integer :: ix,iy,iz,mpicode
 
   !-----------------------------------------------------------
@@ -72,7 +72,19 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
      write (14,'(4(es15.8,1x))') time, dreal(uk(0,0,0,1:3))
      close (14)
   endif
-
+  
+  !-----------------------------------------------------------
+  ! mask volume
+  !-----------------------------------------------------------
+  mask = mask*eps
+  call compute_mask_volume(volume)
+  mask = mask/eps
+  if(mpirank == 0) then
+    open(14,file='mask_volume.t',status='unknown',position='append')
+    write (14,'(2(es15.8,1x))') time,volume
+    close(14)
+  endif
+  
 end subroutine write_integrals_fsi
 
 
@@ -525,3 +537,23 @@ subroutine compute_fluid_volume(volume)
           MPI_COMM_WORLD,mpicode)
   endif
 end subroutine compute_fluid_volume
+
+
+
+! Compute the fluid volume.
+! NB: mask is a global!
+subroutine compute_mask_volume(volume)
+  use mpi
+  use vars
+  implicit none
+
+  real(kind=pr),intent(out) :: volume
+  integer :: mpicode
+  real(kind=pr) :: Lvolume ! Process-local volume
+
+  Lvolume=sum(mask)*dx*dy*dz
+     
+  call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+          MPI_COMM_WORLD,mpicode)
+          
+end subroutine compute_mask_volume

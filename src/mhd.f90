@@ -26,8 +26,9 @@ program mhd
   ! three are the current density field.
   real(kind=pr),dimension(:,:,:,:),allocatable :: wj
 
-  ! work is a 3-dimensional array. FIXME: what is it used in?
   real(kind=pr),dimension(:,:,:,:),allocatable :: work
+  real(kind=pr),dimension(:,:,:),allocatable :: press
+  
   ! complex work array, currently unused in the MHD case (not allocated)
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
   
@@ -35,7 +36,10 @@ program mhd
   call MPI_INIT(mpicode)
   call MPI_COMM_SIZE(MPI_COMM_WORLD,mpisize,mpicode)
   call MPI_COMM_RANK(MPI_COMM_WORLD,mpirank,mpicode)
-
+  if (mpirank==0) root=.true.
+  
+  ! MHD does not use ghost points
+  ng=0
   
   ! Set method information in vars module:
   method="mhd" ! We are doing fluid-structure intergrep actions
@@ -139,8 +143,7 @@ program mhd
   call update_us(ub)
   
   if (mpirank == 0) write(*,*) "Start time-stepping:"
-  call time_step(ub,ubk,nlk,wj,work,workc,explin,infile,time,dt0,dt1,n0,n1,it)
-
+  call time_step(time,dt0,dt1,n0,n1,it,ub,ubk,nlk,wj,work,workc,explin,press,infile)
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
   
   deallocate(ubk)
@@ -153,6 +156,7 @@ program mhd
   deallocate(lin)
   deallocate(work)
   deallocate(workc)
+  deallocate(ra_table,rb_table)
 
   call fft_free 
   call MPI_FINALIZE(mpicode)

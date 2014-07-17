@@ -99,7 +99,8 @@ subroutine fft_initialize
   !-----------------------------------------------------------------------------
   !------ Three-dimensional FFT                                           ------
   !-----------------------------------------------------------------------------
-  
+  ! default case, no decomposition
+  decomposition="none"
   
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
@@ -107,6 +108,7 @@ subroutine fft_initialize
   if (nz>mpisize) then
      mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
      mpidims(2) = mpisize       ! 3rd index in real space.
+     decomposition="1D"
   else
      mpidims(1) = 0
      mpidims(2) = 0
@@ -115,21 +117,17 @@ subroutine fft_initialize
         mpidims(1) = mpidims(2)
         mpidims(2) = mpisize / mpidims(1)
      endif
+     decomposition="2D"
   endif
+  
+  if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims
+  if (root) write(*,'("Using ",A," decomposition!")') trim(adjustl(decomposition))
 
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
      print *, 'wrong mpidims: change mpisize'
-     stop
+     call abort()
   endif
-
-  !-- Stop if the sizes are odd or smaller than 4
-!   if(modulo(nx,2)==1 .or. modulo(ny,2)==1 .or. modulo(nz,2)==1 ) then
-!      if(mpirank == 0 ) then
-!         print *, 'nx, ny, nz must be even'
-!      endif
-!      stop
-!   endif
 
   !-- Initialize P3DFFT
   call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
@@ -141,6 +139,20 @@ subroutine fft_initialize
   rb(:) = rb(:) - 1
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
+  
+  !-- extends of real arrays that have ghost points
+  ga=ra
+  gb=rb
+  if (decomposition=="1D") then
+    ga(3) = ga(3)-ng
+    gb(3) = gb(3)+ng
+  elseif (decomposition=="2D") then
+    ga(2) = ga(2)-ng
+    gb(2) = gb(2)+ng
+    ga(3) = ga(3)-ng
+    gb(3) = gb(3)+ng
+  endif
+  
   
   !-- Allocate domain partitioning tables and gather sizes from all processes 
   !-- (only for real arrays)

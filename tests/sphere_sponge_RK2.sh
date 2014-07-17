@@ -13,7 +13,7 @@
 nprocs=$(nproc)
 mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
-params="sphere_sponge_RK2.ini"
+params="./sphere_sponge_RK2/sphere_sponge_RK2.ini"
 
 happy=0
 sad=0
@@ -75,31 +75,21 @@ done
 #                               time series
 #-------------------------------------------------------------------------------
 
-files=(forces.t)
-columns=(1 2 3 4 9 10)
-for file in ${files[@]}
-do
-for col in ${columns[@]}
-do
-    echo "comparing" $file "column" $col
-    new=$(awk -v col=$col '(NR>1) { print  $col }' $file | tail -n1)
-    old=$(awk -v col=$col '(NR>1) { print  $col }' sphere_sponge_RK2/$file | tail -n1)
-    if [ $new == $old ]; then
-      echo ":D HAPPY! timeseries comparison for " $file "column=" $col "succeded"
-      happy=$((happy+1))
-    else
-      echo ":(( Sad: timeseries comparison for " $file " failed"
-      sad=$((sad+1))
-    fi
-done
-done
+file="forces.t"
 
+echo comparing $file time series...
 
-rm -f *.key
-rm -f *.h5
-rm -f drag_data
-rm -f *.t
-rm -f runtime*.ini
+./flusi --postprocess --compare-timeseries $file sphere_sponge_RK2/$file
+
+result=$?
+if [ $result == "0" ]; then
+  echo -e ":) Happy, time series: this looks okay! " $keyfile $reffile 
+  happy=$((happy+1))
+else
+  echo -e ":[ Sad, this is failed! " $keyfile $reffile 
+  sad=$((sad+1))
+fi
+
 
 echo -e "\thappy tests: \t" $happy 
 echo -e "\tsad tests: \t" $sad

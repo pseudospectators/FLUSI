@@ -134,7 +134,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
         !--------------------------------------------------
         if (mpirank==0) write (*,*) inicond
         if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
-        call abort
+        call abort()
      endif
   end select
   
@@ -142,6 +142,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
   ! If module is in use, initialize also the passive scalar(s)
   !-----------------------------------------------------------------------------
   if ((use_passive_scalar==1).and.(index(inicond,"backup::")==0)) then
+    ! only if not resuming a backup
     call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1))
   endif
   
