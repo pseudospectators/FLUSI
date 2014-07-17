@@ -12,8 +12,8 @@ module vars
   integer,parameter :: pr = 8 
 
   ! Method variables set in the program file:
-  character(len=strlen),save:: method ! mhd  or fsi
-  character(len=strlen), save :: dry_run_without_fluid ! just save mask function
+  character(len=strlen),save :: method ! mhd  or fsi
+  character(len=strlen),save :: dry_run_without_fluid ! just save mask function
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
   integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD, 4 for 
@@ -36,7 +36,9 @@ module vars
   ! p3dfft only parameters (move to appropraite .f90 file?)
   integer,save :: mpicommcart
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
-  
+  ! only root rank has this true:
+  logical, save :: root=.false.
+
 
   real(kind=pr),save :: pi ! 3.14....
 
@@ -108,14 +110,6 @@ module vars
   character(len=strlen) :: iSmoothing ! how to smooth the mask
   real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
 
-  ! Am I a fluid or a solid CPU?
-  logical, save :: fluid_cpu, solid_cpu
-  ! number of CPU, of CPU for fluid and CPU for solid
-  integer, save :: ncpu, ncpu_fluid, ncpu_solid
-  ! communicators:
-  integer, save :: MPI_COMM_FLUID, MPI_COMM_SOLID
-  ! only root rank has this true:
-  logical, save :: root=.false.
   
   contains 
 

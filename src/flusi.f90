@@ -93,18 +93,11 @@ subroutine Start_Simulation()
   time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   
-  ! Set up global communicators. We have two groups, for solid and fluid CPUs
-  ! with dedicated tasks to do. For MHD, all CPU are reserved for the fluid
-  call setup_fluid_solid_communicators( 0 )
-  
-  
   if (root) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  FLUSI'
      write(*,'(A)') '--------------------------------------'
-     write(*,'("Running on ",i5," CPUs")') ncpu
-     write(*,'("  Using ",i5," CPUs for fluid")') ncpu_fluid
-     write(*,'("  Using ",i5," CPUs for solid")') ncpu_solid
+     write(*,'("Running on ",i5," CPUs")') mpisize
      write(*,'(A)') '--------------------------------------'
   endif
 
@@ -379,7 +372,7 @@ subroutine show_timings(t2)
   endif
   
   write(*,'(A)') '--------------------------------------'
-  write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(ncpu)/3600.d0 )
+  write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
   write(*,'(A)') '--------------------------------------'
   write(*,'(A)') 'Finalizing computation....'
   write(*,'(A)') '--------------------------------------'

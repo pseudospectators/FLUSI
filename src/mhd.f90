@@ -55,12 +55,6 @@ program mhd
   ! this helps displaying the walltime (in the global var time_total)
   time_total=MPI_wtime()
   
-  ! Set up global communicators. We have two groups, for solid and fluid CPUs
-  ! with dedicated tasks to do. For MHD, all CPU are reserved for the fluid
-  call setup_fluid_solid_communicators( 0 )
-  
-  ! FIXME/TODO: initialize time integrals to zero
-
   if (mpirank == 0) write(*,'(A)') 'Starting MHD3D'
 
   tab = char(9) ! set horizontal tab character (please kill me now)

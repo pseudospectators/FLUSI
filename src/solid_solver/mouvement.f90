@@ -29,7 +29,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
      !--------------------------------------------------------------------------
      alpha    = beam%AngleBeam*pi/180.0
      alpha_t  = 0.0
-     alpha_tt = 0.0
+     alpha_tt = 0.0!!
      
   case ("swimmer") 
       ! swimmer including the leading edge cylinder
