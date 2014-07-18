@@ -1,9 +1,11 @@
-subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press,params_file)
+subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
+           press,params_file,Insect,beams)
   use mpi
   use vars
   use fsi_vars
   use p3dfft_wrapper
   use solid_model
+  use insect_module
   implicit none
   
   integer :: inter
@@ -24,39 +26,19 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   ! pressure array. this is with ghost points for interpolation
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
-  type(solid), dimension(1) :: beams
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
   logical :: continue_timestepping
  
   truntimenext = 0d0 
   continue_timestepping = .true.
   it_start = it
 
-  !-- some solid solver tests + initialization of beams
-  if (use_solid_model=="yes") then
-    if (root) write(*,*) "initializing beams"
-    call init_beams( beams )
-    if (root) write(*,*) "surface interp test"
-    call surface_interpolation_testing( time, beams(1), press )
-    if (root) write(*,*) "initializing beam"
-    call init_beams( beams )
-  endif
-
-  ! create startup mask
-  call create_mask( time, beams(1) )  
-  
-  ! save initial conditions (if not resuming a backup)
-  if (index(inicond,'backup::')==0) then
-    call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
-  endif
-  
-  ! initialize runtime control file
-  if (root) call initialize_runtime_control_file()
-   
   ! After init, output integral quantities. (note we can overwrite only 
   ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
   if (index(inicond,'backup::')==0) then
     if (root) write(*,*) "Initial output of integral quantities...."
-    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
+    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
   endif
 
   if (root) write(*,*) "Start time-stepping...."
@@ -69,7 +51,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
      !-------------------------------------------------
      if ((idobackup==1).and.(wtimemax < (MPI_wtime()-time_total)/3600.d0)) then
          if (root) write(*,*) "Out of walltime!"
-         call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
+         call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+              work(:,:,:,1),Insect,beams)
          continue_timestepping=.false.
      endif
 
@@ -81,7 +64,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
      !-------------------------------------------------
      if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
        ! for FSI schemes, the mask is created in fluidtimestep
-       call create_mask(time, beams(1))
+       call create_mask( time, Insect, beams )
      endif
 
      !-------------------------------------------------
@@ -102,17 +85,17 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
         t3 = MPI_wtime()
         ! compute unst corrections in every time step
         if (unst_corrections ==1) then
-          call cal_unst_corrections ( time, dt0 )
+          call cal_unst_corrections ( time, dt0, Insect )
         endif
         ! compute drag only if required
         if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)) then
           if (compute_forces==1) then
-            call cal_drag ( time, u ) ! note u is OLD time level
+            call cal_drag ( time, u, Insect ) ! note u is OLD time level
           endif
         endif
         ! note dt0 is OLD time step t(n)-t(n-1)
         ! advance in time ODEs that describe rigid solids
-        if (SolidDyn%idynamics==1) call rigid_solid_time_step(time,dt0,dt1,it)
+        if (SolidDyn%idynamics==1) call rigid_solid_time_step(time,dt0,dt1,it,Insect)
         !-- global timing measurement
         time_drag = time_drag + MPI_wtime() - t3
      endif     
@@ -129,7 +112,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
      ! then save the restart data and stop the program.
      if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
         if (root) write(*,*) "Out of walltime!"
-        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
+        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+             work(:,:,:,1),Insect,beams)
         continue_timestepping=.false.   
      endif
 
@@ -138,10 +122,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
      ! units or itdrag time steps
      !-------------------------------------------------
      if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
-       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work)
-       if ((use_solid_model=='yes').and.(root)) then
-          call SaveBeamData( time, beams )
-       endif
+       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
      endif
     
      !-------------------------------------------------
@@ -160,7 +141,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
      if(idobackup == 1) then
         ! Backup if that's specified in the PARAMS.ini file
         if(truntimenext < (MPI_wtime()-time_total)/3600.d0) then
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
+           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+                work(:,:,:,1),Insect,beams)
            truntimenext = truntimenext+truntime
         endif
      endif
@@ -188,11 +170,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
           if (root) call initialize_runtime_control_file()
         case ("save_stop")
           if (root) write (*,*) "runtime control: Safely stopping..."
-          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
-          !-- backup solid solver, if using it
-          if((use_solid_model=="yes").and.(method=="fsi")) then
-            call dump_solid_backup( time, beams, nbackup )
-          endif
+          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+                work(:,:,:,1),Insect,beams)
           continue_timestepping = .false. ! this will stop the time loop
           ! overwrite control file
           if (root) call initialize_runtime_control_file()
@@ -205,11 +184,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press
   ! save final backup so we can resume where we left 
   if(idobackup==1) then
     if (root) write (*,*) "final backup..."
-    call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,work(:,:,:,1))
-    !-- backup solid solver, if using it
-    if((use_solid_model=="yes").and.(method=="fsi")) then
-      call dump_solid_backup( time, beams, nbackup )
-    endif    
+    call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+         work(:,:,:,1),Insect,beams)
   endif
 
   if(root) then

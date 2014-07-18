@@ -212,23 +212,26 @@ end subroutine get_surface_pressure_jump
 ! subroutine GET_SURFACE_PRESSURE_JUMP has an optional argument for this testing
 !
 !-------------------------------------------------------------------------------
-subroutine surface_interpolation_testing( time, beam, work )
+subroutine surface_interpolation_testing( time, beams, work )
   use mpi
   use fsi_vars
   use interpolation
+  use insect_module
   implicit none
   real(kind=pr),intent (in) :: time
-  type(solid),intent (inout) :: beam
+  type(solid),dimension(1),intent (inout) :: beams
   real(kind=pr),intent(inout):: work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer :: ix,iy,iz
   real(kind=pr) :: x,y,z
+  type(diptera)::insectdummy
   
   !-- create mask
-  call create_mask(time, beam)
+!   call Draw_flexible_plate(time, beam)
+  call create_mask(time,insectdummy,beams)
   !-- copy mask in extended array (the one with ghost points)
   work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask*eps
   !-- interpolate the mask at the beam surfaces
-  call get_surface_pressure_jump (time, beam, work, testing="mask")
+  call get_surface_pressure_jump (time, beams(1), work, testing="mask")
 
   work=0.d0
   !-- the array "mask" with some values (analytic)
@@ -243,7 +246,7 @@ subroutine surface_interpolation_testing( time, beam, work )
     enddo
   enddo 
   !-- interpolate these values on the surface and compare to exact solution
-  call get_surface_pressure_jump (time, beam, work, testing="linear")
+  call get_surface_pressure_jump (time, beams(1), work, testing="linear")
   
   
 end subroutine

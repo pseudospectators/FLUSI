@@ -1,11 +1,11 @@
 ! Initialize fields for mhd simulations
-subroutine init_fields_mhd(n1,time,it,dt0,dt1,ubk,nlk,wj,explin)
+subroutine init_fields_mhd(time,it,dt0,dt1,n0,n1,ubk,nlk,wj,explin)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
   implicit none
 
-integer,intent (inout) :: n1,it
+  integer,intent (inout) :: n1,it,n0
   real (kind=pr),intent (inout) :: time,dt1,dt0
   complex (kind=pr),intent (out):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex (kind=pr),intent (out)::&

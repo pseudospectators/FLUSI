@@ -1,13 +1,15 @@
 ! Wrapper for different (possibly time-dependend) mask functions
-subroutine create_mask(time, beam)
+subroutine create_mask(time,Insect,beams)
   use mpi
   use vars
   use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: eps_inv
-  type(solid), intent(in) :: beam
+  type(solid), dimension(1), intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
 
   ! Attention: mask is reset here (and not in subroutines)
   mask = 0.d0
@@ -15,7 +17,7 @@ subroutine create_mask(time, beam)
   ! Actual mask functions:
   select case(method)
   case("fsi")
-    call create_mask_fsi(time, beam)
+    call create_mask_fsi(time,Insect,beams)
   case("mhd")
     call create_mask_mhd()
   end select
@@ -25,6 +27,8 @@ subroutine create_mask(time, beam)
   mask = mask*eps_inv  
 
 end subroutine create_mask
+
+
 
 
 ! Wrapper to set imposed velocity

@@ -7,13 +7,14 @@
 ! conditions (thickness and spanwise length) and then the shape
 ! function since this saves many evaluations of the shape.
 !-------------------------------------------------------------------------------
-subroutine DrawWing_simple(ix,iy,iz,x_wing,M,rot,icolor)
+subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
   use fsi_vars
   use mpi
   implicit none
-  real(kind=pr) :: a_body, R, R0, steps, x_top, x_bot
+  real(kind=pr) :: a_body, R, R0, x_top, x_bot
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp
+  type(diptera),intent(inout)::Insect
   integer, intent(in) :: ix,iy,iz
   integer(kind=2), intent(in) :: icolor
   integer :: i
@@ -97,14 +98,15 @@ end subroutine DrawWing_simple
 ! before calling this subroutine. Fourier series is evaluated in
 ! Radius_Fourier
 !-------------------------------------------------------------------------------
-subroutine DrawWing_Fourier(ix,iy,iz,x_wing,M,rot,icolor)
+subroutine DrawWing_Fourier(ix,iy,iz,Insect,x_wing,M,rot,icolor)
   use fsi_vars
   use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
   integer(kind=2), intent(in) :: icolor
+  type(diptera),intent(inout)::Insect
   real(kind=pr),intent(in) :: x_wing(1:3), rot(1:3), M(1:3,1:3)
-  real(kind=pr) :: R, R0, steps, R_tmp, Radius_Fourier
+  real(kind=pr) :: R, R0, R_tmp
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
 
@@ -119,7 +121,7 @@ subroutine DrawWing_Fourier(ix,iy,iz,x_wing,M,rot,icolor)
     theta = ( theta + pi ) / (2.d0*pi)
     
     !-- construct R by evaluating the fourier series
-    R0 = Radius_Fourier(theta)
+    R0 = Radius_Fourier(theta,Insect)
     
     !-- get smooth (radial) step function
     R = dsqrt ( (x_wing(1)-Insect%xc)**2 + (x_wing(2)-Insect%yc)**2 )
@@ -158,12 +160,13 @@ end subroutine DrawWing_Fourier
 ! evaluates the fourier series given in the Insect%ai, Insect%bi datastructure
 ! Insect is global. 
 !-------------------------------------------------------------------------------
-real(kind=pr) function Radius_Fourier(theta)
+real(kind=pr) function Radius_Fourier(theta,Insect)
   use fsi_vars
   use mpi
   implicit none
   integer :: i,j, n_radius
   real(kind=pr) :: R0, f, theta2, dphi, Rtest
+  type(diptera),intent(inout)::Insect
   real(kind=pr), intent(in) :: theta
   
   n_radius = 25000
@@ -203,11 +206,12 @@ end function
 ! series. 
 ! Since INSECT is currently global, this routine does not take any arguments.
 !-------------------------------------------------------------------------------
-subroutine Setup_Wing_Fourier_coefficients()
+subroutine Setup_Wing_Fourier_coefficients(Insect)
   use fsi_vars
   use mpi
   implicit none
-  integer :: xroot, yroot
+  real(kind=pr) :: xroot, yroot
+  type(diptera),intent(inout)::Insect
   
   if (allocated(Insect%ai)) then
     ! the second call is just a return statement

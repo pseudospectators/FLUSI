@@ -1,27 +1,50 @@
 ! Wrapper for init_fields
-subroutine init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
+subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
   use mpi
   use vars
   use p3dfft_wrapper
+  use solid_model
+  use insect_module
   implicit none
 
-  integer,intent (inout) :: n1,it
+  integer,intent (inout) :: n1,it,n0
   real (kind=pr),intent (inout) :: time,dt1,dt0
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
+  type(solid),dimension(1:nBeams), intent(out) :: beams
+  type(diptera),intent(inout)::Insect 
  
   select case(method)
   case("fsi") 
-     call init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
+     call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,Insect,beams)
   case("mhd")
-     call init_fields_mhd(n1,time,it,dt0,dt1,uk,nlk,vort,explin)
+     call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in init_fields."
      call abort()
   end select
+
+  n0 = 1-n1 !important to do this now in case we're retaking a backp
+  
+  !-----------------------------------------------------------------------------
+  ! create startup mask function
+  !-----------------------------------------------------------------------------
+  if (mpirank==0) write(*,*) "Creating startup mask..."
+  call create_mask(time,Insect,beams)
+  
+  !-----------------------------------------------------------------------------
+  ! save initial conditions (if not resuming a backup)
+  !-----------------------------------------------------------------------------
+  if (index(inicond,'backup::')==0) then
+    if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
+    call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)
+  endif
 end subroutine init_fields
 
 

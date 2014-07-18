@@ -8,9 +8,11 @@
 ! Output:
 !       all output is done directly to hard disk in the *.t files
 !-------------------------------------------------------------------------------
-subroutine write_integrals(time,uk,u,vort,nlk,work)
+subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
   use mpi
   use vars
+  use solid_model
+  use insect_module
   implicit none
 
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -19,10 +21,12 @@ subroutine write_integrals(time,uk,u,vort,nlk,work)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(in):: time
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
 
   select case(method)
   case("fsi")
-     call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1))
+     call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),Insect,beams)
   case("mhd")
      call write_integrals_mhd(time,uk,u,vort,nlk,work(:,:,:,1))
   case default
@@ -33,11 +37,13 @@ end subroutine write_integrals
 
 
 ! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
+subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
   use basic_operators
+  use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr),intent(in)::time
@@ -46,9 +52,19 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1)
   real(kind=pr),intent(inout)::work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)  
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume
   integer :: ix,iy,iz,mpicode
-
+  
+  
+  !-----------------------------------------------------------
+  ! Save solid model data, if using it
+  !-----------------------------------------------------------
+  if ((use_solid_model=="yes") .and. (mpirank==0)) then
+    call SaveBeamData( time, beams )
+  endif
+  
   !-----------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)
   !-----------------------------------------------------------

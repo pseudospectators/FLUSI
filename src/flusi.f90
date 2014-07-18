@@ -57,6 +57,7 @@ subroutine Start_Simulation()
   use fsi_vars
   use p3dfft_wrapper
   use solid_model
+  use insect_module
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   real(kind=pr)          :: t1,t2
@@ -74,8 +75,10 @@ subroutine Start_Simulation()
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
   ! pressure array, with ghost points
   real(kind=pr),dimension(:,:,:),allocatable :: press
-  
-
+  ! this is the insect we're using (object oriented)
+  type(diptera) :: Insect
+  ! this is the solid model beams:
+  type(solid), dimension(1:nBeams) :: beams
   
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
@@ -109,7 +112,7 @@ subroutine Start_Simulation()
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
   ! read all parameters from that file
-  call get_params(infile)
+  call get_params(infile,Insect)
   
   !-----------------------------------------------------------------------------
   ! ghost points. only the "active" FSI part, i.e. with flexible obstacles, 
@@ -137,6 +140,9 @@ subroutine Start_Simulation()
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
     call initialize_time_series_files()
   endif
+  
+  ! initialize runtime control file
+  if (mpirank==0) call initialize_runtime_control_file()
  
   ! Print domain decomposition
   call print_domain_decomposition()
@@ -198,6 +204,7 @@ subroutine Start_Simulation()
   ! pressure array. this is with ghost points for interpolation
   if (use_solid_model=="yes") then
     allocate(press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+    if(mpirank==0) write(*,*) "press array is allocated"
     memory = memory + mem_field
   endif
   
@@ -211,31 +218,30 @@ subroutine Start_Simulation()
   endif
   allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
   
-  if (mpirank==0) then 
-    write(*,'("Allocated ",i1," real and ",i1," complex work arrays")') nrw,ncw
-  endif
-  !-----------------------------------------------------------------------------
-  ! initalize some insect stuff, if used
-  !-----------------------------------------------------------------------------
-  ! Load kinematics from file (Dmitry, 14 Nov 2013)
-  if (Insect%KineFromFile/="no") then
-     call load_kine_init(mpirank,MPI_DOUBLE_PRECISION,MPI_INTEGER)
-  endif
-  
-  ! If required, initialize rigid solid dynamics solver
-  ! and set idynamics flag on or off
-  call rigid_solid_init(SolidDyn%idynamics)
-
   !-----------------------------------------------------------------------------
   ! show memory consumption for information
   !-----------------------------------------------------------------------------
   if (mpirank==0) then
     write(*,'(80("-"))')
+    write(*,'("Allocated ",i1," real and ",i1," complex work arrays")') nrw,ncw
     write(*,'("FLUSI allocated ",f7.1,"MB (",f5.1,"GB) of memory in total")')&
     memory/(1.0d6),memory/(1.0d9)
     write(*,'("which is ",f7.1,"MB (",f4.1,"GB) per CPU")') &
     memory/(1.0d6)/dble(mpisize),memory/(1.0d9)/dble(mpisize)
     write(*,'(80("-"))')
+  endif
+  
+  !-----------------------------------------------------------------------------
+  ! initalize some insect stuff, if used
+  !-----------------------------------------------------------------------------
+  ! Load kinematics from file (Dmitry, 14 Nov 2013)
+  if (iMask=="Insect") then
+    if (Insect%KineFromFile/="no") then
+    call load_kine_init(mpirank,MPI_DOUBLE_PRECISION,MPI_INTEGER)
+    ! If required, initialize rigid solid dynamics solver
+    ! and set idynamics flag on or off
+    call rigid_solid_init(SolidDyn%idynamics,Insect)
+    endif
   endif
   
   !-----------------------------------------------------------------------------
@@ -247,14 +253,15 @@ subroutine Start_Simulation()
   ! Initial condition
   !-----------------------------------------------------------------------------
   if (root) write(*,*) "Set up initial conditions...."
-  call init_fields(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
-  n0=1 - n1 !important to do this now in case we're retaking a backp
+  call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
+  
   
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
   t1 = MPI_wtime()
-  call time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,press,infile )
+  call time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
+       press,infile,Insect,beams )
   t2 = MPI_wtime() - t1
   
   !-----------------------------------------------------------------------------
@@ -268,13 +275,14 @@ subroutine Start_Simulation()
   deallocate(mask)
   deallocate(mask_color)
   deallocate(ra_table,rb_table)
-  if (use_solid_model=="yes")  deallocate(press)
+  if (allocated(press))  deallocate(press)
   
-  
-  ! Clean kinematics (Dmitry, 14 Nov 2013)
-  if (Insect%KineFromFile/="no") call load_kine_clean
-  ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
-  if (iMask=="Insect") call insect_clean
+  if (iMask=="Insect") then
+    ! Clean kinematics (Dmitry, 14 Nov 2013)
+    if (Insect%KineFromFile/="no") call load_kine_clean
+    ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
+    call insect_clean(Insect)
+  endif
   
   ! write empty success file
   call init_empty_file("success")

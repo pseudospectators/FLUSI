@@ -13,8 +13,8 @@ subroutine init_beams ( beams )
   character(len=1)  :: beamstr
   
   if (mpirank==0) then
-    write (*,'("*** initializing ",i1," beams")')  nBeams
-    write (*,'("--- Beam width (2*t_beam) covers ",(f4.1)," points")') &
+    write (*,'("Initializing ",i1," beams")')  nBeams
+    write (*,'("Beam width (2*t_beam) covers ",(f4.1)," points")') &
     2.0*t_beam/max(dy,dx)
   endif
  

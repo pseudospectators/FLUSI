@@ -13,13 +13,15 @@
 ! colors 1 and 2 are the forces on wings and body, respectively. These are stored
 ! in the "Insect" global struct.
 !-------------------------------------------------------------------------------
-subroutine cal_drag ( time, u )
+subroutine cal_drag ( time, u, Insect )
   use mpi
   use fsi_vars
+  use insect_module
   implicit none
   
   real(kind=pr),intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(in) :: time
+  type(diptera), intent(inout) :: Insect
   
   integer :: ix,iy,iz,mpicode
   integer(kind=2) :: color
@@ -149,8 +151,8 @@ subroutine cal_drag ( time, u )
  
   ! compute aerodynamic power
   if (iMask=="Insect") then
-    call aero_power (apowtotal)
-    call inert_power(ipowtotal)
+    call aero_power (Insect,apowtotal)
+    call inert_power(Insect,ipowtotal)
   endif
   
   !---------------------------------------------------------------------------
@@ -201,11 +203,15 @@ end subroutine cal_drag
 !       it will fail in the very first time step, also after retaking a backup. 
 !       if it is not possible to compute the unst corrections, we return 0 here.
 !-------------------------------------------------------------------------------
-subroutine cal_unst_corrections ( time, dt )
+subroutine cal_unst_corrections ( time, dt, Insect )
   use mpi
   use fsi_vars
+  use insect_module
   implicit none
+  
   real(kind=pr),intent(in) :: time, dt
+  type(diptera), intent(inout) :: Insect
+  
   ! is it possible to compute unsteady forces?
   logical, save :: is_possible = .false.
   ! the old value of the integral, component by component, for each color

@@ -2,6 +2,8 @@ program mhd
   use mpi
   use p3dfft_wrapper
   use mhd_vars
+  use insect_module !TODO: MAKE MHD INDEPENDENT OF THIS
+  use solid_model
   implicit none
 
   integer :: mpicode
@@ -31,6 +33,10 @@ program mhd
   
   ! complex work array, currently unused in the MHD case (not allocated)
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
+  
+  ! this is a hack and will be removed later:
+  type(diptera) :: dummy_insect
+  type(solid), dimension(1:nBeams) :: dummy_beams
   
   ! Initialize MPI, get size and rank
   call MPI_INIT(mpicode)
@@ -63,7 +69,7 @@ program mhd
 
   call get_command_argument(1,infile) ! infile from command line
   if (mpirank == 0) write(*,'(A)') 'Reading parameters from'//infile
-  call get_params(infile)
+  call get_params(infile,dummy_insect)
   
   call fft_initialize
   
@@ -106,6 +112,9 @@ program mhd
      open(14,file='timestep.t',status='replace')
      close(14)
   endif
+  
+  ! initialize runtime control file
+  if (mpirank==0) call initialize_runtime_control_file()
 
   ! Allocate memory:
   allocate(ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
@@ -128,8 +137,8 @@ program mhd
 
   ! Initialize vorticity or read values from a backup file
   if (mpirank == 0) write(*,*) "Set up initial conditions:"
-  call init_fields(n1,time,it,dt0,dt1,ubk,nlk,wj,explin,workc)
-  n0=1 - n1 !important to do this now in case we're retaking a backp
+  call init_fields(time,it,dt0,dt1,n0,n1,ub,ubk,nlk,wj,explin,work,workc,press,&
+       dummy_insect,dummy_beams)
   
   if (mpirank == 0) write(*,*) "Create mask variables:"
   call create_mask_mhd
@@ -137,7 +146,8 @@ program mhd
   call update_us(ub)
   
   if (mpirank == 0) write(*,*) "Start time-stepping:"
-  call time_step(time,dt0,dt1,n0,n1,it,ub,ubk,nlk,wj,work,workc,explin,press,infile)
+  call time_step(time,dt0,dt1,n0,n1,it,ub,ubk,nlk,wj,work,workc,explin,&
+       press,infile,dummy_insect,dummy_beams)
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
   
   deallocate(ubk)

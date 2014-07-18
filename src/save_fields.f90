@@ -13,7 +13,7 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc)
 
   select case(method)
      case("fsi") 
-        call save_fields_fsi(time,uk,u,vort,nlk,work,workc)
+        call save_fields_fsi(time,uk,u,vort,nlk,work,workc)        
      case("mhd") 
         call save_fields_mhd(time,uk,u,vort,nlk)
      case default
@@ -80,8 +80,6 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc)
   if (isavePress == 1) then  
     ! compute pressure (remember NLK is *not* divergence free)
     call compute_pressure( nlk,workc(:,:,:,1) )
-! ! !     call compute_pressure(nlk,nlk(:,:,:,1))
-! ! !     call ifft( ink=nlk(:,:,:,1), outx=work(:,:,:,1) )
     ! total pressure in x-space
     call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
     ! get actuall pressure (we're in the rotational formulation)
@@ -338,12 +336,15 @@ end subroutine Write_XMF
 
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
-subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
+subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
+           work,Insect,beams)
   use mpi
   use vars
   use fsi_vars
   use hdf5
   use p3dfft_wrapper
+  use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -351,7 +352,9 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   complex(kind=pr),intent(in) :: ub(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(in)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-
+  type(solid), dimension(1), intent(in) :: beams
+  type(diptera), intent(in) :: Insect
+  
   character(len=18) :: filename
 
   real(kind=pr) :: t1
@@ -467,6 +470,13 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,work)
   endif
   endif
   endif
+  
+  !-------------------------------------------------------------------------
+  !-- backup solid solver, if doing active FSI
+  !-------------------------------------------------------------------------
+  if((use_solid_model=="yes").and.(method=="fsi")) then
+    call dump_solid_backup( time, beams, nbackup )
+  endif    
   
   nbackup = 1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic

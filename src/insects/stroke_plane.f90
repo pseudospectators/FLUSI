@@ -4,13 +4,14 @@
 !       time 
 ! Output:
 !       eta_stroke: stroke plane angle 
-subroutine StrokePlane ( time, eta_stroke )
+subroutine StrokePlane ( time, Insect )
   use fsi_vars
   use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
-  real(kind=pr), intent(out) :: eta_stroke
+  type(diptera), intent(inout) :: Insect
+  real(kind=pr) :: eta_stroke
 
   select case (Insect%BodyMotion)
   case ("fixed")
@@ -36,5 +37,7 @@ subroutine StrokePlane ( time, eta_stroke )
     endif
   end select
   
+  ! save it in the insect
+  Insect%eta_stroke = eta_stroke
   
 end subroutine StrokePlane

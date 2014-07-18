@@ -1,9 +1,12 @@
 ! Wrapper to read parameters from an ini file for fsi.  Also reads
 ! parameters which are set in the vars module.
-subroutine get_params(paramsfile) 
+subroutine get_params(paramsfile,Insect) 
   use vars
-
-  character(len=strlen) :: paramsfile  ! The file we read the PARAMS from
+  use insect_module
+  ! The file we read the PARAMS from
+  character(len=strlen),intent(in) :: paramsfile
+  ! the insect we initialize here
+  type(diptera), intent(inout) :: Insect
   integer :: i  
   ! this array contains the entire ascii-params file
   character(len=strlen), dimension(1:nlines) :: PARAMS
@@ -20,7 +23,7 @@ subroutine get_params(paramsfile)
   select case(method)
      case("fsi") 
         ! Get fsi-specific parameter values from PARAMS
-        call get_params_fsi(PARAMS,i)
+        call get_params_fsi(PARAMS,i,Insect)
      case("mhd") 
         ! Get mhd-specific parameter values from PARAMS
         call get_params_mhd(PARAMS,i)
@@ -187,14 +190,17 @@ end subroutine get_params_common
 
 
 ! Read individual parameter values from the PARAMS string for fsi.
-subroutine get_params_fsi(PARAMS,i)
+subroutine get_params_fsi(PARAMS,i,Insect)
   use mpi
   use fsi_vars
+  use insect_module
   implicit none
 
   integer,intent(in) :: i
   ! Contains the ascii-params file
   character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  ! the insect to initialize
+  type(diptera), intent(inout) :: Insect
   real(kind=pr), dimension(1:3) :: defaultvec
   ! ---------------------------------------------------
   ! penalization / cavity
@@ -241,84 +247,12 @@ subroutine get_params_fsi(PARAMS,i)
   ! ---------------------------------------------------
   ! Insects section
   ! ---------------------------------------------------
-  call param_str(PARAMS,i,"Insects","WingShape",Insect%WingShape,"none")
-  call param_dbl(PARAMS,i,"Insects","b_top",Insect%b_top, 0.d0) 
-  call param_dbl(PARAMS,i,"Insects","b_bot",Insect%b_bot, 0.d0) 
-  call param_dbl(PARAMS,i,"Insects","L_chord",Insect%L_chord, 0.d0) 
-  call param_dbl(PARAMS,i,"Insects","L_span",Insect%L_span, 0.d0) 
-  
-  call param_str(PARAMS,i,"Insects","FlappingMotion_right",Insect%FlappingMotion_right,"none")
-  call param_str(PARAMS,i,"Insects","FlappingMotion_left",Insect%FlappingMotion_left,"none")
-  call param_str(PARAMS,i,"Insects","BodyType",Insect%BodyType,"ellipsoid")  
-  call param_str(PARAMS,i,"Insects","HasEye",Insect%HasEye,"yes")
-  call param_str(PARAMS,i,"Insects","HasHead",Insect%HasHead,"yes")    
-  call param_str(PARAMS,i,"Insects","BodyMotion",Insect%BodyMotion,"yes")
-  call param_str(PARAMS,i,"Insects","LeftWing",Insect%LeftWing,"yes")
-  call param_str(PARAMS,i,"Insects","RightWing",Insect%RightWing,"yes") 
-       
-  call param_dbl(PARAMS,i,"Insects","b_body",Insect%b_body, 0.1d0) 
-  call param_dbl(PARAMS,i,"Insects","L_body",Insect%L_body, 1.d0)
-  call param_dbl(PARAMS,i,"Insects","R_head",Insect%R_head, 0.1d0) 
-  call param_dbl(PARAMS,i,"Insects","R_eye",Insect%R_eye, 0.d1) 
-  call param_dbl(PARAMS,i,"Insects","distance_from_sponge",Insect%distance_from_sponge, 1.d0) 
-  call param_dbl(PARAMS,i,"Insects","WingThickness",Insect%WingThickness, 4.0*dx) 
-  
-  ! position vector of the head
-  call param_vct(PARAMS,i,"Insects","x_head",&
-       Insect%x_head, (/0.5*Insect%L_body,0.d0,0.d0 /) ) 
-  
-  ! eyes
-  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,+1.,1./)
-  call param_vct(PARAMS,i,"Insects","x_eye_r",Insect%x_eye_r, defaultvec) 
-       
-  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,-1.,1./)
-  call param_vct(PARAMS,i,"Insects","x_eye_l",Insect%x_eye_l, defaultvec) 
-       
-  ! wing hinges (root points)    
-  defaultvec=(/0.d0, +Insect%b_body, 0.d0 /)    
-  call param_vct(PARAMS,i,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec)  
-       
-  defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
-  call param_vct(PARAMS,i,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)        
-              
-     
-  Insect%smooth = 2.0*dz
-
-  ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
-  call param_str(PARAMS,i,"Insects","KineFromFile",Insect%KineFromFile,"no")     
-  
- 
-  ! Takeoff 
-  call param_dbl(PARAMS,i,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)
-  call param_dbl(PARAMS,i,"Insects","z_takeoff",Insect%z_takeoff, 0.86d0)
-  call param_dbl(PARAMS,i,"Insects","mass_solid",&
-       Insect%mass_solid, 54.414118839786745d0)
-  call param_dbl(PARAMS,i,"Insects","gravity",&
-       Insect%gravity, -0.055129281110537755d0)
-
-  ! Legs model parameters
-  call param_int(PARAMS,i,"Insects","ilegs",Insect%ilegs, 1)
-  call param_dbl(PARAMS,i,"Insects","anglegsend",&
-       Insect%anglegsend, 0.7853981633974483d0)
-  call param_dbl(PARAMS,i,"Insects","kzlegsmax",&
-       Insect%kzlegsmax,64.24974647375242d0)
-  call param_dbl(PARAMS,i,"Insects","dzlegsmax",&
-       Insect%dzlegsmax,0.2719665271966527d0)
-  call param_dbl(PARAMS,i,"Insects","t0legs",&
-       Insect%t0legs,0.13643141797265643d0)
-  call param_dbl(PARAMS,i,"Insects","tlinlegs",&
-       Insect%tlinlegs,0.3547216867289067d0)
-
-  ! wing inertia tensor (we currentlz assume two identical wings)
-  ! this allows computing inertial power
-  call param_dbl(PARAMS,i,"Insects","Jxx",Insect%Jxx,0.d0)
-  call param_dbl(PARAMS,i,"Insects","Jyy",Insect%Jyy,0.d0)
-  call param_dbl(PARAMS,i,"Insects","Jzz",Insect%Jzz,0.d0)
-  call param_dbl(PARAMS,i,"Insects","Jxy",Insect%Jxy,0.d0)
-
+  if (iMask=="Insect") then
+    call read_insect_parameters( PARAMS,i,Insect ) 
+  endif
 
   ! ---------------------------------------------------
-  ! solid model
+  ! solid model (TODO: SAME LEVEL OF OBJECT ORIENTATION AS INSECT)
   ! ---------------------------------------------------
   call get_params_solid( PARAMS, i )
 
@@ -353,6 +287,94 @@ subroutine get_params_fsi(PARAMS,i)
   endif
 end subroutine get_params_fsi
 
+
+!-------------------------------------------------------------------------------
+! This routine reads in the parameters that describe the inscet from the 
+! parameter.ini file. it is outsourced from params.f90
+!-------------------------------------------------------------------------------
+subroutine read_insect_parameters( PARAMS,i,Insect ) 
+  use fsi_vars
+  use insect_module
+  implicit none
+  
+  type(diptera),intent(inout) :: Insect
+  integer,intent(in) :: i
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  real(kind=pr),dimension(1:3)::defaultvec
+  
+  call param_str(PARAMS,i,"Insects","WingShape",Insect%WingShape,"none")
+  call param_dbl(PARAMS,i,"Insects","b_top",Insect%b_top, 0.d0) 
+  call param_dbl(PARAMS,i,"Insects","b_bot",Insect%b_bot, 0.d0) 
+  call param_dbl(PARAMS,i,"Insects","L_chord",Insect%L_chord, 0.d0) 
+  call param_dbl(PARAMS,i,"Insects","L_span",Insect%L_span, 0.d0) 
+  call param_str(PARAMS,i,"Insects","FlappingMotion_right",Insect%FlappingMotion_right,"none")
+  call param_str(PARAMS,i,"Insects","FlappingMotion_left",Insect%FlappingMotion_left,"none")
+  call param_str(PARAMS,i,"Insects","BodyType",Insect%BodyType,"ellipsoid")  
+  call param_str(PARAMS,i,"Insects","HasEye",Insect%HasEye,"yes")
+  call param_str(PARAMS,i,"Insects","HasHead",Insect%HasHead,"yes")    
+  call param_str(PARAMS,i,"Insects","BodyMotion",Insect%BodyMotion,"yes")
+  call param_str(PARAMS,i,"Insects","LeftWing",Insect%LeftWing,"yes")
+  call param_str(PARAMS,i,"Insects","RightWing",Insect%RightWing,"yes") 
+  call param_dbl(PARAMS,i,"Insects","b_body",Insect%b_body, 0.1d0) 
+  call param_dbl(PARAMS,i,"Insects","L_body",Insect%L_body, 1.d0)
+  call param_dbl(PARAMS,i,"Insects","R_head",Insect%R_head, 0.1d0) 
+  call param_dbl(PARAMS,i,"Insects","R_eye",Insect%R_eye, 0.d1) 
+  call param_dbl(PARAMS,i,"Insects","distance_from_sponge",Insect%distance_from_sponge, 1.d0) 
+  call param_dbl(PARAMS,i,"Insects","WingThickness",Insect%WingThickness, 4.0*dx) 
+  ! wing inertia tensor (we currentlz assume two identical wings)
+  ! this allows computing inertial power
+  call param_dbl(PARAMS,i,"Insects","Jxx",Insect%Jxx,0.d0)
+  call param_dbl(PARAMS,i,"Insects","Jyy",Insect%Jyy,0.d0)
+  call param_dbl(PARAMS,i,"Insects","Jzz",Insect%Jzz,0.d0)
+  call param_dbl(PARAMS,i,"Insects","Jxy",Insect%Jxy,0.d0)  
+  
+  ! position vector of the head
+  call param_vct(PARAMS,i,"Insects","x_head",&
+       Insect%x_head, (/0.5*Insect%L_body,0.d0,0.d0 /) ) 
+  
+  ! eyes
+  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,+1.,1./)
+  call param_vct(PARAMS,i,"Insects","x_eye_r",Insect%x_eye_r, defaultvec) 
+       
+  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,-1.,1./)
+  call param_vct(PARAMS,i,"Insects","x_eye_l",Insect%x_eye_l, defaultvec) 
+       
+  ! wing hinges (root points)    
+  defaultvec=(/0.d0, +Insect%b_body, 0.d0 /)    
+  call param_vct(PARAMS,i,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec)  
+       
+  defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
+  call param_vct(PARAMS,i,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)        
+     
+  Insect%smooth = 2.0*dz
+
+  ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
+  call param_str(PARAMS,i,"Insects","KineFromFile",Insect%KineFromFile,"no")     
+  
+ 
+  ! Takeoff 
+  call param_dbl(PARAMS,i,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)
+  call param_dbl(PARAMS,i,"Insects","z_takeoff",Insect%z_takeoff, 0.86d0)
+  call param_dbl(PARAMS,i,"Insects","mass_solid",&
+       Insect%mass_solid, 54.414118839786745d0)
+  call param_dbl(PARAMS,i,"Insects","gravity",&
+       Insect%gravity, -0.055129281110537755d0)
+
+  ! Legs model parameters
+  call param_int(PARAMS,i,"Insects","ilegs",Insect%ilegs, 1)
+  call param_dbl(PARAMS,i,"Insects","anglegsend",&
+       Insect%anglegsend, 0.7853981633974483d0)
+  call param_dbl(PARAMS,i,"Insects","kzlegsmax",&
+       Insect%kzlegsmax,64.24974647375242d0)
+  call param_dbl(PARAMS,i,"Insects","dzlegsmax",&
+       Insect%dzlegsmax,0.2719665271966527d0)
+  call param_dbl(PARAMS,i,"Insects","t0legs",&
+       Insect%t0legs,0.13643141797265643d0)
+  call param_dbl(PARAMS,i,"Insects","tlinlegs",&
+       Insect%tlinlegs,0.3547216867289067d0)
+  
+end subroutine read_insect_parameters
 
 
 !-------------------------------------------------------------------------------

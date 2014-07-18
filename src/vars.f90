@@ -244,59 +244,7 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Torque
      real(kind=pr),dimension(1:3) :: Torque_unst
   end type Integrals  
-  !-----------------------------------------------------------------------------
-  ! derived datatype for insect parameters (for readability)
-  type InsectParams ! documentation see insect.f90
-    character(len=strlen) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
-    character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
-    character(len=strlen) :: KineFromFile, infile, LeftWing, RightWing
-    ! parameters for body:
-    real(kind=pr) :: L_body, b_body, R_head, R_eye
-    ! parameters for wing shape:
-    real(kind=pr) :: b_top, b_bot, L_chord, L_span, WingThickness
-    ! this is a safety distance for smoothing:
-    real(kind=pr) :: safety, smooth
-    ! vectors desribing the positoions of jerry's key elements
-    ! in the body coordinate system
-    real(kind=pr), dimension(1:3) :: x_head,x_eye_r,x_eye_l,x_pivot_l,x_pivot_r
-    ! parameter for hovering:
-    real(kind=pr) :: distance_from_sponge
-    ! Wings and body forces (1:body,2:left wing,3:right wing)
-    type(Integrals), dimension(1:3) :: PartIntegrals
-    ! Takeoff parameters
-    real(kind=pr) :: x_takeoff, z_takeoff, mass_solid, gravity 
-    ! Legs model parameters
-    integer :: ilegs
-    real(kind=pr) :: anglegsend, kzlegsmax, dzlegsmax, t0legs, tlinlegs
-    ! Fourier coefficients for wings
-    real(kind=pr), allocatable, dimension(:) :: ai,bi
-    real(kind=pr) :: a0
-    real(kind=pr) :: xc,yc ! describes the origin of the wings system
-    ! fill the R0(theta) array once, then only table-lookup instead of Fseries
-    real(kind=pr), allocatable, dimension(:) :: R0
-    ! number of fft coefficients for wing geometry
-    integer :: n_fft
-    ! Angular velocities of wings and body
-    real(kind=pr), dimension(1:3) :: rot_body_glob, rot_l_glob, rot_r_glob
-    ! Body centre velocity
-    real(kind=pr), dimension(1:3) :: vc_body 
-    ! Vector from body centre to left/right pivot point in global reference
-    ! frame 
-    real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob    
-    ! angular acceleration vectors (for the wings, required for inertial power)
-    real(kind=pr), dimension(1:3) :: rot_dt_l, rot_dt_r
-    ! angular velocity vectors (for the wings, required for inertial power)
-    real(kind=pr), dimension(1:3) :: rot_l, rot_r
-    ! Stroke angle
-    real(kind=pr) :: eta_stroke
-    ! wing inertia 
-    real(kind=pr) :: Jxx,Jyy,Jzz,Jxy
-    ! wing kinematics Fourier coefficients
-    real(kind=pr) :: a0_alpha, a0_phi, a0_theta
-    integer ::  nfft_phi, nfft_alpha, nfft_theta
-    real(kind=pr), allocatable, dimension(:) :: ai_phi, bi_phi, ai_theta,&
-      bi_theta, ai_alpha, bi_alpha
-  end type InsectParams  
+  
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver
   type SolidDynType
@@ -324,7 +272,6 @@ module fsi_vars
   !-----------------------------------------------------------------------------
 
   type(Integrals),save :: GlobalIntegrals
-  type(InsectParams), save :: Insect
   type(SolidDynType), save :: SolidDyn
  
   contains

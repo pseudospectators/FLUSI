@@ -1,30 +1,34 @@
-!-----------------------
-! Motion protocoll wrapper left wing
-!-----------------------
-subroutine FlappingMotion_left ( time, phi, alpha, theta, phi_dt, alpha_dt, theta_dt )
+!-------------------------------------------------------------------------------
+! WRAPPER Motion protocoll wrapper left wing
+!-------------------------------------------------------------------------------
+subroutine FlappingMotion_left ( time, Insect )
   use fsi_vars
   use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
-  real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
-  call FlappingMotion ( time, Insect%FlappingMotion_left, &
-                        phi, alpha, theta, phi_dt, alpha_dt, theta_dt )  
+  type(diptera) :: Insect
+  
+  call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
+       Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
+       Insect%alpha_dt_l, Insect%theta_dt_l )
 end subroutine FlappingMotion_left
 
 
-!-----------------------
-! Motion protocoll wrapper right wing
-!-----------------------
-subroutine FlappingMotion_right ( time, phi, alpha, theta, phi_dt, alpha_dt, theta_dt )
+!-------------------------------------------------------------------------------
+! WARPPER Motion protocoll wrapper right wing
+!-------------------------------------------------------------------------------
+subroutine FlappingMotion_right ( time, Insect )
   use fsi_vars
   use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
-  real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
-  call FlappingMotion ( time, Insect%FlappingMotion_right, &
-                        phi, alpha, theta, phi_dt, alpha_dt, theta_dt )  
+  type(diptera) :: Insect
+  
+  call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
+       Insect%phi_r, Insect%alpha_r, Insect%theta_r, Insect%phi_dt_r, &
+       Insect%alpha_dt_r, Insect%theta_dt_r )
 end subroutine FlappingMotion_right
 
 
@@ -47,12 +51,13 @@ end subroutine FlappingMotion_right
 ! protocoll. Note we allow both wings to follow a differen motion, but they both 
 ! call this routine here.
 !-------------------------------------------------------------------------------
-subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, theta_dt)
+subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, alpha_dt, theta_dt)
   use fsi_vars
   use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
+  type(diptera), intent(inout) :: Insect
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
   character (len=*), intent(in) :: protocoll
   real(kind=pr) :: phi_max,alpha_max, phase,f
@@ -69,21 +74,21 @@ subroutine FlappingMotion(time, protocoll, phi, alpha, theta, phi_dt, alpha_dt, 
   integer :: i,mpicode
   character(len=strlen) :: dummy
   
-  interface
-    subroutine fseries_eval(time,u,u_dt,a0,ai,bi)
-    use fsi_vars
-    real(kind=pr), intent(in) :: a0, time
-    real(kind=pr), intent(in), dimension(:) :: ai,bi
-    real(kind=pr), intent(out) :: u, u_dt
-    end subroutine fseries_eval
-    !----
-    subroutine hermite_eval(time,u,u_dt,ai,bi)
-    use fsi_vars
-    real(kind=pr), intent(in) :: time
-    real(kind=pr), intent(in), dimension(:) :: ai,bi
-    real(kind=pr), intent(out) :: u, u_dt
-    end subroutine hermite_eval
-  end interface
+!   interface
+!     subroutine fseries_eval(time,u,u_dt,a0,ai,bi)
+!     use fsi_vars
+!     real(kind=pr), intent(in) :: a0, time
+!     real(kind=pr), intent(in), dimension(:) :: ai,bi
+!     real(kind=pr), intent(out) :: u, u_dt
+!     end subroutine fseries_eval
+!     !----
+!     subroutine hermite_eval(time,u,u_dt,ai,bi)
+!     use fsi_vars
+!     real(kind=pr), intent(in) :: time
+!     real(kind=pr), intent(in), dimension(:) :: ai,bi
+!     real(kind=pr), intent(out) :: u, u_dt
+!     end subroutine hermite_eval
+!   end interface
   
   
   select case ( protocoll )

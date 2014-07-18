@@ -2,7 +2,7 @@ subroutine SaveBeamData( time, beams )
   use fsi_vars
   implicit none
   real (kind=pr), intent (in) :: time
-  type (solid), dimension(1:nBeams), intent (in) :: beams
+  type (solid), dimension(1:nBeams), intent (inout) :: beams
   character(len=16) :: format_ns1
   character(len=3)  :: ns1_string
   character(len=1)  :: beamstr
@@ -10,8 +10,6 @@ subroutine SaveBeamData( time, beams )
   real (kind=pr), dimension(1:6) :: LeadingEdge !LeadingEdge: x, y, vx, vy, ax, ay (Array)  
   integer :: n,step,i
   
-
-   
   ! set up formats
   write(ns1_string, '(I3)') ns+1
   format_ns1 = '('//ns1_string//'(es12.5,1x))'

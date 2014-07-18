@@ -14,15 +14,16 @@
 ! The actual motion depends on the choices in the parameter file, namely
 ! Insect%BodyMotion, and sub-parameters that may further precise a given motion 
 ! protocoll
-subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
+subroutine BodyMotion(time, Insect)
   use fsi_vars
   use mpi
   use kine 
   implicit none
   
   real(kind=pr), intent(in) :: time
-  real(kind=pr), intent(out) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
-  real(kind=pr), intent(out) :: xc(1:3), vc(1:3)
+  type(diptera), intent(inout) :: Insect
+  real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+  real(kind=pr) :: xc(1:3), vc(1:3)
   real(kind=pr) :: T,R
   
   select case (Insect%BodyMotion)
@@ -145,6 +146,18 @@ subroutine BodyMotion(time, psi, beta, gamma, psi_dt, beta_dt, gamma_dt, xc, vc)
     call abort()
     endif
   end select
+  
+  
+  ! save above values in the insect
+  Insect%psi      = psi
+  Insect%beta     = beta
+  Insect%gamma    = gamma
+  Insect%psi_dt   = psi_dt
+  Insect%beta_dt  = beta_dt
+  Insect%gamma_dt = gamma_dt
+  Insect%xc_body  = xc
+  Insect%vc_body  = vc
+  
   
   ! for compability, we update the x0,y0,z0 also
   ! this is used e.g. for torque computation  

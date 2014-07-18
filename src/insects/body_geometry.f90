@@ -2,12 +2,13 @@
 ! Draws an insect's body, several options available.
 ! the body is, in the local coordinate system, always aligned with the
 ! x-axis. also, we currently use only rotational symmetric bodies.
-subroutine DrawBody(ix,iy,iz,x_body,icolor)
+subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
   use fsi_vars
   use mpi
   implicit none
-  real(kind=pr) :: a_body, R, R0, steps, x, y, z, s, s1, x1, x_tmp, R_tmp
+  real(kind=pr) :: a_body, R, R0, x, y, z, s, s1, x1, x_tmp, R_tmp
   real(kind=pr) :: rbc, x0bc, z0bc, thbc1, thbc2, xcs, zcs
+  type(diptera), intent(inout) :: Insect
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x_body(1:3)
   integer(kind=2),intent(in) :: icolor
@@ -167,15 +168,16 @@ end subroutine
 
 !------------------------------------------------------------------------------
 ! Draws a sphere with radius R, as we need for the head and the eyes, if present
-subroutine DrawSphere(ix,iy,iz,x,R0,icolor)
+subroutine DrawSphere(ix,iy,iz,Insect,x,R0,icolor)
   use fsi_vars
   use mpi
   implicit none
   real(kind=pr), intent(in) :: R0
-  real(kind=pr) :: R, steps
+  real(kind=pr) :: R
   integer, intent(in) :: ix,iy,iz
   integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
+  type(diptera),intent(inout) :: Insect
   
   if (abs(x(1))<R0+Insect%safety) then
   if (abs(x(2))<R0+Insect%safety) then
@@ -192,65 +194,66 @@ subroutine DrawSphere(ix,iy,iz,x,R0,icolor)
 end subroutine
 
 ! routine DrawEye is only called if the flag Insect%HasEye=='yes'
-subroutine DrawEye(ix,iy,iz,x,icolor)
+subroutine DrawEye(ix,iy,iz,Insect,x,icolor)
   use fsi_vars
   use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
+  type(diptera), intent(inout) :: Insect
   integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
-  call DrawSphere(ix,iy,iz,x,Insect%R_eye,icolor)
+  call DrawSphere(ix,iy,iz,Insect,x,Insect%R_eye,icolor)
 end subroutine
 
 
 ! routine DrawHead is only called if the flag Insect%HasHead=='yes'
-subroutine DrawHead(ix,iy,iz,x,icolor)
+subroutine DrawHead(ix,iy,iz,Insect,x,icolor)
   use fsi_vars
   use mpi
   implicit none
   integer, intent(in) :: ix,iy,iz
   integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
-  real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,steps,a_head
+  type(diptera), intent(inout) :: Insect
+  real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,a_head
   
   select case (Insect%BodyType)
   case ('ellipsoid')  
   ! an ellipsoid body goes with a spherical head
-  call DrawSphere(ix,iy,iz,x,Insect%R_head,icolor)
+  call DrawSphere(ix,iy,iz,Insect,x,Insect%R_head,icolor)
 
   case ('drosophila')
   ! drosophilae have different heads.
 
   case ('drosophila_maeda','drosophila_slim')  
-  ! ellipsoid head, assumes xc_head=0 in .ini file
-  x_head = 0.17d0
-  z_head = -0.1d0
-  dx_head = 0.5d0*  0.185d0
-  dz_head = 0.5d0*  0.27d0
-  ! check if inside the surrounding box (save comput. time)
-  if ( dabs(x(2)) <= dz_head + Insect%safety ) then
-  if ( dabs(x(3)-z_head) <= dz_head + Insect%safety ) then
-  ! check for length inside ellipsoid:
-  if ( dabs(x(1)-x_head) < dx_head + Insect%safety ) then
-    if (Insect%BodyType == 'drosophila_slim') then
-      a_head = 1.09d0
-    else
-      a_head = 1.0d0
+    ! ellipsoid head, assumes xc_head=0 in .ini file
+    x_head = 0.17d0
+    z_head = -0.1d0
+    dx_head = 0.5d0*  0.185d0
+    dz_head = 0.5d0*  0.27d0
+    ! check if inside the surrounding box (save comput. time)
+    if ( dabs(x(2)) <= dz_head + Insect%safety ) then
+      if ( dabs(x(3)-z_head) <= dz_head + Insect%safety ) then
+        ! check for length inside ellipsoid:
+        if ( dabs(x(1)-x_head) < dx_head + Insect%safety ) then
+          if (Insect%BodyType == 'drosophila_slim') then
+            a_head = 1.09d0
+          else
+            a_head = 1.0d0
+          endif
+          R  = dsqrt ( (a_head*x(2))**2 + (x(3)-z_head)**2 )
+          ! this gives the R(x) shape
+          if ( ((x(1)-x_head)/dx_head)**2 <= 1.d0) then
+            R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
+            if ( R < R0 + Insect%safety ) then
+              mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+              ! body parts have the color "icolor"
+              mask_color(ix,iy,iz) = icolor
+            endif
+          endif
+        endif
+      endif
     endif
-    R  = dsqrt ( (a_head*x(2))**2 + (x(3)-z_head)**2 )
-    ! this gives the R(x) shape
-    if ( ((x(1)-x_head)/dx_head)**2 <= 1.d0) then
-    R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
-    if ( R < R0 + Insect%safety ) then
-      mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
-      ! body parts have the color "icolor"
-      mask_color(ix,iy,iz) = icolor
-    endif
-    endif
-  endif
-  endif
-  endif
-
   case default
   ! do nothing
   end select 

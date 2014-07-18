@@ -28,7 +28,8 @@
 ! vort          the vorticity at time level (n) in phys space
 ! beams         the solid model at the new time level
 !-------------------------------------------------------------------------------
-subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis,press,beams)
+subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
+           expvis,press,beams)
   use mpi
   use p3dfft_wrapper
   use vars
@@ -103,6 +104,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   use vars
   use p3dfft_wrapper
   use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -123,6 +125,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_old_iterating
   real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa2, ROC1,ROC2, norm
   real(kind=pr)::omega_old, omega_new
+  type(diptera)::Insect_dummy
   integer :: inter
   logical :: iterate
   
@@ -156,7 +159,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! create mask
     !---------------------------------------------------------------------------
-    call create_mask(time, beams(1))
+    call create_mask(time, Insect_dummy, beams(1))
     
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
@@ -258,6 +261,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   use vars
   use p3dfft_wrapper
   use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -271,6 +275,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   type(solid),dimension(1),intent(inout) :: beams
+  type(diptera)::Insect_dummy
   
   ! useful error messages
   if (use_solid_model/="yes") then 
@@ -281,7 +286,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   !---------------------------------------------------------------------------
   ! create mask
   !---------------------------------------------------------------------------
-  call create_mask(time, beams(1))
+  call create_mask(time,Insect_dummy, beams(1))
   
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
@@ -321,6 +326,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   use vars
   use p3dfft_wrapper
   use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -334,6 +340,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid),dimension(1),intent(inout) :: beams
+  type(diptera)::Insect_dummy
   
   ! useful error messages
   if (use_solid_model/="yes") then 
@@ -344,7 +351,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   !---------------------------------------------------------------------------
   ! create mask
   !---------------------------------------------------------------------------
-  call create_mask(time, beams(1))
+  call create_mask(time,Insect_dummy, beams(1))
   
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)

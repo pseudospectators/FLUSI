@@ -1,11 +1,13 @@
 ! Set initial conditions for fsi code.
-subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
+subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use solid_model
+  use insect_module
   implicit none
 
-  integer,intent (inout) :: n1,it
+  integer,intent (inout) :: n1,it,n0
   real (kind=pr),intent (inout) :: time,dt1,dt0
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
@@ -13,6 +15,9 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
+  type(solid),dimension(1:nBeams), intent(inout) :: beams
+  type(diptera),intent(inout)::Insect 
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z,r,a,gamma0,x00,r00,omega
 
@@ -25,7 +30,7 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
   nlk = dcmplx(0.0d0,0.0d0)
   explin = 0.0
   vort = 0.0d0
-
+  
   select case(inicond)
   case("infile")
      !--------------------------------------------------
@@ -137,6 +142,16 @@ subroutine init_fields_fsi(n1,time,it,dt0,dt1,uk,nlk,vort,explin,workc)
         call abort()
      endif
   end select
+  
+  
+  !-----------------------------------------------------------------------------
+  ! If module is in use, initialize also the solid solver
+  !-----------------------------------------------------------------------------
+  if (use_solid_model=="yes") then
+    call init_beams( beams )
+    call surface_interpolation_testing( time, beams(1), press )
+    call init_beams( beams )
+  endif
   
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the passive scalar(s)

@@ -442,27 +442,27 @@ subroutine compare_key(key1,key2)
         
   ! errors:
   if (dabs(a2)>=1.0d-7) then
-    e1 = (a2-a1) / a2
+    e1 = dabs( (a2-a1) / a2 )
   else
-    e1 = (a2-a1) 
+    e1 = dabs( (a2-a1) )
   endif  
   
   if (dabs(b2)>=1.0d-7) then
-    e2 = (b2-b1) / b2
+    e2 = dabs( (b2-b1) / b2 )
   else
-    e2 = (b2-b1) 
+    e2 = dabs( (b2-b1) )
   endif
   
   if (dabs(c2)>=1.0d-7) then
-    e3 = (c2-c1) / c2
+    e3 = dabs( (c2-c1) / c2 )
   else
-    e3 = (c2-c1) 
+    e3 = dabs( (c2-c1) ) 
   endif
   
   if (dabs(d2)>=1.0d-7) then
-    e4 = (d2-d1) / d2
+    e4 = dabs( (d2-d1) / d2 )
   else
-    e4 = (d2-d1) 
+    e4 = dabs( (d2-d1) )
   endif
   
   write (*,'("err(rel) : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
