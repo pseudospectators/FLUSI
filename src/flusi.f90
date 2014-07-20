@@ -252,7 +252,6 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Initial condition
   !-----------------------------------------------------------------------------
-  if (root) write(*,*) "Set up initial conditions...."
   call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
   
   

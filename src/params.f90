@@ -327,7 +327,8 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
   call param_dbl(PARAMS,i,"Insects","Jxx",Insect%Jxx,0.d0)
   call param_dbl(PARAMS,i,"Insects","Jyy",Insect%Jyy,0.d0)
   call param_dbl(PARAMS,i,"Insects","Jzz",Insect%Jzz,0.d0)
-  call param_dbl(PARAMS,i,"Insects","Jxy",Insect%Jxy,0.d0)  
+  call param_dbl(PARAMS,i,"Insects","Jxy",Insect%Jxy,0.d0)
+  call param_str(PARAMS,i,"Insects","infile",Insect%infile,"none.in")
   
   ! position vector of the head
   call param_vct(PARAMS,i,"Insects","x_head",&

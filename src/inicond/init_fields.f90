@@ -20,6 +20,8 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   type(solid),dimension(1:nBeams), intent(out) :: beams
   type(diptera),intent(inout)::Insect 
  
+  if (mpirank==0) write(*,*) "Set up initial conditions...."
+ 
   select case(method)
   case("fsi") 
      call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,Insect,beams)

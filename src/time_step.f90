@@ -46,6 +46,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   ! Loop over time steps
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
+     t4=MPI_wtime()
      !-------------------------------------------------
      ! escape from loop if walltime is about to be exceeded
      !-------------------------------------------------
@@ -57,7 +58,6 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      endif
 
      dt0=dt1
-     t4=MPI_wtime()
      
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
@@ -138,7 +138,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
         call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)       
      endif
 
-     if(idobackup == 1) then
+     if (idobackup == 1) then
         ! Backup if that's specified in the PARAMS.ini file
         if(truntimenext < (MPI_wtime()-time_total)/3600.d0) then
            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
@@ -157,7 +157,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-----------------------------------------------
      ! Runtime remote control (every 10 time steps)
      !-----------------------------------------------
-     if ( modulo(it,10) == 0 ) then
+     if (modulo(it,10)==0) then
         ! fetch command from file
         call runtime_control_command( command )
         ! execute it
