@@ -83,22 +83,38 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
      call random_seed()
+     call srand(8765)
      call create_masK( 0.d0 )
      do iz=ra(3), rb(3)
         do iy=ra(2), rb(2)
            do ix=ra(1), rb(1)
               call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,1)=500.d0*(2.0d0*r - 1.d0) &
+              vort (ix,iy,iz,1)=100.d0*(2.0d0*r - 1.d0) &
               * (1.d0-eps*mask(ix,iy,iz))
               call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,2)=500.d0*(2.0d0*r - 1.d0)&
+              vort (ix,iy,iz,2)=100.d0*(2.0d0*r - 1.d0)&
               * (1.d0-eps*mask(ix,iy,iz))
               call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,3)=500.d0*(2.0d0*r - 1.d0)&
+              vort (ix,iy,iz,3)=100.d0*(2.0d0*r - 1.d0)&
               * (1.d0-eps*mask(ix,iy,iz))
+              
+!               vort (ix,iy,iz,1)=50.d0*(2.0d0*rand() - 1.d0) &
+!               * (1.d0-eps*mask(ix,iy,iz))
+!               vort (ix,iy,iz,2)=50.d0*(2.0d0*rand() - 1.d0)&
+!               * (1.d0-eps*mask(ix,iy,iz))
+!               vort (ix,iy,iz,3)=50.d0*(2.0d0*rand() - 1.d0)&
+!               * (1.d0-eps*mask(ix,iy,iz))
            end do
+           call srand(iz*iy)
         end do
+        call srand(iz)
      end do
+     call cal_vis( 1.0e-2/nu, explin(:,:,:,1))
+     call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
+     nlk(:,:,:,1,0)=nlk(:,:,:,1,0)*explin(:,:,:,1)
+     nlk(:,:,:,2,0)=nlk(:,:,:,2,0)*explin(:,:,:,1)
+     nlk(:,:,:,3,0)=nlk(:,:,:,3,0)*explin(:,:,:,1)
+     call ifft3( ink=nlk(:,:,:,:,0), outx=vort )
      call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
 
   case("MeanFlow")

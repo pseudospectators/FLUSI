@@ -16,7 +16,7 @@ subroutine Draw_flexible_plate (time, beam)
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   !-- for the triangles:
   real(kind=pr) :: a,b,c,alpha,beta,h,safety, s,s1,s2, ux,uy, R ,dmax, love
-  real(kind=pr) :: c1,c2,u1,u2,u3
+  real(kind=pr) :: c1,c2,u1,u2,uu
   !-- for leading edge state:
   real(kind=pr) :: alpha_t, alpha_tt 
   real(kind=pr), dimension(1:6) :: LeadingEdge
