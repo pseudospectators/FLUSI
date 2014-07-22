@@ -33,7 +33,15 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
     ! project the right hand side to the incompressible manifold
     call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
     ! for global performance measurement
-    time_p = time_p + MPI_wtime() - t1     
+    time_p = time_p + MPI_wtime() - t1 
+    
+    !---------------------------------------------------------------------------
+    ! passive scalar (currently only one) the work array vort is now free
+    ! so use it in cal_nlk_scalar
+    !---------------------------------------------------------------------------
+    if ((use_passive_scalar==1).and.(compute_scalar)) then
+      call cal_nlk_scalar( time,it,u,uk(:,:,:,4),nlk(:,:,:,4),workc(:,:,:,1),vort )
+    endif
     
   case("mhd") 
      !--------------------------------------------------------------------------
@@ -161,14 +169,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
     nlk(:,:,:,3) = nlk(:,:,:,3) + workc(:,:,:,3)
   endif
   time_sponge = time_sponge + MPI_wtime() - t1  
-  
-  !-----------------------------------------------------------------------------
-  ! passive scalar (currently only one) the work array vort is now free
-  ! so use it in cal_nlk_scalar
-  !-----------------------------------------------------------------------------
-  if ((use_passive_scalar==1).and.(compute_scalar)) then
-    call cal_nlk_scalar( time,it,u,uk(:,:,:,4),nlk(:,:,:,4),workc(:,:,:,1),vort )
-  endif
   
   !-----------------------------------------------------------------------------
   ! timings

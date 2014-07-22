@@ -273,6 +273,12 @@ subroutine get_params_fsi(PARAMS,i,Insect)
        stop_on_fail,"no")
   call param_str(PARAMS,i,"PassiveScalar","source_term",&
        source_term,"no")
+  call param_dbl(PARAMS,i,"PassiveScalar","source_xmin",source_xmin,0.d0)
+  call param_dbl(PARAMS,i,"PassiveScalar","source_xmax",source_xmax,0.d0)
+  call param_dbl(PARAMS,i,"PassiveScalar","source_ymin",source_ymin,0.d0)
+  call param_dbl(PARAMS,i,"PassiveScalar","source_ymax",source_ymax,0.d0)
+  call param_dbl(PARAMS,i,"PassiveScalar","source_zmin",source_zmin,0.d0)
+  call param_dbl(PARAMS,i,"PassiveScalar","source_zmax",source_zmax,0.d0)
 
   ! ---------------------------------------------------
   ! DONE..
@@ -428,9 +434,9 @@ subroutine get_params_solid(PARAMS,i)
     end select
     
     call param_str(PARAMS,i,"SolidModel","imposed_motion_leadingedge",&
-    imposed_motion_leadingedge,"fixed_middle")
-    call param_str(PARAMS,i,"SolidModel","infinite",&
-    infinite,"no")
+         imposed_motion_leadingedge,"fixed_middle")
+    call param_str(PARAMS,i,"SolidModel","infinite",infinite,"no")
+    call param_str(PARAMS,i,"SolidModel","plate_shape",plate_shape,"rectangular")
     !-- grid spacing
     ds = 1.d0/dble(ns-1)
   endif

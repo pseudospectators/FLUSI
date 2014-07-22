@@ -30,7 +30,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   type(diptera), intent(inout) :: Insect
   logical :: continue_timestepping
  
-  truntimenext = 0d0 
+  ! first backup is in "truntime" hours
+  truntimenext = truntime 
   continue_timestepping = .true.
   it_start = it
 
@@ -47,16 +48,6 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   t1=MPI_wtime()
   do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
      t4=MPI_wtime()
-     !-------------------------------------------------
-     ! escape from loop if walltime is about to be exceeded
-     !-------------------------------------------------
-     if ((idobackup==1).and.(wtimemax < (MPI_wtime()-time_total)/3600.d0)) then
-         if (root) write(*,*) "Out of walltime!"
-         call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-              work(:,:,:,1),Insect,beams)
-         continue_timestepping=.false.
-     endif
-
      dt0=dt1
      
      !-------------------------------------------------
@@ -108,15 +99,6 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      time=time + dt1
      it=it + 1
 
-     ! If we hit the wall-time limit (specified in the params file)
-     ! then save the restart data and stop the program.
-     if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
-        if (root) write(*,*) "Out of walltime!"
-        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-             work(:,:,:,1),Insect,beams)
-        continue_timestepping=.false.   
-     endif
-
      !-------------------------------------------------
      ! Output of INTEGRALS after every tintegral time 
      ! units or itdrag time steps
@@ -126,7 +108,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      endif
     
      !-------------------------------------------------
-     ! Output FIELDS (after tsave)
+     ! Output FIELDS+BACKUPING (after tsave)
      !-------------------------------------------------
      if (((modulo(time,tsave)<=dt1).and.(time>+tsave_first).and.(it>2))&
         .or.(time==tmax)) then
@@ -139,7 +121,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      endif
 
      if (idobackup == 1) then
-        ! Backup if that's specified in the PARAMS.ini file
+        ! Backup if that's specified in the PARAMS.ini file. We try to do 
+        ! backups every "truntime" hours (precise to one time step)
         if(truntimenext < (MPI_wtime()-time_total)/3600.d0) then
            call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
                 work(:,:,:,1),Insect,beams)
@@ -152,6 +135,16 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-----------------------------------------------
      if ((modulo(it,300)==0).or.(it==20)) then
         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+     endif
+     
+     !-------------------------------------------------
+     ! escape from loop if walltime is about to be exceeded
+     !-------------------------------------------------     
+     if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+        if (root) write(*,*) "Out of walltime!"
+        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+             work(:,:,:,1),Insect,beams)
+        continue_timestepping=.false.   
      endif
      
      !-----------------------------------------------

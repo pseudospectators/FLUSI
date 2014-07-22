@@ -237,11 +237,11 @@ subroutine Start_Simulation()
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
     if (Insect%KineFromFile/="no") then
-    call load_kine_init(mpirank,MPI_DOUBLE_PRECISION,MPI_INTEGER)
+      call load_kine_init(mpirank,MPI_DOUBLE_PRECISION,MPI_INTEGER)
+    endif
     ! If required, initialize rigid solid dynamics solver
     ! and set idynamics flag on or off
     call rigid_solid_init(SolidDyn%idynamics,Insect)
-    endif
   endif
   
   !-----------------------------------------------------------------------------

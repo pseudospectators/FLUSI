@@ -7,85 +7,31 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   type(solid),intent (inout) :: beam
   character(len=*), intent(in), optional :: testing, timelevel
   real(kind=pr), intent (in)   :: p(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr) :: xf,yf,zf,dh, soft_startup, t0
+  real(kind=pr) :: xf,yf,zf,soft_startup, t0
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
   real(kind=pr),dimension(:,:,:,:), allocatable :: surfaces
+  real(kind=pr),dimension(:,:), allocatable :: active_points
   real(kind=pr),dimension(:,:,:), allocatable :: p_surface, p_surface_local
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
   real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   real(kind=pr),dimension(:,:),allocatable::ghostsy,ghostsz
-  real(kind=pr),dimension(:),allocatable::heights
   integer :: nh,is,ih,isurf,mpicode
   t0 = MPI_wtime()
   
   !-- get relative coordinate system
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt,M_plate)
+
+  !-- get plate geometry
+  call plate_geometry( beam, surfaces, active_points, nh, M_plate, x0_plate )
   
-  
-  if (nx>1) then
-    !-- "true" 3D case
-    !-- number of interpolation points in rigid direction (span)
-    nh = nint( L_span/min(dx,dy,dz)  )
-    !-- spacing in span direction
-    dh = L_span/dble(nh)
-    allocate(heights(0:nh))
-    do ih=0,nh
-      heights(ih) = dble(ih)*dh -0.5d0*L_span
-    enddo
-    
-  elseif (nx==1) then
-  
-    nh = 0
-    dh = 1.d0
-    allocate(heights(0:nh))
-    !-- in 2D case, just interpolate always the same position (subsequent avg
-    !-- leaves value untouched)
-    heights = 0.d0
-  endif
-  
-  
-  ! this array holds the interpolation points (2 2D arrays of 3D vectors = 4 indices)
-  allocate(surfaces(0:ns-1,0:nh,1:2,1:3))
+  ! surface pressure arrays:
   allocate(p_surface(0:ns-1,0:nh,1:2))
   allocate(p_surface_local(0:ns-1,0:nh,1:2))
 
-  surfaces = 17.d0
   p_surface = 17.d0
   p_surface_local = 17.d0
 
-  !-----------------------------------------------------------------------------
-  ! Compute the two 2D surfaces in 3D space (top and bottom)
-  !-----------------------------------------------------------------------------
-  do is=0,ns-1
-    do ih=0,nh
-      !-- top surface points
-      xf = beam%x(is)-t_beam*dsin(beam%theta(is))
-      yf = beam%y(is)+t_beam*dcos(beam%theta(is))    
-      x_plate = (/ xf,yf,heights(ih)/)
-      x = matmul( transpose(M_plate) , x_plate )
-      x = x + x0_plate
-      surfaces(is,ih,1,1:3) = x
-
-      
-      !-- bottom surface points
-      xf = beam%x(is)+t_beam*dsin(beam%theta(is))
-      yf = beam%y(is)-t_beam*dcos(beam%theta(is))      
-      x_plate = (/ xf,yf,heights(ih)/)
-      x = matmul( transpose(M_plate) , x_plate )
-      x = x + x0_plate
-      surfaces(is,ih,2,1:3) = x    
-      
-      if (root) then
-      if((x(1)<-dx).or.(x(1)>xl+dx).or.(x(2)<-dy).or.(x(2)>yl+dy).or.(x(3)<-dz).or.(x(3)>zl+dz)) then
-        write(*,*) "ERROR: Surface constuction yielded values outside valid bound."
-        call abort()
-      endif
-      endif
-    enddo
-  enddo
-  
-  deallocate( heights )
     
   !-----------------------------------------------------------------------------
   ! Tri-linear interpolation of all points on the surface. 
@@ -108,6 +54,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
     enddo
   enddo
   
+  
   !-----------------------------------------------------------------------------
   ! All CPUs now interpolated some values of p on the surfaces, if they lie in
   ! their local memory (or on the lines between two CPUs). If not, they saved 
@@ -116,7 +63,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   !-----------------------------------------------------------------------------
   call MPI_ALLREDUCE ( p_surface_local,p_surface,size(p_surface_local),&
                        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode) 
-  
+
   !-----------------------------------------------------------------------------
   ! Testing. Interpolate the mask function (given by p from external) at the beam
   ! surfaces. the value should be in the range 0.05 and 0.60 (roughly). ideally,
@@ -166,6 +113,11 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
       soft_startup = 1.0
   endif
   
+  !-----------------------------------------------------------------------------
+  ! Mask inactive points 
+  !-----------------------------------------------------------------------------
+  p_surface(:,:,1)=p_surface(:,:,1)*active_points
+  p_surface(:,:,2)=p_surface(:,:,2)*active_points
   
   !-----------------------------------------------------------------------------
   ! Average the pressure in the spanwise direction and multiply with startup 
@@ -176,23 +128,29 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
       if (present(timelevel)) then
         if (timelevel=="old") then
           !-- store result of interpolation at OLD timelevel
-          beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+          beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2))
           beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
         elseif (timelevel=="new") then
           !-- store result of interpolation at NEW timelevel
-          beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)        
+          beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2))       
           beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
         endif
       else
         ! write into both
-        beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
-        beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) / dble(nh+1)
+        beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2)) 
+        beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2))
         
         beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
         beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
       endif      
+      
+      ! average:
+      beam%pressure_old(is) = beam%pressure_old(is) / sum(active_points(is,:))
+      beam%pressure_new(is) = beam%pressure_new(is) / sum(active_points(is,:))
     enddo
   endif
+  
+  
       
   deallocate(surfaces)
   deallocate(p_surface)

@@ -16,7 +16,7 @@ subroutine Draw_flexible_plate (time, beam)
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   !-- for the triangles:
   real(kind=pr) :: a,b,c,alpha,beta,h,safety, s,s1,s2, ux,uy, R ,dmax, love
-  real(kind=pr) :: c1,c2
+  real(kind=pr) :: c1,c2,u1,u2,u3
   !-- for leading edge state:
   real(kind=pr) :: alpha_t, alpha_tt 
   real(kind=pr), dimension(1:6) :: LeadingEdge
@@ -28,6 +28,9 @@ subroutine Draw_flexible_plate (time, beam)
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,&
        gamma,psi_dt,beta_dt,gamma_dt,M_plate)
 
+  !-- fetch leading edge motion state (the cylinder may rotate)
+  call mouvement ( time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
+       
   ! angular velocity of moving relative frame
   rot_body = (/psi_dt, beta_dt, gamma_dt/)
 
@@ -60,8 +63,11 @@ subroutine Draw_flexible_plate (time, beam)
       mask(ix,iy,iz) = 5000.d0
       ux = 0.d0
       uy = 0.d0
+      tmp2=0.d0
       
+      !-------------------------------------------------------------------------
       !-- loop over points on the beam
+      !-------------------------------------------------------------------------
       do is = 0,ns-2
         !-- a,b,c: sides of triangle
         a = dsqrt( (x_plate(1)-beam%x(is))**2 + (x_plate(2)-beam%y(is))**2 )
@@ -89,9 +95,10 @@ subroutine Draw_flexible_plate (time, beam)
               !-- linear interpolation of velocity (along the element)
               s1 = dble(is)*ds
               s2 = dble(is+1)*ds
-              s = s1 + dsqrt(b*b - h*h)
-              ux = beam%vx(is+1) + ((s-s1)/(s2-s1))*(beam%vx(is)-beam%vx(is+1))
-              uy = beam%vy(is+1) + ((s-s1)/(s2-s1))*(beam%vy(is)-beam%vy(is+1))
+              s = s1 + c1
+              ux = beam%vx(is) + ((s-s1)/(s2-s1))*(beam%vx(is+1)-beam%vx(is))
+              uy = beam%vy(is) + ((s-s1)/(s2-s1))*(beam%vy(is+1)-beam%vy(is))              
+              
             endif
             
           else            
@@ -103,6 +110,12 @@ subroutine Draw_flexible_plate (time, beam)
               !-- we're in the region of the LEFT hinge
               if ( a <= mask(ix,iy,iz) ) then
                 mask(ix,iy,iz) = a
+                s = dble(is)*ds
+                ! if this is the first point on the beam, assign an s coordinate
+                ! that may be smaller than 0.0
+                if (is==0) then
+                  s = x_plate(1)*dcos(alpha) + x_plate(2)*dsin(alpha)
+                endif
                 ux = beam%vx(is)
                 uy = beam%vy(is)
               endif
@@ -110,6 +123,16 @@ subroutine Draw_flexible_plate (time, beam)
               !-- we're in the region of the RIGHt hinge
               if ( b <= mask(ix,iy,iz) ) then
                 mask(ix,iy,iz) = b
+                s = dble(is+1)*ds
+                !-- if this is the last point on the beam, assign an "s" coordinate
+                !-- that may be greater than 1.0
+                if ( is+1 == ns-1) then
+                  !-- use the vector u that connects the last 2 points on the beam
+                  uu = dsqrt( (beam%x(ns-1)-beam%x(ns-2))**2 +(beam%y(ns-1)-beam%y(ns-2))**2 )
+                  u1 = (beam%x(ns-1)-beam%x(ns-2)) / uu
+                  u2 = (beam%y(ns-1)-beam%y(ns-2)) / uu
+                  s = 1.d0+((x_plate(1)-beam%x(is+1))*u1 +(x_plate(2)-beam%y(is+1))*u2)
+                endif
                 ux = beam%vx(is+1)
                 uy = beam%vy(is+1)
               endif
@@ -121,19 +144,23 @@ subroutine Draw_flexible_plate (time, beam)
       !-- mask is now the distance function from the centerline
       !-- convert distance function to mask function
       call smoothstep( tmp, mask(ix,iy,iz)-t_beam, 0.d0, N_smooth*max(dx,dy,dz) )
-      !-- make plate finite in z-direction
-      if ((nx>1).and.(ny>1).and.(nz>1)) then
-        call smoothstep( tmp2, abs(x_plate(3)), 0.5d0*L_span, N_smooth*max(dx,dy,dz) )
+      
+      !-------------------------------------------------------------------------
+      !-- make plate finite in z-direction, possibly with non-rectangular shapes
+      !-------------------------------------------------------------------------
+      if (x_plate(3)<0.d0) then
+        call smoothstep( tmp2, -x_plate(3), z_bottom(s), N_smooth*max(dx,dy,dz) )
       else
-        !-- 2D runs have infinite span
-        tmp2=1.d0
+        call smoothstep( tmp2,  x_plate(3), z_top(s), N_smooth*max(dx,dy,dz) )
       endif
       
       ! plate is very large - span is infinite
       if (infinite=="yes") tmp2 = 1.d0
       
+      
       !-- final value
       mask(ix,iy,iz) = tmp*tmp2
+      
       !-- assign mask color
       if (mask(ix,iy,iz) > 0.d0) mask_color(ix,iy,iz)=1
       
@@ -154,15 +181,13 @@ subroutine Draw_flexible_plate (time, beam)
    enddo
   enddo
   
-  
   !-----------------------------------------------------------------------------
   ! Add cylinder add leading edge, if desired. Required for Turek's validation
   ! test case, and other cases. Note the angle ALPHA, which describes the leading
   ! edge angle WITHIN THE RELATIVE SYSTEM
   !-----------------------------------------------------------------------------
   if (has_cylinder=="yes") then 
-    !-- fetch leading edge motion state (the cylinder may rotate)
-    call mouvement ( time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
+    
     
     !-- For all grid points of this subdomain
     do iz = ra(3), rb(3)

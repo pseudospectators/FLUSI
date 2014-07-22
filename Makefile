@@ -105,8 +105,8 @@ $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 $(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o $(OBJDIR)/kine.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 wings_motion.f90 stroke_plane.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
-$(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o \
-	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90
+$(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o \
+	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	

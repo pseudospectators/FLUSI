@@ -226,6 +226,8 @@ module fsi_vars
   character(len=strlen),save :: source_term
   real(kind=pr), save :: eps_scalar
   logical, save :: compute_scalar
+  real(kind=pr),save :: source_xmin,source_xmax,source_ymin,source_ymax,&
+    source_zmin,source_zmax
 
   ! solid model main switch
     character(len=strlen),save :: use_solid_model

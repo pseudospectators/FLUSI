@@ -14,7 +14,7 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout)::workc1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   
   real(kind=pr) :: kx,ky,kz,chi,w,D,maxi,t1
@@ -125,7 +125,7 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
   !---------------------------------------
   ! source term (fix values of scalar at some points)
   !---------------------------------------
-  if (source_term=="yes") then
+  if (source_term /= "no") then
     !-- get scalar in X-space
     call ifft ( ink=uk, outx=work(:,:,:,1) )
     !-- compute source term (in X-space)
@@ -160,23 +160,62 @@ subroutine scalar_source ( time, theta )
   real(kind=pr),intent(inout)::theta(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: x,y,z,chi
   integer :: ix,iy,iz
-  
-  do ix=ra(1),rb(1)
-    do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)  
-        x = dble(ix)*dx
-        y = dble(iy)*dy
-        z = dble(iz)*dz
-        chi = 0.d0
-        if ((z>=0.40*zl).and.(z<=0.60*zl)) then
-        if ((y>=0.05*yl).and.(y<=0.10*yl)) then
-          chi = -(theta(ix,iy,iz)-1.d0) / eps
-        endif
-        endif
-        
-        theta(ix,iy,iz)=chi
+
+  select case (source_term)
+  case("cuboid")
+    do ix=ra(1),rb(1)
+      do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)  
+          x = dble(ix)*dx
+          y = dble(iy)*dy
+          z = dble(iz)*dz
+          chi = 0.d0
+          
+          if ((x>=source_xmin).and.(x<=source_xmax)) then
+          if ((y>=source_ymin).and.(y<=source_ymax)) then
+          if ((z>=source_zmin).and.(z<=source_zmax)) then
+            chi = -(theta(ix,iy,iz)-1.d0) / eps
+          endif
+          endif
+          endif
+          
+          theta(ix,iy,iz)=chi
+        enddo
       enddo
     enddo
-  enddo
+  case("cuboid_framed")
+    do ix=ra(1),rb(1)
+      do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)  
+          x = dble(ix)*dx
+          y = dble(iy)*dy
+          z = dble(iz)*dz
+          chi = 0.d0
+          
+          if ((x>=source_xmin).and.(x<=source_xmax)) then
+          if ((y>=source_ymin).and.(y<=source_ymax)) then
+          if ((z>=source_zmin).and.(z<=source_zmax)) then
+            chi = -(theta(ix,iy,iz)-1.d0) / eps
+          endif
+          endif
+          endif
+
+          if (nx>1) then
+            if ((ix<=4).or.(ix>nx-1-4).or.(iy<=4).or.(iy>ny-1-4).or.(iz<=4).or.(iz>nz-1-4)) then
+              chi = -(theta(ix,iy,iz)) / eps
+            endif
+          else
+            if ((iy<=4).or.(iy>ny-1-4).or.(iz<=4).or.(iz>nz-1-4)) then
+              chi = -(theta(ix,iy,iz)) / eps
+            endif
+          endif
+          theta(ix,iy,iz)=chi
+        enddo
+      enddo
+    enddo  
+  case default
+    if(mpirank==0) write(*,*) "Scalar: source term not defined"//source_term
+    call abort()
+  end select
 
 end subroutine scalar_source

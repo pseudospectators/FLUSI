@@ -22,7 +22,7 @@ module solid_model
   character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
   character(len=strlen),save :: has_cylinder
   character(len=strlen),save :: interp
-  character(len=strlen),save :: infinite
+  character(len=strlen),save :: infinite, plate_shape
 
   !----------------------------------------------
   ! Solid datatype
@@ -54,6 +54,7 @@ module solid_model
  include "init_beam.f90"
  include "save_beam.f90"
  include "BeamForces.f90"
+ include "plate_geometry.f90"
  
 !-------------------------------------------------------------------------------
 !   solid solver main entry point
