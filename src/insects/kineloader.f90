@@ -128,7 +128,7 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
 
   if ((xi<xphi(i0)).or.(xi>xphi(i1))) then
      print *, "hermite1d: not a uniform grid"
-     stop
+     call abort()
   endif
 
   x = (xi-xphi(i0))/dx

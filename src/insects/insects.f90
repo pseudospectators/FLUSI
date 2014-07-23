@@ -147,7 +147,7 @@ subroutine Draw_Insect ( time, Insect )
   ! some checks
   if ((mpirank==0).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
     write (*,*) "insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong."
-    stop
+    call abort()
   endif
   
   !-----------------------------------------------------------------------------
@@ -556,7 +556,7 @@ subroutine dynamics_insect(time,it,Insect)
     if (mpirank==0) then
     write (*,*) &
     "insects.f90::dynamics_insects case not defined"
-    stop
+    call abort()
     endif
   end select
 

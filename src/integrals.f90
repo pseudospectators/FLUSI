@@ -31,7 +31,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
      call write_integrals_mhd(time,uk,u,vort,nlk,work(:,:,:,1))
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
-     stop
+     call abort()
   end select
 end subroutine write_integrals
 

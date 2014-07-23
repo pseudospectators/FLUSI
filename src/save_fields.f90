@@ -633,7 +633,7 @@ subroutine read_single_file_serial(filename,field)
 
   if (mpisize>1) then
     write (*,*) "this routine is currently serial only"
-    stop
+    call abort()
   endif
   
   ! check if file exist
@@ -769,7 +769,7 @@ subroutine Read_Single_File ( filename, field )
     write (*,'(A)') "read_single_file: ERROR " // trim(filename)
     write (*,'("nx=",i4,"ny=",i4,"nz=",i4)') nx,ny,nz
     write (*,'("but in file: nx=",i4,"ny=",i4,"nz=",i4)') nx_file,ny_file,nz_file
-    stop
+    call abort()
     endif
   endif
   
@@ -1105,7 +1105,7 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   if ( (nx_file.ne.nx).or.(nx_file.ne.nx).or.(nx_file.ne.nx)) then
      write (*,'(A)') "!!! Thats odd...the backup you're trying to resume doesn't have the same nx,ny,nz"
      write (*,'(A)') "I'll leave you crying and commit suicide here."
-     stop
+     call abort()
   endif
 
   deallocate (attributes)

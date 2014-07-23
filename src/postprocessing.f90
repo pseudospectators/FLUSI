@@ -588,7 +588,7 @@ subroutine extract_subset()
 
   if (mpisize/=1) then
     write(*,*) "./flusi --postprocessing --extract-subset is a SERIAL routine, use 1CPU only"
-    stop
+    call abort()
   endif
   
   ! get file to read pressure from and check if this is present

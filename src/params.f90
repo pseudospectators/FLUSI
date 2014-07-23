@@ -30,7 +30,7 @@ subroutine get_params(paramsfile,Insect)
   case default
      if(mpirank == 0) then
         write(*,*) "Error! Unkonwn method in get_params; stopping."
-        stop
+        call abort()
      end if
   end select
 end subroutine get_params

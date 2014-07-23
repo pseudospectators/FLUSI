@@ -235,7 +235,7 @@ subroutine init_taylorcouette_u(ubk,ub)
     if(mpirank == 0) then
      if(r1 >= r2) then
         write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
-        stop
+        call abort()
      endif
   endif
   
