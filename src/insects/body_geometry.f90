@@ -105,10 +105,10 @@ subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
     z0bc = -0.9301255230125524
   
     ! chordwise dimensionless coordinate, from head to abdomen
-    s = (atan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1) 
+    s = (datan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1) 
     ! body center coordinates at s
-    xcs = x0bc + (x-x0bc)*rbc/sqrt((x-x0bc)**2+(z-z0bc)**2)
-    zcs = z0bc + (z-z0bc)*rbc/sqrt((x-x0bc)**2+(z-z0bc)**2)
+    xcs = x0bc + (x-x0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
+    zcs = z0bc + (z-z0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
 
     ! check if inside body bounds (in s-direction)
     if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then    
@@ -120,9 +120,10 @@ subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
         a_body = 1.0d0
       endif
       ! distortion of s
-      s1 = 1.0d0 - ( s + 0.08d0*tanh(30.0d0*s) ) / (1.0d0+0.08d0*tanh(30.0d0))
-      s1 = ( s1 + 0.04d0*tanh(60.0d0*s1) ) / (1.0d0+0.04d0*tanh(60.0d0))
-      s1 = (sin(1.2d0*s1)/sin(1.2d0))**1.25d0
+      s1 = 1.0d0 - ( s + 0.08d0*dtanh(30.0d0*s) ) / (1.0d0+0.08d0*dtanh(30.0d0))
+      s1 = ( s1 + 0.04d0*dtanh(60.0d0*s1) ) / (1.0d0+0.04d0*dtanh(60.0d0))
+      s1 = (dsin(1.2d0*s1)/dsin(1.2d0))**1.25  
+      
       x1 = 1.075d0 * s1 
       ! compute radius as a function of x1 (counting from the tail on)
       ! same shape as 'drosophila'

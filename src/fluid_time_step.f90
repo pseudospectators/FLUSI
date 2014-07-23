@@ -193,6 +193,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
       bruch = (sum((deltap_old-deltap_new)*deltap_new)) &
             / (sum((deltap_old-deltap_new)**2))
       upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
+      norm = 1.d0
     endif
     kappa2 = 1.d0 - upsilon_new
     ! new iteration pressure is old one plus star
@@ -209,7 +210,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! convergence test
     !---------------------------------------------------------------------------
-    ROC1 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / ns
+    ROC1 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / dble(ns)
     ROC2 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / norm 
     if (((ROC2<1.0e-3).or.(inter==100)).or.(it<2)) then
       iterate = .false.
