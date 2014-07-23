@@ -2,9 +2,11 @@ program FLUSI
   use mpi
   use fsi_vars
   use solid_model
+  use insect_module
   implicit none
   integer                :: mpicode
   character (len=strlen) :: infile
+  type(diptera)::dummyinsect
 
   ! Initialize MPI, get size and rank
   call MPI_INIT (mpicode)
@@ -37,7 +39,7 @@ program FLUSI
       nd=3*nf ! The one field has three components.
       allocate(lin(1)) ! Set up the linear term
       call get_command_argument(2,infile)
-      call get_params(infile)
+      call get_params(infile,dummyinsect)
       call OnlySolidSimulation()
       
   else
@@ -206,6 +208,8 @@ subroutine Start_Simulation()
     allocate(press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
     if(mpirank==0) write(*,*) "press array is allocated"
     memory = memory + mem_field
+  else
+    allocate(press(0:1,0:1,0:1))
   endif
   
   ! vorticity sponge, work array that is used for sponge and/or passive scalar
@@ -237,7 +241,7 @@ subroutine Start_Simulation()
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
     if (Insect%KineFromFile/="no") then
-      call load_kine_init(mpirank,MPI_DOUBLE_PRECISION,MPI_INTEGER)
+      call load_kine_init(mpirank)
     endif
     ! If required, initialize rigid solid dynamics solver
     ! and set idynamics flag on or off

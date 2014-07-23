@@ -6,7 +6,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
   character(len=*), intent(in), optional :: testing, timelevel
-  real(kind=pr), intent (in)   :: p(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr), intent (inout)   :: p(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr) :: xf,yf,zf,soft_startup, t0
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
   real(kind=pr),dimension(:,:,:,:), allocatable :: surfaces
@@ -177,7 +177,7 @@ subroutine surface_interpolation_testing( time, beams, work )
   use insect_module
   implicit none
   real(kind=pr),intent (in) :: time
-  type(solid),dimension(1),intent (inout) :: beams
+  type(solid),dimension(1:nbeams),intent (inout) :: beams
   real(kind=pr),intent(inout):: work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer :: ix,iy,iz
   real(kind=pr) :: x,y,z

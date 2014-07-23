@@ -84,7 +84,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
      call random_seed()
      call srand(8765)
-     call create_masK( 0.d0 )
+     call create_masK( 0.d0, Insect, beams )
      do iz=ra(3), rb(3)
         do iy=ra(2), rb(2)
            do ix=ra(1), rb(1)
@@ -174,7 +174,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   !-----------------------------------------------------------------------------
   if ((use_passive_scalar==1).and.(index(inicond,"backup::")==0)) then
     ! only if not resuming a backup
-    call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1))
+    call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1),Insect,beams)
   endif
   
 end subroutine init_fields_fsi

@@ -355,11 +355,20 @@ real(kind=pr) function fieldmaxabs3( inx )
   use vars
   implicit none
   real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr) :: max_local, max_global
+  real(kind=pr) :: max_local, max_global, value
   integer :: mpicode
+  integer ::ix,iy,iz
+  max_local = 0.d0
+  do ix = ra(1), rb(1)
+    do iy = ra(2), rb(2)
+       do iz = ra(3), rb(3)
+        value = inx(ix,iy,iz,1)*inx(ix,iy,iz,1) + inx(ix,iy,iz,2)*inx(ix,iy,iz,2) &
+              + inx(ix,iy,iz,3)*inx(ix,iy,iz,3)
+        if (max_local<value) max_local=value
+       enddo
+    enddo
+  enddo
 
-  max_local = maxval( inx(:,:,:,1)*inx(:,:,:,1) + inx(:,:,:,2)*inx(:,:,:,2) &
-            + inx(:,:,:,3)*inx(:,:,:,3) )
   max_local = dsqrt( max_local )
   call MPI_ALLREDUCE (max_local,max_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)

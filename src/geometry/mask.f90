@@ -8,7 +8,7 @@ subroutine create_mask(time,Insect,beams)
 
   real(kind=pr), intent(in) :: time
   real(kind=pr) :: eps_inv
-  type(solid), dimension(1), intent(inout) :: beams
+  type(solid), dimension(1:nbeams), intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
   ! Attention: mask is reset here (and not in subroutines)

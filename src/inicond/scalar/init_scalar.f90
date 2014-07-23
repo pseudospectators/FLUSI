@@ -8,10 +8,12 @@
 !     work: three real valued work arrays
 !     workc: one complex valued work array
 !-------------------------------------------------------------------------------
-subroutine init_passive_scalar(uk,work,workc)
+subroutine init_passive_scalar(uk,work,workc,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use solid_model
+  use insect_module
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
@@ -20,6 +22,8 @@ subroutine init_passive_scalar(uk,work,workc)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z
+  type(solid),dimension(1:nBeams), intent(inout) :: beams
+  type(diptera),intent(inout)::Insect 
 
   select case(inicond_scalar)
   case("right_left_discontinuous")
@@ -28,7 +32,7 @@ subroutine init_passive_scalar(uk,work,workc)
     ! no scalar inside mask (we build this here since FLUSI first loads inicond,
     ! then creates the mask!)
     !---------------------------------------------------------------------------
-    call create_mask( 0.d0 )
+    call create_mask( 0.d0, Insect,beams )
     
     !-- initialize scalar zero everywhere
     work(:,:,:,1) = 0.d0
@@ -55,7 +59,7 @@ subroutine init_passive_scalar(uk,work,workc)
     !---------------------------------------------------------------------------
     ! smoothed heaviside function, covering approx. half the domain
     !---------------------------------------------------------------------------
-    call create_mask( 0.d0 )
+    call create_mask( 0.d0, Insect,beams )
     
     !-- initialize scalar zero everywhere
     work(:,:,:,1) = 0.d0
