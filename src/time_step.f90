@@ -110,7 +110,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-------------------------------------------------
      ! Output FIELDS+BACKUPING (after tsave)
      !-------------------------------------------------
-     if (((modulo(time,tsave)<=dt1).and.(time>+tsave_first).and.(it>2))&
+     if (((modulo(time,tsave)<=dt1).and.(time>=tsave_first).and.(it>2))&
         .or.(time==tmax)) then
         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
         ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
