@@ -241,6 +241,7 @@ subroutine Start_Simulation()
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
     if (Insect%KineFromFile/="no") then
+      if (mpirank==0) write(*,*) "Initializing kinematics loader..."
       call load_kine_init(mpirank)
     endif
     ! If required, initialize rigid solid dynamics solver

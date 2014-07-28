@@ -28,6 +28,7 @@ subroutine load_kine_init(mpirank)
   allocate(vec_vert_dt(nk))
   allocate(vec_horz(nk))
   allocate(vec_horz_dt(nk))
+  
   if (mpirank==0) then 
     ! read from file
     do j = 1, nk
@@ -48,6 +49,7 @@ subroutine load_kine_init(mpirank)
     vec_vert_dt(:) = vec_vert_dt(:) * t_period / r_wing
     vec_horz_dt(:) = vec_horz_dt(:) * t_period / r_wing 
   endif
+  
   call MPI_BCAST( vec_t, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
   call MPI_BCAST( vec_phi, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
   call MPI_BCAST( vec_alpha, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
@@ -128,6 +130,8 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
 
   if ((xi<xphi(i0)).or.(xi>xphi(i1))) then
      print *, "hermite1d: not a uniform grid"
+     write(*,'("xi=",es12.4," dx=",es12.4)') xi,dx
+     write(*,'("xphi(i0)=",es12.4," xphi(i1)=",es12.4)') xphi(i0),xphi(i1)
      call abort()
   endif
 

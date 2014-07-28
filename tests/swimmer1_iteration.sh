@@ -28,6 +28,7 @@ echo "run done, analyzing data now"
 echo "============================"
 
 # loop over all HDF5 files an generate keyvalues using flusi
+i=1
 for p in ${prefixes[@]}
 do  
   for t in ${times[@]}
@@ -48,24 +49,38 @@ do
             result=$?
             if [ $result == "0" ]; then
               echo -e ":) Happy, this looks okay! " $keyfile $reffile 
+              summary[i]=${summary[i]}"pass   "
               happy=$((happy+1))
             else
               echo -e ":[ Sad, this is failed! " $keyfile $reffile 
               sad=$((sad+1))
+              summary[i]=${summary[i]}"fail   "
             fi
         else
             sad=$((sad+1))
+            summary[i]=${summary[i]}"ref    "
             echo -e ":[ Sad: Reference file not found"
         fi
     else
         sad=$((sad+1))
         echo -e ":[ Sad: output file not found"
+        summary[i]=${summary[i]}"noout  "
     fi
     echo " "
     echo " "
     
   done
+  i=$((i+1))
 done
+
+i=1
+echo ${times[@]}
+for p in ${prefixes[@]}
+do  
+  echo ${summary[i]}
+  i=$((i+1))
+done
+
 
 
 #-------------------------------------------------------------------------------

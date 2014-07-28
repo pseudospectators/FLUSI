@@ -390,15 +390,15 @@ subroutine compare_timeseries()
     
     do i=1,columns
       diff = values1(i)-values2(i)
-      ! ignore values smaller 1e-6 in ref file
-      if ((dabs(values2(i))>1.d-5).and.(diff>1.d-7)) then
+      ! ignore values smaller 1e-4 in ref file
+      if ((dabs(values2(i))>1.d-4).and.(diff>1.d-7)) then
         error(i) = dabs(diff/values2(i))
       else
         error(i) = 0.0
       endif
     enddo
     
-    if (maxval(error)>5.d-5) then 
+    if (maxval(error)>1.d-4) then 
       write(*,*) "time series comparison failed..."
       write(*,format) values1
       write(*,format) values2
@@ -468,7 +468,7 @@ subroutine compare_key(key1,key2)
   write (*,'("err(rel) : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
         e1,e2,e3,e4
   
-  if ((e1<1.d-6) .and. (e2<1.d-6) .and. (e3<1.d-6) .and. (e4<1.d-6)) then
+  if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4)) then
     ! all cool
     write (*,*) "OKAY..."
     call exit(0)            

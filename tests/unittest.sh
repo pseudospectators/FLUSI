@@ -9,7 +9,7 @@ tests=(solid_model.sh jerry.sh fruitfly_mask.sh fruitfly_mask2.sh scalar.sh
        vortexring2_RK2.sh vortexring3_EE1.sh vortexring4_sponge.sh 
        sphere_sponge_RK2.sh sphere.sh sphere_restart.sh mhdorszagtang.sh 
        swimmer1_iteration.sh swimmer2_staggered.sh swimmer3_semiimplicit.sh 
-       insect.sh )
+       insect.sh insect_takeoff.sh )
 
 # link flusi and mhd from .. to . if this isn't already done.
 if [ ! -f flusi ]; then

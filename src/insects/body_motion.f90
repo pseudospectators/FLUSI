@@ -138,12 +138,11 @@ subroutine BodyMotion(time, Insect)
       vc(1) = SolidDyn%var_new(3)
       vc(3) = SolidDyn%var_new(4)
     endif
-
   case default
     if (mpirank==0) then
-    write (*,*) Insect%BodyMotion
-    write (*,*) "insects.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
-    call abort()
+      write (*,*) Insect%BodyMotion
+      write (*,*) "insects.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
+      call abort()
     endif
   end select
   

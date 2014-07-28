@@ -164,6 +164,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   ! If module is in use, initialize also the solid solver
   !-----------------------------------------------------------------------------
   if (use_solid_model=="yes") then
+    if(mpirank==0) write(*,*) "Initializing solid solver and testing..."
     call init_beams( beams )
     call surface_interpolation_testing( time, beams(1), press )
     call init_beams( beams )

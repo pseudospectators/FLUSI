@@ -587,7 +587,7 @@ subroutine param_str (PARAMS, actual_lines, section, keyword, &
   endif
 
   ! And then broadcast
-  call MPI_BCAST( params_string, 80, MPI_CHARACTER, 0, MPI_COMM_WORLD, mpicode) 
+  call MPI_BCAST( params_string, strlen, MPI_CHARACTER, 0, MPI_COMM_WORLD, mpicode) 
 end subroutine param_str
 
 
