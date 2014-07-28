@@ -49,22 +49,22 @@ do
             result=$?
             if [ $result == "0" ]; then
               echo -e ":) Happy, this looks okay! " $keyfile $reffile 
-              summary[i]=${summary[i]}"pass   "
+              summary[i]=${summary[i]}"Y "
               happy=$((happy+1))
             else
               echo -e ":[ Sad, this is failed! " $keyfile $reffile 
               sad=$((sad+1))
-              summary[i]=${summary[i]}"fail   "
+              summary[i]=${summary[i]}"N "
             fi
         else
             sad=$((sad+1))
-            summary[i]=${summary[i]}"ref    "
+            summary[i]=${summary[i]}"R "
             echo -e ":[ Sad: Reference file not found"
         fi
     else
         sad=$((sad+1))
         echo -e ":[ Sad: output file not found"
-        summary[i]=${summary[i]}"noout  "
+        summary[i]=${summary[i]}"O "
     fi
     echo " "
     echo " "
@@ -77,7 +77,9 @@ i=1
 echo ${times[@]}
 for p in ${prefixes[@]}
 do  
-  echo ${summary[i]}
+  printf "%-10s " $p
+  printf " %s "  ${summary[i]}
+  printf "\n"
   i=$((i+1))
 done
 
