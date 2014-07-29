@@ -1,6 +1,8 @@
 ! Wrapper for saving fields routine
-subroutine save_fields(time,uk,u,vort,nlk,work,workc)
+subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
   use vars
+  use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -10,10 +12,12 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
 
   select case(method)
      case("fsi") 
-        call save_fields_fsi(time,uk,u,vort,nlk,work,workc)        
+        call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)        
      case("mhd") 
         call save_fields_mhd(time,uk,u,vort,nlk)
      case default
@@ -30,10 +34,12 @@ end subroutine save_fields
 ! files. 
 ! The latest version calls cal_nlk_fsi to avoid redudant code. 
 !-------------------------------------------------------------------------------
-subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc)
+subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   use fsi_vars
   use p3dfft_wrapper
   use basic_operators
+  use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -45,6 +51,8 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr):: volume
   character(len=5) :: name
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
 
   !--Set up file name base    
   if ( save_only_one_period == "yes" ) then
@@ -62,6 +70,8 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc)
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! ensure that the mask function is at the right time
+  if (iMoving==1) call create_mask (time, Insect,beams)
   call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
@@ -79,7 +89,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc)
   !-------------
   if (isavePress == 1) then  
     ! compute pressure (remember NLK is *not* divergence free)
-    call compute_pressure( nlk,workc(:,:,:,1) )
+    call pressure( nlk,workc(:,:,:,1) )
     ! total pressure in x-space
     call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
     ! get actuall pressure (we're in the rotational formulation)

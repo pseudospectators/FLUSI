@@ -29,11 +29,12 @@
 ! beams         the solid model at the new time level
 !-------------------------------------------------------------------------------
 subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-           expvis,press,beams)
+           expvis,press,Insect,beams)
   use mpi
   use p3dfft_wrapper
   use vars
   use solid_model
+  use insect_module
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -48,7 +49,8 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  type(solid),dimension(1),intent(inout)::beams
+  type(solid),dimension(1:nbeams),intent(inout)::beams
+  type(diptera),intent(inout)::Insect
   
   t1=MPI_wtime()
 
@@ -62,6 +64,14 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
       else
         call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis,press,0)
       endif
+      if (SolidDyn%idynamics/=0 .and. mpirank==0) then
+        write(*,*) "using AB2 with rigid solid solver is deprecated."
+        write(*,*) "use AB2_rigid_solid instead."
+        call abort()
+      endif
+  case ("AB2_rigid_solid")
+      call AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
+           expvis,press,0,Insect)      
   case("Euler")
       call euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
   case("FSI_AB2_iteration")
@@ -73,19 +83,21 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   case("FSI_AB2_semiimplicit")
       call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
            workc,expvis,press,beams)
-!   case("FSI_RK2")
-!       call FSI_RK2(time,it,dt0,dt1,u,uk,nlk,vort,&
-!            workc,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),expvis,press,beams)
   case default
       if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
       call abort()
   end select
+  
+  ! compute unsteady corrections in every time step
+  if(method=="fsi" .and. unst_corrections==1) then
+    call cal_unst_corrections ( time, dt0, Insect )  
+  endif
 
   ! Force zero mode for mean flow
-  if(method == "fsi") call set_mean_flow(uk,time)
+  if(method=="fsi") call set_mean_flow(uk,time)
 
   ! Set the divergence of the magnetic field to zero to avoid drift.
-  if(method == "mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
+  if(method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
 
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
@@ -111,13 +123,14 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   integer,intent (in) :: n0,n1,it
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+  complex(kind=pr),allocatable,dimension(:,:,:,:)::nlk_tmp
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid),dimension(1),intent(inout) :: beams
+  type(solid),dimension(1:nbeams),intent(inout) :: beams
   
   !-- iteration specific variables 
   complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
@@ -137,6 +150,8 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   
   ! allocate extra space for velocity in Fourier space
   call alloccomplexnd(uk_old)    
+  ! we need that to compute the pressure at preliminary times
+  allocate(nlk_tmp(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
   ! copy velocity at time level (n)
   uk_old = uk
   
@@ -159,7 +174,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! create mask
     !---------------------------------------------------------------------------
-    call create_mask(time, Insect_dummy, beams(1))
+    call create_mask(time, Insect_dummy, beams)
     
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
@@ -177,7 +192,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     ! get forces at new time level
     !---------------------------------------------------------------------------
     bpress_old_iterating = beams(1)%pressure_new ! exit of the old iteration
-    call pressure_given_uk(uk,work,workc,press)
+    call pressure_given_uk(time,u,uk,nlk_tmp,vort,work,workc,press)
     call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
     
     !---------------------------------------------------------------------------
@@ -193,7 +208,6 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
       bruch = (sum((deltap_old-deltap_new)*deltap_new)) &
             / (sum((deltap_old-deltap_new)**2))
       upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
-      norm = 1.d0
     endif
     kappa2 = 1.d0 - upsilon_new
     ! new iteration pressure is old one plus star
@@ -244,7 +258,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   endif
   
   ! free work array
-  deallocate (uk_old)
+  deallocate (uk_old,nlk_tmp)
 end subroutine FSI_AB2_iteration
 
 
@@ -275,7 +289,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  type(solid),dimension(1),intent(inout) :: beams
+  type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera)::Insect_dummy
   
   ! useful error messages
@@ -340,7 +354,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid),dimension(1),intent(inout) :: beams
+  type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera)::Insect_dummy
   
   ! useful error messages
@@ -370,8 +384,8 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   !---------------------------------------------------------------------------
   ! TODO: do we need that? not for BDF I think
   call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
-  ! TODO: the following still has to be optimized
-  call pressure_given_uk(uk,work,workc,press)
+  ! we can overwrite NLK(n1) since this is the one overwritten in the next call
+  call pressure_given_uk(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press)
   call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
   
   !---------------------------------------------------------------------------  
@@ -712,6 +726,74 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   endif
 end subroutine adamsbashforth
 
+
+! time stepper for rigid soldi FSI, for example insect takeoff or falling sphere
+subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
+                           expvis,press,iter,Insect)
+  use mpi
+  use fsi_vars
+  use p3dfft_wrapper
+  use insect_module
+  implicit none
+
+  real(kind=pr),intent(inout)::time,dt1,dt0
+  integer,intent(in)::n0,n1,it,iter
+  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::&
+       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+  ! the workc array is not always allocated, ensure allocation before using
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)        
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  ! pressure array. this is with ghost points for interpolation
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr)::b10,b11,t1
+  integer::i
+  type(diptera),intent(inout)::Insect
+
+  if ((SolidDyn%idynamics/=1).and.(mpirank==0)) then
+    write(*,*) "ERROR AB2_rigid_solid and flag SolidDyn%idynamics/=1"
+    write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
+    call abort()
+  endif
+  
+  if ((method/="fsi").and.(mpirank==0)) then
+    write(*,*) "AB2_rigid_solid is an FSI method and not suitable for MHD"
+    call abort()
+  endif
+  
+  !---------------------------------------------------------------------------
+  ! advance fluid to from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  if(it == 0) then
+    call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+         work,workc,expvis,press,0)
+  else
+    call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+         work,workc,expvis,press,0)
+  endif
+  
+  !---------------------------------------------------------------------------
+  ! compute hydrodynamic forces for rigid solid solver
+  !---------------------------------------------------------------------------
+  t1 = MPI_wtime()
+  if (unst_corrections ==1) then
+    call cal_unst_corrections ( time, dt0, Insect )
+  endif
+  call cal_drag ( time, u, Insect ) ! note u is OLD time level
+  time_drag = time_drag + MPI_wtime() - t1
+  
+  !---------------------------------------------------------------------------
+  ! solve Newton's second law
+  !---------------------------------------------------------------------------
+  ! note dt0 is OLD time step t(n)-t(n-1)
+  ! advance in time ODEs that describe rigid solids
+  call rigid_solid_time_step(time,dt0,dt1,it,Insect)
+  
+
+end subroutine AB2_rigid_solid
 
 !-------------------------------------------------------------------------------
 ! Set the time step based on the CFL condition and penalization

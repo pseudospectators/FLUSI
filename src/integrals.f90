@@ -54,20 +54,37 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)  
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
-  real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume
+  real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
   integer :: ix,iy,iz,mpicode
   
-  
-  !-----------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Save solid model data, if using it
-  !-----------------------------------------------------------
-  if ((use_solid_model=="yes") .and. (mpirank==0)) then
+  !-----------------------------------------------------------------------------
+  if (use_solid_model=="yes" .and. mpirank==0) then
     call SaveBeamData( time, beams )
   endif
   
-  !-----------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
+  !-----------------------------------------------------------------------------
+  ! the stepper AB2_rigid_solid has to compute the drag at every time step, so
+  ! we can skip the separate computation in INTEGRALS
+  if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
+    t3 = MPI_wtime()    
+    ! fetch u in x-space at time t. note the output u of fluidtimestep is not
+    ! nessesarily what we need, so we must ensure u=ifft(uk) here
+    call ifft3 (ink=uk, outx=u)
+    ! to compute the forces, we need the mask at time t. not we cannot suppose
+    ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
+    ! have to reconstruct the mask now. solids are also at time t
+    if(iMoving==1) call create_mask(time, Insect, beams)
+    call cal_drag (time, u, Insect)
+    time_drag = time_drag + MPI_wtime() - t3
+  endif
+  
+  !-----------------------------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)
-  !-----------------------------------------------------------
+  !-----------------------------------------------------------------------------
   call divergence( ink=uk, outk=work3c(:,:,:,1) )
   call ifft( ink=work3c(:,:,:,1), outx=work1 ) ! work1 is now div in phys space
 
@@ -79,19 +96,19 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
      close(14)
   endif
 
-  !-----------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Save mean flow values
-  !-----------------------------------------------------------
+  !-----------------------------------------------------------------------------
   if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-     ! This is done only by one CPU
+     ! This is done only by one CPU (which is not nessesarily the root rank)
      open  (14,file='meanflow.t',status='unknown',position='append')
      write (14,'(4(es15.8,1x))') time, dreal(uk(0,0,0,1:3))
      close (14)
   endif
   
-  !-----------------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! mask volume
-  !-----------------------------------------------------------
+  !-----------------------------------------------------------------------------
   mask = mask*eps
   call compute_mask_volume(volume)
   mask = mask/eps

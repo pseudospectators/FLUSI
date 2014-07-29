@@ -65,31 +65,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
        ! note: the array "vort" is a real work array and has neither input nor
        ! output values after fluid time stepper
        call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-            workc,explin,press,beams)
+            workc,explin,press,Insect,beams)
      endif
-
-     !-------------------------------------------------
-     ! Compute hydrodynamic forces at time level n (FSI only), for saving or for
-     ! solving ODEs with it (insect free flight solver)
-     !-------------------------------------------------
-     if ( method=="fsi" ) then
-        t3 = MPI_wtime()
-        ! compute unst corrections in every time step
-        if (unst_corrections ==1) then
-          call cal_unst_corrections ( time, dt0, Insect )
-        endif
-        ! compute drag only if required
-        if ((modulo(it,itdrag)==0).or.(SolidDyn%idynamics/=0)) then
-          if (compute_forces==1) then
-            call cal_drag ( time, u, Insect ) ! note u is OLD time level
-          endif
-        endif
-        ! note dt0 is OLD time step t(n)-t(n-1)
-        ! advance in time ODEs that describe rigid solids
-        if (SolidDyn%idynamics==1) call rigid_solid_time_step(time,dt0,dt1,it,Insect)
-        !-- global timing measurement
-        time_drag = time_drag + MPI_wtime() - t3
-     endif     
      
      !-----------------------------------------------
      ! time step done: advance iteration + time
@@ -98,7 +75,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time=time + dt1
      it=it + 1
-
+     
      !-------------------------------------------------
      ! Output of INTEGRALS after every tintegral time 
      ! units or itdrag time steps
@@ -110,14 +87,13 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-------------------------------------------------
      ! Output FIELDS+BACKUPING (after tsave)
      !-------------------------------------------------
-     if (((modulo(time,tsave)<=dt1).and.(time>=tsave_first).and.(it>2))&
-        .or.(time==tmax)) then
+     if (((modulo(time,tsave)<dt1).and.(time>=tsave_first)).or.(time==tmax)) then
         call are_we_there_yet(it,it_start,time,t2,t1,dt1)
         ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
         ! never matters,and for AB2 this is the one to be overwritten
         ! in the next step.  This frees 3 complex arrays, which are
         ! then used in Dump_Runtime_Backup.
-        call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc)       
+        call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)       
      endif
 
      if (idobackup == 1) then

@@ -4,28 +4,33 @@
 # FLUSI (FSI) unit test
 # This file contains one specific unit test, and it is called by unittest.sh
 #-------------------------------------------------------------------------------
-# jerry mask test
+# complete insect test (time consuming but worthwhile)
 #-------------------------------------------------------------------------------
 
 # set up mpi command (this may be machine dependent!!)
 nprocs=$(nproc)
 mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
-dir="fruitfly_mask2/"
-params="fruitfly_mask2/fruitfly_mask.ini"
+params="insect_takeoff/FF.ini"
+
 happy=0
 sad=0
 
+echo "big insect test"
 
 # list of prefixes the test generates
-prefixes=(mask usx usy usz)
+prefixes=(mask ux uy uz)
 # list of possible times (no need to actually have them)
-times=(00000 00025 00050 00075 00100 00125 00150 00175 00200 00225)
+times=(00000 00050 00100 00150)
 # run actual test
+cp insect_takeoff/data_kin.dat .
 ${mpi_command} ./flusi ${params}
+rm data_kin.dat
 echo "============================"
 echo "run done, analyzing data now"
 echo "============================"
+
+
 
 # loop over all HDF5 files an generate keyvalues using flusi
 for p in ${prefixes[@]}
@@ -38,7 +43,7 @@ do
     # will be transformed into this *.key file
     keyfile=${p}"_"${t}".key"
     # which we will compare to this *.ref file
-    reffile=./${dir}${p}"_"${t}".ref" 
+    reffile=./insect_takeoff/${p}"_"${t}".ref" 
     
     if [ -f $file ]; then    
         # get four characteristic values describing the field
@@ -62,16 +67,46 @@ do
         sad=$((sad+1))
         echo -e ":[ Sad: output file not found"
     fi
-    echo " "
-    echo " "
     
+    echo "--------------------------------------------------------------------"
   done
 done
 
+#-------------------------------------------------------------------------------
+#                               time series
+#-------------------------------------------------------------------------------
 
+files=(forces.t forces_part1.t forces_part2.t forces_part3.t kinematics.t)
+
+for file in ${files[@]}
+do
+  echo comparing $file time series...
+  
+  ./flusi --postprocess --compare-timeseries $file insect_takeoff/$file
+  
+  result=$?
+  if [ $result == "0" ]; then
+    echo -e ":) Happy, time series: this looks okay! " $file
+    happy=$((happy+1))
+  else
+    echo -e ":[ Sad, time series: this is failed! " $file
+    sad=$((sad+1))
+  fi
+done
+
+
+#-------------------------------------------------------------------------------
+#                               cleanup
+#-------------------------------------------------------------------------------
+rm -f *.key
+rm -f *.h5
+rm -f drag_data
+rm -f *.t
+rm -f runtime*.ini
 
 echo -e "\thappy tests: \t" $happy 
 echo -e "\tsad tests: \t" $sad
+
 
 #-------------------------------------------------------------------------------
 #                               RETURN

@@ -26,7 +26,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
     t1 = MPI_wtime()   
     ! if we compute active FSI (with flexible obstacles), we need the pressure
     if (use_solid_model=="yes") then
-      call compute_pressure( nlk,workc(:,:,:,1) )
+      call pressure( nlk,workc(:,:,:,1) )
       ! transform it to phys space (note "press" has ghostpoints, cut them here)
       call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
     endif
@@ -190,7 +190,7 @@ end subroutine cal_nlk_fsi
 ! as the RHS in cal_nlk is on the left side, i.e. -(vor x u) -chi*(u-us)
 ! its sign is inversed when computing the pressure
 !-------------------------------------------------------------------------------
-subroutine compute_pressure(nlk,pk)
+subroutine pressure(nlk,pk)
   use mpi
   use p3dfft_wrapper
   use vars
@@ -221,41 +221,37 @@ subroutine compute_pressure(nlk,pk)
             nlky = nlk(iz,iy,ix,2)
             nlkz = nlk(iz,iy,ix,3)
             pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
-!           else
-!             pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
+          else
+            pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
           endif
       enddo
     enddo
   enddo
-end subroutine compute_pressure
+end subroutine pressure
 
 
 !-------------------------------------------------------------------------------
 ! Compute the pressure in an inefficient way given only the velocity
 !-------------------------------------------------------------------------------
-subroutine pressure_given_uk(uk,work,workc,press)
+subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
   use mpi
   use p3dfft_wrapper
   use vars
   implicit none
 
+  real(kind=pr), intent(in) :: time
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   
-  real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
-  complex(kind=pr),dimension(:,:,:,:),allocatable :: nlk
-  
-  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
-  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
-  
-  call cal_nlk_fsi (0.d0,0,nlk,uk,u,vort,work,workc) 
-  call compute_pressure(nlk,workc(:,:,:,1))
+  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc) 
+  call pressure(nlk,workc(:,:,:,1))
   call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   
-  deallocate (nlk,u,vort)
 end subroutine 
 
 

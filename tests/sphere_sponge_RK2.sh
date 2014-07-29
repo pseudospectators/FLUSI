@@ -83,10 +83,10 @@ echo comparing $file time series...
 
 result=$?
 if [ $result == "0" ]; then
-  echo -e ":) Happy, time series: this looks okay! " $keyfile $reffile 
+  echo -e ":) Happy, time series: this looks okay! " $file
   happy=$((happy+1))
 else
-  echo -e ":[ Sad, this is failed! " $keyfile $reffile 
+  echo -e ":[ Sad, this is failed! " $file
   sad=$((sad+1))
 fi
 
