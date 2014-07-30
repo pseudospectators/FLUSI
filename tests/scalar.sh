@@ -5,9 +5,6 @@
 # This file contains one specific unit test, and it is called by unittest.sh
 #-------------------------------------------------------------------------------
 
-# set up mpi command (this may be machine dependent!!)
-nprocs=$(nproc)
-mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
 params="./passive_scalar/scalar.ini"
 

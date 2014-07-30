@@ -9,9 +9,6 @@
 # Using RK2 and vorticity sponge, unlike the second test case ("sphere")
 #-------------------------------------------------------------------------------
 
-# set up mpi command (this may be machine dependent!!)
-nprocs=$(nproc)
-mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
 params="./sphere_sponge_RK2/sphere_sponge_RK2.ini"
 

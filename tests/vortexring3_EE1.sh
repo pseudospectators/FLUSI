@@ -9,9 +9,6 @@
 # condition is a vortex ring that travels to the right
 #-------------------------------------------------------------------------------
 
-# set up mpi command (this may be machine dependent!!)
-nprocs=$(nproc)
-mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
 params="./vortex_ring3_EE1/vortexring3_EE1.ini"
 

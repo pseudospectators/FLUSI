@@ -8,9 +8,6 @@
 # Tests the flow past a sphere at Reynolds number 100
 #-------------------------------------------------------------------------------
 
-# set up mpi command (this may be machine dependent!!)
-nprocs=$(nproc)
-mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
 params="./swimmer3_semiimplicit/swimmer.ini"
 

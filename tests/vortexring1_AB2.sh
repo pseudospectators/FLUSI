@@ -8,10 +8,6 @@
 # Tests a flow without boundary conditions (no penalization). The initial 
 # condition is a vortex ring that travels to the right
 #-------------------------------------------------------------------------------
-
-# set up mpi command (this may be machine dependent!!)
-nprocs=$(nproc)
-mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 # what parameter file
 params="./vortex_ring1_AB2/vortexring1_AB2.ini"
 

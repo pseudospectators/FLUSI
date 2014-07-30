@@ -19,6 +19,9 @@ if [ ! -f mhd ]; then
     ln -s ../mhd .
 fi
 
+nprocs=4
+export mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
+
 numtests=0
 numsuccess=0
 numfail=0
