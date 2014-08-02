@@ -1538,7 +1538,7 @@ subroutine dump_solid_backup( time, beams, nbackup )
   !-- only root rank dumps backup
   if (root) then
     write(*,'(A)',advance='no') "Backuping solid solver..."
-    write(filename,'("runtime_backup",i1,".fsi_bckp")') 1-nbackup
+    write(filename,'("runtime_backup",i1,".fsi_bckp")') nbackup
     write(*,'(A)',advance='no') "file="//filename
     write(*,'(" time=",e11.4)',advance='no') time
     

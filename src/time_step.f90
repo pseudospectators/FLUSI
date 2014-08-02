@@ -153,7 +153,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
          work(:,:,:,1),Insect,beams)
   endif
 
-  if(root) write(*,'("Finished time stepping; did it=",i5," time steps")') it
+  if(root) write(*,'("Done time stepping; did nt=",i5," steps")') it-it_start
 end subroutine time_step
 
 
