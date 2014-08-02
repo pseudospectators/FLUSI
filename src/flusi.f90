@@ -280,6 +280,9 @@ subroutine Start_Simulation()
   deallocate(mask_color)
   deallocate(ra_table,rb_table)
   if (allocated(press))  deallocate(press)
+  if (allocated(uk_old))  deallocate(uk_old)
+  if (allocated(nlk_tmp))  deallocate(nlk_tmp)
+  
   
   if (iMask=="Insect") then
     ! Clean kinematics (Dmitry, 14 Nov 2013)

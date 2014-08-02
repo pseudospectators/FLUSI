@@ -212,6 +212,10 @@ module fsi_vars
   ! save forces and use unsteady corrections?
   integer, save :: compute_forces  
   
+  ! for the iterative FSI coupling, we need these two work
+  ! arrays (THIS IS A HACK - TO BE REMOVED)
+  complex(kind=pr),allocatable,dimension(:,:,:,:)::nlk_tmp
+  complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean

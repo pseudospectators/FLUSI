@@ -113,7 +113,7 @@ end subroutine FluidTimestep
 subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
            workc,expvis,press,beams)
   use mpi
-  use vars
+  use fsi_vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -123,7 +123,6 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   integer,intent (in) :: n0,n1,it
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  complex(kind=pr),allocatable,dimension(:,:,:,:)::nlk_tmp
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -133,7 +132,6 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   
   !-- iteration specific variables 
-  complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
   type(solid), dimension(1) :: beams_old
   real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_old_iterating
   real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa2, ROC1,ROC2, norm
@@ -149,9 +147,13 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   endif
   
   ! allocate extra space for velocity in Fourier space
-  call alloccomplexnd(uk_old)    
+  if (.not.allocated(uk_old)) then
+    call alloccomplexnd(uk_old)    
+  endif
   ! we need that to compute the pressure at preliminary times
-  allocate(nlk_tmp(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+  if (.not.allocated(nlk_tmp)) then
+    allocate(nlk_tmp(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+  endif
   ! copy velocity at time level (n)
   uk_old = uk
   
@@ -258,7 +260,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   endif
   
   ! free work array
-  deallocate (uk_old,nlk_tmp)
+!   deallocate (uk_old,nlk_tmp)
 end subroutine FSI_AB2_iteration
 
 
