@@ -120,6 +120,7 @@ real(kind=pr) function z_top(s)
   use fsi_vars
   implicit none
   real(kind=pr),intent(in)::s
+  real(kind=pr)::R
   
   select case(plate_shape)
   case("rectangular")
@@ -133,9 +134,14 @@ real(kind=pr) function z_top(s)
       z_top = (0.5d0*L_span-0.05d0) + 0.1d0*((s-0.75d0)/0.25d0)
     endif
   case("half_circle")
-!     z_top = 
-!     z_top = 0.25d0*L_span * (s*(1.d0-s)/0.25) + 00.25*L_span
-    z_top = (1.d0-s)* L_span/4.0 !+ L_span/4.0
+    R=0.5d0*L_span
+    if (s<0.d0) then
+      z_top = R
+    elseif (s>=0.d0 .and. s<=1.d0) then
+      z_top = dsqrt( max(R**2-s**2,0.d0) )
+    elseif (s > 1.d0) then
+      z_top = (1.d0-s)
+    endif
   case default
     if(root) write(*,*) "ERROR. plate_shape not defined.."//plate_shape
     call abort()
@@ -148,6 +154,7 @@ real(kind=pr) function z_bottom(s)
   use fsi_vars
   implicit none
   real(kind=pr),intent(inout)::s
+  real(kind=pr)::R
   
   select case(plate_shape)
   case("rectangular")
@@ -161,8 +168,14 @@ real(kind=pr) function z_bottom(s)
       z_bottom = (0.5d0*L_span-0.05d0) + 0.1d0*((s-0.75d0)/0.25d0)
     endif
   case("half_circle")
-    z_bottom = max(min((1.d0-s),1.d0),0.d0) * L_span/2.0
-    z_bottom = (1.d0-s)* L_span/4.0 !+ L_span/4.0
+    R=0.5d0*L_span
+    if (s<0.d0) then
+      z_bottom = R
+    elseif (s>=0.d0 .and. s<=1.d0) then
+      z_bottom = dsqrt( max(R**2-s**2,0.d0) )
+    elseif (s > 1.d0) then
+      z_bottom = (1.d0-s)
+    endif
   case default
     if(root) write(*,*) "ERROR. plate_shape not defined.."//plate_shape
     call abort()

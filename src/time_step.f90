@@ -96,14 +96,12 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
         call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)       
      endif
 
-     if (idobackup == 1) then
-        ! Backup if that's specified in the PARAMS.ini file. We try to do 
-        ! backups every "truntime" hours (precise to one time step)
-        if(truntimenext < (MPI_wtime()-time_total)/3600.d0) then
-           call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-                work(:,:,:,1),Insect,beams)
-           truntimenext = truntimenext+truntime
-        endif
+     ! Backup if that's specified in the PARAMS.ini file. We try to do 
+     ! backups every "truntime" hours (precise to one time step)
+     if(idobackup==1 .and. truntimenext<(MPI_wtime()-time_total)/3600.d0) then
+         call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+             work(:,:,:,1),Insect,beams)
+         truntimenext = truntimenext+truntime
      endif
      
      !-----------------------------------------------
@@ -118,8 +116,6 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-------------------------------------------------     
      if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
         if (root) write(*,*) "Out of walltime!"
-        call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-             work(:,:,:,1),Insect,beams)
         continue_timestepping=.false.   
      endif
      
@@ -134,13 +130,11 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
         case ("reload_params")
           if (root) write (*,*) "runtime control: Reloading PARAMS file.."
           ! read all parameters from the params.ini file
-          call get_params(params_file)           
+          call get_params(params_file,Insect)           
           ! overwrite control file
           if (root) call initialize_runtime_control_file()
         case ("save_stop")
           if (root) write (*,*) "runtime control: Safely stopping..."
-          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-                work(:,:,:,1),Insect,beams)
           continue_timestepping = .false. ! this will stop the time loop
           ! overwrite control file
           if (root) call initialize_runtime_control_file()
@@ -150,16 +144,16 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1,t4)
   enddo
 
+  !-----------------------------------------------------------------------------
   ! save final backup so we can resume where we left 
+  !-----------------------------------------------------------------------------
   if(idobackup==1) then
-    if (root) write (*,*) "final backup..."
+    if(root) write (*,*) "final backup..."
     call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
          work(:,:,:,1),Insect,beams)
   endif
 
-  if(root) then
-     write(*,'("Finished time stepping; did it=",i5," time steps")') it
-  endif
+  if(root) write(*,'("Finished time stepping; did it=",i5," time steps")') it
 end subroutine time_step
 
 
