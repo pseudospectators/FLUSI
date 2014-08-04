@@ -26,6 +26,23 @@ subroutine init_passive_scalar(uk,work,workc,Insect,beams)
   type(diptera),intent(inout)::Insect 
 
   select case(inicond_scalar)
+  case("cosine") 
+    !-- initialize scalar zero everywhere
+    work(:,:,:,1) = 0.d0
+    !-- set half the domain to one
+    do iz=ra(3), rb(3)
+      z = dble(iz)*dz
+      do iy=ra(2), rb(2)
+         y = dble(iy)*dy
+         do ix=ra(1), rb(1)
+           x = dble(ix)*dx - 0.5d0*xl
+           work(ix,iy,iz,1) = dcos(pi*x) + dcos(4.d0*pi*x) 
+         enddo
+      enddo
+    enddo
+  
+    call fft ( inx=work(:,:,:,1), outk=uk )
+  
   case("right_left_discontinuous")
     !---------------------------------------------------------------------------
     ! one half of the domain is 1, the other is 0, divided along y-axis
@@ -71,6 +88,31 @@ subroutine init_passive_scalar(uk,work,workc,Insect,beams)
          do ix=ra(1), rb(1)
            x = dble(ix)*dx
            call smoothstep( work(ix,iy,iz,1), abs(y-0.5*yl), 0.25*yl, 4.0*dy)
+         enddo
+      enddo
+    enddo
+    
+    !-- kill scalar inside obstacle
+    work(:,:,:,1) = work(:,:,:,1) * (1.0-mask*eps)
+    !-- transform this to F-space
+    call fft ( inx=work(:,:,:,1), outk=uk )  
+    
+  case ("right_left_smooth2")
+    !---------------------------------------------------------------------------
+    ! smoothed heaviside function, covering approx. half the domain
+    !---------------------------------------------------------------------------
+    call create_mask( 0.d0, Insect,beams )
+    
+    !-- initialize scalar zero everywhere
+    work(:,:,:,1) = 0.d0
+    !-- set half the domain to one
+    do iz=ra(3), rb(3)
+      z = dble(iz)*dz
+      do iy=ra(2), rb(2)
+         y = dble(iy)*dy
+         do ix=ra(1), rb(1)
+           x = dble(ix)*dx
+           call smoothstep( work(ix,iy,iz,1), abs(z-0.5*zl), 0.25*zl, 2.0*dz)
          enddo
       enddo
     enddo

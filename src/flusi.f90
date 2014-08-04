@@ -465,7 +465,7 @@ subroutine initialize_time_series_files()
 
   call init_empty_file('iterations.t')
   call init_empty_file('mask_volume.t')
-  if (use_passive_scalar==1) init_empty_file('scalar.t')
+  if (use_passive_scalar==1) call init_empty_file('scalar.t')
 end subroutine
 
 
