@@ -97,7 +97,7 @@ subroutine Draw_flexible_plate (time, beam)
               s2 = dble(is+1)*ds
               s = s1 + c1
               ux = beam%vx(is) + ((s-s1)/(s2-s1))*(beam%vx(is+1)-beam%vx(is))
-              uy = beam%vy(is) + ((s-s1)/(s2-s1))*(beam%vy(is+1)-beam%vy(is))              
+              uy = beam%vy(is) + ((s-s1)/(s2-s1))*(beam%vy(is+1)-beam%vy(is))
               
             endif
             

@@ -55,6 +55,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
+  real(kind=pr) :: concentration, conc
   integer :: ix,iy,iz,mpicode
   
   !-----------------------------------------------------------------------------
@@ -104,6 +105,23 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
      open  (14,file='meanflow.t',status='unknown',position='append')
      write (14,'(4(es15.8,1x))') time, dreal(uk(0,0,0,1:3))
      close (14)
+  endif
+  
+  !-----------------------------------------------------------------------------
+  ! integral of scalar concentration
+  !-----------------------------------------------------------------------------
+  if ((use_passive_scalar==1).and.(compute_scalar)) then
+    call ifft( ink=uk(:,:,:,4), outx=work1)
+    work1 = work1*(1.d0-mask*eps)
+    conc = sum(work1)*dx*dy*dz
+    call MPI_REDUCE(conc,concentration,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+         MPI_COMM_WORLD,mpicode)
+         
+    if (mpirank == 0) then
+      open  (14,file='scalar.t',status='unknown',position='append')
+      write (14,'(2(es15.8,1x))') time, concentration
+      close (14)
+    endif
   endif
   
   !-----------------------------------------------------------------------------

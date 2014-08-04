@@ -122,7 +122,8 @@ subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
       ! distortion of s
       s1 = 1.0d0 - ( s + 0.08d0*dtanh(30.0d0*s) ) / (1.0d0+0.08d0*dtanh(30.0d0))
       s1 = ( s1 + 0.04d0*dtanh(60.0d0*s1) ) / (1.0d0+0.04d0*dtanh(60.0d0))
-      s1 = (dsin(1.2d0*s1)/dsin(1.2d0))**1.25  
+!       s1 = ( max(dsin(1.2d0*s1)/dsin(1.2d0), 0.d0) )**1.25  
+      s1 = ( dsin(1.2d0*s1)/dsin(1.2d0) )**1.25
       
       x1 = 1.075d0 * s1 
       ! compute radius as a function of x1 (counting from the tail on)

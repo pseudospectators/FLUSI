@@ -71,14 +71,20 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! ensure that the mask function is at the right time
-  if (iMoving==1) call create_mask (time, Insect,beams)
-  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
+  if (isavePress==1) then
+    if (iMoving==1) call create_mask (time, Insect,beams)
+    call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
+  endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
   !-------------  
   ! Velocity (returned in x-space by cal_nlk_fsi)
   !-------------
   if (isaveVelocity == 1) then
+    if (iSavePress==0) then
+      ! the cal_nlk has not been called, and we need to do the IFFT
+      call ifft3(ink=uk(:,:,:,1:nd),outx=u(:,:,:,1:nd))
+    endif
     call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
     call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
     call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
@@ -375,7 +381,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   t1=MPI_wtime() ! performance diagnostic
 
   if(mpirank == 0) then
-     write(*,'("Dumping runtime_backup",i1,".h5 (time=",e11.4,") to disk....")',&
+     write(*,'("Dumping runtime_backup",i1,".h5 (time=",es12.4,") to disk....")',&
      advance='no') nbackup, time
   endif
 

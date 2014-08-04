@@ -109,7 +109,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
         end do
         call srand(iz)
      end do
-     call cal_vis( 1.0e-2/nu, explin(:,:,:,1))
+     call cal_vis( 1.0e-4/nu, explin(:,:,:,1))
      call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
      nlk(:,:,:,1,0)=nlk(:,:,:,1,0)*explin(:,:,:,1)
      nlk(:,:,:,2,0)=nlk(:,:,:,2,0)*explin(:,:,:,1)
