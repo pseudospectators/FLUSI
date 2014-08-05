@@ -87,9 +87,7 @@ subroutine OnlySolidSimulation()
     it   = it+1
     time = dble(it)*dt_fixed
     
-    if (modulo(it,itdrag)==0) then
     call SaveBeamData( time, beams )
-    endif
   enddo
 
 end subroutine
