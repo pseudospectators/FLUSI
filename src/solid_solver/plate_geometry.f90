@@ -143,6 +143,12 @@ real(kind=pr) function z_top(s)
       z_top = (0.5d0*L_span-0.05d0) - 0.1d0*((s-0.75d0)/0.25d0)
     endif
     
+  case("fish_expanding")
+    z_top = 0.5d0*0.35d0 + 0.525d0*s**2
+    
+  case("fish_contracting")
+    z_top = 0.5d0*1.05d0 - 0.525d0*s**2
+    
   case("half_circle")
     R=0.5d0*L_span
     if (s<0.d0) then
@@ -172,6 +178,12 @@ real(kind=pr) function z_bottom(s)
     
   case("fish")
     z_bottom = 0.25*L_span + 0.25*L_span*s**2
+    
+  case("fish_expanding")
+    z_bottom = 0.5d0*0.35d0 + 0.525d0*s**2
+    
+  case("fish_contracting")
+    z_bottom = 0.5d0*1.05d0 - 0.525d0*s**2
     
   case("triangular_appendix")
     if (s <=0.75d0) then
