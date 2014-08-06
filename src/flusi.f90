@@ -292,7 +292,7 @@ subroutine Start_Simulation()
   endif
   
   ! write empty success file
-  call init_empty_file("success")
+  if (root) call init_empty_file("success")
   
   ! release other memory
   call fft_free 
