@@ -9,9 +9,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   real(kind=pr), intent (inout)   :: p(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr) :: xf,yf,zf,soft_startup, t0
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
-  real(kind=pr),dimension(:,:,:,:), allocatable :: surfaces
-  real(kind=pr),dimension(:,:), allocatable :: active_points
-  real(kind=pr),dimension(:,:,:), allocatable :: p_surface, p_surface_local
+
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
   real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
@@ -23,11 +21,12 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   call plate_coordinate_system( time,x0_plate,v0_plate,psi,beta,gamma,psi_dt,beta_dt,gamma_dt,M_plate)
 
   !-- get plate geometry
-  call plate_geometry( beam, surfaces, active_points, nh, M_plate, x0_plate )
+  call plate_geometry( beam, nh, M_plate, x0_plate )
+!   call plate_geometry( beam, surfaces, active_points, nh, M_plate, x0_plate )
   
   ! surface pressure arrays:
-  allocate(p_surface(0:ns-1,0:nh,1:2))
-  allocate(p_surface_local(0:ns-1,0:nh,1:2))
+  if(.not.allocated(p_surface)) allocate(p_surface(0:ns-1,0:nh,1:2))
+  if(.not.allocated(p_surface_local)) allocate(p_surface_local(0:ns-1,0:nh,1:2))
 
   p_surface = 17.d0
   p_surface_local = 17.d0
@@ -152,9 +151,9 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   
   
       
-  deallocate(surfaces)
-  deallocate(p_surface)
-  deallocate(p_surface_local)
+!   deallocate(surfaces)
+!   deallocate(p_surface)
+!   deallocate(p_surface_local)
   
   time_surf = time_surf + MPI_wtime() - t0
 end subroutine get_surface_pressure_jump

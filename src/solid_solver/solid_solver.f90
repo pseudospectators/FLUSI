@@ -9,6 +9,9 @@ module solid_model
   !----------------------------------------------  
   integer,parameter :: nBeams = 1  
   integer,save :: ns
+  ! see "type solid" about nsmax 06 Aug 2014
+  integer,parameter :: nsmax = 200
+  ! TODO: move these into the solid model datastructure
   real(kind=pr),save :: mue
   real(kind=pr),save :: eta
   real(kind=pr),save :: grav
@@ -24,15 +27,25 @@ module solid_model
   character(len=strlen),save :: interp
   character(len=strlen),save :: infinite, plate_shape
 
+  ! this is a hack to avoid allocating/deallacting these arrays in every time
+  ! step. turing fails with memory issues if done otherwise. 7 Aug 2014
+  real(kind=pr),save,dimension(:,:,:,:), allocatable :: surfaces
+  real(kind=pr),save,dimension(:,:,:), allocatable :: p_surface, p_surface_local  
+  real(kind=pr),save,dimension(:,:), allocatable :: active_points
+  real(kind=pr),save,dimension(:),allocatable :: heights
+  
   !----------------------------------------------
   ! Solid datatype
   !----------------------------------------------
   type Solid
-    real(kind=pr),dimension(:),allocatable :: x,y,vx,vy
-    real(kind=pr),dimension(:),allocatable :: theta,theta_dot,ax,ay
-    real(kind=pr),dimension(:),allocatable :: pressure_old, pressure_new
-    real(kind=pr),dimension(:),allocatable :: tau_old, tau_new
-    real(kind=pr),dimension(:,:),allocatable :: beam_oldold
+    ! since 6 Aug 2014, these arrays are statically allocated (they lie thus on 
+    ! the stack), since on turing we had problems with memory fragmentation. It
+    ! is still possible to use ns<nsmax via the params file, but not ns>nsmax.
+    real(kind=pr),dimension(0:nsmax) :: x,y,vx,vy
+    real(kind=pr),dimension(0:nsmax) :: theta,theta_dot,ax,ay
+    real(kind=pr),dimension(0:nsmax) :: pressure_old, pressure_new
+    real(kind=pr),dimension(0:nsmax) :: tau_old, tau_new
+    real(kind=pr),dimension(0:nsmax,1:6) :: beam_oldold
     real(kind=pr),dimension(1:2) :: Force, Force_unst, Force_press, Inertial_Force
     real(kind=pr) :: E_kinetic, E_pot, E_elastic
     real(kind=pr) :: x0, y0, AngleBeam, phase
@@ -194,14 +207,14 @@ subroutine SolidEnergies( beam )
   real(kind=pr),dimension(0:ns-1) :: theta_s
   
   ! for beam elastic energy, we need theta_s over the beam 
-  call Differentiate1D ( beam%theta, theta_s, ns, ds, 1)  
+  call Differentiate1D ( beam%theta(0:ns-1), theta_s, ns, ds, 1)  
   
-  beam%E_kinetic = mue*0.5d0*ds*sum( beam%vx**2 + beam%vy**2 )
-  beam%E_pot     = mue*grav*ds *sum( beam%y-beam%y0 )
-  beam%E_elastic = eta*0.5d0*ds*sum( theta_s**2 )
+  beam%E_kinetic = mue*0.5d0*ds*sum( beam%vx(0:ns-1)**2 + beam%vy(0:ns-1)**2 )
+  beam%E_pot     = mue*grav*ds *sum( beam%y(0:ns-1)-beam%y0 )
+  beam%E_elastic = eta*0.5d0*ds*sum( theta_s(0:ns-1)**2 )
   
-  beam%Inertial_Force(1) = mue*ds* sum( beam%ax ) 
-  beam%Inertial_Force(2) = mue*ds* sum( beam%ay ) 
+  beam%Inertial_Force(1) = mue*ds* sum( beam%ax(0:ns-1) ) 
+  beam%Inertial_Force(2) = mue*ds* sum( beam%ay(0:ns-1) ) 
   
 end subroutine SolidEnergies
 
@@ -241,18 +254,18 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   ! however, its too hard to reprogram everything, so now
   ! we force it to be compatible
   !*******************************************************
-  beam(:,1) = beam_solid%x
-  beam(:,2) = beam_solid%y
-  beam(:,3) = beam_solid%vx
-  beam(:,4) = beam_solid%vy
-  beam(:,5) = beam_solid%theta
-  beam(:,6) = beam_solid%theta_dot
-  pressure_old = beam_solid%pressure_old
-  pressure_new = beam_solid%pressure_new
-  tau_beam_old = beam_solid%tau_old
-  tau_beam_new = beam_solid%tau_new
+  beam(0:ns-1,1) = beam_solid%x(0:ns-1)
+  beam(0:ns-1,2) = beam_solid%y(0:ns-1)
+  beam(0:ns-1,3) = beam_solid%vx(0:ns-1)
+  beam(0:ns-1,4) = beam_solid%vy(0:ns-1)
+  beam(0:ns-1,5) = beam_solid%theta(0:ns-1)
+  beam(0:ns-1,6) = beam_solid%theta_dot(0:ns-1)
+  pressure_old(0:ns-1) = beam_solid%pressure_old(0:ns-1)
+  pressure_new(0:ns-1) = beam_solid%pressure_new(0:ns-1)
+  tau_beam_old(0:ns-1) = beam_solid%tau_old(0:ns-1)
+  tau_beam_new(0:ns-1) = beam_solid%tau_new(0:ns-1)
   dt_old       = beam_solid%dt_old
-  beam_oldold  = beam_solid%beam_oldold
+  beam_oldold(0:ns-1,1:6)  = beam_solid%beam_oldold(0:ns-1,1:6)
   !*******************************************************
   
   call mouvement ( time+dt, alpha, alpha_t, alpha_tt, LeadingEdge, beam_solid )
@@ -445,16 +458,16 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   ! NOTE: 2013, this is extended to take more than one beam into account.
   ! however, its too hard to reprogram everything, so now we force it to be compatible
   !-----------------------------------------------------------------------------
-  beam_solid%x = beam(:,1)
-  beam_solid%y = beam(:,2)
-  beam_solid%vx = beam(:,3)
-  beam_solid%vy = beam(:,4)
-  beam_solid%theta = beam(:,5)
-  beam_solid%theta_dot = beam(:,6)
-  beam_solid%pressure_old = pressure_old 
-  beam_solid%pressure_new = pressure_new 
-  beam_solid%tau_old = tau_beam_old
-  beam_solid%tau_new = tau_beam_new
+  beam_solid%x(0:ns-1) = beam(:,1)
+  beam_solid%y(0:ns-1) = beam(:,2)
+  beam_solid%vx(0:ns-1) = beam(:,3)
+  beam_solid%vy(0:ns-1) = beam(:,4)
+  beam_solid%theta(0:ns-1) = beam(:,5)
+  beam_solid%theta_dot(0:ns-1) = beam(:,6)
+  beam_solid%pressure_old(0:ns-1) = pressure_old 
+  beam_solid%pressure_new(0:ns-1) = pressure_new 
+  beam_solid%tau_old(0:ns-1) = tau_beam_old
+  beam_solid%tau_new(0:ns-1) = tau_beam_new
   
   !-----------------------------------------------------------------------------
   !     get deflection line (integrate_position)
@@ -466,8 +479,8 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !  accelerations
   !-----------------------------------------------------------------------------  
   ! we have the old velocity (t_n) and the new one 
-  beam_solid%ax = (beam_solid%vx - beam_old(:,3)) / dt
-  beam_solid%ay = (beam_solid%vy - beam_old(:,4)) / dt
+  beam_solid%ax(0:ns-1) = (beam_solid%vx(0:ns-1) - beam_old(:,3)) / dt
+  beam_solid%ay(0:ns-1) = (beam_solid%vy(0:ns-1) - beam_old(:,4)) / dt
   
   !-----------------------------------------------------------------------------
   !       emergency brake
@@ -498,7 +511,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   iCalls = iCalls + 1      ! count calls (to perform rare self-tests)
 
   ! The old beam at the current step is the oldold (t_n-1) at the next step
-  beam_solid%beam_oldold = beam_old 
+  beam_solid%beam_oldold(0:ns-1,1:6) = beam_old 
   ! for BDF2 with variable dt, we need the old time step
   ! this should be okay also when restarting, as the first CN2 step will provide us with the dt_old  
   beam_solid%dt_old = dt   
@@ -1161,22 +1174,22 @@ subroutine RK4_wrapper ( time, dt, beam_solid )! note this is actuall only ONE b
   real(kind=pr),dimension(0:ns-1) :: T
   real(kind=pr),dimension(0:ns-1, 1:6) :: beam
 
-  beam(:,1) = beam_solid%x
-  beam(:,2) = beam_solid%y
-  beam(:,3) = beam_solid%vx
-  beam(:,4) = beam_solid%vy
-  beam(:,5) = beam_solid%theta
-  beam(:,6) = beam_solid%theta_dot
+  beam(0:ns-1,1) = beam_solid%x(0:ns-1)
+  beam(0:ns-1,2) = beam_solid%y(0:ns-1)
+  beam(0:ns-1,3) = beam_solid%vx(0:ns-1)
+  beam(0:ns-1,4) = beam_solid%vy(0:ns-1)
+  beam(0:ns-1,5) = beam_solid%theta(0:ns-1)
+  beam(0:ns-1,6) = beam_solid%theta_dot(0:ns-1)
   
-  call RK4( time, dt, beam, beam_solid%pressure_old, T, beam_solid%tau_old, &
+  call RK4( time, dt, beam, beam_solid%pressure_old(0:ns-1), T, beam_solid%tau_old(0:ns-1), &
             beam_solid )
             
-  beam_solid%x = beam(:,1)
-  beam_solid%y = beam(:,2)
-  beam_solid%vx = beam(:,3)
-  beam_solid%vy = beam(:,4)
-  beam_solid%theta = beam(:,5)
-  beam_solid%theta_dot = beam(:,6)            
+  beam_solid%x(0:ns-1)= beam(0:ns-1,1)
+  beam_solid%y(0:ns-1) = beam(0:ns-1,2)
+  beam_solid%vx(0:ns-1) = beam(0:ns-1,3)
+  beam_solid%vy(0:ns-1) = beam(0:ns-1,4)
+  beam_solid%theta(0:ns-1) = beam(0:ns-1,5)
+  beam_solid%theta_dot(0:ns-1) = beam(0:ns-1,6)            
             
   call integrate_position( time, beam_solid )                
 end subroutine RK4_wrapper
@@ -1261,21 +1274,22 @@ subroutine EE1_wrapper ( time, dt, beam_solid )! note this is actuall only ONE b
   real(kind=pr),dimension(0:ns-1) :: T
   real(kind=pr),dimension(0:ns-1, 1:6) :: beam
 
-  beam(:,1) = beam_solid%x
-  beam(:,2) = beam_solid%y
-  beam(:,3) = beam_solid%vx
-  beam(:,4) = beam_solid%vy
-  beam(:,5) = beam_solid%theta
-  beam(:,6) = beam_solid%theta_dot
+  beam(:,1) = beam_solid%x(0:ns-1)
+  beam(:,2) = beam_solid%y(0:ns-1)
+  beam(:,3) = beam_solid%vx(0:ns-1)
+  beam(:,4) = beam_solid%vy(0:ns-1)
+  beam(:,5) = beam_solid%theta(0:ns-1)
+  beam(:,6) = beam_solid%theta_dot(0:ns-1)
   
-  call EE1( time, dt, beam, beam_solid%pressure_old, T, beam_solid%tau_old, beam_solid )
+  call EE1( time, dt, beam, beam_solid%pressure_old(0:ns-1), T, &
+       beam_solid%tau_old(0:ns-1), beam_solid )
 
-  beam_solid%x = beam(:,1)
-  beam_solid%y = beam(:,2)
-  beam_solid%vx = beam(:,3)
-  beam_solid%vy = beam(:,4)
-  beam_solid%theta = beam(:,5)
-  beam_solid%theta_dot = beam(:,6)
+  beam_solid%x(0:ns-1) = beam(:,1)
+  beam_solid%y(0:ns-1) = beam(:,2)
+  beam_solid%vx(0:ns-1) = beam(:,3)
+  beam_solid%vy(0:ns-1) = beam(:,4)
+  beam_solid%theta(0:ns-1) = beam(:,5)
+  beam_solid%theta_dot(0:ns-1) = beam(:,6)
   
   call integrate_position( time, beam_solid )         
 end subroutine EE1_wrapper
@@ -1410,26 +1424,26 @@ subroutine show_beam( beam )
   character(len=20):: str
   type(solid),intent(in) :: beam
   if (root) then
-    write(str,'("(A,1x,",i3.3,"(f7.3,1x))")') nx
-    write(*,str) "beam%x ", beam%x
-    write(*,str) "beam%y ", beam%y
-    write(*,str) "beam%vx", beam%vx
-    write(*,str) "beam%vy", beam%vy
+    write(str,'("(A,1x,",i3.3,"(f7.3,1x))")') ns
+    write(*,str) "beam%x ", beam%x(0:ns-1)
+    write(*,str) "beam%y ", beam%y(0:ns-1)
+    write(*,str) "beam%vx", beam%vx(0:ns-1)
+    write(*,str) "beam%vy", beam%vy(0:ns-1)
     write(*,*) "x0", beam%x0
     write(*,*) "y0", beam%y0
     write(*,*) "dt_old", beam%dt_old
-    write(*,str) "beam%theta    ", beam%theta
-    write(*,str) "beam%theta_dot", beam%theta_dot  
-    write(*,str) "beam%pressure_new", beam%pressure_new
-    write(*,str) "beam%pressure_old", beam%pressure_old
-    write(*,str) "beam%tau_new", beam%tau_new
-    write(*,str) "beam%tau_old", beam%tau_old
-    write(*,str) "beam%beam_oldold(:,1)", beam%beam_oldold(:,1)
-    write(*,str) "beam%beam_oldold(:,2)", beam%beam_oldold(:,2)
-    write(*,str) "beam%beam_oldold(:,3)", beam%beam_oldold(:,3)
-    write(*,str) "beam%beam_oldold(:,4)", beam%beam_oldold(:,4)
-    write(*,str) "beam%beam_oldold(:,5)", beam%beam_oldold(:,5)
-    write(*,str) "beam%beam_oldold(:,6)", beam%beam_oldold(:,6)
+    write(*,str) "beam%theta    ", beam%theta(0:ns-1)
+    write(*,str) "beam%theta_dot", beam%theta_dot(0:ns-1)  
+    write(*,str) "beam%pressure_new", beam%pressure_new(0:ns-1)
+    write(*,str) "beam%pressure_old", beam%pressure_old(0:ns-1)
+    write(*,str) "beam%tau_new", beam%tau_new(0:ns-1)
+    write(*,str) "beam%tau_old", beam%tau_old(0:ns-1)
+    write(*,str) "beam%beam_oldold(:,1)", beam%beam_oldold(0:ns-1,1)
+    write(*,str) "beam%beam_oldold(:,2)", beam%beam_oldold(0:ns-1,2)
+    write(*,str) "beam%beam_oldold(:,3)", beam%beam_oldold(0:ns-1,3)
+    write(*,str) "beam%beam_oldold(:,4)", beam%beam_oldold(0:ns-1,4)
+    write(*,str) "beam%beam_oldold(:,5)", beam%beam_oldold(0:ns-1,5)
+    write(*,str) "beam%beam_oldold(:,6)", beam%beam_oldold(0:ns-1,6)
     write(*,*) "-->end beam<--"
   endif
 end subroutine show_beam

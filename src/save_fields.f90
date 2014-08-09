@@ -72,7 +72,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! ensure that the mask function is at the right time
   if (isavePress==1) then
-    if (iMoving==1) call create_mask (time, Insect,beams)
+    if (iMoving==1) call create_mask (time, Insect, beams)
     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
   endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

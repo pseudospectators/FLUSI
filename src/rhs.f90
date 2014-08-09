@@ -14,7 +14,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
   real(kind=pr),intent(in) :: time
   real(kind=pr)::t1
   integer, intent(in) :: it
-
+  
   select case(method)
   case("fsi") 
     !---------------------------------------------------------------------------
@@ -76,8 +76,14 @@ end subroutine cal_nlk
 !
 ! NOTES:
 !       16 Jul 2014: This routine excludes the pressure. the field NLK is
-!                    NOT DIVERGENCE FREE. The projection takes place in the
-!                    caller "cal_nlk"
+!          NOT DIVERGENCE FREE. The projection takes place in the
+!          caller "cal_nlk"
+!       09 Aug 2014: enable dynamic mean flow forcing. this solves the eqn 
+!          d(u_mean)/dt = F / m_fluid
+!          This is useful if one wants the mean flow to be independend of the 
+!          domain size. It accelerates a given mass of fluid, which is fixed.
+!          Solving this eqn requires to compute the sum of the penalty term
+!          in this routine, which is dead weight when not using this function.
 !-------------------------------------------------------------------------------
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   use mpi
@@ -95,8 +101,10 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: t1,t0,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
-  integer :: ix,iz,iy
+  real(kind=pr) :: fx,fy,fz,fx1,fy1,fz1
+  integer :: ix,iz,iy,mpicode
   
+  fx=0.d0; fy=0.d0; fz=0.d0
   ! performance measurement in global variables
   t0         = MPI_wtime()
   time_fft2  = 0.d0 ! time_fft2 is the time spend on ffts during cal_nlk only
@@ -147,6 +155,11 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
         
+        ! compute sum of penalty term while computing it
+        fx = fx + chi*(ux-usx)
+        fy = fy + chi*(uy-usy)
+        fz = fz + chi*(uz-usz)
+        
         ! we overwrite the vorticity with the NL terms in phys space
         ! note this is indeed -(vor x u) (negative sign)
         vort(ix,iy,iz,1) = uy*vorz - uz*vory -chi*(ux-usx)
@@ -159,6 +172,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   call fft3( inx=vort,outk=nlk )  
   time_curl = time_curl + MPI_wtime() - t1  
   
+
+  
   !-----------------------------------------------------------------------------
   ! add sponge term
   !-----------------------------------------------------------------------------
@@ -169,6 +184,26 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
     nlk(:,:,:,3) = nlk(:,:,:,3) + workc(:,:,:,3)
   endif
   time_sponge = time_sponge + MPI_wtime() - t1  
+  
+  !-----------------------------------------------------------------------------
+  ! dynamic mean flow forcing (fix fluid mass manually, domain-independent)
+  !-----------------------------------------------------------------------------
+  if (iMeanFlow == "dynamic") then 
+    ! integral forces:
+    fx=fx*dx*dy*dz
+    fy=fy*dx*dy*dz
+    fz=fz*dx*dy*dz
+    call MPI_ALLREDUCE ( fx,fx1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+    call MPI_ALLREDUCE ( fy,fy1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+    call MPI_ALLREDUCE ( fz,fz1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+    ! fixing the fluid mass means modifying the zero mode of RHS term
+    if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+      nlk(0,0,0,1) = -fx1 / m_fluid
+      nlk(0,0,0,2) = -fy1 / m_fluid
+      nlk(0,0,0,3) = -fz1 / m_fluid
+    endif
+  endif
+    
   
   !-----------------------------------------------------------------------------
   ! timings

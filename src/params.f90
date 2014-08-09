@@ -239,11 +239,14 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   ! ---------------------------------------------------
   ! MeanFlow section
   ! ---------------------------------------------------
-  call param_int(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
+  call param_str(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow,"free")
+  call param_dbl(PARAMS,i,"MeanFlow","m_fluid",m_fluid, 999.d9) 
   call param_dbl(PARAMS,i,"MeanFlow","ux",uxmean, 1.d0) 
   call param_dbl(PARAMS,i,"MeanFlow","uy",uymean, 1.d0) 
   call param_dbl(PARAMS,i,"MeanFlow","uz",uzmean, 1.d0) 
 
+  ! for compatibility with old files:
+  if (iMeanFlow=="1") iMeanFlow="static"
   ! ---------------------------------------------------
   ! Insects section
   ! ---------------------------------------------------

@@ -282,13 +282,15 @@ subroutine coftxyz(f,fk)
   real(kind=pr),intent(in) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real(kind=pr),save :: t1
+  real(kind=pr) :: norm
 
   t1 = MPI_wtime()
   ! Compute forward FFT
   call p3dfft_ftran_r2c(f,fk,'fff')
 
   ! Normalize
-  fk(:,:,:) = fk(:,:,:) / dble(nx*ny*nz)
+  norm = 1.d0 / dble(nx*ny*nz)
+  fk(:,:,:) = fk(:,:,:) * norm
 
   time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
   time_fft2 = time_fft2 + MPI_wtime() - t1  ! for % FFT in cal_nlk only

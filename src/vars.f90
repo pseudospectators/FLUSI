@@ -218,8 +218,8 @@ module fsi_vars
   complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
-  real(kind=pr),save :: Uxmean,Uymean,Uzmean
-  integer,save :: iMeanFlow
+  real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid
+  character(len=strlen),save :: iMeanFlow
   integer,save :: iSaveSolidVelocity
   
   ! parameters for passive scalar advection
