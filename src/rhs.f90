@@ -188,7 +188,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   !-----------------------------------------------------------------------------
   ! dynamic mean flow forcing (fix fluid mass manually, domain-independent)
   !-----------------------------------------------------------------------------
-  if (iMeanFlow == "dynamic") then 
+  if(iMeanFlow_x=="dynamic".or.iMeanFlow_y=="dynamic".or.iMeanFlow_z=="dynamic") then 
     ! integral forces:
     fx=fx*dx*dy*dz
     fy=fy*dx*dy*dz
@@ -198,9 +198,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
     call MPI_ALLREDUCE ( fz,fz1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
     ! fixing the fluid mass means modifying the zero mode of RHS term
     if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-      nlk(0,0,0,1) = -fx1 / m_fluid
-      nlk(0,0,0,2) = -fy1 / m_fluid
-      nlk(0,0,0,3) = -fz1 / m_fluid
+      if(iMeanFlow_x=="dynamic") nlk(0,0,0,1) = -fx1 / m_fluid
+      if(iMeanFlow_y=="dynamic") nlk(0,0,0,2) = -fy1 / m_fluid
+      if(iMeanFlow_z=="dynamic") nlk(0,0,0,3) = -fz1 / m_fluid
     endif
   endif
     

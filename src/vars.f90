@@ -219,7 +219,7 @@ module fsi_vars
 
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid
-  character(len=strlen),save :: iMeanFlow
+  character(len=strlen),save :: iMeanFlow_x,iMeanFlow_y,iMeanFlow_z
   integer,save :: iSaveSolidVelocity
   
   ! parameters for passive scalar advection
