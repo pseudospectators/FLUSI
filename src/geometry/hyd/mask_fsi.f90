@@ -8,8 +8,7 @@ subroutine create_mask_fsi (time, Insect, beams )
   real(kind=pr), intent(in) :: time
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  real(kind=pr) :: t1
-  t1 = MPI_wtime() 
+  
   
   ! reset everything
   mask = 0.d0
@@ -59,9 +58,7 @@ subroutine create_mask_fsi (time, Insect, beams )
   if ((iChannel/="no").and.(iPenalization==1)) then
     call Add_Channel ()
   endif
-    
-  ! -- for global timing.
-  time_mask = time_mask + MPI_wtime() - t1
+  
 end subroutine create_mask_fsi
 
 

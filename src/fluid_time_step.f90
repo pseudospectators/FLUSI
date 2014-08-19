@@ -167,6 +167,8 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   beams_old = beams
   omega_old = 0.5d0
   omega_new = 0.5d0
+  ! the passive scalar is advanced only once during the iteration process to keep the cost down.
+  if(use_passive_scalar==1) compute_scalar = .true.
   
   ! predictor for the pressure     
   beams(1)%pressure_new = beams(1)%pressure_old
@@ -181,7 +183,15 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
     !---------------------------------------------------------------------------
-    uk = uk_old
+    if(use_passive_scalar==1) then 
+      ! advance the scalar only once when iterating.
+      if (inter==0) compute_scalar = .true.
+      if (inter/=0) compute_scalar = .false.
+    endif
+    
+    ! start from t(n) again, except for the scalar
+    uk(:,:,:,1:3) = uk_old(:,:,:,1:3)
+    
     if(it == 0) then
       call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
            work,workc,expvis,press,inter)
@@ -707,6 +717,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     endif
   enddo
   
+  !-- advance B-field in time
   if (method=="mhd") then
     do i=4,6
       ! advance B-field
@@ -720,6 +731,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     enddo
   endif    
   
+  !-- advance passive scalar in time
   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
     !-- advance passive scalar (no integrating factor here!!)
     t1 = MPI_wtime()

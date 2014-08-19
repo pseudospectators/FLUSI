@@ -10,7 +10,9 @@ subroutine create_mask(time,Insect,beams)
   real(kind=pr) :: eps_inv
   type(solid), dimension(1:nbeams), intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
-
+  real(kind=pr) :: t1
+  t1 = MPI_wtime() 
+  
   ! Attention: mask is reset here (and not in subroutines)
   mask = 0.d0
 
@@ -26,6 +28,8 @@ subroutine create_mask(time,Insect,beams)
   eps_inv = 1.d0/eps
   mask = mask*eps_inv  
 
+  ! -- for global timing.
+  time_mask = time_mask + MPI_wtime() - t1
 end subroutine create_mask
 
 

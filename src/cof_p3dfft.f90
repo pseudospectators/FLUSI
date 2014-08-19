@@ -293,19 +293,6 @@ subroutine coftxyz(f,fk)
   fk(:,:,:) = fk(:,:,:) * norm
 
   time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
-  time_fft2 = time_fft2 + MPI_wtime() - t1  ! for % FFT in cal_nlk only
-
-  ! Filter Nyquist frequency
-  !if((ca(2)<=nx/2) .and.(cb(2)>=nx/2) ) then
-  !    fk(:,nx/2,:) = 0.0d0
-  !endif
-  !if((ca(3)<=ny/2) .and.(cb(3)>=ny/2) ) then
-  !    fk(:,:,ny/2) = 0.0d0
-  !endif
-  !if((ca(1)<=nz/2) .and.(cb(1)>=nz/2) ) then
-  !    fk(nz/2,:,:) = 0.0d0
-  !endif
-
 end subroutine coftxyz
 
 
@@ -329,7 +316,6 @@ subroutine cofitxyz(fk,f)
 
 
   time_ifft  = time_ifft  + MPI_wtime() - t1
-  time_ifft2 = time_ifft2 + MPI_wtime() - t1
 end subroutine cofitxyz
 
 
