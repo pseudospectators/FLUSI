@@ -167,6 +167,8 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   beams_old = beams
   omega_old = 0.5d0
   omega_new = 0.5d0
+  ! the passive scalar is advanced only once during the iteration process to keep the cost down.
+  if(use_passive_scalar==1) compute_scalar = .true.
   
   ! predictor for the pressure     
   beams(1)%pressure_new = beams(1)%pressure_old
@@ -181,7 +183,15 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
     !---------------------------------------------------------------------------
-    uk = uk_old
+    if(use_passive_scalar==1) then 
+      ! advance the scalar only once when iterating.
+      if (inter==0) compute_scalar = .true.
+      if (inter/=0) compute_scalar = .false.
+    endif
+    
+    ! start from t(n) again, except for the scalar
+    uk(:,:,:,1:3) = uk_old(:,:,:,1:3)
+    
     if(it == 0) then
       call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
            work,workc,expvis,press,inter)
@@ -193,7 +203,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! get forces at new time level
     !---------------------------------------------------------------------------
-    bpress_old_iterating = beams(1)%pressure_new ! exit of the old iteration
+    bpress_old_iterating = beams(1)%pressure_new(0:ns-1) ! exit of the old iteration
     call pressure_given_uk(time,u,uk,nlk_tmp,vort,work,workc,press)
     call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
     
@@ -201,11 +211,11 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     ! relaxation
     !---------------------------------------------------------------------------
     ! whats the diff betw new interp press and last iteration's step?
-    deltap_new = bpress_old_iterating - beams(1)%pressure_new
+    deltap_new = bpress_old_iterating - beams(1)%pressure_new(0:ns-1)
     if (inter==0) then
       upsilon_new = 0.0d0
       ! von scheven normalizes with the explicit scheme, which is what we do now
-      norm = sqrt(sum((beams(1)%pressure_new-beams(1)%pressure_old)**2))    
+      norm = sqrt(sum((beams(1)%pressure_new(0:ns-1)-beams(1)%pressure_old(0:ns-1))**2))    
     else
       bruch = (sum((deltap_old-deltap_new)*deltap_new)) &
             / (sum((deltap_old-deltap_new)**2))
@@ -213,8 +223,8 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     endif
     kappa2 = 1.d0 - upsilon_new
     ! new iteration pressure is old one plus star
-    beams(1)%pressure_new = (1.d0-kappa2)*bpress_old_iterating &
-                          + kappa2*beams(1)%pressure_new
+    beams(1)%pressure_new(0:ns-1) = (1.d0-kappa2)*bpress_old_iterating(0:ns-1) &
+        + kappa2*beams(1)%pressure_new(0:ns-1)
                           
     !---------------------------------------------------------------------------  
     ! advance solid model from (n) to (n+1)
@@ -226,8 +236,8 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! convergence test
     !---------------------------------------------------------------------------
-    ROC1 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / dble(ns)
-    ROC2 = dsqrt( sum((beams(1)%pressure_new-bpress_old_iterating)**2)) / norm 
+    ROC1 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / dble(ns)
+    ROC2 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / norm 
     if (((ROC2<1.0e-3).or.(inter==100)).or.(it<2)) then
       iterate = .false.
     endif
@@ -707,6 +717,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     endif
   enddo
   
+  !-- advance B-field in time
   if (method=="mhd") then
     do i=4,6
       ! advance B-field
@@ -720,6 +731,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     enddo
   endif    
   
+  !-- advance passive scalar in time
   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
     !-- advance passive scalar (no integrating factor here!!)
     t1 = MPI_wtime()
@@ -900,14 +912,12 @@ subroutine set_mean_flow(uk,time)
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout)::time
 
-  if(iMeanFlow == 1) then
-     ! Force zero mode for mean flow
-     ! TODO: this might not always select the proper mode; it could be
-     ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
-     if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-        uk(0,0,0,1)=Uxmean
-        uk(0,0,0,2)=Uymean
-        uk(0,0,0,3)=Uzmean
-     endif
+  ! Force zero mode for mean flow
+  ! TODO: this might not always select the proper mode; it could be
+  ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
+  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+    if (iMeanFlow_x=="fixed") uk(0,0,0,1)=Uxmean
+    if (iMeanFlow_y=="fixed") uk(0,0,0,2)=Uymean
+    if (iMeanFlow_z=="fixed") uk(0,0,0,3)=Uzmean
   endif
 end subroutine set_mean_flow

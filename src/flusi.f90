@@ -91,12 +91,13 @@ subroutine Start_Simulation()
   ncw=1   ! number of complex values work arrays (decide that later)
 
   ! initialize timing variables
-  time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0
+  time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
   time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
   time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
   time_insect_head=0.d0; time_insect_body=0.d0; time_insect_eye=0.d0
   time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
+  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
   
   if (root) then
      write(*,'(A)') '--------------------------------------'
@@ -292,7 +293,7 @@ subroutine Start_Simulation()
   endif
   
   ! write empty success file
-  call init_empty_file("success")
+  if (root) call init_empty_file("success")
   
   ! release other memory
   call fft_free 
@@ -309,88 +310,60 @@ end subroutine Start_Simulation
 subroutine show_timings(t2)
   use fsi_vars
   implicit none
-
   real (kind=pr) :: t2,tmp
 
-  write(*,'(A)') '--------------------------------------'
-  write(*,'(A)') '*** Timings'
-  write(*,'(A)') '--------------------------------------'
+3 format(80("-"))
+8 format(es12.4," (",f5.1,"%) :: ",A)
+
+
+  write(*,3)
+  write(*,'("*** Timings")')
+  write(*,3)
   write(*,'("of the total time ",es12.4,", FLUSI spend ",es12.4," (",f5.1,"%) on FFTS")') &
        t2, time_fft+time_ifft,100.d0*(time_fft+time_ifft)/t2 
-  write(*,'(A)') '--------------------------------------'
+  write(*,3)
+  write(*,'("time stepping (top level tasks)")')
   
+  write(*,8) time_mask, 100.d0*time_mask/t2, "create_mask"
+  write(*,8) time_fluid, 100.d0*time_fluid/t2, "fluid time stepping"
+  write(*,8) time_integrals, 100.d0*time_integrals/t2, "integrals"
+  write(*,8) time_save, 100.d0*time_save/t2, "save fields"
+  write(*,8) time_bckp, 100.d0*time_bckp/t2, "backuping"
+  write(*,3)
+  write(*,'("Create Mask:")')
+  write(*,8) time_insect_body, 100.d0*time_insect_body/t2, "insect::body"
+  write(*,8) time_insect_eye,100.d0*time_insect_eye/t2, "insect::eyes"
+  write(*,8) time_insect_head,100.d0*time_insect_head/t2, "insect::head"
+  write(*,8) time_insect_wings,100.d0*time_insect_wings/t2,"insect::wings"
+  write(*,8) time_insect_vel,100.d0*time_insect_vel/t2,"insect::roration"
+  write(*,3)
+  write(*,'("save fields:")')
+  write(*,8) time_hdf5, 100.d0*time_hdf5/t2, "hdf5 disk dumping"
+  write(*,3)
   
-  write(*,'("Time Stepping contributions:")')
-  write(*,'("Fluid      : ",es12.4," (",f5.1,"%)")') time_fluid, 100.d0*time_fluid/t2
-  if (use_solid_model/="yes") then ! when doing true FSI, this is a part of fluid time step
-    write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.d0*time_mask/t2
-  endif
-  write(*,'("Save Fields: ",es12.4," (",f5.1,"%)")') time_save, 100.d0*time_save/t2  
-  write(*,'("drag forces: ",es12.4," (",f5.1,"%)")') time_drag, 100.d0*time_drag/t2
-  write(*,'("Backuping  : ",es12.4," (",f5.1,"%)")') time_bckp, 100.d0*time_bckp/t2
-  if (use_solid_model/="yes") then
-    tmp = t2 - (time_fluid+time_mask+time_save+time_bckp+time_drag)
-  else
-    tmp = t2 - (time_fluid+time_save+time_bckp+time_drag)
-  endif
-  write(*,'("Misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.d0*tmp/t2
+  write(*,'("Fluid time stepping:")')
+  write(*,8) time_vis,100.d0*time_vis/t2,"cal_vis"
+  write(*,8) time_rhs,100.d0*time_rhs/t2,"cal_nlk"
+  write(*,8) time_solid,100.d0*time_solid/t2,"solid  model"
+  write(*,8) time_surf,100.d0*time_surf/t2,"surface interpolation"
+  write(*,3)
   
+  write(*,'("Fluid right hand side:")')
+  write(*,8) time_nlk2,100.d0*time_nlk2/t2,"cal_nlk_fsi"
+  write(*,8) time_p,100.d0*time_p/t2,"pressure"
+  write(*,8) time_scalar,100.d0*time_scalar/t2,"cal_nlk_scalar"
+  write(*,3)
   
-  write(*,'(A)') '--------------------------------------'
-  write(*,'(A)') "The time spend for the fluid decomposes into:"
-  write(*,'("cal_nlk    : ",es12.4," (",f5.1,"%)")') time_nlk, 100.d0*time_nlk/time_fluid
-  write(*,'("cal_vis    : ",es12.4," (",f5.1,"%)")') time_vis, 100.d0*time_vis/time_fluid
-  write(*,'("SolidSolver: ",es12.4," (",f5.1,"%)")') time_solid, 100.d0*time_solid/time_fluid
-  write(*,'("surf forces: ",es12.4," (",f5.1,"%)")') time_surf, 100.d0*time_surf/time_fluid
-  tmp = time_fluid - time_nlk - time_vis - time_solid - time_surf
-  if (use_solid_model=="yes") then
-    write(*,'("Mask       : ",es12.4," (",f5.1,"%)")') time_mask, 100.d0*time_mask/time_fluid
-    tmp = tmp - time_mask
-  endif  
-  write(*,'("misc       : ",es12.4," (",f5.1,"%)")') tmp, 100.d0*tmp/time_fluid
-  write(*,'(A)') '--------------------------------------'
-  
-  
-  if (use_solid_model=="yes") then
-    write(*,'(A)') "solid solver decomposes into:"
-    write(*,'("Lapack: ",es12.4," (",f5.1,"%)")') time_LAPACK,100.d0*time_LAPACK/time_solid
-    write(*,'(A)') '--------------------------------------'
-  endif
-  
-  if (use_passive_scalar==1) then
-    write(*,'("passive scalar : ",es12.4," (",f5.1,"%)")') time_scalar, 100.d0*time_scalar/t2
-    write(*,'(A)') '--------------------------------------'
-  endif
-  
-  write(*,'(A)') "cal_nlk decomposes into:"
-  write(*,'("ifft(uk)       : ",es12.4," (",f5.1,"%)")') time_u, 100.d0*time_u/time_nlk
-  write(*,'("curl(uk)       : ",es12.4," (",f5.1,"%)")') time_vor, 100.d0*time_vor/time_nlk
-  write(*,'("vor x u - chi*u: ",es12.4," (",f5.1,"%)")') time_curl, 100.d0*time_curl/time_nlk
-  write(*,'("projection     : ",es12.4," (",f5.1,"%)")') time_p, 100.d0*time_p/time_nlk
-  write(*,'("sponge         : ",es12.4," (",f5.1,"%)")') time_sponge, 100.d0*time_sponge/time_nlk
-  tmp = time_nlk - time_u - time_vor - time_curl - time_p  
-  write(*,'("Misc           : ",es12.4," (",f5.1,"%)")') tmp, 100.d0*tmp/time_nlk
-  write (*,'(A)') "cal_nlk: FFTs and local operations:"
-  write(*,'("FFTs           : ",es12.4," (",f5.1,"%)")') time_nlk_fft, 100.d0*time_nlk_fft/time_nlk
-  tmp = time_nlk-time_nlk_fft
-  write(*,'("local          : ",es12.4," (",f5.1,"%)")') tmp, 100.d0*tmp/time_nlk
-  
-  if (iMask=="Insect") then
-    write(*,'(A)') '--------------------------------------'
-    write(*,'(A)') 'Insect mask generation decomposes into:'
-    write(*,'("Body : ",es12.4," (",f5.1,"%)")') time_insect_body, 100.d0*time_insect_body/time_mask
-    write(*,'("Eyes : ",es12.4," (",f5.1,"%)")') time_insect_eye,  100.d0*time_insect_eye/time_mask
-    write(*,'("Head : ",es12.4," (",f5.1,"%)")') time_insect_head, 100.d0*time_insect_head/time_mask
-    write(*,'("Wings: ",es12.4," (",f5.1,"%)")') time_insect_wings,100.d0*time_insect_wings/time_mask  
-    write(*,'("veloc: ",es12.4," (",f5.1,"%)")') time_insect_vel,  100.d0*time_insect_vel/time_mask  
-    write(*,'(A)') '--------------------------------------'
-  endif
-  
-  write(*,'(A)') '--------------------------------------'
+  write(*,'("cal_nlk_fsi:")')
+  write(*,8) time_u,100.d0*time_u/t2,"velocity"
+  write(*,8) time_vor,100.d0*time_vor/t2,"vorticity"
+  write(*,8) time_sponge,100.d0*time_sponge/t2,"sponge"
+  write(*,8) time_curl,100.d0*time_curl/t2,"nonlinear term"
+  write(*,3)
   write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
-  write(*,'(A)') '--------------------------------------'
+  write(*,3)
   write(*,'(A)') 'Finalizing computation....'
-  write(*,'(A)') '--------------------------------------'
+  write(*,3)
 end subroutine show_timings
 
 

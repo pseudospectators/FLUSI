@@ -8,8 +8,7 @@ subroutine create_mask_fsi (time, Insect, beams )
   real(kind=pr), intent(in) :: time
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  real(kind=pr) :: t1
-  t1 = MPI_wtime() 
+  
   
   ! reset everything
   mask = 0.d0
@@ -25,6 +24,8 @@ subroutine create_mask_fsi (time, Insect, beams )
     select case (iMask)
     case ("sphere","Sphere")    
       call Draw_Sphere()
+    case ("cylinder","cylinder_x")    
+      call Draw_cylinder_x()
     case ("romain_open_cavity")    
       call romain_open_cavity()
     case ("Flapper")    
@@ -57,9 +58,7 @@ subroutine create_mask_fsi (time, Insect, beams )
   if ((iChannel/="no").and.(iPenalization==1)) then
     call Add_Channel ()
   endif
-    
-  ! -- for global timing.
-  time_mask = time_mask + MPI_wtime() - t1
+  
 end subroutine create_mask_fsi
 
 
@@ -168,5 +167,36 @@ subroutine Flapper (time)
      enddo
   enddo
 end subroutine Flapper
+
+
+!-------------------------------------------------------------------------------
+! cavity as used by romain for "open cavity" tests. the wall is from 
+! -2 ... -1 and +1 ... +2
+! xxxx------------xxxx
+! constant in all other directions. this test was used for reproducing the 
+! results of Benjamin's JCP for the Neumann BC
+!-------------------------------------------------------------------------------
+subroutine romain_open_cavity
+  use mpi
+  use fsi_vars
+  implicit none
+
+  integer :: ix, iy, iz
+  real (kind=pr) :: x, y, z
+
+  do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do iz=ra(3),rb(3)
+        x=dble(ix)*dx - 0.5*xl
+        if (x<=-1.d0 .or. x>=+1.d0 ) then
+          mask (ix, iy, iz) = 1.d0
+          us (ix,iy,iz,1:3) = 0.d0
+          ! assign color "1" where >0 indicates something "useful"
+          mask_color(ix,iy,iz) = 1
+        endif
+      enddo
+    enddo
+  enddo
+end subroutine romain_open_cavity
 
 

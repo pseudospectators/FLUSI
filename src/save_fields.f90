@@ -14,6 +14,9 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
+  real(kind=pr) :: t1 ! diagnostic used for performance analysis.
+  t1 = MPI_wtime()
+
 
   select case(method)
      case("fsi") 
@@ -25,6 +28,7 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
         call abort()
   end select
   
+  time_save=time_save + MPI_wtime() - t1 ! performance analysis  
 end subroutine save_fields
 
 
@@ -72,7 +76,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! ensure that the mask function is at the right time
   if (isavePress==1) then
-    if (iMoving==1) call create_mask (time, Insect,beams)
+    if (iMoving==1) call create_mask (time, Insect, beams)
     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
   endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -192,9 +196,8 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
 
   integer :: mpierror, i
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
-
   t1 = MPI_wtime()
-
+  
   !!! Tell HDF5 how our  data is organized:
   dimensions_file = (/nx,ny,nz/)
   offset(1) = ra(1)
@@ -293,7 +296,7 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
           )
   endif
 
-  time_save=time_save + MPI_wtime() - t1 ! performance analysis
+  time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
 end subroutine save_field_hdf5
 
 

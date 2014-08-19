@@ -29,32 +29,37 @@ subroutine draw_sphere
 end subroutine draw_sphere
 
 
-
-! cavity as used by romain for "open cavity" tests. the wall is from 
-! -2 ... -1 and +1 ... +2
-! xxxx------------xxxx
-! constant in all other directions
-subroutine romain_open_cavity
+! draws a circular cylinder, the axis is the x-axis (then it can be used for 2D
+! runs as well)
+subroutine draw_cylinder_x
   use mpi
   use fsi_vars
   implicit none
 
   integer :: ix, iy, iz
-  real (kind=pr) :: x, y, z
+  real (kind=pr) :: x, y, z, tmp, R, N_smooth
+
+  N_smooth = 1.5d0
 
   do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)
       do iz=ra(3),rb(3)
-        x=dble(ix)*dx - 0.5*xl
-        if (x<=-1.d0 .or. x>=+1.d0 ) then
-          mask (ix, iy, iz) = 1.d0
-          us (ix,iy,iz,1:3) = 0.d0
+        y=dble(iy)*dy
+        z=dble(iz)*dz
+        R = dsqrt( (y-y0)**2 + (z-z0)**2 )
+        if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
+          call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
+          mask (ix, iy, iz) = tmp
+          us(ix,iy,iz,1) = 0.d0
+          us(ix,iy,iz,2) = 1.d0
+          us(ix,iy,iz,3) = 0.d0
+
           ! assign color "1" where >0 indicates something "useful"
-          mask_color(ix,iy,iz) = 1
+          if (tmp > 1.0e-12) mask_color(ix,iy,iz) = 1
         endif
       enddo
     enddo
   enddo
-end subroutine romain_open_cavity
+end subroutine draw_cylinder_x
 
 

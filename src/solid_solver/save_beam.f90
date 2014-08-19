@@ -52,15 +52,15 @@ subroutine SaveBeamData( time, beams )
     close (14)
     
     open (14, file = 'beam_x'//beamstr//'.t', status = 'unknown',position='append')
-    write (14, format_ns1) time, beams(i)%x
+    write (14, format_ns1) time, beams(i)%x(0:ns-1)
     close (14)
     
     open (14, file = 'beam_y'//beamstr//'.t', status = 'unknown',position='append')
-    write (14, format_ns1) time, beams(i)%y
+    write (14, format_ns1) time, beams(i)%y(0:ns-1)
     close (14)
     
     open (14, file = 'beam_p'//beamstr//'.t', status = 'unknown',position='append')
-    write (14, format_ns1) time, beams(i)%pressure_new
+    write (14, format_ns1) time, beams(i)%pressure_new(0:ns-1)
     close (14)
   enddo  
   

@@ -202,6 +202,7 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   ! the insect to initialize
   type(diptera), intent(inout) :: Insect
   real(kind=pr), dimension(1:3) :: defaultvec
+  character(len=strlen) :: old_meanflow
   ! ---------------------------------------------------
   ! penalization / cavity
   ! ---------------------------------------------------
@@ -239,11 +240,23 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   ! ---------------------------------------------------
   ! MeanFlow section
   ! ---------------------------------------------------
-  call param_int(PARAMS,i,"MeanFlow","iMeanFlow",iMeanFlow, 3)  
+  call param_str(PARAMS,i,"MeanFlow","iMeanFlow_x",iMeanFlow_x,"free")
+  call param_str(PARAMS,i,"MeanFlow","iMeanFlow_y",iMeanFlow_y,"free")
+  call param_str(PARAMS,i,"MeanFlow","iMeanFlow_z",iMeanFlow_z,"free")
+  ! for compatibility with old params files:
+  call param_str(PARAMS,i,"MeanFlow","iMeanFlow",old_meanflow,"unused")
+  call param_dbl(PARAMS,i,"MeanFlow","m_fluid",m_fluid, 999.d9) 
   call param_dbl(PARAMS,i,"MeanFlow","ux",uxmean, 1.d0) 
   call param_dbl(PARAMS,i,"MeanFlow","uy",uymean, 1.d0) 
   call param_dbl(PARAMS,i,"MeanFlow","uz",uzmean, 1.d0) 
 
+  ! for compatibility with old files:
+  if (old_meanflow=="1") then 
+    iMeanFlow_x="fixed"
+    iMeanFlow_y="fixed"
+    iMeanFlow_z="fixed"
+  endif
+    
   ! ---------------------------------------------------
   ! Insects section
   ! ---------------------------------------------------

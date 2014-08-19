@@ -20,27 +20,23 @@ subroutine init_beams ( beams )
  
   call lapack_unit_test()
   
-  if(.not.allocated(qqq)) allocate ( qqq(0:ns-1) )
-  
   !-------------------------------------------
   ! allocate beam storage for each beam
   !-------------------------------------------
   do i = 1, nBeams
 !     allocate ( beams(i)%x(0:ns-1) )
-    beams(i)%x => datax
-    
-    allocate ( beams(i)%y(0:ns-1) )
-    allocate ( beams(i)%vx(0:ns-1) )
-    allocate ( beams(i)%vy(0:ns-1) )
-    allocate ( beams(i)%ax(0:ns-1) )
-    allocate ( beams(i)%ay(0:ns-1) )
-    allocate ( beams(i)%theta(0:ns-1) )
-    allocate ( beams(i)%theta_dot(0:ns-1) )
-    allocate ( beams(i)%pressure_old(0:ns-1) )
-    allocate ( beams(i)%pressure_new(0:ns-1) )
-    allocate ( beams(i)%tau_old(0:ns-1) )
-    allocate ( beams(i)%tau_new(0:ns-1) )    
-    allocate ( beams(i)%beam_oldold(0:ns-1,1:6) )    
+!     allocate ( beams(i)%y(0:ns-1) )
+!     allocate ( beams(i)%vx(0:ns-1) )
+!     allocate ( beams(i)%vy(0:ns-1) )
+!     allocate ( beams(i)%ax(0:ns-1) )
+!     allocate ( beams(i)%ay(0:ns-1) )
+!     allocate ( beams(i)%theta(0:ns-1) )
+!     allocate ( beams(i)%theta_dot(0:ns-1) )
+!     allocate ( beams(i)%pressure_old(0:ns-1) )
+!     allocate ( beams(i)%pressure_new(0:ns-1) )
+!     allocate ( beams(i)%tau_old(0:ns-1) )
+!     allocate ( beams(i)%tau_new(0:ns-1) )    
+!     allocate ( beams(i)%beam_oldold(0:ns-1,1:6) )    
   
     !------------------------------------------------
     !-- overwrite beam files if not retaking a backup

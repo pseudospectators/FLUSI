@@ -23,6 +23,9 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
   real(kind=pr),intent(in):: time
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
+  real(kind=pr) :: t1
+  
+  t1=MPI_wtime()
 
   select case(method)
   case("fsi")
@@ -33,6 +36,8 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
      call abort()
   end select
+  
+  time_integrals = time_integrals + MPI_wtime()-t1
 end subroutine write_integrals
 
 
