@@ -10,6 +10,15 @@ module insect_module
   use mpi
   implicit none
   
+  ! Fourier coefficients for wings
+  real(kind=pr), allocatable, dimension(:) :: ai,bi
+  ! fill the R0(theta) array once, then only table-lookup instead of Fseries
+  real(kind=pr), allocatable, dimension(:) :: R0_table
+  ! wing kinematics Fourier coefficients
+  real(kind=pr), allocatable, dimension(:) :: ai_phi, bi_phi, ai_theta,&
+      bi_theta, ai_alpha, bi_alpha
+  
+  
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
   type diptera
@@ -40,12 +49,8 @@ module insect_module
     !-------------------------------------------------------------
     ! wing shape parameters
     !-------------------------------------------------------------
-    ! Fourier coefficients for wings
-    real(kind=pr), allocatable, dimension(:) :: ai,bi
     real(kind=pr) :: a0
     real(kind=pr) :: xc,yc ! describes the origin of the wings system
-    ! fill the R0(theta) array once, then only table-lookup instead of Fseries
-    real(kind=pr), allocatable, dimension(:) :: R0
     ! number of fft coefficients for wing geometry
     integer :: n_fft   
     ! wing inertia 
@@ -57,8 +62,7 @@ module insect_module
     ! wing kinematics Fourier coefficients
     real(kind=pr) :: a0_alpha, a0_phi, a0_theta
     integer ::  nfft_phi, nfft_alpha, nfft_theta
-    real(kind=pr), allocatable, dimension(:) :: ai_phi, bi_phi, ai_theta,&
-      bi_theta, ai_alpha, bi_alpha
+    
     
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion 
@@ -889,16 +893,16 @@ subroutine insect_clean(Insect)
   implicit none
   type(diptera),intent(inout)::Insect
   
-  if (allocated(Insect%R0)) deallocate ( Insect%R0 )
-  if (allocated(Insect%ai)) deallocate ( Insect%ai )
-  if (allocated(Insect%bi)) deallocate ( Insect%bi )
+  if (allocated(R0_table)) deallocate ( R0_table )
+  if (allocated(ai)) deallocate ( ai )
+  if (allocated(bi)) deallocate ( bi )
   
-  if (allocated(Insect%ai_phi)) deallocate ( Insect%ai_phi )
-  if (allocated(Insect%ai_alpha)) deallocate ( Insect%ai_alpha )
-  if (allocated(Insect%ai_theta)) deallocate ( Insect%ai_theta )
-  if (allocated(Insect%bi_phi)) deallocate ( Insect%bi_phi )
-  if (allocated(Insect%bi_alpha)) deallocate ( Insect%bi_alpha )
-  if (allocated(Insect%bi_theta)) deallocate ( Insect%bi_theta )
+  if (allocated(ai_phi)) deallocate ( ai_phi )
+  if (allocated(ai_alpha)) deallocate ( ai_alpha )
+  if (allocated(ai_theta)) deallocate ( ai_theta )
+  if (allocated(bi_phi)) deallocate ( bi_phi )
+  if (allocated(bi_alpha)) deallocate ( bi_alpha )
+  if (allocated(bi_theta)) deallocate ( bi_theta )
 end subroutine insect_clean
 
 

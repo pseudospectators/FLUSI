@@ -20,11 +20,15 @@ subroutine init_beams ( beams )
  
   call lapack_unit_test()
   
+  if(.not.allocated(qqq)) allocate ( qqq(0:ns-1) )
+  
   !-------------------------------------------
   ! allocate beam storage for each beam
   !-------------------------------------------
   do i = 1, nBeams
-    allocate ( beams(i)%x(0:ns-1) )
+!     allocate ( beams(i)%x(0:ns-1) )
+    beams(i)%x => datax
+    
     allocate ( beams(i)%y(0:ns-1) )
     allocate ( beams(i)%vx(0:ns-1) )
     allocate ( beams(i)%vy(0:ns-1) )

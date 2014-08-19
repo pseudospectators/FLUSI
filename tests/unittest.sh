@@ -21,6 +21,7 @@ fi
 
 nprocs=4
 export mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
+export mpi_command=""
 
 numtests=0
 numsuccess=0

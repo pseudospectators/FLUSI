@@ -24,11 +24,17 @@ module solid_model
   character(len=strlen),save :: interp
   character(len=strlen),save :: infinite, plate_shape
 
+  real(kind=pr),dimension(:),allocatable,save,target :: datax,datay,&
+    datavx,datavy,dataax,dataay,datatheta,datatheta_dot, &
+    datapressure_old,datapressure_new,datatau_old,datatau_new,qqq
+  real(kind=pr),dimension(:,:),allocatable,save,target :: data_beamoldold  
   !----------------------------------------------
   ! Solid datatype
   !----------------------------------------------
   type Solid
-    real(kind=pr),dimension(:),allocatable :: x,y,vx,vy
+!     real(kind=pr),dimension(:),allocatable :: x
+    real(kind=pr),dimension(:),pointer :: x
+    real(kind=pr),dimension(:),allocatable :: y,vx,vy
     real(kind=pr),dimension(:),allocatable :: theta,theta_dot,ax,ay
     real(kind=pr),dimension(:),allocatable :: pressure_old, pressure_new
     real(kind=pr),dimension(:),allocatable :: tau_old, tau_new
