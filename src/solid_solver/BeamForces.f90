@@ -36,9 +36,10 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   ! Tri-linear interpolation of all points on the surface. 
   ! If the point does not lie in the locally stores memory, zero is set
   ! Then, we can sum over all MPI processes and have the complete pressure on
-  ! the surface on all ranks
+  ! the surface on all ranks (before T_release, we can skip this expensive part
+  ! since we will return zero anyways)
   !-----------------------------------------------------------------------------
-  call synchronize_ghosts ( p )
+  if (time > T_release) synchronize_ghosts ( p )
   
   do is=0,ns-1
     do ih=0,nh
@@ -149,7 +150,10 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
     enddo
   endif
   
-  
+  if (time <= T_release) then
+    beam%pressure_new = 0.d0
+    beam%pressure_old = 0.d0
+  endif
       
 !   deallocate(surfaces)
 !   deallocate(p_surface)
