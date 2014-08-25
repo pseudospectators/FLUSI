@@ -61,6 +61,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
   real(kind=pr) :: concentration, conc
+  real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
   real(kind=pr) :: ekin, ekinx, ekiny, ekinz
   real(kind=pr) :: diss, dissx, dissy, dissz
   integer :: ix,iy,iz,mpicode
@@ -107,11 +108,13 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   !-----------------------------------------------------------------------------
   ! fluid energy and dissipation
   !-----------------------------------------------------------------------------
-  !- consider only fluid domain
+  ! total kinetic energy (including solid)
+  call compute_energies(ekin,ekinx,ekiny,ekinz,u(:,:,:,1),u(:,:,:,2),u(:,:,:,3))
+  ! fluid kinetic energy
   u(:,:,:,1)=u(:,:,:,1)*(1.d0-mask*eps)
   u(:,:,:,2)=u(:,:,:,2)*(1.d0-mask*eps)
   u(:,:,:,3)=u(:,:,:,3)*(1.d0-mask*eps)
-  call compute_energies(ekin,ekinx,ekiny,ekinz,u(:,:,:,1),u(:,:,:,2),u(:,:,:,3))
+  call compute_energies(ekinf,ekinxf,ekinyf,ekinzf,u(:,:,:,1),u(:,:,:,2),u(:,:,:,3))
   
   ! compute dissipation rate
   call curl( uk, work3c )
@@ -131,10 +134,14 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   ! dump to disk     
   if(mpirank == 0) then
      open(14,file='energy.t',status='unknown',position='append')
-     write (14,'(9(es15.8,1x))') time,ekin,ekinx,ekiny,ekinz,&
-       diss,dissx,dissy,dissz
+     write (14,'(9(es15.8,1x))') time,ekinf,ekinxf,ekinyf,ekinzf,&
+       diss,dissx,dissy,dissz,ekin,ekinx,ekiny,ekinz
      close(14)
   endif
+  
+  !-----------------------------------------------------------------------------
+  ! kinetic energy in solid
+  !-----------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------
   ! Save mean flow values

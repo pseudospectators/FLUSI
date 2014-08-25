@@ -430,7 +430,8 @@ subroutine initialize_time_series_files()
   open  (14,file='energy.t',status='replace')
   write (14,'(9(A15,1x))') "% time","E_kinetic","E_kinetic_x","E_kinetic_y",&
                      "E_kinetic_z","dissipation","dissipation_x",&
-                     "dissipation_y","dissipation_z"
+                     "dissipation_y","dissipation_z",&
+                     "E_kin_total","E_kin_total_x","E_kin_total_y","E_kin_total_z"
                       
   close (14)
   
