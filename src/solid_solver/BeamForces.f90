@@ -39,7 +39,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   ! the surface on all ranks (before T_release, we can skip this expensive part
   ! since we will return zero anyways)
   !-----------------------------------------------------------------------------
-  if (time > T_release) synchronize_ghosts ( p )
+  if (time > T_release) call synchronize_ghosts ( p )
   
   do is=0,ns-1
     do ih=0,nh
