@@ -61,6 +61,8 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
   real(kind=pr) :: concentration, conc
+  real(kind=pr) :: ekin, ekinx, ekiny, ekinz
+  real(kind=pr) :: diss, dissx, dissy, dissz
   integer :: ix,iy,iz,mpicode
   
   !-----------------------------------------------------------------------------
@@ -101,7 +103,39 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
      write (14,'(4(es15.8,1x))') time,maxdiv,maxdiv_fluid
      close(14)
   endif
-
+  
+  !-----------------------------------------------------------------------------
+  ! fluid energy and dissipation
+  !-----------------------------------------------------------------------------
+  !- consider only fluid domain
+  u(:,:,:,1)=u(:,:,:,1)*(1.d0-mask*eps)
+  u(:,:,:,2)=u(:,:,:,2)*(1.d0-mask*eps)
+  u(:,:,:,3)=u(:,:,:,3)*(1.d0-mask*eps)
+  call compute_energies(ekin,ekinx,ekiny,ekinz,u(:,:,:,1),u(:,:,:,2),u(:,:,:,3))
+  
+  ! compute dissipation rate
+  call curl( uk, work3c )
+  call ifft3( ink=work3c, outx=work3r )
+  ! again consider only fluid domain
+  work3r(:,:,:,1)=work3r(:,:,:,1)*(1.d0-mask*eps)
+  work3r(:,:,:,2)=work3r(:,:,:,2)*(1.d0-mask*eps)
+  work3r(:,:,:,3)=work3r(:,:,:,3)*(1.d0-mask*eps)
+  call compute_energies(diss,dissx,dissy,dissz,&
+       work3r(:,:,:,1),work3r(:,:,:,2),work3r(:,:,:,3))
+  ! add missing factor
+  diss  = 2.d0*nu*diss  
+  dissx = 2.d0*nu*dissx
+  dissy = 2.d0*nu*dissy
+  dissz = 2.d0*nu*dissx
+   
+  ! dump to disk     
+  if(mpirank == 0) then
+     open(14,file='energy.t',status='unknown',position='append')
+     write (14,'(9(es15.8,1x))') time,ekin,ekinx,ekiny,ekinz,&
+       diss,dissx,dissy,dissz
+     close(14)
+  endif
+  
   !-----------------------------------------------------------------------------
   ! Save mean flow values
   !-----------------------------------------------------------------------------

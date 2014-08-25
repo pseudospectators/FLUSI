@@ -427,6 +427,13 @@ subroutine initialize_time_series_files()
   write (14,'(3(A15,1x))') "% time","max_div","max_div_fluid"
   close (14)
   
+  open  (14,file='energy.t',status='replace')
+  write (14,'(9(A15,1x))') "% time","E_kinetic","E_kinetic_x","E_kinetic_y",&
+                     "E_kinetic_z","dissipation","dissipation_x",&
+                     "dissipation_y","dissipation_z"
+                      
+  close (14)
+  
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
   write (14,'(4(A15,1x))') "% time","#it","dt","avg sec per dt"

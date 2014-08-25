@@ -88,22 +88,22 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      do iz=ra(3), rb(3)
         do iy=ra(2), rb(2)
            do ix=ra(1), rb(1)
-              call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,1)=100.d0*(2.0d0*r - 1.d0) &
-              * (1.d0-eps*mask(ix,iy,iz))
-              call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,2)=100.d0*(2.0d0*r - 1.d0)&
-              * (1.d0-eps*mask(ix,iy,iz))
-              call RANDOM_NUMBER(r)
-              vort (ix,iy,iz,3)=100.d0*(2.0d0*r - 1.d0)&
-              * (1.d0-eps*mask(ix,iy,iz))
+!               call RANDOM_NUMBER(r)
+!               vort (ix,iy,iz,1)=100.d0*(2.0d0*r - 1.d0) &
+!               * (1.d0-eps*mask(ix,iy,iz))
+!               call RANDOM_NUMBER(r)
+!               vort (ix,iy,iz,2)=100.d0*(2.0d0*r - 1.d0)&
+!               * (1.d0-eps*mask(ix,iy,iz))
+!               call RANDOM_NUMBER(r)
+!               vort (ix,iy,iz,3)=100.d0*(2.0d0*r - 1.d0)&
+!               * (1.d0-eps*mask(ix,iy,iz))
               
-!               vort (ix,iy,iz,1)=50.d0*(2.0d0*rand() - 1.d0) &
-!               * (1.d0-eps*mask(ix,iy,iz))
-!               vort (ix,iy,iz,2)=50.d0*(2.0d0*rand() - 1.d0)&
-!               * (1.d0-eps*mask(ix,iy,iz))
-!               vort (ix,iy,iz,3)=50.d0*(2.0d0*rand() - 1.d0)&
-!               * (1.d0-eps*mask(ix,iy,iz))
+              vort (ix,iy,iz,1)=50.d0*(2.0d0*rand() - 1.d0) &
+              * (1.d0-eps*mask(ix,iy,iz))
+              vort (ix,iy,iz,2)=50.d0*(2.0d0*rand() - 1.d0)&
+              * (1.d0-eps*mask(ix,iy,iz))
+              vort (ix,iy,iz,3)=50.d0*(2.0d0*rand() - 1.d0)&
+              * (1.d0-eps*mask(ix,iy,iz))
            end do
            call srand(iz*iy)
         end do
