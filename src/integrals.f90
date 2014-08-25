@@ -61,6 +61,10 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
   real(kind=pr) :: concentration, conc
+  real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
+  real(kind=pr) :: ekin, ekinx, ekiny, ekinz
+  real(kind=pr) :: diss, dissx, dissy, dissz
+  real(kind=pr) :: dissf, dissxf, dissyf, disszf
   integer :: ix,iy,iz,mpicode
   
   !-----------------------------------------------------------------------------
@@ -101,7 +105,52 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
      write (14,'(4(es15.8,1x))') time,maxdiv,maxdiv_fluid
      close(14)
   endif
-
+  
+  !-----------------------------------------------------------------------------
+  ! fluid energy and dissipation
+  !-----------------------------------------------------------------------------
+  ! total kinetic energy (including solid)
+  call compute_energies(ekin,ekinx,ekiny,ekinz,u(:,:,:,1),u(:,:,:,2),u(:,:,:,3))
+  ! fluid kinetic energy
+  u(:,:,:,1)=u(:,:,:,1)*(1.d0-mask*eps)
+  u(:,:,:,2)=u(:,:,:,2)*(1.d0-mask*eps)
+  u(:,:,:,3)=u(:,:,:,3)*(1.d0-mask*eps)
+  call compute_energies(ekinf,ekinxf,ekinyf,ekinzf,u(:,:,:,1),u(:,:,:,2),u(:,:,:,3))
+  
+  ! compute dissipation rate
+  call curl( uk, work3c )
+  call ifft3( ink=work3c, outx=work3r )
+  ! dissipation in the whole domain:
+  call compute_energies(diss,dissx,dissy,dissz,&
+       work3r(:,:,:,1),work3r(:,:,:,2),work3r(:,:,:,3))
+  ! again consider only fluid domain
+  work3r(:,:,:,1)=work3r(:,:,:,1)*(1.d0-mask*eps)
+  work3r(:,:,:,2)=work3r(:,:,:,2)*(1.d0-mask*eps)
+  work3r(:,:,:,3)=work3r(:,:,:,3)*(1.d0-mask*eps)
+  call compute_energies(dissf,dissxf,dissyf,disszf,&
+       work3r(:,:,:,1),work3r(:,:,:,2),work3r(:,:,:,3))
+       
+  ! add missing factor (from enstrophy to dissipation rate)
+  diss  = 2.d0*nu*diss  
+  dissx = 2.d0*nu*dissx
+  dissy = 2.d0*nu*dissy
+  dissz = 2.d0*nu*dissz
+  dissf  = 2.d0*nu*dissf
+  dissxf = 2.d0*nu*dissxf
+  dissyf = 2.d0*nu*dissyf
+  disszf = 2.d0*nu*disszf
+   
+  ! dump to disk     
+  if(mpirank == 0) then
+     open(14,file='energy.t',status='unknown',position='append')
+     write (14,'(17(es15.8,1x))') time,&
+       ekinf,ekinxf,ekinyf,ekinzf,&
+       dissf,dissxf,dissyf,disszf,&
+       ekin,ekinx,ekiny,ekinz,&
+       diss,dissx,dissy,dissz
+     close(14)
+  endif
+  
   !-----------------------------------------------------------------------------
   ! Save mean flow values
   !-----------------------------------------------------------------------------

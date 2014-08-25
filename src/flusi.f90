@@ -427,6 +427,15 @@ subroutine initialize_time_series_files()
   write (14,'(3(A15,1x))') "% time","max_div","max_div_fluid"
   close (14)
   
+  open  (14,file='energy.t',status='replace')
+  write (14,'(17(A15,1x))') "% time",&
+                     "E_kin_f","E_kin_x_f","E_kin_y_f","E_kin_z_f",&
+                     "diss_f","diss_x_f","diss_y_f","diss_z_f",&
+                     "E_kin_tot","E_kin_tot_x","E_kin_tot_y","E_kin_tot_z",&
+                     "diss_tot","diss_tot_x","diss_tot_y","diss_tot_z"
+                      
+  close (14)
+  
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
   write (14,'(4(A15,1x))') "% time","#it","dt","avg sec per dt"

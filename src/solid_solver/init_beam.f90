@@ -48,6 +48,9 @@ subroutine init_beams ( beams )
       call init_empty_file('IBES_iter.t')
       call init_empty_file('beam_x'//beamstr//'.t')
       call init_empty_file('beam_y'//beamstr//'.t')
+      call init_empty_file('beam_vx'//beamstr//'.t')
+      call init_empty_file('beam_vy'//beamstr//'.t')
+      call init_empty_file('beam_theta'//beamstr//'.t')
       call init_empty_file('beam_p'//beamstr//'.t')
     endif
   

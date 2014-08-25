@@ -314,7 +314,7 @@ subroutine laplacien_inplace_filtered( ink )
 end subroutine laplacien_inplace_filtered
 
   
-! returns the globally largest value of a given (real) field
+! returns the globally largest entry of a given (real) field
 real(kind=pr) function fieldmax( inx )
   use mpi
   use vars
@@ -331,7 +331,7 @@ real(kind=pr) function fieldmax( inx )
 end function fieldmax
 
 
-! returns the globally smallest value of a given (real) field
+! returns the globally smallest entry of a given (real) field
 real(kind=pr) function fieldmin( inx )
   use mpi
   use vars
@@ -348,7 +348,7 @@ real(kind=pr) function fieldmin( inx )
 end function fieldmin
 
 
-! returns the globally largest value of a given vector field
+! returns the globally largest entry of a given vector field
 ! (L2-norm)
 real(kind=pr) function fieldmaxabs3( inx )
   use mpi
@@ -377,7 +377,7 @@ real(kind=pr) function fieldmaxabs3( inx )
 end function fieldmaxabs3
 
 
-! returns the globally largest value of a given vector field
+! returns the globally largest entry of a given vector field
 ! (L2-norm)
 real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
   use mpi
