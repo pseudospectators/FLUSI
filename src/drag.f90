@@ -29,6 +29,8 @@ subroutine cal_drag ( time, u, Insect )
   ! we can choose up to 6 different colors
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
   real(kind=pr) :: torquex0,torquey0,torquez0
+  ! power (flux of energy) 
+  real(kind=pr) :: power
   character(len=1024) :: forcepartfilename
   
   forcex  = 0.d0
@@ -40,6 +42,7 @@ subroutine cal_drag ( time, u, Insect )
   torquex0 = 0.d0
   torquey0 = 0.d0
   torquez0 = 0.d0
+  power = 0.d0
   
   !---------------------------------------------------------------------------
   ! loop over penalization term (this saves a work array)
@@ -69,6 +72,9 @@ subroutine cal_drag ( time, u, Insect )
         torquex0 = torquex0 - (ylev*penalz - zlev*penaly)
         torquey0 = torquey0 - (zlev*penalx - xlev*penalz)
         torquez0 = torquez0 - (xlev*penaly - ylev*penalx)
+        
+        power = power + u(ix,iy,iz,1)*penalx + u(ix,iy,iz,2)*penaly + &
+                u(ix,iy,iz,3)*penalz
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points
@@ -98,6 +104,7 @@ subroutine cal_drag ( time, u, Insect )
   forcex = forcex*dx*dy*dz
   forcey = forcey*dx*dy*dz
   forcez = forcez*dx*dy*dz  
+  power = power*dx*dy*dz
   
   ! in the global structure, we store all contributions with color > 0, so we
   ! only EXCLUDE channel / cavity walls (the boring stuff)
@@ -107,6 +114,8 @@ subroutine cal_drag ( time, u, Insect )
                   MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
   call MPI_ALLREDUCE ( sum(forcez(1:5)),GlobalIntegrals%Force(3),1,&
                   MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+  call MPI_ALLREDUCE ( power,GlobalIntegrals%penalization_power,1,&
+                  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)                   
                   
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
