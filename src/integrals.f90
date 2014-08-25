@@ -64,6 +64,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
   real(kind=pr) :: ekin, ekinx, ekiny, ekinz
   real(kind=pr) :: diss, dissx, dissy, dissz
+  real(kind=pr) :: dissf, dissxf, dissyf, disszf
   integer :: ix,iy,iz,mpicode
   
   !-----------------------------------------------------------------------------
@@ -119,23 +120,31 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   ! compute dissipation rate
   call curl( uk, work3c )
   call ifft3( ink=work3c, outx=work3r )
+  ! dissipation in the whole domain:
+  call compute_energies(diss,dissx,dissy,dissz,&
+       work3r(:,:,:,1),work3r(:,:,:,2),work3r(:,:,:,3))
   ! again consider only fluid domain
   work3r(:,:,:,1)=work3r(:,:,:,1)*(1.d0-mask*eps)
   work3r(:,:,:,2)=work3r(:,:,:,2)*(1.d0-mask*eps)
   work3r(:,:,:,3)=work3r(:,:,:,3)*(1.d0-mask*eps)
-  call compute_energies(diss,dissx,dissy,dissz,&
+  call compute_energies(dissf,dissxf,dissyf,disszf,&
        work3r(:,:,:,1),work3r(:,:,:,2),work3r(:,:,:,3))
   ! add missing factor
   diss  = 2.d0*nu*diss  
   dissx = 2.d0*nu*dissx
   dissy = 2.d0*nu*dissy
   dissz = 2.d0*nu*dissx
+  dissf  = 2.d0*nu*diss  
+  dissxf = 2.d0*nu*dissx
+  dissyf = 2.d0*nu*dissy
+  disszf = 2.d0*nu*dissx
    
   ! dump to disk     
   if(mpirank == 0) then
      open(14,file='energy.t',status='unknown',position='append')
      write (14,'(9(es15.8,1x))') time,ekinf,ekinxf,ekinyf,ekinzf,&
-       diss,dissx,dissy,dissz,ekin,ekinx,ekiny,ekinz
+       diss,dissx,dissy,dissz,ekin,ekinx,ekiny,ekinz,&
+       dissf,dissxf,dissyf,disszf
      close(14)
   endif
   
