@@ -143,17 +143,13 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   ! dump to disk     
   if(mpirank == 0) then
      open(14,file='energy.t',status='unknown',position='append')
-     write (14,'(9(es15.8,1x))') time,&
+     write (14,'(17(es15.8,1x))') time,&
        ekinf,ekinxf,ekinyf,ekinzf,&
        dissf,dissxf,dissyf,disszf,&
        ekin,ekinx,ekiny,ekinz,&
        diss,dissx,dissy,dissz
      close(14)
   endif
-  
-  !-----------------------------------------------------------------------------
-  ! kinetic energy in solid
-  !-----------------------------------------------------------------------------
   
   !-----------------------------------------------------------------------------
   ! Save mean flow values
