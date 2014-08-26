@@ -177,7 +177,7 @@ subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1,t3)
   t3 = MPI_wtime() - t3
   
   open  (14,file='timestep.t',status='unknown',position='append')
-  write (14,'(i7.7,1x,es12.4,1x,3(es15.8,1x))') it,time,dt1,t2,t3
+  write (14,'(i15,1x,es15.8,1x,3(es15.8,1x))') it,time,dt1,t2,t3
   close (14)
 
 end subroutine save_time_stepping_info

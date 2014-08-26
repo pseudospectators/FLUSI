@@ -254,6 +254,9 @@ module fsi_vars
      real(kind=pr) :: APow
      real(kind=pr) :: IPow
      real(kind=pr) :: penalization_power
+     real(kind=pr) :: penalization_power_x
+     real(kind=pr) :: penalization_power_y
+     real(kind=pr) :: penalization_power_z
      real(kind=pr),dimension(1:3) :: Force
      real(kind=pr),dimension(1:3) :: Force_unst
      real(kind=pr),dimension(1:3) :: Torque

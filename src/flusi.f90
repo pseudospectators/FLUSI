@@ -439,7 +439,7 @@ subroutine initialize_time_series_files()
   
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
-  write (14,'(4(A15,1x))') "%          time","#it","dt","avg sec per dt"
+  write (14,'(4(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
   close (14)    
   
   open  (14,file='meanflow.t',status='replace')
