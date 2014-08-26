@@ -108,6 +108,7 @@ subroutine cal_drag ( time, u, Insect )
   forcex = forcex*dx*dy*dz
   forcey = forcey*dx*dy*dz
   forcez = forcez*dx*dy*dz  
+  
   powerx = powerx*dx*dy*dz
   powery = powery*dx*dy*dz
   powerz = powerz*dx*dy*dz
