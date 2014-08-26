@@ -110,28 +110,26 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   ! fluid energy and dissipation
   !-----------------------------------------------------------------------------
   ! total kinetic energy (including solid)
-  call compute_energies(ekin,ekinx,ekiny,ekinz,u(:,:,:,1),u(:,:,:,2),u(:,:,:,3))
-  ! fluid kinetic energy
+  call compute_energies(u(:,:,:,1:3),ekin,ekinx,ekiny,ekinz)
+  ! fluid kinetic energy (excluding solid)
   u(:,:,:,1)=u(:,:,:,1)*(1.d0-mask*eps)
   u(:,:,:,2)=u(:,:,:,2)*(1.d0-mask*eps)
   u(:,:,:,3)=u(:,:,:,3)*(1.d0-mask*eps)
-  call compute_energies(ekinf,ekinxf,ekinyf,ekinzf,u(:,:,:,1),u(:,:,:,2),u(:,:,:,3))
-  
+  call compute_energies(u(:,:,:,1:3),ekinf,ekinxf,ekinyf,ekinzf)
+
   ! compute dissipation rate
   call curl( uk, work3c )
   call ifft3( ink=work3c, outx=work3r )
   ! dissipation in the whole domain:
-  call compute_energies(diss,dissx,dissy,dissz,&
-       work3r(:,:,:,1),work3r(:,:,:,2),work3r(:,:,:,3))
+  call compute_energies(work3r(:,:,:,1:3),diss,dissx,dissy,dissz)
   ! again consider only fluid domain
   work3r(:,:,:,1)=work3r(:,:,:,1)*(1.d0-mask*eps)
   work3r(:,:,:,2)=work3r(:,:,:,2)*(1.d0-mask*eps)
   work3r(:,:,:,3)=work3r(:,:,:,3)*(1.d0-mask*eps)
-  call compute_energies(dissf,dissxf,dissyf,disszf,&
-       work3r(:,:,:,1),work3r(:,:,:,2),work3r(:,:,:,3))
+  call compute_energies(work3r(:,:,:,1:3),dissf,dissxf,dissyf,disszf)
        
   ! add missing factor (from enstrophy to dissipation rate)
-  diss  = 2.d0*nu*diss  
+  diss  = 2.d0*nu*diss  ! note hidden factor of 2 in compute_energies
   dissx = 2.d0*nu*dissx
   dissy = 2.d0*nu*dissy
   dissz = 2.d0*nu*dissz
@@ -251,7 +249,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   call compute_fluid_volume(fluid_volume)
 
   ! Compute kinetic energies.
-  call compute_energies(Ekin,Ekinx,Ekiny,Ekinz,&
+  call compute_energies_f(Ekin,Ekinx,Ekiny,Ekinz,&
        ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3))
   if(mpirank == 0) then
      open(14,file='ek.t',status='unknown',position='append')
@@ -262,7 +260,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   endif
 
   ! Comptue magnetic energies.
-  call compute_energies(Emag,Emagx,Emagy,Emagz,&
+  call compute_energies_f(Emag,Emagx,Emagy,Emagz,&
        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6))
   if(mpirank == 0) then
      open(14,file='eb.t',status='unknown',position='append')
@@ -320,16 +318,16 @@ end subroutine write_integrals_mhd
 
 ! Compute the average total energy and energy in each direction for a
 ! physical-space vector fields with components f1, f2, f3, leaving the
-! input vector field untouched.
-subroutine compute_energies(E,Ex,Ey,Ez,f1,f2,f3)
+! input vector field untouched. ACTS ON FLUID DOMAIN ONLY
+subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3)
   use mpi
   use vars
   implicit none
   
   real(kind=pr),intent(out) :: E,Ex,Ey,Ez
-  real(kind=pr),intent(inout):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout):: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in):: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: LE,LEx,LEy,LEz ! local quantities
   real(kind=pr) :: v1,v2,v3
   integer :: ix,iy,iz,mpicode
@@ -365,17 +363,71 @@ subroutine compute_energies(E,Ex,Ey,Ez,f1,f2,f3)
   LEz=0.5*dx*dy*dz*LEz
 
   ! Sum over all MPI processes
-  call MPI_REDUCE(LE,E,&
-       1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(LE,E,&
+       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(LEx,Ex,&
-       1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(LEx,Ex,&
+       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(LEy,Ey,&
-       1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(LEy,Ey,&
+       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(LEz,Ez,&
-       1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(LEz,Ez,&
+       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       MPI_COMM_WORLD,mpicode)
+end subroutine compute_energies_f
+
+
+!-------------------------------------------------------------------------------
+! Compute the average total energy and energy in each direction for a
+! physical-space vector fields u(:,:,:,1:3), leaving the
+! input vector field untouched.
+!-------------------------------------------------------------------------------
+subroutine compute_energies(u,E,Ex,Ey,Ez)
+  use mpi
+  use vars
+  implicit none
+  
+  real(kind=pr),intent(in):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(out) :: E,Ex,Ey,Ez
+  real(kind=pr) :: LE,LEx,LEy,LEz ! local quantities
+  real(kind=pr) :: ux,uy,uz
+  integer :: ix,iy,iz,mpicode
+
+  ! initialize local variables
+  LE=0.d0
+  LEx=0.d0
+  LEy=0.d0
+  LEz=0.d0
+
+  ! Add contributions in physical space
+  do ix=ra(1),rb(1)
+     do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)
+          ux=u(ix,iy,iz,1)
+          uy=u(ix,iy,iz,2)
+          uz=u(ix,iy,iz,3)
+          
+          LEx=LEx + ux*ux
+          LEy=LEy + uy*uy
+          LEz=LEz + uz*uz
+        enddo
+     enddo
+  enddo
+
+  LE= 0.5*dx*dy*dz*(LEx+LEy+LEz)
+  LEx=0.5*dx*dy*dz*LEx
+  LEy=0.5*dx*dy*dz*LEy
+  LEz=0.5*dx*dy*dz*LEz
+
+  ! Sum over all MPI processes
+  call MPI_ALLREDUCE(LE,E,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(LEx,Ex,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(LEy,Ey,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+       MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(LEz,Ez,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        MPI_COMM_WORLD,mpicode)
 end subroutine compute_energies
 
