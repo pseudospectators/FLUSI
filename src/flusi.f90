@@ -375,35 +375,35 @@ subroutine initialize_time_series_files()
   ! For insect wing/body forces
   if (iMask=='Insect') then
   open  (14,file='forces.t',status='replace')
-    write (14,'(15(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+    write (14,'(15(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
                       "Forcex_unst","Forcey_unst","Forcez_unst",&
                       "Momentx","Momenty","Momentz",&
                       "Momentx_unst","Momenty_unst","Momentz_unst",&
                       "Aero_Power", "Inert power"
     close (14)
     open  (14,file='forces_part1.t',status='replace')
-    write (14,'(15(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+    write (14,'(15(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
                       "Forcex_unst","Forcey_unst","Forcez_unst",&
                       "Momentx","Momenty","Momentz",&
                       "Momentx_unst","Momenty_unst","Momentz_unst",&
                       "Aero_Power", "Inert power"
     close (14)
     open  (14,file='forces_part2.t',status='replace')
-    write (14,'(15(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+    write (14,'(15(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
                       "Forcex_unst","Forcey_unst","Forcez_unst",&
                       "Momentx","Momenty","Momentz",&
                       "Momentx_unst","Momenty_unst","Momentz_unst",&
                       "Aero_Power", "Inert power"
     close (14)
     open  (14,file='forces_part3.t',status='replace')
-    write (14,'(15(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+    write (14,'(15(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
                       "Forcex_unst","Forcey_unst","Forcez_unst",&
                       "Momentx","Momenty","Momentz",&
                       "Momentx_unst","Momenty_unst","Momentz_unst",&
                       "Aero_Power", "Inert power"
     close (14)
     open  (14,file='kinematics.t',status='replace')
-    write (14,'(26(A15,1x))') "% time","xc_body","yc_body","zc_body",&
+    write (14,'(26(A15,1x))') "%          time","xc_body","yc_body","zc_body",&
                       "psi","beta","gamma","eta_stroke",&
                       "alpha_l","phi_l","theta_l",&
                       "alpha_r","phi_r","theta_r",&
@@ -416,7 +416,7 @@ subroutine initialize_time_series_files()
   ! If this is not an insect
   else 
     open  (14,file='forces.t',status='replace')
-    write (14,'(13(A15,1x))') "% time","Forcex","Forcey","Forcez",&
+    write (14,'(13(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
                       "Forcex_unst","Forcey_unst","Forcez_unst",&
                       "Momentx","Momenty","Momentz",&
                       "Momentx_unst","Momenty_unst","Momentz_unst"
@@ -424,11 +424,11 @@ subroutine initialize_time_series_files()
   endif    
 
   open  (14,file='divu.t',status='replace')
-  write (14,'(3(A15,1x))') "% time","max_div","max_div_fluid"
+  write (14,'(3(A15,1x))') "%          time","max_div","max_div_fluid"
   close (14)
   
   open  (14,file='energy.t',status='replace')
-  write (14,'(17(A15,1x))') "% time",&
+  write (14,'(18(A15,1x))') "%          time",&
                      "E_kin_f","E_kin_x_f","E_kin_y_f","E_kin_z_f",&
                      "diss_f","diss_x_f","diss_y_f","diss_z_f",&
                      "E_kin_tot","E_kin_tot_x","E_kin_tot_y","E_kin_tot_z",&
@@ -439,11 +439,11 @@ subroutine initialize_time_series_files()
   
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
-  write (14,'(4(A15,1x))') "% time","#it","dt","avg sec per dt"
+  write (14,'(4(A15,1x))') "%          time","#it","dt","avg sec per dt"
   close (14)    
   
   open  (14,file='meanflow.t',status='replace')
-  write (14,'(4(A15,1x))') "% time","mean_ux","mean_uy","mean_uz"
+  write (14,'(4(A15,1x))') "%          time","mean_ux","mean_uy","mean_uz"
   close (14)  
 
   call init_empty_file('iterations.t')

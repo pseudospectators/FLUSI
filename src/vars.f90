@@ -182,12 +182,20 @@ module vars
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine suicide2
     !---------------------------------------------------------------------------
+    ! wrapper for NaN checking (this may be compiler dependent)
     logical function is_nan( x )
       implicit none
       real(kind=pr)::x
       is_nan = .false.
       if (.not.(x.eq.x)) is_nan=.true.
     end function
+    !---------------------------------------------------------------------------
+    ! wrapper for random number generator (this may be compiler dependent)
+    real(kind=pr) function rand_nbr()
+      implicit none
+      call random_number( rand_nbr )
+    end function 
+    !---------------------------------------------------------------------------
 end module vars
 
 
