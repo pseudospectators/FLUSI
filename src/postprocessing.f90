@@ -35,6 +35,8 @@ subroutine postprocessing()
     call convert_abs_vorticity()    
   case ("--hdf2bin")
     call convert_hdf2bin()
+  case ("--bin2hdf")
+    call convert_bin2hdf()
   case ("--p2Q")
     call pressure_to_Qcriterion()
   case ("--extract-subset")
@@ -48,7 +50,7 @@ end subroutine postprocessing
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --hdf2bin ux_00000.h5
+! ./flusi --postprocessing --hdf2bin ux_00000.h5 filename.bin
 !-------------------------------------------------------------------------------
 ! converts the *.h5 file to an ordinairy binary file
 subroutine convert_hdf2bin()
@@ -56,13 +58,14 @@ subroutine convert_hdf2bin()
   use mpi
   use basic_operators
   implicit none
-  character(len=strlen) :: fname, dsetname  
+  character(len=strlen) :: fname, dsetname  ,fname_bin
   real(kind=pr), dimension(:,:,:), allocatable :: field
   integer, parameter :: pr_out = 4 
   integer :: ix, iy ,iz
   real(kind=pr_out), dimension(:,:,:), allocatable :: field_out ! single precision
   real(kind=pr) :: time 
   call get_command_argument(3,fname)
+  call get_command_argument(4,fname_bin)
   
   ! check if input file exists
   call check_file_exists ( fname )
@@ -75,8 +78,8 @@ subroutine convert_hdf2bin()
   dsetname = fname ( 1:index( fname, '_' )-1 )
   call fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
   
-  write (*,'("Converting ",A," to ",A,".binary. Resolution is",3(i4,1x))') &
-        trim(fname), trim(fname), nx,ny,nz
+  write (*,'("Converting ",A," to ",A," Resolution is",3(i4,1x))') &
+        trim(fname), trim(fname_bin), nx,ny,nz
   write (*,'("time=",es12.4," xl=",es12.4," yl=",es12.4," zl=",es12.4)') &
         time, xl, yl, zl
       
@@ -86,16 +89,90 @@ subroutine convert_hdf2bin()
   ! convert to single precision
   field_out = real(field, kind=pr_out)
   
-  write (*,'("maxval=",es12.4," minval=",es12.4)') &
-        maxval(field_out),minval(field_out)
+  write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field_out),minval(field_out)
   
   ! dump binary file (this file will be called ux_00100.h5.binary)
-  open (12, file = trim(fname)//".binary", form='unformatted', status='replace')
-  write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
+  open (12, file = trim(fname_bin), form='unformatted', status='replace',&
+      convert="little_endian")
+!   write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
+  write(12) field_out
   close (12)
   
   deallocate (field, field_out) 
 end subroutine convert_hdf2bin
+
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocessing --bin2hdf [file_bin] [file_hdf5] [nx] [ny] [nz] [xl] [yl] [zl] [time]
+! ./flusi --postprocessing --bin2hdf ux_file.binary ux_00000.h5 128 128 384 3.5 2.5 10.0 0.0
+!-------------------------------------------------------------------------------
+! converts the given binary file into an HDF5 file following flusi's conventions
+subroutine convert_bin2hdf()
+  use vars
+  use mpi
+  use basic_operators
+  implicit none
+  character(len=strlen) :: fname_bin,fname_hdf,dsetname,tmp  
+  real, dimension(:,:,:), allocatable :: field
+  integer, parameter :: pr_out = 4 
+  integer :: ix, iy ,iz, record_length
+  real(kind=pr) :: time 
+  
+  if ( mpisize>1 ) then
+    write (*,*) "--hdf2bin is currently a serial version only, run it on 1CPU"
+    return 
+  endif 
+  
+  
+  ! binary file name
+  call get_command_argument(3,fname_bin)
+  ! hdf5 file name
+  call get_command_argument(4,fname_hdf)
+  ! name of field in hdf5 file
+  dsetname=fname_hdf ( 1:index( fname_hdf, '_' )-1 )
+  call get_command_argument(5,tmp)
+  read (tmp,*) nx
+  call get_command_argument(6,tmp)
+  read (tmp,*) ny
+  call get_command_argument(7,tmp)
+  read (tmp,*) nz
+  call get_command_argument(8,tmp)
+  read (tmp,*) xl
+  call get_command_argument(9,tmp)
+  read (tmp,*) yl
+  call get_command_argument(10,tmp)
+  read (tmp,*) zl
+  call get_command_argument(11,tmp)
+  read (tmp,*) time
+
+  write(*,'("converting ",A," into ",A," resolution: ",3(i4,1x)," box size: ",&
+       &3(es15.8,1x)," time=",es15.8)') trim(adjustl(fname_bin)), &
+       trim(adjustl(fname_hdf)), nx,ny,nz, xl,yl,zl,time
+  
+  !-----------------------------------------------------------------------------
+  ! read in the binary field to be converted
+  !-----------------------------------------------------------------------------
+  allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
+  inquire (iolength=record_length) field
+  open(11, file=fname_bin, form='unformatted', &
+  access='direct', recl=record_length, convert="little_endian")
+  read (11,rec=1) field
+  close (11)  
+  write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field),minval(field)
+
+  !-----------------------------------------------------------------------------
+  ! write the field data to an HDF file
+  !-----------------------------------------------------------------------------
+  ! initializes serial domain decomposition:
+  ra=(/0, 0, 0/)
+  rb=(/nx-1, ny-1, nz-1/)
+    
+  call save_field_hdf5(time,trim(adjustl(fname_hdf)),dble(field),trim(adjustl(dsetname))) 
+  
+  deallocate (field) 
+end subroutine convert_bin2hdf
 
 
 
