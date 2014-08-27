@@ -68,13 +68,6 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   integer :: ix,iy,iz,mpicode
   
   !-----------------------------------------------------------------------------
-  ! Save solid model data, if using it
-  !-----------------------------------------------------------------------------
-  if (use_solid_model=="yes" .and. mpirank==0) then
-    call SaveBeamData( time, beams )
-  endif
-  
-  !-----------------------------------------------------------------------------
   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
   !-----------------------------------------------------------------------------
   ! the stepper AB2_rigid_solid has to compute the drag at every time step, so

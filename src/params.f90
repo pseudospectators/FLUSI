@@ -168,6 +168,7 @@ subroutine get_params_common(PARAMS,i)
   call param_str(PARAMS,i,"Saving","save_only_one_period",&
        save_only_one_period,"no")  
   call param_int(PARAMS,i,"Saving","itdrag",itdrag,99999)
+  call param_int(PARAMS,i,"Saving","itbeam",itbeam,99999)
   
   !-- dry run, just the mask function
   call param_str(PARAMS,i,"DryRun","dry_run_without_fluid",dry_run_without_fluid,"no")

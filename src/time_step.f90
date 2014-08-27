@@ -80,8 +80,15 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      ! Output of INTEGRALS after every tintegral time 
      ! units or itdrag time steps
      !-------------------------------------------------
-     if ((modulo(time,tintegral) <= dt1).or.(modulo(it,itdrag) == 0)) then
+     if (modulo(time,tintegral)<=dt1.or.modulo(it,itdrag)==0) then
        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
+     endif
+    
+     !-------------------------------------------------
+     ! Save solid model data, if using it
+     !-------------------------------------------------
+     if (use_solid_model=="yes" .and. mpirank==0 .and. modulo(it,itbeam)==0) then
+       call SaveBeamData( time, beams )
      endif
     
      !-------------------------------------------------

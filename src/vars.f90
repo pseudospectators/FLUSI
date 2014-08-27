@@ -78,6 +78,8 @@ module vars
   ! compute drag force every itdrag time steps and compute unst corrections if
   ! you've told to do so.
   integer,save :: itdrag, unst_corrections
+  ! save beam every itbeam time steps
+  integer,save :: itbeam
   real(kind=pr),save :: truntime, truntimenext ! Number of hours bet
   real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
   ! for periodically repeating flows, it may be better to always have only 
