@@ -322,7 +322,11 @@ subroutine convert_vorticity()
   call fft (uk(:,:,:,2),u(:,:,:,2))
   call fft (uk(:,:,:,3),u(:,:,:,3))
   
-  call curl_inplace(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  if (order=="--second-order") then
+    call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3)) 
+  else
+    call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  endif
   
   call ifft (u(:,:,:,1),uk(:,:,:,1))
   call ifft (u(:,:,:,2),uk(:,:,:,2))
