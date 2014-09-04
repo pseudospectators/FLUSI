@@ -72,99 +72,130 @@ subroutine update_us_fsi(ub)
 end subroutine update_us_fsi
 
 
+! this routine draws a rigid flapping plate, that is infinite in the x-direction
+! and rotates around the x0-axis by the angle alpha.
 subroutine Flapper (time)
   use mpi
   use fsi_vars
   implicit none
 
   real(kind=pr), intent(in) :: time
-  integer :: iy, iz
+  integer :: iy,iz,ix
   real (kind=pr) :: R, alpha_t, un, alpha_max
-  real (kind=pr) :: y, z, ys,zs, alpha,L,H, tmp, N
+  real (kind=pr) :: x,y,z,ys,zs, alpha,L,H,W, tmp1, N, tmp2
+  real (kind=pr) :: safety
 
-  alpha_max = 30.d0*pi/180.d0
+  ! motion protocoll (pitching around the x-axis with point y0,z0)
+  alpha_max = deg2rad(14.d0)
   alpha   =           alpha_max*dsin(time*2.d0*pi)
   alpha_t = (2.d0*pi)*alpha_max*dcos(time*2.d0*pi)
-  
-  y0 = 1.d0
-  z0 = 1.d0
 
+  ! length of plate
   L = 1.d0
-  H = 0.0625
-
-  N=3.0 ! smoothing coefficient
+  ! half the plate thickness 
+  H = 2.0d0*dx
+  ! width of plate (Aspect ratio)
+  W = 0.54d0
+  ! smoothing coefficient
+  N = 1.5d0
+  ! safety
+  safety = 2.d0*N*max(dx,dy,dz)+H
 
   do iz = ra(3), rb(3)
-     do iy = ra(2), rb(2)
-        y = dble(iy)*dy - y0
-        z = dble(iz)*dz - z0
+   do iy = ra(2), rb(2)
+    do ix = ra(1), rb(1)
+      x = dble(ix)*dx - x0
+      y = dble(iy)*dy - y0
+      z = dble(iz)*dz - z0
 
-        ! transformed
-        ys =  dcos(alpha)*y + dsin(alpha)*z
-        zs = -dsin(alpha)*y + dcos(alpha)*z
+      ! transformed
+      ys =  dcos(alpha)*y + dsin(alpha)*z
+      zs = -dsin(alpha)*y + dcos(alpha)*z
 
-        if ( (ys>=0.d0) .and. (ys<=L) )  then
-           call SmoothStep (tmp, abs(zs), H, N*max(dx,dy,dz))
-           mask(:,iy,iz) = tmp
+      if ( (ys>=0.d0) .and. (ys<=L) )  then
+        if ( (zs>=-H-safety) .and. (zs<=H+safety) )  then
+          if ( (x>=-0.5d0*W-safety) .and. (x<=0.5d0*W+safety) )  then
+            call SmoothStep (tmp1, abs(zs), H, N*max(dx,dy,dz))
+            call SmoothStep (tmp2, abs(x), 0.5d0*W, N*max(dx,dy,dz))
+            mask(ix,iy,iz) = tmp1*tmp2
 
-           ! assign color "1" where >0 indicates something "useful"
-           if (tmp > 1.0e-12) mask_color(:,iy,iz) = 1
-           
-           if (dabs(zs)<=2.d0*H) then
+            ! assign color "1" where >0 indicates something "useful"
+            if (mask(ix,iy,iz) > 1.0d-12) then 
+              mask_color(ix,iy,iz) = 1
               R = dsqrt( y**2 + z**2  )
+              ! normal velocity
               un = R*alpha_t
+              ! transform to fixed coordinate system
               us(:,iy,iz,2) = -dsin(alpha)*un
               us(:,iy,iz,3) = +dcos(alpha)*un
-           endif
+            endif
+          endif
         endif
-     enddo
+      endif
+      
+    enddo
+   enddo
   enddo
 
   ! draw the endpoints
   do iz = ra(3), rb(3)
-     do iy = ra(2), rb(2)
+   do iy = ra(2), rb(2)
+    do ix = ra(1), rb(1)
+        x = dble(ix)*dx - x0
         y = dble(iy)*dy - y0
         z = dble(iz)*dz - z0
 
-        ! origin
+        ! leading edge (fixed endpoint)
         if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
            R = dsqrt( y**2 + z**2 )
-           call SmoothStep (tmp, R, H, N*max(dx,dy,dz))
-           if (mask(1,iy,iz)<tmp) then
-              mask(:,iy,iz) = tmp
-
+           call SmoothStep (tmp1, R, H, N*max(dx,dy,dz))
+           call SmoothStep (tmp2, dabs(x), 0.5d0*W, N*max(dx,dy,dz))
+           
+           ! overwrite if new value is larger
+           if (mask(ix,iy,iz)<tmp1*tmp2) then
+              mask(ix,iy,iz) = tmp1*tmp2
               ! assign color "1" where >0 indicates something "useful"
-              if (tmp > 1.0e-12) mask_color(:,iy,iz) = 1
-              
-              R = dsqrt( y**2 + z**2  )
-              un = R*alpha_t
-              us(:,iy,iz,2) = -dsin(alpha)*un
-              us(:,iy,iz,3) = +dcos(alpha)*un
+              if (mask(ix,iy,iz) > 1.0e-12) then
+                mask_color(:,iy,iz) = 1
+                ! velocity (remember: rotation around x0,y0,z0)
+                y = dble(iy)*dy - y0
+                z = dble(iz)*dz - z0
+                R = dsqrt( y**2 + z**2  )
+                un = R*alpha_t
+                us(ix,iy,iz,2) = -dsin(alpha)*un
+                us(ix,iy,iz,3) = +dcos(alpha)*un
+              endif
            endif
         endif
 
+        ! trailing edge (moving endpoint)
+        x = dble(ix)*dx - x0
         y = dble(iy)*dy - (y0 + L*dcos(alpha))
         z = dble(iz)*dz - (z0 + L*dsin(alpha))
-
+        
         if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
            R = dsqrt( y**2 + z**2 )
-           call SmoothStep (tmp, R, H, N*max(dx,dy,dz))
-           if (mask(1,iy,iz)<tmp) then
-              mask(:,iy,iz) = tmp
-              
-              ! assign color "1" where >0 indicates something "useful"
-              if (tmp > 1.0e-12) mask_color(:,iy,iz) = 1
-              
-              y = dble(iy)*dy - y0
-              z = dble(iz)*dz - z0
-              R = dsqrt( y**2 + z**2  )
-              un = R*alpha_t
-              us(:,iy,iz,2) = -dsin(alpha)*un
-              us(:,iy,iz,3) = +dcos(alpha)*un
+           call SmoothStep (tmp1, R, H, N*max(dx,dy,dz))
+           call SmoothStep (tmp2, dabs(x), 0.5d0*W, N*max(dx,dy,dz))
+           ! overwrite if new value is larger
+           if (mask(ix,iy,iz)<tmp1*tmp2) then
+              mask(ix,iy,iz) = tmp1*tmp2
+              if (mask(ix,iy,iz) > 1.0e-12) then 
+                ! assign color "1" where >0 indicates something "useful"
+                mask_color(ix,iy,iz) = 1
+                ! velocity (remember: rotation around x0,y0,z0)
+                y = dble(iy)*dy - y0
+                z = dble(iz)*dz - z0
+                R = dsqrt( y**2 + z**2  )
+                un = R*alpha_t
+                us(ix,iy,iz,2) = -dsin(alpha)*un
+                us(ix,iy,iz,3) = +dcos(alpha)*un
+              endif
            endif
         endif
 
      enddo
+  enddo
   enddo
 end subroutine Flapper
 
