@@ -162,6 +162,34 @@ subroutine scalar_source ( time, theta )
   integer :: ix,iy,iz
 
   select case (source_term)
+  case ("for_flapper")
+    do ix=ra(1),rb(1)
+      do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)  
+          x = dble(ix)*dx
+          y = dble(iy)*dy
+          z = dble(iz)*dz
+          chi = 0.d0
+          
+          ! first 8 px: remove outlet
+          if (ix>=nx-1-8) then
+            chi = -(theta(ix,iy,iz)) / eps
+          endif
+          
+          ! dye injectin line
+          if (dabs(x-x0) <= 0.54d0 / 2.d0 ) then
+          if (dabs(y-y0+8.d0*dx) < 4.d0*dx) then
+          if (dabs(z-z0) < 4.d0*dx) then
+            chi = -(theta(ix,iy,iz)-1.d0) / eps
+          endif
+          endif
+          endif
+          
+          theta(ix,iy,iz)=chi
+        enddo
+      enddo
+    enddo  
+  
   case("cuboid")
     do ix=ra(1),rb(1)
       do iy=ra(2),rb(2)
