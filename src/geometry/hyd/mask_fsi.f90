@@ -50,7 +50,7 @@ subroutine create_mask_fsi (time, Insect, beams )
   ! add cavity / channel mask 
   !-------------------------------------------------------------  
   ! if desired, add cavity mask surrounding the domain
-  if ((iCavity=="yes").and.(iPenalization==1)) then
+  if ((iCavity/="no").and.(iPenalization==1)) then
     call Add_Cavity ()
   endif
   
