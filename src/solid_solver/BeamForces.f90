@@ -105,13 +105,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   ! multiplying the pressure with a startup conditioner.
   ! Note this does not apply for gravity or imposed motion.
   !-----------------------------------------------------------------------------  
-  if (time <= T_release) then
-      soft_startup = 0.0
-  elseif ( ( time >T_release ).and.(time<(T_release + tau)) ) then
-      soft_startup =  ((time-T_release)**3)/(-0.5*tau**3) + 3.*((time-T_release)**2)/tau**2
-  else
-      soft_startup = 1.0
-  endif
+  soft_startup = startup_conditioner(time,T_release,tau)
   
   !-----------------------------------------------------------------------------
   ! Mask inactive points 

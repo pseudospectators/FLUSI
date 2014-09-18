@@ -51,7 +51,7 @@ subroutine draw_cylinder_x
           call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
           mask (ix, iy, iz) = tmp
           us(ix,iy,iz,1) = 0.d0
-          us(ix,iy,iz,2) = 1.d0
+          us(ix,iy,iz,2) = 0.d0
           us(ix,iy,iz,3) = 0.d0
 
           ! assign color "1" where >0 indicates something "useful"

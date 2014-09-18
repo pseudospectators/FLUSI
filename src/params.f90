@@ -250,6 +250,10 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   call param_dbl(PARAMS,i,"MeanFlow","ux",uxmean, 1.d0) 
   call param_dbl(PARAMS,i,"MeanFlow","uy",uymean, 1.d0) 
   call param_dbl(PARAMS,i,"MeanFlow","uz",uzmean, 1.d0) 
+  call param_str(PARAMS,i,"MeanFlow","iMeanFlowStartupConditioner",&
+       iMeanFlowStartupConditioner,"no")
+  call param_dbl(PARAMS,i,"MeanFlow","tau_meanflow",tau_meanflow, 0.d0) 
+  call param_dbl(PARAMS,i,"MeanFlow","T_release_meanflow",T_release_meanflow,0.d0) 
 
   ! for compatibility with old files:
   if (old_meanflow=="1") then 

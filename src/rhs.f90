@@ -109,6 +109,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: t0,t1,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   real(kind=pr) :: fx,fy,fz,fx1,fy1,fz1
+  real(kind=pr) :: soft_startup
   integer :: ix,iz,iy,mpicode
   t0 = MPI_wtime()
   fx=0.d0; fy=0.d0; fz=0.d0
@@ -188,15 +189,30 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   
   !-----------------------------------------------------------------------------
   ! dynamic mean flow forcing (fix fluid mass manually, domain-independent)
+  ! The Mean Flow is governed by the zeroth Fourier mode of the RHS. Note this
+  ! is independent of the pressure (since it has vannishing spatial avg).
+  ! If the meanflow at t=0 is not 0, the startup singularity in the forces
+  ! causes problems. for this case, we use the startup conditioner to keep
+  ! the meanflow const until T_release_meanflow, then gently turning it on
+  ! during the time tau_meanflow
   !-----------------------------------------------------------------------------
   if(iMeanFlow_x=="dynamic".or.iMeanFlow_y=="dynamic".or.iMeanFlow_z=="dynamic") then 
     ! integral forces:
-    fx=fx*dx*dy*dz
-    fy=fy*dx*dy*dz
-    fz=fz*dx*dy*dz
+    fx = fx*dx*dy*dz
+    fy = fy*dx*dy*dz
+    fz = fz*dx*dy*dz
     call MPI_ALLREDUCE ( fx,fx1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
     call MPI_ALLREDUCE ( fy,fy1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
     call MPI_ALLREDUCE ( fz,fz1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
+    
+    ! startup conditioner (See vars.f90)
+    if (iMeanFlowStartupConditioner=="yes") then
+      soft_startup = startup_conditioner(time,T_release_meanflow,tau_meanflow)
+      fx1 = fx1*soft_startup
+      fy1 = fy1*soft_startup
+      fz1 = fz1*soft_startup
+    endif
+    
     ! fixing the fluid mass means modifying the zero mode of RHS term
     if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
       if(iMeanFlow_x=="dynamic") nlk(0,0,0,1) = -fx1 / m_fluid

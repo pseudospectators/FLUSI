@@ -198,6 +198,24 @@ module vars
       call random_number( rand_nbr )
     end function 
     !---------------------------------------------------------------------------
+    ! soft startup funtion, is zero until time=time_release, then gently goes to
+    ! one during the time period time_tau 
+    real(kind=pr) function startup_conditioner(time,time_release,time_tau)
+      implicit none
+      real(kind=pr), intent(in) :: time,time_release,time_tau
+      real(kind=pr) :: t
+      
+      t = time-time_release
+      
+      if (time <= time_release) then
+        startup_conditioner = 0.d0
+      elseif ( ( time >time_release ).and.(time<(time_release + time_tau)) ) then
+        startup_conditioner =  (t**3)/(-0.5d0*time_tau**3) + 3.d0*(t**2)/time_tau**2
+      else
+        startup_conditioner = 1.d0
+      endif
+      
+    end function
 end module vars
 
 
@@ -226,11 +244,17 @@ module fsi_vars
   ! arrays (THIS IS A HACK - TO BE REMOVED)
   complex(kind=pr),allocatable,dimension(:,:,:,:)::nlk_tmp
   complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
-
+  integer,save :: iSaveSolidVelocity
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
+  
+  ! mean flow control
   real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid
   character(len=strlen),save :: iMeanFlow_x,iMeanFlow_y,iMeanFlow_z
-  integer,save :: iSaveSolidVelocity
+  ! mean flow startup conditioner (if "dynamic" and mean flow at t=0 is not zero
+  ! the forces are singular at the beginning. use the startup conditioner to 
+  ! avoid large accelerations in mean flow at the beginning)
+  character(len=strlen),save :: iMeanFlowStartupConditioner
+  real(kind=pr) :: tau_meanflow, T_release_meanflow
   
   ! parameters for passive scalar advection
   integer, save :: use_passive_scalar
