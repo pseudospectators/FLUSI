@@ -2,6 +2,7 @@
 subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
   use fsi_vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -12,41 +13,83 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(in) :: time
-  real(kind=pr) :: t1,t0
+  real(kind=pr) :: t1,t0,kx,ky,kz
   integer, intent(in) :: it
+  integer :: ix,iy,iz
+  complex(kind=pr) :: imag,pk   ! imaginary unit
+  imag = dcmplx(0.d0,1.d0)
+  
   t0 = MPI_wtime()
   
   select case(method)
   case("fsi") 
-    !---------------------------------------------------------------------------
-    ! FSI case. note projection is outsourced and performed here. 
-    !---------------------------------------------------------------------------
-    ! compute source-terms, *not* divergence-free
-    t1 = MPI_wtime()
-    call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
-    time_nlk2 = time_nlk2 + MPI_wtime() - t1 
-    
-    t1 = MPI_wtime()   
-    ! if we compute active FSI (with flexible obstacles), we need the pressure
-    if (use_solid_model=="yes") then
-      call pressure( nlk,workc(:,:,:,1) )
-      ! transform it to phys space (note "press" has ghostpoints, cut them here)
-      call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+    if (projection=="poisson") then
+        !---------------------------------------------------------------------------
+        ! FSI case. note projection is outsourced and performed here. 
+        !---------------------------------------------------------------------------
+        ! compute source-terms, *not* divergence-free
+        t1 = MPI_wtime()
+        call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
+        time_nlk2 = time_nlk2 + MPI_wtime() - t1 
+        
+        t1 = MPI_wtime()   
+        ! if we compute active FSI (with flexible obstacles), we need the pressure
+        if (use_solid_model=="yes") then
+          call pressure( nlk,workc(:,:,:,1) )
+          ! transform it to phys space (note "press" has ghostpoints, cut them here)
+          call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+        endif
+        ! project the right hand side to the incompressible manifold
+        call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+        ! for global performance measurement
+        time_p = time_p + MPI_wtime() - t1 
+        
+        !---------------------------------------------------------------------------
+        ! passive scalar (currently only one) the work array vort is now free
+        ! so use it in cal_nlk_scalar
+        !---------------------------------------------------------------------------
+        t1 = MPI_wtime()
+        if ((use_passive_scalar==1).and.(compute_scalar)) then
+          call cal_nlk_scalar(time,it,u,uk(:,:,:,4),nlk(:,:,:,4),workc(:,:,:,1),vort)
+        endif
+        time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
+        
+        
+        
+        
+        
+    elseif (projection=="ACM") then
+        ! compute source-terms, *not* divergence-free
+        t1 = MPI_wtime()
+        call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
+        time_nlk2 = time_nlk2 + MPI_wtime() - t1 
+        
+        ! add pressure gradient
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
+          do iy=ca(2),cb(2)
+             ky=wave_y(iy)
+             do ix=ca(3),cb(3)
+               kx=wave_x(ix) 
+               
+               pk = uk(iz,iy,ix,4)
+               
+               nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1)-imag*kx*pk
+               nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2)-imag*ky*pk
+               nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3)-imag*kz*pk
+             enddo
+          enddo
+        enddo
+        
+        ! compute pressure RHS
+        call divergence( uk(:,:,:,1:3), workc(:,:,:,1) )
+        nlk(:,:,:,4) = -c_0**2 * workc(:,:,:,1)
+        
+        
+    else
+      if(mpirank==0) write(*,*) "switch incompressibility=", projection
+      call abort()
     endif
-    ! project the right hand side to the incompressible manifold
-    call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-    ! for global performance measurement
-    time_p = time_p + MPI_wtime() - t1 
-    
-    !---------------------------------------------------------------------------
-    ! passive scalar (currently only one) the work array vort is now free
-    ! so use it in cal_nlk_scalar
-    !---------------------------------------------------------------------------
-    t1 = MPI_wtime()
-    if ((use_passive_scalar==1).and.(compute_scalar)) then
-      call cal_nlk_scalar(time,it,u,uk(:,:,:,4),nlk(:,:,:,4),workc(:,:,:,1),vort)
-    endif
-    time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
     
   case("mhd") 
      !--------------------------------------------------------------------------

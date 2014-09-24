@@ -73,20 +73,23 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
   endif
 
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! ensure that the mask function is at the right time
-  if (isavePress==1) then
+  ! When saving the pressure and using the Poisson projection approach, we first
+  ! compute the right hand side at time "time", which also means reconstructing
+  ! the mask function prior to calling cal_nlk_fsi (if mask is time dependend)
+  ! note that nlk after cal_nlk_fsi is not yet projected (in the main time stepping
+  ! this is done in main cal_nlk)
+  if ( isavePress==1 .and. projection=="poisson") then
     if (iMoving==1) call create_mask (time, Insect, beams)
     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
   endif
-  !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     
-  !-------------  
-  ! Velocity (returned in x-space by cal_nlk_fsi)
-  !-------------
+  
+  ! Save the velocity. If we also save the pressure AND use the poisson projection
+  ! approach, then the previous call to cal_nlk_fsi returned u=ifft(uk), other-
+  ! wise we have to manually to that here.
   if (isaveVelocity == 1) then
-    if (iSavePress==0) then
-      ! the cal_nlk has not been called, and we need to do the IFFT
+    if (iSavePress==0 .and. projection=="poisson") then
+      ! routine cal_nlk_fsi has not been called, and we need to do the IFFT
       call ifft3(ink=uk(:,:,:,1:nd),outx=u(:,:,:,1:nd))
     endif
     call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
@@ -94,17 +97,26 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
   endif
   
-  !-------------  
-  ! Pressure
-  !-------------
+  
+  ! Save the pressure. When using Poisson projection approach, compute pressure
+  ! then save. With ACM, just save it
   if (isavePress == 1) then  
-    ! compute pressure (remember NLK is *not* divergence free)
-    call pressure( nlk,workc(:,:,:,1) )
-    ! total pressure in x-space
-    call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
-    ! get actuall pressure (we're in the rotational formulation)
-    work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-    call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
+    if (projection=="poisson") then
+        ! when using Poisson projection approach, we must recompute the pressure
+        ! here in order to save it. 
+        ! compute pressure (remember NLK is *not* divergence free)
+        call pressure( nlk,workc(:,:,:,1) )
+        ! total pressure in x-space
+        call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
+        ! get actuall pressure (we're in the rotational formulation)
+        work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+        call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
+    elseif (projection=="ACM") then
+        ! When using artificial compressibility, the pressure is always computed
+        ! in the time evolution and can just be saved here
+        call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
+        call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
+    endif
   endif
      
   !-------------  

@@ -643,6 +643,10 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
     endif
   enddo
   
+  if (projection=="ACM") then
+    uk(:,:,:,4)=(uk(:,:,:,4) + dt1*nlk(:,:,:,4,n0))
+  endif
+  
   if (method=="mhd") then
     do i=4,6
       !-- advance B-field
@@ -661,6 +665,10 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
     t1 = MPI_wtime()
     uk(:,:,:,4)=uk(:,:,:,4) + dt1*nlk(:,:,:,4,n0)
     time_scalar = time_scalar + MPI_wtime() - t1
+    if (projection=="ACM") then
+      write(*,*) "conflict ACM scalar...fail!"
+      call abort()
+    endif
   endif
   
   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
@@ -716,6 +724,10 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
       nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
     endif
   enddo
+  
+  if (projection=="ACM") then
+    uk(:,:,:,4)=uk(:,:,:,4)+b10*nlk(:,:,:,4,n0)+b11*nlk(:,:,:,4,n1)
+  endif
   
   !-- advance B-field in time
   if (method=="mhd") then
@@ -819,7 +831,7 @@ end subroutine AB2_rigid_solid
 ! 5 - dt is smaller than tsave and tintegral
 !-------------------------------------------------------------------------------
 subroutine adjust_dt(dt1,u)
-  use vars
+  use fsi_vars
   use mpi
   use basic_operators
   implicit none
@@ -870,6 +882,10 @@ subroutine adjust_dt(dt1,u)
         endif
         if(tintegral > 0.d0 .and. dt1 > tintegral) then
            dt1=tintegral
+        endif
+        
+        if (projection=="ACM") then
+          dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
         endif
         
         !-- impose max dt, if specified

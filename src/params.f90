@@ -270,6 +270,14 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   endif
 
   ! ---------------------------------------------------
+  ! Incompressibility
+  ! ---------------------------------------------------
+  call param_str(PARAMS,i,"Incompressibility","projection",&
+       projection,"poisson")
+  call param_dbl(PARAMS,i,"Incompressibility","c_0",&
+       c_0, 0.d0)    
+       
+  ! ---------------------------------------------------
   ! solid model (TODO: SAME LEVEL OF OBJECT ORIENTATION AS INSECT)
   ! ---------------------------------------------------
   call get_params_solid( PARAMS, i )

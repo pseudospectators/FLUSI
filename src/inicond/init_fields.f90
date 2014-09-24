@@ -27,8 +27,8 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   !----------------------------------------------------------------------------- 
   select case(method)
   case("fsi") 
-     call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
-          workc,press,Insect,beams)
+     call init_fields_fsi(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,&
+          work,workc,press,Insect,beams)
   case("mhd")
      call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
@@ -43,6 +43,11 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   !-----------------------------------------------------------------------------
   if (mpirank==0) write(*,'("Creating startup mask...time=",es12.4)') time
   call create_mask(time,Insect,beams)
+  
+  
+    ! for artifical compressibility, the pressure uk(:,:,:,4) has to be initialized
+  call pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
+  call fft(inx = press, outk=uk(:,:,:,4) )
   
   !-----------------------------------------------------------------------------
   ! save initial conditions (if not resuming a backup)

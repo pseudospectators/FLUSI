@@ -224,6 +224,9 @@ module fsi_vars
   use vars
   implicit none
   
+  character(len=strlen), save :: projection
+  real(kind=pr), save :: c_0
+  
   ! switch for vorticity sponge:
   character(len=strlen), save :: iVorticitySponge, iSpongeType
   real(kind=pr), save :: eps_sponge

@@ -1,5 +1,5 @@
 ! Set initial conditions for fsi code.
-subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,Insect,beams)
+subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -10,8 +10,10 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   integer,intent (inout) :: n1,it,n0
   real (kind=pr),intent (inout) :: time,dt1,dt0
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   ! the workc array is not always allocated, ensure allocation before using
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
@@ -150,6 +152,11 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
         call abort()
      endif
   end select
+  
+  
+  
+
+  
   
   
   !-----------------------------------------------------------------------------

@@ -85,11 +85,12 @@ subroutine Start_Simulation()
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
   nf=1    ! We are evolving one field (that means 1 integrating factor)
-  nd=3*nf ! The one field has three components.
-  neq=nd  ! number of equations, can be higher than 3 if using passive scalar
+  nd=3 ! The one field has three components.
+  neq=4  ! number of equations, can be higher than 3 if using passive scalar
   nrw=1   ! number of real valued work arrays
   ncw=1   ! number of complex values work arrays (decide that later)
 
+  
   ! initialize timing variables
   time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
   time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
@@ -205,13 +206,13 @@ subroutine Start_Simulation()
   memory = memory + dble(nrw)*mem_field
   
   ! pressure array. this is with ghost points for interpolation
-  if (use_solid_model=="yes") then
+!   if (use_solid_model=="yes") then
     allocate(press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
     if(mpirank==0) write(*,*) "press array is allocated"
     memory = memory + mem_field
-  else
-    allocate(press(0:1,0:1,0:1))
-  endif
+!   else
+!     allocate(press(0:1,0:1,0:1))
+!   endif
   
   ! vorticity sponge, work array that is used for sponge and/or passive scalar
   if (iVorticitySponge=="yes") then
