@@ -204,7 +204,8 @@ subroutine Start_Simulation()
   nrw = 1  
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
   memory = memory + dble(nrw)*mem_field
-  
+
+! NOTE: we'll have to change this for ACM  
   ! pressure array. this is with ghost points for interpolation
 !   if (use_solid_model=="yes") then
     allocate(press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
