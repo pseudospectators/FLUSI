@@ -23,6 +23,10 @@ program FLUSI
       ! the file is an *.ini file -> we run a normal simulation 
       !-------------------------------------------------------------------------
       call Start_Simulation()    
+      
+  elseif (infile=='--fd') then
+      
+      call fd_testing()
 
   elseif ( infile == "--postprocess") then 
       !-------------------------------------------------------------------------
@@ -51,6 +55,106 @@ program FLUSI
   call exit(0)
 end program FLUSI
 
+
+subroutine fd_testing()
+  use mpi
+  use fsi_vars
+  use p3dfft_wrapper
+  real(kind=pr),dimension(:,:,:),allocatable :: u,udx,udx2
+  complex(kind=pr),dimension(:,:,:),allocatable :: uk
+  integer :: ix,idx,iy,iz
+  real(kind=pr)::t1,t2,t3,dxinv,err,kx
+  
+  nx=384
+  ny=384
+  nz=384
+  pi=4.d0 *datan(1.d0)
+  xl=2.d0*pi
+  yl=2.d0*pi
+  zl=2.d0*pi
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl 
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+  ng=1!nb ghost ppints
+  call fft_initialize()
+  call print_domain_decomposition()
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(udx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+  allocate(udx2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  
+  ! fill array
+  do ix=ra(1),rb(1)
+    u(ix,:,:) = dsin( dble(ix)*dx*2.d0*pi/xl )
+  enddo
+  
+  !-----------------------------------------------------------------------------
+  ! to fourier space
+  call fft ( uk, u )
+  
+  t1=MPI_wtime()
+  do idx=1,10
+    ! compute gradient
+    do ix=ca(3), cb(3)
+      kx = wave_x( ix )
+      uk(:,:,ix) = uk(:,:,ix) * kx *dcmplx(0.d0,1.d0)
+    enddo
+    
+    ! to x space
+    call ifft ( u, uk )
+  enddo
+  t2=MPI_wtime()-t1
+  if (mpirank==0) write(*,'("fft=",es15.8)') t2
+  !-----------------------------------------------------------------------------
+  
+  do iz=ra(3),rb(3)
+      u(:,:,iz) = dsin( dble(iz)*dz*2.d0*pi/zl )
+  enddo
+  
+  t1=MPI_wtime()
+  dxinv=1.d0/(2.d0*dz)
+!   write(*,*) dxinv
+!   stop
+t3=0.d0
+  do idx=1,10
+    ! copy data
+    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
+    kx=MPI_wtime()
+    call synchronize_ghosts(udx)
+    t3=t3+MPI_wtime()-kx
+    udx2=udx
+!     do ix=ra(1),rb(1)
+!     do iy=ra(2),rb(2)
+!     do iz=ra(3),rb(3)
+!       udx(ix,iy,iz) = dxinv*(udx2(ix,iy,iz+1)-udx2(ix,iy,iz-1))
+!     enddo
+!     enddo
+!     enddo
+    do iz=ra(3),rb(3)
+      udx(ra(1):rb(1),ra(2):rb(2),iz) = dxinv*(udx2(ra(1):rb(1),ra(2):rb(2),iz+1)-udx2(ra(1):rb(1),ra(2):rb(2),iz-1))
+    enddo
+  enddo
+  t2=MPI_wtime()-t1
+  
+  write(*,'("rank",i2, " fd=",es15.8, " sync=",es15.8)') mpirank,t2,t3
+  
+  ! compute error
+  err = 0.d0  
+  do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do iz=ra(3),rb(3)
+        err = err + (udx(ix,iy,iz)-dcos( dble(iz)*dz*2.d0*pi/zl )*2.d0*pi/zl)**2
+      enddo
+    enddo
+  enddo    
+  err = err*dx*dy*dz
+  write(*,'("err=",es15.8)') err
+  
+  
+end subroutine fd_testing
 
 
 
