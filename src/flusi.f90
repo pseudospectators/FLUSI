@@ -65,9 +65,9 @@ subroutine fd_testing()
   integer :: ix,idx,iy,iz
   real(kind=pr)::t1,t2,t3,dxinv,err,kx
   
-  nx=384
-  ny=384
-  nz=384
+  nx=400
+  ny=nx
+  nz=nx
   pi=4.d0 *datan(1.d0)
   xl=2.d0*pi
   yl=2.d0*pi
@@ -96,7 +96,7 @@ subroutine fd_testing()
   call fft ( uk, u )
   
   t1=MPI_wtime()
-  do idx=1,10
+  do idx=1,2
     ! compute gradient
     do ix=ca(3), cb(3)
       kx = wave_x( ix )
@@ -114,32 +114,63 @@ subroutine fd_testing()
       u(:,:,iz) = dsin( dble(iz)*dz*2.d0*pi/zl )
   enddo
   
-  t1=MPI_wtime()
+  
   dxinv=1.d0/(2.d0*dz)
-!   write(*,*) dxinv
-!   stop
-t3=0.d0
-  do idx=1,10
+  !------------------------------------------------------------------------------
+  t3=0.d0
+  t1=MPI_wtime()
+  do idx=1,2
     ! copy data
     udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
     kx=MPI_wtime()
     call synchronize_ghosts(udx)
     t3=t3+MPI_wtime()-kx
     udx2=udx
-!     do ix=ra(1),rb(1)
-!     do iy=ra(2),rb(2)
-!     do iz=ra(3),rb(3)
-!       udx(ix,iy,iz) = dxinv*(udx2(ix,iy,iz+1)-udx2(ix,iy,iz-1))
-!     enddo
-!     enddo
-!     enddo
+    do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+    do iz=ra(3),rb(3)
+      udx(ix,iy,iz) = dxinv*(udx2(ix,iy,iz+1)-udx2(ix,iy,iz-1))
+    enddo
+    enddo
+    enddo
+  enddo
+  t2=MPI_wtime()-t1  
+  write(*,'("rank",i2, " fd=",es15.8, " sync=",es15.8)') mpirank,t2,t3
+  !------------------------------------------------------------------------------
+  t3=0.d0
+  t1=MPI_wtime()
+  do idx=1,2
+    ! copy data
+    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
+    kx=MPI_wtime()
+    call synchronize_ghosts(udx)
+    t3=t3+MPI_wtime()-kx
+    udx2=udx
     do iz=ra(3),rb(3)
       udx(ra(1):rb(1),ra(2):rb(2),iz) = dxinv*(udx2(ra(1):rb(1),ra(2):rb(2),iz+1)-udx2(ra(1):rb(1),ra(2):rb(2),iz-1))
     enddo
   enddo
-  t2=MPI_wtime()-t1
-  
+  t2=MPI_wtime()-t1  
   write(*,'("rank",i2, " fd=",es15.8, " sync=",es15.8)') mpirank,t2,t3
+  !------------------------------------------------------------------------------
+  t3=0.d0
+  t1=MPI_wtime()
+  do idx=1,2
+    ! copy data
+    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
+    kx=MPI_wtime()
+    call synchronize_ghosts(udx)
+    t3=t3+MPI_wtime()-kx
+    udx2=udx
+    do iy=ra(2),rb(2)
+    do iz=ra(3),rb(3)
+      udx(ra(1):rb(1),iy,iz) = dxinv*(udx2(ra(1):rb(1),iy,iz+1)-udx2(ra(1):rb(1),iy,iz-1))
+    enddo
+    enddo
+  enddo
+  t2=MPI_wtime()-t1  
+  write(*,'("rank",i2, " fd=",es15.8, " sync=",es15.8)') mpirank,t2,t3
+  !!!!!!!!!!!!!!
   
   ! compute error
   err = 0.d0  
