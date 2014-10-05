@@ -110,6 +110,7 @@ subroutine fd_testing()
   if (mpirank==0) write(*,'("fft=",es15.8)') t2
   !-----------------------------------------------------------------------------
   
+  !-- fill array again
   do iz=ra(3),rb(3)
       u(:,:,iz) = dsin( dble(iz)*dz*2.d0*pi/zl )
   enddo
@@ -135,7 +136,7 @@ subroutine fd_testing()
     enddo
   enddo
   t2=MPI_wtime()-t1  
-  write(*,'("rank",i2, " fd=",es15.8, " sync=",es15.8)') mpirank,t2,t3
+  write(*,'("rank",i2, " fd=",es15.8, " (three loops) sync=",es15.8)') mpirank,t2,t3
   !------------------------------------------------------------------------------
   t3=0.d0
   t1=MPI_wtime()
@@ -151,7 +152,7 @@ subroutine fd_testing()
     enddo
   enddo
   t2=MPI_wtime()-t1  
-  write(*,'("rank",i2, " fd=",es15.8, " sync=",es15.8)') mpirank,t2,t3
+  write(*,'("rank",i2, " fd=",es15.8, " (one loop) sync=",es15.8)') mpirank,t2,t3
   !------------------------------------------------------------------------------
   t3=0.d0
   t1=MPI_wtime()
@@ -169,7 +170,28 @@ subroutine fd_testing()
     enddo
   enddo
   t2=MPI_wtime()-t1  
-  write(*,'("rank",i2, " fd=",es15.8, " sync=",es15.8)') mpirank,t2,t3
+  write(*,'("rank",i2, " fd=",es15.8, " (two loops) sync=",es15.8)') mpirank,t2,t3
+  !------------------------------------------------------------------------------
+  t3=0.d0
+  t1=MPI_wtime()
+  do idx=1,2
+    ! copy data
+    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
+    kx=MPI_wtime()
+    call synchronize_ghosts(udx)
+    t3=t3+MPI_wtime()-kx
+    ! copy
+    udx2=udx
+    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = &
+        udx2(ra(1):rb(1),ra(2):rb(2),ra(3)+1:rb(3)+1)
+    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = &
+        udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))&
+        -udx2(ra(1):rb(1),ra(2):rb(2),ra(3)-1:rb(3)-1)
+    udx=udx*dxinv
+  enddo
+  t2=MPI_wtime()-t1  
+  write(*,'("rank",i2, " fd=",es15.8, " (zero loops) sync=",es15.8)') mpirank,t2,t3
+  
   !!!!!!!!!!!!!!
   
   ! compute error
