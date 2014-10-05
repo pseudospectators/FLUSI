@@ -62,7 +62,7 @@ subroutine fd_testing()
   use p3dfft_wrapper
   real(kind=pr),dimension(:,:,:),allocatable :: u,udx,udx2
   complex(kind=pr),dimension(:,:,:),allocatable :: uk
-  integer :: ix,idx,iy,iz
+  integer :: ix,idx,iy,iz,n
   real(kind=pr)::t1,t2,t3,dxinv,err,kx
   
   nx=400
@@ -182,16 +182,50 @@ subroutine fd_testing()
     t3=t3+MPI_wtime()-kx
     ! copy
     udx2=udx
-    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = &
-        udx2(ra(1):rb(1),ra(2):rb(2),ra(3)+1:rb(3)+1)
-    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = &
-        udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))&
-        -udx2(ra(1):rb(1),ra(2):rb(2),ra(3)-1:rb(3)-1)
-    udx=udx*dxinv
+    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = (&
+         udx2(ra(1):rb(1),ra(2):rb(2),ra(3)+1:rb(3)+1) &
+        -udx2(ra(1):rb(1),ra(2):rb(2),ra(3)-1:rb(3)-1) )*dxinv
   enddo
   t2=MPI_wtime()-t1  
   write(*,'("rank",i2, " fd=",es15.8, " (zero loops) sync=",es15.8)') mpirank,t2,t3
+  !------------------------------------------------------------------------------
+  t3=0.d0
+  do n=1,400,1
   
+  if (modulo(nx,n).ne.0) cycle
+  
+  t1=MPI_wtime()
+  do idx=1,2
+    ! copy data
+    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
+    kx=MPI_wtime()
+    call synchronize_ghosts(udx)
+    t3=t3+MPI_wtime()-kx
+    ! copy
+    udx2=udx
+    
+    do ix=ra(1),rb(1),n
+      do iy=ra(2),rb(2),n     
+        do iz=ra(3),rb(3),n     
+          udx(ix:ix+n-1,iy:iy+n-1,iz:iz+n-1) = &
+              (udx2(ix:ix+n-1,iy:iy+n-1,iz+1:iz+n-1+1) &
+              -udx2(ix:ix+n-1,iy:iy+n-1,iz-1:iz+n-1-1))*dxinv
+        enddo
+      enddo
+    enddo
+    
+!     do ix=ra(1),rb(1),n
+!       do iy=ra(2),rb(2),n       
+!         udx(ix:ix+n-1,iy:iy+n-1,ra(3):rb(3)) = &
+!             (udx2(ix:ix+n-1,iy:iy+n-1,ra(3)+1:rb(3)+1) &
+!             -udx2(ix:ix+n-1,iy:iy+n-1,ra(3)-1:rb(3)-1))*dxinv
+!       enddo
+!     enddo
+    
+  enddo
+  t2=MPI_wtime()-t1  
+  write(*,'("rank",i2, " fd=",es15.8, " (zero loops,cache) sync=",es15.8," n=",i4)') mpirank,t2,t3,n
+enddo  
   !!!!!!!!!!!!!!
   
   ! compute error
