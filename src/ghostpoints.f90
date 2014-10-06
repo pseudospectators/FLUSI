@@ -26,33 +26,36 @@ subroutine synchronize_ghosts ( field )
   if ((decomposition=="1D").and.(ng>0)) then
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   
-    destination = per( mpirank+1, mpisize )             ! send to your right
-    origin      = per( mpirank-1, mpisize )             ! get from your left
-    call MPI_sendrecv( field(:,:,izmax-ng+1:izmax),&    ! send buffer
-                      nx*ny*ng,&                        ! send buffer size
-                      MPI_DOUBLE_PRECISION,&
-                      destination,&                     ! whom to send it to
-                      mpirank,&                         ! send tag
-                      field(:,:,izmin-1-ng+1:izmin-1),& ! receive buffer
-                      nx*ny*ng,&                        ! recvcount
-                      MPI_DOUBLE_PRECISION,&
-                      origin,&                          ! source
-                      origin,&                          ! recv tag
-                      MPI_COMM_WORLD,status,mpicode)
-                      
-    destination = per( mpirank-1, mpisize ) ! send to your left
-    origin      = per( mpirank+1, mpisize ) ! get from your right
-    call MPI_sendrecv( field(:,:,izmin:izmin+ng-1),&    ! send buffer
-                      nx*ny*ng,&                        ! send buffer size
-                      MPI_DOUBLE_PRECISION,&
-                      destination,&                     ! whom to send it to
-                      mpirank,&                         ! send tag
-                      field(:,:,izmax+1:izmax+1-ng+1),& ! receive buffer
-                      nx*ny*ng,&                        ! recvcount
-                      MPI_DOUBLE_PRECISION,&
-                      origin,&                          ! source
-                      origin,&                          ! recv tag
-                      MPI_COMM_WORLD,status,mpicode)                 
+  ! in the third (z) direction, the data is spread accros processes
+  destination = per( mpirank+1, mpisize )             ! send to your right
+  origin      = per( mpirank-1, mpisize )             ! get from your left
+  call MPI_sendrecv( &
+        field(ra(1):rb(1),ra(2):rb(2),izmax-ng+1:izmax),&    ! send buffer
+        nx*ny*ng,&                        ! send buffer size
+        MPI_DOUBLE_PRECISION,&
+        destination,&                     ! whom to send it to
+        mpirank,&                         ! send tag
+        field(ra(1):rb(1),ra(2):rb(2),izmin-1-ng+1:izmin-1),& ! receive buffer
+        nx*ny*ng,&                        ! recvcount
+        MPI_DOUBLE_PRECISION,&
+        origin,&                          ! source
+        origin,&                          ! recv tag
+        MPI_COMM_WORLD,status,mpicode)
+        
+  destination = per( mpirank-1, mpisize ) ! send to your left
+  origin      = per( mpirank+1, mpisize ) ! get from your right
+  call MPI_sendrecv( &
+        field(ra(1):rb(1),ra(2):rb(2),izmin:izmin+ng-1),&    ! send buffer
+        nx*ny*ng,&                        ! send buffer size
+        MPI_DOUBLE_PRECISION,&
+        destination,&                     ! whom to send it to
+        mpirank,&                         ! send tag
+        field(ra(1):rb(1),ra(2):rb(2),izmax+1:izmax+1+ng-1),& ! receive buffer
+        nx*ny*ng,&                        ! recvcount
+        MPI_DOUBLE_PRECISION,&
+        origin,&                          ! source
+        origin,&                          ! recv tag
+        MPI_COMM_WORLD,status,mpicode)               
   
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   elseif ((decomposition=="2D").and.(ng>0)) then
