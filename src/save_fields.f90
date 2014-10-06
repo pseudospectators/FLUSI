@@ -15,20 +15,20 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
-  t1 = MPI_wtime()
-
-
-  select case(method)
-     case("fsi") 
-        call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)        
-     case("mhd") 
-        call save_fields_mhd(time,uk,u,vort,nlk)
-     case default
-        if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
-        call abort()
-  end select
-  
-  time_save=time_save + MPI_wtime() - t1 ! performance analysis  
+!   t1 = MPI_wtime()
+! 
+! 
+!   select case(method)
+!      case("fsi") 
+!         call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)        
+!      case("mhd") 
+!         call save_fields_mhd(time,uk,u,vort,nlk)
+!      case default
+!         if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
+!         call abort()
+!   end select
+!   
+!   time_save=time_save + MPI_wtime() - t1 ! performance analysis  
 end subroutine save_fields
 
 
@@ -58,112 +58,112 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
-  !--Set up file name base    
-  if ( save_only_one_period == "yes" ) then
-    ! overwrite files from last period to save disk space
-    ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-    write(name,'(i5.5)') floor( (time-real(floor(time/tsave_period)))*100.d0 )
-  else
-    ! name is just the time
-    write(name,'(i5.5)') floor(time*100.d0) 
-  endif
-  
-  if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') & 
-    time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
-  endif
-
-  ! When saving the pressure and using the Poisson projection approach, we first
-  ! compute the right hand side at time "time", which also means reconstructing
-  ! the mask function prior to calling cal_nlk_fsi (if mask is time dependend)
-  ! note that nlk after cal_nlk_fsi is not yet projected (in the main time stepping
-  ! this is done in main cal_nlk)
-  if ( isavePress==1 .and. projection=="poisson") then
-    if (iMoving==1) call create_mask (time, Insect, beams)
-    call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
-  endif
-    
-  
-  ! Save the velocity. If we also save the pressure AND use the poisson projection
-  ! approach, then the previous call to cal_nlk_fsi returned u=ifft(uk), other-
-  ! wise we have to manually to that here.
-  if (isaveVelocity == 1) then
-    if (iSavePress==0 .and. projection=="poisson") then
-      ! routine cal_nlk_fsi has not been called, and we need to do the IFFT
-      call ifft3(ink=uk(:,:,:,1:nd),outx=u(:,:,:,1:nd))
-    endif
-    call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
-    call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
-    call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
-  endif
-  
-  
-  ! Save the pressure. When using Poisson projection approach, compute pressure
-  ! then save. With ACM, just save it
-  if (isavePress == 1) then  
-    if (projection=="poisson") then
-        ! when using Poisson projection approach, we must recompute the pressure
-        ! here in order to save it. 
-        ! compute pressure (remember NLK is *not* divergence free)
-        call pressure( nlk,workc(:,:,:,1) )
-        ! total pressure in x-space
-        call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
-        ! get actuall pressure (we're in the rotational formulation)
-        work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-        call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
-    elseif (projection=="ACM") then
-        ! When using artificial compressibility, the pressure is always computed
-        ! in the time evolution and can just be saved here
-        call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
-        call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
-    endif
-  endif
-     
-  !-------------  
-  ! Vorticity
-  !-------------   
-  if (isaveVorticity==1) then
-    !-- compute vorticity:
-    call curl( ink=uk, outk=nlk)
-    call ifft3( ink=nlk, outx=vort )
-    !-- save Vorticity
-    if (isaveVorticity == 1) then
-      call save_field_hdf5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
-      call save_field_hdf5(time,"./vory_"//name,vort(:,:,:,2),"vory")
-      call save_field_hdf5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
-    endif
-  endif
-      
-  !-------------  
-  ! Mask
-  !-------------
-  if (isaveMask == 1 .and. iPenalization == 1) then
-    mask = mask*eps
-    call compute_mask_volume(volume)
-    if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
-    call save_field_hdf5(time,'./mask_'//name,mask,"mask")
-    mask = mask/eps
-  endif
-  
-  !-------------  
-  ! solid velocity
-  !-------------
-  if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
-    call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1),"usx")
-    call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
-    call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
-  endif
-  
-  !------------
-  ! passive scalar
-  !-------------
-  if (use_passive_scalar==1) then
-    call ifft ( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
-    call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
-  endif
-  
-  
-  if (mpirank==0) write(*,*) " ...DONE!"
+!   !--Set up file name base    
+!   if ( save_only_one_period == "yes" ) then
+!     ! overwrite files from last period to save disk space
+!     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
+!     write(name,'(i5.5)') floor( (time-real(floor(time/tsave_period)))*100.d0 )
+!   else
+!     ! name is just the time
+!     write(name,'(i5.5)') floor(time*100.d0) 
+!   endif
+!   
+!   if (mpirank == 0 ) then
+!     write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') & 
+!     time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
+!   endif
+! 
+!   ! When saving the pressure and using the Poisson projection approach, we first
+!   ! compute the right hand side at time "time", which also means reconstructing
+!   ! the mask function prior to calling cal_nlk_fsi (if mask is time dependend)
+!   ! note that nlk after cal_nlk_fsi is not yet projected (in the main time stepping
+!   ! this is done in main cal_nlk)
+!   if ( isavePress==1 .and. projection=="poisson") then
+!     if (iMoving==1) call create_mask (time, Insect, beams)
+!     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
+!   endif
+!     
+!   
+!   ! Save the velocity. If we also save the pressure AND use the poisson projection
+!   ! approach, then the previous call to cal_nlk_fsi returned u=ifft(uk), other-
+!   ! wise we have to manually to that here.
+!   if (isaveVelocity == 1) then
+!     if (iSavePress==0 .and. projection=="poisson") then
+!       ! routine cal_nlk_fsi has not been called, and we need to do the IFFT
+!       call ifft3(ink=uk(:,:,:,1:nd),outx=u(:,:,:,1:nd))
+!     endif
+!     call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
+!     call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
+!     call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
+!   endif
+!   
+!   
+!   ! Save the pressure. When using Poisson projection approach, compute pressure
+!   ! then save. With ACM, just save it
+!   if (isavePress == 1) then  
+!     if (projection=="poisson") then
+!         ! when using Poisson projection approach, we must recompute the pressure
+!         ! here in order to save it. 
+!         ! compute pressure (remember NLK is *not* divergence free)
+!         call pressure( nlk,workc(:,:,:,1) )
+!         ! total pressure in x-space
+!         call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
+!         ! get actuall pressure (we're in the rotational formulation)
+!         work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+!         call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
+!     elseif (projection=="ACM") then
+!         ! When using artificial compressibility, the pressure is always computed
+!         ! in the time evolution and can just be saved here
+!         call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
+!         call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
+!     endif
+!   endif
+!      
+!   !-------------  
+!   ! Vorticity
+!   !-------------   
+!   if (isaveVorticity==1) then
+!     !-- compute vorticity:
+!     call curl( ink=uk, outk=nlk)
+!     call ifft3( ink=nlk, outx=vort )
+!     !-- save Vorticity
+!     if (isaveVorticity == 1) then
+!       call save_field_hdf5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
+!       call save_field_hdf5(time,"./vory_"//name,vort(:,:,:,2),"vory")
+!       call save_field_hdf5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
+!     endif
+!   endif
+!       
+!   !-------------  
+!   ! Mask
+!   !-------------
+!   if (isaveMask == 1 .and. iPenalization == 1) then
+!     mask = mask*eps
+!     call compute_mask_volume(volume)
+!     if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
+!     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
+!     mask = mask/eps
+!   endif
+!   
+!   !-------------  
+!   ! solid velocity
+!   !-------------
+!   if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
+!     call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1),"usx")
+!     call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
+!     call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
+!   endif
+!   
+!   !------------
+!   ! passive scalar
+!   !-------------
+!   if (use_passive_scalar==1) then
+!     call ifft ( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
+!     call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
+!   endif
+!   
+!   
+!   if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields_fsi
 
 

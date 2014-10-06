@@ -59,13 +59,18 @@ end program FLUSI
 subroutine fd_testing()
   use mpi
   use fsi_vars
+  use diff
   use p3dfft_wrapper
-  real(kind=pr),dimension(:,:,:),allocatable :: u,udx,udx2
-  complex(kind=pr),dimension(:,:,:),allocatable :: uk
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u,rhs1,rhs2,rhs3
   integer :: ix,idx,iy,iz,n
+  integer, parameter :: runs=2
   real(kind=pr)::t1,t2,t3,dxinv,err,kx
   
-  nx=400
+  neq=4
+  nd=3
+  ncw=3
+  nrw=1
+  nx=100
   ny=nx
   nz=nx
   pi=4.d0 *datan(1.d0)
@@ -78,169 +83,91 @@ subroutine fd_testing()
   dx = xl/dble(nx)
   dy = yl/dble(ny)
   dz = zl/dble(nz)
-  ng=1!nb ghost ppints
+  eps=0.d0
+  
+  ng=2!nb ghost ppints
+  
+  nu=7.d0
+  c_0=1.d0
+  
   call fft_initialize()
   call print_domain_decomposition()
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  allocate(udx(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
-  allocate(udx2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
-  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  allocate(u   (ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
+  allocate(rhs1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
+  allocate(rhs2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
+  allocate(rhs3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
   
-  ! fill array
-  do ix=ra(1),rb(1)
-    u(ix,:,:) = dsin( dble(ix)*dx*2.d0*pi/xl )
-  enddo
   
-  !-----------------------------------------------------------------------------
-  ! to fourier space
-  call fft ( uk, u )
-  
-  t1=MPI_wtime()
-  do idx=1,2
-    ! compute gradient
-    do ix=ca(3), cb(3)
-      kx = wave_x( ix )
-      uk(:,:,ix) = uk(:,:,ix) * kx *dcmplx(0.d0,1.d0)
-    enddo
-    
-    ! to x space
-    call ifft ( u, uk )
-  enddo
-  t2=MPI_wtime()-t1
-  if (mpirank==0) write(*,'("fft=",es15.8)') t2
-  !-----------------------------------------------------------------------------
-  
-  !-- fill array again
   do iz=ra(3),rb(3)
-      u(:,:,iz) = dsin( dble(iz)*dz*2.d0*pi/zl )
-  enddo
-  
-  
-  dxinv=1.d0/(2.d0*dz)
-  !------------------------------------------------------------------------------
-  t3=0.d0
-  t1=MPI_wtime()
-  do idx=1,2
-    ! copy data
-    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
-    kx=MPI_wtime()
-    call synchronize_ghosts(udx)
-    t3=t3+MPI_wtime()-kx
-    udx2=udx
-    do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)
-    do iz=ra(3),rb(3)
-      udx(ix,iy,iz) = dxinv*(udx2(ix,iy,iz+1)-udx2(ix,iy,iz-1))
+      do ix=ra(1),rb(1)
+        u(ix,iy,iz,1) = dsin(dble(ix)*dx*2.d0*pi/xl)*&
+                        dcos(dble(iz)*dz*2.d0*pi/zl)*&
+                        dsin(dble(iy)*dy*2.d0*pi/yl)
+        u(ix,iy,iz,2) = dcos(dble(ix)*dx*2.d0*pi/xl)*&
+                        dcos(dble(iz)*dz*2.d0*pi/zl)*&
+                        dsin(dble(iy)*dy*2.d0*pi/yl)
+        u(ix,iy,iz,3) = dsin(dble(ix)*dx*2.d0*pi/xl)*&
+                        dcos(dble(iz)*dz*2.d0*pi/zl)*&
+                        dcos(dble(iy)*dy*2.d0*pi/yl)      
+        u(ix,iy,iz,4) = dcos(dble(ix)*dx*2.d0*pi/xl)*&
+                        dcos(dble(iz)*dz*2.d0*pi/zl)*&
+                        dcos(dble(iy)*dy*2.d0*pi/yl)  
+      enddo
     enddo
-    enddo
-    enddo
-  enddo
-  t2=MPI_wtime()-t1  
-  write(*,'("rank",i2, " fd=",es15.8, " (three loops) sync=",es15.8)') mpirank,t2,t3
-  !------------------------------------------------------------------------------
-  t3=0.d0
-  t1=MPI_wtime()
-  do idx=1,2
-    ! copy data
-    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
-    kx=MPI_wtime()
-    call synchronize_ghosts(udx)
-    t3=t3+MPI_wtime()-kx
-    udx2=udx
-    do iz=ra(3),rb(3)
-      udx(ra(1):rb(1),ra(2):rb(2),iz) = dxinv*(udx2(ra(1):rb(1),ra(2):rb(2),iz+1)-udx2(ra(1):rb(1),ra(2):rb(2),iz-1))
-    enddo
-  enddo
-  t2=MPI_wtime()-t1  
-  write(*,'("rank",i2, " fd=",es15.8, " (one loop) sync=",es15.8)') mpirank,t2,t3
-  !------------------------------------------------------------------------------
-  t3=0.d0
-  t1=MPI_wtime()
-  do idx=1,2
-    ! copy data
-    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
-    kx=MPI_wtime()
-    call synchronize_ghosts(udx)
-    t3=t3+MPI_wtime()-kx
-    udx2=udx
-    do iy=ra(2),rb(2)
-    do iz=ra(3),rb(3)
-      udx(ra(1):rb(1),iy,iz) = dxinv*(udx2(ra(1):rb(1),iy,iz+1)-udx2(ra(1):rb(1),iy,iz-1))
-    enddo
-    enddo
-  enddo
-  t2=MPI_wtime()-t1  
-  write(*,'("rank",i2, " fd=",es15.8, " (two loops) sync=",es15.8)') mpirank,t2,t3
-  !------------------------------------------------------------------------------
-  t3=0.d0
-  t1=MPI_wtime()
-  do idx=1,2
-    ! copy data
-    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
-    kx=MPI_wtime()
-    call synchronize_ghosts(udx)
-    t3=t3+MPI_wtime()-kx
-    ! copy
-    udx2=udx
-    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = (&
-         udx2(ra(1):rb(1),ra(2):rb(2),ra(3)+1:rb(3)+1) &
-        -udx2(ra(1):rb(1),ra(2):rb(2),ra(3)-1:rb(3)-1) )*dxinv
-  enddo
-  t2=MPI_wtime()-t1  
-  write(*,'("rank",i2, " fd=",es15.8, " (zero loops) sync=",es15.8)') mpirank,t2,t3
-  !------------------------------------------------------------------------------
-  t3=0.d0
-  do n=1,400,1
-  
-  if (modulo(nx,n).ne.0) cycle
+  enddo  
   
   t1=MPI_wtime()
-  do idx=1,2
-    ! copy data
-    udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u
-    kx=MPI_wtime()
-    call synchronize_ghosts(udx)
-    t3=t3+MPI_wtime()-kx
-    ! copy
-    udx2=udx
-    
-    do ix=ra(1),rb(1),n
-      do iy=ra(2),rb(2),n     
-        do iz=ra(3),rb(3),n     
-          udx(ix:ix+n-1,iy:iy+n-1,iz:iz+n-1) = &
-              (udx2(ix:ix+n-1,iy:iy+n-1,iz+1:iz+n-1+1) &
-              -udx2(ix:ix+n-1,iy:iy+n-1,iz-1:iz+n-1-1))*dxinv
+  call rhs_acm_spectral(u,rhs2)
+  t2=MPI_wtime()-t1
+  if(mpirank==0) write(*,'("FFT=",es12.4)') t2
+  
+  
+  t1=MPI_wtime()
+  call rhs_acm(u,rhs1)
+  if(mpirank==0) write(*,'("2nd=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
+  
+  t1=MPI_wtime()
+  call rhs_acm_4th2(u,rhs3)
+  if(mpirank==0) write(*,'("4th=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
+  
+  
+  
+  do idx=1,4
+    err=0.d0
+    ! loop only over physical domain
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
+          err=err+(rhs1(ix,iy,iz,idx)-rhs2(ix,iy,iz,idx))**2
         enddo
       enddo
-    enddo
-    
-!     do ix=ra(1),rb(1),n
-!       do iy=ra(2),rb(2),n       
-!         udx(ix:ix+n-1,iy:iy+n-1,ra(3):rb(3)) = &
-!             (udx2(ix:ix+n-1,iy:iy+n-1,ra(3)+1:rb(3)+1) &
-!             -udx2(ix:ix+n-1,iy:iy+n-1,ra(3)-1:rb(3)-1))*dxinv
-!       enddo
-!     enddo
-    
-  enddo
-  t2=MPI_wtime()-t1  
-  write(*,'("rank",i2, " fd=",es15.8, " (zero loops,cache) sync=",es15.8," n=",i4)') mpirank,t2,t3,n
-enddo  
-  !!!!!!!!!!!!!!
-  
-  ! compute error
-  err = 0.d0  
-  do ix=ra(1),rb(1)
-    do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
-        err = err + (udx(ix,iy,iz)-dcos( dble(iz)*dz*2.d0*pi/zl )*2.d0*pi/zl)**2
+    enddo 
+    call MPI_ALLREDUCE ( err*dx*dy*dz,eps,1,&
+         MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+    if(mpirank==0)write(*,*) "err",eps
+ enddo
+ 
+if(mpirank==0)write(*,*)"---"
+
+ do idx=1,4
+    err=0.d0
+    ! loop only over physical domain
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
+          err=err+(rhs3(ix,iy,iz,idx)-rhs2(ix,iy,iz,idx))**2
+        enddo
       enddo
-    enddo
-  enddo    
-  err = err*dx*dy*dz
-  write(*,'("err=",es15.8)') err
-  
-  
+    enddo 
+    call MPI_ALLREDUCE ( err*dx*dy*dz,eps,1,&
+         MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+    if(mpirank==0)write(*,*) "err",eps
+ enddo
+ 
+if(mpirank==0) write(*,*)"---"
+ 
+ 
 end subroutine fd_testing
 
 

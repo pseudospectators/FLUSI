@@ -1,5 +1,47 @@
+subroutine rhs_acm_spectral(u,rhs)
+  use mpi 
+  use fsi_vars
+  use diff
+  use p3dfft_wrapper
+  implicit none
+  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: nlk
+  real(kind=pr),dimension(:,:,:,:),allocatable :: vort,u2
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
+  
+  rhs=0.d0
+  
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))   
+  allocate(u2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))   
+  allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq) )
+  
+  call fft(inx=u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),outk=uk(:,:,:,1))
+  call fft(inx=u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),outk=uk(:,:,:,2))
+  call fft(inx=u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),outk=uk(:,:,:,3))
+  call fft(inx=u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4),outk=uk(:,:,:,4))
+  
+
+  call cal_nlk(0.d0,0,nlk,uk,u2,vort,workc)
+
+  
+  
+  call ifft(ink=nlk(:,:,:,1),outx=rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1))
+  call ifft(ink=nlk(:,:,:,2),outx=rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2))
+  call ifft(ink=nlk(:,:,:,3),outx=rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3))
+  call ifft(ink=nlk(:,:,:,4),outx=rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4))
+  
+  deallocate(uk,nlk,vort,workc,u2)
+end subroutine rhs_acm_spectral
+
+
+
 ! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
-subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
+subroutine cal_nlk(time,it,nlk,uk,u,vort,workc)
   use fsi_vars
   use p3dfft_wrapper
   use basic_operators
@@ -7,11 +49,9 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq) 
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr),intent(in) :: time
   real(kind=pr) :: t1,t0,kx,ky,kz
   integer, intent(in) :: it
@@ -19,123 +59,32 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
   complex(kind=pr) :: imag,pk   ! imaginary unit
   imag = dcmplx(0.d0,1.d0)
   
-  t0 = MPI_wtime()
-  
-  select case(method)
-  case("fsi") 
-    if (projection=="poisson") then
-        !---------------------------------------------------------------------------
-        ! FSI case. note projection is outsourced and performed here. 
-        !---------------------------------------------------------------------------
-        ! compute source-terms, *not* divergence-free
-        t1 = MPI_wtime()
-        call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
-        time_nlk2 = time_nlk2 + MPI_wtime() - t1 
-        
-        t1 = MPI_wtime()   
-        ! if we compute active FSI (with flexible obstacles), we need the pressure
-        if (use_solid_model=="yes") then
-          call pressure( nlk,workc(:,:,:,1) )
-          ! transform it to phys space (note "press" has ghostpoints, cut them here)
-          call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
-        endif
-        ! project the right hand side to the incompressible manifold
-        call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-        ! for global performance measurement
-        time_p = time_p + MPI_wtime() - t1 
-        
-        !---------------------------------------------------------------------------
-        ! passive scalar (currently only one) the work array vort is now free
-        ! so use it in cal_nlk_scalar
-        !---------------------------------------------------------------------------
-        t1 = MPI_wtime()
-        if ((use_passive_scalar==1).and.(compute_scalar)) then
-          call cal_nlk_scalar(time,it,u,uk(:,:,:,4),nlk(:,:,:,4),workc(:,:,:,1),vort)
-        endif
-        time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
-        
-        
-        
-        
-        
-    elseif (projection=="ACM") then
-        ! compute source-terms, *not* divergence-free
-        t1 = MPI_wtime()
-        call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
-        time_nlk2 = time_nlk2 + MPI_wtime() - t1 
-        
-        ! add pressure gradient
-        do iz=ca(1),cb(1)
-          kz=wave_z(iz)
-          do iy=ca(2),cb(2)
-             ky=wave_y(iy)
-             do ix=ca(3),cb(3)
-               kx=wave_x(ix) 
-               
-               pk = uk(iz,iy,ix,4)
-               
-               nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1)-imag*kx*pk
-               nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2)-imag*ky*pk
-               nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3)-imag*kz*pk
-             enddo
-          enddo
+  call cal_nlk_fsi(time,it,nlk,uk,u,vort,workc)
+  ! add pressure gradient
+  do iz=ca(1),cb(1)
+    kz=wave_z(iz)
+    do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do ix=ca(3),cb(3)
+          kx=wave_x(ix) 
+          
+          pk = uk(iz,iy,ix,4)
+          
+          nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1)-imag*kx*pk
+          nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2)-imag*ky*pk
+          nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3)-imag*kz*pk
         enddo
-        
-        ! compute pressure RHS
-        call divergence( uk(:,:,:,1:3), workc(:,:,:,1) )
-        nlk(:,:,:,4) = -c_0**2 * workc(:,:,:,1)
-        
-        
-    else
-      if(mpirank==0) write(*,*) "switch incompressibility=", projection
-      call abort()
-    endif
-    
-  case("mhd") 
-     !--------------------------------------------------------------------------
-     ! MHD case
-     !--------------------------------------------------------------------------
-     call cal_nlk_mhd(nlk,uk,u,vort)
-     
-  case default
-     if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
-     call abort()
-  end select
+    enddo
+  enddo
   
-  time_rhs = time_rhs + MPI_wtime() - t0
+  ! compute pressure RHS
+  call divergence( uk(:,:,:,1:3), workc(:,:,:,1) )
+  nlk(:,:,:,4) = -c_0**2 * workc(:,:,:,1)
+        
 end subroutine cal_nlk
 
 
-!-------------------------------------------------------------------------------
-! Compute the nonlinear source term of the Navier-Stokes equation,
-! including penalty term, in Fourier space. Seven real-valued
-! arrays are required for working memory. The term in NLK reads
-! nlk = omega x u - chi/eta * (u-us) - sponge
-! Input:
-!       time: guess what!
-!       uk: vector field of velocity in Fourier space, holding the 3 velocity
-!           components and the passive scalar, if present
-! Output:
-!       nlk:  The right hand side of penalized Navier-Stokes in Fourier space,
-!             ie the NL term, penalty term, sponge term (NOT THE PRESSURE)
-!       vort: work array, can be reused immediatly (is free after this routine)
-!       u:    work array, contains the velocity in phys space this is reused in 
-!             the caller FluidTimestep to adjust dt
-!       work: work array (real)
-!       workc: work array (cmplx), for sponge and/or passive scalar
-!
-! NOTES:
-!       16 Jul 2014: This routine excludes the pressure. the field NLK is
-!          NOT DIVERGENCE FREE. The projection takes place in the
-!          caller "cal_nlk"
-!       09 Aug 2014: enable dynamic mean flow forcing. this solves the eqn 
-!          d(u_mean)/dt = F / m_fluid
-!          This is useful if one wants the mean flow to be independend of the 
-!          domain size. It accelerates a given mass of fluid, which is fixed.
-!          Solving this eqn requires to compute the sum of the penalty term
-!          in this routine, which is dead weight when not using this function.
-!-------------------------------------------------------------------------------
-subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
+subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,workc)
   use mpi
   use p3dfft_wrapper
   use fsi_vars
@@ -144,47 +93,31 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
 
   real(kind=pr),intent (in) :: time
   integer, intent(in) :: it
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq) 
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr) :: t0,t1,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   real(kind=pr) :: fx,fy,fz,fx1,fy1,fz1
   real(kind=pr) :: soft_startup
   integer :: ix,iz,iy,mpicode
-  t0 = MPI_wtime()
-  fx=0.d0; fy=0.d0; fz=0.d0
 
   !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  call ifft3 (outx=u, ink=uk)
-  time_u = time_u + MPI_wtime() - t1
+  call ifft3 (outx=u(:,:,:,1:3), ink=uk(:,:,:,1:3))
   
   !-----------------------------------------------------------------------------
   !-- Compute vorticity
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  ! nlk is temporarily used for vortk
-  call curl ( ink=uk, outk=nlk )
-  ! transform it to physical space
-  call ifft3 ( ink=nlk, outx=vort)  
-  time_vor = time_vor + MPI_wtime() - t1  
+  call curl ( ink=uk(:,:,:,1:3), outk=nlk(:,:,:,1:3) )
+  call ifft3 ( ink=nlk(:,:,:,1:3), outx=vort(:,:,:,1:3))  
   
-  !-----------------------------------------------------------------------------
-  !-- vorticity sponge term
-  !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  call vorticity_sponge( vort, work(:,:,:,1), workc )
-  time_sponge = time_sponge + MPI_wtime() - t1
     
   !-----------------------------------------------------------------------------
   !-- Non-Linear terms
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
   do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)
       do iz=ra(3),rb(3)  
@@ -196,75 +129,27 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
         vory = vort(ix,iy,iz,2)
         vorz = vort(ix,iy,iz,3)
         
-        ! local variables for penalization
-        chi = mask(ix,iy,iz)          
-        usx = us(ix,iy,iz,1)
-        usy = us(ix,iy,iz,2)
-        usz = us(ix,iy,iz,3)
-        
-        ! compute sum of penalty term while computing it
-        fx = fx + chi*(ux-usx)
-        fy = fy + chi*(uy-usy)
-        fz = fz + chi*(uz-usz)
-        
         ! we overwrite the vorticity with the NL terms in phys space
         ! note this is indeed -(vor x u) (negative sign)
-        vort(ix,iy,iz,1) = uy*vorz - uz*vory -chi*(ux-usx)
-        vort(ix,iy,iz,2) = uz*vorx - ux*vorz -chi*(uy-usy)
-        vort(ix,iy,iz,3) = ux*vory - uy*vorx -chi*(uz-usz)
+        vort(ix,iy,iz,1) = uy*vorz - uz*vory 
+        vort(ix,iy,iz,2) = uz*vorx - ux*vorz 
+        vort(ix,iy,iz,3) = ux*vory - uy*vorx 
       enddo
     enddo
   enddo
   ! to Fourier space
-  call fft3( inx=vort,outk=nlk )  
-  time_curl = time_curl + MPI_wtime() - t1  
+  call fft3( inx=vort(:,:,:,1:3),outk=nlk(:,:,:,1:3) )  
   
-  !-----------------------------------------------------------------------------
-  ! add sponge term
-  !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  if (iVorticitySponge == "yes") then
-    nlk(:,:,:,1) = nlk(:,:,:,1) + workc(:,:,:,1)
-    nlk(:,:,:,2) = nlk(:,:,:,2) + workc(:,:,:,2)
-    nlk(:,:,:,3) = nlk(:,:,:,3) + workc(:,:,:,3)
-  endif
-  time_sponge = time_sponge + MPI_wtime() - t1  
+  workc(:,:,:,1:3)=uk(:,:,:,1:3)
+  call laplacien_inplace(workc(:,:,:,1))
+  call laplacien_inplace(workc(:,:,:,2))
+  call laplacien_inplace(workc(:,:,:,3))
   
-  !-----------------------------------------------------------------------------
-  ! dynamic mean flow forcing (fix fluid mass manually, domain-independent)
-  ! The Mean Flow is governed by the zeroth Fourier mode of the RHS. Note this
-  ! is independent of the pressure (since it has vannishing spatial avg).
-  ! If the meanflow at t=0 is not 0, the startup singularity in the forces
-  ! causes problems. for this case, we use the startup conditioner to keep
-  ! the meanflow const until T_release_meanflow, then gently turning it on
-  ! during the time tau_meanflow
-  !-----------------------------------------------------------------------------
-  if(iMeanFlow_x=="dynamic".or.iMeanFlow_y=="dynamic".or.iMeanFlow_z=="dynamic") then 
-    ! integral forces:
-    fx = fx*dx*dy*dz
-    fy = fy*dx*dy*dz
-    fz = fz*dx*dy*dz
-    call MPI_ALLREDUCE ( fx,fx1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-    call MPI_ALLREDUCE ( fy,fy1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-    call MPI_ALLREDUCE ( fz,fz1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-    
-    ! startup conditioner (See vars.f90)
-    if (iMeanFlowStartupConditioner=="yes") then
-      soft_startup = startup_conditioner(time,T_release_meanflow,tau_meanflow)
-      fx1 = fx1*soft_startup
-      fy1 = fy1*soft_startup
-      fz1 = fz1*soft_startup
-    endif
-    
-    ! fixing the fluid mass means modifying the zero mode of RHS term
-    if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-      if(iMeanFlow_x=="dynamic") nlk(0,0,0,1) = -fx1 / m_fluid
-      if(iMeanFlow_y=="dynamic") nlk(0,0,0,2) = -fy1 / m_fluid
-      if(iMeanFlow_z=="dynamic") nlk(0,0,0,3) = -fz1 / m_fluid
-    endif
-  endif
+  nlk(:,:,:,1)=nlk(:,:,:,1)+nu*workc(:,:,:,1)
+  nlk(:,:,:,2)=nlk(:,:,:,2)+nu*workc(:,:,:,2)
+  nlk(:,:,:,3)=nlk(:,:,:,3)+nu*workc(:,:,:,3)
   
-  time_nlk = time_nlk + MPI_wtime() - t0
+  
 end subroutine cal_nlk_fsi
 
 
@@ -332,12 +217,12 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   
-  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc) 
-  call pressure(nlk,workc(:,:,:,1))
-  call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+!   call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc) 
+!   call pressure(nlk,workc(:,:,:,1))
+!   call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   
 end subroutine 
 
@@ -362,32 +247,32 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   complex(kind=pr) :: qk, nlx,nly,nlz
   complex(kind=pr) :: imag   ! imaginary unit
 
-  imag = dcmplx(0.d0,1.d0)
-  
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-           
-           k2=kx*kx + ky*ky + kz*kz
-
-           if (k2 .ne. 0.0) then
-              nlx=nlk1(iz,iy,ix)
-              nly=nlk2(iz,iy,ix)
-              nlz=nlk3(iz,iy,ix)
-
-              ! qk is the Fourier coefficient of thr pressure
-              qk=(kx*nlx + ky*nly + kz*nlz)/k2
-              ! add the gradient to the non-linear terms
-              nlk1(iz,iy,ix)=nlx - kx*qk
-              nlk2(iz,iy,ix)=nly - ky*qk
-              nlk3(iz,iy,ix)=nlz - kz*qk
-           endif
-        enddo
-     enddo
-  enddo
+!   imag = dcmplx(0.d0,1.d0)
+!   
+!   do iz=ca(1),cb(1)
+!      kz=wave_z(iz)
+!      do iy=ca(2),cb(2)
+!         ky=wave_y(iy)
+!         do ix=ca(3),cb(3)
+!            kx=wave_x(ix)
+!            
+!            k2=kx*kx + ky*ky + kz*kz
+! 
+!            if (k2 .ne. 0.0) then
+!               nlx=nlk1(iz,iy,ix)
+!               nly=nlk2(iz,iy,ix)
+!               nlz=nlk3(iz,iy,ix)
+! 
+!               ! qk is the Fourier coefficient of thr pressure
+!               qk=(kx*nlx + ky*nly + kz*nlz)/k2
+!               ! add the gradient to the non-linear terms
+!               nlk1(iz,iy,ix)=nlx - kx*qk
+!               nlk2(iz,iy,ix)=nly - ky*qk
+!               nlk3(iz,iy,ix)=nlz - kz*qk
+!            endif
+!         enddo
+!      enddo
+!   enddo
 end subroutine add_grad_pressure
 
 
@@ -420,110 +305,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-   !  real(kind=pr) :: t1,t0
-  integer :: i,ix,iy,iz
-  real(kind=pr) :: w1,w2,w3,j1,j2,j3
-  real(kind=pr) :: u1,u2,u3,b1,b2,b3
-  real(kind=pr) :: m,us1,us2,us3
-
-  ! Transform u and B into physical space:
-  do i=1,nd
-     call ifft(ub(:,:,:,i),ubk(:,:,:,i))
-  enddo
-
-  ! Compute us, the imposed penalty field:
-  call update_us(ub) ! TODO: only update when necessary
-
-  ! Compute the vorticity and store the result in the first three 3D
-  ! arrays of nlk.
-  call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-       ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
-
-  ! Compute the current density and store the result in the last three
-  ! 3D arrays of nlk.
-  call curl(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
-       ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
-
-  ! Transform vorcitity and current density to physical space, store
-  ! in wj
-  do i=1,nd
-     call ifft(wj(:,:,:,i),nlk(:,:,:,i))
-  enddo
-
-  ! Put the x-space version of the nonlinear source term in wj.
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
-           ! Loop-local variables for velocity and magnetic field:
-           u1=ub(ix,iy,iz,1)
-           u2=ub(ix,iy,iz,2)
-           u3=ub(ix,iy,iz,3)
-           b1=ub(ix,iy,iz,4)
-           b2=ub(ix,iy,iz,5)
-           b3=ub(ix,iy,iz,6)
-
-           ! Loop-local variables for vorticity and current density:
-           w1=wj(ix,iy,iz,1)
-           w2=wj(ix,iy,iz,2)
-           w3=wj(ix,iy,iz,3)
-           j1=wj(ix,iy,iz,4)
-           j2=wj(ix,iy,iz,5)
-           j3=wj(ix,iy,iz,6)
-
-           ! Loop-local variables for mask and imposed velocity field:
-           m=mask(ix,iy,iz)
-           us1=us(ix,iy,iz,1)
-           us2=us(ix,iy,iz,2)
-           us3=us(ix,iy,iz,3)
-
-            ! Nonlinear source term for fluid, including penalization:
-            wj(ix,iy,iz,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
-            wj(ix,iy,iz,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
-            wj(ix,iy,iz,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
-
-            ! Nonlinear source term for magnetic field (missing the
-            ! curl and without penalization):
-            wj(ix,iy,iz,4)=u2*b3 - u3*b2
-            wj(ix,iy,iz,5)=u3*b1 - u1*b3
-            wj(ix,iy,iz,6)=u1*b2 - u2*b1
-        enddo
-     enddo
-  enddo
-
-  ! Transform B to Fourier space.  Keep the first three fields free so
-  ! that we can use it to store the penalization for the B field.
-  do i=4,nd
-     call fft(nlk(:,:,:,i),wj(:,:,:,i))
-  enddo
-  ! NB: the last three sub-arrays of wj and the first three sub-arrays
-  ! of nlk are free.
-
-  ! Add the curl to the magnetic source term:
-  call curl(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
-
-  ! Penalization for B-field:
-  if(iPenalization == 1) then
-     do i=4,nd
-        wj(:,:,:,4)=-mask*(ub(:,:,:,i) - us(:,:,:,i))
-        call fft(nlk(:,:,:,1),wj(:,:,:,4))
-        nlk(:,:,:,i)=nlk(:,:,:,i) + nlk(:,:,:,1)
-     enddo
-  endif
   
-  ! Transform u source-term to Fourier space:
-  do i=1,3
-     call fft(nlk(:,:,:,i),wj(:,:,:,i))
-  enddo
-
-  ! NB: wj is now completely free, and contains nothing useful.
-
-  ! Add the gradient of the pseudo-pressure to the source term of the
-  ! fluid.
-  call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-
-  ! Make the source term for the magnetic field divergence-free via a
-  ! Helmholtz decomposition.
-  call div_field_nul(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6))
 end subroutine cal_nlk_mhd
 
 
@@ -569,3 +351,279 @@ subroutine div_field_nul(fx,fy,fz)
   enddo
   
 end subroutine div_field_nul
+
+
+
+subroutine rhs_acm(u,rhs)
+  use mpi 
+  use fsi_vars
+  use diff
+  implicit none
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  
+  integer::ix,iy,iz
+  real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
+  uzdx,uzdy,uzdz,uxdxdx,uxdydy,uxdzdz,uydxdx,uydydy,uydzdz,uzdxdx,uzdydy,uzdzdz,&
+  dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz
+  
+  call synchronize_ghosts_FD (u)
+  
+  dxinv = 1.d0/(2.d0*dx)
+  dyinv = 1.d0/(2.d0*dy)
+  dzinv = 1.d0/(2.d0*dz)
+  
+  dx2inv = 1.d0/(dx**2)
+  dy2inv = 1.d0/(dy**2)
+  dz2inv = 1.d0/(dz**2)
+  
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        ux = u(ix,iy,iz,1)
+        uy = u(ix,iy,iz,2)
+        uz = u(ix,iy,iz,3)
+        
+        uxdx = (u(ix+1,iy,iz,1) - u(ix-1,iy,iz,1))*dxinv
+        uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
+        uxdz = (u(ix,iy,iz+1,1) - u(ix,iy,iz-1,1))*dzinv
+        
+        uydx = (u(ix+1,iy,iz,2) - u(ix-1,iy,iz,2))*dxinv
+        uydy = (u(ix,iy+1,iz,2) - u(ix,iy-1,iz,2))*dyinv
+        uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
+        
+        uzdx = (u(ix+1,iy,iz,3) - u(ix-1,iy,iz,3))*dxinv
+        uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
+        uzdz = (u(ix,iy,iz+1,3) - u(ix,iy,iz-1,3))*dzinv
+        
+        pdx = (u(ix+1,iy,iz,4) - u(ix-1,iy,iz,4))*dxinv
+        pdy = (u(ix,iy+1,iz,4) - u(ix,iy-1,iz,4))*dyinv
+        pdz = (u(ix,iy,iz+1,4) - u(ix,iy,iz-1,4))*dzinv        
+        
+        vorx = uzdy - uydz
+        vory = uxdz - uzdx
+        vorz = uydx - uxdy
+        
+        uxdxdx = (u(ix-1,iy,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix+1,iy,iz,1))*dx2inv 
+        uxdydy = (u(ix,iy-1,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy+1,iz,1))*dy2inv 
+        uxdzdz = (u(ix,iy,iz-1,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy,iz+1,1))*dz2inv 
+        
+        uydxdx = (u(ix-1,iy,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix+1,iy,iz,2))*dx2inv 
+        uydydy = (u(ix,iy-1,iz,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy+1,iz,2))*dy2inv 
+        uydzdz = (u(ix,iy,iz-1,2)-2.d0*u(ix,iy,iz,2)+u(ix,iy,iz+1,2))*dz2inv 
+        
+        uzdxdx = (u(ix-1,iy,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix+1,iy,iz,3))*dx2inv 
+        uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
+        uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
+        
+        rhs(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
+        rhs(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz)
+        rhs(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
+        rhs(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
+      enddo
+    enddo
+  enddo     
+end subroutine
+
+
+
+
+subroutine rhs_acm_4th(u,rhs)
+  use mpi 
+  use fsi_vars
+  use diff
+  implicit none
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  
+  integer::ix,iy,iz
+  real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
+  uzdx,uzdy,uzdz,uxdxdx,uxdydy,uxdzdz,uydxdx,uydydy,uydzdz,uzdxdx,uzdydy,uzdzdz,&
+  dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,a1,a2,a4,a5,&
+  b1,b2,b3,b4,b5
+  
+  
+  call synchronize_ghosts_FD (u)
+  
+  a1 = 1.d0/12.d0
+  a2 =-2.d0/3.d0
+  a4 = 2.d0/3.d0
+  a5 = -1.d0/12.d0
+    
+  
+  b1=-1.d0/12.d0
+  b2=4.d0/3.d0
+  b3=-5.d0/2.d0
+  b4=4.d0/3.d0
+  b5=-1.d0/12.d0
+  
+  dxinv = 1.d0/dx
+  dyinv = 1.d0/dy
+  dzinv = 1.d0/dz
+  
+  dx2inv = 1.d0/(dx**2)
+  dy2inv = 1.d0/(dy**2)
+  dz2inv = 1.d0/(dz**2)
+  
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        ux = u(ix,iy,iz,1)
+        uy = u(ix,iy,iz,2)
+        uz = u(ix,iy,iz,3)
+        
+        uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv        
+        uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
+        uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
+        
+        uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv        
+        uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
+        uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+        
+        uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv        
+        uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
+        uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
+        
+        pdx = (a1*u(ix-2,iy,iz,4)+a2*u(ix-1,iy,iz,4)+a4*u(ix+1,iy,iz,4)+a5*u(ix+2,iy,iz,4))*dxinv        
+        pdy = (a1*u(ix,iy-2,iz,4)+a2*u(ix,iy-1,iz,4)+a4*u(ix,iy+1,iz,4)+a5*u(ix,iy+2,iz,4))*dyinv
+        pdz = (a1*u(ix,iy,iz-2,4)+a2*u(ix,iy,iz-1,4)+a4*u(ix,iy,iz+1,4)+a5*u(ix,iy,iz+2,4))*dzinv       
+        
+        vorx = uzdy - uydz
+        vory = uxdz - uzdx
+        vorz = uydx - uxdy
+        
+        uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix+1,iy,iz,1)+b5*u(ix+2,iy,iz,1))*dx2inv   
+        uxdydy = (b1*u(ix,iy-2,iz,1)+b2*u(ix,iy-1,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy+1,iz,1)+b5*u(ix,iy+2,iz,1))*dy2inv   
+        uxdzdz = (b1*u(ix,iy,iz-2,1)+b2*u(ix,iy,iz-1,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy,iz+1,1)+b5*u(ix,iy,iz+2,1))*dz2inv   
+        
+        uydxdx = (b1*u(ix-2,iy,iz,2)+b2*u(ix-1,iy,iz,2)+b3*u(ix,iy,iz,2)+b4*u(ix+1,iy,iz,2)+b5*u(ix+2,iy,iz,2))*dx2inv   
+        uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)+b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
+        uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)+b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
+        
+        uzdxdx = (b1*u(ix-2,iy,iz,3)+b2*u(ix-1,iy,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix+1,iy,iz,3)+b5*u(ix+2,iy,iz,3))*dx2inv   
+        uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
+        uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
+        
+        rhs(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
+        rhs(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz)
+        rhs(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
+        rhs(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
+      enddo
+    enddo
+  enddo     
+end subroutine
+
+
+
+
+subroutine rhs_acm_4th2(u,rhs)
+  use mpi 
+  use fsi_vars
+  use diff
+  implicit none
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  
+  integer::ix,iy,iz
+  real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
+  uzdx,uzdy,uzdz,uxdxdx,uxdydy,uxdzdz,uydxdx,uydydy,uydzdz,uzdxdx,uzdydy,uzdzdz,&
+  dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,a1,a2,a4,a5,&
+  b1,b2,b3,b4,b5
+  
+  
+  call synchronize_ghosts_FD (u)
+  
+  a1 = 1.d0/12.d0
+  a2 =-2.d0/3.d0
+  a4 = 2.d0/3.d0
+  a5 = -1.d0/12.d0
+    
+  
+  b1=-1.d0/12.d0
+  b2=4.d0/3.d0
+  b3=-5.d0/2.d0
+  b4=4.d0/3.d0
+  b5=-1.d0/12.d0
+  
+  dxinv = 1.d0/dx
+  dyinv = 1.d0/dy
+  dzinv = 1.d0/dz
+  
+  dx2inv = 1.d0/(dx**2)
+  dy2inv = 1.d0/(dy**2)
+  dz2inv = 1.d0/(dz**2)
+  
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        ux = u(ix,iy,iz,1)
+        uy = u(ix,iy,iz,2)
+        uz = u(ix,iy,iz,3)
+        
+        uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
+        uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
+        
+        uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv        
+        uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+        
+        uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv        
+        uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
+
+        vorx = uzdy - uydz
+        vory = uxdz - uzdx
+        vorz = uydx - uxdy        
+        
+        rhs(ix,iy,iz,1) = uy*vorz -uz*vory
+        rhs(ix,iy,iz,2) = uz*vorx -ux*vorz
+        rhs(ix,iy,iz,3) = ux*vory -uy*vorx
+        
+      enddo
+    enddo
+  enddo     
+  
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)        
+        uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv  
+        uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
+        uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
+        rhs(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
+      enddo
+    enddo
+  enddo  
+  
+
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)        
+        uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix+1,iy,iz,1)+b5*u(ix+2,iy,iz,1))*dx2inv   
+        uxdydy = (b1*u(ix,iy-2,iz,1)+b2*u(ix,iy-1,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy+1,iz,1)+b5*u(ix,iy+2,iz,1))*dy2inv   
+        uxdzdz = (b1*u(ix,iy,iz-2,1)+b2*u(ix,iy,iz-1,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy,iz+1,1)+b5*u(ix,iy,iz+2,1))*dz2inv   
+        
+        uydxdx = (b1*u(ix-2,iy,iz,2)+b2*u(ix-1,iy,iz,2)+b3*u(ix,iy,iz,2)+b4*u(ix+1,iy,iz,2)+b5*u(ix+2,iy,iz,2))*dx2inv   
+        uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)+b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
+        uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)+b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
+        
+        uzdxdx = (b1*u(ix-2,iy,iz,3)+b2*u(ix-1,iy,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix+1,iy,iz,3)+b5*u(ix+2,iy,iz,3))*dx2inv   
+        uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
+        uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
+      
+        rhs(ix,iy,iz,1) = rhs(ix,iy,iz,1)+nu*(uxdxdx+uxdydy+uxdzdz)
+        rhs(ix,iy,iz,2) = rhs(ix,iy,iz,2)+nu*(uydxdx+uydydy+uydzdz)
+        rhs(ix,iy,iz,3) = rhs(ix,iy,iz,3)+nu*(uzdxdx+uzdydy+uzdzdz)
+      enddo
+    enddo
+  enddo 
+  
+  
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)        
+        rhs(ix,iy,iz,1) = rhs(ix,iy,iz,1)-(a1*u(ix-2,iy,iz,4)+a2*u(ix-1,iy,iz,4)+a4*u(ix+1,iy,iz,4)+a5*u(ix+2,iy,iz,4))*dxinv        
+        rhs(ix,iy,iz,2) = rhs(ix,iy,iz,2)-(a1*u(ix,iy-2,iz,4)+a2*u(ix,iy-1,iz,4)+a4*u(ix,iy+1,iz,4)+a5*u(ix,iy+2,iz,4))*dyinv
+        rhs(ix,iy,iz,3) = rhs(ix,iy,iz,3)-(a1*u(ix,iy,iz-2,4)+a2*u(ix,iy,iz-1,4)+a4*u(ix,iy,iz+1,4)+a5*u(ix,iy,iz+2,4))*dzinv       
+      enddo
+    enddo
+  enddo    
+  
+end subroutine

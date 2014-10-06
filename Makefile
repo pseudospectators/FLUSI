@@ -16,7 +16,7 @@ OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = vars.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 \
+MFILES = vars.f90 diff.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
@@ -55,6 +55,8 @@ PPFLAG= -fpp #preprocessor flag
 DIFORT= -DIFORT # define the IFORT variable 
 FFLAGS += -module $(OBJDIR) # specify directory for modules.
 FFLAGS += -vec_report0
+# debug flags for ifort:
+# FFLAGS +=-CB -traceback -debug extended -fpe0 -warn -check all -gen-interfaces -warn interfaces
 endif
 
 #IBM compiler
@@ -79,6 +81,7 @@ P3DFFT_INC = $(P3DFFT_ROOT)/include
 HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
 
+# Linker flags
 LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 -lm
 LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
 LDFLAGS += -llapack
@@ -100,6 +103,8 @@ $(OBJDIR)/vars.o: vars.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/kine.o: kine.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/diff.o: diff.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o $(OBJDIR)/kine.o \
@@ -110,7 +115,7 @@ $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpola
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
-$(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o
+$(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/diff.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

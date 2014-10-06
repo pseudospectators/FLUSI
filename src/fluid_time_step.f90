@@ -52,54 +52,54 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
   
-  t1=MPI_wtime()
-
-  ! Call fluid advancement subroutines.
-  select case(iTimeMethodFluid)
-  case("RK2")
-      call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
-  case("AB2")
-      if(it == 0) then
-        call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,expvis,press,0)
-      else
-        call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis,press,0)
-      endif
-      if (SolidDyn%idynamics/=0 .and. mpirank==0) then
-        write(*,*) "using AB2 with rigid solid solver is deprecated."
-        write(*,*) "use AB2_rigid_solid instead."
-        call abort()
-      endif
-  case ("AB2_rigid_solid")
-      call AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-           expvis,press,0,Insect)      
-  case("Euler")
-      call euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
-  case("FSI_AB2_iteration")
-      call FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-           workc,expvis,press,beams)
-  case("FSI_AB2_staggered")
-      call FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-           workc,expvis,press,beams)
-  case("FSI_AB2_semiimplicit")
-      call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-           workc,expvis,press,beams)
-  case default
-      if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-      call abort()
-  end select
-  
-  ! compute unsteady corrections in every time step
-  if(method=="fsi" .and. unst_corrections==1) then
-    call cal_unst_corrections ( time, dt0, Insect )  
-  endif
-
-  ! Force zero mode for mean flow
-  if(method=="fsi") call set_mean_flow(uk,time)
-
-  ! Set the divergence of the magnetic field to zero to avoid drift.
-  if(method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
-
-  time_fluid=time_fluid + MPI_wtime() - t1
+!   t1=MPI_wtime()
+! 
+!   ! Call fluid advancement subroutines.
+!   select case(iTimeMethodFluid)
+!   case("RK2")
+!       call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
+!   case("AB2")
+!       if(it == 0) then
+!         call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,expvis,press,0)
+!       else
+!         call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,expvis,press,0)
+!       endif
+!       if (SolidDyn%idynamics/=0 .and. mpirank==0) then
+!         write(*,*) "using AB2 with rigid solid solver is deprecated."
+!         write(*,*) "use AB2_rigid_solid instead."
+!         call abort()
+!       endif
+!   case ("AB2_rigid_solid")
+!       call AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
+!            expvis,press,0,Insect)      
+!   case("Euler")
+!       call euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
+!   case("FSI_AB2_iteration")
+!       call FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+!            workc,expvis,press,beams)
+!   case("FSI_AB2_staggered")
+!       call FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+!            workc,expvis,press,beams)
+!   case("FSI_AB2_semiimplicit")
+!       call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+!            workc,expvis,press,beams)
+!   case default
+!       if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
+!       call abort()
+!   end select
+!   
+!   ! compute unsteady corrections in every time step
+!   if(method=="fsi" .and. unst_corrections==1) then
+!     call cal_unst_corrections ( time, dt0, Insect )  
+!   endif
+! 
+!   ! Force zero mode for mean flow
+!   if(method=="fsi") call set_mean_flow(uk,time)
+! 
+!   ! Set the divergence of the magnetic field to zero to avoid drift.
+!   if(method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
+! 
+!   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
 
 
@@ -140,137 +140,137 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   integer :: inter
   logical :: iterate
   
-  ! useful error messages
-  if (use_solid_model/="yes") then
-    write(*,*) "using FSI_AB2_iteration without solid model?"
-    call abort()
-  endif
-  
-  ! allocate extra space for velocity in Fourier space
-  if (.not.allocated(uk_old)) then
-    call alloccomplexnd(uk_old)    
-  endif
-  ! we need that to compute the pressure at preliminary times
-  if (.not.allocated(nlk_tmp)) then
-    allocate(nlk_tmp(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-  endif
-  ! copy velocity at time level (n)
-  uk_old = uk
-  
-  ! initialize iteration variables
-  inter = 0
-  iterate = .true.
-  deltap_new = 0.d0
-  deltap_old = 0.d0
-  upsilon_new = 0.d0
-  upsilon_old = 0.d0
-  beams_old = beams
-  omega_old = 0.5d0
-  omega_new = 0.5d0
-  ! the passive scalar is advanced only once during the iteration process to keep the cost down.
-  if(use_passive_scalar==1) compute_scalar = .true.
-  
-  ! predictor for the pressure     
-  beams(1)%pressure_new = beams(1)%pressure_old
-  
-  ! begin main iteration loop
-  do while (iterate)     
-    !---------------------------------------------------------------------------
-    ! create mask
-    !---------------------------------------------------------------------------
-    call create_mask(time, Insect_dummy, beams)
-    
-    !---------------------------------------------------------------------------
-    ! advance fluid to from (n) to (n+1)
-    !---------------------------------------------------------------------------
-    if(use_passive_scalar==1) then 
-      ! advance the scalar only once when iterating.
-      if (inter==0) compute_scalar = .true.
-      if (inter/=0) compute_scalar = .false.
-    endif
-    
-    ! start from t(n) again, except for the scalar
-    uk(:,:,:,1:3) = uk_old(:,:,:,1:3)
-    
-    if(it == 0) then
-      call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-           work,workc,expvis,press,inter)
-    else
-      call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-           work,workc,expvis,press,inter)
-    endif
-    
-    !---------------------------------------------------------------------------
-    ! get forces at new time level
-    !---------------------------------------------------------------------------
-    bpress_old_iterating = beams(1)%pressure_new(0:ns-1) ! exit of the old iteration
-    call pressure_given_uk(time,u,uk,nlk_tmp,vort,work,workc,press)
-    call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
-    
-    !---------------------------------------------------------------------------
-    ! relaxation
-    !---------------------------------------------------------------------------
-    ! whats the diff betw new interp press and last iteration's step?
-    deltap_new = bpress_old_iterating - beams(1)%pressure_new(0:ns-1)
-    if (inter==0) then
-      upsilon_new = 0.0d0
-      ! von scheven normalizes with the explicit scheme, which is what we do now
-      norm = sqrt(sum((beams(1)%pressure_new(0:ns-1)-beams(1)%pressure_old(0:ns-1))**2))    
-    else
-      bruch = (sum((deltap_old-deltap_new)*deltap_new)) &
-            / (sum((deltap_old-deltap_new)**2))
-      upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
-    endif
-    kappa2 = 1.d0 - upsilon_new
-    ! new iteration pressure is old one plus star
-    beams(1)%pressure_new(0:ns-1) = (1.d0-kappa2)*bpress_old_iterating(0:ns-1) &
-        + kappa2*beams(1)%pressure_new(0:ns-1)
-                          
-    !---------------------------------------------------------------------------  
-    ! advance solid model from (n) to (n+1)
-    !---------------------------------------------------------------------------
-    beams_old(1)%pressure_new = beams(1)%pressure_new
-    beams = beams_old ! advance from timelevel n
-    call SolidSolverWrapper( time, dt1, beams )
-    
-    !---------------------------------------------------------------------------
-    ! convergence test
-    !---------------------------------------------------------------------------
-    ROC1 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / dble(ns)
-    ROC2 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / norm 
-    if (((ROC2<1.0e-3).or.(inter==100)).or.(it<2)) then
-      iterate = .false.
-    endif
-  
-    ! iterate
-    deltap_old = deltap_new
-    upsilon_old = upsilon_new
-    inter = inter + 1
-    omega_old=omega_new
-    
-    if (root) then
-      open (15, file='iterations_log.t',status='unknown',position='append')
-      write(15,'("t=",es12.4," dt=",es12.4," inter=",i3," ROC=",es15.8,&
-                &" ROC2=",es15.8," p_end=",es15.8," kappa2=",es15.8)') &
-      time,dt1,inter,ROC1,ROC2,beams(1)%pressure_new(ns-1), kappa2
-      close (15)
-    endif
-  enddo
-  
-  ! dump iteration information to disk
-  if (root) then
-    open (15, file='iterations.t',status='unknown',position='append')
-    write(15,'(2(es15.8,1x),i3,2(es15.8,1x))') time, dt1, inter, ROC1, ROC2
-    close(15)
-  
-    ! mark end of time step
-    open (15, file='iterations_log.t',status='unknown',position='append')
-    write(15,'("---")')
-    close(15)
-  endif
-  
-  ! free work array
-!   deallocate (uk_old,nlk_tmp)
+!   ! useful error messages
+!   if (use_solid_model/="yes") then
+!     write(*,*) "using FSI_AB2_iteration without solid model?"
+!     call abort()
+!   endif
+!   
+!   ! allocate extra space for velocity in Fourier space
+!   if (.not.allocated(uk_old)) then
+!     call alloccomplexnd(uk_old)    
+!   endif
+!   ! we need that to compute the pressure at preliminary times
+!   if (.not.allocated(nlk_tmp)) then
+!     allocate(nlk_tmp(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+!   endif
+!   ! copy velocity at time level (n)
+!   uk_old = uk
+!   
+!   ! initialize iteration variables
+!   inter = 0
+!   iterate = .true.
+!   deltap_new = 0.d0
+!   deltap_old = 0.d0
+!   upsilon_new = 0.d0
+!   upsilon_old = 0.d0
+!   beams_old = beams
+!   omega_old = 0.5d0
+!   omega_new = 0.5d0
+!   ! the passive scalar is advanced only once during the iteration process to keep the cost down.
+!   if(use_passive_scalar==1) compute_scalar = .true.
+!   
+!   ! predictor for the pressure     
+!   beams(1)%pressure_new = beams(1)%pressure_old
+!   
+!   ! begin main iteration loop
+!   do while (iterate)     
+!     !---------------------------------------------------------------------------
+!     ! create mask
+!     !---------------------------------------------------------------------------
+!     call create_mask(time, Insect_dummy, beams)
+!     
+!     !---------------------------------------------------------------------------
+!     ! advance fluid to from (n) to (n+1)
+!     !---------------------------------------------------------------------------
+!     if(use_passive_scalar==1) then 
+!       ! advance the scalar only once when iterating.
+!       if (inter==0) compute_scalar = .true.
+!       if (inter/=0) compute_scalar = .false.
+!     endif
+!     
+!     ! start from t(n) again, except for the scalar
+!     uk(:,:,:,1:3) = uk_old(:,:,:,1:3)
+!     
+!     if(it == 0) then
+!       call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+!            work,workc,expvis,press,inter)
+!     else
+!       call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+!            work,workc,expvis,press,inter)
+!     endif
+!     
+!     !---------------------------------------------------------------------------
+!     ! get forces at new time level
+!     !---------------------------------------------------------------------------
+!     bpress_old_iterating = beams(1)%pressure_new(0:ns-1) ! exit of the old iteration
+!     call pressure_given_uk(time,u,uk,nlk_tmp,vort,work,workc,press)
+!     call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
+!     
+!     !---------------------------------------------------------------------------
+!     ! relaxation
+!     !---------------------------------------------------------------------------
+!     ! whats the diff betw new interp press and last iteration's step?
+!     deltap_new = bpress_old_iterating - beams(1)%pressure_new(0:ns-1)
+!     if (inter==0) then
+!       upsilon_new = 0.0d0
+!       ! von scheven normalizes with the explicit scheme, which is what we do now
+!       norm = sqrt(sum((beams(1)%pressure_new(0:ns-1)-beams(1)%pressure_old(0:ns-1))**2))    
+!     else
+!       bruch = (sum((deltap_old-deltap_new)*deltap_new)) &
+!             / (sum((deltap_old-deltap_new)**2))
+!       upsilon_new = upsilon_old + (upsilon_old-1.d0) * bruch
+!     endif
+!     kappa2 = 1.d0 - upsilon_new
+!     ! new iteration pressure is old one plus star
+!     beams(1)%pressure_new(0:ns-1) = (1.d0-kappa2)*bpress_old_iterating(0:ns-1) &
+!         + kappa2*beams(1)%pressure_new(0:ns-1)
+!                           
+!     !---------------------------------------------------------------------------  
+!     ! advance solid model from (n) to (n+1)
+!     !---------------------------------------------------------------------------
+!     beams_old(1)%pressure_new = beams(1)%pressure_new
+!     beams = beams_old ! advance from timelevel n
+!     call SolidSolverWrapper( time, dt1, beams )
+!     
+!     !---------------------------------------------------------------------------
+!     ! convergence test
+!     !---------------------------------------------------------------------------
+!     ROC1 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / dble(ns)
+!     ROC2 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / norm 
+!     if (((ROC2<1.0e-3).or.(inter==100)).or.(it<2)) then
+!       iterate = .false.
+!     endif
+!   
+!     ! iterate
+!     deltap_old = deltap_new
+!     upsilon_old = upsilon_new
+!     inter = inter + 1
+!     omega_old=omega_new
+!     
+!     if (root) then
+!       open (15, file='iterations_log.t',status='unknown',position='append')
+!       write(15,'("t=",es12.4," dt=",es12.4," inter=",i3," ROC=",es15.8,&
+!                 &" ROC2=",es15.8," p_end=",es15.8," kappa2=",es15.8)') &
+!       time,dt1,inter,ROC1,ROC2,beams(1)%pressure_new(ns-1), kappa2
+!       close (15)
+!     endif
+!   enddo
+!   
+!   ! dump iteration information to disk
+!   if (root) then
+!     open (15, file='iterations.t',status='unknown',position='append')
+!     write(15,'(2(es15.8,1x),i3,2(es15.8,1x))') time, dt1, inter, ROC1, ROC2
+!     close(15)
+!   
+!     ! mark end of time step
+!     open (15, file='iterations_log.t',status='unknown',position='append')
+!     write(15,'("---")')
+!     close(15)
+!   endif
+!   
+!   ! free work array
+! !   deallocate (uk_old,nlk_tmp)
 end subroutine FSI_AB2_iteration
 
 
@@ -304,38 +304,38 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera)::Insect_dummy
   
-  ! useful error messages
-  if (use_solid_model/="yes") then 
-    write(*,*) "using FSI_AB2_staggered without solid model?"
-    call abort()
-  endif
-  
-  !---------------------------------------------------------------------------
-  ! create mask
-  !---------------------------------------------------------------------------
-  call create_mask(time,Insect_dummy, beams(1))
-  
-  !---------------------------------------------------------------------------
-  ! advance fluid to from (n) to (n+1)
-  !---------------------------------------------------------------------------
-  if(it == 0) then
-    call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-         work,workc,expvis,press,0)
-  else
-    call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-         work,workc,expvis,press,0)
-  endif
-  
-  !---------------------------------------------------------------------------
-  ! get forces at old time level, since press is at t^n.
-  ! save to both beam%pressure_new and beam%pressure_old
-  !---------------------------------------------------------------------------
-  call get_surface_pressure_jump (time, beams(1), press)
-  
-  !---------------------------------------------------------------------------  
-  ! advance solid model from (n) to (n+1)
-  !---------------------------------------------------------------------------
-  call SolidSolverWrapper( time, dt1, beams )
+!   ! useful error messages
+!   if (use_solid_model/="yes") then 
+!     write(*,*) "using FSI_AB2_staggered without solid model?"
+!     call abort()
+!   endif
+!   
+!   !---------------------------------------------------------------------------
+!   ! create mask
+!   !---------------------------------------------------------------------------
+!   call create_mask(time,Insect_dummy, beams(1))
+!   
+!   !---------------------------------------------------------------------------
+!   ! advance fluid to from (n) to (n+1)
+!   !---------------------------------------------------------------------------
+!   if(it == 0) then
+!     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+!          work,workc,expvis,press,0)
+!   else
+!     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+!          work,workc,expvis,press,0)
+!   endif
+!   
+!   !---------------------------------------------------------------------------
+!   ! get forces at old time level, since press is at t^n.
+!   ! save to both beam%pressure_new and beam%pressure_old
+!   !---------------------------------------------------------------------------
+!   call get_surface_pressure_jump (time, beams(1), press)
+!   
+!   !---------------------------------------------------------------------------  
+!   ! advance solid model from (n) to (n+1)
+!   !---------------------------------------------------------------------------
+!   call SolidSolverWrapper( time, dt1, beams )
     
 end subroutine FSI_AB2_staggered
 
@@ -369,41 +369,41 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera)::Insect_dummy
   
-  ! useful error messages
-  if (use_solid_model/="yes") then 
-   write(*,*) "using FSI_AB2_staggered without solid model?"
-   call abort()
-  endif
-  
-  !---------------------------------------------------------------------------
-  ! create mask
-  !---------------------------------------------------------------------------
-  call create_mask(time,Insect_dummy, beams(1))
-  
-  !---------------------------------------------------------------------------
-  ! advance fluid to from (n) to (n+1)
-  !---------------------------------------------------------------------------
-  if(it == 0) then
-    call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-         work,workc,expvis,press,0)
-  else
-    call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-         work,workc,expvis,press,0)
-  endif
-  
-  !---------------------------------------------------------------------------
-  ! get forces at old/new time level
-  !---------------------------------------------------------------------------
-  ! TODO: do we need that? not for BDF I think
-  call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
-  ! we can overwrite NLK(n1) since this is the one overwritten in the next call
-  call pressure_given_uk(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press)
-  call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
-  
-  !---------------------------------------------------------------------------  
-  ! advance solid model from (n) to (n+1)
-  !---------------------------------------------------------------------------
-  call SolidSolverWrapper( time, dt1, beams )
+!   ! useful error messages
+!   if (use_solid_model/="yes") then 
+!    write(*,*) "using FSI_AB2_staggered without solid model?"
+!    call abort()
+!   endif
+!   
+!   !---------------------------------------------------------------------------
+!   ! create mask
+!   !---------------------------------------------------------------------------
+!   call create_mask(time,Insect_dummy, beams(1))
+!   
+!   !---------------------------------------------------------------------------
+!   ! advance fluid to from (n) to (n+1)
+!   !---------------------------------------------------------------------------
+!   if(it == 0) then
+!     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+!          work,workc,expvis,press,0)
+!   else
+!     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+!          work,workc,expvis,press,0)
+!   endif
+!   
+!   !---------------------------------------------------------------------------
+!   ! get forces at old/new time level
+!   !---------------------------------------------------------------------------
+!   ! TODO: do we need that? not for BDF I think
+!   call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
+!   ! we can overwrite NLK(n1) since this is the one overwritten in the next call
+!   call pressure_given_uk(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press)
+!   call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
+!   
+!   !---------------------------------------------------------------------------  
+!   ! advance solid model from (n) to (n+1)
+!   !---------------------------------------------------------------------------
+!   call SolidSolverWrapper( time, dt1, beams )
     
 end subroutine FSI_AB2_semiimplicit
 
@@ -494,60 +494,60 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))   
   integer::i
 
-  if ((use_passive_scalar==1).and.(mpirank==1)) then
-    write(*,*) "RK2 is not equipped for passive scalars..."
-    call abort()
-  endif
-  
-  !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press)
-  call adjust_dt(dt1,u)
-
-  !-- multiply the RHS with the viscosity, first the velocity
-  do i=1,3
-    nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,1)
-  enddo
-
-  !-- then, if present, the B-field
-  if (method=="mhd") then
-    do i=4,6
-      nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,2)
-    enddo
-  endif
-  
-  !-- Compute integrating factor, only done if necessary (i.e. time step
-  !-- has changed)
-  if (dt1 .ne. dt0) then
-     call cal_vis(dt1,expvis)
-  endif
-
-  !-- Do the actual euler step. note nlk is already multiplied by vis
-  do i=1,3
-    !-- advance fluid vecolity
-    uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,1) + dt1*nlk(:,:,:,i,0))
-  enddo
-  
-  if (method=="mhd") then
-    do i=4,6
-      !-- advance B-field
-      uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,2) + dt1*nlk(:,:,:,i,0))
-    enddo
-  endif
-
-  !-- RHS using the euler velocity
-  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press) 
-
-  ! do the actual time step. note the minus sign.in the original formulation, it
-  ! reads: u^n+1=u^n + dt/2*( N(u^n)*vis + N(u_euler) )
-  ! but we don't want to save u_euler seperately, we want to overwrite
-  ! u^n with it!  so the formulation reads
-  ! u^n+1=u_euler - dt*N(u^n)*vis + dt/2*( N(u^n)*vis + N(u_euler) )
-  !-- which yields simply
-  !-- u^n+1=u_euler + dt/2*( -N(u^n)*vis + N(u_euler) )
-  do i=1,nd
-     !-- advance all nd fields 
-     uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
-  enddo
+!   if ((use_passive_scalar==1).and.(mpirank==1)) then
+!     write(*,*) "RK2 is not equipped for passive scalars..."
+!     call abort()
+!   endif
+!   
+!   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
+!   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press)
+!   call adjust_dt(dt1,u)
+! 
+!   !-- multiply the RHS with the viscosity, first the velocity
+!   do i=1,3
+!     nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,1)
+!   enddo
+! 
+!   !-- then, if present, the B-field
+!   if (method=="mhd") then
+!     do i=4,6
+!       nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,2)
+!     enddo
+!   endif
+!   
+!   !-- Compute integrating factor, only done if necessary (i.e. time step
+!   !-- has changed)
+!   if (dt1 .ne. dt0) then
+!      call cal_vis(dt1,expvis)
+!   endif
+! 
+!   !-- Do the actual euler step. note nlk is already multiplied by vis
+!   do i=1,3
+!     !-- advance fluid vecolity
+!     uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,1) + dt1*nlk(:,:,:,i,0))
+!   enddo
+!   
+!   if (method=="mhd") then
+!     do i=4,6
+!       !-- advance B-field
+!       uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,2) + dt1*nlk(:,:,:,i,0))
+!     enddo
+!   endif
+! 
+!   !-- RHS using the euler velocity
+!   call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press) 
+! 
+!   ! do the actual time step. note the minus sign.in the original formulation, it
+!   ! reads: u^n+1=u^n + dt/2*( N(u^n)*vis + N(u_euler) )
+!   ! but we don't want to save u_euler seperately, we want to overwrite
+!   ! u^n with it!  so the formulation reads
+!   ! u^n+1=u_euler - dt*N(u^n)*vis + dt/2*( N(u^n)*vis + N(u_euler) )
+!   !-- which yields simply
+!   !-- u^n+1=u_euler + dt/2*( -N(u^n)*vis + N(u_euler) )
+!   do i=1,nd
+!      !-- advance all nd fields 
+!      uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
+!   enddo
 end subroutine rungekutta2
 
 
@@ -574,27 +574,27 @@ subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer::i
 
-  !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press)
-  call adjust_dt(dt1,u)
-
-  !-- Compute integrating factor, if necesssary
-  if (dt1 .ne. dt0) then
-     call cal_vis(dt1,expvis)
-  endif
-
-  !-- Advance in time, multiply by the integrating factor (always!)
-  do i=1,3
-    !-- advance fluid velocity
-    uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,1))*expvis(:,:,:,1)
-  enddo
-  
-  if (method=="mhd") then
-    do i=4,6
-      !-- advance B-field
-      uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,1))*expvis(:,:,:,2)
-    enddo
-  endif
+!   !-- Calculate fourier coeffs of nonlinear rhs and forcing
+!   call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press)
+!   call adjust_dt(dt1,u)
+! 
+!   !-- Compute integrating factor, if necesssary
+!   if (dt1 .ne. dt0) then
+!      call cal_vis(dt1,expvis)
+!   endif
+! 
+!   !-- Advance in time, multiply by the integrating factor (always!)
+!   do i=1,3
+!     !-- advance fluid velocity
+!     uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,1))*expvis(:,:,:,1)
+!   enddo
+!   
+!   if (method=="mhd") then
+!     do i=4,6
+!       !-- advance B-field
+!       uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,1))*expvis(:,:,:,2)
+!     enddo
+!   endif
 end subroutine euler
 
 
@@ -622,56 +622,56 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   real(kind=pr)::t1
   integer::i
 
-  !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc, press)
-  call adjust_dt(dt1,u)
-
-  !-- Compute integrating factor, if necesssary
-  if (dt1 .ne. dt0) then
-     call cal_vis(dt1,expvis)
-  endif
-
-  !-- Advance in time, multiply by the integrating factor
-  do i=1,3
-    !-- advance fluid velocity
-    uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,n0))*expvis(:,:,:,1)
-    ! multiply RHS with integrating factor
-    if (iter==0) then
-      ! if this routine is called several times in one time step (iterations), do
-      ! multiply the old rhs only once with expvis
-      nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
-    endif
-  enddo
-  
-  if (projection=="ACM") then
-    uk(:,:,:,4)=(uk(:,:,:,4) + dt1*nlk(:,:,:,4,n0))
-  endif
-  
-  if (method=="mhd") then
-    do i=4,6
-      !-- advance B-field
-      uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,n0))*expvis(:,:,:,2)
-      ! multiply RHS with integrating factor
-      if (iter==0) then
-        ! if this routine is called several times in one time step (iterations), do
-        ! multiply the old rhs only once with expvis
-        nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,2)
-      endif
-    enddo
-  endif    
-  
-  if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
-    !-- advance passive scalar (no integrating factor here!!)
-    t1 = MPI_wtime()
-    uk(:,:,:,4)=uk(:,:,:,4) + dt1*nlk(:,:,:,4,n0)
-    time_scalar = time_scalar + MPI_wtime() - t1
-    if (projection=="ACM") then
-      write(*,*) "conflict ACM scalar...fail!"
-      call abort()
-    endif
-  endif
-  
-  if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
+!   !-- Calculate fourier coeffs of nonlinear rhs and forcing
+!   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc, press)
+!   call adjust_dt(dt1,u)
+! 
+!   !-- Compute integrating factor, if necesssary
+!   if (dt1 .ne. dt0) then
+!      call cal_vis(dt1,expvis)
+!   endif
+! 
+!   !-- Advance in time, multiply by the integrating factor
+!   do i=1,3
+!     !-- advance fluid velocity
+!     uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,n0))*expvis(:,:,:,1)
+!     ! multiply RHS with integrating factor
+!     if (iter==0) then
+!       ! if this routine is called several times in one time step (iterations), do
+!       ! multiply the old rhs only once with expvis
+!       nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
+!     endif
+!   enddo
+!   
+!   if (projection=="ACM") then
+!     uk(:,:,:,4)=(uk(:,:,:,4) + dt1*nlk(:,:,:,4,n0))
+!   endif
+!   
+!   if (method=="mhd") then
+!     do i=4,6
+!       !-- advance B-field
+!       uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,n0))*expvis(:,:,:,2)
+!       ! multiply RHS with integrating factor
+!       if (iter==0) then
+!         ! if this routine is called several times in one time step (iterations), do
+!         ! multiply the old rhs only once with expvis
+!         nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,2)
+!       endif
+!     enddo
+!   endif    
+!   
+!   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
+!     !-- advance passive scalar (no integrating factor here!!)
+!     t1 = MPI_wtime()
+!     uk(:,:,:,4)=uk(:,:,:,4) + dt1*nlk(:,:,:,4,n0)
+!     time_scalar = time_scalar + MPI_wtime() - t1
+!     if (projection=="ACM") then
+!       write(*,*) "conflict ACM scalar...fail!"
+!       call abort()
+!     endif
+!   endif
+!   
+!   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
 end subroutine euler_startup
 
 
@@ -699,57 +699,57 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   real(kind=pr)::b10,b11,t1
   integer::i
 
-  !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press)
-  call adjust_dt(dt1,u)
-
-  !-- Calculate velocity at new time step 
-  !-- (2nd order Adams-Bashforth with exact integration of diffusion term)
-  b10=dt1/dt0*(0.5*dt1 + dt0)
-  b11=-0.5*dt1*dt1/dt0
-
-  !-- compute integrating factor, if necesssary
-  if (dt1 .ne. dt0) then
-     call cal_vis(dt1,expvis)
-  endif
-
-  !-- Advance in time, multiply by the integrating factor
-  do i=1,3
-    ! advance fluid velocity
-    uk(:,:,:,i)=(uk(:,:,:,i)+b10*nlk(:,:,:,i,n0)+b11*nlk(:,:,:,i,n1))*expvis(:,:,:,1)
-    ! multiply RHS with integrating factor
-    if (iter==0) then
-      ! if this routine is called several times in one time step (iterations), do
-      ! multiply the old rhs only once with expvis
-      nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
-    endif
-  enddo
-  
-  if (projection=="ACM") then
-    uk(:,:,:,4)=uk(:,:,:,4)+b10*nlk(:,:,:,4,n0)+b11*nlk(:,:,:,4,n1)
-  endif
-  
-  !-- advance B-field in time
-  if (method=="mhd") then
-    do i=4,6
-      ! advance B-field
-      uk(:,:,:,i)=(uk(:,:,:,i)+b10*nlk(:,:,:,i,n0)+b11*nlk(:,:,:,i,n1))*expvis(:,:,:,2)
-      ! multiply RHS with integrating factor
-      if (iter==0) then
-        ! if this routine is called several times in one time step (iterations), do
-        ! multiply the old rhs only once with expvis
-        nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,2)
-      endif
-    enddo
-  endif    
-  
-  !-- advance passive scalar in time
-  if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
-    !-- advance passive scalar (no integrating factor here!!)
-    t1 = MPI_wtime()
-    uk(:,:,:,4)=uk(:,:,:,4)+b10*nlk(:,:,:,4,n0)+b11*nlk(:,:,:,4,n1)
-    time_scalar = time_scalar + MPI_wtime() - t1
-  endif
+!   !-- Calculate fourier coeffs of nonlinear rhs and forcing
+!   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press)
+!   call adjust_dt(dt1,u)
+! 
+!   !-- Calculate velocity at new time step 
+!   !-- (2nd order Adams-Bashforth with exact integration of diffusion term)
+!   b10=dt1/dt0*(0.5*dt1 + dt0)
+!   b11=-0.5*dt1*dt1/dt0
+! 
+!   !-- compute integrating factor, if necesssary
+!   if (dt1 .ne. dt0) then
+!      call cal_vis(dt1,expvis)
+!   endif
+! 
+!   !-- Advance in time, multiply by the integrating factor
+!   do i=1,3
+!     ! advance fluid velocity
+!     uk(:,:,:,i)=(uk(:,:,:,i)+b10*nlk(:,:,:,i,n0)+b11*nlk(:,:,:,i,n1))*expvis(:,:,:,1)
+!     ! multiply RHS with integrating factor
+!     if (iter==0) then
+!       ! if this routine is called several times in one time step (iterations), do
+!       ! multiply the old rhs only once with expvis
+!       nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
+!     endif
+!   enddo
+!   
+!   if (projection=="ACM") then
+!     uk(:,:,:,4)=uk(:,:,:,4)+b10*nlk(:,:,:,4,n0)+b11*nlk(:,:,:,4,n1)
+!   endif
+!   
+!   !-- advance B-field in time
+!   if (method=="mhd") then
+!     do i=4,6
+!       ! advance B-field
+!       uk(:,:,:,i)=(uk(:,:,:,i)+b10*nlk(:,:,:,i,n0)+b11*nlk(:,:,:,i,n1))*expvis(:,:,:,2)
+!       ! multiply RHS with integrating factor
+!       if (iter==0) then
+!         ! if this routine is called several times in one time step (iterations), do
+!         ! multiply the old rhs only once with expvis
+!         nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,2)
+!       endif
+!     enddo
+!   endif    
+!   
+!   !-- advance passive scalar in time
+!   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
+!     !-- advance passive scalar (no integrating factor here!!)
+!     t1 = MPI_wtime()
+!     uk(:,:,:,4)=uk(:,:,:,4)+b10*nlk(:,:,:,4,n0)+b11*nlk(:,:,:,4,n1)
+!     time_scalar = time_scalar + MPI_wtime() - t1
+!   endif
 end subroutine adamsbashforth
 
 
@@ -779,44 +779,44 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   integer::i
   type(diptera),intent(inout)::Insect
 
-  if ((SolidDyn%idynamics/=1).and.(mpirank==0)) then
-    write(*,*) "ERROR AB2_rigid_solid and flag SolidDyn%idynamics/=1"
-    write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
-    call abort()
-  endif
-  
-  if ((method/="fsi").and.(mpirank==0)) then
-    write(*,*) "AB2_rigid_solid is an FSI method and not suitable for MHD"
-    call abort()
-  endif
-  
-  !---------------------------------------------------------------------------
-  ! advance fluid to from (n) to (n+1)
-  !---------------------------------------------------------------------------
-  if(it == 0) then
-    call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-         work,workc,expvis,press,0)
-  else
-    call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-         work,workc,expvis,press,0)
-  endif
-  
-  !---------------------------------------------------------------------------
-  ! compute hydrodynamic forces for rigid solid solver
-  !---------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  if (unst_corrections ==1) then
-    call cal_unst_corrections ( time, dt0, Insect )
-  endif
-  call cal_drag ( time, u, Insect ) ! note u is OLD time level
-  time_drag = time_drag + MPI_wtime() - t1
-  
-  !---------------------------------------------------------------------------
-  ! solve Newton's second law
-  !---------------------------------------------------------------------------
-  ! note dt0 is OLD time step t(n)-t(n-1)
-  ! advance in time ODEs that describe rigid solids
-  call rigid_solid_time_step(time,dt0,dt1,it,Insect)
+!   if ((SolidDyn%idynamics/=1).and.(mpirank==0)) then
+!     write(*,*) "ERROR AB2_rigid_solid and flag SolidDyn%idynamics/=1"
+!     write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
+!     call abort()
+!   endif
+!   
+!   if ((method/="fsi").and.(mpirank==0)) then
+!     write(*,*) "AB2_rigid_solid is an FSI method and not suitable for MHD"
+!     call abort()
+!   endif
+!   
+!   !---------------------------------------------------------------------------
+!   ! advance fluid to from (n) to (n+1)
+!   !---------------------------------------------------------------------------
+!   if(it == 0) then
+!     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
+!          work,workc,expvis,press,0)
+!   else
+!     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
+!          work,workc,expvis,press,0)
+!   endif
+!   
+!   !---------------------------------------------------------------------------
+!   ! compute hydrodynamic forces for rigid solid solver
+!   !---------------------------------------------------------------------------
+!   t1 = MPI_wtime()
+!   if (unst_corrections ==1) then
+!     call cal_unst_corrections ( time, dt0, Insect )
+!   endif
+!   call cal_drag ( time, u, Insect ) ! note u is OLD time level
+!   time_drag = time_drag + MPI_wtime() - t1
+!   
+!   !---------------------------------------------------------------------------
+!   ! solve Newton's second law
+!   !---------------------------------------------------------------------------
+!   ! note dt0 is OLD time step t(n)-t(n-1)
+!   ! advance in time ODEs that describe rigid solids
+!   call rigid_solid_time_step(time,dt0,dt1,it,Insect)
   
 
 end subroutine AB2_rigid_solid

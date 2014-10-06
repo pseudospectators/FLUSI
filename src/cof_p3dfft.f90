@@ -105,11 +105,11 @@ subroutine fft_initialize
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
   ! along the z direction in real space. 
-  if (nz>mpisize) then
-     mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
-     mpidims(2) = mpisize       ! 3rd index in real space.
-     decomposition="1D"
-  else
+!   if (nz>mpisize) then
+!      mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+!      mpidims(2) = mpisize       ! 3rd index in real space.
+!      decomposition="1D"
+!   else
      mpidims(1) = 0
      mpidims(2) = 0
      call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
@@ -118,7 +118,7 @@ subroutine fft_initialize
         mpidims(2) = mpisize / mpidims(1)
      endif
      decomposition="2D"
-  endif
+!   endif
   
   if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims
   if (root) write(*,'("Using ",A," decomposition!")') trim(adjustl(decomposition))
@@ -140,18 +140,10 @@ subroutine fft_initialize
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
   
-  !-- extends of real arrays that have ghost points
-  ga=ra
-  gb=rb
-  if (decomposition=="1D") then
-    ga(3) = ga(3)-ng
-    gb(3) = gb(3)+ng
-  elseif (decomposition=="2D") then
-    ga(2) = ga(2)-ng
-    gb(2) = gb(2)+ng
-    ga(3) = ga(3)-ng
-    gb(3) = gb(3)+ng
-  endif
+  !-- extends of real arrays that have ghost points. We add ghosts in all 
+  !-- directions, including the periodic ones.
+  ga=ra-ng
+  gb=rb+ng
   
   
   !-- Allocate domain partitioning tables and gather sizes from all processes 
@@ -182,61 +174,6 @@ subroutine fft_initialize
     enddo
     close(14)
   endif
-  
-  !-----------------------------------------------------------------------------     
-  ! ------ Multiple one-dimensional FFTs                                  ------
-  !-----------------------------------------------------------------------------
-  !-- Create Cartesian topology for one-dimensional transforms
-  call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/.false.,.false./),&
-       .false.,mpicommcart,mpicode)
-  ! call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/0,0/),0,mpicommcart,mpicode)
-  call MPI_CART_COORDS(mpicommcart,mpirank,nmpidims,mpicoords,mpicode)
-
-  !-- Restrict communications to slabs:
-  !-- Communicate between processes which have the same second(for idir=1) or third(for idir=2) index in the cartesian topology
-  do idir = 1,2
-     subcart(3-idir) = .true.
-     subcart(idir) = .false.
-     call MPI_CART_SUB(mpicommcart,subcart,mpicommslab(idir),mpicode)
-  enddo
-
-  !-- Create FFTW plans for all possible sizes
-  ! extents of arrays before and after transpose x->y
-  call trextents(1,(/nx,ny,nz/),mpidims,mpicoords,ka,kb,ks,kat,kbt,kst)
-
-  ! allocate plan for transform with x leading
-  L = nx
-  n = ks(2)*ks(3)
-  allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
-  call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(1),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
-       FFTW_ESTIMATE)
-  call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(1),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
-       FFTW_ESTIMATE)
-  deallocate(f,ft )
-
-  ! allocate plan for transform with y leading
-  L = ny
-  n = kst(2)*kst(3)
-  allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
-  call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(2),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
-       FFTW_ESTIMATE)
-  call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(2),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
-       FFTW_ESTIMATE)
-  deallocate(f,ft )
-
-  ! extents of arrays before and after transpose y->z
-  call trextents(2,(/ny,nx,nz/),mpidims,mpicoords,ka,kb,ks,kat,kbt,kst)
-
-  ! allocate plan for transform with z leading
-  L = nz
-  n = kst(2)*kst(3)
-  allocate(f(0:L-1,0:n-1),ft(0:L+1,0:n-1) )
-  call dfftw_plan_many_dft_r2c(Desc_Handle_1D_f(3),1,L,n,f,0,1,L,ft,0,1,L/2+1,&
-       FFTW_ESTIMATE)
-  call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(3),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
-       FFTW_ESTIMATE)
-  deallocate(f,ft )
-  deallocate (yz_plane_local)
 end subroutine fft_initialize
 
 
