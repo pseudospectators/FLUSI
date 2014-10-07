@@ -90,6 +90,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-------------------------------------------------
      if (((modulo(time%time,tsave)<time%dt_new).and.(time%time>=tsave_first)).or.(time%time==tmax)) then
         call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt_new)
+        write(*,*) "pmax=",maxval(u(:,:,:,4)),"uxmax=",maxval(u(:,:,:,1))
         call save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)   
      endif
 

@@ -105,11 +105,11 @@ subroutine fft_initialize
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
   ! along the z direction in real space. 
-!   if (nz>mpisize) then
-!      mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
-!      mpidims(2) = mpisize       ! 3rd index in real space.
-!      decomposition="1D"
-!   else
+  if (nz>mpisize) then
+     mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+     mpidims(2) = mpisize       ! 3rd index in real space.
+     decomposition="1D"
+  else
      mpidims(1) = 0
      mpidims(2) = 0
      call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
@@ -118,7 +118,7 @@ subroutine fft_initialize
         mpidims(2) = mpisize / mpidims(1)
      endif
      decomposition="2D"
-!   endif
+  endif
   
   if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims
   if (root) write(*,'("Using ",A," decomposition!")') trim(adjustl(decomposition))

@@ -21,7 +21,6 @@ subroutine create_mask(time,mask,mask_color,us,Insect,beams)
   mask_color = 0
   us = 0.d0
 
-  us(:,:,:,1)=1.d0
   !-------------------------------------------------------------
   ! create obstacle mask
   !-------------------------------------------------------------  

@@ -178,8 +178,8 @@ end subroutine
 ! 
 ! 
 
-! 
-! 
+! ! 
+! ! 
 ! ! Compute the average total energy and energy in each direction for a
 ! ! physical-space vector fields with components f1, f2, f3, leaving the
 ! ! input vector field untouched. ACTS ON FLUID DOMAIN ONLY
@@ -299,7 +299,7 @@ end subroutine
 ! ! Compute the average average component in each direction for a
 ! ! physical-space vector fields with components f1, f2, f3, leaving the
 ! ! input vector field untouched.
-! subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
+! subroutine compute_components(mask,Cx,Cy,Cz,f1,f2,f3)
 !   use mpi
 !   use vars
 !   implicit none
@@ -349,6 +349,7 @@ end subroutine
 !        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
 !        MPI_COMM_WORLD,mpicode)
 ! end subroutine compute_components
+
 ! 
 ! 
 ! ! Compute the maximum non-normalized divergence of the given 3D field

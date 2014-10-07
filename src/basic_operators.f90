@@ -246,10 +246,6 @@ subroutine curl_x( u, rotu )
   ! output scalar field in Fourier space
   complex(kind=pr),allocatable,dimension(:,:,:,:)::outk
   complex(kind=pr) :: imag   ! imaginary unit
-
-  
-   
-  
   
   select case(method)
   case('spectral')  
@@ -337,7 +333,7 @@ subroutine curl_x( u, rotu )
         enddo
       enddo 
   case default
-    call suicide2('invalid METHOD in divergence:'//method)
+      call suicide2('invalid METHOD in curl_x:'//method)
   end select
 end subroutine curl_x
 

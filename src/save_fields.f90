@@ -2,7 +2,6 @@
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
 ! files. 
-! The latest version calls cal_nlk_fsi to avoid redudant code. 
 !-------------------------------------------------------------------------------
 subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
@@ -16,7 +15,7 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
-  real(kind=pr),intent(in)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(in)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid),dimension(1:nBeams),intent(in) :: beams
@@ -53,9 +52,7 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call save_field_hdf5(time,'./p_'//name,u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4),"p")
   endif
      
-  !-------------  
-  ! Vorticity
-  !-------------   
+  ! Save the Vorticity
   if (isaveVorticity==1) then
     !-- compute vorticity:
     call curl_x( u(:,:,:,1:3), nlk(:,:,:,1:3,1) )
@@ -64,25 +61,21 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call save_field_hdf5(time,"./vorz_"//name,nlk(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3,1),"vorz")
   endif
       
-  !-------------  
-  ! Mask
-  !-------------
+  ! Save the Mask
   if (isaveMask == 1 .and. iPenalization == 1) then
-!     mask = mask*eps
-!     call compute_mask_volume(volume)
-!     if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
+    mask = mask*eps
+    call compute_mask_volume(mask,volume)
+    if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
-!     mask = mask/eps
+    mask = mask/eps
   endif
   
-!   !-------------  
-!   ! solid velocity
-!   !-------------
-!   if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
-!     call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1),"usx")
-!     call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
-!     call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
-!   endif
+  ! save solid velocity
+  if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
+    call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1),"usx")
+    call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
+    call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
+  endif
   
 !   !------------
 !   ! passive scalar

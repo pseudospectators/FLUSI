@@ -22,9 +22,11 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   t1=MPI_wtime()
 
   ! Call fluid advancement subroutines.
-!   select case(iTimeMethodFluid)
-!   case("RK2")
+  select case(iTimeMethodFluid)
+  case("RK2")
       call RungeKutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  case("RK4")
+      call RungeKutta4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !   case("AB2")
 !       if(it == 0) then
 !         call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,expvis,press,0)
@@ -50,10 +52,10 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !   case("FSI_AB2_semiimplicit")
 !       call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
 !            workc,expvis,press,beams)
-!   case default
-!       if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-!       call abort()
-!   end select
+  case default
+      if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
+      call abort()
+  end select
   
 !   ! compute unsteady corrections in every time step
 !   if(method=="fsi" .and. unst_corrections==1) then
@@ -473,6 +475,47 @@ subroutine rungekutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 end subroutine rungekutta2
 
 
+
+subroutine rungekutta4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use vars
+  use solid_model
+  use insect_module
+  use p3dfft_wrapper
+  implicit none
+
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
+
+  call adjust_dt(u,time%dt_new)
+  
+  ! NLK 5th register holds old velocity
+  nlk(:,:,:,:,5) = u
+  
+  !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
+  call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
+  
+  u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,1)
+  call cal_nlk(time,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
+  
+  u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,2)
+  call cal_nlk(time,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect,beams)
+  
+  u = nlk(:,:,:,:,5) + time%dt_new * nlk(:,:,:,:,3)
+  call cal_nlk(time,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect,beams)
+  
+  u = nlk(:,:,:,:,5) + time%dt_new/6.d0*(nlk(:,:,:,:,1)+2.d0*nlk(:,:,:,:,2)&
+      +2.d0*nlk(:,:,:,:,3)+nlk(:,:,:,:,4))
+  
+end subroutine rungekutta4
+
+
 ! ! This is standard Euler-explicit time marching. It does not serve as
 ! ! startup scheme for AB2.
 ! subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
@@ -782,7 +825,7 @@ subroutine adjust_dt(u,dt1)
            dt1=min(dx,dy,dz)*cfl/umax
         else
            !-- umax is very very small
-           dt1=1.0d-2
+           dt1=1.0d-3
         endif
 
         !-- Round the time-step to one digit to reduce calls of cal_vis

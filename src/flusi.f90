@@ -226,7 +226,6 @@ subroutine Start_Simulation()
 !   method="spectral"
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
   nrw=1   ! number of real valued work arrays
-  nrhs=2  ! number of registers for right hand side vectors
   
   ! initialize timing variables
   time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
@@ -253,6 +252,18 @@ subroutine Start_Simulation()
   call get_command_argument(1,infile)
   ! read all parameters from that file
   call get_params(infile,Insect)
+  
+  !-----------------------------------------------------------------------------
+  ! decide about memory
+  !-----------------------------------------------------------------------------
+  if (iTimeMethodFluid=="RK2") then
+    nrhs=2  ! number of registers for right hand side vectors
+  elseif (iTimeMethodFluid=="RK4") then
+    nrhs=5  ! number of registers for right hand side vectors
+  else
+    write(*,*) "error ganz am anfang"
+    stop
+  endif
   
   !-----------------------------------------------------------------------------
   ! ghost points
