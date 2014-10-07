@@ -454,24 +454,23 @@ subroutine rungekutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
 
+  ! define the time step we want to use
   call adjust_dt(u,time%dt_new)
   
-  nlk(:,:,:,:,3) = u
+  ! now NLK2 is old velocity
+  nlk(:,:,:,:,2) = u
   
   call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
   u = u + 0.5d0*time%dt_new * nlk(:,:,:,:,1)
   
+  ! now NLK1 is old velocity
+  nlk(:,:,:,:,1) = nlk(:,:,:,:,2)
+  
   !-- RHS using the euler velocity
   call cal_nlk(time,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
 
-  ! do the actual time step. note the minus sign.in the original formulation, it
-  ! reads: u^n+1=u^n + dt/2*( N(u^n) + N(u_euler) )
-  ! but we don't want to save u_euler seperately, we want to overwrite
-  ! u^n with it!  so the formulation reads
-  ! u^n+1=u_euler - dt*N(u^n) + dt/2*( N(u^n) + N(u_euler) )
-  ! which yields simply
-  ! u^n+1=u_euler + dt/2*( -N(u^n) + N(u_euler) )
-  u = nlk(:,:,:,:,3) + time%dt_new * nlk(:,:,:,:,2)
+  ! final step
+  u = nlk(:,:,:,:,1) + time%dt_new * nlk(:,:,:,:,2)
 end subroutine rungekutta2
 
 
