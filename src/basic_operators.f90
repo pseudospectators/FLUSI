@@ -22,6 +22,11 @@ module basic_operators
   interface checknan
     module procedure checknan_cmplx, checknan_real
   end interface
+  
+  ! divergence (in x- or k- space)
+  interface divergence
+    module procedure divergence_k, divergence_x
+  end interface
  
  
 !!!!!!!!!!! 
@@ -226,7 +231,7 @@ end subroutine curl3
 ! compute divergence of vector valued field (ink, 4D array)
 ! and returns it in outk
 !-------------------------------------------------------------------------------
-subroutine divergence( ink, outk )
+subroutine divergence_k( ink, outk )
   use mpi
   use p3dfft_wrapper
   use vars
@@ -253,7 +258,107 @@ subroutine divergence( ink, outk )
       enddo
     enddo
   enddo
-end subroutine divergence
+end subroutine divergence_k
+
+!-------------------------------------------------------------------------------
+! compute the divergence of the input field u and return it in divu
+! depending on the value of "method", different discretization
+! is used.
+!-------------------------------------------------------------------------------
+subroutine divergence_x( u, divu )
+  use mpi
+  use p3dfft_wrapper
+  use vars
+  implicit none
+  ! input vector field in Fourier space
+  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  ! output scalar field in Fourier space
+  real(kind=pr),intent(out)::divu(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,dxinv,dyinv,dzinv,uxdx,uydy,uzdz,a1,a2,a4,a5
+  ! input vector field in Fourier space
+  complex(kind=pr),allocatable,dimension(:,:,:,:)::ink
+  ! output scalar field in Fourier space
+  complex(kind=pr),allocatable,dimension(:,:,:)::outk
+  
+  
+  select case(method)
+  case('spectral')  
+      !-------------------------------------------------------------------------
+      ! compute divergence(u) using spectral derivatives. Note that both input
+      ! and output of this function are in x-space, which requires 3 fft and
+      ! 1 ifft. 
+      !-------------------------------------------------------------------------
+      allocate(ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+      allocate(outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+      ! transform input to Fourier space
+      call fft3( inx=u, outk=ink )
+      do iz=ca(1),cb(1)          
+        !-- wavenumber in z-direction
+        kz = wave_z(iz)       
+        do iy=ca(2), cb(2)
+          !-- wavenumber in y-direction
+          ky = wave_y(iy)      
+          do ix=ca(3), cb(3)
+            !-- wavenumber in x-direction
+            kx = wave_x(ix)
+            outk(iz,iy,ix)=kx*ink(iz,iy,ix,1)+ky*ink(iz,iy,ix,2)+kz*ink(iz,iy,ix,3)
+            outk(iz,iy,ix)=dcmplx(0.d0,1.d0)*outk(iz,iy,ix)
+          enddo
+        enddo
+      enddo
+      ! transform output back to x-space
+      call ifft( ink=outk, outx=divu(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+      deallocate(ink,outk)
+      
+  case('centered_2nd')
+      !-------------------------------------------------------------------------
+      ! compute divergence(u) using second order centered period FD
+      !-------------------------------------------------------------------------
+      dxinv = 1.d0/(2.d0*dx)
+      dyinv = 1.d0/(2.d0*dy)
+      dzinv = 1.d0/(2.d0*dz)
+      
+      do iz=ra(3),rb(3)
+        do iy=ra(2),rb(2)
+          do ix=ra(1),rb(1)
+            uxdx = dxinv*(u(ix+1,iy,iz,1)-u(ix-1,iy,iz,1))
+            uydy = dyinv*(u(ix,iy+1,iz,2)-u(ix,iy-1,iz,2))
+            uzdz = dzinv*(u(ix,iy,iz+1,3)-u(ix,iy,iz-1,3))
+            divu(ix,iy,iz) = uxdx + uydy + uzdz
+          enddo
+        enddo
+      enddo 
+      
+  case('centered_4th')
+      !-------------------------------------------------------------------------
+      ! compute divergence(u) using second order centered period FD
+      !-------------------------------------------------------------------------
+      a1 = 1.d0/12.d0
+      a2 =-2.d0/3.d0
+      a4 = 2.d0/3.d0
+      a5 =-1.d0/12.d0
+      
+      dxinv = 1.d0/dx
+      dyinv = 1.d0/dy
+      dzinv = 1.d0/dz
+      
+      do iz=ra(3),rb(3)
+        do iy=ra(2),rb(2)
+          do ix=ra(1),rb(1)
+            uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv
+            uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
+            uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
+            divu(ix,iy,iz) = uxdx + uydy + uzdz
+          enddo
+        enddo
+      enddo 
+  case default
+    call suicide2('invalid METHOD in divergence:'//method)
+  end select
+end subroutine divergence_x
+
 
 
 ! computes laplace(ink) for a scalar valued field and returns it in the same array

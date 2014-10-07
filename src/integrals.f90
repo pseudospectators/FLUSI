@@ -1,48 +1,39 @@
-! !-------------------------------------------------------------------------------
-! ! Wrapper for writing integral quantities to file
-! ! Input:
-! !       uk: the neq-component vector of the unknowns in F-space
-! ! Input/Output:
-! !       u, vort: two 3D-work arrays (free on entry and exit)
-! !       nlk: 3D complex work array (free on entry and exit)
-! ! Output:
-! !       all output is done directly to hard disk in the *.t files
-! !-------------------------------------------------------------------------------
-! subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
-!   use mpi
-!   use vars
-!   use solid_model
-!   use insect_module
-!   implicit none
-! 
-!   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-!   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-!   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-!   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-!   real(kind=pr),intent(in):: time
-!   type(solid), dimension(1:nBeams),intent(inout) :: beams
-!   type(diptera), intent(inout) :: Insect
-!   real(kind=pr) :: t1
-!   
-!   t1=MPI_wtime()
-! 
-!   select case(method)
-!   case("fsi")
-!      call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),Insect,beams)
-!   case("mhd")
-!      call write_integrals_mhd(time,uk,u,vort,nlk,work(:,:,:,1))
-!   case default
-!      if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
-!      call abort()
-!   end select
-!   
-!   time_integrals = time_integrals + MPI_wtime()-t1
-! end subroutine write_integrals
-! 
-! 
+!-------------------------------------------------------------------------------
+! Wrapper for writing integral quantities to file
+! Input:
+!       uk: the neq-component vector of the unknowns in F-space
+! Input/Output:
+!       u, vort: two 3D-work arrays (free on entry and exit)
+!       nlk: 3D complex work array (free on entry and exit)
+! Output:
+!       all output is done directly to hard disk in the *.t files
+!-------------------------------------------------------------------------------
+subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use vars
+  use solid_model
+  use insect_module
+  implicit none
+
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
+  
+  t1=MPI_wtime()
+
+!   call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),Insect,beams)
+  
+  time_integrals = time_integrals + MPI_wtime()-t1
+end subroutine 
+
+
 ! ! fsi version of writing integral quantities to disk
-! subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
+! subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !   use mpi
 !   use vars
 !   use p3dfft_wrapper
@@ -51,14 +42,16 @@
 !   use insect_module
 !   implicit none
 ! 
-!   real(kind=pr),intent(in)::time
-!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-!   real(kind=pr),intent(inout)::work3r(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-!   real(kind=pr),intent(inout)::work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-!   complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)  
+!   type(timetype), intent(inout) :: time
+!   real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+!   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+!   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+!   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+!   real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+!   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 !   type(solid), dimension(1:nBeams),intent(inout) :: beams
-!   type(diptera), intent(inout) :: Insect
+!   type(diptera), intent(inout) :: Insect 
+!   
 !   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
 !   real(kind=pr) :: concentration, conc
 !   real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
@@ -67,23 +60,20 @@
 !   real(kind=pr) :: dissf, dissxf, dissyf, disszf
 !   integer :: ix,iy,iz,mpicode
 !   
-!   !-----------------------------------------------------------------------------
-!   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
-!   !-----------------------------------------------------------------------------
-!   ! the stepper AB2_rigid_solid has to compute the drag at every time step, so
-!   ! we can skip the separate computation in INTEGRALS
-!   if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
-!     t3 = MPI_wtime()    
-!     ! fetch u in x-space at time t. note the output u of fluidtimestep is not
-!     ! nessesarily what we need, so we must ensure u=ifft(uk) here
-!     call ifft3 (ink=uk, outx=u)
-!     ! to compute the forces, we need the mask at time t. not we cannot suppose
-!     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
-!     ! have to reconstruct the mask now. solids are also at time t
-!     if(iMoving==1) call create_mask(time, Insect, beams)
-!     call cal_drag (time, u, Insect)
-!     time_drag = time_drag + MPI_wtime() - t3
-!   endif
+! !   !-----------------------------------------------------------------------------
+! !   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
+! !   !-----------------------------------------------------------------------------
+! !   ! the stepper AB2_rigid_solid has to compute the drag at every time step, so
+! !   ! we can skip the separate computation in INTEGRALS
+! !   if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
+! !     t3 = MPI_wtime()    
+! !     ! to compute the forces, we need the mask at time t. not we cannot suppose
+! !     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
+! !     ! have to reconstruct the mask now. solids are also at time t
+! !     if(iMoving==1) call create_mask(time, Insect, beams)
+! !     call cal_drag (time, u, Insect)
+! !     time_drag = time_drag + MPI_wtime() - t3
+! !   endif
 !   
 !   !-----------------------------------------------------------------------------
 !   ! divergence of velocity field (in the entire domain and in the fluid domain)
@@ -185,131 +175,10 @@
 !     close(14)
 !   endif
 !   
-! end subroutine write_integrals_fsi
+! end subroutine 
 ! 
 ! 
-! ! The mhd version of writing integral quantities to disk.
-! ! In order to make the asy files useful for both hd and mhd codes,
-! ! please output velocity and magnetic fields quantities in separate
-! ! files, or (if there aren't too many columns) put all the
-! ! velocity-only quantities first.
-! subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
-!   use mpi
-!   use mhd_vars
-!   use p3dfft_wrapper
-!   use basic_operators
-!   implicit none
-! 
-!   complex (kind=pr),intent(in)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-!   real (kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-!   real (kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-!   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-!   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr), intent(in) :: time
-!   integer :: i
-!   ! Local loop variables
-!   real(kind=pr) :: Ekin,Ekinx,Ekiny,Ekinz
-!   real(kind=pr) :: Emag,Emagx,Emagy,Emagz
-!   real(kind=pr) :: meanjx,meanjy,meanjz
-!   real(kind=pr) :: jmax,jxmax,jymax,jzmax
-!   real(kind=pr) :: divu,divb
-!   real(kind=pr) :: dissu,dissb
-!   real(kind=pr) :: fluid_volume
-! 
-!   ! Make sure that we have the fields that we need in the space we need:
-! 
-!   ! Compute u and B to physical space
-!   do i=1,nd
-!      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
-!   enddo
-!   
-!   ! Compute the vorticity and store the result in the first three 3D
-!   ! arrays of nlk.
-!   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-!        ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
-! 
-!   ! Compute the current density and store the result in the last three
-!   ! 3D arrays of nlk.
-!   call curl(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
-!        ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
-! 
-!   ! Transform vorcitity and current density to physical space, store
-!   ! in wj
-!   do i=1,nd
-!      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
-!   enddo
-! 
-!   ! Compute the integral quantities and output to disk:
-! 
-!   ! Compute the fluid volume.
-!   call compute_fluid_volume(fluid_volume)
-! 
-!   ! Compute kinetic energies.
-!   call compute_energies_f(Ekin,Ekinx,Ekiny,Ekinz,&
-!        ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3))
-!   if(mpirank == 0) then
-!      open(14,file='ek.t',status='unknown',position='append')
-!      ! 9 outputs, including tabs
-!      write(14,'(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)') &
-!           time,tab,Ekin,tab,Ekinx,tab,Ekiny,tab,Ekinz
-!      close(14)
-!   endif
-! 
-!   ! Comptue magnetic energies.
-!   call compute_energies_f(Emag,Emagx,Emagy,Emagz,&
-!        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6))
-!   if(mpirank == 0) then
-!      open(14,file='eb.t',status='unknown',position='append')
-!      ! 9 outputs, including tabs
-!      write(14,'(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)') &
-!           time,tab,Emag,tab,Emagx,tab,Emagy,tab,Emagz
-!      close(14)
-!   endif
-! 
-!   ! Compute current density values.
-!   call compute_components(meanjx,meanjy,meanjz,&
-!        wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
-!   call compute_max(jmax,jxmax,jymax,jzmax,wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
-!   if(mpirank == 0) then
-!      open(14,file='j.t',status='unknown',position='append')
-!      ! 15 outputs, including tabs
-!      write(14,&
-!           '(e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16,A,e25.16)')&
-!           time,tab,meanjx,tab,meanjy,tab,meanjz,tab,jmax,tab,jxmax,tab,&
-!           jymax,tab,jzmax
-!      close(14)
-!   endif
-!   
-!   ! Compute kinetic and magnetic energy dissipation
-!   ! Kinetic energy dissipation is nu*< |vorticity| >
-!   call compute_mean_norm(dissu,wj(:,:,:,1),wj(:,:,:,2),wj(:,:,:,3))
-!   dissu=nu*dissu
-!   ! Magnetic energy dissipation is eta*< |current density| >
-!   call compute_mean_norm(dissb,wj(:,:,:,4),wj(:,:,:,5),wj(:,:,:,6))
-!   dissb=eta*dissb
-!   if(mpirank == 0) then
-!      open(14,file='diss.t',status='unknown',position='append')
-!      ! 3 outputs
-!      write(14,'(e25.16,A,e25.16,A,e25.16)') time,tab,dissu,tab,dissb
-!      close(14)
-!   endif
-! 
-!   ! Compute max divergence.
-!   call compute_max_div(divu,&
-!        ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3),&
-!        ub(:,:,:,1),ub(:,:,:,2),ub(:,:,:,3),&
-!        work,nlk(:,:,:,1))
-!   call compute_max_div(divb,&
-!        ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6),&
-!        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6),&
-!        work,nlk(:,:,:,1))
-!   if(mpirank == 0) then
-!      open(14,file='d.t',status='unknown',position='append')
-!      ! 3 outputs
-!      write(14,'(e25.16,A,e25.16,A,e25.16)') time,tab,divu,tab,divb
-!      close(14)
-!   endif
-! end subroutine write_integrals_mhd
+
 ! 
 ! 
 ! ! Compute the average total energy and energy in each direction for a
