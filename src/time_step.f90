@@ -49,10 +49,10 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
      !-------------------------------------------------
-!      if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
+     if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
        ! for FSI schemes, the mask is created in fluidtimestep
        call create_mask( time%time,mask,mask_color,us, Insect, beams )
-!      endif
+     endif
 
      !-------------------------------------------------
      ! advance fluid/B-field in time
@@ -75,9 +75,9 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      ! Output of INTEGRALS after every tintegral time 
      ! units or itdrag time steps
      !-------------------------------------------------
-!      if (modulo(time,tintegral)<=dt1.or.modulo(it,itdrag)==0) then
-!        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
-!      endif
+     if (modulo(time%time,tintegral)<=time%dt_new.or.modulo(time%it,itdrag)==0) then
+       call write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+     endif
     
      !-------------------------------------------------
      ! Save solid model data, if using it

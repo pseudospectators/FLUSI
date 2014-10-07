@@ -222,7 +222,7 @@ subroutine Start_Simulation()
   type(solid), dimension(1:nBeams) :: beams
   
   ! Set method information in vars module.
-  method="centered_4th" 
+  method="centered_2nd" 
 !   method="spectral"
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
   nrw=1   ! number of real valued work arrays

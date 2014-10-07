@@ -270,10 +270,8 @@ subroutine divergence_x( u, divu )
   use p3dfft_wrapper
   use vars
   implicit none
-  ! input vector field in Fourier space
   real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
-  ! output scalar field in Fourier space
-  real(kind=pr),intent(out)::divu(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::divu(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,dxinv,dyinv,dzinv,uxdx,uydy,uzdz,a1,a2,a4,a5

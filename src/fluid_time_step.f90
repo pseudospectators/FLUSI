@@ -455,7 +455,7 @@ subroutine rungekutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
   call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
   call adjust_dt(u,time%dt_new)
-write(*,'("time=",es12.4," dt=",es12.4)') time%time, time%dt_new
+  
   !-- Do the euler step (advance u field in time)
   u = u + time%dt_new * nlk(:,:,:,:,1)
   
@@ -769,7 +769,7 @@ subroutine adjust_dt(u,dt1)
   else
      !-- FSI runs just need to respect CFL for velocity
      umax = fieldmaxabs(u(:,:,:,1:3))
-     write(*,'("umax=",g12.4)')umax
+     
      !-- Adjust time step at 0th process
      if(mpirank == 0) then
         if(is_nan(umax)) then

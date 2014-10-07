@@ -24,71 +24,70 @@ subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
   
-  t1=MPI_wtime()
-
-!   call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),Insect,beams)
+  real(kind=pr) :: t1
   
+  t1=MPI_wtime()
+  call write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)  
   time_integrals = time_integrals + MPI_wtime()-t1
 end subroutine 
 
 
-! ! fsi version of writing integral quantities to disk
-! subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-!   use mpi
-!   use vars
-!   use p3dfft_wrapper
-!   use basic_operators
-!   use solid_model
-!   use insect_module
-!   implicit none
-! 
-!   type(timetype), intent(inout) :: time
-!   real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-!   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-!   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
-!   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-!   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   type(solid), dimension(1:nBeams),intent(inout) :: beams
-!   type(diptera), intent(inout) :: Insect 
-!   
-!   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
-!   real(kind=pr) :: concentration, conc
-!   real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
-!   real(kind=pr) :: ekin, ekinx, ekiny, ekinz
-!   real(kind=pr) :: diss, dissx, dissy, dissz
-!   real(kind=pr) :: dissf, dissxf, dissyf, disszf
-!   integer :: ix,iy,iz,mpicode
-!   
-! !   !-----------------------------------------------------------------------------
-! !   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
-! !   !-----------------------------------------------------------------------------
-! !   ! the stepper AB2_rigid_solid has to compute the drag at every time step, so
-! !   ! we can skip the separate computation in INTEGRALS
-! !   if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
-! !     t3 = MPI_wtime()    
-! !     ! to compute the forces, we need the mask at time t. not we cannot suppose
-! !     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
-! !     ! have to reconstruct the mask now. solids are also at time t
-! !     if(iMoving==1) call create_mask(time, Insect, beams)
-! !     call cal_drag (time, u, Insect)
-! !     time_drag = time_drag + MPI_wtime() - t3
-! !   endif
-!   
+! fsi version of writing integral quantities to disk
+subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use solid_model
+  use insect_module
+  implicit none
+
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
+  
+  real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
+  real(kind=pr) :: concentration, conc
+  real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
+  real(kind=pr) :: ekin, ekinx, ekiny, ekinz
+  real(kind=pr) :: diss, dissx, dissy, dissz
+  real(kind=pr) :: dissf, dissxf, dissyf, disszf
+  integer :: ix,iy,iz,mpicode
+  
 !   !-----------------------------------------------------------------------------
-!   ! divergence of velocity field (in the entire domain and in the fluid domain)
+!   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
 !   !-----------------------------------------------------------------------------
-!   call divergence( ink=uk, outk=work3c(:,:,:,1) )
-!   call ifft( ink=work3c(:,:,:,1), outx=work1 ) ! work1 is now div in phys space
-! 
-!   maxdiv = fieldmax(work1)
-!   maxdiv_fluid = fieldmax(work1*(1.d0-mask*eps))
-!   if(mpirank == 0) then
-!      open(14,file='divu.t',status='unknown',position='append')
-!      write (14,'(4(es15.8,1x))') time,maxdiv,maxdiv_fluid
-!      close(14)
+!   ! the stepper AB2_rigid_solid has to compute the drag at every time step, so
+!   ! we can skip the separate computation in INTEGRALS
+!   if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
+!     t3 = MPI_wtime()    
+!     ! to compute the forces, we need the mask at time t. not we cannot suppose
+!     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
+!     ! have to reconstruct the mask now. solids are also at time t
+!     if(iMoving==1) call create_mask(time, Insect, beams)
+!     call cal_drag (time, u, Insect)
+!     time_drag = time_drag + MPI_wtime() - t3
 !   endif
-!   
+  
+  !-----------------------------------------------------------------------------
+  ! divergence of velocity field (in the entire domain and in the fluid domain)
+  !-----------------------------------------------------------------------------
+  call divergence( u, work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) )
+
+  maxdiv = fieldmax( work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) )
+  maxdiv_fluid = fieldmax(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1)*(1.d0-mask*eps))
+  if(mpirank == 0) then
+     open(14,file='divu.t',status='unknown',position='append')
+     write (14,'(4(es15.8,1x))') time%time,maxdiv,maxdiv_fluid
+     close(14)
+  endif
+  
 !   !-----------------------------------------------------------------------------
 !   ! fluid energy and dissipation
 !   !-----------------------------------------------------------------------------
@@ -174,8 +173,8 @@ end subroutine
 !     write (14,'(2(es15.8,1x))') time,volume
 !     close(14)
 !   endif
-!   
-! end subroutine 
+  
+end subroutine 
 ! 
 ! 
 
@@ -489,94 +488,53 @@ end subroutine
 ! end subroutine compute_max
 ! 
 ! 
-! ! Compute the meannorm of the given field with x-space components f1, f2, f3.
-! subroutine compute_mean_norm(mean,f1,f2,f3)
-!   use mpi
-!   use vars
-!   implicit none
-! 
-!   real(kind=pr),intent(out) :: mean
-!   real(kind=pr),intent(in):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(in):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(in):: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   integer :: ix,iy,iz,mpicode
-!   real(kind=pr) :: v1,v2,v3
-!   real(kind=pr) :: Lmean ! Process-local mean
-! 
-!   Lmean=0.d0
-!   
-!   do ix=ra(1),rb(1)
-!      do iy=ra(2),rb(2)
-!         do iz=ra(3),rb(3)
-!            if(mask(ix,iy,iz) == 0.d0) then
-!               v1=f1(ix,iy,iz)
-!               v2=f2(ix,iy,iz)
-!               v3=f3(ix,iy,iz)
-!               
-!               Lmean=Lmean + v1*v1 + v2*v2 + v3*v3
-!            endif
-!         enddo
-!      enddo
-!   enddo
-!   
-!   Lmean=Lmean*dx*dy*dz
-!   
-!   call MPI_REDUCE(Lmean,mean,&
-!        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-!        MPI_COMM_WORLD,mpicode)
-! end subroutine compute_mean_norm
-! 
-! 
-! ! Compute the fluid volume.
-! ! NB: mask is a global!
-! subroutine compute_fluid_volume(volume)
-!   use mpi
-!   use vars
-!   implicit none
-! 
-!   real(kind=pr),intent(out) :: volume
-!   integer :: ix,iy,iz,mpicode
-!   real(kind=pr) :: Lvolume ! Process-local volume
-!   real(kind=pr) :: dxyz ! Volume of pixel
-! 
-!   if(iPenalization == 0) then
-!      volume=xl*yl*zl
-!   else
-!      Lvolume=0.d0
-!      dxyz=dx*dy*dz
-! 
-!      do ix=ra(1),rb(1)
-!         do iy=ra(2),rb(2)
-!            do iz=ra(3),rb(3)
-!               if(mask(ix,iy,iz) == 0.d0) then
-!                  Lvolume=Lvolume +dxyz
-!               endif
-!            enddo
-!         enddo
-!      enddo
-!      
-!      call MPI_REDUCE(Lvolume,volume,&
-!           1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-!           MPI_COMM_WORLD,mpicode)
-!   endif
-! end subroutine compute_fluid_volume
-! 
-! 
-! 
-! ! Compute the fluid volume.
-! ! NB: mask is a global!
-! subroutine compute_mask_volume(volume)
-!   use mpi
-!   use vars
-!   implicit none
-! 
-!   real(kind=pr),intent(out) :: volume
-!   integer :: mpicode
-!   real(kind=pr) :: Lvolume ! Process-local volume
-! 
-!   Lvolume=sum(mask)*dx*dy*dz
-!      
-!   call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-!           MPI_COMM_WORLD,mpicode)
-!           
-! end subroutine compute_mask_volume
+ 
+ 
+! Compute the fluid volume.
+subroutine compute_fluid_volume(mask,volume)
+  use mpi
+  use vars
+  implicit none
+
+  real(kind=pr),intent(in)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(out) :: volume
+  integer :: ix,iy,iz,mpicode
+  real(kind=pr) :: Lvolume ! Process-local volume
+  real(kind=pr) :: dxyz ! Volume of pixel
+
+  Lvolume=0.d0
+  dxyz=dx*dy*dz
+
+  do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+        do iz=ra(3),rb(3)
+          if(mask(ix,iy,iz) == 0.d0) then
+              Lvolume=Lvolume +dxyz
+          endif
+        enddo
+    enddo
+  enddo
+  
+  call MPI_REDUCE(Lvolume,volume,&
+      1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+      MPI_COMM_WORLD,mpicode)
+end subroutine compute_fluid_volume
+
+
+! Compute the mask volume.
+subroutine compute_mask_volume(mask,volume)
+  use mpi
+  use vars
+  implicit none
+
+  real(kind=pr),intent(in)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(out) :: volume
+  integer :: mpicode
+  real(kind=pr) :: Lvolume ! Process-local volume
+
+  Lvolume=sum(mask)*dx*dy*dz
+     
+  call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+          MPI_COMM_WORLD,mpicode)
+          
+end subroutine compute_mask_volume
