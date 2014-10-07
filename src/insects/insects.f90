@@ -8,17 +8,7 @@
 module insect_module
   use vars
   implicit none
-  
-  
-  ! mask color function
-  integer(kind=2),dimension (:,:,:),allocatable,save :: masque_color
-  ! mask containing the obstacle
-  real(kind=pr),dimension(:,:,:),allocatable :: masque
-  ! velocity-field inside solid 
-  real(kind=pr),dimension(:,:,:,:),allocatable :: us_insect
-  
-  
-  
+
   ! Fourier coefficients for wings
   real(kind=pr), allocatable, dimension(:) :: ai,bi
   ! fill the R0(theta) array once, then only table-lookup instead of Fseries
@@ -123,16 +113,15 @@ module insect_module
 ! subroutines doing the actual job of defining the mask. Note all surfaces are
 ! smoothed.
 !-------------------------------------------------------------------------------
-subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
+subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   use vars
   implicit none
   
   real(kind=pr), intent(in) :: time
-  type(diptera),intent(inout) :: Insect
-  
-  real(kind=pr),intent(inout)::mask1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(diptera),intent(inout) :: Insect  
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   
   real(kind=pr),dimension(1:3) :: x, x_body, x_wing_l, x_wing_r, x_eye_r,&
   x_eye_l,x_head, v_tmp, rot_b_psi,rot_b_beta,rot_b_gamma
@@ -145,12 +134,6 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
   integer(kind=2) :: color_body, color_l, color_r
   ! what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
-  
-  !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
-  allocate(masque(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
-  allocate(masque_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  allocate(us_insect(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)) 
-  !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
   
   !-- decide what wing routine to call (call simplified wing 
   ! routines that don't use fourier)
@@ -282,7 +265,7 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
            x_body = matmul(M_body,x-Insect%xc_body)
            
            !-- call body subroutines
-           call DrawBody(ix,iy,iz,Insect,x_body,color_body)
+           call DrawBody(ix,iy,iz,Insect,x_body,color_body, mask, mask_color, us)
         enddo
      enddo
   enddo
@@ -304,8 +287,8 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
            x_eye_r  = x_body - Insect%x_eye_r
            
            !-- call eye subroutines
-           call DrawEye(ix,iy,iz,Insect,x_eye_r,color_body)
-           call DrawEye(ix,iy,iz,Insect,x_eye_l,color_body)
+           call DrawEye(ix,iy,iz,Insect,x_eye_r,color_body, mask, mask_color, us)
+           call DrawEye(ix,iy,iz,Insect,x_eye_l,color_body, mask, mask_color, us)
         enddo
      enddo
   enddo  
@@ -325,7 +308,7 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
            x_body   = matmul(M_body,x-Insect%xc_body)
            x_head   = x_body - Insect%x_head
            !-- call body subroutines
-           call DrawHead(ix,iy,iz,Insect,x_head,color_body)
+           call DrawHead(ix,iy,iz,Insect,x_head,color_body, mask, mask_color, us)
         enddo
      enddo
   enddo  
@@ -349,7 +332,8 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
             x_body   = matmul(M_body,x-Insect%xc_body)
             x_wing_r = matmul(M_wing_r,x_body-Insect%x_pivot_r)
             !-- call wing subroutines
-            call DrawWing_Fourier(ix,iy,iz,Insect,x_wing_r,M_wing_r,Insect%rot_r,color_r)
+            call DrawWing_Fourier(ix,iy,iz,Insect,x_wing_r,M_wing_r,Insect%rot_r,&
+                 color_r, mask, mask_color, us)
           enddo
         enddo
       enddo  
@@ -363,7 +347,8 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
             x_body   = matmul(M_body,x-Insect%xc_body)
             x_wing_l = matmul(M_wing_l,x_body-Insect%x_pivot_l)
             !-- call wing subroutines
-            call DrawWing_Fourier(ix,iy,iz,Insect,x_wing_l,M_wing_l,Insect%rot_l,color_l)
+            call DrawWing_Fourier(ix,iy,iz,Insect,x_wing_l,M_wing_l,Insect%rot_l,&
+                 color_l, mask, mask_color, us)
           enddo
         enddo
       enddo  
@@ -379,7 +364,8 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
             x_body   = matmul(M_body,x-Insect%xc_body)
             x_wing_r = matmul(M_wing_r,x_body-Insect%x_pivot_r)
             !-- call wing subroutines
-            call DrawWing_simple(ix,iy,iz,Insect,x_wing_r,M_wing_r,Insect%rot_r,color_r)
+            call DrawWing_simple(ix,iy,iz,Insect,x_wing_r,M_wing_r,Insect%rot_r,&
+                 color_r, mask, mask_color, us)
           enddo
         enddo
       enddo  
@@ -393,7 +379,8 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
             x_body   = matmul(M_body,x-Insect%xc_body)
             x_wing_l = matmul(M_wing_l,x_body-Insect%x_pivot_l)
             !-- call wing subroutines
-            call DrawWing_simple(ix,iy,iz,Insect,x_wing_l,M_wing_l,Insect%rot_l,color_l)
+            call DrawWing_simple(ix,iy,iz,Insect,x_wing_l,M_wing_l,Insect%rot_l,&
+                 color_l, mask, mask_color, us)
           enddo
         enddo
       enddo  
@@ -414,25 +401,20 @@ subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
           x_body = matmul(M_body,x-Insect%xc_body)
           ! add solid body rotation in the body-reference frame, if color 
           ! indicates that this part of the mask belongs to the insect
-          if ((masque(ix,iy,iz) > 0.d0).and.(masque_color(ix,iy,iz)>0)) then
+          if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
             ! add solid body rotation to the translational velocity field
             v_tmp=Insect%vc_body
             v_tmp(1) = v_tmp(1)+Insect%rot_body(2)*x_body(3)-Insect%rot_body(3)*x_body(2)
             v_tmp(2) = v_tmp(2)+Insect%rot_body(3)*x_body(1)-Insect%rot_body(1)*x_body(3)
             v_tmp(3) = v_tmp(3)+Insect%rot_body(1)*x_body(2)-Insect%rot_body(2)*x_body(1)
             
-            us_insect(ix,iy,iz,1:3) = matmul(M_body_inv,us_insect(ix,iy,iz,1:3)+v_tmp)
+            us(ix,iy,iz,1:3) = matmul(M_body_inv,us(ix,iy,iz,1:3)+v_tmp)
           endif
         enddo
      enddo
   enddo  
   time_insect_vel = time_insect_vel + MPI_wtime() - t1
 
-  mask1=masque
-  mask_color1=masque_color
-  us1=us_insect
-  
-  deallocate(masque,masque_color,us_insect)
 end subroutine Draw_Insect
 
 

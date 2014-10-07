@@ -7,9 +7,13 @@
 ! conditions (thickness and spanwise length) and then the shape
 ! function since this saves many evaluations of the shape.
 !-------------------------------------------------------------------------------
-subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
+subroutine DrawWing_simple(ix, iy, iz, Insect, x_wing, M,rot, icolor, mask, mask_color, us)
   use vars
   implicit none
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  
   real(kind=pr) :: a_body, R, R0, x_top, x_bot
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp
@@ -67,10 +71,10 @@ subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
     
     mask_tmp = z_tmp*y_tmp*x_tmp
     
-    if ((masque(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
-      masque(ix,iy,iz) = mask_tmp
+    if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+      mask(ix,iy,iz) = mask_tmp
       ! wings have the color "icolor"
-      masque_color(ix,iy,iz) = icolor
+      mask_color(ix,iy,iz) = icolor
       !------------------------------------------------
       ! solid body rotation
       ! Attention: the Matrix transpose(M) brings us back to the body
@@ -82,7 +86,7 @@ subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
       v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
       
       ! note we set this only if it is a part of the wing
-      us_insect(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
+      us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
     endif
   endif  
   endif
@@ -97,9 +101,12 @@ end subroutine DrawWing_simple
 ! before calling this subroutine. Fourier series is evaluated in
 ! Radius_Fourier
 !-------------------------------------------------------------------------------
-subroutine DrawWing_Fourier(ix,iy,iz,Insect,x_wing,M,rot,icolor)
+subroutine DrawWing_Fourier(ix, iy, iz, Insect, x_wing, M,rot, icolor, mask, mask_color, us)
   use vars
   implicit none
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer, intent(in) :: ix,iy,iz
   integer(kind=2), intent(in) :: icolor
   type(diptera),intent(inout)::Insect
@@ -132,10 +139,10 @@ subroutine DrawWing_Fourier(ix,iy,iz,Insect,x_wing,M,rot,icolor)
     !-----------------------------------------
     ! set new value for mask and velocity us
     !-----------------------------------------
-    if ((masque(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
-      masque(ix,iy,iz) = mask_tmp
+    if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+      mask(ix,iy,iz) = mask_tmp
       ! wings have the color "icolor"
-      masque_color(ix,iy,iz) = icolor
+      mask_color(ix,iy,iz) = icolor
       !------------------------------------------------
       ! solid body rotation
       ! Attention: the Matrix transpose(M) brings us back to the body
@@ -146,7 +153,7 @@ subroutine DrawWing_Fourier(ix,iy,iz,Insect,x_wing,M,rot,icolor)
       v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
       v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
       ! note we set this only if it is a part of the wing
-      us_insect(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
+      us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
     endif
     
   endif

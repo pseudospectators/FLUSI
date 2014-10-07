@@ -2,7 +2,7 @@
 ! Draws an insect's body, several options available.
 ! the body is, in the local coordinate system, always aligned with the
 ! x-axis. also, we currently use only rotational symmetric bodies.
-subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
+subroutine DrawBody(ix, iy, iz, Insect, x_body, icolor, mask, mask_color, us)
   use vars
   implicit none
   real(kind=pr) :: a_body, R, R0, x, y, z, s, s1, x1, x_tmp, R_tmp
@@ -11,6 +11,9 @@ subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x_body(1:3)
   integer(kind=2),intent(in) :: icolor
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   
   select case (Insect%BodyType)
   case ('ellipsoid')  
@@ -31,9 +34,9 @@ subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
         R0 = dsqrt( Insect%b_body**2 *(1.d0- (x_body(1)/a_body)**2 ) )
 
         if ( R < R0 + Insect%safety ) then
-          masque(ix,iy,iz)= max(steps(R,R0),masque(ix,iy,iz))
+          mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
           ! body has the color "icolor"
-          masque_color(ix,iy,iz) = icolor
+          mask_color(ix,iy,iz) = icolor
         endif
         endif
     endif
@@ -75,9 +78,9 @@ subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
       
       if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
         R_tmp = steps(R,R0)        
-        masque(ix,iy,iz)= max( R_tmp*x_tmp , masque(ix,iy,iz) )
+        mask(ix,iy,iz)= max( R_tmp*x_tmp , mask(ix,iy,iz) )
         ! body has the color "icolor"
-        masque_color(ix,iy,iz) = icolor
+        mask_color(ix,iy,iz) = icolor
       endif      
     
     endif
@@ -145,9 +148,9 @@ subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
       ! smoothing
       if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
         R_tmp = steps(R,R0)        
-        masque(ix,iy,iz)= max( R_tmp , masque(ix,iy,iz) )
+        mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
         ! body has the color "icolor"
-        masque_color(ix,iy,iz) = icolor
+        mask_color(ix,iy,iz) = icolor
       endif      
     
     endif
@@ -169,7 +172,7 @@ end subroutine
 
 !------------------------------------------------------------------------------
 ! Draws a sphere with radius R, as we need for the head and the eyes, if present
-subroutine DrawSphere(ix,iy,iz,Insect,x,R0,icolor)
+subroutine DrawSphere(ix,iy,iz,Insect,x,R0,icolor, mask, mask_color, us)
   use vars
   implicit none
   real(kind=pr), intent(in) :: R0
@@ -178,15 +181,18 @@ subroutine DrawSphere(ix,iy,iz,Insect,x,R0,icolor)
   integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
   type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   
   if (abs(x(1))<R0+Insect%safety) then
   if (abs(x(2))<R0+Insect%safety) then
   if (abs(x(3))<R0+Insect%safety) then
       R = sqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
       if ( R <= R0+Insect%safety ) then
-        masque(ix,iy,iz) = max(steps(R,R0),masque(ix,iy,iz))
+        mask(ix,iy,iz) = max(steps(R,R0),mask(ix,iy,iz))
         ! body parts have the color "icolor"
-        masque_color(ix,iy,iz) = icolor
+        mask_color(ix,iy,iz) = icolor
       endif
   endif
   endif
@@ -194,19 +200,23 @@ subroutine DrawSphere(ix,iy,iz,Insect,x,R0,icolor)
 end subroutine
 
 ! routine DrawEye is only called if the flag Insect%HasEye=='yes'
-subroutine DrawEye(ix,iy,iz,Insect,x,icolor)
+subroutine DrawEye(ix,iy,iz,Insect,x,icolor, mask, mask_color, us)
   use vars
   implicit none
   integer, intent(in) :: ix,iy,iz
   type(diptera), intent(inout) :: Insect
   integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
-  call DrawSphere(ix,iy,iz,Insect,x,Insect%R_eye,icolor)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  
+  call DrawSphere(ix,iy,iz,Insect,x,Insect%R_eye,icolor, mask, mask_color, us)
 end subroutine
 
 
 ! routine DrawHead is only called if the flag Insect%HasHead=='yes'
-subroutine DrawHead(ix,iy,iz,Insect,x,icolor)
+subroutine DrawHead(ix,iy,iz,Insect,x,icolor, mask, mask_color, us)
   use vars
   implicit none
   integer, intent(in) :: ix,iy,iz
@@ -214,11 +224,14 @@ subroutine DrawHead(ix,iy,iz,Insect,x,icolor)
   real(kind=pr),intent(in) :: x(1:3)
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,a_head
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   
   select case (Insect%BodyType)
   case ('ellipsoid')  
   ! an ellipsoid body goes with a spherical head
-  call DrawSphere(ix,iy,iz,Insect,x,Insect%R_head,icolor)
+  call DrawSphere(ix,iy,iz,Insect,x,Insect%R_head,icolor, mask, mask_color, us)
 
   case ('drosophila')
   ! drosophilae have different heads.
@@ -244,9 +257,9 @@ subroutine DrawHead(ix,iy,iz,Insect,x,icolor)
           if ( ((x(1)-x_head)/dx_head)**2 <= 1.d0) then
             R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
             if ( R < R0 + Insect%safety ) then
-              masque(ix,iy,iz)= max(steps(R,R0),masque(ix,iy,iz))
+              mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
               ! body parts have the color "icolor"
-              masque_color(ix,iy,iz) = icolor
+              mask_color(ix,iy,iz) = icolor
             endif
           endif
         endif
