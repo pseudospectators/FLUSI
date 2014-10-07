@@ -2,6 +2,9 @@
 subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use p3dfft_wrapper
   use basic_operators
+  use insect_module
+  use solid_model
+  use vars
   implicit none
 
   type(timetype), intent(inout) :: time
@@ -29,10 +32,10 @@ end subroutine cal_nlk
 
 
 subroutine rhs_acm_spectral(time,u,rhs,work,mask,mask_color,us,Insect,beams)
-  use mpi 
   use vars
-  use diff
   use p3dfft_wrapper
+  use insect_module
+  use solid_model
   implicit none
   type(timetype), intent(inout) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
@@ -81,10 +84,11 @@ end subroutine rhs_acm_spectral
 
 
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,workc)
-  use mpi
   use p3dfft_wrapper
   use vars
   use basic_operators
+  use insect_module
+  use solid_model
   implicit none
 
   real(kind=pr),intent (in) :: time
@@ -177,7 +181,9 @@ end subroutine cal_nlk_fsi
 
 subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
-  use diff
+  use insect_module
+  use solid_model
+  
   implicit none
   type(timetype), intent(inout) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
@@ -257,7 +263,9 @@ end subroutine
 
 subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
-  use diff
+  use insect_module
+  use solid_model
+  
   implicit none
   type(timetype), intent(inout) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)

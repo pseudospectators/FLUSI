@@ -8,8 +8,7 @@
 ! function since this saves many evaluations of the shape.
 !-------------------------------------------------------------------------------
 subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   real(kind=pr) :: a_body, R, R0, x_top, x_bot
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
@@ -68,10 +67,10 @@ subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
     
     mask_tmp = z_tmp*y_tmp*x_tmp
     
-    if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
-      mask(ix,iy,iz) = mask_tmp
+    if ((masque(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+      masque(ix,iy,iz) = mask_tmp
       ! wings have the color "icolor"
-      mask_color(ix,iy,iz) = icolor
+      masque_color(ix,iy,iz) = icolor
       !------------------------------------------------
       ! solid body rotation
       ! Attention: the Matrix transpose(M) brings us back to the body
@@ -83,7 +82,7 @@ subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
       v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
       
       ! note we set this only if it is a part of the wing
-      us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
+      us_insect(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
     endif
   endif  
   endif
@@ -99,8 +98,7 @@ end subroutine DrawWing_simple
 ! Radius_Fourier
 !-------------------------------------------------------------------------------
 subroutine DrawWing_Fourier(ix,iy,iz,Insect,x_wing,M,rot,icolor)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   integer, intent(in) :: ix,iy,iz
   integer(kind=2), intent(in) :: icolor
@@ -134,10 +132,10 @@ subroutine DrawWing_Fourier(ix,iy,iz,Insect,x_wing,M,rot,icolor)
     !-----------------------------------------
     ! set new value for mask and velocity us
     !-----------------------------------------
-    if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
-      mask(ix,iy,iz) = mask_tmp
+    if ((masque(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+      masque(ix,iy,iz) = mask_tmp
       ! wings have the color "icolor"
-      mask_color(ix,iy,iz) = icolor
+      masque_color(ix,iy,iz) = icolor
       !------------------------------------------------
       ! solid body rotation
       ! Attention: the Matrix transpose(M) brings us back to the body
@@ -148,7 +146,7 @@ subroutine DrawWing_Fourier(ix,iy,iz,Insect,x_wing,M,rot,icolor)
       v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
       v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
       ! note we set this only if it is a part of the wing
-      us(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
+      us_insect(ix,iy,iz,1:3) = matmul(transpose(M), v_tmp)
     endif
     
   endif
@@ -161,8 +159,7 @@ end subroutine DrawWing_Fourier
 ! Insect is global. 
 !-------------------------------------------------------------------------------
 real(kind=pr) function Radius_Fourier(theta,Insect)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   integer :: i,j, n_radius
   real(kind=pr) :: R0, f, theta2, dphi, Rtest
@@ -207,8 +204,7 @@ end function
 ! Since INSECT is currently global, this routine does not take any arguments.
 !-------------------------------------------------------------------------------
 subroutine Setup_Wing_Fourier_coefficients(Insect)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   real(kind=pr) :: xroot, yroot
   type(diptera),intent(inout)::Insect

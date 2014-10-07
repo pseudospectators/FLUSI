@@ -1,7 +1,7 @@
 module diff
 
-use fsi_vars
-use mpi
+use vars
+
 
  contains
 
@@ -16,8 +16,8 @@ subroutine diff_1x2cp( u, u_dx )
   !        ^-------convergence order
   !       ^--------direction
   !      ^---------derivative (1st, 2nd...)
-  use mpi
-  use fsi_vars
+  
+  use vars
   implicit none
   ! input: the field to be derived
   real(kind=pr),dimension(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)),intent(inout)::u
@@ -49,8 +49,8 @@ end subroutine diff_1x2cp
 
 subroutine diff_1y2cp( u, u_dy )
   ! First derivative in z-direction with 2nd order central finite differences
-  use mpi
-  use fsi_vars
+  
+  use vars
   implicit none
   integer::ix,iy,iz
   ! input: the field to be derived
@@ -81,8 +81,8 @@ end subroutine diff_1y2cp
 
 subroutine diff_1z2cp( u, u_dz )
   ! First derivative in z-direction with 2nd order central finite differences
-  use mpi
-  use fsi_vars
+  
+  use vars
   implicit none
   integer::ix,iy,iz
   ! input: the field to be derived
@@ -113,8 +113,8 @@ end subroutine diff_1z2cp
 
 subroutine diff_2x2cp( u, u_dx )
   ! First derivative in z-direction with 2nd order central finite differences
-  use mpi
-  use fsi_vars
+  
+  use vars
   implicit none
   ! input: the field to be derived
   real(kind=pr),dimension(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)),intent(inout)::u
@@ -146,8 +146,8 @@ end subroutine diff_2x2cp
 
 subroutine diff_2y2cp( u, u_dy )
   ! First derivative in z-direction with 2nd order central finite differences
-  use mpi
-  use fsi_vars
+  
+  use vars
   implicit none
   integer::ix,iy,iz
   ! input: the field to be derived
@@ -178,8 +178,8 @@ end subroutine diff_2y2cp
 
 subroutine diff_2z2cp( u, u_dz )
   ! First derivative in z-direction with 2nd order central finite differences
-  use mpi
-  use fsi_vars
+  
+  use vars
   implicit none
   integer::ix,iy,iz
   ! input: the field to be derived

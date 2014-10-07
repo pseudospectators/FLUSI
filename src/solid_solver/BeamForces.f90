@@ -1,6 +1,5 @@
 subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
-  use mpi
-  use fsi_vars
+  use vars
   use interpolation
   implicit none
   real(kind=pr),intent (in) :: time
@@ -168,8 +167,7 @@ end subroutine get_surface_pressure_jump
 !
 !-------------------------------------------------------------------------------
 subroutine surface_interpolation_testing( time, beams, work )
-  use mpi
-  use fsi_vars
+  use vars
   use interpolation
   use insect_module
   implicit none
@@ -180,28 +178,31 @@ subroutine surface_interpolation_testing( time, beams, work )
   real(kind=pr) :: x,y,z
   type(diptera)::insectdummy
   
-  !-- create mask
-!   call Draw_flexible_plate(time, beam)
-  call create_mask(time,insectdummy,beams)
-  !-- copy mask in extended array (the one with ghost points)
-  work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask*eps
-  !-- interpolate the mask at the beam surfaces
-  call get_surface_pressure_jump (time, beams(1), work, testing="mask")
-
-  work=0.d0
-  !-- the array "mask" with some values (analytic)
-  do ix=ra(1),rb(1)
-    do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
-        x=dble(ix)*dx
-        y=dble(iy)*dy
-        z=dble(iz)*dz
-        work(ix,iy,iz)=sin(y)*cos(z)
-      enddo
-    enddo
-  enddo 
-  !-- interpolate these values on the surface and compare to exact solution
-  call get_surface_pressure_jump (time, beams(1), work, testing="linear")
+  write(*,*) "TODO"
+  stop
+  
+!   !-- create mask
+! !   call Draw_flexible_plate(time, beam)
+!   call create_mask(time,insectdummy,beams)
+!   !-- copy mask in extended array (the one with ghost points)
+!   work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask*eps
+!   !-- interpolate the mask at the beam surfaces
+!   call get_surface_pressure_jump (time, beams(1), work, testing="mask")
+! 
+!   work=0.d0
+!   !-- the array "mask" with some values (analytic)
+!   do ix=ra(1),rb(1)
+!     do iy=ra(2),rb(2)
+!       do iz=ra(3),rb(3)
+!         x=dble(ix)*dx
+!         y=dble(iy)*dy
+!         z=dble(iz)*dz
+!         work(ix,iy,iz)=sin(y)*cos(z)
+!       enddo
+!     enddo
+!   enddo 
+!   !-- interpolate these values on the surface and compare to exact solution
+!   call get_surface_pressure_jump (time, beams(1), work, testing="linear")
   
   
 end subroutine

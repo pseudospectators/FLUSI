@@ -5,10 +5,14 @@
 ! the cavity walls have the color "0" which helps excluding them 
 ! for example when computing the integral forces
 !-------------------------------------------------------------------------------
-subroutine add_cavity()
-  use mpi
-  use fsi_vars
+subroutine add_cavity(mask,mask_color,us)
+  use vars
   implicit none
+  
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  
   integer :: ix,iy,iz
   real(kind=pr) :: ux,uy,uz
   

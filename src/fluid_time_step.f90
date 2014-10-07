@@ -1,6 +1,5 @@
 
 subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-  use mpi
   use p3dfft_wrapper
   use vars
   use solid_model
@@ -438,6 +437,8 @@ end subroutine FluidTimestep
 !-------------------------------------------------------------------------------
 subroutine rungekutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
+  use solid_model
+  use insect_module
   use p3dfft_wrapper
   implicit none
 
@@ -453,7 +454,7 @@ subroutine rungekutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
   call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
-  call adjust_dt(u,dt1)
+  call adjust_dt(u,time%dt_new)
 
   !-- Do the euler step (advance u field in time)
   u = u + time%dt_new * nlk(:,:,:,:,1)
@@ -757,7 +758,7 @@ subroutine adjust_dt(u,dt1)
   use basic_operators
   implicit none
 
-  real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer::mpicode
   real(kind=pr), intent(out)::dt1
   real(kind=pr)::umax
@@ -766,18 +767,12 @@ subroutine adjust_dt(u,dt1)
      !-- fix the time step no matter what. the result may be unstable.
      dt1=dt_fixed
   else
-     !-- Determine the maximum velocity/magnetic field value     
-     if (method=="mhd") then
-       !-- MHD needs to respect CFL for magnetic field as well
-       umax = max( fieldmaxabs(u(:,:,:,1:3)), fieldmaxabs(u(:,:,:,4:6)) )
-     else
-       !-- FSI runs just need to respect CFL for velocity
-       umax = fieldmaxabs(u(:,:,:,1:3))
-     endif
+     !-- FSI runs just need to respect CFL for velocity
+     umax = fieldmaxabs(u(:,:,:,1:3))
      
      !-- Adjust time step at 0th process
      if(mpirank == 0) then
-        if(.NOT.(umax.eq.umax)) then
+        if(is_nan(umax)) then
            write(*,*) "Evolved field contains a NAN: aborting run."
            call abort()
         endif
@@ -804,10 +799,9 @@ subroutine adjust_dt(u,dt1)
         if(tintegral > 0.d0 .and. dt1 > tintegral) then
            dt1=tintegral
         endif
-        
-        if (projection=="ACM") then
-          dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
-        endif
+
+        ! CFL condition for speed of sound
+        dt1 = min( dt1, min(dx,dy,dz)*cfl/c_0 )
         
         !-- impose max dt, if specified
         if (dt_max>0.d0) dt1=min(dt1,dt_max)

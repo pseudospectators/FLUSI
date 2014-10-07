@@ -2,8 +2,7 @@
 ! Rotation Matrices
 !-----------------------
 subroutine Rx (R,angle)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   real(kind=pr), intent (in) :: angle
   real(kind=pr),dimension(1:3,1:3), intent(out) :: R
@@ -14,8 +13,7 @@ end subroutine
 
 
 subroutine Ry (R,angle)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   real(kind=pr), intent (in) :: angle
   real(kind=pr),dimension(1:3,1:3), intent(out) :: R
@@ -26,8 +24,7 @@ end subroutine
 
 
 subroutine Rz (R,angle)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   real(kind=pr), intent (in) :: angle
   real(kind=pr),dimension(1:3,1:3), intent(out) :: R

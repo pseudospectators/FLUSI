@@ -1,7 +1,6 @@
 ! Set initial conditions for fsi code.
 subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-  use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -38,12 +37,12 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      !--------------------------------------------------
      ! read HDF5 files
      !--------------------------------------------------  
-     if (mpirank==0) write (*,*) "*** inicond: reading infiles"
-     call Read_Single_File ( file_ux, vort(:,:,:,1) )
-     call Read_Single_File ( file_uy, vort(:,:,:,2) )
-     call Read_Single_File ( file_uz, vort(:,:,:,3) )
-     call fft3 ( uk,vort )
-     if (mpirank==0) write (*,*) "*** done reading infiles"
+!      if (mpirank==0) write (*,*) "*** inicond: reading infiles"
+!      call Read_Single_File ( file_ux, vort(:,:,:,1) )
+!      call Read_Single_File ( file_uy, vort(:,:,:,2) )
+!      call Read_Single_File ( file_uz, vort(:,:,:,3) )
+!      call fft3 ( uk,vort )
+!      if (mpirank==0) write (*,*) "*** done reading infiles"
 
   case("MeanFlow")
      !--------------------------------------------------
@@ -67,10 +66,10 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         !--------------------------------------------------
         ! read from backup
         !--------------------------------------------------  
-        if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
-             inicond(9:len(inicond))
-        call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
-             nlk,explin,vort(:,:,:,1))
+!         if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
+!              inicond(9:len(inicond))
+!         call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
+!              nlk,explin,vort(:,:,:,1))
      else
         !--------------------------------------------------
         ! unknown inicond : error
@@ -106,8 +105,7 @@ end subroutine init_fields_fsi
 ! Computes the divergence-free velocity in Fourier space u given vort
 ! in physical space.  work is a work array
 subroutine Vorticity2Velocity(uk,work,vort)
-  use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   implicit none
 

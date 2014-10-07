@@ -1,11 +1,13 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions 
-subroutine create_mask_fsi (time, Insect, beams )
-  use mpi
-  use fsi_vars
+subroutine create_mask_fsi (time, mask, mask_color, us, Insect, beams )
+  use vars
   use solid_model
   use insect_module
   implicit none
   real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   
@@ -23,21 +25,21 @@ subroutine create_mask_fsi (time, Insect, beams )
     ! Actual mask functions:
     select case (iMask)
     case ("sphere","Sphere")    
-      call Draw_Sphere()
+      call Draw_Sphere(mask, mask_color, us)
     case ("cylinder","cylinder_x")    
-      call Draw_cylinder_x()
+      call Draw_cylinder_x(mask, mask_color, us)
     case ("romain_open_cavity")    
-      call romain_open_cavity()
+      call romain_open_cavity(mask, mask_color, us)
     case ("Flapper")    
-      call Flapper (time)    
+      call Flapper (time, mask, mask_color, us)    
     case ("Insect")
-      call Draw_Insect (time, Insect)
+      call Draw_Insect (time, Insect, mask, mask_color, us)
     case("Flexibility")      
-      call Draw_flexible_plate(time, beams(1))
+      call Draw_flexible_plate(time, mask, mask_color, us,  beams(1))
     case ("plate","Plate")
-      call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
+      call Draw_Plate (time, mask, mask_color, us ) ! 2d plate, etc (Dmitry, 25 Oct 2013)
     case ("noncircular_cylinder")
-      call noncircular_cylinder()
+      call noncircular_cylinder( mask, mask_color, us )
     case("none")
       mask = 0.d0
     case default    
@@ -51,35 +53,29 @@ subroutine create_mask_fsi (time, Insect, beams )
   !-------------------------------------------------------------  
   ! if desired, add cavity mask surrounding the domain
   if ((iCavity/="no").and.(iPenalization==1)) then
-    call Add_Cavity ()
+    call Add_Cavity (mask, mask_color, us)
   endif
   
   ! if desired, add channel mask 
   if ((iChannel/="no").and.(iPenalization==1)) then
-    call Add_Channel ()
+    call Add_Channel (mask, mask_color, us)
   endif
   
 end subroutine create_mask_fsi
 
 
 
-subroutine update_us_fsi(ub)
-  use fsi_vars
-  implicit none
-  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  ! this is a stub in the FSI case since we always create the mask and the solid
-  ! velocity field simultaneously
-end subroutine update_us_fsi
-
-
 ! this routine draws a rigid flapping plate, that is infinite in the x-direction
 ! and rotates around the x0-axis by the angle alpha.
-subroutine Flapper (time)
-  use mpi
-  use fsi_vars
+subroutine Flapper (time, mask, mask_color, us)
+  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  
   integer :: iy,iz,ix
   real (kind=pr) :: R, alpha_t, un, alpha_max
   real (kind=pr) :: x,y,z,ys,zs, alpha,L,H,W, tmp1, N, tmp2
@@ -207,10 +203,13 @@ end subroutine Flapper
 ! constant in all other directions. this test was used for reproducing the 
 ! results of Benjamin's JCP for the Neumann BC
 !-------------------------------------------------------------------------------
-subroutine romain_open_cavity
-  use mpi
-  use fsi_vars
+subroutine romain_open_cavity(mask, mask_color, us)
+  use vars
   implicit none
+  
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z

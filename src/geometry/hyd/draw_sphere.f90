@@ -1,9 +1,12 @@
 ! Spherical obstacle
-subroutine draw_sphere
-  use mpi
-  use fsi_vars
+subroutine draw_sphere(mask, mask_color, us)
+  use vars
   implicit none
 
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
@@ -31,10 +34,13 @@ end subroutine draw_sphere
 
 ! draws a circular cylinder, the axis is the x-axis (then it can be used for 2D
 ! runs as well)
-subroutine draw_cylinder_x
-  use mpi
-  use fsi_vars
+subroutine draw_cylinder_x(mask, mask_color, us)
+  use vars
   implicit none
+  
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth

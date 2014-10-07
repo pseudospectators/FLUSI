@@ -31,7 +31,7 @@ subroutine init_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      call abort()
   end select
 
-  n0 = 1-n1 !important to do this now in case we're retaking a backp
+  time%n0 = 1-time%n1 !important to do this now in case we're retaking a backp
   
   !-----------------------------------------------------------------------------
   ! create startup mask function

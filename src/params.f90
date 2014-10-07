@@ -10,6 +10,9 @@ subroutine get_params(paramsfile,Insect)
   integer :: i  
   ! this array contains the entire ascii-params file
   character(len=strlen), dimension(1:nlines) :: PARAMS
+  real(kind=pr), dimension(1:3) :: defaultvec
+  character(len=strlen) :: old_meanflow
+
   
   ! check if the specified file exists
   call check_file_exists( paramsfile )
@@ -17,70 +20,6 @@ subroutine get_params(paramsfile,Insect)
   ! Read the paramsfile and put the length i and the text in PARAMS
   call read_params_file(PARAMS,i,paramsfile,.true.)
 
-  ! Get parameter values from PARAMS
-  call get_params_common(PARAMS,i)
-
-  select case(method)
-     case("fsi") 
-        ! Get fsi-specific parameter values from PARAMS
-        call get_params_fsi(PARAMS,i,Insect)
-     case("mhd") 
-        ! Get mhd-specific parameter values from PARAMS
-        call get_params_mhd(PARAMS,i)
-  case default
-     if(mpirank == 0) then
-        write(*,*) "Error! Unkonwn method in get_params; stopping."
-        call abort()
-     end if
-  end select
-end subroutine get_params
-
-
-! Read the file paramsfile, count the lines (output in i) and put the
-! text in PARAMS.
-subroutine read_params_file(PARAMS,i,paramsfile, verbose)
-  use mpi
-  use vars
-  implicit none
-  
-  integer,intent(out) :: i
-  integer :: io_error
-  ! This array will contain the ascii-params file
-  character(len=strlen), dimension(1:nlines), intent(inout) :: PARAMS
-  character(len=strlen) :: paramsfile ! this is the file we read the PARAMS from
-  logical, intent(in) :: verbose
-
-  ! Read in the params file (root only)
-  io_error=0
-  if (mpirank==0) then
-     if (verbose) then
-     write (*,*) "*************************************************"
-     write (*,'(A,i3)') " *** info: reading params from "//trim(paramsfile)//" rank=", mpirank
-     write (*,*) "*************************************************"
-     endif
-     i = 1
-     open(unit=14,file=trim(adjustl(paramsfile)),action='read',status='old')    
-     do while ((io_error==0).and.(i<=nlines))
-        read (14,'(A)',iostat=io_error) PARAMS(i)  
-        i = i+1
-     enddo
-     close (14)
-     i = i-1 ! counted one too far
-  endif
-
-end subroutine read_params_file
-
-
-! Read individual parameter values from the PARAMS string for the vars
-! module.
-subroutine get_params_common(PARAMS,i)
-  use mpi
-  use vars
-  implicit none
-
-  integer,intent(in) :: i
-  ! Contains the ascii-params file
-  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
 
   ! Resolution section
   call param_int(PARAMS,i,"Resolution","nx",nx, 4)
@@ -97,6 +36,11 @@ subroutine get_params_common(PARAMS,i)
   dx=xl/dble(nx)
   dy=yl/dble(ny)
   dz=zl/dble(nz) 
+  pi=4.d0 *datan(1.d0)
+  ! scaling for FFTs
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
   
   if (nx==1) then
     if (root) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"    
@@ -107,11 +51,10 @@ subroutine get_params_common(PARAMS,i)
     
   ! Geometry section
   call param_dbl(PARAMS,i,"Geometry","Size",length, 0.d0)
-  call param_dbl(PARAMS,i,"Geometry","r1",r1,1.d0)
-  call param_dbl(PARAMS,i,"Geometry","r2",r2,1.0681415d0)
-  call param_dbl(PARAMS,i,"Geometry","r3",r3,1.206371d0)
 
+  !-----------------------------------------------------------------------------
   ! Time section
+  !-----------------------------------------------------------------------------
   call param_int(PARAMS,i,"Time","nt",nt, 9999999)
   call param_str(PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid,"AB2")  
   call param_dbl(PARAMS,i,"Time","Tmax",Tmax,1.d9)
@@ -119,40 +62,26 @@ subroutine get_params_common(PARAMS,i)
   call param_dbl(PARAMS,i,"Time","dt_max",dt_max,0.d0)
   call param_dbl(PARAMS,i,"Time","dt_fixed",dt_fixed,0.d0)
 
+  !-----------------------------------------------------------------------------
   ! Reynolds number section:
+  !-----------------------------------------------------------------------------
   call param_dbl(PARAMS,i,"ReynoldsNumber","nu",nu,1.d-2)  
 
+  !-----------------------------------------------------------------------------
   ! Initial conditions section
+  !-----------------------------------------------------------------------------
   call param_str(PARAMS,i,"InitialCondition","inicond",inicond, "none")
-  call param_dbl(PARAMS,i,"InitialCondition","omega1",omega1,0.d0) 
-  ! if reading from file, which files?
+  ! if inicond reading from file, which files?
   if (inicond=="infile") then 
     call param_str(PARAMS,i,"InitialCondition","file_ux",file_ux, "none")
     call param_str(PARAMS,i,"InitialCondition","file_uy",file_uy, "none")
     call param_str(PARAMS,i,"InitialCondition","file_uz",file_uz, "none")
-    ! if running in MHD mode, we also need the B-field initialized
-    if (method=="mhd") then
-      call param_str(PARAMS,i,"InitialCondition","file_bx",file_bx, "none")
-      call param_str(PARAMS,i,"InitialCondition","file_by",file_by, "none")
-      call param_str(PARAMS,i,"InitialCondition","file_bz",file_bz, "none")
-    endif
   endif
 
-  ! Dealasing section
-  call param_int(PARAMS,i,"Dealiasing","iDealias",iDealias, 1)
 
-  ! Penalization section
-  call param_int(PARAMS,i,"Penalization","iPenalization",iPenalization, 0)
-  call param_int(PARAMS,i,"Penalization","iMoving",iMoving, 0)
-  call param_str(PARAMS,i,"Penalization","iMask",iMask, "none")
-  call param_str(PARAMS,i,"Penalization","iSmoothing",iSmoothing,"erf")
-  call param_dbl(PARAMS,i,"Penalization","eps",eps, 1.d-2)
-  call param_dbl(PARAMS,i,"Penalization","pseudoeps",pseudoeps, 1.d-2)
-  call param_dbl(PARAMS,i,"Penalization","pseudodt",pseudodt, 1.d-2)
-  call param_dbl(PARAMS,i,"Penalization","pseuderrmin",pseudoerrmin,3d-4)
-  call param_dbl(PARAMS,i,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
-
+  !-----------------------------------------------------------------------------
   ! Saving section
+  !-----------------------------------------------------------------------------
   call param_int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
   call param_int(PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 
   call param_int(PARAMS,i,"Saving","iSavePress",iSavePress, 0)
@@ -181,32 +110,14 @@ subroutine get_params_common(PARAMS,i)
     iSaveVorticity=0
   endif
   
-  ! Set other parameters (all procs)
-  pi=4.d0 *datan(1.d0)
-  ! scaling for FFTs
-  scalex=2.d0*pi/xl
-  scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl
-end subroutine get_params_common
-
-
-! Read individual parameter values from the PARAMS string for fsi.
-subroutine get_params_fsi(PARAMS,i,Insect)
-  use mpi
-  use fsi_vars
-  use insect_module
-  implicit none
-
-  integer,intent(in) :: i
-  ! Contains the ascii-params file
-  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
-  ! the insect to initialize
-  type(diptera), intent(inout) :: Insect
-  real(kind=pr), dimension(1:3) :: defaultvec
-  character(len=strlen) :: old_meanflow
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! penalization / cavity
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
+  call param_int(PARAMS,i,"Penalization","iPenalization",iPenalization, 0)
+  call param_int(PARAMS,i,"Penalization","iMoving",iMoving, 0)
+  call param_str(PARAMS,i,"Penalization","iMask",iMask, "none")
+  call param_str(PARAMS,i,"Penalization","iSmoothing",iSmoothing,"erf")
+  call param_dbl(PARAMS,i,"Penalization","eps",eps, 1.d-2)
   call param_str(PARAMS,i,"Penalization","iCavity",iCavity,"no") 
   call param_int(PARAMS,i,"Penalization","cavity_size",cavity_size,0)
   call param_int(PARAMS,i,"Penalization","compute_forces",compute_forces,1)   
@@ -217,30 +128,21 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   call param_dbl(PARAMS,i,"Penalization","thick_wall",thick_wall,0.2d0)
   call param_dbl(PARAMS,i,"Penalization","pos_wall",pos_wall,0.3d0)
   
-  ! ---------------------------------------------------
-  ! sponge
-  ! ---------------------------------------------------
-  call param_str(PARAMS,i,"Sponge","iVorticitySponge",iVorticitySponge,"no")  
-  call param_str(PARAMS,i,"Sponge","iSpongeType",iSpongeType,"top_cover")
-  call param_dbl(PARAMS,i,"Sponge","eps_sponge",eps_sponge, 0.d0)   
-  call param_int(PARAMS,i,"Sponge","sponge_thickness",sponge_thickness,0)
-  
-  
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Geometry section
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   call param_dbl(PARAMS,i,"Geometry","x0",x0, 0.d0)
   call param_dbl(PARAMS,i,"Geometry","y0",y0, 0.d0)
   call param_dbl(PARAMS,i,"Geometry","z0",z0, 0.d0)
   
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Saving section
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   call param_int(PARAMS,i,"Saving","iSaveSolidVelocity",iSaveSolidVelocity,0)
 
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! MeanFlow section
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   call param_str(PARAMS,i,"MeanFlow","iMeanFlow_x",iMeanFlow_x,"free")
   call param_str(PARAMS,i,"MeanFlow","iMeanFlow_y",iMeanFlow_y,"free")
   call param_str(PARAMS,i,"MeanFlow","iMeanFlow_z",iMeanFlow_z,"free")
@@ -262,29 +164,27 @@ subroutine get_params_fsi(PARAMS,i,Insect)
     iMeanFlow_z="fixed"
   endif
     
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Insects section
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   if (iMask=="Insect") then
     call read_insect_parameters( PARAMS,i,Insect ) 
   endif
 
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! Incompressibility
-  ! ---------------------------------------------------
-  call param_str(PARAMS,i,"Incompressibility","projection",&
-       projection,"poisson")
+  !-----------------------------------------------------------------------------
   call param_dbl(PARAMS,i,"Incompressibility","c_0",&
        c_0, 0.d0)    
        
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! solid model (TODO: SAME LEVEL OF OBJECT ORIENTATION AS INSECT)
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   call get_params_solid( PARAMS, i )
 
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! passive scalar section
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   call param_int(PARAMS,i,"PassiveScalar","use_passive_scalar",&
        use_passive_scalar,0)
   call param_int(PARAMS,i,"PassiveScalar","n_scalars",&
@@ -306,18 +206,15 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   call param_dbl(PARAMS,i,"PassiveScalar","source_zmin",source_zmin,0.d0)
   call param_dbl(PARAMS,i,"PassiveScalar","source_zmax",source_zmax,0.d0)
 
-  ! ---------------------------------------------------
+  !-----------------------------------------------------------------------------
   ! DONE..
-  ! ---------------------------------------------------
-       
-  lin(1)=nu
-
+  !-----------------------------------------------------------------------------
   if (mpirank==0) then
      write (*,*) "*************************************************"
      write (*,'(A,i3)') " *** DONE READING PARAMETERS"
      write (*,*) "*************************************************"
   endif
-end subroutine get_params_fsi
+end subroutine 
 
 
 !-------------------------------------------------------------------------------
@@ -325,7 +222,7 @@ end subroutine get_params_fsi
 ! parameter.ini file. it is outsourced from params.f90
 !-------------------------------------------------------------------------------
 subroutine read_insect_parameters( PARAMS,i,Insect ) 
-  use fsi_vars
+  use vars
   use insect_module
   implicit none
   
@@ -468,37 +365,6 @@ subroutine get_params_solid(PARAMS,i)
   endif
 
 end subroutine get_params_solid
-
-
-
-
-
-! Read individual parameter values from the PARAMS string for fmhd
-subroutine get_params_mhd(PARAMS,i)
-  use mpi
-  use mhd_vars
-  implicit none
-
-  integer,intent(in) :: i
-  ! Contains the ascii-params file
-  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
-
-  ! MHD section
-  call param_dbl(PARAMS,i,"MHD","eta",eta,4.5d-2)
-
-  ! MHDGeometry section
-  call param_dbl(PARAMS,i,"MHDGeometry","b0",b0,4.5d0)
-  call param_dbl(PARAMS,i,"MHDGeometry","bc",bc,3.88888888888d0)
-  call param_dbl(PARAMS,i,"MHDGeometry","ay",ay,1.0d0)
-
-  ! Saving section
-  call param_int(PARAMS,i,"Saving","iSaveMagneticField",&
-       iSaveMagneticField, 0)
-  call param_int(PARAMS,i,"Saving","iSaveCurrent",iSaveCurrent, 0)
-
-  lin(1)=nu
-  lin(2)=eta
-end subroutine get_params_mhd
 
 
 
@@ -801,3 +667,36 @@ subroutine GetValue (PARAMS, actual_lines, section, keyword, value)
   enddo
 end subroutine getvalue
 
+! Read the file paramsfile, count the lines (output in i) and put the
+! text in PARAMS.
+subroutine read_params_file(PARAMS,i,paramsfile, verbose)
+  use mpi
+  use vars
+  implicit none
+  
+  integer,intent(out) :: i
+  integer :: io_error
+  ! This array will contain the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(inout) :: PARAMS
+  character(len=strlen) :: paramsfile ! this is the file we read the PARAMS from
+  logical, intent(in) :: verbose
+
+  ! Read in the params file (root only)
+  io_error=0
+  if (mpirank==0) then
+     if (verbose) then
+     write (*,*) "*************************************************"
+     write (*,'(A,i3)') " *** info: reading params from "//trim(paramsfile)//" rank=", mpirank
+     write (*,*) "*************************************************"
+     endif
+     i = 1
+     open(unit=14,file=trim(adjustl(paramsfile)),action='read',status='old')    
+     do while ((io_error==0).and.(i<=nlines))
+        read (14,'(A)',iostat=io_error) PARAMS(i)  
+        i = i+1
+     enddo
+     close (14)
+     i = i-1 ! counted one too far
+  endif
+
+end subroutine read_params_file

@@ -7,10 +7,13 @@
 ! time step, which is why we read the parameters from the shape.in file here
 ! (as opposed to do so once on initialization)
 !-------------------------------------------------------------------------------
-subroutine noncircular_cylinder
-  use mpi
-  use fsi_vars
+subroutine noncircular_cylinder(mask,mask_color,us)
+  use vars
   implicit none
+  
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   integer :: iz, iy, nfft, mpicode,k
   real(kind=pr) :: y,z,tmp, R, N_smooth, a0, theta, R0, safety

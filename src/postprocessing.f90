@@ -407,7 +407,7 @@ end subroutine keyvalues
 ! ./flusi --postprocessing --compare-timeseries forces.t ref/forces.t 
 !-------------------------------------------------------------------------------
 subroutine compare_timeseries()
-  use fsi_vars
+  use vars
   implicit none
   character(len=strlen) :: file1,file2
   character(len=1024) :: header, line

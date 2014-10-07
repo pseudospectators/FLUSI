@@ -3,26 +3,26 @@
 ! vectors), in future revisions this will be called for *each* passive scalar
 ! while for starters we have only one.
 !-------------------------------------------------------------------------------
-subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
-  use mpi
-  use p3dfft_wrapper
-  use fsi_vars
-  implicit none
-
-  real(kind=pr),intent(in) :: time
-  integer, intent(in) :: it
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::workc1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  
-  real(kind=pr) :: kx,ky,kz,chi,w,D,maxi,t1
-  real(kind=pr) :: k(1:3) ! wavenumber vector
-  complex(kind=pr) :: imag
-  integer :: ix,iy,iz,id,mpicode
-  t1 = MPI_wtime()
-  
+! subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
+!   use mpi
+!   use p3dfft_wrapper
+!   use vars
+!   implicit none
+! 
+!   real(kind=pr),intent(in) :: time
+!   integer, intent(in) :: it
+!   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+!   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+!   complex(kind=pr),intent(inout)::workc1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) 
+!   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   
+!   real(kind=pr) :: kx,ky,kz,chi,w,D,maxi,t1
+!   real(kind=pr) :: k(1:3) ! wavenumber vector
+!   complex(kind=pr) :: imag
+!   integer :: ix,iy,iz,id,mpicode
+!   t1 = MPI_wtime()
+!   
 !   !-----------------------------------------------------------------------------
 !   ! Sanity test: if the scalar values are out of range, we skip the entire 
 !   ! right hand side, but we do not abort (since the fluid is fine, it's just
@@ -142,25 +142,25 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
 !   call dealias1( nlk )
 !   
 !   time_scalar = time_scalar + MPI_wtime() - t1
-end subroutine cal_nlk_scalar
+! end subroutine cal_nlk_scalar
 
 
-!-------------------------------------------------------------------------------
-! source term for passive scalar, dirichlet condition
-! note here we have to use eps instead of eps_scalar, since
-! this term imposed a dt<eps stability condition
-!-------------------------------------------------------------------------------
-subroutine scalar_source ( time, theta )
-  use mpi
-  use p3dfft_wrapper
-  use fsi_vars
-  implicit none
-
-  real(kind=pr),intent(in) :: time
-  real(kind=pr),intent(inout)::theta(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr) :: x,y,z,chi
-  integer :: ix,iy,iz
-
+! !-------------------------------------------------------------------------------
+! ! source term for passive scalar, dirichlet condition
+! ! note here we have to use eps instead of eps_scalar, since
+! ! this term imposed a dt<eps stability condition
+! !-------------------------------------------------------------------------------
+! subroutine scalar_source ( time, theta )
+!   use mpi
+!   use p3dfft_wrapper
+!   use vars
+!   implicit none
+! 
+!   real(kind=pr),intent(in) :: time
+!   real(kind=pr),intent(inout)::theta(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+!   real(kind=pr) :: x,y,z,chi
+!   integer :: ix,iy,iz
+! 
 !   select case (source_term)
 !   case ("for_flapper")
 !     do ix=ra(1),rb(1)
@@ -245,5 +245,5 @@ subroutine scalar_source ( time, theta )
 !     if(mpirank==0) write(*,*) "Scalar: source term not defined"//source_term
 !     call abort()
 !   end select
-
-end subroutine scalar_source
+! 
+! end subroutine scalar_source

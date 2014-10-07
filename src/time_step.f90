@@ -40,9 +40,10 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
   
   ! Loop over time steps
   t1=MPI_wtime()
-  do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
+  do while ((time%time<=tmax) .and. (time%it<=nt) .and. (continue_timestepping) )
      t4=MPI_wtime()
-     dt0=dt1
+     
+     time%dt_old=time%dt_new
      
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
@@ -64,10 +65,10 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-----------------------------------------------
      ! time step done: advance iteration + time
      !-----------------------------------------------
-     inter=n1 ; n1=n0 ; n0=inter
+     inter=time%n1 ; time%n1=time%n0 ; time%n0=inter
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
-     time=time + dt1
-     it=it + 1
+     time%time = time%time + time%dt_new
+     time%it = time%it + 1
      
      !-------------------------------------------------
      ! Output of INTEGRALS after every tintegral time 
@@ -87,8 +88,8 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-------------------------------------------------
      ! Output FIELDS+BACKUPING (after tsave)
      !-------------------------------------------------
-     if (((modulo(time,tsave)<dt1).and.(time>=tsave_first)).or.(time==tmax)) then
-        call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt1)
+     if (((modulo(time%time,tsave)<time%dt_new).and.(time%time>=tsave_first)).or.(time%time==tmax)) then
+        call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt_new)
         call save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)   
      endif
 
@@ -103,8 +104,8 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-----------------------------------------------
      ! Output how much time remains
      !-----------------------------------------------
-     if ((modulo(it,300)==0).or.(it==20)) then
-        call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt1)
+     if ((modulo(time%it,300)==0).or.(time%it==20)) then
+        call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt_new)
      endif
      
      !-------------------------------------------------
@@ -137,7 +138,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
 !         end select
 !      endif 
      
-     if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1,t4)
+     if(root) call save_time_stepping_info (time%it,time%it_start,time%time,t2,t1,time%dt_new,t4)
   enddo
 
   !-----------------------------------------------------------------------------

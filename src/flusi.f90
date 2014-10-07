@@ -1,6 +1,5 @@
 program FLUSI
-  use mpi
-  use fsi_vars
+  use vars
   use solid_model
   use insect_module
   implicit none
@@ -39,9 +38,6 @@ program FLUSI
       ! run solid model only
       !-------------------------------------------------------------------------
       method="fsi" ! We are doing fluid-structure interactions
-      nf=1 ! We are evolving one field.
-      nd=3*nf ! The one field has three components.
-      allocate(lin(1)) ! Set up the linear term
       call get_command_argument(2,infile)
       call get_params(infile,dummyinsect)
       call OnlySolidSimulation()
@@ -58,7 +54,7 @@ end program FLUSI
 
 subroutine fd_testing()
   use mpi
-  use fsi_vars
+  use vars
   use diff
   use p3dfft_wrapper
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,rhs1,rhs2,rhs3
@@ -118,7 +114,7 @@ subroutine fd_testing()
   enddo  
   
   t1=MPI_wtime()
-  call rhs_acm_spectral(u,rhs2)
+!   call rhs_acm_spectral(u,rhs2)
   t2=MPI_wtime()-t1
   if(mpirank==0) write(*,'("FFT=",es12.4)') t2
   
@@ -174,7 +170,7 @@ end subroutine fd_testing
 
 subroutine Start_Simulation()
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -204,7 +200,7 @@ subroutine Start_Simulation()
   type(solid), dimension(1:nBeams) :: beams
   
   ! Set method information in vars module.
-  method="fsi" ! We are doing fluid-structure interactions
+  method="centered_2nd" ! We are doing fluid-structure interactions
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
   nrw=1   ! number of real valued work arrays
   nrhs=2  ! number of registers for right hand side vectors
@@ -277,11 +273,11 @@ subroutine Start_Simulation()
   
   ! right hand side of navier-stokes (possibly with passive scalar)
   allocate(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs))
-  memory = memory + 2.d0*dble(neq)*mem_field
+  memory = memory + dble(neq*nrhs)*mem_field
   
   ! velocity in physical space (WITHOUT passive scalar)
   allocate(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
-  memory = memory + dble(nd)*mem_field
+  memory = memory + dble(neq)*mem_field
   
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
@@ -293,7 +289,7 @@ subroutine Start_Simulation()
   
   ! solid body velocities
   allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)) 
-  memory = memory + dble(nd)*mem_field
+  memory = memory + dble(neq)*mem_field
   
   ! allocate one work array
   allocate(work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw))
@@ -304,7 +300,7 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   if (mpirank==0) then
     write(*,'(80("-"))')
-    write(*,'("Allocated ",i1," real and ",i1," complex work arrays")') nrw,ncw
+    write(*,'("Allocated ",i1," real and ",i1," complex work arrays")') nrw,0
     write(*,'("FLUSI allocated ",f7.1,"MB (",f5.1,"GB) of memory in total")')&
     memory/(1.0d6),memory/(1.0d9)
     write(*,'("which is ",f7.1,"MB (",f4.1,"GB) per CPU")') &
@@ -373,7 +369,7 @@ end subroutine Start_Simulation
 
 ! Output information on where the algorithm spent the most time.
 subroutine show_timings(t2)
-  use fsi_vars
+  use vars
   implicit none
   real (kind=pr) :: t2,tmp
 
@@ -434,7 +430,7 @@ end subroutine show_timings
 
 
 subroutine initialize_time_series_files()
-  use fsi_vars
+  use vars
   implicit none
   
   ! For insect wing/body forces
@@ -520,7 +516,7 @@ end subroutine
 
 
 subroutine print_domain_decomposition()
-  use fsi_vars
+  use vars
   use mpi
   implicit none
   integer :: mpicode

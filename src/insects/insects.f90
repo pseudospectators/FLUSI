@@ -6,9 +6,18 @@
 !-------------------------------------------------------------------------------
 
 module insect_module
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
+  
+  
+  ! mask color function
+  integer(kind=2),dimension (:,:,:),allocatable,save :: masque_color
+  ! mask containing the obstacle
+  real(kind=pr),dimension(:,:,:),allocatable :: masque
+  ! velocity-field inside solid 
+  real(kind=pr),dimension(:,:,:,:),allocatable :: us_insect
+  
+  
   
   ! Fourier coefficients for wings
   real(kind=pr), allocatable, dimension(:) :: ai,bi
@@ -114,13 +123,16 @@ module insect_module
 ! subroutines doing the actual job of defining the mask. Note all surfaces are
 ! smoothed.
 !-------------------------------------------------------------------------------
-subroutine Draw_Insect ( time, Insect )
-  use fsi_vars
-  use mpi
+subroutine Draw_Insect ( time, Insect, mask1, mask_color1, us1)
+  use vars
   implicit none
   
   real(kind=pr), intent(in) :: time
   type(diptera),intent(inout) :: Insect
+  
+  real(kind=pr),intent(inout)::mask1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   
   real(kind=pr),dimension(1:3) :: x, x_body, x_wing_l, x_wing_r, x_eye_r,&
   x_eye_l,x_head, v_tmp, rot_b_psi,rot_b_beta,rot_b_gamma
@@ -134,7 +146,11 @@ subroutine Draw_Insect ( time, Insect )
   ! what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
   
-  
+  !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+  allocate(masque(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
+  allocate(masque_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(us_insect(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)) 
+  !$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
   
   !-- decide what wing routine to call (call simplified wing 
   ! routines that don't use fourier)
@@ -398,20 +414,25 @@ subroutine Draw_Insect ( time, Insect )
           x_body = matmul(M_body,x-Insect%xc_body)
           ! add solid body rotation in the body-reference frame, if color 
           ! indicates that this part of the mask belongs to the insect
-          if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
+          if ((masque(ix,iy,iz) > 0.d0).and.(masque_color(ix,iy,iz)>0)) then
             ! add solid body rotation to the translational velocity field
             v_tmp=Insect%vc_body
             v_tmp(1) = v_tmp(1)+Insect%rot_body(2)*x_body(3)-Insect%rot_body(3)*x_body(2)
             v_tmp(2) = v_tmp(2)+Insect%rot_body(3)*x_body(1)-Insect%rot_body(1)*x_body(3)
             v_tmp(3) = v_tmp(3)+Insect%rot_body(1)*x_body(2)-Insect%rot_body(2)*x_body(1)
             
-            us(ix,iy,iz,1:3) = matmul(M_body_inv,us(ix,iy,iz,1:3)+v_tmp)
+            us_insect(ix,iy,iz,1:3) = matmul(M_body_inv,us_insect(ix,iy,iz,1:3)+v_tmp)
           endif
         enddo
      enddo
   enddo  
   time_insect_vel = time_insect_vel + MPI_wtime() - t1
 
+  mask1=masque
+  mask_color1=masque_color
+  us1=us_insect
+  
+  deallocate(masque,masque_color,us_insect)
 end subroutine Draw_Insect
 
 
@@ -421,8 +442,7 @@ end subroutine Draw_Insect
 ! thickness (i.e., in the limit, steps=1 if x<t and steps=0 if x>t
 !-------------------------------------------------------
 real(kind=pr) function steps(x,t)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   real(kind=pr) :: f,x,t
   call smoothstep(f,x,t,smoothing)
@@ -434,7 +454,7 @@ end function
 ! Compute angle from coefficients provided by Maeda
 !-------------------------------------------------------
 subroutine get_dangle( angles, F, a, b, shift_phase, initial_phase, dangle, dangle_dt )
-  use fsi_vars
+  use vars
   implicit none
   integer, intent(in) :: F  ! wavenumber (Dmitry, 7 Nov 2013)
   real(kind=pr), intent(in) :: angles ! 2*pi*F*time (Dmitry, 7 Nov 2013) 
@@ -478,7 +498,7 @@ end subroutine get_dangle
 ! RHS of the ODE system.
 subroutine dynamics_insect(time,it,Insect)
   use mpi
-  use fsi_vars
+  use vars
   implicit none
 
   integer, intent(in) :: it
@@ -572,7 +592,7 @@ end subroutine dynamics_insect
 ! Initialize insect free flight dynamics solver
 subroutine dynamics_insect_init(idynamics,Insect)
   use mpi
-  use fsi_vars
+  use vars
   implicit none
 
   integer, intent(out) :: idynamics
@@ -625,8 +645,7 @@ end subroutine dynamics_insect_init
 
 ! Compute aerodynamic power
 subroutine aero_power(Insect,apowtotal)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
 
   integer :: color_body, color_l, color_r
@@ -695,8 +714,7 @@ end subroutine aero_power
 !       (JFM 582, 2007), eqn 2.22 (looks a bit different)
 !-------------------------------------------------------------------------------
 subroutine inert_power(Insect,ipowtotal)
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
 
   real(kind=pr), intent(out) :: ipowtotal
@@ -748,8 +766,7 @@ end subroutine inert_power
 ! output rot_r, rot_l are understood in the WING coordinate system.
 !-------------------------------------------------------------------------------
 subroutine angular_velocities ( time, Insect )
-  use fsi_vars
-  use mpi 
+  use vars 
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -830,8 +847,7 @@ end subroutine angular_velocities
 ! vectors for both wings, using centered finite differences
 !-------------------------------------------------------------------------------
 subroutine angular_accel( time, Insect )
-  use fsi_vars
-  use mpi 
+  use vars 
   implicit none
   real(kind=pr), intent(in) :: time
   type(diptera), intent(inout) :: Insect
@@ -889,7 +905,7 @@ end subroutine angular_accel
 
 
 subroutine insect_clean(Insect)
-  use fsi_vars
+  use vars
   implicit none
   type(diptera),intent(inout)::Insect
   

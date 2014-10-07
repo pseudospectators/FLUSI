@@ -15,8 +15,7 @@
 ! Insect%BodyMotion, and sub-parameters that may further precise a given motion 
 ! protocoll
 subroutine BodyMotion(time, Insect)
-  use fsi_vars
-  use mpi
+  use vars
   use kine 
   implicit none
   

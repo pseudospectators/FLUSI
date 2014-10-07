@@ -3,6 +3,12 @@ module vars
   use mpi
   implicit none
   
+  
+  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
+  integer,parameter :: strlen=80   ! standard string length
+  ! Precision of doubles
+  integer,parameter :: pr = 8 
+  
   !-----------------------------------------------------------------------------
   ! Type declarations
   !-----------------------------------------------------------------------------
@@ -54,12 +60,6 @@ module vars
   !-----------------------------------------------------------------------------
   ! Global parameters and variables
   !-----------------------------------------------------------------------------
-  ! Used in params.f90
-  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
-  integer,parameter :: strlen=80   ! standard string length
-  
-  ! Precision of doubles
-  integer,parameter :: pr = 8 
 
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
@@ -73,7 +73,7 @@ module vars
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize, mpirank
   ! Local array bounds
-  integer,dimension (1:3),save :: ra,rb
+  integer,dimension (1:3),save :: ra,rb,rs,ca,cb,cs
   ! Local array bounds with ghost points
   integer,dimension (1:3),save :: ga,gb
   ! Local array bounds for real arrays for all MPI processes
@@ -220,7 +220,6 @@ module vars
     end function per
     !---------------------------------------------------------------------------
     subroutine suicide1
-      use mpi
       implicit none
       integer :: mpicode
       
@@ -229,7 +228,6 @@ module vars
     end subroutine suicide1
     !---------------------------------------------------------------------------
     subroutine suicide2(msg)
-      use mpi
       implicit none
       integer :: mpicode
       character(len=*), intent(in) :: msg
@@ -274,7 +272,6 @@ module vars
     !---------------------------------------------------------------------------
     ! this function simplifies my life with the insects
     real(kind=pr) function deg2rad(deg)
-      use vars
       implicit none
       real(kind=pr), intent(in) :: deg
       deg2rad=deg*pi/180.d0
@@ -282,7 +279,6 @@ module vars
     end function
     !---------------------------------------------------------------------------
     function cross(a,b)
-      use vars
       implicit none
       real(kind=pr),dimension(1:3),intent(in) :: a,b
       real(kind=pr),dimension(1:3) :: cross

@@ -10,8 +10,7 @@
 !-------------------------------------------------------------------------------
 ! subroutine plate_geometry( beam, surfaces, active_points, nh, M_plate, x0_plate )
 subroutine plate_geometry( beam, nh, M_plate, x0_plate )
-  use mpi
-  use fsi_vars
+  use vars
   implicit none
   real(kind=pr),dimension(1:3),intent(in) :: x0_plate
   real(kind=pr),dimension(1:3,1:3),intent(in) :: M_plate
@@ -122,7 +121,7 @@ end subroutine plate_geometry
 ! (otherwise, there is a conflict with the bounding boxes)
 !-------------------------------------------------------------------------------
 real(kind=pr) function z_top(s)
-  use fsi_vars
+  use vars
   implicit none
   real(kind=pr),intent(in)::s
   real(kind=pr)::R
@@ -172,7 +171,7 @@ end function
 
 
 real(kind=pr) function z_bottom(s)
-  use fsi_vars
+  use vars
   implicit none
   real(kind=pr),intent(inout)::s
   real(kind=pr)::R

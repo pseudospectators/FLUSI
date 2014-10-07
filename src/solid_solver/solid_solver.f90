@@ -1,6 +1,6 @@
 
 module solid_model
-  use fsi_vars ! for the precision statement
+  use vars ! for the precision statement
   use basic_operators 
   implicit none
   
@@ -73,7 +73,7 @@ module solid_model
 !   solid solver main entry point
 !-------------------------------------------------------------------------------
 subroutine OnlySolidSimulation()
-  use fsi_vars
+  use vars
   implicit none
   type(solid), dimension(1:nBeams) :: beams
   real (kind=pr) :: time
@@ -130,10 +130,10 @@ subroutine SolidSolverWrapper ( time, dt, beams )
         if (root) write(*,*) "SolidSolver: input values contain NaNs"
         ! at this occasion, check if mask and us contain NaNs
         if (root) write(*,*) "Checking mask and us for NaNs"
-        call checknan( mask, "mask")
-        call checknan( us(:,:,:,1), "usx")
-        call checknan( us(:,:,:,2), "usy")
-        call checknan( us(:,:,:,3), "usz")
+!         call checknan( mask, "mask")
+!         call checknan( us(:,:,:,1), "usx")
+!         call checknan( us(:,:,:,2), "usy")
+!         call checknan( us(:,:,:,3), "usz")
         ! time to go..
         call abort()
       endif
@@ -1419,7 +1419,7 @@ end subroutine
 !-------------------------------------------------------------------------------
  
 subroutine show_beam( beam )
-  use fsi_vars
+  use vars
   implicit none
   character(len=20):: str
   type(solid),intent(in) :: beam
@@ -1453,7 +1453,7 @@ end subroutine show_beam
 
 
 subroutine show_beam_on_error( beam )
-  use fsi_vars
+  use vars
   implicit none
   type(solid),intent(in) :: beam
   if ( Vector_isNAN(beam%x).or.&
@@ -1490,7 +1490,7 @@ subroutine lapack_unit_test()
   ! I*x = b
   ! where I is the identity matrix, so the solution is trivially x=b
   !-----------------------------------------------------------------------------
-  use fsi_vars
+  use vars
   implicit none
   integer, parameter:: n = 20
   real(kind=pr) :: a1(1:n,1:n),a2(1:n,1:n), b(1:n), x(1:n), err
@@ -1538,7 +1538,7 @@ end subroutine lapack_unit_test
 ! dump runtime backup for the solid solver
 !-------------------------------------------------------------------------
 subroutine dump_solid_backup( time, beams, nbackup )
-  use fsi_vars
+  use vars
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -1585,7 +1585,7 @@ end subroutine dump_solid_backup
 ! read runtime backup for the solid solver
 !-------------------------------------------------------------------------
 subroutine read_solid_backup( beams, filename )
-  use fsi_vars
+  use vars
   implicit none
   
   type(solid), dimension(1:nBeams), intent(inout) :: beams
@@ -1631,7 +1631,7 @@ end subroutine read_solid_backup
 ! read runtime backup for the solid solver (BINARY FILE)
 !-------------------------------------------------------------------------
 subroutine read_solid_backup_binary( beams, filename )
-  use fsi_vars
+  use vars
   implicit none
   
   type(solid), dimension(1:nBeams), intent(inout) :: beams
@@ -1674,7 +1674,7 @@ end subroutine read_solid_backup_binary
 
 
 subroutine convert_solid_bckp_ascii
-  use fsi_vars
+  use vars
   implicit none
   type(solid), dimension(1:nBeams) :: beams
   
