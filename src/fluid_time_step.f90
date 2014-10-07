@@ -454,12 +454,12 @@ subroutine rungekutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
 
-  !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-  call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
   call adjust_dt(u,time%dt_new)
   
-  !-- Do the euler step (advance u field in time)
-  u = u + time%dt_new * nlk(:,:,:,:,1)
+  nlk(:,:,:,:,3) = u
+  
+  call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
+  u = u + 0.5d0*time%dt_new * nlk(:,:,:,:,1)
   
   !-- RHS using the euler velocity
   call cal_nlk(time,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
@@ -471,7 +471,7 @@ subroutine rungekutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! u^n+1=u_euler - dt*N(u^n) + dt/2*( N(u^n) + N(u_euler) )
   ! which yields simply
   ! u^n+1=u_euler + dt/2*( -N(u^n) + N(u_euler) )
-  u = u + 0.5d0*time%dt_new * (-nlk(:,:,:,:,2) + nlk(:,:,:,:,1) )
+  u = nlk(:,:,:,:,3) + time%dt_new * nlk(:,:,:,:,2)
 end subroutine rungekutta2
 
 

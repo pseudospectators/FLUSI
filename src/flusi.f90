@@ -257,7 +257,7 @@ subroutine Start_Simulation()
   ! decide about memory
   !-----------------------------------------------------------------------------
   if (iTimeMethodFluid=="RK2") then
-    nrhs=2  ! number of registers for right hand side vectors
+    nrhs=3  ! number of registers for right hand side vectors
   elseif (iTimeMethodFluid=="RK4") then
     nrhs=5  ! number of registers for right hand side vectors
   else
