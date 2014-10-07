@@ -1,5 +1,5 @@
 ! Set initial conditions for fsi code.
-subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
+subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -7,31 +7,31 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc
   use insect_module
   implicit none
 
-  integer,intent (inout) :: n1,it,n0
-  real (kind=pr),intent (inout) :: time,dt1,dt0
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
-  type(solid),dimension(1:nBeams), intent(inout) :: beams
-  type(diptera),intent(inout)::Insect 
+  type(timetype),intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
+    
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z,r,a,gamma0,x00,r00,omega
 
   ! Assign zero values
-  time = 0.0d0
-  dt1  = tsave
-  it = 0
+  time%time = 0.0d0
+  time%dt_new  = tsave
+  time%it = 0
   
-  uk = dcmplx(0.0d0,0.0d0)
-  nlk = dcmplx(0.0d0,0.0d0)
-  explin = 0.0
-  vort = 0.0d0
+  u = 0.d0
+  us = 0.d0
+  nlk = 0.d0
+  work = 0.d0
+  mask = 0.d0
+  mask_color = 0
+  
   
   select case(inicond)
   case("infile")
@@ -44,95 +44,23 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
      call fft3 ( uk,vort )
      if (mpirank==0) write (*,*) "*** done reading infiles"
-  case("VortexRing")
-     !--------------------------------------------------
-     ! Vortex ring
-     !--------------------------------------------------
-     if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
-     r00=yl/8.d0
-     a  =0.4131d0 * r00 
-     a  =0.82d0 * r00 
-     gamma0=12.0d0
-     x00=0.5d0 * xl
-
-     ! define vorticity in phy space
-     do iz=ra(3), rb(3)
-        z=dble(iz) * zl / dble(nz)
-        do iy=ra(2), rb(2)
-           y=dble(iy) * yl / dble(ny)
-           do ix=ra(1), rb(1)
-              x=dble(ix) * xl / dble(nx)
-              r=dsqrt( (y-0.5d0*yl)**2 + (z-0.5d0*zl)**2 )
-              omega=(gamma0 / (pi*a**2))&
-                   *dexp(-( (x-x00)**2 + (r-r00)**2 )/(a**2) )
-
-              if ( dabs(r)> 1.0d-12) then
-                 vort (ix,iy,iz,2)=-omega * ( (z-0.5d0*zl)/r) ! sin(theta)
-                 vort (ix,iy,iz,3)= omega * ( (y-0.5d0*yl)/r) ! cos(theta)
-              else
-                 vort (ix,iy,iz,2)=0.d0
-                 vort (ix,iy,iz,3)=0.d0
-              endif
-
-           end do
-        end do
-     end do
-     call Vorticity2Velocity(uk, nlk(:,:,:,:,0), vort)
-
-  case("turbulence")
-     !--------------------------------------------------
-     ! random vorticity
-     !--------------------------------------------------
-     if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
-!      call random_seed()
-!      call create_mask( 0.d0, Insect, beams )
-!      do iz=ra(3), rb(3)
-!         do iy=ra(2), rb(2)
-!            do ix=ra(1), rb(1)
-!               vort (ix,iy,iz,1)=50.d0*(2.0d0*rand_nbr() - 1.d0) &
-!               * (1.d0-eps*mask(ix,iy,iz))
-!               vort (ix,iy,iz,2)=50.d0*(2.0d0*rand_nbr() - 1.d0)&
-!               * (1.d0-eps*mask(ix,iy,iz))
-!               vort (ix,iy,iz,3)=50.d0*(2.0d0*rand_nbr() - 1.d0)&
-!               * (1.d0-eps*mask(ix,iy,iz))
-!            end do
-!         end do
-!      end do
-     
-     call Read_Single_File ('vorx_inicond.h5', vort(:,:,:,1))
-     call Read_Single_File ('vory_inicond.h5', vort(:,:,:,2))
-     call Read_Single_File ('vorz_inicond.h5', vort(:,:,:,3))
-     
-     call cal_vis( 1.0e-4/nu, explin(:,:,:,1))
-     call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
-     nlk(:,:,:,1,0)=nlk(:,:,:,1,0)*explin(:,:,:,1)
-     nlk(:,:,:,2,0)=nlk(:,:,:,2,0)*explin(:,:,:,1)
-     nlk(:,:,:,3,0)=nlk(:,:,:,3,0)*explin(:,:,:,1)
-     call ifft3( ink=nlk(:,:,:,:,0), outx=vort )
-     call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
 
   case("MeanFlow")
      !--------------------------------------------------
      ! mean flow only
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: mean flow"
-     uk=dcmplx(0.0d0,0.0d0)
-     ! note this inicond also works without meanflow forcing, it is then
-     ! really just an inicond
      
-     ! forcing = zeroth Fourier mode only
-     if ( (ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0) ) then
-       uk(0, 0, 0,1) = Uxmean
-       uk(0, 0, 0,2) = Uymean
-       uk(0, 0, 0,3) = Uzmean
-     endif
-
+     u(:,:,:,1) = Uxmean
+     u(:,:,:,2) = Uymean
+     u(:,:,:,3) = Uzmean
+       
   case("quiescent")
      !--------------------------------------------------
      ! fluid at rest
      !--------------------------------------------------  
      if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
-     uk=dcmplx(0.0d0,0.0d0)
+     u = 0.d0
 
   case default
      if(inicond(1:8) == "backup::") then
@@ -152,30 +80,25 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc
         call abort()
      endif
   end select
-  
-  
-  
 
-  
-  
   
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the solid solver
   !-----------------------------------------------------------------------------
-  if (use_solid_model=="yes") then
-    if(mpirank==0) write(*,*) "Initializing solid solver and testing..."
-    call init_beams( beams )
-    call surface_interpolation_testing( time, beams(1), press )
-    call init_beams( beams )
-  endif
+!   if (use_solid_model=="yes") then
+!     if(mpirank==0) write(*,*) "Initializing solid solver and testing..."
+!     call init_beams( beams )
+!     call surface_interpolation_testing( time, beams(1), press )
+!     call init_beams( beams )
+!   endif
   
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the passive scalar(s)
   !-----------------------------------------------------------------------------
-  if ((use_passive_scalar==1).and.(index(inicond,"backup::")==0)) then
-    ! only if not resuming a backup
-    call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1),Insect,beams)
-  endif
+!   if ((use_passive_scalar==1).and.(index(inicond,"backup::")==0)) then
+!     ! only if not resuming a backup
+!     call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1),Insect,beams)
+!   endif
   
 end subroutine init_fields_fsi
 

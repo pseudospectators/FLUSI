@@ -124,7 +124,7 @@ subroutine fd_testing()
   
   
   t1=MPI_wtime()
-  call rhs_acm(u,rhs1)
+  call rhs_acm_2nd(u,rhs1)
   if(mpirank==0) write(*,'("2nd=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
   
   t1=MPI_wtime()
@@ -181,20 +181,23 @@ subroutine Start_Simulation()
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   real(kind=pr)          :: t1,t2
-  real(kind=pr)          :: time,dt0,dt1,memory, mem_field
+  real(kind=pr)          :: memory, mem_field
+  type(timetype) :: time
   integer                :: n0=0,n1=1,it
-  character (len=strlen)     :: infile
-  ! Arrays needed for simulation
-  real(kind=pr),dimension(:,:,:,:),allocatable :: explin  
-  real(kind=pr),dimension(:,:,:,:),allocatable :: u,vort
-  complex(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk
-  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
-  ! real valued work arrays (there will be "nrw" of them)
-  real(kind=pr),dimension(:,:,:,:),allocatable :: work  
-  ! complex work array, used for sponge and/or passive scalar
-  complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
-  ! pressure array, with ghost points
-  real(kind=pr),dimension(:,:,:),allocatable :: press
+  character (len=strlen) :: infile
+  
+  ! mask color function
+  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color
+  ! mask containing the obstacle
+  real(kind=pr),dimension(:,:,:),allocatable :: mask
+  ! solution vector u
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  ! velocity-field inside solid 
+  real(kind=pr),dimension(:,:,:,:),allocatable :: us
+  ! work arrays
+  real(kind=pr),dimension(:,:,:,:),allocatable :: work
+  ! the right hand side
+  real(kind=pr),dimension(:,:,:,:,:),allocatable :: nlk
   ! this is the insect we're using (object oriented)
   type(diptera) :: Insect
   ! this is the solid model beams:
@@ -202,12 +205,9 @@ subroutine Start_Simulation()
   
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
-  nf=1    ! We are evolving one field (that means 1 integrating factor)
-  nd=3 ! The one field has three components.
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
   nrw=1   ! number of real valued work arrays
-  ncw=1   ! number of complex values work arrays (decide that later)
-
+  nrhs=2  ! number of registers for right hand side vectors
   
   ! initialize timing variables
   time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
@@ -229,7 +229,6 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Read input parameters
   !-----------------------------------------------------------------------------
-  allocate(lin(nf)) ! Set up the linear term
   if (root) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
@@ -237,18 +236,9 @@ subroutine Start_Simulation()
   call get_params(infile,Insect)
   
   !-----------------------------------------------------------------------------
-  ! ghost points. only the "active" FSI part, i.e. with flexible obstacles, 
-  ! currently needs the ghost point system for interpolating the pressure on the
-  ! surface
+  ! ghost points
   !-----------------------------------------------------------------------------
-  if (use_solid_model=="yes") then
-    if (interp=='linear') ng=1 ! one ghost point
-    if (interp=='delta')  ng=3 ! three ghost points
-  else
-    ! we dont need ghosts when not solving the solid model
-    ng=0 ! zero ghost points
-  endif
-  
+  ng=0 ! zero ghost points  
   if (root) write(*,'("Set up ng=",i1," ghost points")') ng
   
   !-----------------------------------------------------------------------------
@@ -272,37 +262,25 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! Allocate memory:
   !-----------------------------------------------------------------------------
-  ! reserve additional space for scalars?
-  if (use_passive_scalar==1) then
-    ! add n_scalars to number of equations. Note the difference between neq and nd
-    neq = neq + n_scalars 
-    ! this logical "activates" the scalar. if, for example, a NaN in the scalar occurs,
-    ! it is set to false and the scalar is skipped, since the fluid can still be okay
-    compute_scalar = .true.
-  endif
+!   ! reserve additional space for scalars?
+!   if (use_passive_scalar==1) then
+!     ! add n_scalars to number of equations. Note the difference between neq and nd
+!     neq = neq + n_scalars 
+!     ! this logical "activates" the scalar. if, for example, a NaN in the scalar occurs,
+!     ! it is set to false and the scalar is skipped, since the fluid can still be okay
+!     compute_scalar = .true.
+!   endif
 
   ! size (in bytes) of one field  
   mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
   memory = 0.d0
   
-  ! integrating factors
-  allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
-  memory = memory + dble(nf)*mem_field
-  
-  ! velocity in Fourier space (possibly with passive scalar)
-  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-  memory = memory + dble(neq)*mem_field
-  
   ! right hand side of navier-stokes (possibly with passive scalar)
-  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1))
+  allocate(nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs))
   memory = memory + 2.d0*dble(neq)*mem_field
   
   ! velocity in physical space (WITHOUT passive scalar)
-  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
-  memory = memory + dble(nd)*mem_field
-  
-  ! vorticity in physical space (TODO: remove this, add it to work)
-  allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))   
+  allocate(u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
   memory = memory + dble(nd)*mem_field
   
   ! mask function (defines the geometry)
@@ -314,35 +292,13 @@ subroutine Start_Simulation()
   memory = memory + mem_field/4.d0
   
   ! solid body velocities
-  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)) 
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)) 
   memory = memory + dble(nd)*mem_field
   
-  ! real valued work array(s)
   ! allocate one work array
-  nrw = 1  
-  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
+  allocate(work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw))
   memory = memory + dble(nrw)*mem_field
 
-! NOTE: we'll have to change this for ACM  
-  ! pressure array. this is with ghost points for interpolation
-!   if (use_solid_model=="yes") then
-    allocate(press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
-    if(mpirank==0) write(*,*) "press array is allocated"
-    memory = memory + mem_field
-!   else
-!     allocate(press(0:1,0:1,0:1))
-!   endif
-  
-  ! vorticity sponge, work array that is used for sponge and/or passive scalar
-  if (iVorticitySponge=="yes") then
-    ! three complex work arrays
-    ncw = 3
-  else
-    ! one complex work array, if using scalar
-    if (use_passive_scalar==1) ncw = 1
-  endif
-  allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
-  
   !-----------------------------------------------------------------------------
   ! show memory consumption for information
   !-----------------------------------------------------------------------------
@@ -360,57 +316,46 @@ subroutine Start_Simulation()
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
-  if (iMask=="Insect") then
-    if (Insect%KineFromFile/="no") then
-      if (mpirank==0) write(*,*) "Initializing kinematics loader..."
-      call load_kine_init(mpirank)
-    endif
-    ! If required, initialize rigid solid dynamics solver
-    ! and set idynamics flag on or off
-    call rigid_solid_init(SolidDyn%idynamics,Insect)
-  endif
-  
-  !-----------------------------------------------------------------------------
-  ! check if at least FFT works okay
-  !-----------------------------------------------------------------------------
-  call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
+!   if (iMask=="Insect") then
+!     if (Insect%KineFromFile/="no") then
+!       if (mpirank==0) write(*,*) "Initializing kinematics loader..."
+!       call load_kine_init(mpirank)
+!     endif
+!     ! If required, initialize rigid solid dynamics solver
+!     ! and set idynamics flag on or off
+!     call rigid_solid_init(SolidDyn%idynamics,Insect)
+!   endif
   
   !-----------------------------------------------------------------------------
   ! Initial condition
   !-----------------------------------------------------------------------------
-  call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
+  call init_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
   
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
   t1 = MPI_wtime()
-  call time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
-       press,infile,Insect,beams )
+  call time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,infile)
   t2 = MPI_wtime() - t1
   
   !-----------------------------------------------------------------------------
   ! Deallocate memory
   !-----------------------------------------------------------------------------
-  deallocate(lin)
-  deallocate(explin)
-  deallocate(vort,work,workc)
-  deallocate(u,uk,nlk)
+  deallocate(work)
+  deallocate(u,nlk)
   deallocate(us)
   deallocate(mask)
   deallocate(mask_color)
   deallocate(ra_table,rb_table)
-  if (allocated(press))  deallocate(press)
-  if (allocated(uk_old))  deallocate(uk_old)
-  if (allocated(nlk_tmp))  deallocate(nlk_tmp)
   
   
-  if (iMask=="Insect") then
-    ! Clean kinematics (Dmitry, 14 Nov 2013)
-    if (Insect%KineFromFile/="no") call load_kine_clean
-    ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
-    call insect_clean(Insect)
-  endif
+!   if (iMask=="Insect") then
+!     ! Clean kinematics (Dmitry, 14 Nov 2013)
+!     if (Insect%KineFromFile/="no") call load_kine_clean
+!     ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
+!     call insect_clean(Insect)
+!   endif
   
   ! write empty success file
   if (root) call init_empty_file("success")

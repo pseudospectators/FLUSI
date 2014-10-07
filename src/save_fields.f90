@@ -1,124 +1,58 @@
-! Wrapper for saving fields routine
-subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
-  use vars
-  use solid_model
-  use insect_module
-  implicit none
-
-  real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  type(solid), dimension(1:nBeams),intent(inout) :: beams
-  type(diptera), intent(inout) :: Insect
-  real(kind=pr) :: t1 ! diagnostic used for performance analysis.
-!   t1 = MPI_wtime()
-! 
-! 
-!   select case(method)
-!      case("fsi") 
-!         call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)        
-!      case("mhd") 
-!         call save_fields_mhd(time,uk,u,vort,nlk)
-!      case default
-!         if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
-!         call abort()
-!   end select
-!   
-!   time_save=time_save + MPI_wtime() - t1 ! performance analysis  
-end subroutine save_fields
-
-
 !-------------------------------------------------------------------------------
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
 ! files. 
 ! The latest version calls cal_nlk_fsi to avoid redudant code. 
 !-------------------------------------------------------------------------------
-subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
-  use fsi_vars
+subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use vars
   use p3dfft_wrapper
   use basic_operators
   use solid_model
   use insect_module
   implicit none
 
-  real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  type(timetype),intent(inout) :: time
+  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(in)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(in)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(in)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid),dimension(1:nBeams),intent(in) :: beams
+  type(diptera),intent(in) :: Insect
+  
   real(kind=pr):: volume
   character(len=5) :: name
-  type(solid), dimension(1:nBeams),intent(inout) :: beams
-  type(diptera), intent(inout) :: Insect
 
-!   !--Set up file name base    
-!   if ( save_only_one_period == "yes" ) then
-!     ! overwrite files from last period to save disk space
-!     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-!     write(name,'(i5.5)') floor( (time-real(floor(time/tsave_period)))*100.d0 )
-!   else
-!     ! name is just the time
-!     write(name,'(i5.5)') floor(time*100.d0) 
-!   endif
-!   
-!   if (mpirank == 0 ) then
-!     write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') & 
-!     time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
-!   endif
-! 
-!   ! When saving the pressure and using the Poisson projection approach, we first
-!   ! compute the right hand side at time "time", which also means reconstructing
-!   ! the mask function prior to calling cal_nlk_fsi (if mask is time dependend)
-!   ! note that nlk after cal_nlk_fsi is not yet projected (in the main time stepping
-!   ! this is done in main cal_nlk)
-!   if ( isavePress==1 .and. projection=="poisson") then
-!     if (iMoving==1) call create_mask (time, Insect, beams)
-!     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
-!   endif
-!     
-!   
-!   ! Save the velocity. If we also save the pressure AND use the poisson projection
-!   ! approach, then the previous call to cal_nlk_fsi returned u=ifft(uk), other-
-!   ! wise we have to manually to that here.
-!   if (isaveVelocity == 1) then
-!     if (iSavePress==0 .and. projection=="poisson") then
-!       ! routine cal_nlk_fsi has not been called, and we need to do the IFFT
-!       call ifft3(ink=uk(:,:,:,1:nd),outx=u(:,:,:,1:nd))
-!     endif
-!     call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
-!     call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
-!     call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
-!   endif
-!   
-!   
-!   ! Save the pressure. When using Poisson projection approach, compute pressure
-!   ! then save. With ACM, just save it
-!   if (isavePress == 1) then  
-!     if (projection=="poisson") then
-!         ! when using Poisson projection approach, we must recompute the pressure
-!         ! here in order to save it. 
-!         ! compute pressure (remember NLK is *not* divergence free)
-!         call pressure( nlk,workc(:,:,:,1) )
-!         ! total pressure in x-space
-!         call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
-!         ! get actuall pressure (we're in the rotational formulation)
-!         work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-!         call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
-!     elseif (projection=="ACM") then
-!         ! When using artificial compressibility, the pressure is always computed
-!         ! in the time evolution and can just be saved here
-!         call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
-!         call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
-!     endif
-!   endif
-!      
+  !--Set up file name base    
+  if ( save_only_one_period == "yes" ) then
+    ! overwrite files from last period to save disk space
+    ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
+    write(name,'(i5.5)') floor( (time-real(floor(time/tsave_period)))*100.d0 )
+  else
+    ! name is just the time
+    write(name,'(i5.5)') floor(time*100.d0) 
+  endif
+  
+  if (mpirank == 0 ) then
+    write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') & 
+    time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
+  endif
+
+  ! Save the velocity
+  if (isaveVelocity == 1) then
+    call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
+    call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
+    call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
+  endif
+  
+  
+  ! Save the pressure
+  if (isavePress == 1) then  
+    call save_field_hdf5(time,'./p_'//name,u(:,:,:,4),"p")
+  endif
+     
 !   !-------------  
 !   ! Vorticity
 !   !-------------   
@@ -133,7 +67,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
 !       call save_field_hdf5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
 !     endif
 !   endif
-!       
+      
 !   !-------------  
 !   ! Mask
 !   !-------------
@@ -144,7 +78,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
 !     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
 !     mask = mask/eps
 !   endif
-!   
+  
 !   !-------------  
 !   ! solid velocity
 !   !-------------
@@ -153,7 +87,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
 !     call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
 !     call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
 !   endif
-!   
+  
 !   !------------
 !   ! passive scalar
 !   !-------------
@@ -161,9 +95,9 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
 !     call ifft ( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
 !     call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
 !   endif
-!   
-!   
-!   if (mpirank==0) write(*,*) " ...DONE!"
+  
+  
+  if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields_fsi
 
 
@@ -179,7 +113,7 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
   ! The field to be written to disk:
   real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
-  real (kind=pr), intent (in) :: time
+  type(timetype), intent (in) :: time
   character(len=*), intent (in) :: filename
   character(len=*), intent (in) :: dsetname
 
@@ -285,7 +219,7 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
   ! The attributes written are time, penalisation parameter,
   ! computational resolution, and physical domain size.
   adims = (/1/)
-  call write_attribute_dble(adims,"time",(/time/),1,dset_id)
+  call write_attribute_dble(adims,"time",(/time%time/),1,dset_id)
   call write_attribute_dble(adims,"epsi",(/eps/),1,dset_id)
   adims = (/3/)
   call write_attribute_dble(adims,"domain_size",(/xl,yl,zl/),3,dset_id)
@@ -302,7 +236,7 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
   ! write the XMF data for all of the saved fields
   if ((mpirank==0).and.(isaveXMF==1)) then
      ! the filename contains a leading "./" which we must remove
-     call Write_XMF(time,&
+     call Write_XMF(time%time,&
           trim(adjustl(filename(3:len(filename)))),&
           trim(adjustl(dsetname))&
           )
@@ -1209,98 +1143,6 @@ subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   call h5aclose_f(attr_id,error) ! Close the attribute.
   call h5sclose_f(aspace_id,error) ! Terminate access to the data space.
 end subroutine write_attribute_int
-
-
-! Main save routine for fields for fsi. it computes missing values
-! (such as p and vorticity) and stores the fields in several HDF5
-! files.
-subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
-  use mpi
-  use mhd_vars
-  use p3dfft_wrapper
-  use basic_operators
-  implicit none
-
-  real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(in) :: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(out):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  character(len=17) :: name
-  integer :: i
-
-  !--Set up file name base
-  write(name,'(i5.5)') floor(time*100.d0)
-  name=trim(adjustl(name))
-
-  if(mpirank == 0 ) write(*,*) "Saving output fields..."
-
-  ! We need the velocity for saving the velocity and/or vorticity
-  if(isaveVelocity == 1 .or. isaveVorticity == 1) then
-     do i=1,3
-        call ifft(ub(:,:,:,i),ubk(:,:,:,i))
-     enddo
-  endif
-    
-  ! We need the magnetic fields velocity for saving the magnetic field
-  ! and/or current density
-  if(isaveMagneticfield == 1  .or. isaveCurrent == 1) then
-     do i=4,6
-        call ifft(ub(:,:,:,i),ubk(:,:,:,i))
-     enddo
-  endif
-    
-  ! save the velocity
-  if(isaveVelocity == 1) then
-     call save_field_hdf5(time,'./ux_'//name,ub(:,:,:,1),"ux")
-     call save_field_hdf5(time,'./uy_'//name,ub(:,:,:,2),"uy")
-     call save_field_hdf5(time,'./uz_'//name,ub(:,:,:,3),"uz")
-  endif
-  
-  ! save the vorticity
-  if(isaveVorticity == 1) then
-     ! compute vorticity
-     call curl(&
-          nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-          ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3)) 
-     do i=1,3
-        call ifft(wj(:,:,:,i),nlk(:,:,:,i))
-     enddo
-     call save_field_hdf5(time,'./vorx_'//name,wj(:,:,:,1),"vorx")
-     call save_field_hdf5(time,'./vory_'//name,wj(:,:,:,2),"vory")
-     call save_field_hdf5(time,'./vorz_'//name,wj(:,:,:,3),"vorz")
-  endif
-  
-  ! save the magnetic field
-  if(isaveMagneticfield == 1) then
-     call save_field_hdf5(time,'./bx_'//name,ub(:,:,:,4),"bx")
-     call save_field_hdf5(time,'./by_'//name,ub(:,:,:,5),"by")
-     call save_field_hdf5(time,'./bz_'//name,ub(:,:,:,6),"bz")
-  endif
-
-  ! save the current density
-  if(isaveCurrent == 1) then
-     call curl(&
-          nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
-          ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6)) 
-     do i=4,6
-        call ifft(wj(:,:,:,i),nlk(:,:,:,i))
-     enddo
-     call save_field_hdf5(time,'./jx_'//name,wj(:,:,:,4),"jx")
-     call save_field_hdf5(time,'./jy_'//name,wj(:,:,:,5),"jy")
-     call save_field_hdf5(time,'./jz_'//name,wj(:,:,:,6),"jz")
-  endif
-  
-  ! save Mask
-  ! FIXME: for stationary masks, this should be done only once
-  if((isaveMask == 1).and.(iPenalization == 1)) then
-     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
-  endif
-
-  if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."
-end subroutine save_fields_mhd
-
-
 
 !----------------------------------------------------
 ! This routine fetches the resolution, the domain size and the time

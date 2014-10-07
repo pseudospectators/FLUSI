@@ -1,46 +1,40 @@
-subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
-           press,params_file,Insect,beams)
-  use mpi
+subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file)
   use vars
-  use fsi_vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
   implicit none
   
-  integer :: inter
-  integer,intent(inout) :: n0,n1,it
-  integer :: nbackup=0  ! 0 - backup to file runtime_backup0,1 - to
-  ! runtime_backup1,2 - no backup
-  integer :: it_start
-  real(kind=pr),intent(inout) :: time,dt0,dt1 
-  real(kind=pr) :: t1,t2,t3,t4
-  character(len=strlen)  :: command ! for runtime control
-  character(len=strlen),intent(in)  :: params_file ! for runtime control  
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  ! pressure array. this is with ghost points for interpolation
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
+  
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
+  character(len=strlen),intent(in)  :: params_file ! for runtime control  
+  
   logical :: continue_timestepping
+  integer :: inter
+  integer :: nbackup=0  ! 0 - backup to file runtime_backup0,1 - to
+  ! runtime_backup1,2 - no backup
+  real(kind=pr) :: t1,t2,t3,t4
+  character(len=strlen)  :: command ! for runtime control
  
   ! first backup is in "truntime" hours
   truntimenext = truntime 
   continue_timestepping = .true.
-  it_start = it
+  time%it_start = time%it
 
-  ! After init, output integral quantities. (note we can overwrite only 
-  ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
-  if (index(inicond,'backup::')==0) then
-    if (root) write(*,*) "Initial output of integral quantities...."
-    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
-  endif
+!   ! After init, output integral quantities. (note we can overwrite only 
+!   ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
+!   if (index(inicond,'backup::')==0) then
+!     if (root) write(*,*) "Initial output of integral quantities...."
+!     call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
+!   endif
 
   if (root) write(*,*) "Start time-stepping...."
   
@@ -53,10 +47,10 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
      !-------------------------------------------------
-     if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
-       ! for FSI schemes, the mask is created in fluidtimestep
-       call create_mask( time, Insect, beams )
-     endif
+!      if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
+!        ! for FSI schemes, the mask is created in fluidtimestep
+!        call create_mask( time, Insect, beams )
+!      endif
 
      !-------------------------------------------------
      ! advance fluid/B-field in time
@@ -64,8 +58,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      if(dry_run_without_fluid/="yes") then
        ! note: the array "vort" is a real work array and has neither input nor
        ! output values after fluid time stepper
-       call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-            workc,explin,press,Insect,beams)
+       call fluidtimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      endif
      
      !-----------------------------------------------
@@ -80,42 +73,38 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      ! Output of INTEGRALS after every tintegral time 
      ! units or itdrag time steps
      !-------------------------------------------------
-     if (modulo(time,tintegral)<=dt1.or.modulo(it,itdrag)==0) then
-       call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
-     endif
+!      if (modulo(time,tintegral)<=dt1.or.modulo(it,itdrag)==0) then
+!        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
+!      endif
     
      !-------------------------------------------------
      ! Save solid model data, if using it
      !-------------------------------------------------
-     if (use_solid_model=="yes" .and. mpirank==0 .and. modulo(it,itbeam)==0) then
-       call SaveBeamData( time, beams )
-     endif
+!      if (use_solid_model=="yes" .and. mpirank==0 .and. modulo(it,itbeam)==0) then
+!        call SaveBeamData( time, beams )
+!      endif
     
      !-------------------------------------------------
      ! Output FIELDS+BACKUPING (after tsave)
      !-------------------------------------------------
      if (((modulo(time,tsave)<dt1).and.(time>=tsave_first)).or.(time==tmax)) then
-        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-        ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
-        ! never matters,and for AB2 this is the one to be overwritten
-        ! in the next step.  This frees 3 complex arrays, which are
-        ! then used in Dump_Runtime_Backup.
-        call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)       
+        call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt1)
+        call save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)   
      endif
 
-     ! Backup if that's specified in the PARAMS.ini file. We try to do 
-     ! backups every "truntime" hours (precise to one time step)
-     if(idobackup==1 .and. truntimenext<(MPI_wtime()-time_total)/3600.d0) then
-         call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-             work(:,:,:,1),Insect,beams)
-         truntimenext = truntimenext+truntime
-     endif
+!      ! Backup if that's specified in the PARAMS.ini file. We try to do 
+!      ! backups every "truntime" hours (precise to one time step)
+!      if(idobackup==1 .and. truntimenext<(MPI_wtime()-time_total)/3600.d0) then
+!          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+!              work(:,:,:,1),Insect,beams)
+!          truntimenext = truntimenext+truntime
+!      endif
      
      !-----------------------------------------------
      ! Output how much time remains
      !-----------------------------------------------
      if ((modulo(it,300)==0).or.(it==20)) then
-        call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+        call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt1)
      endif
      
      !-------------------------------------------------
@@ -129,24 +118,24 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-----------------------------------------------
      ! Runtime remote control (every 10 time steps)
      !-----------------------------------------------
-     if (modulo(it,10)==0) then
-        ! fetch command from file
-        call runtime_control_command( command )
-        ! execute it
-        select case ( command )
-        case ("reload_params")
-          if (root) write (*,*) "runtime control: Reloading PARAMS file.."
-          ! read all parameters from the params.ini file
-          call get_params(params_file,Insect)           
-          ! overwrite control file
-          if (root) call initialize_runtime_control_file()
-        case ("save_stop")
-          if (root) write (*,*) "runtime control: Safely stopping..."
-          continue_timestepping = .false. ! this will stop the time loop
-          ! overwrite control file
-          if (root) call initialize_runtime_control_file()
-        end select
-     endif 
+!      if (modulo(it,10)==0) then
+!         ! fetch command from file
+!         call runtime_control_command( command )
+!         ! execute it
+!         select case ( command )
+!         case ("reload_params")
+!           if (root) write (*,*) "runtime control: Reloading PARAMS file.."
+!           ! read all parameters from the params.ini file
+!           call get_params(params_file,Insect)           
+!           ! overwrite control file
+!           if (root) call initialize_runtime_control_file()
+!         case ("save_stop")
+!           if (root) write (*,*) "runtime control: Safely stopping..."
+!           continue_timestepping = .false. ! this will stop the time loop
+!           ! overwrite control file
+!           if (root) call initialize_runtime_control_file()
+!         end select
+!      endif 
      
      if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1,t4)
   enddo
@@ -154,13 +143,13 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   !-----------------------------------------------------------------------------
   ! save final backup so we can resume where we left 
   !-----------------------------------------------------------------------------
-  if(idobackup==1) then
-    if(root) write (*,*) "final backup..."
-    call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-         work(:,:,:,1),Insect,beams)
-  endif
+!   if(idobackup==1) then
+!     if(root) write (*,*) "final backup..."
+!     call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+!          work(:,:,:,1),Insect,beams)
+!   endif
 
-  if(root) write(*,'("Done time stepping; did nt=",i5," steps")') it-it_start
+  if(root) write(*,'("Done time stepping; did nt=",i5," steps")') time%it-time%it_start
 end subroutine time_step
 
 

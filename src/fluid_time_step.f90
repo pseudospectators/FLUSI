@@ -1,35 +1,5 @@
-!-------------------------------------------------------------------------------
-!          MAIN WRAPPER FOR DIFFERENT TIME MARCHING METHODS
-!-------------------------------------------------------------------------------
-! INPUT
-! time, dt0, dt1: time, dt0=t^n - t^n-1, dt1= t^n+1-t^n
-! u             work array (input value is overwritten)
-! uk            velocity in F-space at time level n
-! nlk           right hand side work array. holds the RHS at time level (n-1)
-!               which we need for AB2. The second part of it is the work array 
-!               used to store the new RHS at (t)
-! vort          work array (input value is overwritten)
-! work          work arrays (real, "nrw" arrays)
-! workc         work arrays (cmplx, "nrc" arrays)
-! expvis        integrating factor(s). if dt did not change, the input value is 
-!               used to advance in time. otherwise, the exponential term is 
-!               recomputed with the new time step
-! press         pressure field in x-space, WITH GHOST POINTS
-! beams         the solid model datatype, which is advanced in the FSI time
-!               steppers.
-!-------------------------------------------------------------------------------
-! OUTPUT
-! u             velocity in phys space at time level (n) (the OLD level)
-! uk            velocity in fourier space at the new time level (n+1)
-! nlk           contains the RHS at time (n) and (n-1). in the next time step,
-!               one can overwrite (n-1) and (n) becomes (n-1)
-! press         pressure in x-space, if the flag use_solid_model==yes
-! expvis        the integrating factor(s) which are updated if the dt changes
-! vort          the vorticity at time level (n) in phys space
-! beams         the solid model at the new time level
-!-------------------------------------------------------------------------------
-subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-           expvis,press,Insect,beams)
+
+subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use mpi
   use p3dfft_wrapper
   use vars
@@ -37,27 +7,25 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use insect_module
   implicit none
 
-  real(kind=pr),intent(inout)::time,dt1,dt0
-  integer,intent(in)::n0,n1,it
-  real(kind=pr)::t1
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  ! pressure array. this is with ghost points for interpolation
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  type(solid),dimension(1:nbeams),intent(inout)::beams
-  type(diptera),intent(inout)::Insect
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
   
-!   t1=MPI_wtime()
-! 
-!   ! Call fluid advancement subroutines.
-!   select case(iTimeMethodFluid)
-!   case("RK2")
-!       call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
+  real(kind=pr)::t1
+  
+  
+  t1=MPI_wtime()
+
+  ! Call fluid advancement subroutines.
+  select case(iTimeMethodFluid)
+  case("RK2")
+      call RungeKutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !   case("AB2")
 !       if(it == 0) then
 !         call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,expvis,press,0)
@@ -83,63 +51,57 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 !   case("FSI_AB2_semiimplicit")
 !       call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
 !            workc,expvis,press,beams)
-!   case default
-!       if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-!       call abort()
-!   end select
-!   
+  case default
+      if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
+      call abort()
+  end select
+  
 !   ! compute unsteady corrections in every time step
 !   if(method=="fsi" .and. unst_corrections==1) then
 !     call cal_unst_corrections ( time, dt0, Insect )  
 !   endif
-! 
-!   ! Force zero mode for mean flow
-!   if(method=="fsi") call set_mean_flow(uk,time)
-! 
-!   ! Set the divergence of the magnetic field to zero to avoid drift.
-!   if(method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
-! 
-!   time_fluid=time_fluid + MPI_wtime() - t1
+
+  time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
 
 
 
 
 
-!-------------------------------------------------------------------------------
-! FSI scheme based on AB2/EE1 for the fluid, iterates coupling conditions.
-! adapted from the 2D codes (V12), based on the PhD thesis of von Scheven
-!-------------------------------------------------------------------------------
-subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-           workc,expvis,press,beams)
-  use mpi
-  use fsi_vars
-  use p3dfft_wrapper
-  use solid_model
-  use insect_module
-  implicit none
-
-  real(kind=pr),intent(inout) :: time,dt1,dt0
-  integer,intent (in) :: n0,n1,it
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid),dimension(1:nbeams),intent(inout) :: beams
-  
-  !-- iteration specific variables 
-  type(solid), dimension(1) :: beams_old
-  real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_old_iterating
-  real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa2, ROC1,ROC2, norm
-  real(kind=pr)::omega_old, omega_new
-  type(diptera)::Insect_dummy
-  integer :: inter
-  logical :: iterate
-  
+! !-------------------------------------------------------------------------------
+! ! FSI scheme based on AB2/EE1 for the fluid, iterates coupling conditions.
+! ! adapted from the 2D codes (V12), based on the PhD thesis of von Scheven
+! !-------------------------------------------------------------------------------
+! subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
+!            workc,expvis,press,beams)
+!   use mpi
+!   use vars
+!   use p3dfft_wrapper
+!   use solid_model
+!   use insect_module
+!   implicit none
+! 
+!   real(kind=pr),intent(inout) :: time,dt1,dt0
+!   integer,intent (in) :: n0,n1,it
+!   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+!   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+!   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+!   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+!   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+!   type(solid),dimension(1:nbeams),intent(inout) :: beams
+!   
+!   !-- iteration specific variables 
+!   type(solid), dimension(1) :: beams_old
+!   real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_old_iterating
+!   real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa2, ROC1,ROC2, norm
+!   real(kind=pr)::omega_old, omega_new
+!   type(diptera)::Insect_dummy
+!   integer :: inter
+!   logical :: iterate
+!   
 !   ! useful error messages
 !   if (use_solid_model/="yes") then
 !     write(*,*) "using FSI_AB2_iteration without solid model?"
@@ -271,39 +233,39 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
 !   
 !   ! free work array
 ! !   deallocate (uk_old,nlk_tmp)
-end subroutine FSI_AB2_iteration
+! end subroutine FSI_AB2_iteration
 
 
 
-!-------------------------------------------------------------------------------
-! explicit FSi scheme, cheapest and simplest possible. Advances first the fluid
-! then the solid, and computes the solid with the pressure from the old time 
-! level (n), avoiding computing it at the new level, which saves about 50%
-! with respect to FSI_AB2_semiimplicit. The latter may however be more accurat
-! or stable.
-!-------------------------------------------------------------------------------
-subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-           workc,expvis,press,beams)
-  use mpi
-  use vars
-  use p3dfft_wrapper
-  use solid_model
-  use insect_module
-  implicit none
-
-  real(kind=pr),intent(inout) :: time,dt1,dt0
-  integer,intent (in) :: n0,n1,it
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  type(solid),dimension(1:nbeams),intent(inout) :: beams
-  type(diptera)::Insect_dummy
-  
+! !-------------------------------------------------------------------------------
+! ! explicit FSi scheme, cheapest and simplest possible. Advances first the fluid
+! ! then the solid, and computes the solid with the pressure from the old time 
+! ! level (n), avoiding computing it at the new level, which saves about 50%
+! ! with respect to FSI_AB2_semiimplicit. The latter may however be more accurat
+! ! or stable.
+! !-------------------------------------------------------------------------------
+! subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
+!            workc,expvis,press,beams)
+!   use mpi
+!   use vars
+!   use p3dfft_wrapper
+!   use solid_model
+!   use insect_module
+!   implicit none
+! 
+!   real(kind=pr),intent(inout) :: time,dt1,dt0
+!   integer,intent (in) :: n0,n1,it
+!   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+!   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+!   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
+!   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+!   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+!   type(solid),dimension(1:nbeams),intent(inout) :: beams
+!   type(diptera)::Insect_dummy
+!   
 !   ! useful error messages
 !   if (use_solid_model/="yes") then 
 !     write(*,*) "using FSI_AB2_staggered without solid model?"
@@ -336,39 +298,39 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
 !   ! advance solid model from (n) to (n+1)
 !   !---------------------------------------------------------------------------
 !   call SolidSolverWrapper( time, dt1, beams )
-    
-end subroutine FSI_AB2_staggered
+!     
+! end subroutine FSI_AB2_staggered
 
 
-!-------------------------------------------------------------------------------
-! semi implicit explicit staggered scheme for FSI simulations, uses AB2 for the
-! fluid (or euler on startup) and evaluates the pressure at both old and new 
-! time level. since computing the pressure is almost as expensive as doing a full
-! fluid time step, this scheme is twice as expensive as its explicit counterpart
-! FSI_AB2_staggered.
-!-------------------------------------------------------------------------------
-subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
-           work,workc,expvis,press,beams)
-  use mpi
-  use vars
-  use p3dfft_wrapper
-  use solid_model
-  use insect_module
-  implicit none
-
-  real(kind=pr),intent(inout) :: time,dt1,dt0
-  integer,intent (in) :: n0,n1,it
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid),dimension(1:nbeams),intent(inout) :: beams
-  type(diptera)::Insect_dummy
-  
+! !-------------------------------------------------------------------------------
+! ! semi implicit explicit staggered scheme for FSI simulations, uses AB2 for the
+! ! fluid (or euler on startup) and evaluates the pressure at both old and new 
+! ! time level. since computing the pressure is almost as expensive as doing a full
+! ! fluid time step, this scheme is twice as expensive as its explicit counterpart
+! ! FSI_AB2_staggered.
+! !-------------------------------------------------------------------------------
+! subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
+!            work,workc,expvis,press,beams)
+!   use mpi
+!   use vars
+!   use p3dfft_wrapper
+!   use solid_model
+!   use insect_module
+!   implicit none
+! 
+!   real(kind=pr),intent(inout) :: time,dt1,dt0
+!   integer,intent (in) :: n0,n1,it
+!   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+!   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+!   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+!   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+!   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+!   type(solid),dimension(1:nbeams),intent(inout) :: beams
+!   type(diptera)::Insect_dummy
+!   
 !   ! useful error messages
 !   if (use_solid_model/="yes") then 
 !    write(*,*) "using FSI_AB2_staggered without solid model?"
@@ -404,8 +366,8 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
 !   ! advance solid model from (n) to (n+1)
 !   !---------------------------------------------------------------------------
 !   call SolidSolverWrapper( time, dt1, beams )
-    
-end subroutine FSI_AB2_semiimplicit
+!     
+! end subroutine FSI_AB2_semiimplicit
 
 
 
@@ -474,106 +436,65 @@ end subroutine FSI_AB2_semiimplicit
 
 
 !-------------------------------------------------------------------------------
-! FIXME: add documentation: which arguments are used for what?
-subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
-  use mpi
-  use fsi_vars
-  use p3dfft_wrapper
-  implicit none
-
-  real(kind=pr),intent(inout)::time,dt1,dt0
-  integer,intent(in)::it
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  ! pressure array. this is with ghost points for interpolation
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))   
-  integer::i
-
-!   if ((use_passive_scalar==1).and.(mpirank==1)) then
-!     write(*,*) "RK2 is not equipped for passive scalars..."
-!     call abort()
-!   endif
-!   
-!   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-!   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press)
-!   call adjust_dt(dt1,u)
-! 
-!   !-- multiply the RHS with the viscosity, first the velocity
-!   do i=1,3
-!     nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,1)
-!   enddo
-! 
-!   !-- then, if present, the B-field
-!   if (method=="mhd") then
-!     do i=4,6
-!       nlk(:,:,:,i,0)=nlk(:,:,:,i,0)*expvis(:,:,:,2)
-!     enddo
-!   endif
-!   
-!   !-- Compute integrating factor, only done if necessary (i.e. time step
-!   !-- has changed)
-!   if (dt1 .ne. dt0) then
-!      call cal_vis(dt1,expvis)
-!   endif
-! 
-!   !-- Do the actual euler step. note nlk is already multiplied by vis
-!   do i=1,3
-!     !-- advance fluid vecolity
-!     uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,1) + dt1*nlk(:,:,:,i,0))
-!   enddo
-!   
-!   if (method=="mhd") then
-!     do i=4,6
-!       !-- advance B-field
-!       uk(:,:,:,i)=(uk(:,:,:,i)*expvis(:,:,:,2) + dt1*nlk(:,:,:,i,0))
-!     enddo
-!   endif
-! 
-!   !-- RHS using the euler velocity
-!   call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press) 
-! 
-!   ! do the actual time step. note the minus sign.in the original formulation, it
-!   ! reads: u^n+1=u^n + dt/2*( N(u^n)*vis + N(u_euler) )
-!   ! but we don't want to save u_euler seperately, we want to overwrite
-!   ! u^n with it!  so the formulation reads
-!   ! u^n+1=u_euler - dt*N(u^n)*vis + dt/2*( N(u^n)*vis + N(u_euler) )
-!   !-- which yields simply
-!   !-- u^n+1=u_euler + dt/2*( -N(u^n)*vis + N(u_euler) )
-!   do i=1,nd
-!      !-- advance all nd fields 
-!      uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
-!   enddo
-end subroutine rungekutta2
-
-
-! This is standard Euler-explicit time marching. It does not serve as
-! startup scheme for AB2.
-subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
-  use mpi
+subroutine rungekutta2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
   use p3dfft_wrapper
   implicit none
 
-  real(kind=pr),intent(inout)::time,dt1,dt0
-  integer,intent(in)::it
-  complex(kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout):: &
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)        
-  real(kind=pr),intent(inout)::work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  ! pressure array. this is with ghost points for interpolation
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  integer::i
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
 
+  !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
+  call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
+  call adjust_dt(u,dt1)
+
+  !-- Do the euler step (advance u field in time)
+  u = u + time%dt_new * nlk(:,:,:,:,1)
+  
+  !-- RHS using the euler velocity
+  call cal_nlk(time,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
+
+  ! do the actual time step. note the minus sign.in the original formulation, it
+  ! reads: u^n+1=u^n + dt/2*( N(u^n) + N(u_euler) )
+  ! but we don't want to save u_euler seperately, we want to overwrite
+  ! u^n with it!  so the formulation reads
+  ! u^n+1=u_euler - dt*N(u^n) + dt/2*( N(u^n) + N(u_euler) )
+  ! which yields simply
+  ! u^n+1=u_euler + dt/2*( -N(u^n) + N(u_euler) )
+  u = u + 0.5d0*time%dt_new * (-nlk(:,:,:,:,2) + nlk(:,:,:,:,1) )
+end subroutine rungekutta2
+
+
+! ! This is standard Euler-explicit time marching. It does not serve as
+! ! startup scheme for AB2.
+! subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
+!   use mpi
+!   use vars
+!   use p3dfft_wrapper
+!   implicit none
+! 
+!   real(kind=pr),intent(inout)::time,dt1,dt0
+!   integer,intent(in)::it
+!   complex(kind=pr),intent(inout):: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+!   complex(kind=pr),intent(inout):: &
+!        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+!   ! the workc array is not always allocated, ensure allocation before using
+!   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)        
+!   real(kind=pr),intent(inout)::work (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:2)
+!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+!   ! pressure array. this is with ghost points for interpolation
+!   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+!   integer::i
+! 
 !   !-- Calculate fourier coeffs of nonlinear rhs and forcing
 !   call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press)
 !   call adjust_dt(dt1,u)
@@ -595,33 +516,33 @@ subroutine euler(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press)
 !       uk(:,:,:,i)=(uk(:,:,:,i) + dt1*nlk(:,:,:,i,1))*expvis(:,:,:,2)
 !     enddo
 !   endif
-end subroutine euler
+! end subroutine euler
 
 
-! Note this is not an optimized Euler. It only does things we need for AB2.
-subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
-                         expvis,press,iter)
-  use mpi
-  use p3dfft_wrapper
-  use fsi_vars
-  implicit none
-
-  real(kind=pr),intent(inout)::time,dt1,dt0
-  integer,intent(in)::n0,it,iter
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  ! pressure array. this is with ghost points for interpolation
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr)::t1
-  integer::i
-
+! ! Note this is not an optimized Euler. It only does things we need for AB2.
+! subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
+!                          expvis,press,iter)
+!   use mpi
+!   use p3dfft_wrapper
+!   use vars
+!   implicit none
+! 
+!   real(kind=pr),intent(inout)::time,dt1,dt0
+!   integer,intent(in)::n0,it,iter
+!   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+!   complex(kind=pr),intent(inout)::&
+!        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+!   ! the workc array is not always allocated, ensure allocation before using
+!   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+!   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+!   ! pressure array. this is with ghost points for interpolation
+!   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+!   real(kind=pr)::t1
+!   integer::i
+! 
 !   !-- Calculate fourier coeffs of nonlinear rhs and forcing
 !   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc, press)
 !   call adjust_dt(dt1,u)
@@ -672,33 +593,33 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
 !   endif
 !   
 !   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
-end subroutine euler_startup
+! end subroutine euler_startup
 
 
-! FIXME: add documentation: which arguments are used for what?
-subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-                          expvis,press,iter)
-  use mpi
-  use fsi_vars
-  use p3dfft_wrapper
-  implicit none
-
-  real(kind=pr),intent(inout)::time,dt1,dt0
-  integer,intent(in)::n0,n1,it,iter
-  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)        
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  ! pressure array. this is with ghost points for interpolation
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr)::b10,b11,t1
-  integer::i
-
+! ! FIXME: add documentation: which arguments are used for what?
+! subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
+!                           expvis,press,iter)
+!   use mpi
+!   use vars
+!   use p3dfft_wrapper
+!   implicit none
+! 
+!   real(kind=pr),intent(inout)::time,dt1,dt0
+!   integer,intent(in)::n0,n1,it,iter
+!   complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+!   complex(kind=pr),intent(inout)::&
+!        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+!   ! the workc array is not always allocated, ensure allocation before using
+!   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)        
+!   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+!   ! pressure array. this is with ghost points for interpolation
+!   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+!   real(kind=pr)::b10,b11,t1
+!   integer::i
+! 
 !   !-- Calculate fourier coeffs of nonlinear rhs and forcing
 !   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press)
 !   call adjust_dt(dt1,u)
@@ -750,35 +671,35 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 !     uk(:,:,:,4)=uk(:,:,:,4)+b10*nlk(:,:,:,4,n0)+b11*nlk(:,:,:,4,n1)
 !     time_scalar = time_scalar + MPI_wtime() - t1
 !   endif
-end subroutine adamsbashforth
+! end subroutine adamsbashforth
 
 
-! time stepper for rigid soldi FSI, for example insect takeoff or falling sphere
-subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-                           expvis,press,iter,Insect)
-  use mpi
-  use fsi_vars
-  use p3dfft_wrapper
-  use insect_module
-  implicit none
-
-  real(kind=pr),intent(inout)::time,dt1,dt0
-  integer,intent(in)::n0,n1,it,iter
-  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)        
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  ! pressure array. this is with ghost points for interpolation
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr)::b10,b11,t1
-  integer::i
-  type(diptera),intent(inout)::Insect
-
+! ! time stepper for rigid soldi FSI, for example insect takeoff or falling sphere
+! subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
+!                            expvis,press,iter,Insect)
+!   use mpi
+!   use vars
+!   use p3dfft_wrapper
+!   use insect_module
+!   implicit none
+! 
+!   real(kind=pr),intent(inout)::time,dt1,dt0
+!   integer,intent(in)::n0,n1,it,iter
+!   complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+!   complex(kind=pr),intent(inout)::&
+!        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+!   ! the workc array is not always allocated, ensure allocation before using
+!   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)        
+!   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+!   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+!   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+!   ! pressure array. this is with ghost points for interpolation
+!   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+!   real(kind=pr)::b10,b11,t1
+!   integer::i
+!   type(diptera),intent(inout)::Insect
+! 
 !   if ((SolidDyn%idynamics/=1).and.(mpirank==0)) then
 !     write(*,*) "ERROR AB2_rigid_solid and flag SolidDyn%idynamics/=1"
 !     write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
@@ -817,9 +738,9 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 !   ! note dt0 is OLD time step t(n)-t(n-1)
 !   ! advance in time ODEs that describe rigid solids
 !   call rigid_solid_time_step(time,dt0,dt1,it,Insect)
-  
-
-end subroutine AB2_rigid_solid
+!   
+! 
+! end subroutine AB2_rigid_solid
 
 !-------------------------------------------------------------------------------
 ! Set the time step based on the CFL condition and penalization
@@ -830,8 +751,8 @@ end subroutine AB2_rigid_solid
 ! 4 - maximum time step dt_max, if set in params
 ! 5 - dt is smaller than tsave and tintegral
 !-------------------------------------------------------------------------------
-subroutine adjust_dt(dt1,u)
-  use fsi_vars
+subroutine adjust_dt(u,dt1)
+  use vars
   use mpi
   use basic_operators
   implicit none
@@ -915,25 +836,3 @@ subroutine truncate(a)
   write (str,'(es7.1)') a
   read (str,*) a
 end subroutine truncate
-
-
-!-------------------------------------------------------------------------------
-! Force zero mode for mean flow
-!-------------------------------------------------------------------------------
-subroutine set_mean_flow(uk,time)
-  use mpi
-  use fsi_vars
-  implicit none
-  
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  real(kind=pr),intent(inout)::time
-
-  ! Force zero mode for mean flow
-  ! TODO: this might not always select the proper mode; it could be
-  ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
-  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-    if (iMeanFlow_x=="fixed") uk(0,0,0,1)=Uxmean
-    if (iMeanFlow_y=="fixed") uk(0,0,0,2)=Uymean
-    if (iMeanFlow_z=="fixed") uk(0,0,0,3)=Uzmean
-  endif
-end subroutine set_mean_flow

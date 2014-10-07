@@ -1,11 +1,48 @@
-subroutine rhs_acm_spectral(u,rhs)
+! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
+subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use p3dfft_wrapper
+  use basic_operators
+  implicit none
+
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
+  
+  select case(method)
+  case ("spectral")
+    call rhs_acm_spectral(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  case("centered_2nd")
+    call rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  case("centered_4th")
+    call rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  end select
+  
+end subroutine cal_nlk
+
+
+
+
+subroutine rhs_acm_spectral(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   use mpi 
-  use fsi_vars
+  use vars
   use diff
   use p3dfft_wrapper
   implicit none
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
   
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   complex(kind=pr),dimension(:,:,:,:),allocatable :: nlk
@@ -40,30 +77,13 @@ end subroutine rhs_acm_spectral
 
 
 
-! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
-subroutine cal_nlk(time,it,nlk,uk,u,vort,workc)
-  use fsi_vars
-  use p3dfft_wrapper
-  use basic_operators
-  implicit none
 
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq) 
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-  real(kind=pr),intent(in) :: time
-  real(kind=pr) :: t1,t0,kx,ky,kz
-  integer, intent(in) :: it
-  integer :: ix,iy,iz
-  
-end subroutine cal_nlk
 
 
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,workc)
   use mpi
   use p3dfft_wrapper
-  use fsi_vars
+  use vars
   use basic_operators
   implicit none
 
@@ -154,196 +174,20 @@ end subroutine cal_nlk_fsi
 
 
 
-!-------------------------------------------------------------------------------
-! Compute the pressure. It is given by the divergence of the non-linear
-! terms (nlk: intent(in)) divided by k**2.
-! so: p=(i*kx*sxk + i*ky*syk + i*kz*szk) / k**2 
-! note: we use rotational formulation: p is NOT the physical pressure
-! as the RHS in cal_nlk is on the left side, i.e. -(vor x u) -chi*(u-us)
-! its sign is inversed when computing the pressure
-!-------------------------------------------------------------------------------
-subroutine pressure(nlk,pk)
-  use mpi
-  use p3dfft_wrapper
+
+subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
-  implicit none
-
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz,k2
-  complex(kind=pr),intent(out):: pk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(in):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr) :: imag,nlkx,nlky,nlkz
-
-  ! as the RHS in cal_nlk is on the left side, i.e. -(vor x u) -chi*(u-us)
-  ! its sign is inversed when computing the pressure
-  
-  imag = dcmplx(0.d0,1.d0)
-
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-          kx=wave_x(ix)
-          k2=kx*kx + ky*ky + kz*kz
-          if(k2 .ne. 0.0) then
-            ! contains the pressure in Fourier space
-            ! note "-" sign
-            nlkx = nlk(iz,iy,ix,1)
-            nlky = nlk(iz,iy,ix,2)
-            nlkz = nlk(iz,iy,ix,3)
-            pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
-          else
-            pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
-          endif
-      enddo
-    enddo
-  enddo
-end subroutine pressure
-
-
-!-------------------------------------------------------------------------------
-! Compute the pressure in an inefficient way given only the velocity
-!-------------------------------------------------------------------------------
-subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
-  use mpi
-  use p3dfft_wrapper
-  use vars
-  implicit none
-
-  real(kind=pr), intent(in) :: time
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  
-!   call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc) 
-!   call pressure(nlk,workc(:,:,:,1))
-!   call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  
-end subroutine 
-
-
-
-!-------------------------------------------------------------------------------
-! Add the gradient of the pressure to the nonlinear term, which is the actual
-! projection scheme used in this code. The non-linear term comes in with NL and
-! penalization and leaves divergence free
-!-------------------------------------------------------------------------------
-subroutine add_grad_pressure(nlk1,nlk2,nlk3)
-  use mpi
-  use vars
-  use p3dfft_wrapper
-  implicit none
-
-  complex(kind=pr),intent(inout):: nlk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout):: nlk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout):: nlk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz,k2
-  complex(kind=pr) :: qk, nlx,nly,nlz
-  complex(kind=pr) :: imag   ! imaginary unit
-
-!   imag = dcmplx(0.d0,1.d0)
-!   
-!   do iz=ca(1),cb(1)
-!      kz=wave_z(iz)
-!      do iy=ca(2),cb(2)
-!         ky=wave_y(iy)
-!         do ix=ca(3),cb(3)
-!            kx=wave_x(ix)
-!            
-!            k2=kx*kx + ky*ky + kz*kz
-! 
-!            if (k2 .ne. 0.0) then
-!               nlx=nlk1(iz,iy,ix)
-!               nly=nlk2(iz,iy,ix)
-!               nlz=nlk3(iz,iy,ix)
-! 
-!               ! qk is the Fourier coefficient of thr pressure
-!               qk=(kx*nlx + ky*nly + kz*nlz)/k2
-!               ! add the gradient to the non-linear terms
-!               nlk1(iz,iy,ix)=nlx - kx*qk
-!               nlk2(iz,iy,ix)=nly - ky*qk
-!               nlk3(iz,iy,ix)=nlz - kz*qk
-!            endif
-!         enddo
-!      enddo
-!   enddo
-end subroutine add_grad_pressure
-
-
-
-subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
-  use mpi
-  use fsi_vars
-  use p3dfft_wrapper
-  use basic_operators
-  implicit none
-
-  complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  
-end subroutine cal_nlk_mhd
-
-
-! Render the input field divergence-free via a Helmholtz
-! decomposition. The zero-mode is left untouched.
-subroutine div_field_nul(fx,fy,fz)
-  use mpi
-  use vars
-  use p3dfft_wrapper
-  implicit none
-
-  complex(kind=pr), intent(inout) :: fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr), intent(inout) :: fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr), intent(inout) :: fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  integer :: ix, iy, iz
-  real(kind=pr) :: kx, ky, kz, k2
-  complex(kind=pr) :: val, vx,vy,vz
-
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3), cb(3)
-           kx=wave_x(ix)
-           
-           k2=kx*kx +ky*ky +kz*kz
-
-           if(k2 /= 0.d0) then
-              ! val = (k \cdot{} f) / k^2
-              vx=fx(iz,iy,ix)
-              vy=fy(iz,iy,ix)
-              vz=fz(iz,iy,ix)
-
-              val=(kx*vx + ky*vy + kz*vz)/k2
-
-              ! f <- f - k \cdot{} val
-              fx(iz,iy,ix)=vx -kx*val
-              fy(iz,iy,ix)=vy -ky*val
-              fz(iz,iy,ix)=vz -kz*val
-           endif
-        enddo
-     enddo
-  enddo
-  
-end subroutine div_field_nul
-
-
-
-subroutine rhs_acm(u,rhs)
-  use mpi 
-  use fsi_vars
   use diff
   implicit none
+  type(timetype), intent(inout) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(inout)::rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
   
   integer::ix,iy,iz
   real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
@@ -399,10 +243,10 @@ subroutine rhs_acm(u,rhs)
         uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
         uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
         
-        rhs(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
-        rhs(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz)
-        rhs(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
-        rhs(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
+        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
+        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz)
+        nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
+        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
       enddo
     enddo
   enddo     
@@ -411,13 +255,19 @@ end subroutine
 
 
 
-subroutine rhs_acm_4th(u,rhs)
-  use mpi 
-  use fsi_vars
+subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use vars
   use diff
   implicit none
+  type(timetype), intent(inout) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(inout)::rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
   
   integer::ix,iy,iz
   real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
@@ -487,10 +337,10 @@ subroutine rhs_acm_4th(u,rhs)
         uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
         uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
         
-        rhs(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
-        rhs(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz)
-        rhs(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
-        rhs(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
+        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
+        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz)
+        nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
+        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
       enddo
     enddo
   enddo     
