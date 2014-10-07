@@ -4,7 +4,7 @@ subroutine draw_sphere(mask, mask_color, us)
   implicit none
 
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   
   integer :: ix, iy, iz
@@ -32,6 +32,7 @@ subroutine draw_sphere(mask, mask_color, us)
 end subroutine draw_sphere
 
 
+
 ! draws a circular cylinder, the axis is the x-axis (then it can be used for 2D
 ! runs as well)
 subroutine draw_cylinder_x(mask, mask_color, us)
@@ -39,7 +40,7 @@ subroutine draw_cylinder_x(mask, mask_color, us)
   implicit none
   
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   integer :: ix, iy, iz

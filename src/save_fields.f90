@@ -17,7 +17,7 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(in)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(in)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(in)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(in)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid),dimension(1:nBeams),intent(in) :: beams
   type(diptera),intent(in) :: Insect
@@ -42,15 +42,15 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 
   ! Save the velocity
   if (isaveVelocity == 1) then
-    call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
-    call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
-    call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
+    call save_field_hdf5(time,"./ux_"//name,u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"ux")
+    call save_field_hdf5(time,"./uy_"//name,u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"uy")
+    call save_field_hdf5(time,"./uz_"//name,u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"uz")
   endif
   
   
   ! Save the pressure
   if (isavePress == 1) then  
-    call save_field_hdf5(time,'./p_'//name,u(:,:,:,4),"p")
+    call save_field_hdf5(time,'./p_'//name,u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4),"p")
   endif
      
 !   !-------------  
@@ -68,16 +68,16 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !     endif
 !   endif
       
-!   !-------------  
-!   ! Mask
-!   !-------------
-!   if (isaveMask == 1 .and. iPenalization == 1) then
+  !-------------  
+  ! Mask
+  !-------------
+  if (isaveMask == 1 .and. iPenalization == 1) then
 !     mask = mask*eps
 !     call compute_mask_volume(volume)
 !     if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
-!     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
+    call save_field_hdf5(time,'./mask_'//name,mask,"mask")
 !     mask = mask/eps
-!   endif
+  endif
   
 !   !-------------  
 !   ! solid velocity

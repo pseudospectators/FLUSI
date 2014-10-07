@@ -11,7 +11,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
@@ -36,6 +36,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
 !     call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
 !   endif
 
+
   if (root) write(*,*) "Start time-stepping...."
   
   ! Loop over time steps
@@ -49,18 +50,18 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      ! If the mask is time-dependend,we create it here
      !-------------------------------------------------
 !      if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
-!        ! for FSI schemes, the mask is created in fluidtimestep
-!        call create_mask( time, Insect, beams )
+       ! for FSI schemes, the mask is created in fluidtimestep
+       call create_mask( time%time,mask,mask_color,us, Insect, beams )
 !      endif
 
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-     if(dry_run_without_fluid/="yes") then
+!      if(dry_run_without_fluid/="yes") then
        ! note: the array "vort" is a real work array and has neither input nor
        ! output values after fluid time stepper
        call fluidtimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-     endif
+!      endif
      
      !-----------------------------------------------
      ! time step done: advance iteration + time

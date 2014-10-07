@@ -12,7 +12,7 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
@@ -42,7 +42,7 @@ subroutine rhs_acm_spectral(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
@@ -75,6 +75,8 @@ subroutine rhs_acm_spectral(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   call ifft(ink=nlk(:,:,:,3),outx=rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3))
   call ifft(ink=nlk(:,:,:,4),outx=rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4))
   
+  
+  rhs(:,:,:,1)=rhs(:,:,:,1)+1.d0
   deallocate(uk,nlk,vort,workc,u2)
 end subroutine rhs_acm_spectral
 
@@ -172,7 +174,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,workc)
   
   ! compute pressure RHS
   call divergence( uk(:,:,:,1:3), workc(:,:,:,1) )
-  nlk(:,:,:,4) = -c_0**2 * workc(:,:,:,1)
+  nlk(:,:,:,4) = -c_0**2 * workc(:,:,:,1) -gamma_p*uk(:,:,:,4)
   
 end subroutine cal_nlk_fsi
 
@@ -190,7 +192,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
@@ -198,7 +200,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   integer::ix,iy,iz
   real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
   uzdx,uzdy,uzdz,uxdxdx,uxdydy,uxdzdz,uydxdx,uydydy,uydzdz,uzdxdx,uzdydy,uzdzdz,&
-  dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz
+  dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,penalx,penaly,penalz,p,fx
   
   call synchronize_ghosts_FD (u)
   
@@ -216,6 +218,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         ux = u(ix,iy,iz,1)
         uy = u(ix,iy,iz,2)
         uz = u(ix,iy,iz,3)
+        p  = u(ix,iy,iz,4)
         
         uxdx = (u(ix+1,iy,iz,1) - u(ix-1,iy,iz,1))*dxinv
         uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
@@ -237,6 +240,10 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         vory = uxdz - uzdx
         vorz = uydx - uxdy
         
+        penalx = -mask(ix,iy,iz)*(ux-us(ix,iy,iz,1))
+        penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
+        penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
+        
         uxdxdx = (u(ix-1,iy,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix+1,iy,iz,1))*dx2inv 
         uxdydy = (u(ix,iy-1,iz,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy+1,iz,1))*dy2inv 
         uxdzdz = (u(ix,iy,iz-1,1)-2.d0*u(ix,iy,iz,1)+u(ix,iy,iz+1,1))*dz2inv 
@@ -249,10 +256,12 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
         uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
         
-        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
-        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz)
-        nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
-        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
+        fx = 1.d0
+        
+        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx +fx
+        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly
+        nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz) + penalz
+        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz) - gamma_p*p
       enddo
     enddo
   enddo     
@@ -272,7 +281,7 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
@@ -281,7 +290,7 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr)::ux,uy,uz,vorx,vory,vorz,uxdx,uxdy,uxdz,uydx,uydy,uydz,&
   uzdx,uzdy,uzdz,uxdxdx,uxdydy,uxdzdz,uydxdx,uydydy,uydzdz,uzdxdx,uzdydy,uzdzdz,&
   dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,a1,a2,a4,a5,&
-  b1,b2,b3,b4,b5
+  b1,b2,b3,b4,b5,penalx,penaly,penalz,p,fx
   
   
   call synchronize_ghosts_FD (u)
@@ -312,6 +321,7 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         ux = u(ix,iy,iz,1)
         uy = u(ix,iy,iz,2)
         uz = u(ix,iy,iz,3)
+        p  = u(ix,iy,iz,4)
         
         uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv        
         uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
@@ -333,6 +343,10 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         vory = uxdz - uzdx
         vorz = uydx - uxdy
         
+        penalx = -mask(ix,iy,iz)*(ux-us(ix,iy,iz,1))
+        penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
+        penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
+        
         uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix+1,iy,iz,1)+b5*u(ix+2,iy,iz,1))*dx2inv   
         uxdydy = (b1*u(ix,iy-2,iz,1)+b2*u(ix,iy-1,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy+1,iz,1)+b5*u(ix,iy+2,iz,1))*dy2inv   
         uxdzdz = (b1*u(ix,iy,iz-2,1)+b2*u(ix,iy,iz-1,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy,iz+1,1)+b5*u(ix,iy,iz+2,1))*dz2inv   
@@ -345,10 +359,12 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
         uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
         
-        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz)
-        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz)
-        nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz)
-        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz)
+        fx = 1.d0
+        
+        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx + fx
+        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly
+        nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz) + penalz
+        nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz) - gamma_p*p
       enddo
     enddo
   enddo     

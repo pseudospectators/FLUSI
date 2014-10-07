@@ -57,14 +57,21 @@ subroutine fd_testing()
   use vars
   use diff
   use p3dfft_wrapper
-  real(kind=pr),dimension(:,:,:,:),allocatable :: u,rhs1,rhs2,rhs3
+  use insect_module
+  use solid_model
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u,rhs1,rhs2,rhs3,us
+  real(kind=pr),dimension(:,:,:),allocatable :: mask
+  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color
+  real(kind=pr),dimension(:,:,:,:),allocatable :: work
   integer :: ix,idx,iy,iz,n
   integer, parameter :: runs=2
   real(kind=pr)::t1,t2,t3,dxinv,err,kx
+  type(timetype)::time
+  type(diptera)::insect
+  type(solid),dimension(1:1)::beams
   
   neq=4
   nd=3
-  ncw=3
   nrw=1
   nx=100
   ny=nx
@@ -81,6 +88,7 @@ subroutine fd_testing()
   dz = zl/dble(nz)
   eps=0.d0
   
+  
   ng=2!nb ghost ppints
   
   nu=7.d0
@@ -89,10 +97,24 @@ subroutine fd_testing()
   call fft_initialize()
   call print_domain_decomposition()
   allocate(u   (ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq))
+  us=0.d0
   allocate(rhs1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
   allocate(rhs2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
   allocate(rhs3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
+  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(work(1:1,1:1,1:1,2))
   
+  length=1.5
+  x0=1.d0
+  y0=1.d0
+  z0=1.d0
+  
+  iSmoothing="cos"
+  eps=1e-5
+  
+  call draw_sphere(mask, mask_color, us)
   
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
@@ -114,17 +136,17 @@ subroutine fd_testing()
   enddo  
   
   t1=MPI_wtime()
-!   call rhs_acm_spectral(u,rhs2)
+  call rhs_acm_spectral(time,u,rhs2,work,mask,mask_color,us,Insect,beams)
   t2=MPI_wtime()-t1
   if(mpirank==0) write(*,'("FFT=",es12.4)') t2
   
   
   t1=MPI_wtime()
-  call rhs_acm_2nd(u,rhs1)
+  call rhs_acm_2nd(time,u,rhs1,work,mask,mask_color,us,Insect,beams)
   if(mpirank==0) write(*,'("2nd=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
   
   t1=MPI_wtime()
-  call rhs_acm_4th(u,rhs3)
+  call rhs_acm_4th(time,u,rhs3,work,mask,mask_color,us,Insect,beams)
   if(mpirank==0) write(*,'("4th=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
   
   
@@ -200,7 +222,8 @@ subroutine Start_Simulation()
   type(solid), dimension(1:nBeams) :: beams
   
   ! Set method information in vars module.
-  method="centered_2nd" ! We are doing fluid-structure interactions
+  method="centered_4th" 
+!   method="spectral"
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
   nrw=1   ! number of real valued work arrays
   nrhs=2  ! number of registers for right hand side vectors
@@ -234,7 +257,7 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! ghost points
   !-----------------------------------------------------------------------------
-  ng=0 ! zero ghost points  
+  ng=2 ! zero ghost points  
   if (root) write(*,'("Set up ng=",i1," ghost points")') ng
   
   !-----------------------------------------------------------------------------
