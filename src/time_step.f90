@@ -29,25 +29,25 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
   continue_timestepping = .true.
   time%it_start = time%it
 
-!   ! After init, output integral quantities. (note we can overwrite only 
-!   ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
-!   if (index(inicond,'backup::')==0) then
-!     if (root) write(*,*) "Initial output of integral quantities...."
-!     call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
-!   endif
+  ! After init, output integral quantities
+  if (index(inicond,'backup::')==0) then
+    if (root) write(*,*) "Initial output of integral quantities...."
+    call write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  endif
 
 
   if (root) write(*,*) "Start time-stepping...."
   
   ! Loop over time steps
   t1=MPI_wtime()
-  do while ((time%time<=tmax) .and. (time%it<=nt) .and. (continue_timestepping) )
+  do while ((time%time<=tmax).and.(time%it<=nt).and.(continue_timestepping))
      t4=MPI_wtime()
      
      time%dt_old=time%dt_new
      
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
+     !$$$$$$$$$$$$: we'll move that to RHS
      !-------------------------------------------------
      if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
        ! for FSI schemes, the mask is created in fluidtimestep
@@ -57,11 +57,10 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
-!      if(dry_run_without_fluid/="yes") then
-       ! note: the array "vort" is a real work array and has neither input nor
-       ! output values after fluid time stepper
+     if(dry_run_without_fluid/="yes") then
+       ! make a time step of the fluid
        call fluidtimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-!      endif
+     endif
      
      !-----------------------------------------------
      ! time step done: advance iteration + time
@@ -82,9 +81,9 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-------------------------------------------------
      ! Save solid model data, if using it
      !-------------------------------------------------
-!      if (use_solid_model=="yes" .and. mpirank==0 .and. modulo(it,itbeam)==0) then
-!        call SaveBeamData( time, beams )
-!      endif
+     if (use_solid_model=="yes" .and. mpirank==0 .and. modulo(time%it,itbeam)==0) then
+       call SaveBeamData( time%time, beams )
+     endif
     
      !-------------------------------------------------
      ! Output FIELDS+BACKUPING (after tsave)
@@ -120,24 +119,24 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-----------------------------------------------
      ! Runtime remote control (every 10 time steps)
      !-----------------------------------------------
-!      if (modulo(it,10)==0) then
-!         ! fetch command from file
-!         call runtime_control_command( command )
-!         ! execute it
-!         select case ( command )
-!         case ("reload_params")
-!           if (root) write (*,*) "runtime control: Reloading PARAMS file.."
-!           ! read all parameters from the params.ini file
-!           call get_params(params_file,Insect)           
-!           ! overwrite control file
-!           if (root) call initialize_runtime_control_file()
-!         case ("save_stop")
-!           if (root) write (*,*) "runtime control: Safely stopping..."
-!           continue_timestepping = .false. ! this will stop the time loop
-!           ! overwrite control file
-!           if (root) call initialize_runtime_control_file()
-!         end select
-!      endif 
+     if (modulo(time%it,10)==0) then
+        ! fetch command from file
+        call runtime_control_command( command )
+        ! execute it
+        select case ( command )
+        case ("reload_params")
+          if (root) write (*,*) "runtime control: Reloading PARAMS file.."
+          ! read all parameters from the params.ini file
+          call get_params(params_file,Insect)           
+          ! overwrite control file
+          if (root) call initialize_runtime_control_file()
+        case ("save_stop")
+          if (root) write (*,*) "runtime control: Safely stopping..."
+          continue_timestepping = .false. ! this will stop the time loop
+          ! overwrite control file
+          if (root) call initialize_runtime_control_file()
+        end select
+     endif 
      
      if(root) call save_time_stepping_info (time%it,time%it_start,time%time,t2,t1,time%dt_new,t4)
   enddo

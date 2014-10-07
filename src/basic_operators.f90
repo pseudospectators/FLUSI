@@ -10,7 +10,7 @@
 module basic_operators
   !-- interface for curl operators
   interface curl
-    module procedure curl, curl_inplace, curl3
+    module procedure curl, curl_inplace, curl3, curl_x
   end interface
 
   !-- interface for maxima of fields
@@ -225,6 +225,121 @@ subroutine curl3(ink,outk)
      enddo
   enddo
 end subroutine curl3 
+
+
+! Given three components of an input fields in Fourier space, compute
+! the curl in physical space.  Arrays are 3-dimensional.
+subroutine curl_x( u, rotu )
+  use p3dfft_wrapper
+  use vars
+  implicit none
+
+  ! input/output field in x-space
+  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr),intent(out)::rotu(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,dxinv,dyinv,dzinv,a1,a2,a4,a5
+  real(kind=pr) :: uxdy,uxdz,uydx,uydz,uzdx,uzdy
+  ! input vector field in Fourier space
+  complex(kind=pr),allocatable,dimension(:,:,:,:)::ink
+  ! output scalar field in Fourier space
+  complex(kind=pr),allocatable,dimension(:,:,:,:)::outk
+  complex(kind=pr) :: imag   ! imaginary unit
+
+  
+   
+  
+  
+  select case(method)
+  case('spectral')  
+      !-------------------------------------------------------------------------
+      ! compute divergence(u) using spectral derivatives. Note that both input
+      ! and output of this function are in x-space, which requires 3 fft and
+      ! 1 ifft. 
+      !-------------------------------------------------------------------------
+      allocate(ink (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+      allocate(outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+      ! transform input to Fourier space
+      call fft3( inx=u, outk=ink )
+      
+      imag = dcmplx(0.d0,1.d0)
+      ! Compute curl of given field in Fourier space:
+      do iz=ca(1),cb(1)
+        kz=wave_z(iz)
+        do iy=ca(2),cb(2)
+            ky=wave_y(iy)
+            do ix=ca(3),cb(3)
+              kx=wave_x(ix)
+              outk(iz,iy,ix,1)=imag*(ky*ink(iz,iy,ix,3) -kz*ink(iz,iy,ix,2))
+              outk(iz,iy,ix,2)=imag*(kz*ink(iz,iy,ix,1) -kx*ink(iz,iy,ix,3))
+              outk(iz,iy,ix,3)=imag*(kx*ink(iz,iy,ix,2) -ky*ink(iz,iy,ix,1))
+            enddo
+        enddo
+      enddo
+      
+      ! transform output back to x-space
+      call ifft3( ink=outk, outx=rotu(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3) )
+      deallocate(ink,outk)
+      
+  case('centered_2nd')
+      !-------------------------------------------------------------------------
+      ! compute divergence(u) using second order centered period FD
+      !-------------------------------------------------------------------------
+      dxinv = 1.d0/(2.d0*dx)
+      dyinv = 1.d0/(2.d0*dy)
+      dzinv = 1.d0/(2.d0*dz)
+      
+      do iz=ra(3),rb(3)
+        do iy=ra(2),rb(2)
+          do ix=ra(1),rb(1)
+            uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
+            uxdz = (u(ix,iy,iz+1,1) - u(ix,iy,iz-1,1))*dzinv
+            uydx = (u(ix+1,iy,iz,2) - u(ix-1,iy,iz,2))*dxinv
+            uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
+            uzdx = (u(ix+1,iy,iz,3) - u(ix-1,iy,iz,3))*dxinv
+            uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
+            
+            rotu(ix,iy,iz,1) = uzdy - uydz
+            rotu(ix,iy,iz,2) = uxdz - uzdx
+            rotu(ix,iy,iz,3) = uydx - uxdy
+          enddo
+        enddo
+      enddo 
+      
+  case('centered_4th')
+      !-------------------------------------------------------------------------
+      ! compute divergence(u) using second order centered period FD
+      !-------------------------------------------------------------------------
+      a1 = 1.d0/12.d0
+      a2 =-2.d0/3.d0
+      a4 = 2.d0/3.d0
+      a5 =-1.d0/12.d0
+      
+      dxinv = 1.d0/dx
+      dyinv = 1.d0/dy
+      dzinv = 1.d0/dz
+      
+      do iz=ra(3),rb(3)
+        do iy=ra(2),rb(2)
+          do ix=ra(1),rb(1)
+            uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
+            uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
+            uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv        
+            uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+            uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv        
+            uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
+            
+            rotu(ix,iy,iz,1) = uzdy - uydz
+            rotu(ix,iy,iz,2) = uxdz - uzdx
+            rotu(ix,iy,iz,3) = uydx - uxdy
+          enddo
+        enddo
+      enddo 
+  case default
+    call suicide2('invalid METHOD in divergence:'//method)
+  end select
+end subroutine curl_x
 
 
 !-------------------------------------------------------------------------------
