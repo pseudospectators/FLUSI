@@ -128,7 +128,7 @@ subroutine fd_testing()
   if(mpirank==0) write(*,'("2nd=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
   
   t1=MPI_wtime()
-  call rhs_acm_4th2(u,rhs3)
+  call rhs_acm_4th(u,rhs3)
   if(mpirank==0) write(*,'("4th=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
   
   
@@ -220,7 +220,7 @@ subroutine Start_Simulation()
   
   if (root) then
      write(*,'(A)') '--------------------------------------'
-     write(*,'(A)') '  FLUSI'
+     write(*,'(A)') '  FLUSI-mistral'
      write(*,'(A)') '--------------------------------------'
      write(*,'("Running on ",i5," CPUs")') mpisize
      write(*,'(A)') '--------------------------------------'
