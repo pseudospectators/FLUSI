@@ -16,6 +16,8 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
+  real(kind=pr)::t1
+  
   
   !-----------------------------------------------------------------------------
   ! Update mask function to ensure it is at the right time
@@ -27,6 +29,7 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !-----------------------------------------------------------------------------
   ! compute RHS vector
   !-----------------------------------------------------------------------------
+  t1 = MPI_wtime()
   select case(method)
   case ("spectral")
     call rhs_acm_spectral(time,u,nlk,work,mask,mask_color,us,Insect,beams)
@@ -34,8 +37,8 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case("centered_4th")
     call rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-  end select
-  
+  end select  
+  time_rhs = time_rhs + MPI_wtime() - t1
 end subroutine cal_nlk
 
 

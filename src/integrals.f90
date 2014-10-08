@@ -135,15 +135,17 @@ subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !      close(14)
 !   endif
 !   
-!   !-----------------------------------------------------------------------------
-!   ! Save mean flow values
-!   !-----------------------------------------------------------------------------
-!   if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-!      ! This is done only by one CPU (which is not nessesarily the root rank)
-!      open  (14,file='meanflow.t',status='unknown',position='append')
-!      write (14,'(4(es15.8,1x))') time, dreal(uk(0,0,0,1:3))
-!      close (14)
-!   endif
+  !-----------------------------------------------------------------------------
+  ! Save mean flow values
+  !-----------------------------------------------------------------------------
+  uxmean = volume_integral(u(:,:,:,1)) / (xl*yl*zl)
+  uymean = volume_integral(u(:,:,:,2)) / (xl*yl*zl)
+  uzmean = volume_integral(u(:,:,:,3)) / (xl*yl*zl)
+  if (mpirank==0) then
+     open  (14,file='meanflow.t',status='unknown',position='append')
+     write (14,'(4(es15.8,1x))') time%time, uxmean,uymean,uzmean
+     close (14)
+  endif
 !   
 !   !-----------------------------------------------------------------------------
 !   ! integral of scalar concentration
@@ -162,17 +164,17 @@ subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !     endif
 !   endif
 !   
-!   !-----------------------------------------------------------------------------
-!   ! mask volume
-!   !-----------------------------------------------------------------------------
-!   mask = mask*eps
-!   call compute_mask_volume(volume)
-!   mask = mask/eps
-!   if(mpirank == 0) then
-!     open(14,file='mask_volume.t',status='unknown',position='append')
-!     write (14,'(2(es15.8,1x))') time,volume
-!     close(14)
-!   endif
+  !-----------------------------------------------------------------------------
+  ! mask volume
+  !-----------------------------------------------------------------------------
+  mask = mask*eps
+  call compute_mask_volume(mask,volume)
+  mask = mask/eps
+  if(mpirank == 0) then
+    open(14,file='mask_volume.t',status='unknown',position='append')
+    write (14,'(2(es15.8,1x))') time%time, volume
+    close(14)
+  endif
   
 end subroutine 
 ! 
@@ -497,7 +499,7 @@ subroutine compute_fluid_volume(mask,volume)
   use vars
   implicit none
 
-  real(kind=pr),intent(in)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(out) :: volume
   integer :: ix,iy,iz,mpicode
   real(kind=pr) :: Lvolume ! Process-local volume
@@ -528,12 +530,12 @@ subroutine compute_mask_volume(mask,volume)
   use vars
   implicit none
 
-  real(kind=pr),intent(in)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(out) :: volume
   integer :: mpicode
   real(kind=pr) :: Lvolume ! Process-local volume
 
-  Lvolume=sum(mask)*dx*dy*dz
+  Lvolume=sum(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))*dx*dy*dz
      
   call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
           MPI_COMM_WORLD,mpicode)

@@ -665,5 +665,38 @@ subroutine checknan_cmplx( field, msg )
 
   if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans
 end subroutine checknan_cmplx  
+
+!-------------------------------------------------------------------------------
+! computes the volume integral of the scalar quantity u 
+!-------------------------------------------------------------------------------
+real(kind=pr) function  volume_integral( u )
+  use p3dfft_wrapper
+  use vars
+  implicit none
+
+  ! input/output field in x-space
+  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
+  integer::ix,iy,iz,mpicode
+  real(kind=pr)::int_local,dxyz
+  
+  dxyz = dx*dy*dz
+  
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        int_local = int_local + u(ix,iy,iz)*dxyz
+      enddo
+    enddo
+  enddo    
+
+  call MPI_ALLREDUCE (int_local,volume_integral,1,&
+       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
+end function volume_integral
+
+
 end module basic_operators
+
+
+
+

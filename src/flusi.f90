@@ -282,7 +282,6 @@ subroutine show_timings(t2)
   write(*,3)
   write(*,'("time stepping (top level tasks)")')
   
-  write(*,8) time_mask, 100.d0*time_mask/t2, "create_mask"
   write(*,8) time_fluid, 100.d0*time_fluid/t2, "fluid time stepping"
   write(*,8) time_integrals, 100.d0*time_integrals/t2, "integrals"
   write(*,8) time_save, 100.d0*time_save/t2, "save fields"
@@ -300,7 +299,7 @@ subroutine show_timings(t2)
   write(*,3)
   
   write(*,'("Fluid time stepping:")')
-  write(*,8) time_vis,100.d0*time_vis/t2,"cal_vis"
+  write(*,8) time_mask, 100.d0*time_mask/t2, "create_mask"
   write(*,8) time_rhs,100.d0*time_rhs/t2,"cal_nlk"
   write(*,8) time_solid,100.d0*time_solid/t2,"solid  model"
   write(*,8) time_surf,100.d0*time_surf/t2,"surface interpolation"
