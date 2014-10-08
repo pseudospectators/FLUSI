@@ -1181,7 +1181,7 @@ subroutine RK4_wrapper ( time, dt, beam_solid )! note this is actuall only ONE b
   beam(0:ns-1,5) = beam_solid%theta(0:ns-1)
   beam(0:ns-1,6) = beam_solid%theta_dot(0:ns-1)
   
-  call RK4( time, dt, beam, beam_solid%pressure_old(0:ns-1), T, beam_solid%tau_old(0:ns-1), &
+  call RK4s( time, dt, beam, beam_solid%pressure_old(0:ns-1), T, beam_solid%tau_old(0:ns-1), &
             beam_solid )
             
   beam_solid%x(0:ns-1)= beam(0:ns-1,1)
@@ -1198,7 +1198,7 @@ end subroutine RK4_wrapper
 
 
 !-------------------------------------------------------------------------------
-subroutine RK4 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
+subroutine RK4s (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
   implicit none
   real(kind=pr), intent (in) :: dt_beam, time
   real(kind=pr),dimension(0:ns-1, 1:6), intent (inout) :: beam
@@ -1259,7 +1259,7 @@ subroutine RK4 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid)
     write (*,'("time=",es11.4, " dt=",es11.4)') time, dt_beam
   endif  
   
-end subroutine RK4
+end subroutine RK4s
 
 
 !-------------------------------------------------------------------------------
@@ -1281,7 +1281,7 @@ subroutine EE1_wrapper ( time, dt, beam_solid )! note this is actuall only ONE b
   beam(:,5) = beam_solid%theta(0:ns-1)
   beam(:,6) = beam_solid%theta_dot(0:ns-1)
   
-  call EE1( time, dt, beam, beam_solid%pressure_old(0:ns-1), T, &
+  call EE1s( time, dt, beam, beam_solid%pressure_old(0:ns-1), T, &
        beam_solid%tau_old(0:ns-1), beam_solid )
 
   beam_solid%x(0:ns-1) = beam(:,1)
@@ -1297,7 +1297,7 @@ end subroutine EE1_wrapper
 
 !-------------------------------------------------------------------------------
   
-subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
+subroutine EE1s (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid) 
   implicit none
   real(kind=pr), intent (in) :: dt_beam, time
   real(kind=pr),dimension(0:ns-1, 1:6), intent (inout) :: beam
@@ -1319,7 +1319,7 @@ subroutine EE1 (time, dt_beam, beam, pressure_beam, T, tau_beam, beam_solid)
   beam(:,5) = theta + dt_beam * theta_1
   beam(:,6) = theta_dot + dt_beam * theta_dot_1
  
-end subroutine EE1
+end subroutine EE1s
 
 
 !-------------------------------------------------------------------------------

@@ -23,8 +23,6 @@ subroutine init_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !----------------------------------------------------------------------------- 
   call init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 
-  time%n0 = 1-time%n1 !important to do this now in case we're retaking a backp
-  
   !-----------------------------------------------------------------------------
   ! create startup mask function
   !-----------------------------------------------------------------------------

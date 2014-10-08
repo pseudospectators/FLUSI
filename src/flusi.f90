@@ -102,6 +102,7 @@ subroutine Start_Simulation()
      write(*,'(A)') '--------------------------------------'
   endif
 
+  
   !-----------------------------------------------------------------------------
   ! Read input parameters
   !-----------------------------------------------------------------------------
@@ -118,6 +119,10 @@ subroutine Start_Simulation()
     nrhs=2  ! number of registers for right hand side vectors
   elseif (iTimeMethodFluid=="RK4") then
     nrhs=5  ! number of registers for right hand side vectors
+  elseif (iTimeMethodFluid=="AB2") then
+    nrhs=2  ! number of registers for right hand side vectors
+    time%n0=1
+    time%n1=2
   else
     write(*,*) "error ganz am anfang"
     stop

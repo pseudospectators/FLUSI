@@ -65,6 +65,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-----------------------------------------------
      ! time step done: advance iteration + time
      !-----------------------------------------------
+     ! change registers for AB2:
      inter=time%n1 ; time%n1=time%n0 ; time%n0=inter
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time%time = time%time + time%dt_new
