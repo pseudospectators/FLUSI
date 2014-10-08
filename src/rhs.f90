@@ -17,6 +17,16 @@ subroutine cal_nlk(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
   
+  !-----------------------------------------------------------------------------
+  ! Update mask function to ensure it is at the right time
+  !-----------------------------------------------------------------------------
+  if ((iMoving==1).and.(iPenalization==1)) then
+    call create_mask( time%time,mask,mask_color,us, Insect, beams )
+  endif
+  
+  !-----------------------------------------------------------------------------
+  ! compute RHS vector
+  !-----------------------------------------------------------------------------
   select case(method)
   case ("spectral")
     call rhs_acm_spectral(time,u,nlk,work,mask,mask_color,us,Insect,beams)
@@ -66,7 +76,7 @@ subroutine rhs_acm_spectral(time,u,rhs,work,mask,mask_color,us,Insect,beams)
   call fft(inx=u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4),outk=uk(:,:,:,4))
   
 
-  call cal_nlk_fsi(0.d0,0,nlk,uk,u2,vort,workc)
+  call cal_nlk_fsi(time%time,time%it,nlk,uk,u2,vort,workc)
 
   
   
@@ -204,12 +214,12 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
   call synchronize_ghosts_FD (u)
   
-  if (mpisize==1) then
-    uxmean=sum(u(:,:,:,1))/dble(nx*ny*nz)
-  else
-    write(*,*) "to do mpisize"
-    call abort()
-  endif
+!   if (mpisize==1) then
+!     uxmean=sum(u(:,:,:,1))/dble(nx*ny*nz)
+!   else
+!     write(*,*) "to do mpisize"
+!     call abort()
+!   endif
   
   dxinv = 1.d0/(2.d0*dx)
   dyinv = 1.d0/(2.d0*dy)
@@ -263,7 +273,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
         uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
         
-        fx = max(0.d0,1.d0-uxmean)
+        fx = 0.d0!max(0.d0,1.d0-uxmean)
         
         nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx +fx
         nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly

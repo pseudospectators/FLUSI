@@ -34,9 +34,7 @@ end subroutine
 
 ! fsi version of writing integral quantities to disk
 subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-  use mpi
   use vars
-  use p3dfft_wrapper
   use basic_operators
   use solid_model
   use insect_module
@@ -78,10 +76,12 @@ subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !-----------------------------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)
   !-----------------------------------------------------------------------------
-  call divergence( u, work(:,:,:,1) )
+  call divergence( u(:,:,:,1:3), work(:,:,:,1) )
 
   maxdiv = fieldmax( work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) )
-  maxdiv_fluid = fieldmax(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1)*(1.d0-mask*eps))
+  work(:,:,:,1) = work(:,:,:,1)*(1.d0-mask*eps)
+  maxdiv_fluid = fieldmax( work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) )
+  
   if(mpirank == 0) then
      open(14,file='divu.t',status='unknown',position='append')
      write (14,'(4(es15.8,1x))') time%time,maxdiv,maxdiv_fluid

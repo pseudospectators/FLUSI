@@ -42,18 +42,6 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
   t1=MPI_wtime()
   do while ((time%time<=tmax).and.(time%it<=nt).and.(continue_timestepping))
      t4=MPI_wtime()
-     
-     time%dt_old=time%dt_new
-     
-     !-------------------------------------------------
-     ! If the mask is time-dependend,we create it here
-     !$$$$$$$$$$$$: we'll move that to RHS
-     !-------------------------------------------------
-     if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
-       ! for FSI schemes, the mask is created in fluidtimestep
-       call create_mask( time%time,mask,mask_color,us, Insect, beams )
-     endif
-
      !-------------------------------------------------
      ! advance fluid/B-field in time
      !-------------------------------------------------
@@ -69,6 +57,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      inter=time%n1 ; time%n1=time%n0 ; time%n0=inter
      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
      time%time = time%time + time%dt_new
+     time%dt_old=time%dt_new
      time%it = time%it + 1
      
      !-------------------------------------------------

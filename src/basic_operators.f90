@@ -247,6 +247,8 @@ subroutine curl_x( u, rotu )
   complex(kind=pr),allocatable,dimension(:,:,:,:)::outk
   complex(kind=pr) :: imag   ! imaginary unit
   
+  call synchronize_ghosts_FD( u )
+  
   select case(method)
   case('spectral')  
       !-------------------------------------------------------------------------
@@ -391,6 +393,7 @@ subroutine divergence_x( u, divu )
   ! output scalar field in Fourier space
   complex(kind=pr),allocatable,dimension(:,:,:)::outk
   
+  call synchronize_ghosts_FD( u )
   
   select case(method)
   case('spectral')  

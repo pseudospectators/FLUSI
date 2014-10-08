@@ -66,16 +66,20 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     mask = mask*eps
     call compute_mask_volume(mask,volume)
     if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
-    call save_field_hdf5(time,'./mask_'//name,mask,"mask")
+    call save_field_hdf5(time,'./mask_'//name,mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),"mask")
     mask = mask/eps
   endif
   
   ! save solid velocity
   if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
-    call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1),"usx")
-    call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
-    call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
+    call save_field_hdf5(time,'./usx_'//name,us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"usx")
+    call save_field_hdf5(time,'./usy_'//name,us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"usy")
+    call save_field_hdf5(time,'./usz_'//name,us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"usz")
   endif
+  
+    call divergence( u(:,:,:,1:3), work(:,:,:,1) )
+  call save_field_hdf5(time,'./fuck_'//name,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"fuck")
+
   
 !   !------------
 !   ! passive scalar

@@ -448,21 +448,25 @@ subroutine RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
-
+  type(timetype) :: t
+  t=time
+  
   ! define the time step we want to use
   call adjust_dt(u,time%dt_new)
   
   ! now NLK2 is old velocity
   nlk(:,:,:,:,2) = u
   
-  call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
+  call cal_nlk(time, u, nlk(:,:,:,:,1), work, mask, mask_color, us, Insect, beams)
   u = u + 0.5d0*time%dt_new * nlk(:,:,:,:,1)
+  t%time = time%time + 0.5d0*time%dt_new
+  
   
   ! now NLK1 is old velocity
   nlk(:,:,:,:,1) = nlk(:,:,:,:,2)
   
   !-- RHS using the euler velocity
-  call cal_nlk(time,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
+  call cal_nlk(t, u, nlk(:,:,:,:,2), work, mask, mask_color, us, Insect, beams)
 
   ! final step
   u = nlk(:,:,:,:,1) + time%dt_new * nlk(:,:,:,:,2)
@@ -485,7 +489,9 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
-
+  type(timetype) :: t
+  t = time
+  
   call adjust_dt(u,time%dt_new)
   
   ! NLK 5th register holds old velocity
@@ -495,13 +501,16 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
   
   u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,1)
-  call cal_nlk(time,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
+  t%time = time%time + 0.5d0*time%dt_new
+  call cal_nlk(t,u,nlk(:,:,:,:,2),work,mask,mask_color,us,Insect,beams)
   
   u = nlk(:,:,:,:,5) + 0.5d0*time%dt_new*nlk(:,:,:,:,2)
-  call cal_nlk(time,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect,beams)
+  t%time = time%time + 0.5d0*time%dt_new
+  call cal_nlk(t,u,nlk(:,:,:,:,3),work,mask,mask_color,us,Insect,beams)
   
   u = nlk(:,:,:,:,5) + time%dt_new * nlk(:,:,:,:,3)
-  call cal_nlk(time,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect,beams)
+  t%time = time%time + time%dt_new
+  call cal_nlk(t,u,nlk(:,:,:,:,4),work,mask,mask_color,us,Insect,beams)
   
   u = nlk(:,:,:,:,5) + time%dt_new/6.d0*(nlk(:,:,:,:,1)+2.d0*nlk(:,:,:,:,2)&
       +2.d0*nlk(:,:,:,:,3)+nlk(:,:,:,:,4))
