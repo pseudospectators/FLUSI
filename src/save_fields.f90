@@ -77,8 +77,8 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call save_field_hdf5(time,'./usz_'//name,us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"usz")
   endif
   
-    call divergence( u(:,:,:,1:3), work(:,:,:,1) )
-  call save_field_hdf5(time,'./fuck_'//name,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"fuck")
+  call divergence( u(:,:,:,1:3), work(:,:,:,1) )
+  call save_field_hdf5(time,'./divu_'//name,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"divu")
 
   
 !   !------------

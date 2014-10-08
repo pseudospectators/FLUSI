@@ -58,20 +58,20 @@ subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr) :: dissf, dissxf, dissyf, disszf
   integer :: ix,iy,iz,mpicode
   
-!   !-----------------------------------------------------------------------------
-!   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
-!   !-----------------------------------------------------------------------------
-!   ! the stepper AB2_rigid_solid has to compute the drag at every time step, so
-!   ! we can skip the separate computation in INTEGRALS
-!   if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
-!     t3 = MPI_wtime()    
-!     ! to compute the forces, we need the mask at time t. not we cannot suppose
-!     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
-!     ! have to reconstruct the mask now. solids are also at time t
-!     if(iMoving==1) call create_mask(time, Insect, beams)
-!     call cal_drag (time, u, Insect)
-!     time_drag = time_drag + MPI_wtime() - t3
-!   endif
+  !-----------------------------------------------------------------------------
+  ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
+  !-----------------------------------------------------------------------------
+  ! the stepper AB2_rigid_solid has to compute the drag at every time step, so
+  ! we can skip the separate computation in INTEGRALS
+  if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
+    t3 = MPI_wtime()    
+    ! to compute the forces, we need the mask at time t. not we cannot suppose
+    ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
+    ! have to reconstruct the mask now. solids are also at time t
+    if(iMoving==1) call create_mask( time%time,mask,mask_color,us, Insect, beams )
+    call cal_drag ( time, u, mask, mask_color, us, Insect )
+    time_drag = time_drag + MPI_wtime() - t3
+  endif
   
   !-----------------------------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)

@@ -52,10 +52,10 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       call abort()
   end select
   
-!   ! compute unsteady corrections in every time step
-!   if(method=="fsi" .and. unst_corrections==1) then
-!     call cal_unst_corrections ( time, dt0, Insect )  
-!   endif
+  ! compute unsteady corrections in every time step
+  if (unst_corrections==1) then
+    call cal_unst_corrections ( time, mask, mask_color, us, Insect )  
+  endif
 
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
