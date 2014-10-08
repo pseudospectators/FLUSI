@@ -2,11 +2,11 @@
 # variables.
 
 # Non-module Fortran files to be compiled:
-FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
+FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
 	mask.f90 mask_fsi.f90 mask_mhd.f90 save_fields.f90 time_step.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
 	postprocessing.f90 runtime_control.f90 drag.f90 \
-	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
+	fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 rotation_matrices.f90 \
         add_channel.f90 add_cavity.f90 init_scalar.f90 \
         passive_scalar.f90 noncircular_cylinder.f90 ghostpoints.f90 draw_flexible_plate.f90

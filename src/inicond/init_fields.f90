@@ -32,8 +32,8 @@ subroutine init_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !-----------------------------------------------------------------------------
   ! save initial conditions (if not resuming a backup)
   !-----------------------------------------------------------------------------
-!   if (index(inicond,'backup::')==0) then
-!     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
-!     call save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-!   endif
+  if (index(inicond,'backup::')==0) then
+    if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
+    call save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  endif
 end subroutine init_fields
