@@ -23,10 +23,6 @@ program FLUSI
       !-------------------------------------------------------------------------
       call Start_Simulation()    
       
-  elseif (infile=='--fd') then
-      
-      call fd_testing()
-
   elseif ( infile == "--postprocess") then 
       !-------------------------------------------------------------------------
       ! the first argument tells us that we're postprocessing 
@@ -50,144 +46,6 @@ program FLUSI
   call MPI_FINALIZE(mpicode)
   call exit(0)
 end program FLUSI
-
-
-subroutine fd_testing()
-  use mpi
-  use vars
-  use diff
-  use p3dfft_wrapper
-  use insect_module
-  use solid_model
-  real(kind=pr),dimension(:,:,:,:),allocatable :: u,rhs1,rhs2,rhs3,us
-  real(kind=pr),dimension(:,:,:),allocatable :: mask
-  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color
-  real(kind=pr),dimension(:,:,:,:),allocatable :: work
-  integer :: ix,idx,iy,iz,n
-  integer, parameter :: runs=2
-  real(kind=pr)::t1,t2,t3,dxinv,err,kx
-  type(timetype)::time
-  type(diptera)::insect
-  type(solid),dimension(1:1)::beams
-  
-  neq=4
-  nd=3
-  nrw=1
-  nx=100
-  ny=nx
-  nz=nx
-  pi=4.d0 *datan(1.d0)
-  xl=2.d0*pi
-  yl=2.d0*pi
-  zl=2.d0*pi
-  scalex=2.d0*pi/xl
-  scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl 
-  dx = xl/dble(nx)
-  dy = yl/dble(ny)
-  dz = zl/dble(nz)
-  eps=0.d0
-  
-  
-  ng=2!nb ghost ppints
-  
-  nu=7.d0
-  c_0=1.d0
-  
-  call fft_initialize()
-  call print_domain_decomposition()
-  allocate(u   (ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
-  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq))
-  us=0.d0
-  allocate(rhs1(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
-  allocate(rhs2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
-  allocate(rhs3(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq))
-  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  allocate(work(1:1,1:1,1:1,2))
-  
-  length=1.5
-  x0=1.d0
-  y0=1.d0
-  z0=1.d0
-  
-  iSmoothing="cos"
-  eps=1e-5
-  
-  call draw_sphere(mask, mask_color, us)
-  
-  do iz=ra(3),rb(3)
-    do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)
-        u(ix,iy,iz,1) = dsin(dble(ix)*dx*2.d0*pi/xl)*&
-                        dcos(dble(iz)*dz*2.d0*pi/zl)*&
-                        dsin(dble(iy)*dy*2.d0*pi/yl)
-        u(ix,iy,iz,2) = dcos(dble(ix)*dx*2.d0*pi/xl)*&
-                        dcos(dble(iz)*dz*2.d0*pi/zl)*&
-                        dsin(dble(iy)*dy*2.d0*pi/yl)
-        u(ix,iy,iz,3) = dsin(dble(ix)*dx*2.d0*pi/xl)*&
-                        dcos(dble(iz)*dz*2.d0*pi/zl)*&
-                        dcos(dble(iy)*dy*2.d0*pi/yl)      
-        u(ix,iy,iz,4) = dcos(dble(ix)*dx*2.d0*pi/xl)*&
-                        dcos(dble(iz)*dz*2.d0*pi/zl)*&
-                        dcos(dble(iy)*dy*2.d0*pi/yl)  
-      enddo
-    enddo
-  enddo  
-  
-  t1=MPI_wtime()
-  call rhs_acm_spectral(time,u,rhs2,work,mask,mask_color,us,Insect,beams)
-  t2=MPI_wtime()-t1
-  if(mpirank==0) write(*,'("FFT=",es12.4)') t2
-  
-  
-  t1=MPI_wtime()
-  call rhs_acm_2nd(time,u,rhs1,work,mask,mask_color,us,Insect,beams)
-  if(mpirank==0) write(*,'("2nd=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
-  
-  t1=MPI_wtime()
-  call rhs_acm_4th(time,u,rhs3,work,mask,mask_color,us,Insect,beams)
-  if(mpirank==0) write(*,'("4th=",es12.4," factor=",g12.4)') MPI_wtime()-t1,t2/(MPI_wtime()-t1)
-  
-  
-  
-  do idx=1,4
-    err=0.d0
-    ! loop only over physical domain
-    do iz=ra(3),rb(3)
-      do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
-          err=err+(rhs1(ix,iy,iz,idx)-rhs2(ix,iy,iz,idx))**2
-        enddo
-      enddo
-    enddo 
-    call MPI_ALLREDUCE ( err*dx*dy*dz,eps,1,&
-         MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-    if(mpirank==0)write(*,*) "err",eps
- enddo
- 
-if(mpirank==0)write(*,*)"---"
-
- do idx=1,4
-    err=0.d0
-    ! loop only over physical domain
-    do iz=ra(3),rb(3)
-      do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
-          err=err+(rhs3(ix,iy,iz,idx)-rhs2(ix,iy,iz,idx))**2
-        enddo
-      enddo
-    enddo 
-    call MPI_ALLREDUCE ( err*dx*dy*dz,eps,1,&
-         MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-    if(mpirank==0)write(*,*) "err",eps
- enddo
- 
-if(mpirank==0) write(*,*)"---"
- 
- 
-end subroutine fd_testing
-
 
 
 subroutine Start_Simulation()
@@ -314,15 +172,15 @@ subroutine Start_Simulation()
   memory = memory + dble(neq)*mem_field
   
   ! mask function (defines the geometry)
-  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
+  allocate(mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))  
   memory = memory + mem_field
   
   ! mask color function (distinguishes between different parts of the mask)
-  allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
   memory = memory + mem_field/4.d0
   
   ! solid body velocities
-  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)) 
+  allocate(us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)) 
   memory = memory + dble(neq)*mem_field
   
   ! allocate one work array

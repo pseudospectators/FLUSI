@@ -11,9 +11,9 @@ subroutine DrawBody(ix, iy, iz, Insect, x_body, icolor, mask, mask_color, us)
   integer, intent(in) :: ix,iy,iz
   real(kind=pr),intent(in) :: x_body(1:3)
   integer(kind=2),intent(in) :: icolor
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
   select case (Insect%BodyType)
   case ('ellipsoid')  
@@ -181,9 +181,9 @@ subroutine DrawSphere(ix,iy,iz,Insect,x,R0,icolor, mask, mask_color, us)
   integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
   if (abs(x(1))<R0+Insect%safety) then
   if (abs(x(2))<R0+Insect%safety) then
@@ -207,9 +207,9 @@ subroutine DrawEye(ix,iy,iz,Insect,x,icolor, mask, mask_color, us)
   type(diptera), intent(inout) :: Insect
   integer(kind=2), intent(in) :: icolor
   real(kind=pr),intent(in) :: x(1:3)
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
   call DrawSphere(ix,iy,iz,Insect,x,Insect%R_eye,icolor, mask, mask_color, us)
 end subroutine
@@ -224,9 +224,9 @@ subroutine DrawHead(ix,iy,iz,Insect,x,icolor, mask, mask_color, us)
   real(kind=pr),intent(in) :: x(1:3)
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,a_head
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
   select case (Insect%BodyType)
   case ('ellipsoid')  
