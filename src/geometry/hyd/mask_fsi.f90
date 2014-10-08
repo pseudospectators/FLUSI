@@ -30,9 +30,9 @@ subroutine Flapper (time, mask, mask_color, us)
   ! safety
   safety = 2.d0*N*max(dx,dy,dz)+H
 
-  do iz = ra(3), rb(3)
+  do ix = ra(1), rb(1)
    do iy = ra(2), rb(2)
-    do ix = ra(1), rb(1)
+    do iz = ra(3), rb(3)
       x = dble(ix)*dx - x0
       y = dble(iy)*dy - y0
       z = dble(iz)*dz - z0
@@ -67,9 +67,9 @@ subroutine Flapper (time, mask, mask_color, us)
   enddo
 
   ! draw the endpoints
-  do iz = ra(3), rb(3)
+  do ix = ra(1), rb(1)
    do iy = ra(2), rb(2)
-    do ix = ra(1), rb(1)
+    do iz = ra(3), rb(3)
         x = dble(ix)*dx - x0
         y = dble(iy)*dy - y0
         z = dble(iz)*dz - z0

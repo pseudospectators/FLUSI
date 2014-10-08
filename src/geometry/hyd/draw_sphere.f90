@@ -12,9 +12,9 @@ subroutine draw_sphere(mask, mask_color, us)
 
   N_smooth = 1.5d0
 
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1)
         x=dble(ix)*dx
         y=dble(iy)*dy
         z=dble(iz)*dz
@@ -48,9 +48,9 @@ subroutine draw_cylinder_x(mask, mask_color, us)
 
   N_smooth = 1.5d0
 
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1)
         y=dble(iy)*dy
         z=dble(iz)*dz
         R = dsqrt( (y-y0)**2 + (z-z0)**2 )

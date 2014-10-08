@@ -55,8 +55,8 @@ subroutine noncircular_cylinder(mask,mask_color,us)
   N_smooth = 1.5d0
   safety = 2.d0*N_smooth*max(dz,dy)
 
-  do iy=ra(2),rb(2)
-    do iz=ra(3), rb(3)
+  do iz=ra(3), rb(3)
+    do iy=ra(2),rb(2)    
       y = dble(iy)*dy
       z = dble(iz)*dz
       R = dsqrt( (y-y0)**2 + (z-z0)**2 )

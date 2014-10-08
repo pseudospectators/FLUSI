@@ -9,9 +9,9 @@ subroutine add_cavity(mask,mask_color,us)
   use vars
   implicit none
   
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
   integer :: ix,iy,iz
   real(kind=pr) :: ux,uy,uz
@@ -28,9 +28,9 @@ subroutine add_cavity(mask,mask_color,us)
     uz = uzmean
   endif
   
-  do ix = ra(1), rb(1)
+  do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
-       do iz = ra(3), rb(3)
+       do ix = ra(1), rb(1)
        
           if ((ix<=cavity_size-1).or.(ix>=nx-1-cavity_size+1)) then            
             mask(ix,iy,iz) = 1.d0

@@ -147,7 +147,6 @@ module vars
   character(len=strlen),save :: iMask
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: eps
-  character(len=strlen) :: iSmoothing ! how to smooth the mask
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
   ! cavity mask:
   character(len=strlen), save :: iCavity, iChannel
