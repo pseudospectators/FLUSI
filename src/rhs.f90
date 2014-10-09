@@ -218,7 +218,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
   call synchronize_ghosts_FD (u)
   
-  uxmean = volume_integral(u(:,:,:,1))/(xl*yl*zl)
+  uxmean = volume_integral(u(:,:,:,2))/(xl*yl*zl)
   
   dxinv = 1.d0/(2.d0*dx)
   dyinv = 1.d0/(2.d0*dy)
@@ -274,8 +274,8 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         
         fx = max(0.d0,1.d0-uxmean)
         
-        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx +fx
-        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly
+        nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx
+        nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly +fx
         nlk(ix,iy,iz,3) = ux*vory -uy*vorx - pdz + nu*(uzdxdx+uzdydy+uzdzdz) + penalz
         nlk(ix,iy,iz,4) = -(c_0**2)*(uxdx+uydy+uzdz) - gamma_p*p
       enddo
