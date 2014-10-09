@@ -1,3 +1,22 @@
+!-------------------------------------------------------------------------------
+! Interpolate the pressure jump accross the beam. It is defined as the difference
+! in pressure betwenn the upper and lower side of the beam. In FLUSI/MISTRAL 3D
+! the beam is interpreted as plate that has a finite span in the rigid direction.
+! Input:
+!       time:      the current time
+!       beam:      struct that contains the beam positions
+!       p:         the fluid pressure field 
+!       testing:   we use this routine to test two essential things: we call it
+!                  with p=mask, to interpolate the mask function at the beam sur-
+!                  faces. The value should be around 0.5, due to smoothing.
+!                  the second is interpolating a given analytical function
+!       timelevel: tell the routine if we're interpolating at "new" or "old"
+!                  or both.
+! Output:
+!       beam: struct that also contains the newly interpolated pressure, either
+!             in beam%pressure_new and/or in beam%pressure_old, depending on the 
+!             input "timelevel"
+!-------------------------------------------------------------------------------
 subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   use vars
   use interpolation
@@ -28,8 +47,6 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   if(.not.allocated(p_surface)) allocate(p_surface(0:ns-1,0:nh,1:2))
   if(.not.allocated(p_surface_local)) allocate(p_surface_local(0:ns-1,0:nh,1:2))
 
-  p_surface = 17.d0
-  p_surface_local = 17.d0
 
     
   !-----------------------------------------------------------------------------
@@ -39,22 +56,23 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   ! the surface on all ranks (before T_release, we can skip this expensive part
   ! since we will return zero anyways)
   !-----------------------------------------------------------------------------
-!   if (time > T_release) 
-  call synchronize_ghosts ( p )
-  
-  do is=0,ns-1
-    do ih=0,nh
-      do isurf=1,2
-        x = surfaces(is,ih,isurf,1:3)
-        if (interp=='linear') then
-          call trilinear_interp_ghosts( x, p, p_surface_local(is,ih,isurf))
-        elseif (interp=='delta') then
-          call delta_interpolation( x, p, p_surface_local(is,ih,isurf))
-        endif
+  if (time >= T_release) then
+    ! synchronize ghost points in the pressure field
+    call synchronize_ghosts ( p )
+    ! call scalar interpolation routines for each point on the two surfaces
+    do is=0,ns-1
+      do ih=0,nh
+        do isurf=1,2
+          x = surfaces(is,ih,isurf,1:3)
+          if (interp=='linear') then
+            call trilinear_interp_ghosts( x, p, p_surface_local(is,ih,isurf))
+          elseif (interp=='delta') then
+            call delta_interpolation( x, p, p_surface_local(is,ih,isurf))
+          endif
+        enddo
       enddo
     enddo
-  enddo
-  
+  endif
   
   !-----------------------------------------------------------------------------
   ! All CPUs now interpolated some values of p on the surfaces, if they lie in
@@ -109,10 +127,10 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   soft_startup = startup_conditioner(time,T_release,tau)
   
   !-----------------------------------------------------------------------------
-  ! Mask inactive points 
+  ! Mask inactive points by multiplying them with 0
   !-----------------------------------------------------------------------------
-  p_surface(:,:,1)=p_surface(:,:,1)*active_points
-  p_surface(:,:,2)=p_surface(:,:,2)*active_points
+  p_surface(:,:,1) = p_surface(:,:,1)*active_points
+  p_surface(:,:,2) = p_surface(:,:,2)*active_points
   
   !-----------------------------------------------------------------------------
   ! Average the pressure in the spanwise direction and multiply with startup 

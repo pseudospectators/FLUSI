@@ -1,4 +1,6 @@
-
+!-------------------------------------------------------------------------------
+! Warpper calling different individual time steppers
+!-------------------------------------------------------------------------------
 subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use p3dfft_wrapper
   use vars
@@ -17,11 +19,11 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(diptera), intent(inout) :: Insect
   
   real(kind=pr)::t1
-  
-  
   t1=MPI_wtime()
 
+  !-----------------------------------------------------------------------------
   ! Call fluid advancement subroutines.
+  !-----------------------------------------------------------------------------
   select case(iTimeMethodFluid)
   case("RK2")
       call RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
@@ -51,7 +53,10 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       call abort()
   end select
   
-  ! compute unsteady corrections in every time step
+  
+  !-----------------------------------------------------------------------------
+  ! compute unsteady corrections in every time step.
+  !-----------------------------------------------------------------------------
   if (unst_corrections==1) then
     call cal_unst_corrections ( time, mask, mask_color, us, Insect )  
   endif
@@ -366,11 +371,12 @@ end subroutine FluidTimestep
 
 
 !-------------------------------------------------------------------------------
-! semi implicit explicit staggered scheme for FSI simulations, uses AB2 for the
-! fluid (or euler on startup) and evaluates the pressure at both old and new 
-! time level. since computing the pressure is almost as expensive as doing a full
-! fluid time step, this scheme is twice as expensive as its explicit counterpart
-! FSI_AB2_staggered.
+! semi implicit explicit staggered scheme for FSI simulations
+! We first interpolate the pressure at the old timelevel t^n
+! then advance the fluid to the next time level t^n+1 by using a suitable
+! integrator. The interpolated pressure at the new time level is then the input
+! to the solid solver which is advanced then
+! during the fluid time step, the mask function is held constant
 !-------------------------------------------------------------------------------
 subroutine FSI_RK2_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
@@ -390,25 +396,23 @@ subroutine FSI_RK2_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
   ! useful error messages
   if (use_solid_model/="yes") then 
-   write(*,*) "using FSI_AB2_staggered without solid model?"
+   write(*,*) "using FSI_RK2_semiimplicit without solid model?"
    call abort()
   endif
   
   !---------------------------------------------------------------------------
   ! get forces at old time level
   !---------------------------------------------------------------------------  
-  ! TODO: do we need that? not for BDF I think
-  call get_surface_pressure_jump (time%time, beams(1), u(:,:,:,4), timelevel="old")
-  
-  !---------------------------------------------------------------------------
-  ! create mask
-  !---------------------------------------------------------------------------
-  ! mask is created in RHS
+  ! since the BDF scheme evaluates the beam RHS only at the new time level (and
+  ! not at the old one at all) the pressure at t^n is not required when using BDF2
+  if ( TimeMethodSolid .ne. "BDF2") then
+    call get_surface_pressure_jump (time%time, beams(1), u(:,:,:,4), timelevel="old")
+  endif
   
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
   !---------------------------------------------------------------------------
-  call RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  call RK2 (time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
   !---------------------------------------------------------------------------
   ! get forces at new time level
@@ -418,7 +422,7 @@ subroutine FSI_RK2_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !---------------------------------------------------------------------------  
   ! advance solid model from (n) to (n+1)
   !---------------------------------------------------------------------------
-  call SolidSolverWrapper( time%time, time%dt_new, beams )
+  call SolidSolverWrapper ( time%time, time%dt_new, beams )
     
 end subroutine FSI_RK2_semiimplicit
 
@@ -488,7 +492,15 @@ end subroutine FSI_RK2_semiimplicit
 
 
 !-------------------------------------------------------------------------------
-
+! Standard RK2 scheme for integrating the RHS defined in cal_nlk
+! The scheme is also referred to as "midpoint rule"
+! INPUT:
+!       time: a derived datatype that contains current time, iteration number
+!             time step an so on (definition see vars.f90)
+!       u: The solution vector with "neq" components at time t
+!       work: work array, currently unused
+!       mask: the mask function (geometry of the problem)
+!-------------------------------------------------------------------------------
 subroutine RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
   use solid_model
@@ -506,13 +518,14 @@ subroutine RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(diptera), intent(inout) :: Insect 
   type(timetype) :: t
   t=time
-  
+    
   ! define the time step we want to use
   call adjust_dt(u,time%dt_new)
   
   ! now NLK2 is old velocity
   nlk(:,:,:,:,2) = u
   
+  ! compute rhs at old time and make half a time step into the future
   call cal_nlk(time, u, nlk(:,:,:,:,1), work, mask, mask_color, us, Insect, beams)
   u = u + 0.5d0*time%dt_new * nlk(:,:,:,:,1)
   t%time = time%time + 0.5d0*time%dt_new
@@ -521,10 +534,10 @@ subroutine RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! now NLK1 is old velocity
   nlk(:,:,:,:,1) = nlk(:,:,:,:,2)
   
-  !-- RHS using the euler velocity
+  ! using the solution at t^(n+1/2), we compute the RHs again
   call cal_nlk(t, u, nlk(:,:,:,:,2), work, mask, mask_color, us, Insect, beams)
 
-  ! final step
+  ! final step, advancing the midpoint derivative by a whole time step
   u = nlk(:,:,:,:,1) + time%dt_new * nlk(:,:,:,:,2)
 end subroutine RK2
 
@@ -714,10 +727,11 @@ end subroutine AB2
 ! 
 ! end subroutine AB2_rigid_solid
 
+
 !-------------------------------------------------------------------------------
 ! Set the time step based on the CFL condition and penalization
 ! stability contidion. The following limitations exist:
-! 1 - CFL condition
+! 1 - CFL condition (for umax and the speed of sound, c_0)
 ! 2 - fixed time step dt_fixed, ignoring all other constraints, if set in params
 ! 3 - penalization restriction dt<eps
 ! 4 - maximum time step dt_max, if set in params
@@ -756,9 +770,6 @@ subroutine adjust_dt(u,dt1)
            dt1=1.0d-3
         endif
 
-        !-- Round the time-step to one digit to reduce calls of cal_vis
-        call truncate(dt1) 
-
         !-- Impose penalty stability condition: dt cannot be larger than eps
         if (iPenalization > 0) dt1=min(0.99*eps,dt1) 
         
@@ -783,21 +794,3 @@ subroutine adjust_dt(u,dt1)
   endif
   
 end subroutine adjust_dt
-
-
-!-------------------------------------------------------------------------------
-! Truncate = round a real number to one significant digit, i.e. from 1.246262e-2
-! to 1.2e-2. This slightly modifies the CFL condition (if the time step is 
-! dictated by CFL and not by penalization), but allows to keep the time step
-! constant over more time steps, which is more efficient.
-!-------------------------------------------------------------------------------
-subroutine truncate(a)
-  use vars
-  implicit none
-
-  real(kind=pr),intent(inout)::a
-  character(len=7)::str
-
-  write (str,'(es7.1)') a
-  read (str,*) a
-end subroutine truncate

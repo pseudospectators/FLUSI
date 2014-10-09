@@ -128,12 +128,6 @@ subroutine SolidSolverWrapper ( time, dt, beams )
           Vector_isNAN(beams(i)%tau_new).or.&
           Vector_isNAN(beams(i)%tau_old) ) then
         if (root) write(*,*) "SolidSolver: input values contain NaNs"
-        ! at this occasion, check if mask and us contain NaNs
-        if (root) write(*,*) "Checking mask and us for NaNs"
-!         call checknan( mask, "mask")
-!         call checknan( us(:,:,:,1), "usx")
-!         call checknan( us(:,:,:,2), "usy")
-!         call checknan( us(:,:,:,3), "usz")
         ! time to go..
         call abort()
       endif
