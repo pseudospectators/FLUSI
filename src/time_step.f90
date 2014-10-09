@@ -80,17 +80,15 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      !-------------------------------------------------
      if (((modulo(time%time,tsave)<time%dt_new).and.(time%time>=tsave_first)).or.(time%time==tmax)) then
         call are_we_there_yet(time%it,time%it_start,time%time,t2,t1,time%dt_new)
-        write(*,*) "pmax=",maxval(u(:,:,:,4)),"uxmax=",maxval(u(:,:,:,1))
         call save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)   
      endif
 
-!      ! Backup if that's specified in the PARAMS.ini file. We try to do 
-!      ! backups every "truntime" hours (precise to one time step)
-!      if(idobackup==1 .and. truntimenext<(MPI_wtime()-time_total)/3600.d0) then
-!          call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-!              work(:,:,:,1),Insect,beams)
-!          truntimenext = truntimenext+truntime
-!      endif
+     ! Backup if that's specified in the PARAMS.ini file. We try to do 
+     ! backups every "truntime" hours (precise to one time step)
+     if(idobackup==1 .and. truntimenext<(MPI_wtime()-time_total)/3600.d0) then
+         call dump_runtime_backup(time,nbackup,u,Insect,beams)
+         truntimenext = truntimenext+truntime
+     endif
      
      !-----------------------------------------------
      ! Output how much time remains
@@ -135,11 +133,10 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
   !-----------------------------------------------------------------------------
   ! save final backup so we can resume where we left 
   !-----------------------------------------------------------------------------
-!   if(idobackup==1) then
-!     if(root) write (*,*) "final backup..."
-!     call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-!          work(:,:,:,1),Insect,beams)
-!   endif
+  if(idobackup==1) then
+    if(root) write (*,*) "final backup..."
+    call dump_runtime_backup(time,nbackup,u,Insect,beams)
+  endif
 
   if(root) write(*,'("Done time stepping; did nt=",i5," steps")') time%it-time%it_start
 end subroutine time_step

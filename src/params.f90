@@ -76,6 +76,7 @@ subroutine get_params(paramsfile,Insect)
     call param_str(PARAMS,i,"InitialCondition","file_ux",file_ux, "none")
     call param_str(PARAMS,i,"InitialCondition","file_uy",file_uy, "none")
     call param_str(PARAMS,i,"InitialCondition","file_uz",file_uz, "none")
+    call param_str(PARAMS,i,"InitialCondition","file_p",file_p, "none")
   endif
 
 

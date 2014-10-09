@@ -37,12 +37,12 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      !--------------------------------------------------
      ! read HDF5 files
      !--------------------------------------------------  
-!      if (mpirank==0) write (*,*) "*** inicond: reading infiles"
-!      call Read_Single_File ( file_ux, vort(:,:,:,1) )
-!      call Read_Single_File ( file_uy, vort(:,:,:,2) )
-!      call Read_Single_File ( file_uz, vort(:,:,:,3) )
-!      call fft3 ( uk,vort )
-!      if (mpirank==0) write (*,*) "*** done reading infiles"
+     if (mpirank==0) write (*,*) "*** inicond: reading infiles"
+     call Read_Single_File ( file_ux, u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) )
+     call Read_Single_File ( file_uy, u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2) )
+     call Read_Single_File ( file_uz, u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3) )
+     call Read_Single_File ( file_p , u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4) )
+     if (mpirank==0) write (*,*) "*** done reading infiles"
 
   case("MeanFlow")
      !--------------------------------------------------
@@ -65,11 +65,10 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      if(inicond(1:8) == "backup::") then
         !--------------------------------------------------
         ! read from backup
-        !--------------------------------------------------  
-!         if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
-!              inicond(9:len(inicond))
-!         call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
-!              nlk,explin,vort(:,:,:,1))
+        !--------------------------------------------------   
+        if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
+             inicond(9:len(inicond))
+        call read_runtime_backup(inicond(9:len(inicond)),time,u,Insect,beams)
      else
         !--------------------------------------------------
         ! unknown inicond : error

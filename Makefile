@@ -93,6 +93,7 @@ all: directories $(PROGRAMS)
 
 # Compile main programs, with dependencies.
 flusi: flusi.f90 $(MOBJS) $(OBJS)
+	rm -rf flusi
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 mhd: mhd.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)

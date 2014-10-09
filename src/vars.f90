@@ -140,7 +140,7 @@ module vars
   real(kind=pr), save :: c_0, gamma_p=1.d0
 
   ! Initial conditions:
-  character(len=strlen),save :: inicond, file_ux,file_uy,file_uz
+  character(len=strlen),save :: inicond,file_ux,file_uy,file_uz,file_p
 
 
   ! Boundary conditions:

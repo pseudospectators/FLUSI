@@ -44,8 +44,7 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call save_field_hdf5(time,"./ux_"//name,u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"ux")
     call save_field_hdf5(time,"./uy_"//name,u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"uy")
     call save_field_hdf5(time,"./uz_"//name,u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"uz")
-  endif
-  
+  endif  
   
   ! Save the pressure
   if (isavePress == 1) then  
@@ -76,10 +75,6 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call save_field_hdf5(time,'./usy_'//name,us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"usy")
     call save_field_hdf5(time,'./usz_'//name,us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"usz")
   endif
-  
-  call divergence( u(:,:,:,1:3), work(:,:,:,1) )
-  call save_field_hdf5(time,'./divu_'//name,work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"divu")
-
   
 !   !------------
 !   ! passive scalar
@@ -292,155 +287,104 @@ subroutine Write_XMF(time,filename,dsetname)
 end subroutine Write_XMF
 
 
-! ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
-! ! time steps, and what else? FIXME: document what is saved.
-! subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
-!            work,Insect,beams)
-!   use mpi
-!   use vars
-!   use vars
-!   use hdf5
-!   use p3dfft_wrapper
-!   use solid_model
-!   use insect_module
-!   implicit none
-! 
-!   real(kind=pr),intent(inout) :: time,dt1,dt0
-!   integer,intent(inout) :: n1,nbackup,it
-!   complex(kind=pr),intent(in) :: ub(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
-!   complex(kind=pr),intent(in)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-!   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   type(solid), dimension(1), intent(in) :: beams
-!   type(diptera), intent(in) :: Insect
-!   
-!   character(len=18) :: filename
-! 
-!   real(kind=pr) :: t1
-!   integer :: error  ! error flags
-!   integer(hid_t) :: file_id       ! file identifier
-!   integer(hid_t) :: plist_id      ! property list identifier
-! 
-!   t1=MPI_wtime() ! performance diagnostic
-! 
-!   if(mpirank == 0) then
-!      write(*,'("Dumping runtime_backup",i1,".h5 (time=",es12.4,") to disk....")',&
-!      advance='no') nbackup, time
-!   endif
-! 
-!   ! Create current filename:
-!   write(filename,'("runtime_backup",i1,".h5")') nbackup
-! 
-!   ! Initialize HDF5 library and Fortran interfaces:
-!   call h5open_f(error)
-! 
-!   !!! Setup file access property list with parallel I/O access.
-!   ! Set up a property list ("plist_id") with standard values for
-!   ! FILE_ACCESS:
-!   call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
-!   ! Modify the property list and store MPI IO comminucator information
-!   ! in the file access property list:
-!   call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
-! 
-!   ! Create the file collectively. (existing files are overwritten)
-!   call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error, &
-!        access_prp = plist_id)
-!   ! Close the property list (we'll re-use it)
-!   call h5pclose_f(plist_id, error)
-! 
-!   ! Write the fluid backup field:
-!   call ifft(work,ub(:,:,:,1))
-!   call dump_field_backup(work,"ux",time,dt0,dt1,n1,it,file_id)
-!   call ifft(work,ub(:,:,:,2))
-!   call dump_field_backup(work,"uy",time,dt0,dt1,n1,it,file_id)
-!   call ifft(work,ub(:,:,:,3))
-!   call dump_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
-!   
-!   if((method=="fsi").and.(use_passive_scalar==1)) then 
-!     call ifft(work,ub(:,:,:,4))
-!     call dump_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)   
-!   endif
-! 
-!   if(method == "mhd") then
-!      ! Write the MHD backup field:
-!      call ifft(work,ub(:,:,:,4))
-!      call dump_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
-!      call ifft(work,ub(:,:,:,5))
-!      call dump_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
-!      call ifft(work,ub(:,:,:,6))
-!      call dump_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
-!   endif
-! 
-!   ! Write the fluid nonlinear term backup:
-!   call ifft(work,nlk(:,:,:,1,0))
-!   call dump_field_backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
-!   call ifft(work,nlk(:,:,:,2,0))
-!   call dump_field_backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
-!   call ifft(work,nlk(:,:,:,3,0))
-!   call dump_field_backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
-!   call ifft(work,nlk(:,:,:,1,1))
-!   call dump_field_backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
-!   call ifft(work,nlk(:,:,:,2,1))
-!   call dump_field_backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
-!   call ifft(work,nlk(:,:,:,3,1))
-!   call dump_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
-!   
-!   
-!   if((method=="fsi").and.(use_passive_scalar==1)) then 
-!     call ifft(work,nlk(:,:,:,4,0))
-!     call dump_field_backup(work,"nlkscalar0",time,dt0,dt1,n1,it,file_id)
-!     call ifft(work,nlk(:,:,:,4,1))
-!     call dump_field_backup(work,"nlkscalar1",time,dt0,dt1,n1,it,file_id)
-!   endif
-!   
-!   if(method == "mhd") then
-!      ! Write the MHD backup field:
-!      call ifft(work,nlk(:,:,:,4,0))
-!      call dump_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
-!      call ifft(work,nlk(:,:,:,5,0))
-!      call dump_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
-!      call ifft(work,nlk(:,:,:,6,0))
-!      call dump_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
-!      call ifft(work,nlk(:,:,:,4,1))
-!      call dump_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
-!      call ifft(work,nlk(:,:,:,5,1))
-!      call dump_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
-!      call ifft(work,nlk(:,:,:,6,1))
-!      call dump_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
-!   endif
-! 
-!   ! Close the file:
-!   call h5fclose_f(file_id, error)
-!   ! Close FORTRAN interfaces and HDF5 library:
-!   call h5close_f(error)
-!   
-!   
-!   !-------------------------------------------------------------------------
-!   ! backup for the rigid body solver (free-flight insect)
-!   !-------------------------------------------------------------------------
-!   if ((method=="fsi").and.(mpirank==0)) then
-!   if (iMask=="Insect") then
-!   if ((Insect%BodyMotion=="takeoff").and.(Insect%KineFromFile=="simplified_dynamic")) then
-!     write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
-!     open(10, file=filename//".rigidsolver", form='formatted', status='replace') 
-!     write(10, *) SolidDyn%var_new, SolidDyn%var_this,&
-!                  SolidDyn%rhs_this, SolidDyn%rhs_old
-!     close(10)
-!   endif
-!   endif
-!   endif
-!   
-!   !-------------------------------------------------------------------------
-!   !-- backup solid solver, if doing active FSI
-!   !-------------------------------------------------------------------------
-!   if((use_solid_model=="yes").and.(method=="fsi")) then
-!     call dump_solid_backup( time, beams, nbackup )
-!   endif    
-!   
-!   nbackup = 1 - nbackup
-!   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
-! 
-!   if(mpirank == 0) write(*,'(A)') "...DONE!"
-! end subroutine dump_runtime_backup
+! write a runtime backup to disk. We're saving the fluid state vector 
+! u=(/ux,uy,uz,p/) in one HDF5 file and some FSI/insect information in separate 
+! files. The hdf5 file is written in double precision, to allow RK2/RK4 schemes
+! to resume exactly (without loss of precision) where it left. AB2 schemes are
+! different - they apply the startup step again (this associated with loos of 
+! precision)
+subroutine dump_runtime_backup(time,nbackup,u,Insect,beams)
+  use vars
+  use hdf5
+  use solid_model
+  use insect_module
+  implicit none
+  
+  type(timetype),intent(inout) :: time
+  integer,intent(inout) :: nbackup
+  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  type(solid),dimension(1:nBeams),intent(in) :: beams
+  type(diptera),intent(in) :: Insect
+
+  character(len=18) :: filename
+  real(kind=pr) :: t1
+  integer :: error  ! error flags
+  integer(hid_t) :: file_id       ! file identifier
+  integer(hid_t) :: plist_id      ! property list identifier
+
+  t1=MPI_wtime() ! performance diagnostic
+
+  ! Create name for the backup file. We keep at any time at most 2 sets of 
+  ! backups, runtime_backupX.h5 with X=0,1  
+  if(mpirank == 0) then
+     write(*,'("Dumping runtime_backup",i1,".h5 (time=",es12.4,") to disk....")',&
+     advance='no') nbackup, time%time
+  endif
+
+  ! Create current filename:
+  write(filename,'("runtime_backup",i1,".h5")') nbackup
+
+  ! Initialize HDF5 library and Fortran interfaces:
+  call h5open_f(error)
+
+  !!! Setup file access property list with parallel I/O access.
+  ! Set up a property list ("plist_id") with standard values for
+  ! FILE_ACCESS:
+  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! Modify the property list and store MPI IO comminucator information
+  ! in the file access property list:
+  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+
+  ! Create the file collectively. (existing files are overwritten)
+  call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error, &
+       access_prp = plist_id)
+  ! Close the property list (we'll re-use it)
+  call h5pclose_f(plist_id, error)
+
+  ! Write the fluid backup field:
+  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"ux",&
+       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"uy",&
+       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"uz",&
+       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call dump_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4),"p",&
+       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+
+       
+  ! Close the file:
+  call h5fclose_f(file_id, error)
+  ! Close FORTRAN interfaces and HDF5 library:
+  call h5close_f(error)
+  
+  
+  !-------------------------------------------------------------------------
+  ! backup for the rigid body solver (free-flight insect)
+  !-------------------------------------------------------------------------
+  if ((method=="fsi").and.(mpirank==0)) then
+  if (iMask=="Insect") then
+  if ((Insect%BodyMotion=="takeoff").and.(Insect%KineFromFile=="simplified_dynamic")) then
+    write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
+    open(10, file=filename//".rigidsolver", form='formatted', status='replace') 
+    write(10, *) SolidDyn%var_new, SolidDyn%var_this,&
+                 SolidDyn%rhs_this, SolidDyn%rhs_old
+    close(10)
+  endif
+  endif
+  endif
+  
+  !-------------------------------------------------------------------------
+  !-- backup solid solver, if doing active FSI
+  !-------------------------------------------------------------------------
+  if((use_solid_model=="yes").and.(method=="fsi")) then
+    call dump_solid_backup( time%time, beams, nbackup )
+  endif    
+  
+  nbackup = 1 - nbackup
+  time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
+
+  if(mpirank == 0) write(*,'(A)') "...DONE!"
+end subroutine dump_runtime_backup
 
 
 ! This routine dumps a single field "field" as a dataset "dsetname" to
@@ -826,125 +770,68 @@ end subroutine Read_Single_File
 
 
 
-! ! Load backup data from disk to initialize run for restart
-! subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
-!   use mpi
-!   use vars
-!   use p3dfft_wrapper
-!   use hdf5
-!   implicit none
-! 
-!   character(len=*),intent(in) :: filename
-!   real(kind=pr),intent(out) :: time,dt1,dt0
-!   integer,intent(out) :: n1,it
-!   complex(kind=pr), intent(out) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-!   complex(kind=pr),intent(out)::&
-!        nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-!   real(kind=pr),intent(out) :: explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-!   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-! 
-!   integer :: error  ! Error flag
-!   integer(hid_t) :: file_id       ! File identifier
-!   integer(hid_t) :: plist_id      ! Property list identifier
-! 
-!   if(mpirank == 0) then
-!      write(*,'("---------")')
-!      write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
-!   endif
-!   
-!   call check_file_exists ( filename )
-! 
-!   ! Initialize HDF5 library and Fortran interfaces.
-!   call h5open_f(error)
-! 
-!   ! Setup file access property list with parallel I/O access.  this
-!   ! sets up a property list ("plist_id") with standard values for
-!   ! FILE_ACCESS
-!   call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
-!   ! this modifies the property list and stores MPI IO
-!   ! comminucator information in the file access property list
-!   call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
-!   ! open the file in parallel
-!   call h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
-!   ! this closes the property list (we'll re-use it)
-!   call h5pclose_f(plist_id, error)
-! 
-!   ! Read fluid backup field:
-!   call read_field_backup(work,"ux",time,dt0,dt1,n1,it,file_id)
-!   call fft(uk(:,:,:,1),work)
-!   call read_field_backup(work,"uy",time,dt0,dt1,n1,it,file_id)
-!   call fft(uk(:,:,:,2),work)
-!   call read_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
-!   call fft(uk(:,:,:,3),work)
-! 
-!   if((method=="fsi").and.(use_passive_scalar==1)) then 
-!     call read_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)
-!     call fft(uk(:,:,:,4),work)
-!   endif
-!   
-!   if(method == "mhd") then
-!      ! Read MHD backup field:
-!      call read_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
-!      call fft(uk(:,:,:,4),work)
-!      call read_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
-!      call fft(uk(:,:,:,5),work)
-!      call read_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
-!      call fft(uk(:,:,:,6),work)
-!   endif
-! 
-!   ! Read fluid nonlinear source term backup:
-!   call read_field_backup(work,"nlkx0",time,dt0,dt1,n1,it,file_id)
-!   call fft(nlk(:,:,:,1,0),work)
-!   call read_field_backup(work,"nlky0",time,dt0,dt1,n1,it,file_id)
-!   call fft(nlk(:,:,:,2,0),work)
-!   call read_field_backup(work,"nlkz0",time,dt0,dt1,n1,it,file_id)
-!   call fft(nlk(:,:,:,3,0),work)
-!   call read_field_backup(work,"nlkx1",time,dt0,dt1,n1,it,file_id)
-!   call fft(nlk(:,:,:,1,1),work)
-!   call read_field_backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
-!   call fft(nlk(:,:,:,2,1),work)
-!   call read_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
-!   call fft(nlk(:,:,:,3,1),work)
-! 
-!   if((method=="fsi").and.(use_passive_scalar==1)) then 
-!     call read_field_backup(work,"nlkscalar0",time,dt0,dt1,n1,it,file_id)
-!     call fft(nlk(:,:,:,4,0),work)
-!     call read_field_backup(work,"nlkscalar1",time,dt0,dt1,n1,it,file_id)
-!     call fft(nlk(:,:,:,4,1),work)
-!   endif
-!   
-!   if(method == "mhd") then
-!      ! Read MHD nonlinear source term backup too:
-!      call read_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
-!      call fft(nlk(:,:,:,4,0),work)
-!      call read_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
-!      call fft(nlk(:,:,:,5,0),work)
-!      call read_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
-!      call fft(nlk(:,:,:,6,0),work)
-!      call read_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
-!      call fft(nlk(:,:,:,4,1),work)
-!      call read_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
-!      call fft(nlk(:,:,:,5,1),work)
-!      call read_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
-!      call fft(nlk(:,:,:,6,1),work)
-!   endif
-! 
-!   call h5fclose_f(file_id,error)
-!   call H5close_f(error)
-! 
-!   ! It is important to have explin, because it won't be initialized
-!   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
-!   ! are you sure about dt1??? TODO) 
-!   ! FIXME: only compute if dt0=dt1?
-!   call cal_vis(dt1,explin)
-! 
-!   if(mpirank == 0) then
-!      write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
-!      write(*,'("!!! DONE READING BACKUP (thats good news!)")')
-!      write(*,'("---------")')
-!   endif
-! 
-! end subroutine read_runtime_backup
+! Load backup data from disk to initialize run for restart
+subroutine read_runtime_backup(filename,time,u,Insect,beams)
+  use vars
+  use hdf5
+  use solid_model
+  use insect_module
+  implicit none
+
+  character(len=*),intent(in) :: filename
+  type(timetype),intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  type(solid),dimension(1:nBeams),intent(in) :: beams
+  type(diptera),intent(in) :: Insect
+
+  integer :: error  ! Error flag
+  integer(hid_t) :: file_id       ! File identifier
+  integer(hid_t) :: plist_id      ! Property list identifier
+
+  if(mpirank == 0) then
+     write(*,'("---------")')
+     write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
+  endif
+  
+  call check_file_exists ( filename )
+
+  ! Initialize HDF5 library and Fortran interfaces.
+  call h5open_f(error)
+
+  ! Setup file access property list with parallel I/O access.  this
+  ! sets up a property list ("plist_id") with standard values for
+  ! FILE_ACCESS
+  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! this modifies the property list and stores MPI IO
+  ! comminucator information in the file access property list
+  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  ! open the file in parallel
+  call h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
+  ! this closes the property list (we'll re-use it)
+  call h5pclose_f(plist_id, error)
+
+  ! Read fluid backup field:
+  call read_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1),"ux",&
+       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call read_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2),"uy",&
+       time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call read_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3),"uz",&
+        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)
+  call read_field_backup(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),4),"p",&
+        time%time,time%dt_old,time%dt_new,time%n1,time%it,file_id)       
+
+  ! Close the file:
+  call h5fclose_f(file_id,error)
+  ! Close FORTRAN interfaces and HDF5 library:
+  call H5close_f(error)
+
+  if(mpirank == 0) then
+     write(*,'("time=",es15.8," dt0=",es15.8)') time%time, time%dt_old
+     write(*,'("!!! DONE READING BACKUP (thats good news!)")')
+     write(*,'("---------")')
+  endif
+
+end subroutine read_runtime_backup
 
 
 ! This routine reads a single field "dsetname" from a backup file

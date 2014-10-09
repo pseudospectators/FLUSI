@@ -198,6 +198,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
   use insect_module
   use solid_model
+  use basic_operators
   
   implicit none
   type(timetype), intent(inout) :: time
@@ -217,12 +218,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
   call synchronize_ghosts_FD (u)
   
-!   if (mpisize==1) then
-!     uxmean=sum(u(:,:,:,1))/dble(nx*ny*nz)
-!   else
-!     write(*,*) "to do mpisize"
-!     call abort()
-!   endif
+  uxmean = volume_integral(u(:,:,:,1))/(xl*yl*zl)
   
   dxinv = 1.d0/(2.d0*dx)
   dyinv = 1.d0/(2.d0*dy)
@@ -276,7 +272,7 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         uzdydy = (u(ix,iy-1,iz,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy+1,iz,3))*dy2inv 
         uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
         
-        fx = 0.d0!max(0.d0,1.d0-uxmean)
+        fx = max(0.d0,1.d0-uxmean)
         
         nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx +fx
         nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly
