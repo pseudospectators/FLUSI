@@ -23,11 +23,11 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
    LeadingEdge = 0.0
 
   select case (imposed_motion_leadingedge)
-  case ("fixed_middle")
+  case ("fixed_x0y0z0")
      !--------------------------------------------------------------------------
      ! fixed
      !--------------------------------------------------------------------------
-     alpha    = beam%AngleBeam*pi/180.0
+     alpha    = deg2rad( beam%AngleBeam )
      alpha_t  = 0.0
      alpha_tt = 0.0!!
      
@@ -112,10 +112,10 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   real(kind=pr),dimension(1:3,1:3) :: M1,M2,M3
   
   select case (imposed_motion_leadingedge)
-  case ("fixed_middle")  
+  case ("fixed_x0y0z0")  
       !-- beam is in the middle of the domain and bends in x-y direction
       !-- z direction is height
-      x0_plate = (/ 0.5d0,0.5*yl,0.5*zl /)
+      x0_plate = (/ x0,y0,z0 /)
       v0_plate = 0.d0
       psi = 0.d0
       beta = 0.d0
@@ -155,7 +155,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       gamma_dt = 0.d0
       
   case ("swimmer_simplified") 
-      x0_plate = (/ x0,y0,z0 /) +1.0d-8
+      x0_plate = (/ x0,y0,z0 /)
       v0_plate = 0.d0
 
       psi = 0.d0

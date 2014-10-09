@@ -290,7 +290,7 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
   !   An euler-explicit step is made, ghostpoints are added 
   !--------------------------------------------------------------------
   
-  call EE1 (time, dt, beam_guess, pressure_old, T, tau_beam_old, beam_solid)
+  call EE1s (time, dt, beam_guess, pressure_old, T, tau_beam_old, beam_solid)
   ! now we compute the ghostpoints Theta(-1); Theta(ns); Theta(ns+1); T(-1)
   theta_guess(0:ns-1) = beam_guess(0:ns-1,5) !because of this, temp(1) = 0 (second point added for boundarys)
   !-- leading edge boundary conditions (constants)

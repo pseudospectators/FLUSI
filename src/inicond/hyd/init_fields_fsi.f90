@@ -83,12 +83,13 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the solid solver
   !-----------------------------------------------------------------------------
-!   if (use_solid_model=="yes") then
-!     if(mpirank==0) write(*,*) "Initializing solid solver and testing..."
-!     call init_beams( beams )
-!     call surface_interpolation_testing( time, beams(1), press )
-!     call init_beams( beams )
-!   endif
+  if (use_solid_model=="yes") then
+    if(mpirank==0) write(*,*) "Initializing solid solver and testing..."
+    call init_beams( beams )
+    call show_beam(beams(1))
+    call surface_interpolation_testing( time%time, beams(1),work(:,:,:,1),mask,mask_color,us )
+    call init_beams( beams )
+  endif
   
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the passive scalar(s)

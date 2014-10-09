@@ -44,9 +44,8 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !   case("FSI_AB2_staggered")
 !       call FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
 !            workc,expvis,press,beams)
-!   case("FSI_AB2_semiimplicit")
-!       call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-!            workc,expvis,press,beams)
+  case("FSI_RK2_semiimplicit")
+      call FSI_RK2_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case default
       if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
       call abort()
@@ -365,6 +364,63 @@ end subroutine FluidTimestep
 !     
 ! end subroutine FSI_AB2_semiimplicit
 
+
+!-------------------------------------------------------------------------------
+! semi implicit explicit staggered scheme for FSI simulations, uses AB2 for the
+! fluid (or euler on startup) and evaluates the pressure at both old and new 
+! time level. since computing the pressure is almost as expensive as doing a full
+! fluid time step, this scheme is twice as expensive as its explicit counterpart
+! FSI_AB2_staggered.
+!-------------------------------------------------------------------------------
+subroutine FSI_RK2_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use vars
+  use solid_model
+  use insect_module
+  implicit none
+
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
+  
+  ! useful error messages
+  if (use_solid_model/="yes") then 
+   write(*,*) "using FSI_AB2_staggered without solid model?"
+   call abort()
+  endif
+  
+  !---------------------------------------------------------------------------
+  ! get forces at old time level
+  !---------------------------------------------------------------------------  
+  ! TODO: do we need that? not for BDF I think
+  call get_surface_pressure_jump (time%time, beams(1), u(:,:,:,4), timelevel="old")
+  
+  !---------------------------------------------------------------------------
+  ! create mask
+  !---------------------------------------------------------------------------
+  ! mask is created in RHS
+  
+  !---------------------------------------------------------------------------
+  ! advance fluid to from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  call RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  
+  !---------------------------------------------------------------------------
+  ! get forces at new time level
+  !---------------------------------------------------------------------------  
+  call get_surface_pressure_jump (time%time, beams(1), u(:,:,:,4), timelevel="new")
+  
+  !---------------------------------------------------------------------------  
+  ! advance solid model from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  call SolidSolverWrapper( time%time, time%dt_new, beams )
+    
+end subroutine FSI_RK2_semiimplicit
 
 
 ! !-------------------------------------------------------------------------------

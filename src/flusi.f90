@@ -123,6 +123,8 @@ subroutine Start_Simulation()
     nrhs=2  ! number of registers for right hand side vectors
     time%n0=1
     time%n1=2
+  elseif (iTimeMethodFluid=="FSI_RK2_semiimplicit") then
+    nrhs = 2
   else
     write(*,*) "error ganz am anfang"
     stop
@@ -131,7 +133,7 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! ghost points
   !-----------------------------------------------------------------------------
-  ng=2 ! zero ghost points  
+  ng=3 ! zero ghost points  
   if (root) write(*,'("Set up ng=",i1," ghost points")') ng
   
   !-----------------------------------------------------------------------------
