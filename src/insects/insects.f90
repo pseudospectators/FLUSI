@@ -140,6 +140,7 @@ subroutine Draw_Insect ( time, Insect )
   ! routines that don't use fourier)
   if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
   if (Insect%WingShape=='rectangular') fourier_wing = .false.
+  if (Insect%WingShape=='suzuki') fourier_wing = .false.
     
   !-- define the wings fourier coeffients, but only once  
   if (fourier_wing) call Setup_Wing_Fourier_coefficients(Insect)  

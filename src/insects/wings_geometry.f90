@@ -11,7 +11,7 @@ subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
   use fsi_vars
   use mpi
   implicit none
-  real(kind=pr) :: a_body, R, R0, x_top, x_bot
+  real(kind=pr) :: a_body, R, R0, x_top, x_bot, y_left, y_right
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp
   type(diptera),intent(inout)::Insect
@@ -41,19 +41,28 @@ subroutine DrawWing_simple(ix,iy,iz,Insect,x_wing,M,rot,icolor)
       x_top = 0.d0
       x_bot = 0.d0
       endif
+      y_right = Insect%L_span
+      y_left = 0.0d0
     case ('rectangular')
       x_top = Insect%b_top
       x_bot =-Insect%b_bot
+      y_right = Insect%L_span
+      y_left = 0.0d0
+    case ('suzuki')
+      x_top = 0.0667d0
+      x_bot = -0.35d0
+      y_right = 1.0d0
+      y_left = 0.1667d0
   end select
       
   
   !-- in the x-direction, the actual wing shape plays.    
   if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then        
     !-- smooth length
-    if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
-      y_tmp = steps(-x_wing(2),0.d0)
+    if ((x_wing(2)-y_left)<0.d0) then  ! xs is chordlength coordinate
+      y_tmp = steps(-(x_wing(2)-y_left),0.d0)
     else
-      y_tmp = steps( x_wing(2),Insect%L_span)
+      y_tmp = steps( (x_wing(2)-y_left),y_right-y_left)
     endif
 
     !-- smooth height
