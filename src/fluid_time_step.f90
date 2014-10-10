@@ -48,6 +48,8 @@ subroutine FluidTimestep(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 !            workc,expvis,press,beams)
   case("FSI_RK2_semiimplicit")
       call FSI_RK2_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  case("FSI_RK4_semiimplicit")
+      call FSI_RK4_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   case default
       if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
       call abort()
