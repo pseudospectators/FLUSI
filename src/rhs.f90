@@ -97,8 +97,6 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   ! fetch forcing term used to accelerate the mean flow
   call forcing_term(time,u,forcing)
   
-  
-  
   dxinv = 1.d0/(2.d0*dx)
   dyinv = 1.d0/(2.d0*dy)
   dzinv = 1.d0/(2.d0*dz)
@@ -468,8 +466,7 @@ subroutine forcing_term(time,u,forcing)
   
   if (iMeanFlow_x=="accelerate_to_unity") then
     ! compute mean velocity in this direction
-    ux_mean = volume_integral(u(:,:,:,1))/(xl*yl*zl)
-    
+    ux_mean = volume_integral(u(:,:,:,1))/(xl*yl*zl)    
     ! the force stabilizes around unity
     forcing(1) = max(0.d0,1.d0-ux_mean)
   endif
@@ -480,7 +477,7 @@ subroutine forcing_term(time,u,forcing)
   endif
   
   if (iMeanFlow_z=="accelerate_to_unity") then
-    uz_mean = volume_integral(u(:,:,:,2))/(xl*yl*zl)
+    uz_mean = volume_integral(u(:,:,:,3))/(xl*yl*zl)
     forcing(3) = max(0.d0,1.d0-uz_mean)
   endif
   

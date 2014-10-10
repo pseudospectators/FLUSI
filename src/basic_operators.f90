@@ -685,10 +685,12 @@ real(kind=pr) function  volume_integral( u )
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
-        int_local = int_local + u(ix,iy,iz)*dxyz
+        int_local = int_local + u(ix,iy,iz)
       enddo
     enddo
   enddo    
+  
+  int_local = int_local*dxyz
 
   call MPI_ALLREDUCE (int_local,volume_integral,1,&
        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
