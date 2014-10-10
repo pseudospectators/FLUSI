@@ -19,7 +19,7 @@ subroutine cal_drag ( t, u, mask, mask_color, us, Insect )
   implicit none
   
   type(timetype),intent(in) :: t
-  real(kind=pr),intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  real(kind=pr),intent(in) :: u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(in) :: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(in) :: us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(in)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
