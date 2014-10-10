@@ -13,11 +13,12 @@ subroutine draw_sphere(mask, mask_color, us)
   N_smooth = 1.5d0
 
   do iz=ra(3),rb(3)
+    z=dble(iz)*dz
     do iy=ra(2),rb(2)
+      y=dble(iy)*dy
       do ix=ra(1),rb(1)
         x=dble(ix)*dx
-        y=dble(iy)*dy
-        z=dble(iz)*dz
+        
         R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
         if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
           call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))

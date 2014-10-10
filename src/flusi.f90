@@ -260,7 +260,7 @@ subroutine Start_Simulation()
   !-------------------------
   ! Show the breakdown of timing information
   !-------------------------
-  if (root .and. dry_run_without_fluid /="yes") call show_timings(t2)
+  call show_timings(t2)
 end subroutine Start_Simulation
 
 

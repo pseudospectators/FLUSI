@@ -11,37 +11,12 @@
 subroutine write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
   use solid_model
+  use basic_operators
   use insect_module
   implicit none
 
   type(timetype), intent(inout) :: time
   real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
-  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  type(solid), dimension(1:nBeams),intent(inout) :: beams
-  type(diptera), intent(inout) :: Insect 
-  
-  real(kind=pr) :: t1
-  
-  t1=MPI_wtime()
-  call write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)  
-  time_integrals = time_integrals + MPI_wtime()-t1
-end subroutine 
-
-
-! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
-  use vars
-  use basic_operators
-  use solid_model
-  use insect_module
-  implicit none
-
-  type(timetype), intent(inout) :: time
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -57,6 +32,8 @@ subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   real(kind=pr) :: diss, dissx, dissy, dissz
   real(kind=pr) :: dissf, dissxf, dissyf, disszf
   integer :: ix,iy,iz,mpicode
+  real(kind=pr) :: t1
+  t1=MPI_wtime()
   
   !-----------------------------------------------------------------------------
   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
@@ -68,7 +45,7 @@ subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     ! to compute the forces, we need the mask at time t. not we cannot suppose
     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
     ! have to reconstruct the mask now. solids are also at time t
-    if(iMoving==1) call create_mask( time%time,mask,mask_color,us, Insect, beams )
+    if(iMoving==1) call create_mask( time%time, mask, mask_color, us, Insect, beams )
     call cal_drag ( time, u, mask, mask_color, us, Insect )
     time_drag = time_drag + MPI_wtime() - t3
   endif
@@ -147,7 +124,7 @@ subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   uzmean = volume_integral(u(:,:,:,3)) / (xl*yl*zl)
   if (mpirank==0) then
      open  (14,file='meanflow.t',status='unknown',position='append')
-     write (14,'(4(es15.8,1x))') time%time, uxmean,uymean,uzmean
+     write (14,'(4(es15.8,1x))') time%time, uxmean, uymean, uzmean
      close (14)
   endif
 !   
@@ -180,6 +157,8 @@ subroutine write_integrals_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     close(14)
   endif
   
+  
+  time_integrals = time_integrals + MPI_wtime()-t1
 end subroutine 
 
 
@@ -299,201 +278,7 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
   call MPI_ALLREDUCE(LEz,Ez,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        MPI_COMM_WORLD,mpicode)
 end subroutine compute_energies
-! 
-! 
-! ! Compute the average average component in each direction for a
-! ! physical-space vector fields with components f1, f2, f3, leaving the
-! ! input vector field untouched.
-! subroutine compute_components(mask,Cx,Cy,Cz,f1,f2,f3)
-!   use mpi
-!   use vars
-!   implicit none
-!   
-!   real(kind=pr),intent(out) :: Cx,Cy,Cz
-!   real(kind=pr),intent(inout):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(inout):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(inout):: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr) :: LCx,LCy,LCz ! local quantities
-!   real(kind=pr) :: v1,v2,v3
-!   integer :: ix,iy,iz,mpicode
-! 
-!   ! initialize local variables
-!   LCx=0.d0
-!   LCy=0.d0
-!   LCz=0.d0
-! 
-!   ! Add contributions in physical space
-!   do ix=ra(1),rb(1)
-!      do iy=ra(2),rb(2)
-!         do iz=ra(3),rb(3)
-!            if(mask(ix,iy,iz) == 0.d0) then
-!               v1=f1(ix,iy,iz)
-!               v2=f2(ix,iy,iz)
-!               v3=f3(ix,iy,iz)
-!               
-!               LCx=LCx + v1
-!               LCy=LCy + v2
-!               LCz=LCz + v3
-!            endif
-!         enddo
-!      enddo
-!   enddo
-! 
-!   LCx=LCx*dx*dy*dz
-!   LCy=LCy*dx*dy*dz
-!   LCz=LCz*dx*dy*dz
-!   
-!   ! Sum over all MPI processes
-!   call MPI_REDUCE(LCx,Cx,&
-!        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-!        MPI_COMM_WORLD,mpicode)
-!   call MPI_REDUCE(LCy,Cy,&
-!        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-!        MPI_COMM_WORLD,mpicode)
-!   call MPI_REDUCE(LCz,Cz,&
-!        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-!        MPI_COMM_WORLD,mpicode)
-! end subroutine compute_components
 
-! 
-! 
-! ! Compute the maximum non-normalized divergence of the given 3D field
-! ! fk1, fk2, fk3, 
-! subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
-!   use mpi
-!   use vars
-!   use p3dfft_wrapper
-!   implicit none
-! 
-!   real(kind=pr),intent(out) :: maxdiv  
-!   real(kind=pr),intent(in):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(in):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(in):: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   complex(kind=pr),intent(in) ::fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-!   complex(kind=pr),intent(in) ::fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-!   complex(kind=pr),intent(in) ::fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-!   complex(kind=pr),intent(inout) ::divk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-!   real(kind=pr),intent(inout):: div(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   integer :: ix,iy,iz,mpicode
-!   real(kind=pr) :: kx, ky, kz, locmax,  v1,v2,v3,d
-!   ! real(kind=pr) fnorm ! Only used for normalized version.
-!   complex(kind=pr) :: imag ! imaginary unit
-! 
-!   imag = dcmplx(0.d0,1.d0)
-! 
-!   ! Compute the divergence in Fourier space, store in divk
-!   do iz=ca(1),cb(1)          
-!     !-- wavenumber in z-direction
-!     kz = wave_z(iz)       
-!     do iy=ca(2), cb(2)
-!       !-- wavenumber in y-direction
-!       ky = wave_y(iy)      
-!       do ix=ca(3), cb(3)
-!         !-- wavenumber in x-direction
-!         kx = wave_x(ix)
-! 
-!         divk(iz,iy,ix)=imag*&
-!             (kx*fk1(iz,iy,ix)&
-!             +ky*fk2(iz,iy,ix)&
-!             +kz*fk3(iz,iy,ix))
-!       enddo
-!     enddo
-!   enddo
-! 
-!   call ifft(div,divk)
-!   
-!   ! Find the local max
-!   
-!   ! FIXME: at least in the present version, this can be simplified to
-!   ! locmax = maxval(abs(div))
-!   ! without loss of functionality or performance.
-!   
-!   locmax=0.d0
-!   do ix=ra(1),rb(1)
-!      do iy=ra(2),rb(2)
-!         do iz=ra(3),rb(3)
-!            if(mask(ix,iy,iz) == 0.d0) then
-!               
-!               v1=f1(ix,iy,iz)
-!               v2=f2(ix,iy,iz)
-!               v3=f3(ix,iy,iz)
-!               
-!               ! Normalized version:
-!               ! fnorm=v1*v2 + v2*v2 + v3*v3 + 1d-8 ! avoid division by zero
-!               ! d=abs(div(ix,iy,iz))/fnorm
-!               
-!               ! Non-normalized version:
-!               d=abs(div(ix,iy,iz))
-!               
-!               if(d > locmax) then
-!                  locmax=d
-!               endif
-!            endif
-!         enddo
-!      enddo
-!   enddo
-! 
-!   ! Find the global max
-!   call MPI_REDUCE(locmax,maxdiv,&
-!        1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
-!        MPI_COMM_WORLD,mpicode)
-! end subroutine compute_max_div
-! 
-! 
-! ! Compute the maximum components of the given 3D field with
-! ! componennts f1, f2, f3.
-! subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
-!   use mpi
-!   use vars
-!   implicit none
-! 
-!   real(kind=pr),intent(out) :: vmax,xmax,ymax,zmax
-!   real(kind=pr),intent(in):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(in):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   real(kind=pr),intent(in):: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-!   integer :: ix,iy,iz,mpicode
-!   real(kind=pr) :: v1,v2,v3
-!   real(kind=pr) :: Lmax,Lxmax,Lymax,Lzmax
-! 
-!   Lmax=0.d0
-!   Lxmax=0.d0
-!   Lymax=0.d0
-!   Lzmax=0.d0
-! 
-!   ! Find the (per-process) max norm and max components in physical
-!   ! space
-!   do ix=ra(1),rb(1)
-!      do iy=ra(2),rb(2)
-!         do iz=ra(3),rb(3)
-!            if(mask(ix,iy,iz) == 0.d0) then
-!               v1=f1(ix,iy,iz)
-!               v2=f2(ix,iy,iz)
-!               v3=f3(ix,iy,iz)
-!               Lmax=max(Lmax,dsqrt(v1*v1 + v2*v2 + v3*v3))
-!               Lxmax=max(Lxmax,v1)
-!               Lymax=max(Lymax,v2)
-!               Lzmax=max(Lzmax,v3)
-!            endif
-!         enddo
-!      enddo
-!   enddo
-! 
-!   ! Determine the global max
-!   call MPI_REDUCE(Lmax,vmax,&
-!        1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
-!        MPI_COMM_WORLD,mpicode)
-!   call MPI_REDUCE(Lxmax,xmax,&
-!        1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
-!        MPI_COMM_WORLD,mpicode)
-!   call MPI_REDUCE(Lymax,ymax,&
-!        1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
-!        MPI_COMM_WORLD,mpicode)
-!   call MPI_REDUCE(Lzmax,zmax,&
-!        1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
-!        MPI_COMM_WORLD,mpicode)
-! end subroutine compute_max
-! 
-! 
  
  
 ! Compute the fluid volume.

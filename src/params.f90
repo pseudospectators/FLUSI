@@ -79,7 +79,6 @@ subroutine get_params(paramsfile,Insect)
     call param_str(PARAMS,i,"InitialCondition","file_p",file_p, "none")
   endif
 
-
   !-----------------------------------------------------------------------------
   ! Saving section
   !-----------------------------------------------------------------------------
