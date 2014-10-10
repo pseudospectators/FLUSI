@@ -125,6 +125,8 @@ subroutine Start_Simulation()
     time%n1=2
   elseif (iTimeMethodFluid=="FSI_RK2_semiimplicit") then
     nrhs = 2
+  elseif (iTimeMethodFluid=="FSI_RK4_semiimplicit") then
+    nrhs = 5
   else
     write(*,*) "error ganz am anfang"
     stop

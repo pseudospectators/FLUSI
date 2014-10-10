@@ -427,6 +427,63 @@ subroutine FSI_RK2_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
 end subroutine FSI_RK2_semiimplicit
 
 
+!-------------------------------------------------------------------------------
+! semi implicit explicit staggered scheme for FSI simulations
+! We first interpolate the pressure at the old timelevel t^n
+! then advance the fluid to the next time level t^n+1 by using a suitable
+! integrator. The interpolated pressure at the new time level is then the input
+! to the solid solver which is advanced then
+! during the fluid time step, the mask function is held constant
+!-------------------------------------------------------------------------------
+subroutine FSI_RK4_semiimplicit(time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  use vars
+  use solid_model
+  use insect_module
+  implicit none
+
+  type(timetype), intent(inout) :: time
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
+  real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect 
+  
+  ! useful error messages
+  if (use_solid_model/="yes") then 
+   write(*,*) "using FSI_RK2_semiimplicit without solid model?"
+   call abort()
+  endif
+  
+  !---------------------------------------------------------------------------
+  ! get forces at old time level
+  !---------------------------------------------------------------------------  
+  ! since the BDF scheme evaluates the beam RHS only at the new time level (and
+  ! not at the old one at all) the pressure at t^n is not required when using BDF2
+  if ( TimeMethodSolid .ne. "BDF2") then
+    call get_surface_pressure_jump (time%time, beams(1), u(:,:,:,4), timelevel="old")
+  endif
+  
+  !---------------------------------------------------------------------------
+  ! advance fluid to from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  call RK4 (time,u,nlk,work,mask,mask_color,us,Insect,beams)
+  
+  !---------------------------------------------------------------------------
+  ! get forces at new time level
+  !---------------------------------------------------------------------------  
+  call get_surface_pressure_jump (time%time, beams(1), u(:,:,:,4), timelevel="new")
+  
+  !---------------------------------------------------------------------------  
+  ! advance solid model from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  call SolidSolverWrapper ( time%time, time%dt_new, beams )
+    
+end subroutine FSI_RK4_semiimplicit
+
+
 ! !-------------------------------------------------------------------------------
 ! ! FIXME: add documentation: which arguments are used for what?
 ! !-------------------------------------------------------------------------------
