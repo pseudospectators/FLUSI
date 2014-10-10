@@ -221,6 +221,22 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
     endif
   endif
   
+  !-----------------------------------------------------------------------------
+  ! forcing that accelerates mean flow from rest to unity and keeps it there
+  !-----------------------------------------------------------------------------
+  if(iMeanFlow_x=="accelerate_to_unity".or.iMeanFlow_y=="accelerate_to_unity".or.iMeanFlow_z=="accelerate_to_unity") then 
+    if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+      fx = max(0.d0,1.d0-dreal(uk(0,0,0,1)))
+      fy = max(0.d0,1.d0-dreal(uk(0,0,0,2)))
+      fz = max(0.d0,1.d0-dreal(uk(0,0,0,3)))
+      if(iMeanFlow_x=="accelerate_to_unity") nlk(0,0,0,1) = nlk(0,0,0,1) + fx
+      if(iMeanFlow_y=="accelerate_to_unity") nlk(0,0,0,2) = nlk(0,0,0,2) + fy
+      if(iMeanFlow_z=="accelerate_to_unity") nlk(0,0,0,3) = nlk(0,0,0,3) + fz
+    endif
+  endif
+  
+  
+  
   time_nlk = time_nlk + MPI_wtime() - t0
 end subroutine cal_nlk_fsi
 
