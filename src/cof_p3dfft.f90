@@ -189,10 +189,6 @@ subroutine fft_free
   integer :: j
 
   !-- Clean 3d workspace
-  if(mpirank ==0) then
-     write(*,*) "*** cleaning FFT"
-  endif
-
   call p3dfft_clean
 
   !-- Clean 1d workspaces
@@ -218,18 +214,14 @@ subroutine coftxyz(f,fk)
 
   real(kind=pr),intent(in) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr),save :: t1
   real(kind=pr) :: norm
 
-  t1 = MPI_wtime()
   ! Compute forward FFT
   call p3dfft_ftran_r2c(f,fk,'fff')
 
   ! Normalize
   norm = 1.d0 / dble(nx*ny*nz)
   fk(:,:,:) = fk(:,:,:) * norm
-
-  time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
 end subroutine coftxyz
 
 
@@ -245,112 +237,10 @@ subroutine cofitxyz(fk,f)
 
   complex(kind=pr),intent(in) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real(kind=pr),intent(out) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),save :: t1
-  t1 = MPI_wtime()
-
   ! Compute backward FFT
   call p3dfft_btran_c2r(fk,f,'fff')
-
-
-  time_ifft  = time_ifft  + MPI_wtime() - t1
 end subroutine cofitxyz
 
-
-subroutine cofts(iplan,f,fk,L,n)
-  !====================================================================
-  !     Calculation of the Fourier coefficients of n real functions
-  !     aligned in columns
-  !     FILTERING
-  !     FFTW3 library is used
-  !====================================================================
-  use vars
-  use fftw3_descriptors
-  implicit none
-  include 'fftw3.f'
-
-  integer,intent(in) :: iplan,L,n
-  integer :: j
-  real(kind=pr),dimension(:,:),allocatable :: ft
-  real(kind=pr),dimension(0:L-1,0:n-1),intent(in) ::  f
-  real(kind=pr),dimension(0:L-1,0:n-1),intent(out) ::  fk
-  real(kind=pr) :: norm
-
-  allocate(ft(0:L+1,0:n-1) )
-
-  call dfftw_execute_dft_r2c(Desc_Handle_1D_f(iplan),f,ft)
-
-  ! Output
-  norm = 1.0 / real(L)
-  do j=0,n-1
-     fk(:,j) = ft(0:L-1,j) * norm
-  end do
-
-  deallocate(ft )
-
-  !      last mode M=L, L+1; mode KF left unconsidered => filtering
-end subroutine cofts
-
-
-subroutine cofits(iplan,fk,f,L,n)
-  !====================================================================
-  !     Calculation of n real functions from their Fourier coefficients
-  !     aligned in columns
-  !     FILTERING
-  !     FFTW3 library is used
-  !====================================================================
-  use vars
-  use fftw3_descriptors
-  implicit none
-  include 'fftw3.f'
-
-  integer,intent(in) :: iplan,L,n
-  integer :: j
-  real(kind=pr),dimension(:,:),allocatable :: ft
-  real(kind=pr),dimension(0:L-1,0:n-1),intent(in) ::  fk
-  real(kind=pr),dimension(0:L-1,0:n-1),intent(out) ::  f
-
-  allocate(ft(0:L+1,0:n-1) )
-
-  ! Input
-  do j=0,n-1
-     ft(0:L-1,j) = fk(:,j)
-     ft(L:L+1,j) = 0.0
-  end do
-
-  call dfftw_execute_dft_c2r(Desc_Handle_1D_b(iplan),ft,f)
-
-  deallocate(ft )
-
-  ! last mode M=L, L+1; mode KF left unconsidered => filtering
-end subroutine cofits
-
-! Compute extents of transposed arrays
-subroutine trextents(idir,n,mpidims,mpicoords,ka,kb,ks,kat,kbt,kst )
-  implicit none
-
-  integer,intent(in) :: idir
-  integer,dimension(1:3),intent(in) :: n
-  integer,dimension(2),intent(in) :: mpidims,mpicoords
-  integer,dimension(1:3),intent(out) :: ka,kb,ks,kat,kbt,kst
-
-  ka(1) = 0
-  kb(1) = n(1)-1
-  ka(2) = mpicoords(2)*n(2)/mpidims(2)
-  kb(2) =(mpicoords(2)+1)*n(2)/mpidims(2)-1
-  ka(3) = mpicoords(1)*n(3)/mpidims(1)
-  kb(3) =(mpicoords(1)+1)*n(3)/mpidims(1)-1
-  ks(:) = kb(:)-ka(:)+1
-
-  kat(1) = 0
-  kbt(1) = n(idir+1)-1
-  kat(1+idir) = mpicoords(3-idir)*n(1)/mpidims(3-idir)
-  kbt(1+idir) =(mpicoords(3-idir)+1)*n(1)/mpidims(3-idir)-1
-  kat(4-idir) = ka(4-idir)
-  kbt(4-idir) = kb(4-idir)
-  kst(:) = kbt(:)-kat(:)+1
-
-end subroutine trextents
- 
 
 !----------------------------------------------------------------
 ! wavenumber functions: return the kx,ky,kz wavenumbers

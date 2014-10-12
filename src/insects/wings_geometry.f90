@@ -41,7 +41,8 @@ end subroutine draw_wing
 ! datastructure, so the function Set_Wing_Fourier_coefficients must be called
 ! before calling this subroutine. Fourier series is evaluated in
 ! Radius_Fourier
-subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,rot)
+subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
+           M_wing,x_pivot,rot)
   use vars
   implicit none
   
@@ -118,7 +119,8 @@ end subroutine draw_wing_fourier
 
 !-------------------------------------------------------------------------------
 
-subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,rot)
+subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
+           M_wing,x_pivot,rot)
   use vars
   implicit none
   
@@ -208,7 +210,8 @@ end subroutine draw_wing_rectangular
 ! note to save a bit of computing time, we first check the easy
 ! conditions (thickness and spanwise length) and then the shape
 ! function since this saves many evaluations of the shape.
-subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,rot)
+subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
+           M_wing,x_pivot,rot)
   use vars
   implicit none
   

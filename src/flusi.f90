@@ -59,7 +59,6 @@ subroutine Start_Simulation()
   real(kind=pr)          :: t1,t2
   real(kind=pr)          :: memory, mem_field
   type(timetype) :: time
-  integer                :: n0=0,n1=1,it
   character (len=strlen) :: infile
   
   ! mask color function
@@ -86,9 +85,9 @@ subroutine Start_Simulation()
   nrw=1   ! number of real valued work arrays
   
   ! initialize timing variables
-  time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
-  time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
-  time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
+  time_mask=0.d0
+  time_fluid=0.d0
+  time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime()
   time_insect_body=0.d0; 
   time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
@@ -272,7 +271,7 @@ end subroutine Start_Simulation
 subroutine show_timings(t2)
   use vars
   implicit none
-  real (kind=pr) :: t2,tmp
+  real (kind=pr) :: t2
 
 3 format(80("-"))
 8 format(es12.4," (",f5.1,"%) :: ",A)
@@ -280,9 +279,6 @@ subroutine show_timings(t2)
 
   write(*,3)
   write(*,'("*** Timings")')
-  write(*,3)
-  write(*,'("of the total time ",es12.4,", FLUSI spend ",es12.4," (",f5.1,"%) on FFTS")') &
-       t2, time_fft+time_ifft,100.d0*(time_fft+time_ifft)/t2 
   write(*,3)
   write(*,'("time stepping (top level tasks)")')
   
@@ -307,18 +303,6 @@ subroutine show_timings(t2)
   write(*,8) time_surf,100.d0*time_surf/t2,"surface interpolation"
   write(*,3)
   
-  write(*,'("Fluid right hand side:")')
-  write(*,8) time_nlk2,100.d0*time_nlk2/t2,"cal_nlk_fsi"
-  write(*,8) time_p,100.d0*time_p/t2,"pressure"
-  write(*,8) time_scalar,100.d0*time_scalar/t2,"cal_nlk_scalar"
-  write(*,3)
-  
-  write(*,'("cal_nlk_fsi:")')
-  write(*,8) time_u,100.d0*time_u/t2,"velocity"
-  write(*,8) time_vor,100.d0*time_vor/t2,"vorticity"
-  write(*,8) time_sponge,100.d0*time_sponge/t2,"sponge"
-  write(*,8) time_curl,100.d0*time_curl/t2,"nonlinear term"
-  write(*,3)
   write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
   write(*,3)
   write(*,'(A)') 'Finalizing computation....'
