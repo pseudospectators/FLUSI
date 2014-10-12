@@ -162,8 +162,7 @@ subroutine DrawWing_Fourier(ix, iy, iz, Insect, x_wing, M,rot, icolor, mask, mas
 end subroutine DrawWing_Fourier
 
 !-------------------------------------------------------------------------------
-! evaluates the fourier series given in the ai, bi datastructure
-! Insect is global. 
+! evaluates the fourier series given in the ai, bi 
 !-------------------------------------------------------------------------------
 real(kind=pr) function Radius_Fourier(theta,Insect)
   use vars
@@ -208,7 +207,6 @@ end function
 ! to Insect%WingShape. If the routine is called with an unkown wing shape, it 
 ! stops the code. This prevents errors for wings that are NOT given by Fourier
 ! series. 
-! Since INSECT is currently global, this routine does not take any arguments.
 !-------------------------------------------------------------------------------
 subroutine Setup_Wing_Fourier_coefficients(Insect)
   use vars

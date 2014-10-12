@@ -25,7 +25,7 @@ module insect_module
     ! Body motion state, wing motion state and characteristic points on insect
     !-------------------------------------------------------------
     ! position of logical center, and translational velocity
-    real(kind=pr), dimension(1:3) :: xc_body,vc_body
+    real(kind=pr), dimension(1:3) :: xc_body, vc_body
     ! roll pitch yaw angles and their time derivatives
     real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
     ! angles of the wings (left and right)
@@ -33,11 +33,11 @@ module insect_module
     real(kind=pr) :: phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l
     ! stroke plane angle
     real(kind=pr) :: eta_stroke
-    ! angular velocity vectors 
+    ! angular velocity vectors (wings L+R, body)
     real(kind=pr), dimension(1:3) :: rot_l, rot_r, rot_body
-    ! angular acceleration vectors 
+    ! angular acceleration vectors (wings L+R)
     real(kind=pr), dimension(1:3) :: rot_dt_l, rot_dt_r
-    ! Angular velocities of wings and body
+    ! Angular velocities of wings and body in global system
     real(kind=pr), dimension(1:3) :: rot_body_glob, rot_l_glob, rot_r_glob
     ! Vector from body centre to pivot points in global reference frame 
     real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob  
@@ -66,7 +66,7 @@ module insect_module
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion 
     !-------------------------------------------------------------
-    character(len=strlen) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
+    character(len=strlen) :: WingShape, BodyType, BodyMotion
     character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
     character(len=strlen) :: KineFromFile, infile, LeftWing, RightWing
     ! parameters for body:
@@ -255,71 +255,12 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   !-----------------------------------------------------------------------------
   ! BODY
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  if (Insect%BodyType /= "nobody") then
-  do iz = ra(3), rb(3)
-     do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
-           !-- define the various coordinate systems we are going to use
-           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-           x_body = matmul(M_body,x-Insect%xc_body)
-           
-           !-- call body subroutines
-           call DrawBody(ix,iy,iz,Insect,x_body,color_body, mask, mask_color, us)
-        enddo
-     enddo
-  enddo
-  endif
-  time_insect_body = time_insect_body + MPI_wtime() - t1
-  
-  !-----------------------------------------------------------------------------
-  ! Eyes (not always present)
-  !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  if (Insect%HasEye == "yes") then           
-  do iz = ra(3), rb(3)
-     do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
-           !-- define the various coordinate systems we are going to use
-           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-           x_body   = matmul(M_body,x-Insect%xc_body)
-           x_eye_l  = x_body - Insect%x_eye_l
-           x_eye_r  = x_body - Insect%x_eye_r
-           
-           !-- call eye subroutines
-           call DrawEye(ix,iy,iz,Insect,x_eye_r,color_body, mask, mask_color, us)
-           call DrawEye(ix,iy,iz,Insect,x_eye_l,color_body, mask, mask_color, us)
-        enddo
-     enddo
-  enddo  
-  endif
-  time_insect_eye = time_insect_eye + MPI_wtime() - t1
-  
-  !-----------------------------------------------------------------------------
-  ! Head (not always present)
-  !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  if (Insect%HasHead == "yes") then           
-  do iz = ra(3), rb(3)
-     do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
-           !-- define the various coordinate systems we are going to use
-           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-           x_body   = matmul(M_body,x-Insect%xc_body)
-           x_head   = x_body - Insect%x_head
-           !-- call body subroutines
-           call DrawHead(ix,iy,iz,Insect,x_head,color_body, mask, mask_color, us)
-        enddo
-     enddo
-  enddo  
-  endif
-  time_insect_head = time_insect_head + MPI_wtime() - t1
+  call draw_body( mask, mask_color, us, Insect, color_body, M_body)
   
   !-----------------------------------------------------------------------------
   ! Wings (two subfunctions, for simple wings and those described
   ! by Fourier series)
   !-----------------------------------------------------------------------------
-  
   ! *** Fourier wings ***
   t1 = MPI_wtime()
   if (fourier_wing) then

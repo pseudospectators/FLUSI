@@ -89,7 +89,7 @@ subroutine Start_Simulation()
   time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
   time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
   time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
-  time_insect_head=0.d0; time_insect_body=0.d0; time_insect_eye=0.d0
+  time_insect_body=0.d0; 
   time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
@@ -293,8 +293,6 @@ subroutine show_timings(t2)
   write(*,3)
   write(*,'("Create Mask:")')
   write(*,8) time_insect_body, 100.d0*time_insect_body/t2, "insect::body"
-  write(*,8) time_insect_eye,100.d0*time_insect_eye/t2, "insect::eyes"
-  write(*,8) time_insect_head,100.d0*time_insect_head/t2, "insect::head"
   write(*,8) time_insect_wings,100.d0*time_insect_wings/t2,"insect::wings"
   write(*,8) time_insect_vel,100.d0*time_insect_vel/t2,"insect::roration"
   write(*,3)

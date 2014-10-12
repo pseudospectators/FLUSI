@@ -93,8 +93,8 @@ module vars
   real(kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_nlk2
   real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u
   real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-  real(kind=pr),save :: time_sponge,time_insect_head,time_insect_body, time_scalar
-  real(kind=pr),save :: time_insect_eye,time_insect_wings, time_insect_vel
+  real(kind=pr),save :: time_sponge,time_insect_body, time_scalar
+  real(kind=pr),save :: time_insect_wings, time_insect_vel
   real(kind=pr),save :: time_solid, time_drag, time_surf, time_LAPACK
   real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar
 
