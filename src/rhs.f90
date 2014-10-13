@@ -313,17 +313,26 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
         
         ! second derivatives
-        uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix+1,iy,iz,1)+b5*u(ix+2,iy,iz,1))*dx2inv   
-        uxdydy = (b1*u(ix,iy-2,iz,1)+b2*u(ix,iy-1,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy+1,iz,1)+b5*u(ix,iy+2,iz,1))*dy2inv   
-        uxdzdz = (b1*u(ix,iy,iz-2,1)+b2*u(ix,iy,iz-1,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy,iz+1,1)+b5*u(ix,iy,iz+2,1))*dz2inv   
+        uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)&
+                 +b4*u(ix+1,iy,iz,1)+b5*u(ix+2,iy,iz,1))*dx2inv   
+        uxdydy = (b1*u(ix,iy-2,iz,1)+b2*u(ix,iy-1,iz,1)+b3*u(ix,iy,iz,1)&
+                 +b4*u(ix,iy+1,iz,1)+b5*u(ix,iy+2,iz,1))*dy2inv   
+        uxdzdz = (b1*u(ix,iy,iz-2,1)+b2*u(ix,iy,iz-1,1)+b3*u(ix,iy,iz,1)&
+                 +b4*u(ix,iy,iz+1,1)+b5*u(ix,iy,iz+2,1))*dz2inv   
         
-        uydxdx = (b1*u(ix-2,iy,iz,2)+b2*u(ix-1,iy,iz,2)+b3*u(ix,iy,iz,2)+b4*u(ix+1,iy,iz,2)+b5*u(ix+2,iy,iz,2))*dx2inv   
-        uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)+b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
-        uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)+b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
+        uydxdx = (b1*u(ix-2,iy,iz,2)+b2*u(ix-1,iy,iz,2)+b3*u(ix,iy,iz,2)&
+                 +b4*u(ix+1,iy,iz,2)+b5*u(ix+2,iy,iz,2))*dx2inv   
+        uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)&
+                 +b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
+        uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)&
+                 +b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
         
-        uzdxdx = (b1*u(ix-2,iy,iz,3)+b2*u(ix-1,iy,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix+1,iy,iz,3)+b5*u(ix+2,iy,iz,3))*dx2inv   
-        uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
-        uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
+        uzdxdx = (b1*u(ix-2,iy,iz,3)+b2*u(ix-1,iy,iz,3)+b3*u(ix,iy,iz,3)&
+                 +b4*u(ix+1,iy,iz,3)+b5*u(ix+2,iy,iz,3))*dx2inv   
+        uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)&
+                 +b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
+        uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)&
+                 +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
         
         nlk(ix,iy,iz,1) = uy*vorz -uz*vory - pdx + nu*(uxdxdx+uxdydy+uxdzdz) + penalx + forcing(1)
         nlk(ix,iy,iz,2) = uz*vorx -ux*vorz - pdy + nu*(uydxdx+uydydy+uydzdz) + penaly + forcing(2)
@@ -426,8 +435,8 @@ subroutine rhs_acm_2nd_2D(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       uzdzdz = (u(ix,iy,iz-1,3)-2.d0*u(ix,iy,iz,3)+u(ix,iy,iz+1,3))*dz2inv 
       
       nlk(ix,iy,iz,1) = 0.d0
-      nlk(ix,iy,iz,2) =  uz*vorx - pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
-      nlk(ix,iy,iz,3) = -uy*vorx - pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
+      nlk(ix,iy,iz,2) = +uz*vorx -pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
+      nlk(ix,iy,iz,3) = -uy*vorx -pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
       nlk(ix,iy,iz,4) = -(c_0**2)*(uydy+uzdz) - gamma_p*p
     enddo
   enddo     
@@ -523,14 +532,14 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       p  = u(ix,iy,iz,4)
       
       uydy = (a(-3)*u(ix,iy-3,iz,2)+a(-2)*u(ix,iy-2,iz,2)+a(-1)*u(ix,iy-1,iz,2)+a(0)*u(ix,iy,iz,1)&
-              +a(+3)*u(ix,iy+3,iz,2)+a(+2)*u(ix,iy+2,iz,2)+a(+1)*u(ix,iy+1,iz,2))*dyinv
+             +a(+3)*u(ix,iy+3,iz,2)+a(+2)*u(ix,iy+2,iz,2)+a(+1)*u(ix,iy+1,iz,2))*dyinv
       uydz = (a(-3)*u(ix,iy,iz-3,2)+a(-2)*u(ix,iy,iz-2,2)+a(-1)*u(ix,iy,iz-1,2)+a(0)*u(ix,iy,iz,1)&
-              +a(+3)*u(ix,iy,iz+3,2)+a(+2)*u(ix,iy,iz+2,2)+a(+1)*u(ix,iy,iz+1,2))*dzinv
+             +a(+3)*u(ix,iy,iz+3,2)+a(+2)*u(ix,iy,iz+2,2)+a(+1)*u(ix,iy,iz+1,2))*dzinv
       
       uzdy = (a(-3)*u(ix,iy-3,iz,3)+a(-2)*u(ix,iy-2,iz,3)+a(-1)*u(ix,iy-1,iz,3)+a(0)*u(ix,iy,iz,1)&
-              +a(+3)*u(ix,iy+3,iz,3)+a(+2)*u(ix,iy+2,iz,3)+a(+1)*u(ix,iy+1,iz,3))*dyinv
+             +a(+3)*u(ix,iy+3,iz,3)+a(+2)*u(ix,iy+2,iz,3)+a(+1)*u(ix,iy+1,iz,3))*dyinv
       uzdz = (a(-3)*u(ix,iy,iz-3,3)+a(-2)*u(ix,iy,iz-2,3)+a(-1)*u(ix,iy,iz-1,3)+a(0)*u(ix,iy,iz,1)&
-              +a(+3)*u(ix,iy,iz+3,3)+a(+2)*u(ix,iy,iz+2,3)+a(+1)*u(ix,iy,iz+1,3))*dzinv
+             +a(+3)*u(ix,iy,iz+3,3)+a(+2)*u(ix,iy,iz+2,3)+a(+1)*u(ix,iy,iz+1,3))*dzinv
       
       pdy = (a(-3)*u(ix,iy-3,iz,4)+a(-2)*u(ix,iy-2,iz,4)+a(-1)*u(ix,iy-1,iz,4)+a(0)*u(ix,iy,iz,1)&
             +a(+3)*u(ix,iy+3,iz,4)+a(+2)*u(ix,iy+2,iz,4)+a(+1)*u(ix,iy+1,iz,4))*dyinv
@@ -545,15 +554,19 @@ subroutine rhs_acm_4th_2d(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
       
       ! second derivatives
-      uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)+b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
-      uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)+b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
+      uydydy = (b1*u(ix,iy-2,iz,2)+b2*u(ix,iy-1,iz,2)+b3*u(ix,iy,iz,2)&
+               +b4*u(ix,iy+1,iz,2)+b5*u(ix,iy+2,iz,2))*dy2inv   
+      uydzdz = (b1*u(ix,iy,iz-2,2)+b2*u(ix,iy,iz-1,2)+b3*u(ix,iy,iz,2)&
+               +b4*u(ix,iy,iz+1,2)+b5*u(ix,iy,iz+2,2))*dz2inv   
 
-      uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
-      uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)+b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
+      uzdydy = (b1*u(ix,iy-2,iz,3)+b2*u(ix,iy-1,iz,3)+b3*u(ix,iy,iz,3)&
+               +b4*u(ix,iy+1,iz,3)+b5*u(ix,iy+2,iz,3))*dy2inv   
+      uzdzdz = (b1*u(ix,iy,iz-2,3)+b2*u(ix,iy,iz-1,3)+b3*u(ix,iy,iz,3)&
+               +b4*u(ix,iy,iz+1,3)+b5*u(ix,iy,iz+2,3))*dz2inv   
       
       nlk(ix,iy,iz,1) = 0.d0
-      nlk(ix,iy,iz,2) =  uz*vorx - pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
-      nlk(ix,iy,iz,3) = -uy*vorx - pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
+      nlk(ix,iy,iz,2) = +uz*vorx -pdy + nu*(uydydy+uydzdz) + penaly + forcing(2)
+      nlk(ix,iy,iz,3) = -uy*vorx -pdz + nu*(uzdydy+uzdzdz) + penalz + forcing(3)
       nlk(ix,iy,iz,4) = -(c_0**2)*(uydy+uzdz) - gamma_p*p
     enddo
   enddo     

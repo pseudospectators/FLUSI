@@ -3,7 +3,7 @@
 
 # Non-module Fortran files to be compiled:
 FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
-	mask.f90 mask_fsi.f90 mask_mhd.f90 save_fields.f90 time_step.f90 \
+	mask.f90 mask_fsi.f90 save_fields.f90 time_step.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
 	postprocessing.f90 runtime_control.f90 drag.f90 \
 	fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
@@ -23,7 +23,7 @@ MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 # Source code directories (colon-separated):
 VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
-VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd
+VPATH += :src/geometry:src/geometry/hyd
 VPATH += :src/insects:src/solid_solver
 
 # Set the default compiler if it's not already set, make sure it's not F77.
@@ -67,7 +67,7 @@ DIFORT=-WF,-DTURING # this defines the TURING with the IBM compiler
 PPFLAG=-qsuffix=cpp=f90  #preprocessor flag
 endif
 
-PROGRAMS = flusi mhd
+PROGRAMS = flusi
 
 # FFT_ROOT is set in envinroment.
 FFT_LIB = $(FFT_ROOT)/lib
@@ -94,8 +94,6 @@ all: directories $(PROGRAMS)
 # Compile main programs, with dependencies.
 flusi: flusi.f90 $(MOBJS) $(OBJS)
 	rm -rf flusi
-	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
-mhd: mhd.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile modules (module dependency must be specified by hand in
