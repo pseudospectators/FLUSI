@@ -110,8 +110,8 @@ subroutine fft_initialize
      mpidims(2) = mpisize       ! 3rd index in real space.
      decomposition="1D"
   else
-     mpidims(1) = 0
-     mpidims(2) = 0
+     ! unfortunately, 2D data decomposition does not work with 2D code (nx==1)
+     mpidims = 0
      call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
      if(mpidims(1) > mpidims(2)) then
         mpidims(1) = mpidims(2)

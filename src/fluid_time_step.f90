@@ -579,7 +579,7 @@ subroutine RK2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   t=time
     
   ! define the time step we want to use
-  call adjust_dt(u,time%dt_new)
+  call adjust_dt(time%time,u,time%dt_new)
   
   ! now NLK2 is old velocity
   nlk(:,:,:,:,2) = u
@@ -620,7 +620,7 @@ subroutine RK4(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(timetype) :: t
   t = time
   
-  call adjust_dt(u,time%dt_new)
+  call adjust_dt(time%time,u,time%dt_new)
   
   ! NLK 5th register holds old velocity
   nlk(:,:,:,:,5) = u
@@ -663,7 +663,7 @@ subroutine EE1(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect 
 
-  call adjust_dt(u,time%dt_new)
+  call adjust_dt(time%time,u,time%dt_new)
   
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
   call cal_nlk(time,u,nlk(:,:,:,:,1),work,mask,mask_color,us,Insect,beams)
@@ -700,7 +700,7 @@ subroutine AB2(time,u,nlk,work,mask,mask_color,us,Insect,beams)
     call abort()
   endif
   
-  call adjust_dt(u,time%dt_new)
+  call adjust_dt(time%time,u,time%dt_new)
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,u,nlk(:,:,:,:,time%n0),work,mask,mask_color,us,Insect,beams)
@@ -796,13 +796,14 @@ end subroutine AB2
 ! 4 - maximum time step dt_max, if set in params
 ! 5 - dt is smaller than tsave and tintegral
 !-------------------------------------------------------------------------------
-subroutine adjust_dt(u,dt1)
+subroutine adjust_dt(time,u,dt1)
   use vars
   use mpi
   use basic_operators
   implicit none
 
-  real(kind=pr), intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(in)::time
+  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer::mpicode
   real(kind=pr), intent(out)::dt1
   real(kind=pr)::umax
@@ -846,6 +847,7 @@ subroutine adjust_dt(u,dt1)
         
         !-- impose max dt, if specified
         if (dt_max>0.d0) dt1=min(dt1,dt_max)
+        if (dt1 > tmax-time .and. tmax-time>0.d0) dt1=tmax-time
      endif
 
      ! Broadcast time step to all processes

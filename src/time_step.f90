@@ -40,7 +40,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
   
   ! Loop over time steps
   t1=MPI_wtime()
-  do while ((time%time<=tmax).and.(time%it<=nt).and.(continue_timestepping))
+  do while ((time%time<tmax).and.(time%it<=nt).and.(continue_timestepping))
      t4=MPI_wtime()
      !-------------------------------------------------
      ! advance fluid/B-field in time
