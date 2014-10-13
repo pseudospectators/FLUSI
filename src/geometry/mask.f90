@@ -87,7 +87,6 @@ subroutine smoothstep(f,x,t,h)
   implicit none
   real (kind=pr), intent (out) :: f
   real (kind=pr), intent (in)  :: x,t,h
-  real (kind=pr) :: delta, GradientERF
 
   !-------------------------------------------------
   ! cos shaped smoothing (compact in phys.space)

@@ -415,6 +415,6 @@ subroutine print_domain_decomposition()
   endif
   call MPI_barrier (MPI_COMM_world, mpicode)
   write (*,'("rank=",i5," (",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
-       mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3)
+       mpirank, ga(1),gb(1), ga(2),gb(2),ga(3),gb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
 end subroutine 

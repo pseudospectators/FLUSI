@@ -13,8 +13,15 @@
 !       x-direction, 3D and so on)
 !-------------------------------------------------------------------------------
 module ghosts
+ 
+ interface synchronize_ghosts
+   module procedure synchronize_ghosts, synchronize_ghosts_FD
+ end interface
 
+ 
+!!!!!!!!!!!!!! 
  contains 
+!!!!!!!!!!!!!!
  
  
 subroutine synchronize_ghosts ( field )
@@ -287,8 +294,10 @@ subroutine sync_ghosts_1D_z_FD ( field )
   ! in the 1D decomposition case, we have two periodic borders. They are not 
   ! chunked so their dimensions are indeed 0:nx-1 and 0:ny-1 on all CPU
   ! x-direction:
-  field(-ng:-1,:,:,1:neq)=field(nx-1-(ng-1):nx-1,:,:,1:neq)
-  field(nx:nx+ng-1,:,:,1:neq)=field(0:ng-1,:,:,1:neq)
+  if (nx>1) then
+    field(-ng:-1,:,:,1:neq)=field(nx-1-(ng-1):nx-1,:,:,1:neq)
+    field(nx:nx+ng-1,:,:,1:neq)=field(0:ng-1,:,:,1:neq)
+  endif
   
   ! y-direction:
   field(:,-ng:-1,:,1:neq)=field(:,ny-1-(ng-1):ny-1,:,1:neq)  
@@ -352,11 +361,13 @@ subroutine sync_ghosts_2D_yz_FD ( field )
   izmin=ra(3)
   izmax=rb(3)
 
-  ! in the 2D decomposition case, we have only one periodic direction, namely
-  ! the x-one. Note that on all CPU, this had indeed dimensions 0:nx-1, since it
-  ! is not chunked.
-  field(nx:nx+ng-1,:,:,1:neq)=field(0:ng-1,:,:,1:neq)
-  field(-ng:-1,:,:,1:neq)=field(nx-1-(ng-1):nx-1,:,:,1:neq)
+  if (nx>1) then
+    ! in the 2D decomposition case, we have only one periodic direction, namely
+    ! the x-one. Note that on all CPU, this had indeed dimensions 0:nx-1, since it
+    ! is not chunked.
+    field(nx:nx+ng-1,:,:,1:neq)=field(0:ng-1,:,:,1:neq)
+    field(-ng:-1,:,:,1:neq)=field(nx-1-(ng-1):nx-1,:,:,1:neq)
+  endif
   
   destination = yz_plane_ranks(iymin,per(izmax+1,nz)) ! send to your right
   origin      = yz_plane_ranks(iymin,per(izmin-1,nz)) ! get from your left

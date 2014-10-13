@@ -240,7 +240,7 @@ subroutine curl_x( u, rotu )
   complex(kind=pr),allocatable,dimension(:,:,:,:)::outk
   complex(kind=pr) :: imag   ! imaginary unit
   
-  call synchronize_ghosts_FD( u )
+  call synchronize_ghosts( u )
   
   select case(method)
   case('spectral')  
@@ -281,22 +281,38 @@ subroutine curl_x( u, rotu )
       dyinv = 1.d0/(2.d0*dy)
       dzinv = 1.d0/(2.d0*dz)
       
-      do iz=ra(3),rb(3)
-        do iy=ra(2),rb(2)
-          do ix=ra(1),rb(1)
-            uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
-            uxdz = (u(ix,iy,iz+1,1) - u(ix,iy,iz-1,1))*dzinv
-            uydx = (u(ix+1,iy,iz,2) - u(ix-1,iy,iz,2))*dxinv
+      if (nx>1) then
+        ! three-dimensional simulation
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+              uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
+              uxdz = (u(ix,iy,iz+1,1) - u(ix,iy,iz-1,1))*dzinv
+              uydx = (u(ix+1,iy,iz,2) - u(ix-1,iy,iz,2))*dxinv
+              uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
+              uzdx = (u(ix+1,iy,iz,3) - u(ix-1,iy,iz,3))*dxinv
+              uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
+              
+              rotu(ix,iy,iz,1) = uzdy - uydz
+              rotu(ix,iy,iz,2) = uxdz - uzdx
+              rotu(ix,iy,iz,3) = uydx - uxdy
+            enddo
+          enddo
+        enddo 
+      elseif (nx==1) then
+        ! two-dimensional simulation
+        ix=0
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
             uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
-            uzdx = (u(ix+1,iy,iz,3) - u(ix-1,iy,iz,3))*dxinv
             uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
             
             rotu(ix,iy,iz,1) = uzdy - uydz
-            rotu(ix,iy,iz,2) = uxdz - uzdx
-            rotu(ix,iy,iz,3) = uydx - uxdy
+            rotu(ix,iy,iz,2) = 0.d0
+            rotu(ix,iy,iz,3) = 0.d0
           enddo
-        enddo
-      enddo 
+        enddo 
+      endif
       
   case('centered_4th')
       !-------------------------------------------------------------------------
@@ -311,22 +327,39 @@ subroutine curl_x( u, rotu )
       dyinv = 1.d0/dy
       dzinv = 1.d0/dz
       
-      do iz=ra(3),rb(3)
-        do iy=ra(2),rb(2)
-          do ix=ra(1),rb(1)
-            uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
-            uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
-            uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv        
+      if (nx>1) then 
+        ! three-dimensional simulation
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+              uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
+              uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
+              uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv        
+              uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+              uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv        
+              uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
+              
+              rotu(ix,iy,iz,1) = uzdy - uydz
+              rotu(ix,iy,iz,2) = uxdz - uzdx
+              rotu(ix,iy,iz,3) = uydx - uxdy
+            enddo
+          enddo
+        enddo 
+      elseif (nx==1) then
+        ! two-dimensional simulation
+        ix=0
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
             uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
-            uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv        
             uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
             
             rotu(ix,iy,iz,1) = uzdy - uydz
-            rotu(ix,iy,iz,2) = uxdz - uzdx
-            rotu(ix,iy,iz,3) = uydx - uxdy
+            rotu(ix,iy,iz,2) = 0.d0
+            rotu(ix,iy,iz,3) = 0.d0
           enddo
-        enddo
-      enddo 
+        enddo 
+      endif
+      
   case default
       call suicide2('invalid METHOD in curl_x:'//method)
   end select
@@ -421,16 +454,29 @@ subroutine divergence_x( u, divu )
       dyinv = 1.d0/(2.d0*dy)
       dzinv = 1.d0/(2.d0*dz)
       
-      do iz=ra(3),rb(3)
-        do iy=ra(2),rb(2)
-          do ix=ra(1),rb(1)
-            uxdx = dxinv*(u(ix+1,iy,iz,1)-u(ix-1,iy,iz,1))
+      if (nx>1) then
+        ! three-dimensional simulation
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+              uxdx = dxinv*(u(ix+1,iy,iz,1)-u(ix-1,iy,iz,1))
+              uydy = dyinv*(u(ix,iy+1,iz,2)-u(ix,iy-1,iz,2))
+              uzdz = dzinv*(u(ix,iy,iz+1,3)-u(ix,iy,iz-1,3))
+              divu(ix,iy,iz) = uxdx + uydy + uzdz
+            enddo
+          enddo
+        enddo 
+      elseif (nx==1) then
+        ! two-dimensional simulation
+        ix=0
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
             uydy = dyinv*(u(ix,iy+1,iz,2)-u(ix,iy-1,iz,2))
             uzdz = dzinv*(u(ix,iy,iz+1,3)-u(ix,iy,iz-1,3))
-            divu(ix,iy,iz) = uxdx + uydy + uzdz
+            divu(ix,iy,iz) = uydy + uzdz
           enddo
-        enddo
-      enddo 
+        enddo 
+      endif
       
   case('centered_4th')
       !-------------------------------------------------------------------------
@@ -445,16 +491,30 @@ subroutine divergence_x( u, divu )
       dyinv = 1.d0/dy
       dzinv = 1.d0/dz
       
-      do iz=ra(3),rb(3)
-        do iy=ra(2),rb(2)
-          do ix=ra(1),rb(1)
-            uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv
+      if (nx>1) then
+        ! three-dimensional simulation
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+              uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv
+              uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
+              uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
+              divu(ix,iy,iz) = uxdx + uydy + uzdz
+            enddo
+          enddo
+        enddo 
+      elseif (nx==1) then
+        ! two-dimensional simulation
+        ix = 0
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
             uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
             uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
-            divu(ix,iy,iz) = uxdx + uydy + uzdz
+            divu(ix,iy,iz) = uydy + uzdz
           enddo
         enddo
-      enddo 
+      endif
+      
   case default
     call suicide2('invalid METHOD in divergence:'//method)
   end select
@@ -655,8 +715,6 @@ real(kind=pr) function  volume_integral( u )
   
   integer::ix,iy,iz,mpicode
   real(kind=pr)::int_local,dxyz
-  
-  dxyz = dx*dy*dz
   
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)

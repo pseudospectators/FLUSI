@@ -44,8 +44,8 @@ subroutine get_params(paramsfile,Insect)
   
   if (nx==1) then
     if (root) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"    
-    dx = max(dz,dy)
-    xl = dx
+    dx = 1.d0
+    xl = 1.d0
     if (root) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
   endif
     

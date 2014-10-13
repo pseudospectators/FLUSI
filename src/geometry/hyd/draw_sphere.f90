@@ -55,8 +55,8 @@ subroutine draw_cylinder_x(mask, mask_color, us)
         y=dble(iy)*dy
         z=dble(iz)*dz
         R = dsqrt( (y-y0)**2 + (z-z0)**2 )
-        if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
-          call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
+        if ( R <= 0.5d0*length+2.d0*N_smooth*max(dy,dz) ) then
+          call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dy,dz))
           mask (ix, iy, iz) = tmp
           us(ix,iy,iz,1) = 0.d0
           us(ix,iy,iz,2) = 0.d0
