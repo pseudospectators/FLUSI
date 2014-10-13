@@ -105,7 +105,7 @@ subroutine fft_initialize
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
   ! along the z direction in real space. 
-  if (nz>mpisize) then
+  if (nz>mpisize.and.nx==1) then
      mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
      mpidims(2) = mpisize       ! 3rd index in real space.
      decomposition="1D"
