@@ -1,6 +1,7 @@
 module diff
 
 use vars
+use ghosts
 
 
  contains

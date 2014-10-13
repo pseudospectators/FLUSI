@@ -74,10 +74,11 @@ subroutine rhs_acm_2nd(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use insect_module
   use solid_model
   use basic_operators
+  use ghosts
   
   implicit none
   type(timetype), intent(in) :: time
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(out)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -191,10 +192,11 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   use vars
   use insect_module
   use solid_model
+  use ghosts
   
   implicit none
   type(timetype), intent(in) :: time
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(out)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(in)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -209,6 +211,7 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   dxinv,dyinv,dzinv,dx2inv,dy2inv,dz2inv,pdx,pdy,pdz,a1,a2,a4,a5,&
   b1,b2,b3,b4,b5,penalx,penaly,penalz,p
   real(kind=pr)::forcing(1:3)
+  real(kind=pr)::a(-3:+3)
   
   call synchronize_ghosts_FD (u)
   
@@ -219,7 +222,11 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   a2 =-2.d0/3.d0
   a4 = 2.d0/3.d0
   a5 = -1.d0/12.d0
+  
     
+  ! Tam & Webb, 4th order optimized
+  a=(/-0.02651995d0, +0.18941314d0, -0.79926643d0, 0.0d0, &
+       0.79926643d0, -0.18941314d0, 0.02651995d0/)
   
   b1=-1.d0/12.d0
   b2=4.d0/3.d0
@@ -243,30 +250,61 @@ subroutine rhs_acm_4th(time,u,nlk,work,mask,mask_color,us,Insect,beams)
         uz = u(ix,iy,iz,3)
         p  = u(ix,iy,iz,4)
         
-        uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv        
-        uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
-        uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
+!         uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv        
+!         uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
+!         uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
+!         
+!         uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv        
+!         uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
+!         uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+!         
+!         uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv        
+!         uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
+!         uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
+!         
+!         pdx = (a1*u(ix-2,iy,iz,4)+a2*u(ix-1,iy,iz,4)+a4*u(ix+1,iy,iz,4)+a5*u(ix+2,iy,iz,4))*dxinv        
+!         pdy = (a1*u(ix,iy-2,iz,4)+a2*u(ix,iy-1,iz,4)+a4*u(ix,iy+1,iz,4)+a5*u(ix,iy+2,iz,4))*dyinv
+!         pdz = (a1*u(ix,iy,iz-2,4)+a2*u(ix,iy,iz-1,4)+a4*u(ix,iy,iz+1,4)+a5*u(ix,iy,iz+2,4))*dzinv
         
-        uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv        
-        uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
-        uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+        uxdx = (a(-3)*u(ix-3,iy,iz,1)+a(-2)*u(ix-2,iy,iz,1)+a(-1)*u(ix-1,iy,iz,1)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix+3,iy,iz,1)+a(+2)*u(ix+2,iy,iz,1)+a(+1)*u(ix+1,iy,iz,1))*dxinv
+        uxdy = (a(-3)*u(ix,iy-3,iz,1)+a(-2)*u(ix,iy-2,iz,1)+a(-1)*u(ix,iy-1,iz,1)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix,iy+3,iz,1)+a(+2)*u(ix,iy+2,iz,1)+a(+1)*u(ix,iy+1,iz,1))*dyinv
+        uxdz = (a(-3)*u(ix,iy,iz-3,1)+a(-2)*u(ix,iy,iz-2,1)+a(-1)*u(ix,iy,iz-1,1)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix,iy,iz+3,1)+a(+2)*u(ix,iy,iz+2,1)+a(+1)*u(ix,iy,iz+1,1))*dzinv
         
-        uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv        
-        uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
-        uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
+        uydx = (a(-3)*u(ix-3,iy,iz,2)+a(-2)*u(ix-2,iy,iz,2)+a(-1)*u(ix-1,iy,iz,2)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix+3,iy,iz,2)+a(+2)*u(ix+2,iy,iz,2)+a(+1)*u(ix+1,iy,iz,2))*dxinv
+        uydy = (a(-3)*u(ix,iy-3,iz,2)+a(-2)*u(ix,iy-2,iz,2)+a(-1)*u(ix,iy-1,iz,2)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix,iy+3,iz,2)+a(+2)*u(ix,iy+2,iz,2)+a(+1)*u(ix,iy+1,iz,2))*dyinv
+        uydz = (a(-3)*u(ix,iy,iz-3,2)+a(-2)*u(ix,iy,iz-2,2)+a(-1)*u(ix,iy,iz-1,2)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix,iy,iz+3,2)+a(+2)*u(ix,iy,iz+2,2)+a(+1)*u(ix,iy,iz+1,2))*dzinv
         
-        pdx = (a1*u(ix-2,iy,iz,4)+a2*u(ix-1,iy,iz,4)+a4*u(ix+1,iy,iz,4)+a5*u(ix+2,iy,iz,4))*dxinv        
-        pdy = (a1*u(ix,iy-2,iz,4)+a2*u(ix,iy-1,iz,4)+a4*u(ix,iy+1,iz,4)+a5*u(ix,iy+2,iz,4))*dyinv
-        pdz = (a1*u(ix,iy,iz-2,4)+a2*u(ix,iy,iz-1,4)+a4*u(ix,iy,iz+1,4)+a5*u(ix,iy,iz+2,4))*dzinv       
+        uzdx = (a(-3)*u(ix-3,iy,iz,3)+a(-2)*u(ix-2,iy,iz,3)+a(-1)*u(ix-1,iy,iz,3)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix+3,iy,iz,3)+a(+2)*u(ix+2,iy,iz,3)+a(+1)*u(ix+1,iy,iz,3))*dxinv
+        uzdy = (a(-3)*u(ix,iy-3,iz,3)+a(-2)*u(ix,iy-2,iz,3)+a(-1)*u(ix,iy-1,iz,3)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix,iy+3,iz,3)+a(+2)*u(ix,iy+2,iz,3)+a(+1)*u(ix,iy+1,iz,3))*dyinv
+        uzdz = (a(-3)*u(ix,iy,iz-3,3)+a(-2)*u(ix,iy,iz-2,3)+a(-1)*u(ix,iy,iz-1,3)+a(0)*u(ix,iy,iz,1)&
+               +a(+3)*u(ix,iy,iz+3,3)+a(+2)*u(ix,iy,iz+2,3)+a(+1)*u(ix,iy,iz+1,3))*dzinv
         
+        pdx = (a(-3)*u(ix-3,iy,iz,4)+a(-2)*u(ix-2,iy,iz,4)+a(-1)*u(ix-1,iy,iz,4)+a(0)*u(ix,iy,iz,1)&
+              +a(+3)*u(ix+3,iy,iz,4)+a(+2)*u(ix+2,iy,iz,4)+a(+1)*u(ix+1,iy,iz,4))*dxinv
+        pdy = (a(-3)*u(ix,iy-3,iz,4)+a(-2)*u(ix,iy-2,iz,4)+a(-1)*u(ix,iy-1,iz,4)+a(0)*u(ix,iy,iz,1)&
+              +a(+3)*u(ix,iy+3,iz,4)+a(+2)*u(ix,iy+2,iz,4)+a(+1)*u(ix,iy+1,iz,4))*dyinv
+        pdz = (a(-3)*u(ix,iy,iz-3,4)+a(-2)*u(ix,iy,iz-2,4)+a(-1)*u(ix,iy,iz-1,4)+a(0)*u(ix,iy,iz,1)&
+              +a(+3)*u(ix,iy,iz+3,4)+a(+2)*u(ix,iy,iz+2,4)+a(+1)*u(ix,iy,iz+1,4))*dzinv
+
+        ! vorticity
         vorx = uzdy - uydz
         vory = uxdz - uzdx
         vorz = uydx - uxdy
         
+        ! penalization term
         penalx = -mask(ix,iy,iz)*(ux-us(ix,iy,iz,1))
         penaly = -mask(ix,iy,iz)*(uy-us(ix,iy,iz,2))
         penalz = -mask(ix,iy,iz)*(uz-us(ix,iy,iz,3))
         
+        ! second derivatives
         uxdxdx = (b1*u(ix-2,iy,iz,1)+b2*u(ix-1,iy,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix+1,iy,iz,1)+b5*u(ix+2,iy,iz,1))*dx2inv   
         uxdydy = (b1*u(ix,iy-2,iz,1)+b2*u(ix,iy-1,iz,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy+1,iz,1)+b5*u(ix,iy+2,iz,1))*dy2inv   
         uxdzdz = (b1*u(ix,iy,iz-2,1)+b2*u(ix,iy,iz-1,1)+b3*u(ix,iy,iz,1)+b4*u(ix,iy,iz+1,1)+b5*u(ix,iy,iz+2,1))*dz2inv   

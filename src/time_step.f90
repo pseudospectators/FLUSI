@@ -30,7 +30,7 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
   time%it_start = time%it
 
   ! After init, output integral quantities
-  if (index(inicond,'backup::')==0) then
+  if (index(inicond,'backup::')==0 .and. dry_run_without_fluid/="yes") then
     if (root) write(*,*) "Initial output of integral quantities...."
     call write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   endif
@@ -64,7 +64,8 @@ subroutine time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,params_file
      ! Output of INTEGRALS after every tintegral time 
      ! units or itdrag time steps
      !-------------------------------------------------
-     if (modulo(time%time,tintegral)<=time%dt_new.or.modulo(time%it,itdrag)==0) then
+     if ((modulo(time%time,tintegral) <= time%dt_new .or. &
+          modulo(time%it,itdrag)==0) .and. dry_run_without_fluid/="yes" ) then
        call write_integrals(time,u,nlk,work,mask,mask_color,us,Insect,beams)
      endif
     

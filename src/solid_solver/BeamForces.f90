@@ -20,7 +20,9 @@
 subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   use vars
   use interpolation
+  use ghosts
   implicit none
+  
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam
   character(len=*), intent(in), optional :: testing, timelevel

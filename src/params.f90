@@ -174,7 +174,9 @@ subroutine get_params(paramsfile,Insect)
   ! Incompressibility
   !-----------------------------------------------------------------------------
   call param_dbl(PARAMS,i,"Incompressibility","c_0",&
-       c_0, 0.d0)    
+       c_0, 0.d0)
+  call param_str(PARAMS,i,"Incompressibility","method",&
+       method,"centered_2nd")
        
   !-----------------------------------------------------------------------------
   ! solid model (TODO: SAME LEVEL OF OBJECT ORIENTATION AS INSECT)

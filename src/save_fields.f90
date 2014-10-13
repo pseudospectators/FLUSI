@@ -12,7 +12,7 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   implicit none
 
   type(timetype),intent(inout) :: time
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   real(kind=pr),intent(inout)::nlk(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq,1:nrhs)
   real(kind=pr),intent(inout)::work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nrw)
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -62,9 +62,14 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
       
   ! Save the Mask
   if (isaveMask == 1 .and. iPenalization == 1) then
+    ! create mask at current time
+    if(iMoving==1) call create_mask( time%time, mask, mask_color, us, Insect, beams )
+    ! make sure mask is between 0 and 1 
     mask = mask*eps
+    ! warn if we're about to store an empty mask
     call compute_mask_volume(mask,volume)
     if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
+    ! save the mask
     call save_field_hdf5(time,'./mask_'//name,mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),"mask")
     mask = mask/eps
   endif

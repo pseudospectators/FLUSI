@@ -79,10 +79,9 @@ subroutine Start_Simulation()
   type(solid), dimension(1:nBeams) :: beams
   
   ! Set method information in vars module.
-  method="centered_2nd" 
-!   method="spectral"
+  t1 = MPI_wtime()
   neq=4  ! number of equations, can be higher than 3 if using passive scalar
-  nrw=1   ! number of real valued work arrays
+  nrw=1  ! number of real valued work arrays
   
   ! initialize timing variables
   time_mask=0.d0
@@ -127,18 +126,24 @@ subroutine Start_Simulation()
   elseif (iTimeMethodFluid=="FSI_RK4_semiimplicit") then
     nrhs = 5
   else
-    write(*,*) "error ganz am anfang"
-    stop
+    if (root) write(*,*) "flusi.f90 :: error: iTimeMethodFluid is unknown"
+    if (root) write(*,*) iTimeMethodFluid
+    call abort()
   endif
   
   !-----------------------------------------------------------------------------
-  ! ghost points
+  ! ghost points. the number of ghosts we need depends on the Discretization
+  ! and the interpolation method for FSI pressure
   !-----------------------------------------------------------------------------
-  ng=3 ! zero ghost points  
+  ng = 0
+  if (method=="centered_2nd") ng = 1
+  if (method=="centered_4th") ng = 3
+  if (use_solid_model=="yes") ng = 3
   if (root) write(*,'("Set up ng=",i1," ghost points")') ng
+  if (root) write(*,'("Discretization: ",A)') trim(method)
   
   !-----------------------------------------------------------------------------
-  ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
+  ! Initialize FFT (this also defines local array bounds for arrays)
   !-----------------------------------------------------------------------------  
   call fft_initialize 
   
@@ -231,9 +236,7 @@ subroutine Start_Simulation()
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
-  t1 = MPI_wtime()
   call time_step(time,u,nlk,work,mask,mask_color,us,Insect,beams,infile)
-  t2 = MPI_wtime() - t1
   
   !-----------------------------------------------------------------------------
   ! Deallocate memory
@@ -258,10 +261,12 @@ subroutine Start_Simulation()
   
   ! release other memory
   call fft_free 
+  
   !-------------------------
   ! Show the breakdown of timing information
   !-------------------------
-  call show_timings(t2)
+  t2 = MPI_wtime() - t1
+  if (root) call show_timings(t2)
 end subroutine Start_Simulation
 
 
@@ -403,15 +408,13 @@ subroutine print_domain_decomposition()
   implicit none
   integer :: mpicode
   
-  
   if (root) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '*** Domain decomposition:'
      write(*,'(A)') '--------------------------------------'
   endif
   call MPI_barrier (MPI_COMM_world, mpicode)
-  write (*,'("mpirank=",i5," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&
-       &") k-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
-       mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
+  write (*,'("rank=",i5," (",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
+       mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3)
   call MPI_barrier (MPI_COMM_world, mpicode)
 end subroutine 

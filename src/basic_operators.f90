@@ -8,6 +8,10 @@
 !       * check fields for NaN
 !-------------------------------------------------------------------------------
 module basic_operators
+
+  use ghosts
+  use vars
+
   !-- interface for curl operators
   interface curl
     module procedure curl, curl_inplace, curl3, curl_x
@@ -37,9 +41,7 @@ module basic_operators
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl(out1,out2,out3,in1,in2,in3)
-  use mpi
   use p3dfft_wrapper
-  use vars
   implicit none
 
   ! input field in Fourier space
@@ -77,8 +79,6 @@ end subroutine curl
 ! Given three components of a fields in Fourier space, compute the
 ! curl in physical space.  Arrays are 3-dimensional.
 subroutine curl_inplace(fx,fy,fz)
-  use mpi
-  use vars
   use p3dfft_wrapper
   implicit none
 
@@ -118,9 +118,7 @@ end subroutine curl_inplace
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl3_inplace(fk)
-  use mpi
   use p3dfft_wrapper
-  use vars
   implicit none
 
   ! input/output field in Fourier space
@@ -153,8 +151,6 @@ end subroutine curl3_inplace
 ! the curl in physical space.  Arrays are 3-dimensional. The precision is reduced
 ! to second order in space, since this kind of filtering may help in postprocessing
 subroutine curl_2nd (fx,fy,fz)
-  use mpi
-  use vars
   use p3dfft_wrapper
   implicit none
 
@@ -195,9 +191,7 @@ end subroutine curl_2nd
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl3(ink,outk)
-  use mpi
   use p3dfft_wrapper
-  use vars
   implicit none
 
   ! input/output field in Fourier space
@@ -231,11 +225,10 @@ end subroutine curl3
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl_x( u, rotu )
   use p3dfft_wrapper
-  use vars
   implicit none
 
   ! input/output field in x-space
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
   real(kind=pr),intent(out)::rotu(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
 
   integer :: ix,iy,iz
@@ -345,9 +338,7 @@ end subroutine curl_x
 ! and returns it in outk
 !-------------------------------------------------------------------------------
 subroutine divergence_k( ink, outk )
-  use mpi
   use p3dfft_wrapper
-  use vars
   implicit none
   ! input vector field in Fourier space
   complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
@@ -379,11 +370,9 @@ end subroutine divergence_k
 ! is used.
 !-------------------------------------------------------------------------------
 subroutine divergence_x( u, divu )
-  use mpi
   use p3dfft_wrapper
-  use vars
   implicit none
-  real(kind=pr),intent(in)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
   real(kind=pr),intent(inout)::divu(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   
   integer :: ix,iy,iz
@@ -475,9 +464,7 @@ end subroutine divergence_x
 
 ! computes laplace(ink) for a scalar valued field and returns it in the same array
 subroutine laplacien_inplace( ink )
-  use mpi
   use p3dfft_wrapper
-  use vars
   implicit none
   complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   
@@ -505,9 +492,7 @@ end subroutine laplacien_inplace
 ! note wavenumbers are reduced to second order accuracy (for the Q-criterion, 
 ! the result is nicer if filtered)
 subroutine laplacien_inplace_filtered( ink )
-  use mpi
   use p3dfft_wrapper
-  use vars
   implicit none
   complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   
@@ -550,8 +535,6 @@ end function fieldmax
 
 ! returns the globally smallest entry of a given (real) field
 real(kind=pr) function fieldmin( inx )
-  use mpi
-  use vars
   implicit none
   real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: min_local, min_global
@@ -568,8 +551,6 @@ end function fieldmin
 ! returns the globally largest entry of a given vector field
 ! (L2-norm)
 real(kind=pr) function fieldmaxabs3( inx )
-  use mpi
-  use vars
   implicit none
   real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr) :: max_local, max_global, value
@@ -597,8 +578,6 @@ end function fieldmaxabs3
 ! returns the globally largest entry of a given vector field
 ! (L2-norm)
 real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
-  use mpi
-  use vars
   implicit none
   real(kind=pr),intent(in):: inx1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in):: inx2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -620,7 +599,6 @@ end function fieldmaxabs
 ! check a real valued field for NaNs and display warning if found
 !-------------------------------------------------------------------------------
 subroutine checknan_real( field, msg )
-  use vars
   implicit none
   real(kind=pr),intent(in)::field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   character(len=*),intent(in)::msg
@@ -645,7 +623,6 @@ end subroutine checknan_real
 ! check a complex field for NaN's, display warning if found
 !-------------------------------------------------------------------------------
 subroutine checknan_cmplx( field, msg )
-  use vars
   implicit none
   complex(kind=pr),intent(in)::field(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   character(len=*),intent(in)::msg
@@ -671,7 +648,6 @@ end subroutine checknan_cmplx
 !-------------------------------------------------------------------------------
 real(kind=pr) function  volume_integral( u )
   use p3dfft_wrapper
-  use vars
   implicit none
 
   ! input/output field in x-space

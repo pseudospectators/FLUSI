@@ -9,7 +9,7 @@ FFILES = rhs.f90 fluid_time_step.f90 init_fields.f90 \
 	fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 rotation_matrices.f90 \
         add_channel.f90 add_cavity.f90 init_scalar.f90 \
-        passive_scalar.f90 noncircular_cylinder.f90 ghostpoints.f90 draw_flexible_plate.f90
+        passive_scalar.f90 noncircular_cylinder.f90 draw_flexible_plate.f90
 
 # Object and module directory:
 OBJDIR=obj
@@ -17,7 +17,7 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
 MFILES = vars.f90 diff.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 \
-	interpolation.f90 basic_operators.f90 insects.f90
+	interpolation.f90 basic_operators.f90 insects.f90 ghostpoints.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -104,7 +104,7 @@ $(OBJDIR)/vars.o: vars.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/kine.o: kine.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/diff.o: diff.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/diff.o: diff.f90 $(OBJDIR)/vars.o $(OBJDIR)/ghostpoints.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
@@ -112,11 +112,14 @@ $(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o $(OBJDIR)/kine.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 wings_motion.f90 stroke_plane.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
 $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o \
-	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90
+	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 $(OBJDIR)/ghostpoints.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
-$(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/diff.o
+$(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/diff.o \
+	$(OBJDIR)/ghostpoints.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

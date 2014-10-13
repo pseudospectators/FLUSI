@@ -12,6 +12,11 @@
 !       This must be generalized to arbitrary decompositions (e.g. 1D in 
 !       x-direction, 3D and so on)
 !-------------------------------------------------------------------------------
+module ghosts
+
+ contains 
+ 
+ 
 subroutine synchronize_ghosts ( field )
   ! Routine assumes that heart of the matrix "field" (thus the regular part of 
   ! it) have been filled previously. Here, we exchange only the ghosts
@@ -19,14 +24,6 @@ subroutine synchronize_ghosts ( field )
   use mpi
   implicit none
   real(kind=pr), intent(inout) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  integer :: mpicode, destination, origin, status
-  integer :: ixmin,ixmax,iymin,iymax,izmin,izmax
-  ixmin=ra(1)
-  ixmax=rb(1)
-  iymin=ra(2)
-  iymax=rb(2)
-  izmin=ra(3)
-  izmax=rb(3)
   
   if ((decomposition=="1D").and.(ng>0)) then
     call sync_ghosts_1D_z ( field )
@@ -45,7 +42,6 @@ subroutine sync_ghosts_1D_z ( field )
   ! it) have been filled previously. Here, we exchange only the ghosts
   use vars
   use mpi
-  use basic_operators
   implicit none
   real(kind=pr), intent(inout) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer :: mpicode, destination, origin, status(MPI_status_size)
@@ -259,14 +255,6 @@ subroutine synchronize_ghosts_FD ( field )
   use mpi
   implicit none
   real(kind=pr), intent(inout) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer :: mpicode, destination, origin, status
-  integer :: ixmin,ixmax,iymin,iymax,izmin,izmax
-  ixmin=ra(1)
-  ixmax=rb(1)
-  iymin=ra(2)
-  iymax=rb(2)
-  izmin=ra(3)
-  izmax=rb(3)
   
   if ((decomposition=="1D").and.(ng>0)) then
     call sync_ghosts_1D_z_FD ( field )
@@ -285,7 +273,6 @@ subroutine sync_ghosts_1D_z_FD ( field )
   ! it) have been filled previously. Here, we exchange only the ghosts
   use vars
   use mpi
-  use basic_operators
   implicit none
   real(kind=pr), intent(inout) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer :: mpicode, destination, origin, status(MPI_status_size)
@@ -427,3 +414,5 @@ subroutine sync_ghosts_2D_yz_FD ( field )
                     origin,&                                  ! recv tag
                     MPI_COMM_WORLD,status,mpicode)  
 end subroutine sync_ghosts_2D_yz_FD
+
+end module ghosts
