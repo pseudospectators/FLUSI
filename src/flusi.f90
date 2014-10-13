@@ -23,7 +23,7 @@ program FLUSI
       !-------------------------------------------------------------------------
       call Start_Simulation()    
       
-  elseif ( infile == "--postprocess") then 
+  elseif ( infile == "--postprocess" .or. infile == "--post") then 
       !-------------------------------------------------------------------------
       ! the first argument tells us that we're postprocessing 
       !-------------------------------------------------------------------------

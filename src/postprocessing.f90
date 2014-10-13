@@ -8,18 +8,20 @@ subroutine postprocessing()
   character(len=strlen)     :: postprocessing_mode, filename, key1,key2
   real(kind=pr) :: t1
   
-!   t1=MPI_wtime()
-!   
-!   if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
-!   
-!   ! the second argument tells us what to do with the file
-!   call get_command_argument(2,postprocessing_mode)
-!   ! it then depends on the second argument what follows
+  t1=MPI_wtime()
+  
+  if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
+  
+  ! the second argument tells us what to do with the file
+  call get_command_argument(2,postprocessing_mode)
+  ! it then depends on the second argument what follows
 !   
 !   !-----------------
 !   ! check what to do
 !   !-----------------     
-!   select case (postprocessing_mode)
+  select case (postprocessing_mode)
+  case ('cp')
+    call copy_hdf5file()
 !   case ("--keyvalues")
 !     call get_command_argument(3,filename)
 !     call keyvalues (filename)      
@@ -41,11 +43,35 @@ subroutine postprocessing()
 !     call pressure_to_Qcriterion()
 !   case ("--extract-subset")
 !     call extract_subset()
-!   end select
-!       
-!   if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1    
+  end select
+      
+  if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1    
 end subroutine postprocessing
 
+
+subroutine copy_hdf5file
+  use vars
+  implicit none
+  
+  character(len=strlen) :: file_src, file_dst, dset_src, dset_dst
+  real(kind=pr),dimension(:,:,:),allocatable::field
+  real(kind=pr)::time
+  
+  call get_command_argument(3,file_src)
+  call get_command_argument(4,file_dst)
+  
+  dset_dst = file_dst(1:index(file_dst,'_')-1)
+  dset_src = file_src(1:index(file_src,'_')-1)
+  
+  call check_file_exists ( file_src )
+  call fetch_attributes( file_src, dset_src, nx, ny, nz, xl, yl, zl, time )
+  allocate ( field(0:nx-1,0:ny-1,0:nz-1))
+  call read_single_file_serial(file_src, field)
+  ra=0
+  rb=(/nx-1,ny-1,nz-1/)
+  call save_field_hdf5(time,file_dst(1:index(file_dst,'.')-1),field,dset_dst)
+  deallocate(field)
+end subroutine
 
 ! 
 ! 
