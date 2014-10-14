@@ -33,6 +33,20 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
   
   select case(inicond)
+  case ("taylor_green_2d")
+    !--------------------------------------------------
+    ! taylor green vortices
+    !--------------------------------------------------
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        y = dble(iy)*dy
+        z = dble(iz)*dz
+        u(:,iy,iz,2) = dsin( y ) * dcos( z )
+        u(:,iy,iz,3) =-dcos( y ) * dsin( z )
+        u(:,iy,iz,4) =0.25d0*(dcos(2.d0*y)+dcos(2.d0*z))
+      enddo
+    enddo
+    
   case("infile")
      !--------------------------------------------------
      ! read HDF5 files
