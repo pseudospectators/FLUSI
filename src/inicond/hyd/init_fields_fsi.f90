@@ -32,6 +32,19 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   vort = 0.0d0
   
   select case(inicond)
+  case ("taylor_green_2d")
+    !--------------------------------------------------
+    ! taylor green vortices
+    !--------------------------------------------------
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        y = dble(iy)*dy
+        z = dble(iz)*dz
+        vort(:,iy,iz,2) = dsin( y ) * dcos( z )
+        vort(:,iy,iz,3) =-dcos( y ) * dsin( z )
+      enddo
+    enddo
+    call fft3 ( uk,vort )
   case("infile")
      !--------------------------------------------------
      ! read HDF5 files

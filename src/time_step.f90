@@ -46,7 +46,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   
   ! Loop over time steps
   t1=MPI_wtime()
-  do while ((time<=tmax) .and. (it<=nt) .and. (continue_timestepping) )
+  do while ((time<tmax) .and. (it<=nt) .and. (continue_timestepping) )
      t4=MPI_wtime()
      dt0=dt1
      

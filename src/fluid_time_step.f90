@@ -694,6 +694,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press)
   call adjust_dt(dt1,u)
+  if (dt1>tmax-time) dt1=tmax-time
 
   !-- Calculate velocity at new time step 
   !-- (2nd order Adams-Bashforth with exact integration of diffusion term)
