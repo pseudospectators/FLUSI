@@ -147,9 +147,9 @@ subroutine romain_open_cavity(mask, mask_color, us)
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z
 
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1)
         x=dble(ix)*dx - 0.5*xl
         if (x<=-1.d0 .or. x>=+1.d0 ) then
           mask (ix, iy, iz) = 1.d0
@@ -163,3 +163,44 @@ subroutine romain_open_cavity(mask, mask_color, us)
 end subroutine romain_open_cavity
 
 
+subroutine taylor_couette(mask, mask_color, us)
+  use vars
+  implicit none
+  
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+
+  integer :: ix, iy, iz
+  real (kind=pr) :: x, y, z, R,R1,R2,omega
+  
+  R1=0.5d0
+  R2=1.0d0
+  omega=1.25d0
+  
+  do iz=ra(3),rb(3)
+    z = dble(iz)*dz - 0.5d0*zl
+    do iy=ra(2),rb(2)
+      y = dble(iy)*dy - 0.5d0*yl
+      
+      R=dsqrt(z*z+y*y)
+      
+      ! inner cylinder
+      if ( R<=R1) then
+        mask (ix, iy, iz) = 1.d0
+        us (ix,iy,iz,1) = 0.d0
+        us (ix,iy,iz,2) = +omega * z
+        us (ix,iy,iz,3) = -omega * y 
+        mask_color(ix,iy,iz) = 0
+      endif
+      
+      ! outer cylinder
+      if (R>=R2) then
+        mask (ix, iy, iz) = 1.d0
+        us (ix,iy,iz,1:3) = 0.d0
+        mask_color(ix,iy,iz) = 0
+      endif
+    enddo
+  enddo
+  
+end subroutine

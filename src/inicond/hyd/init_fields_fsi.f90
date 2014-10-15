@@ -17,7 +17,8 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(diptera), intent(inout) :: Insect
     
   integer :: ix,iy,iz
-  real (kind=pr) :: x,y,z,r,a,gamma0,x00,r00,omega
+  real (kind=pr) :: x,y,z,r,gamma0,x00,r00,omega,a,b
+  real (kind=pr) :: R1,R2,uu
 
   ! Assign zero values
   time%time = 0.0d0
@@ -33,6 +34,43 @@ subroutine init_fields_fsi(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   
   
   select case(inicond)
+  case ("couette")
+    !--------------------------------------------------
+    ! couette flow
+    !--------------------------------------------------  
+    R1=0.5d0
+    R2=1.0d0
+    omega=1.25d0
+    
+    a = omega*(-R1**2 / (R2**2 - R1**2))
+    b = omega*(R1**2 * R2**2) / (R2**2 - R1**2)
+    
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        y = dble(iy)*dy - 0.5d0*yl
+        z = dble(iz)*dz - 0.5d0*zl
+        R = dsqrt(y**2 + z**2)
+        
+        if ((R>R1).and.(R<R2)) then
+          ! fluid domain
+          uu = a*R + b/R
+          u(:,iy,iz,1) = 0.d0
+          u(:,iy,iz,2) =+uu*z/R 
+          u(:,iy,iz,3) =-uu*y/R
+        elseif (R>=R2) then
+          ! outer cylinder
+          u(:,iy,iz,1) = 0.d0
+          u(:,iy,iz,2) = 0.d0
+          u(:,iy,iz,3) = 0.d0
+        elseif (R<=R1) then
+          ! inner cylinder
+          u(:,iy,iz,1) = 0.d0
+          u(:,iy,iz,2) = +omega*z
+          u(:,iy,iz,3) = -omega*y
+        endif
+      enddo
+    enddo
+    
   case ("taylor_green_2d")
     !--------------------------------------------------
     ! taylor green vortices

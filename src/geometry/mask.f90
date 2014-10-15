@@ -44,6 +44,8 @@ subroutine create_mask(time,mask,mask_color,us,Insect,beams)
       call Draw_Plate (time, mask, mask_color, us ) ! 2d plate, etc (Dmitry, 25 Oct 2013)
     case ("noncircular_cylinder")
       call noncircular_cylinder( mask, mask_color, us )
+    case ("couette")
+      call taylor_couette(mask, mask_color, us)
     case("none")
       mask = 0.d0
     case default    
