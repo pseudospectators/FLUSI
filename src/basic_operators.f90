@@ -323,7 +323,7 @@ subroutine curl_x( u, rotu )
   complex(kind=pr),allocatable,dimension(:,:,:,:)::outk
   complex(kind=pr) :: imag   ! imaginary unit
   
-  call synchronize_ghosts( u )
+  
   
   select case(method)
   case('spectral')  
@@ -357,6 +357,7 @@ subroutine curl_x( u, rotu )
       deallocate(ink,outk)
       
   case('centered_2nd')
+      call synchronize_ghosts( u )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
@@ -398,6 +399,7 @@ subroutine curl_x( u, rotu )
       endif
       
   case('centered_4th')
+      call synchronize_ghosts( u )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
@@ -498,7 +500,7 @@ subroutine divergence_x( u, divu )
   ! output scalar field in Fourier space
   complex(kind=pr),allocatable,dimension(:,:,:)::outk
   
-  call synchronize_ghosts_FD( u )
+  
   
   select case(method)
   case('spectral')  
@@ -530,6 +532,7 @@ subroutine divergence_x( u, divu )
       deallocate(ink,outk)
       
   case('centered_2nd')
+      call synchronize_ghosts_FD( u )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------
@@ -562,6 +565,7 @@ subroutine divergence_x( u, divu )
       endif
       
   case('centered_4th')
+      call synchronize_ghosts_FD( u )
       !-------------------------------------------------------------------------
       ! compute divergence(u) using second order centered period FD
       !-------------------------------------------------------------------------

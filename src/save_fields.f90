@@ -22,16 +22,16 @@ subroutine save_fields(time,u,nlk,work,mask,mask_color,us,Insect,beams)
   type(diptera),intent(in) :: Insect
   
   real(kind=pr):: volume
-  character(len=5) :: name
+  character(len=6) :: name
 
   !--Set up file name base    
   if ( save_only_one_period == "yes" ) then
     ! overwrite files from last period to save disk space
     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-    write(name,'(i5.5)') floor( (time%time-real(floor(time%time/tsave_period)))*100.d0 )
+    write(name,'(i6.6)') floor( (time%time-real(floor(time%time/tsave_period)))*1000.d0 )
   else
     ! name is just the time
-    write(name,'(i5.5)') floor(time%time*100.d0) 
+    write(name,'(i6.6)') floor(time%time*1000.d0) 
   endif
   
   if (mpirank == 0 ) then

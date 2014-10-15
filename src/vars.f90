@@ -137,7 +137,7 @@ module vars
   real(kind=pr),save :: nu
   
   ! pseudo speed of sound for the artificial compressibility method
-  real(kind=pr), save :: c_0, gamma_p=1.d0
+  real(kind=pr), save :: c_0, gamma_p
 
   ! Initial conditions:
   character(len=strlen),save :: inicond,file_ux,file_uy,file_uz,file_p

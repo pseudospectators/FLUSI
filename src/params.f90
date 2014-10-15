@@ -175,6 +175,8 @@ subroutine get_params(paramsfile,Insect)
   !-----------------------------------------------------------------------------
   call param_dbl(PARAMS,i,"Incompressibility","c_0",&
        c_0, 0.d0)
+  call param_dbl(PARAMS,i,"Incompressibility","gamma_p",&
+       gamma_p, 1.d0)     
   call param_str(PARAMS,i,"Incompressibility","method",&
        method,"centered_2nd")
        
