@@ -12,6 +12,7 @@ subroutine init_passive_scalar(uk,work,workc,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use penalization ! mask array etc
   use solid_model
   use insect_module
   implicit none

@@ -8,6 +8,8 @@
 module insect_module
   use fsi_vars
   use mpi
+  use penalization ! mask array etc
+  
   implicit none
   
   ! Fourier coefficients for wings

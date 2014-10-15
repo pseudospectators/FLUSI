@@ -3,6 +3,7 @@ subroutine init_fields_mhd(time,it,dt0,dt1,n0,n1,ubk,nlk,wj,explin)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
+  use penalization ! mask array etc
   implicit none
 
   integer,intent (inout) :: n1,it,n0
@@ -76,6 +77,7 @@ end subroutine init_fields_mhd
 subroutine init_orszagtang(ubk,ub)
   use mpi
   use mhd_vars
+  use penalization ! mask array etc
   use p3dfft_wrapper
   implicit none
 
@@ -116,6 +118,7 @@ subroutine init_const(ubk,wj)
   use mpi
   use p3dfft_wrapper
   use mhd_vars
+  use penalization ! mask array etc
   implicit none
 
 complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -141,6 +144,7 @@ subroutine init_smc(ubk,ub)
   use mpi
   use p3dfft_wrapper
   use mhd_vars
+  use penalization ! mask array etc
   implicit none
 
 complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
@@ -201,6 +205,7 @@ end subroutine init_smc
 subroutine init_smcnum(ubk,ub)
   use mpi
   use mhd_vars
+  use penalization ! mask array etc
   use p3dfft_wrapper
   implicit none
 

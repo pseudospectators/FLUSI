@@ -44,6 +44,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   use basic_operators
   use solid_model
   use insect_module
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -1207,6 +1208,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
   use mhd_vars
   use p3dfft_wrapper
   use basic_operators
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr),intent(in) :: time

@@ -97,6 +97,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   use p3dfft_wrapper
   use fsi_vars
   use basic_operators
+  use penalization ! mask array etc
+  
   implicit none
 
   real(kind=pr),intent (in) :: time
@@ -387,6 +389,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   use fsi_vars
   use p3dfft_wrapper
   use basic_operators
+  use penalization ! mask array etc
   implicit none
 
   complex(kind=pr),intent(inout) ::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)

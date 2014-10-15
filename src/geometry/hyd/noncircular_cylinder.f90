@@ -8,7 +8,7 @@
 ! (as opposed to do so once on initialization)
 !-------------------------------------------------------------------------------
 subroutine noncircular_cylinder
-  use mpi
+  use penalization ! mask array etc
   use fsi_vars
   implicit none
 

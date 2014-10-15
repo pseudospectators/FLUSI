@@ -60,6 +60,7 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   use mpi
   use vars
   use p3dfft_wrapper
+  use penalization ! mask array etc
   implicit none
   
   complex(kind=pr),intent(inout):: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
@@ -227,6 +228,7 @@ subroutine init_taylorcouette_u(ubk,ub)
   use mpi
   use vars
   use p3dfft_wrapper
+  use penalization ! mask array etc
   implicit none
 
   complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)

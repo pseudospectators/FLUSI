@@ -3,7 +3,8 @@ program mhd
   use p3dfft_wrapper
   use mhd_vars
   use insect_module !TODO: MAKE MHD INDEPENDENT OF THIS
-  use solid_model
+  use solid_model!TODO: MAKE MHD INDEPENDENT OF THIS
+  use penalization ! mask array etc
   implicit none
 
   integer :: mpicode

@@ -112,6 +112,7 @@ end subroutine
 !   SOLID SOLVER WRAPPER
 !-------------------------------------------------------------------------------
 subroutine SolidSolverWrapper ( time, dt, beams )
+  use penalization ! mask array etc
   implicit none
   real(kind=pr), intent (in) ::  dt, time
   real(kind=pr) :: t0

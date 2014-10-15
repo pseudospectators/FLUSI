@@ -49,6 +49,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   use basic_operators
   use solid_model
   use insect_module
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr),intent(in)::time
@@ -196,6 +197,7 @@ end subroutine write_integrals_fsi
 subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   use mpi
   use mhd_vars
+  use penalization ! mask array etc
   use p3dfft_wrapper
   use basic_operators
   implicit none
@@ -318,6 +320,7 @@ end subroutine write_integrals_mhd
 subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3)
   use mpi
   use vars
+  use penalization ! mask array etc
   implicit none
   
   real(kind=pr),intent(out) :: E,Ex,Ey,Ez
@@ -434,6 +437,7 @@ end subroutine compute_energies
 subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
   use mpi
   use vars
+  use penalization ! mask array etc
   implicit none
   
   real(kind=pr),intent(out) :: Cx,Cy,Cz
@@ -489,6 +493,7 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   use mpi
   use vars
   use p3dfft_wrapper
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr),intent(out) :: maxdiv  
@@ -571,6 +576,7 @@ end subroutine compute_max_div
 subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
   use mpi
   use vars
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr),intent(out) :: vmax,xmax,ymax,zmax
@@ -624,6 +630,7 @@ end subroutine compute_max
 subroutine compute_mean_norm(mean,f1,f2,f3)
   use mpi
   use vars
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr),intent(out) :: mean
@@ -663,6 +670,7 @@ end subroutine compute_mean_norm
 subroutine compute_fluid_volume(volume)
   use mpi
   use vars
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr),intent(out) :: volume
@@ -698,6 +706,7 @@ end subroutine compute_fluid_volume
 ! NB: mask is a global!
 subroutine compute_mask_volume(volume)
   use mpi
+  use penalization
   use vars
   implicit none
 

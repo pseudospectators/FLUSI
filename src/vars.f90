@@ -1,3 +1,18 @@
+! the mask and us (the solid Velocity) are for historic reasons global arrays
+! that do not appear in the argument lists. to gain flexibility, we move them out 
+! of "vars". Then newer routines from newer codes, that do not have mask as a global
+! can be adapted easier.
+module penalization
+  use vars
+  implicit none
+  ! The mask array.  TODO: move out of shave_vars?
+  real(kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
+  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color ! mask color function
+  ! Velocity field inside the solid.  TODO: move out of shave_vars?
+  real(kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid  
+end module penalization
+
+
 ! Variables for pseudospectral simnulations
 module vars
   use mpi
@@ -52,11 +67,6 @@ module vars
   real(kind=pr),save :: time_insect_eye,time_insect_wings, time_insect_vel
   real(kind=pr),save :: time_solid, time_drag, time_surf, time_LAPACK
   real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar
-  ! The mask array.  TODO: move out of shave_vars?
-  real(kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
-  integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color ! mask color function
-  ! Velocity field inside the solid.  TODO: move out of shave_vars?
-  real(kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
 
   ! Variables set via the parameters file
   real(kind=pr),save :: length 

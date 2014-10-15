@@ -19,7 +19,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect 
   integer :: ix,iy,iz
-  real (kind=pr) :: x,y,z,r,a,gamma0,x00,r00,omega
+  real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega
+  real (kind=pr) :: uu
 
   ! Assign zero values
   time = 0.0d0
@@ -32,6 +33,44 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   vort = 0.0d0
   
   select case(inicond)
+  case ("couette")
+    !--------------------------------------------------
+    ! couette flow
+    !--------------------------------------------------  
+    R1=0.5d0
+    R2=1.0d0
+    omega=1.25d0
+    
+    a = omega*(-R1**2 / (R2**2 - R1**2))
+    b = omega*(R1**2 * R2**2) / (R2**2 - R1**2)
+    
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        y = dble(iy)*dy - 0.5d0*yl
+        z = dble(iz)*dz - 0.5d0*zl
+        R = dsqrt(y**2 + z**2)
+        
+        if ((R>R1).and.(R<R2)) then
+          ! fluid domain
+          uu = a*R + b/R
+          vort(:,iy,iz,1) = 0.d0
+          vort(:,iy,iz,2) =+uu*z/R 
+          vort(:,iy,iz,3) =-uu*y/R
+        elseif (R>=R2) then
+          ! outer cylinder
+          vort(:,iy,iz,1) = 0.d0
+          vort(:,iy,iz,2) = 0.d0
+          vort(:,iy,iz,3) = 0.d0
+        elseif (R<=R1) then
+          ! inner cylinder
+          vort(:,iy,iz,1) = 0.d0
+          vort(:,iy,iz,2) = +omega*z
+          vort(:,iy,iz,3) = -omega*y
+        endif
+      enddo
+    enddo
+    call fft3 ( uk,vort )
+    
   case ("taylor_green_2d")
     !--------------------------------------------------
     ! taylor green vortices
@@ -45,6 +84,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
       enddo
     enddo
     call fft3 ( uk,vort )
+    
   case("infile")
      !--------------------------------------------------
      ! read HDF5 files

@@ -16,6 +16,7 @@
 subroutine cal_drag ( time, u, Insect )
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   use insect_module
   implicit none
   
@@ -232,6 +233,7 @@ end subroutine cal_drag
 subroutine cal_unst_corrections ( time, dt, Insect )
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   use insect_module
   implicit none
   

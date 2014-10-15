@@ -92,6 +92,7 @@ end subroutine vorticity_sponge
 subroutine penalize_vort ( vort_penalized, vort )
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   implicit none
   ! input: vorticity in phys space
   real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))

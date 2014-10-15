@@ -4,6 +4,7 @@ subroutine create_mask(time,Insect,beams)
   use vars
   use solid_model
   use insect_module
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr), intent(in) :: time

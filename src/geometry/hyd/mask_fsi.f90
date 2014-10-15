@@ -4,6 +4,7 @@ subroutine create_mask_fsi (time, Insect, beams )
   use fsi_vars
   use solid_model
   use insect_module
+  use penalization ! mask array etc
   implicit none
   real(kind=pr), intent(in) :: time
   type(solid),dimension(1:nBeams), intent(inout) :: beams
@@ -38,6 +39,8 @@ subroutine create_mask_fsi (time, Insect, beams )
       call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
     case ("noncircular_cylinder")
       call noncircular_cylinder()
+    case ("couette")
+      call taylor_couette()
     case("none")
       mask = 0.d0
     case default    
@@ -76,6 +79,7 @@ end subroutine update_us_fsi
 ! and rotates around the x0-axis by the angle alpha.
 subroutine Flapper (time)
   use mpi
+  use penalization ! mask array etc
   use fsi_vars
   implicit none
 
@@ -210,6 +214,7 @@ end subroutine Flapper
 subroutine romain_open_cavity
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   implicit none
 
   integer :: ix, iy, iz
@@ -231,3 +236,42 @@ subroutine romain_open_cavity
 end subroutine romain_open_cavity
 
 
+
+subroutine taylor_couette()
+  use fsi_vars
+  use penalization ! mask array etc
+  implicit none
+  
+  integer :: ix, iy, iz
+  real (kind=pr) :: x, y, z, R,omega
+  
+  R1=0.5d0
+  R2=1.0d0
+  omega=1.25d0
+  
+  do iz=ra(3),rb(3)
+    z = dble(iz)*dz - 0.5d0*zl
+    do iy=ra(2),rb(2)
+      y = dble(iy)*dy - 0.5d0*yl
+      
+      R=dsqrt(z*z+y*y)
+      
+      ! inner cylinder
+      if ( R<=R1) then
+        mask (ix, iy, iz) = 1.d0
+        us (ix,iy,iz,1) = 0.d0
+        us (ix,iy,iz,2) = +omega * z
+        us (ix,iy,iz,3) = -omega * y 
+        mask_color(ix,iy,iz) = 0
+      endif
+      
+      ! outer cylinder
+      if (R>=R2) then
+        mask (ix, iy, iz) = 1.d0
+        us (ix,iy,iz,1:3) = 0.d0
+        mask_color(ix,iy,iz) = 0
+      endif
+    enddo
+  enddo
+  
+end subroutine

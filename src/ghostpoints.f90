@@ -13,7 +13,7 @@ subroutine synchronize_ghosts ( field )
   use mpi
   implicit none
   real(kind=pr), intent(inout) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  integer :: mpicode, destination, origin, status
+  integer :: mpicode, destination, origin, status(MPI_status_size)
   integer :: ixmin,ixmax,iymin,iymax,izmin,izmax
   ixmin=ra(1)
   ixmax=rb(1)

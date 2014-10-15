@@ -2,6 +2,7 @@
 subroutine draw_sphere
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   implicit none
 
   integer :: ix, iy, iz
@@ -34,6 +35,7 @@ end subroutine draw_sphere
 subroutine draw_cylinder_x
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   implicit none
 
   integer :: ix, iy, iz

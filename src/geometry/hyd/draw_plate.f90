@@ -5,6 +5,7 @@
 subroutine Draw_Plate (time)
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   implicit none
 
   real(kind=pr), intent(in) :: time

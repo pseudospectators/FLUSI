@@ -8,6 +8,7 @@
 subroutine add_channel()
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   implicit none
   integer :: ix,iy,iz
   real (kind=pr) :: x,y, z, usponge, H_eff, z_chan

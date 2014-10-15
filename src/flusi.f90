@@ -3,6 +3,7 @@ program FLUSI
   use fsi_vars
   use solid_model
   use insect_module
+  
   implicit none
   integer                :: mpicode
   character (len=strlen) :: infile
@@ -60,6 +61,7 @@ subroutine Start_Simulation()
   use p3dfft_wrapper
   use solid_model
   use insect_module
+  use penalization ! mask array etc
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   real(kind=pr)          :: t1,t2

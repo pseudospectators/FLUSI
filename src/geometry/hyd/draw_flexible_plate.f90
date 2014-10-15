@@ -5,6 +5,7 @@
 subroutine Draw_flexible_plate (time, beam)
   use mpi
   use fsi_vars
+  use penalization ! mask array etc
   !-- use global variables for solid solver, as well as routines
   use solid_model 
   implicit none
