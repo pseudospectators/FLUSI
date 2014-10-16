@@ -3,13 +3,12 @@
 ! of "vars". Then newer routines from newer codes, that do not have mask as a global
 ! can be adapted easier.
 module penalization
-  use vars
   implicit none
   ! The mask array.  TODO: move out of shave_vars?
-  real(kind=pr),dimension (:,:,:),allocatable,save :: mask ! mask function
+  real(kind=8),dimension (:,:,:),allocatable,save :: mask ! mask function
   integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color ! mask color function
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
-  real(kind=pr),allocatable,save :: us(:,:,:,:)  ! Velocity in solid  
+  real(kind=8),allocatable,save :: us(:,:,:,:)  ! Velocity in solid  
 end module penalization
 
 
