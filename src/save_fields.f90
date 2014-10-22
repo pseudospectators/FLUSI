@@ -55,7 +55,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr):: volume
-  character(len=5) :: name
+  character(len=6) :: name
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
@@ -63,10 +63,10 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   if ( save_only_one_period == "yes" ) then
     ! overwrite files from last period to save disk space
     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-    write(name,'(i5.5)') floor( (time-real(floor(time/tsave_period)))*100.d0 )
+    write(name,'(i6.6)') floor( (time-real(floor(time/tsave_period)))*1000.d0 )
   else
     ! name is just the time
-    write(name,'(i5.5)') floor(time*100.d0) 
+    write(name,'(i6.6)') floor(time*1000.d0) 
   endif
   
   if (mpirank == 0 ) then
