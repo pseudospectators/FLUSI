@@ -78,17 +78,17 @@ subroutine smoothstep(f,x,t,h)
   real (kind=pr), intent (in)  :: x,t,h
   real (kind=pr) :: delta, GradientERF
 
-  select case (iSmoothing)
-  case ("erf")
-      !-------------------------------------------------
-      ! error function as non-oscilatory shape
-      !-------------------------------------------------
-      ! h - delta (gradient thickness)
-      ! t - thickness (radius)
-      GradientERF = dabs( ( dexp(-(2.d0*1.d0)**2)  - 1.d0 )/dsqrt(pi) )
-      delta = h*GradientERF
-      f = 0.5d0*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
-  case ("cos")
+!  select case (iSmoothing)
+!  case ("erf")
+!      !-------------------------------------------------
+!      ! error function as non-oscilatory shape
+!      !-------------------------------------------------
+!      ! h - delta (gradient thickness)
+!      ! t - thickness (radius)
+!      GradientERF = dabs( ( dexp(-(2.d0*1.d0)**2)  - 1.d0 )/dsqrt(pi) )
+!      delta = h*GradientERF
+!      f = 0.5d0*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
+!  case ("cos")
       !-------------------------------------------------
       ! cos shaped smoothing (compact in phys.space)
       !-------------------------------------------------
@@ -99,11 +99,11 @@ subroutine smoothstep(f,x,t,h)
       else
         f = 0.d0
       endif
-  case default
-      !-------------------------------------------------
-      write(*,*) "Smoothing parameter not rightly set", iSmoothing
-      call abort()
-  end select
+!  case default
+!      !-------------------------------------------------
+!      write(*,*) "Smoothing parameter not rightly set", iSmoothing
+!      call abort()
+!  end select
   
 end subroutine smoothstep
 
