@@ -1,8 +1,7 @@
 ! Rigid solid time stepping routines
 ! AB2 method with Euler startup
 subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
-  use mpi
-  use fsi_vars
+  use vars
   implicit none
 
   real (kind=pr),intent (in) :: time,dt1,dt0
@@ -37,8 +36,7 @@ end subroutine rigid_solid_time_step
 ! RHS of the ODEs that describe the rigid solid dynamics
 ! This is a wrapper. Actual implementation is problem-specific
 subroutine rigid_solid_rhs(time,it,Insect)
-  use mpi
-  use fsi_vars
+  use vars
   implicit none
 
   real (kind=pr),intent (in) :: time
@@ -63,8 +61,7 @@ end subroutine rigid_solid_rhs
 ! determines if the solid dynamics solver should be activated
 ! returns idynamics = 0 (do not activate) or 1 (activate)
 subroutine rigid_solid_init(idynamics,Insect)
-  use mpi
-  use fsi_vars
+  use vars
   implicit none
 
   integer, intent(out) :: idynamics

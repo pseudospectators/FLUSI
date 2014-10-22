@@ -5,8 +5,7 @@
 ! Output:
 !       eta_stroke: stroke plane angle 
 subroutine StrokePlane ( time, Insect )
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   
   real(kind=pr), intent(in) :: time

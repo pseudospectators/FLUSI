@@ -15,8 +15,7 @@
 ! Insect%BodyMotion, and sub-parameters that may further precise a given motion 
 ! protocoll
 subroutine BodyMotion(time, Insect)
-  use fsi_vars
-  use mpi
+  use vars
   use kine 
   implicit none
   
@@ -81,9 +80,9 @@ subroutine BodyMotion(time, Insect)
     beta_dt  = 0.0
     gamma_dt = 0.0  
 
-!    xc = (/0.5*xl, 0.5*yl, 0.5*zl/)  ! Dmitry, 26 Oct 2013
+   xc = (/0.5*xl, 0.5*yl, 0.5*zl/)  ! Dmitry, 26 Oct 2013
 !    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)  ! Dmitry, 30 Oct 2013 -one wing length from top
-    xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
+!     xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
 !    xc = (/0.5d0*xl, 0.5d0*yl, 0.8d0/)  ! Dmitry, 28 Oct 2013  - ground dist+0.3
     vc = (/0.0d0, 0.0d0, 0.0d0/)    
 
