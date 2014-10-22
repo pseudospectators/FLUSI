@@ -43,7 +43,7 @@ subroutine BodyMotion(time, Insect)
     psi_dt   = 0.d0
     beta_dt  = 0.d0
     gamma_dt = 0.d0
-    xc = (/0.5*xl, 0.5*yl,0.5*zl/)
+    xc = (/x0, y0, z0/)
     vc = (/0.0, 0.0, 0.0/)
 
   case ("x0y0z0")
