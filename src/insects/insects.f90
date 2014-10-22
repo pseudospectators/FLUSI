@@ -7,8 +7,11 @@
 
 module insect_module
   use fsi_vars
+  use mpi
+  use penalization ! mask array etc
+  
   implicit none
-
+  
   ! Fourier coefficients for wings
   real(kind=pr), allocatable, dimension(:) :: ai,bi
   ! fill the R0(theta) array once, then only table-lookup instead of Fseries
@@ -25,7 +28,7 @@ module insect_module
     ! Body motion state, wing motion state and characteristic points on insect
     !-------------------------------------------------------------
     ! position of logical center, and translational velocity
-    real(kind=pr), dimension(1:3) :: xc_body, vc_body
+    real(kind=pr), dimension(1:3) :: xc_body,vc_body
     ! roll pitch yaw angles and their time derivatives
     real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
     ! angles of the wings (left and right)
@@ -33,11 +36,11 @@ module insect_module
     real(kind=pr) :: phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l
     ! stroke plane angle
     real(kind=pr) :: eta_stroke
-    ! angular velocity vectors (wings L+R, body)
+    ! angular velocity vectors 
     real(kind=pr), dimension(1:3) :: rot_l, rot_r, rot_body
-    ! angular acceleration vectors (wings L+R)
+    ! angular acceleration vectors 
     real(kind=pr), dimension(1:3) :: rot_dt_l, rot_dt_r
-    ! Angular velocities of wings and body in global system
+    ! Angular velocities of wings and body
     real(kind=pr), dimension(1:3) :: rot_body_glob, rot_l_glob, rot_r_glob
     ! Vector from body centre to pivot points in global reference frame 
     real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob  
@@ -66,7 +69,7 @@ module insect_module
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion 
     !-------------------------------------------------------------
-    character(len=strlen) :: WingShape, BodyType, BodyMotion
+    character(len=strlen) :: WingShape, BodyType, HasHead, HasEye, BodyMotion
     character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
     character(len=strlen) :: KineFromFile, infile, LeftWing, RightWing
     ! parameters for body:
@@ -113,15 +116,13 @@ module insect_module
 ! subroutines doing the actual job of defining the mask. Note all surfaces are
 ! smoothed.
 !-------------------------------------------------------------------------------
-subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
-  use vars
+subroutine Draw_Insect ( time, Insect )
+  use fsi_vars
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
-  type(diptera),intent(inout) :: Insect  
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(diptera),intent(inout) :: Insect
   
   real(kind=pr),dimension(1:3) :: x, x_body, x_wing_l, x_wing_r, x_eye_r,&
   x_eye_l,x_head, v_tmp, rot_b_psi,rot_b_beta,rot_b_gamma
@@ -135,10 +136,13 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   ! what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
   
+  
+  
   !-- decide what wing routine to call (call simplified wing 
   ! routines that don't use fourier)
   if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
   if (Insect%WingShape=='rectangular') fourier_wing = .false.
+  if (Insect%WingShape=='suzuki') fourier_wing = .false.
     
   !-- define the wings fourier coeffients, but only once  
   if (fourier_wing) call Setup_Wing_Fourier_coefficients(Insect)  
@@ -255,20 +259,134 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   !-----------------------------------------------------------------------------
   ! BODY
   !-----------------------------------------------------------------------------
-  call draw_body( mask, mask_color, us, Insect, color_body, M_body)
+  t1 = MPI_wtime()
+  if (Insect%BodyType /= "nobody") then
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+           !-- define the various coordinate systems we are going to use
+           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           x_body = matmul(M_body,x-Insect%xc_body)
+           
+           !-- call body subroutines
+           call DrawBody(ix,iy,iz,Insect,x_body,color_body)
+        enddo
+     enddo
+  enddo
+  endif
+  time_insect_body = time_insect_body + MPI_wtime() - t1
   
   !-----------------------------------------------------------------------------
-  ! Wings 
+  ! Eyes (not always present)
   !-----------------------------------------------------------------------------
-  if (Insect%RightWing == "yes") then
-    call draw_wing(mask,mask_color,us,Insect,color_r,M_body,M_wing_r,&
-         Insect%x_pivot_r,Insect%rot_r )
+  t1 = MPI_wtime()
+  if (Insect%HasEye == "yes") then           
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+           !-- define the various coordinate systems we are going to use
+           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           x_body   = matmul(M_body,x-Insect%xc_body)
+           x_eye_l  = x_body - Insect%x_eye_l
+           x_eye_r  = x_body - Insect%x_eye_r
+           
+           !-- call eye subroutines
+           call DrawEye(ix,iy,iz,Insect,x_eye_r,color_body)
+           call DrawEye(ix,iy,iz,Insect,x_eye_l,color_body)
+        enddo
+     enddo
+  enddo  
   endif
-    
-  if (Insect%LeftWing == "yes") then
-    call draw_wing(mask,mask_color,us,Insect,color_l,M_body,M_wing_l,&
-         Insect%x_pivot_l,Insect%rot_l )
+  time_insect_eye = time_insect_eye + MPI_wtime() - t1
+  
+  !-----------------------------------------------------------------------------
+  ! Head (not always present)
+  !-----------------------------------------------------------------------------
+  t1 = MPI_wtime()
+  if (Insect%HasHead == "yes") then           
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)
+           !-- define the various coordinate systems we are going to use
+           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           x_body   = matmul(M_body,x-Insect%xc_body)
+           x_head   = x_body - Insect%x_head
+           !-- call body subroutines
+           call DrawHead(ix,iy,iz,Insect,x_head,color_body)
+        enddo
+     enddo
+  enddo  
   endif
+  time_insect_head = time_insect_head + MPI_wtime() - t1
+  
+  !-----------------------------------------------------------------------------
+  ! Wings (two subfunctions, for simple wings and those described
+  ! by Fourier series)
+  !-----------------------------------------------------------------------------
+  
+  ! *** Fourier wings ***
+  t1 = MPI_wtime()
+  if (fourier_wing) then
+    if (Insect%RightWing == "yes") then
+      do ix = ra(1), rb(1)
+        do iy = ra(2), rb(2)
+          do iz = ra(3), rb(3)
+            !-- define the various coordinate systems we are going to use
+            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+            x_body   = matmul(M_body,x-Insect%xc_body)
+            x_wing_r = matmul(M_wing_r,x_body-Insect%x_pivot_r)
+            !-- call wing subroutines
+            call DrawWing_Fourier(ix,iy,iz,Insect,x_wing_r,M_wing_r,Insect%rot_r,color_r)
+          enddo
+        enddo
+      enddo  
+    endif
+    if (Insect%LeftWing == "yes") then
+      do ix = ra(1), rb(1)
+        do iy = ra(2), rb(2)
+          do iz = ra(3), rb(3)
+            !-- define the various coordinate systems we are going to use
+            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+            x_body   = matmul(M_body,x-Insect%xc_body)
+            x_wing_l = matmul(M_wing_l,x_body-Insect%x_pivot_l)
+            !-- call wing subroutines
+            call DrawWing_Fourier(ix,iy,iz,Insect,x_wing_l,M_wing_l,Insect%rot_l,color_l)
+          enddo
+        enddo
+      enddo  
+    endif
+  else
+  ! *** simple wings ***
+    if (Insect%RightWing == "yes") then
+      do ix = ra(1), rb(1)
+        do iy = ra(2), rb(2)
+          do iz = ra(3), rb(3)
+            !-- define the various coordinate systems we are going to use
+            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+            x_body   = matmul(M_body,x-Insect%xc_body)
+            x_wing_r = matmul(M_wing_r,x_body-Insect%x_pivot_r)
+            !-- call wing subroutines
+            call DrawWing_simple(ix,iy,iz,Insect,x_wing_r,M_wing_r,Insect%rot_r,color_r)
+          enddo
+        enddo
+      enddo  
+    endif
+    if (Insect%LeftWing == "yes") then
+      do ix = ra(1), rb(1)
+        do iy = ra(2), rb(2)
+          do iz = ra(3), rb(3)
+            !-- define the various coordinate systems we are going to use
+            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+            x_body   = matmul(M_body,x-Insect%xc_body)
+            x_wing_l = matmul(M_wing_l,x_body-Insect%x_pivot_l)
+            !-- call wing subroutines
+            call DrawWing_simple(ix,iy,iz,Insect,x_wing_l,M_wing_l,Insect%rot_l,color_l)
+          enddo
+        enddo
+      enddo  
+    endif
+  endif
+  time_insect_wings = time_insect_wings + MPI_wtime() - t1
   
   !-----------------------------------------------------------------------------
   ! Add solid body rotation (i.e. the velocity field that originates
@@ -276,9 +394,9 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   ! were the only ones set plus they are in the body reference frame
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)    
+  do ix = ra(1), rb(1)
+     do iy = ra(2), rb(2)
+        do iz = ra(3), rb(3)    
           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
           x_body = matmul(M_body,x-Insect%xc_body)
           ! add solid body rotation in the body-reference frame, if color 
@@ -306,7 +424,8 @@ end subroutine Draw_Insect
 ! thickness (i.e., in the limit, steps=1 if x<t and steps=0 if x>t
 !-------------------------------------------------------
 real(kind=pr) function steps(x,t)
-  use vars
+  use fsi_vars
+  use mpi
   implicit none
   real(kind=pr) :: f,x,t
   call smoothstep(f,x,t,smoothing)
@@ -318,7 +437,7 @@ end function
 ! Compute angle from coefficients provided by Maeda
 !-------------------------------------------------------
 subroutine get_dangle( angles, F, a, b, shift_phase, initial_phase, dangle, dangle_dt )
-  use vars
+  use fsi_vars
   implicit none
   integer, intent(in) :: F  ! wavenumber (Dmitry, 7 Nov 2013)
   real(kind=pr), intent(in) :: angles ! 2*pi*F*time (Dmitry, 7 Nov 2013) 
@@ -362,7 +481,7 @@ end subroutine get_dangle
 ! RHS of the ODE system.
 subroutine dynamics_insect(time,it,Insect)
   use mpi
-  use vars
+  use fsi_vars
   implicit none
 
   integer, intent(in) :: it
@@ -456,7 +575,7 @@ end subroutine dynamics_insect
 ! Initialize insect free flight dynamics solver
 subroutine dynamics_insect_init(idynamics,Insect)
   use mpi
-  use vars
+  use fsi_vars
   implicit none
 
   integer, intent(out) :: idynamics
@@ -509,7 +628,8 @@ end subroutine dynamics_insect_init
 
 ! Compute aerodynamic power
 subroutine aero_power(Insect,apowtotal)
-  use vars
+  use fsi_vars
+  use mpi
   implicit none
 
   integer :: color_body, color_l, color_r
@@ -578,7 +698,8 @@ end subroutine aero_power
 !       (JFM 582, 2007), eqn 2.22 (looks a bit different)
 !-------------------------------------------------------------------------------
 subroutine inert_power(Insect,ipowtotal)
-  use vars
+  use fsi_vars
+  use mpi
   implicit none
 
   real(kind=pr), intent(out) :: ipowtotal
@@ -630,7 +751,8 @@ end subroutine inert_power
 ! output rot_r, rot_l are understood in the WING coordinate system.
 !-------------------------------------------------------------------------------
 subroutine angular_velocities ( time, Insect )
-  use vars 
+  use fsi_vars
+  use mpi 
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -711,7 +833,8 @@ end subroutine angular_velocities
 ! vectors for both wings, using centered finite differences
 !-------------------------------------------------------------------------------
 subroutine angular_accel( time, Insect )
-  use vars 
+  use fsi_vars
+  use mpi 
   implicit none
   real(kind=pr), intent(in) :: time
   type(diptera), intent(inout) :: Insect
@@ -769,7 +892,7 @@ end subroutine angular_accel
 
 
 subroutine insect_clean(Insect)
-  use vars
+  use fsi_vars
   implicit none
   type(diptera),intent(inout)::Insect
   

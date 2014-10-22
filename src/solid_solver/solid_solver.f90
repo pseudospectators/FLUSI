@@ -1,7 +1,6 @@
 
 module solid_model
   use fsi_vars ! for the precision statement
-  use penalization
   use basic_operators 
   implicit none
   

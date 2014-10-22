@@ -2,7 +2,8 @@
 ! WRAPPER Motion protocoll wrapper left wing
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion_left ( time, Insect )
-  use vars
+  use fsi_vars
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -18,7 +19,8 @@ end subroutine FlappingMotion_left
 ! WARPPER Motion protocoll wrapper right wing
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion_right ( time, Insect )
-  use vars
+  use fsi_vars
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -50,7 +52,8 @@ end subroutine FlappingMotion_right
 ! call this routine here.
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, alpha_dt, theta_dt)
-  use vars
+  use fsi_vars
+  use mpi
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -797,6 +800,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     phi_dt   =-phi_max *f *dsin(f*time)
     alpha_dt = alpha_max*f*dcos(f*(time+phase))
     theta_dt = 0.0
+
   case ("debug")
     phi      = deg2rad(45.d0)   
     alpha    = deg2rad(0.d0)
@@ -826,7 +830,7 @@ end subroutine FlappingMotion
 ! time derivative "u_dt". Uses assumed-shaped arrays, requires an interface.
 !-------------------------------------------------------------------------------
 subroutine fseries_eval(time,u,u_dt,a0,ai,bi)
-  use vars
+  use fsi_vars
   implicit none
   
   real(kind=pr), intent(in) :: a0, time
@@ -861,7 +865,7 @@ end subroutine fseries_eval
 ! a valid example is x=(0:N-1)/N
 !-------------------------------------------------------------------------------
 subroutine hermite_eval(time,u,u_dt,ai,bi)
-  use vars
+  use fsi_vars
   implicit none
   
   real(kind=pr), intent(in) :: time
