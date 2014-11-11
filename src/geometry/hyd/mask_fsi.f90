@@ -27,6 +27,8 @@ subroutine create_mask_fsi (time, Insect, beams )
       call Draw_Sphere()
     case ("cylinder","cylinder_x")    
       call Draw_cylinder_x()
+    case ("moving_cylinder","moving_cylinder_x")
+      call Draw_moving_cylinder_x(time)
     case ("romain_open_cavity")    
       call romain_open_cavity()
     case ("Flapper")    
@@ -236,16 +238,15 @@ subroutine romain_open_cavity
 end subroutine romain_open_cavity
 
 
-
 subroutine taylor_couette()
   use fsi_vars
   use penalization ! mask array etc
   implicit none
   
-  integer :: ix, iy, iz
-  real (kind=pr) :: x, y, z, R,omega
+  integer :: iy, iz
+  real (kind=pr) :: y, z, R, omega
   
-  R1=0.5d0
+  R1=0.4d0
   R2=1.0d0
   omega=1.25d0
   
@@ -258,20 +259,27 @@ subroutine taylor_couette()
       
       ! inner cylinder
       if ( R<=R1) then
-        mask (ix, iy, iz) = 1.d0
-        us (ix,iy,iz,1) = 0.d0
-        us (ix,iy,iz,2) = +omega * z
-        us (ix,iy,iz,3) = -omega * y 
-        mask_color(ix,iy,iz) = 0
+        mask (:, iy, iz) = 1.d0
+        mask_color(:,iy,iz) = 0
       endif
       
       ! outer cylinder
       if (R>=R2) then
-        mask (ix, iy, iz) = 1.d0
-        us (ix,iy,iz,1:3) = 0.d0
-        mask_color(ix,iy,iz) = 0
+        mask (:, iy, iz) = 1.d0
+        mask_color(:,iy,iz) = 0
       endif
+
+      ! Velocity (also suitable for smooth mask)
+      if ( R<=0.5*(R1+R2)) then
+        us (:,iy,iz,1) = 0.d0
+        us (:,iy,iz,2) = +omega * z
+        us (:,iy,iz,3) = -omega * y
+      else
+        us (:,iy,iz,1:3) = 0.d0
+      endif
+
     enddo
   enddo
   
 end subroutine
+

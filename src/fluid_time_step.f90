@@ -852,7 +852,13 @@ subroutine adjust_dt(dt1,u)
      
         !-- Impose the CFL condition.
         if (umax >= 1.0d-8) then
-           dt1=min(dx,dy,dz)*cfl/umax
+           if (nx==1) then
+             ! 2D case 
+             dt1=min(dy,dz)*cfl/umax
+           else
+             ! 3D case
+             dt1=min(dx,dy,dz)*cfl/umax
+           endif
         else
            !-- umax is very very small
            dt1=1.0d-2

@@ -37,7 +37,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     !--------------------------------------------------
     ! couette flow
     !--------------------------------------------------  
-    R1=0.5d0
+    R1=0.4d0
     R2=1.0d0
     omega=1.25d0
     
