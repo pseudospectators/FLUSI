@@ -422,6 +422,7 @@ end subroutine Draw_Insect
 ! short for the smooth step function.
 ! the smooting is defined in Insect%smooth, here we need only x, and the 
 ! thickness (i.e., in the limit, steps=1 if x<t and steps=0 if x>t
+! 'smoothing' variable is defined in this module (see declarations above)
 !-------------------------------------------------------
 real(kind=pr) function steps(x,t)
   use fsi_vars
