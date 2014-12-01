@@ -171,6 +171,7 @@ subroutine surface_interpolation_testing( time, beams, work )
   use mpi
   use fsi_vars
   use interpolation
+  use penalization
   use insect_module
   use penalization
   implicit none
