@@ -61,6 +61,7 @@ subroutine Start_Simulation()
   use p3dfft_wrapper
   use solid_model
   use insect_module
+  use turbulent_inlet_module
   use penalization ! mask array etc
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
@@ -216,14 +217,22 @@ subroutine Start_Simulation()
   endif
   
   ! vorticity sponge, work array that is used for sponge and/or passive scalar
-  if (iVorticitySponge=="yes") then
+  if ((iVorticitySponge=="yes").or.(use_turbulent_inlet=="yes")) then
     ! three complex work arrays
     ncw = 3
   else
     ! one complex work array, if using scalar
     if (use_passive_scalar==1) ncw = 1
   endif
+  
   allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
+  
+  
+  ! read in turbulent inlet fields
+  if (use_turbulent_inlet=="yes") then
+    call init_turbulent_inlet ( work(:,:,:,1) )
+    memory = memory + dble(neq)*mem_field
+  endif
   
   !-----------------------------------------------------------------------------
   ! show memory consumption for information

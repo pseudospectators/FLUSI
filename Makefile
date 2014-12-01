@@ -17,7 +17,7 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
 MFILES = vars.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 \
-	interpolation.f90 basic_operators.f90 insects.f90
+	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -109,8 +109,10 @@ $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpola
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/turbulent_inlet.o: turbulent_inlet.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o 
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

@@ -152,6 +152,9 @@ subroutine get_params_common(PARAMS,i)
   call param_dbl(PARAMS,i,"Penalization","pseuderrmin",pseudoerrmin,3d-4)
   call param_dbl(PARAMS,i,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
 
+  ! turbulent inlet
+  call param_str(PARAMS,i,"TurbulentInlet","use_turbulent_inlet",use_turbulent_inlet, "no")
+    
   ! Saving section
   call param_int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
   call param_int(PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 

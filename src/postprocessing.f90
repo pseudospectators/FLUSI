@@ -20,6 +20,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------     
   select case (postprocessing_mode)
+  case ("--cp")
+    call copy_hdf_file()
   case ("--keyvalues")
     call get_command_argument(3,filename)
     call keyvalues (filename)      
@@ -50,7 +52,7 @@ end subroutine postprocessing
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --hdf2bin ux_00000.h5 filename.bin
+! ./flusi --postprocess --hdf2bin ux_00000.h5 filename.bin
 !-------------------------------------------------------------------------------
 ! converts the *.h5 file to an ordinairy binary file
 subroutine convert_hdf2bin()
@@ -105,8 +107,8 @@ end subroutine convert_hdf2bin
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --bin2hdf [file_bin] [file_hdf5] [nx] [ny] [nz] [xl] [yl] [zl] [time]
-! ./flusi --postprocessing --bin2hdf ux_file.binary ux_00000.h5 128 128 384 3.5 2.5 10.0 0.0
+! ./flusi --postprocess --bin2hdf [file_bin] [file_hdf5] [nx] [ny] [nz] [xl] [yl] [zl] [time]
+! ./flusi --postprocess --bin2hdf ux_file.binary ux_00000.h5 128 128 384 3.5 2.5 10.0 0.0
 !-------------------------------------------------------------------------------
 ! converts the given binary file into an HDF5 file following flusi's conventions
 subroutine convert_bin2hdf()
@@ -178,7 +180,7 @@ end subroutine convert_bin2hdf
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5
+! ./flusi --postprocess --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! directly compute the absolute value of vorticity, do not save components
@@ -268,7 +270,7 @@ end subroutine convert_abs_vorticity
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --second-order
+! ./flusi --postprocess --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --second-order
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! can be done in parallel. the flag --second order can be used for filtering
@@ -356,7 +358,7 @@ end subroutine convert_vorticity
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --keyvalues mask_00000.h5
+! ./flusi --postprocess --keyvalues mask_00000.h5
 !-------------------------------------------------------------------------------
 ! load the specified *.h5 file and creates a *.key file that contains
 ! min / max / mean / L2 norm of the field data. This is used for unit testing
@@ -404,7 +406,7 @@ end subroutine keyvalues
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --compare-timeseries forces.t ref/forces.t 
+! ./flusi --postprocess --compare-timeseries forces.t ref/forces.t 
 !-------------------------------------------------------------------------------
 subroutine compare_timeseries()
   use fsi_vars
@@ -493,7 +495,7 @@ subroutine compare_timeseries()
 end subroutine compare_timeseries
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocessing --compare-keys mask_00000.key saved.key
+! ./flusi --postprocess --compare-keys mask_00000.key saved.key
 !-------------------------------------------------------------------------------
 ! compares to *.key files if they're equal
 subroutine compare_key(key1,key2)
@@ -573,7 +575,7 @@ end subroutine compare_key
 ! spectral precision
 !-------------------------------------------------------------------------------
 ! call:
-! ./flusi --postprocessing --p2Q p_00000.h5 Q_00000.h5
+! ./flusi --postprocess --p2Q p_00000.h5 Q_00000.h5
 !-------------------------------------------------------------------------------
 subroutine pressure_to_Qcriterion()
   use mpi
@@ -646,7 +648,7 @@ end subroutine pressure_to_Qcriterion
 ! naming convention, it is thus recommended to use a subfolder.
 !-------------------------------------------------------------------------------
 ! call:
-! ./flusi --postprocessing --extract-subset ux_00000.h5 resized/ux_00000.h5 128:1:256 128:2:1024 1:1:end
+! ./flusi --postprocess --extract-subset ux_00000.h5 resized/ux_00000.h5 128:1:256 128:2:1024 1:1:end
 !-------------------------------------------------------------------------------
 subroutine extract_subset()
   use mpi
@@ -668,7 +670,7 @@ subroutine extract_subset()
   real(kind=pr), dimension(:,:,:), allocatable :: field_out
 
   if (mpisize/=1) then
-    write(*,*) "./flusi --postprocessing --extract-subset is a SERIAL routine, use 1CPU only"
+    write(*,*) "./flusi --postprocess --extract-subset is a SERIAL routine, use 1CPU only"
     call abort()
   endif
   
@@ -817,3 +819,59 @@ subroutine extract_subset()
   
   deallocate (field_in, field_out)
 end subroutine extract_subset
+
+
+!-------------------------------------------------------------------------------
+! copy one hdf5 file to another one, with different name. Not you cannot do this
+! in terminal with "cp" since "cp" does not touch the dataset name in the file,
+! which is then not conformal to flusi naming convention.
+! call:
+! ./flusi --postprocess --cp ux_00000.h5 new_00000.h5
+!-------------------------------------------------------------------------------
+subroutine copy_hdf_file()
+  use mpi
+  use vars
+  implicit none
+  character(len=strlen) :: fname_in, fname_out, dsetname_in, dsetname_out
+  character(len=strlen) :: xset,yset,zset
+  real(kind=pr)::time
+  integer :: ix,iy,iz,i
+  ! reduced domain size
+  integer :: nx1,nx2, ny1,ny2, nz1,nz2, nxs,nys,nzs
+  ! sizes of the new array
+  integer :: nx_red, ny_red, nz_red, ix_red, iy_red, iz_red
+  ! reduced domain extends
+  real(kind=pr) :: xl1, yl1, zl1
+  ! input field
+  real(kind=pr), dimension(:,:,:), allocatable :: field_in
+  
+  
+  if (mpisize/=1) then
+    write(*,*) "./flusi --postprocess --cp is a SERIAL routine, use 1CPU only"
+    call abort()
+  endif
+  
+  
+  
+  ! get file to read pressure from and check if this is present
+  call get_command_argument(3,fname_in)
+  call check_file_exists( fname_in )
+  
+  ! get filename to save Q criterion to
+  call get_command_argument(4,fname_out)  
+  
+  dsetname_in = fname_in ( 1:index( fname_in, '_' )-1 )
+  dsetname_out = fname_out ( 1:index( fname_out, '_' )-1 )
+  
+  call fetch_attributes( fname_in, dsetname_in, nx, ny, nz, xl, yl, zl, time )
+  ra=0
+  rb=(/nx-1,ny-1,nz-1/)
+  write(*,*) "copying ",trim(adjustl(fname_in)), " to ", trim(adjustl(fname_out))
+  
+  allocate ( field_in(0:nx-1,0:ny-1,0:nz-1) ) 
+  call read_single_file_serial(fname_in,field_in)
+  
+  call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field_in, dsetname_out )
+  
+  deallocate (field_in)
+end subroutine copy_hdf_file

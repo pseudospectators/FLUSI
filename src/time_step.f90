@@ -55,7 +55,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-------------------------------------------------
      if((iMoving==1).and.(index(iTimeMethodFluid,'FSI')==0)) then
        ! for FSI schemes, the mask is created in fluidtimestep
-       call create_mask( time, Insect, beams )
+       call create_mask( time, Insect, beams, workc )
      endif
 
      !-------------------------------------------------

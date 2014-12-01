@@ -1,5 +1,5 @@
 ! Wrapper for different (possibly time-dependend) mask functions
-subroutine create_mask(time,Insect,beams)
+subroutine create_mask(time,Insect,beams,workc)
   use mpi
   use vars
   use solid_model
@@ -11,6 +11,7 @@ subroutine create_mask(time,Insect,beams)
   real(kind=pr) :: eps_inv
   type(solid), dimension(1:nbeams), intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr) :: t1
   t1 = MPI_wtime() 
   
@@ -20,7 +21,7 @@ subroutine create_mask(time,Insect,beams)
   ! Actual mask functions:
   select case(method)
   case("fsi")
-    call create_mask_fsi(time,Insect,beams)
+    call create_mask_fsi(time,Insect,beams,workc)
   case("mhd")
     call create_mask_mhd()
   end select

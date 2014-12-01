@@ -95,6 +95,9 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   ! Force zero mode for mean flow
   if(method=="fsi") call set_mean_flow(uk,time)
+  
+  ! save zero mode in global variables (useless if it is fixed, but useful if dynamic)
+  if(method=="fsi") call get_mean_flow(uk,uxmean,uymean,uzmean)
 
   ! Set the divergence of the magnetic field to zero to avoid drift.
   if(method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
@@ -178,7 +181,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! create mask
     !---------------------------------------------------------------------------
-    call create_mask(time, Insect_dummy, beams)
+    call create_mask(time, Insect_dummy, beams, workc)
     
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
@@ -313,7 +316,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   !---------------------------------------------------------------------------
   ! create mask
   !---------------------------------------------------------------------------
-  call create_mask(time,Insect_dummy, beams(1))
+  call create_mask(time,Insect_dummy, beams(1), workc)
   
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
@@ -378,7 +381,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   !---------------------------------------------------------------------------
   ! create mask
   !---------------------------------------------------------------------------
-  call create_mask(time,Insect_dummy, beams(1))
+  call create_mask(time,Insect_dummy, beams(1), workc)
   
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
@@ -922,3 +925,35 @@ subroutine set_mean_flow(uk,time)
     if (iMeanFlow_z=="fixed") uk(0,0,0,3)=Uzmean
   endif
 end subroutine set_mean_flow
+
+
+!-------------------------------------------------------------------------------
+! return zero mode for mean flow
+!-------------------------------------------------------------------------------
+subroutine get_mean_flow(uk,u1,u2,u3)
+  use mpi
+  use fsi_vars
+  implicit none
+  
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  real(kind=pr),intent(out)::u1,u2,u3
+  real(kind=pr)::u1l,u2l,u3l
+  integer :: mpicode
+
+  u1l = 0.d0
+  u2l = 0.d0
+  u3l = 0.d0
+  
+  ! Force zero mode for mean flow
+  ! TODO: this might not always select the proper mode; it could be
+  ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
+  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+    u1l=real(uk(0,0,0,1))
+    u2l=real(uk(0,0,0,2))
+    u3l=real(uk(0,0,0,3))
+  endif
+  
+  call MPI_ALLREDUCE ( u1l,u1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( u2l,u2,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( u3l,u3,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+end subroutine get_mean_flow

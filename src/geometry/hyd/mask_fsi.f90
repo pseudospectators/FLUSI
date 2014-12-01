@@ -1,21 +1,27 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions 
-subroutine create_mask_fsi (time, Insect, beams )
+subroutine create_mask_fsi (time, Insect, beams, workc )
   use mpi
   use fsi_vars
   use solid_model
   use insect_module
+  use turbulent_inlet_module
   use penalization ! mask array etc
   implicit none
   real(kind=pr), intent(in) :: time
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   
   ! reset everything
   mask = 0.d0
   mask_color = 0
   us = 0.d0
 
+  ! set turbulent inflow condition
+  if (use_turbulent_inlet=="yes") then
+    call turbulent_inlet( time, workc )
+  endif
+  
   !-------------------------------------------------------------
   ! create obstacle mask
   !-------------------------------------------------------------  
@@ -42,7 +48,7 @@ subroutine create_mask_fsi (time, Insect, beams )
     case ("couette")
       call taylor_couette()
     case("none")
-      mask = 0.d0
+!       mask = 0.d0
     case default    
       write (*,*) "iMask="//iMask//" not properly set; stopping."
       call abort()
