@@ -124,6 +124,7 @@ subroutine curl3_inplace(fk)
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz
   complex(kind=pr) :: imag   ! imaginary unit
+  complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
 
   imag = dcmplx(0.d0,1.d0)
   
@@ -134,10 +135,14 @@ subroutine curl3_inplace(fk)
         ky=wave_y(iy)
         do ix=ca(3),cb(3)
            kx=wave_x(ix)
+           
+           t1=fk(iz,iy,ix,1)
+           t2=fk(iz,iy,ix,2)
+           t3=fk(iz,iy,ix,3)
 
-           fk(iz,iy,ix,1)=imag*(ky*fk(iz,iy,ix,3) -kz*fk(iz,iy,ix,2))
-           fk(iz,iy,ix,2)=imag*(kz*fk(iz,iy,ix,1) -kx*fk(iz,iy,ix,3))
-           fk(iz,iy,ix,3)=imag*(kx*fk(iz,iy,ix,2) -ky*fk(iz,iy,ix,1))
+           fk(iz,iy,ix,1)=imag*(ky*t3 - kz*t2)
+           fk(iz,iy,ix,2)=imag*(kz*t1 - kx*t3)
+           fk(iz,iy,ix,3)=imag*(kx*t2 - ky*t1)
         enddo
      enddo
   enddo
