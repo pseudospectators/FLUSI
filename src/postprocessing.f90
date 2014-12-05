@@ -33,6 +33,8 @@ subroutine postprocessing()
     call compare_timeseries() 
   case ("--vorticity")
     call convert_vorticity()
+  case ("--vor2u")
+    call convert_velocity()
   case ("--vor_abs")
     call convert_abs_vorticity()    
   case ("--hdf2bin")
@@ -119,7 +121,7 @@ subroutine convert_bin2hdf()
   character(len=strlen) :: fname_bin,fname_hdf,dsetname,tmp  
   real, dimension(:,:,:), allocatable :: field
   integer, parameter :: pr_out = 4 
-  integer :: ix, iy ,iz, record_length
+  integer :: ix, iy ,iz, record_length,i,j,k
   real(kind=pr) :: time 
   
   if ( mpisize>1 ) then
@@ -157,13 +159,19 @@ subroutine convert_bin2hdf()
   ! read in the binary field to be converted
   !-----------------------------------------------------------------------------
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
-  inquire (iolength=record_length) field
-  open(11, file=fname_bin, form='unformatted', &
-  access='direct', recl=record_length, convert="little_endian")
-  read (11,rec=1) field
-  close (11)  
-  write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field),minval(field)
+  
+!   inquire (iolength=record_length) field
+!   open(11, file=fname_bin, form='unformatted', &
+!   access='direct', recl=record_length, convert="little_endian")
+!   read (11,rec=1) field
+!   close (11)  
+!   write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field),minval(field)
 
+  
+  OPEN(10,FILE=fname_bin,FORM='unformatted',STATUS='OLD', convert='LITTLE_ENDIAN')
+  read(10) (((field(i,j,k),i=0,nx-1),j=0,ny-1),k=0,nz-1)
+  CLOSE(10) 
+  write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field),minval(field)
   !-----------------------------------------------------------------------------
   ! write the field data to an HDF file
   !-----------------------------------------------------------------------------
@@ -354,6 +362,107 @@ subroutine convert_vorticity()
   call fft_free()
   
 end subroutine convert_vorticity
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocess --vor2u vorx_00000.h5 vory_00000.h5 vorz_00000.h5
+!-------------------------------------------------------------------------------
+subroutine convert_velocity()
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use mpi
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, order
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk, workc
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u,workr
+  real(kind=pr) :: time
+  
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+  
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if ((fname_ux(1:4).ne."vorx").or.(fname_uy(1:4).ne."vory").or.(fname_uz(1:4).ne."vorz")) then
+     write (*,*) "Error in arguments, files do not start with vorx vory and vorz"
+     write (*,*) "note files have to be in the right order"
+     call abort()
+  endif
+  
+  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  
+  pi = 4.d0 *datan(1.d0)
+  scalex = 2.d0*pi/xl
+  scaley = 2.d0*pi/yl
+  scalez = 2.d0*pi/zl 
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+  neq=3
+  nd=3
+  ncw=3
+  nrw=3
+    
+  call fft_initialize() ! also initializes the domain decomp
+  
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(workr(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+  allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+  
+  ! read vorticity to u
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+  
+  workr = u ! workr is original vorticity
+  
+  call Vorticity2Velocity(uk,workc,u)
+  call ifft3 (ink=uk, outx=u)   ! u is velocity in phys space
+  
+  ! now u contains the vorticity in physical space
+  fname_ux='ux'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
+  fname_uy='uy'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
+  fname_uz='uz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
+      
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"ux")
+  if (mpirank==0) write(*,*) "Wrote ux to "//trim(fname_ux)
+  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2),"uy")
+  if (mpirank==0) write(*,*) "Wrote uy to "//trim(fname_uy)
+  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"uz")
+  if (mpirank==0) write(*,*) "Wrote uz to "//trim(fname_uz) 
+  
+  call divergence(uk,workc(:,:,:,1))
+  call ifft(ink=workc(:,:,:,1),outx=u(:,:,:,1))
+  
+  call save_field_hdf5 ( time,"divu_0000",u(:,:,:,1),"divu")
+  
+  write(*,*) "maximum divergence=", fieldmax(u(:,:,:,1)), fieldmin(u(:,:,:,1))
+  
+  call curl3_inplace(uk)
+  call ifft3(ink=uk, outx=u)
+  
+  ! difference
+  u(:,:,:,1)=u(:,:,:,1)-workr(:,:,:,1)
+  u(:,:,:,2)=u(:,:,:,2)-workr(:,:,:,2)
+  u(:,:,:,3)=u(:,:,:,3)-workr(:,:,:,3)
+  
+  write(*,*) "max diff vor_original-curl(result)", fieldmax(u(:,:,:,1))
+  write(*,*) "max diff vor_original-curl(result)", fieldmax(u(:,:,:,2))
+  write(*,*) "max diff vor_original-curl(result)", fieldmax(u(:,:,:,3))
+  
+  deallocate (u)
+  deallocate (uk)
+  deallocate (workc,workr)
+  call fft_free()
+  
+end subroutine convert_velocity
+
 
 
 

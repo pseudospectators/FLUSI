@@ -217,7 +217,7 @@ subroutine Start_Simulation()
   endif
   
   ! vorticity sponge, work array that is used for sponge and/or passive scalar
-  if ((iVorticitySponge=="yes").or.(use_turbulent_inlet=="yes")) then
+  if (iVorticitySponge=="yes") then
     ! three complex work arrays
     ncw = 3
   else
@@ -230,8 +230,7 @@ subroutine Start_Simulation()
   
   ! read in turbulent inlet fields
   if (use_turbulent_inlet=="yes") then
-    call init_turbulent_inlet ( work(:,:,:,1) )
-    memory = memory + dble(neq)*mem_field
+    call init_turbulent_inlet ( )
   endif
   
   !-----------------------------------------------------------------------------

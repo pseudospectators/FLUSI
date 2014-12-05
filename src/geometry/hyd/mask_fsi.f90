@@ -1,5 +1,5 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions 
-subroutine create_mask_fsi (time, Insect, beams, workc )
+subroutine create_mask_fsi (time, Insect, beams )
   use mpi
   use fsi_vars
   use solid_model
@@ -10,7 +10,6 @@ subroutine create_mask_fsi (time, Insect, beams, workc )
   real(kind=pr), intent(in) :: time
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   
   ! reset everything
   mask = 0.d0
@@ -19,7 +18,7 @@ subroutine create_mask_fsi (time, Insect, beams, workc )
 
   ! set turbulent inflow condition
   if (use_turbulent_inlet=="yes") then
-    call turbulent_inlet( time, workc )
+    call turbulent_inlet( time )
   endif
   
   !-------------------------------------------------------------

@@ -131,6 +131,36 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      call Vorticity2Velocity(uk, nlk(:,:,:,:,0), vort)
      
      call set_mean_flow(uk,time)
+     
+  case ("vortex")
+     if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
+     r00=yl/8.d0
+     a  =0.4131d0 * r00 
+     a  =0.82d0 * r00 
+     gamma0=12.0d0
+     x00=0.5d0 * xl
+
+     ! define vorticity in phy space
+     do iz=ra(3), rb(3)
+        z=dble(iz) * zl / dble(nz)
+        do iy=ra(2), rb(2)
+           y=dble(iy) * yl / dble(ny)
+           do ix=ra(1), rb(1)
+              x=dble(ix) * xl / dble(nx)
+              
+              r=dsqrt( (x-0.5d0*xl)**2+ (y-0.5d0*yl)**2 + (z-0.5d0*zl)**2 )
+              
+              omega = 10.d0*exp( -(r / (0.1*zl))**2 )
+
+              vort (ix,iy,iz,3)=omega
+           enddo
+        enddo
+     enddo
+     
+     call Vorticity2Velocity(uk, nlk(:,:,:,:,0), vort)
+     
+     call set_mean_flow(uk,time)
+  
   case("turbulence")
      !--------------------------------------------------
      ! random vorticity
@@ -243,9 +273,7 @@ subroutine Vorticity2Velocity(uk,work,vort)
   !-------------------------------------------------
   ! Compute vorticity in Fourier space
   !-------------------------------------------------
-  do i=1,3
-     call fft(work(:,:,:,i),vort(:,:,:,i))
-  enddo
+  call fft3(inx=vort,outk=work)
   
   !-------------------------------------------------
   ! Compute streamfunction in Fourier space
@@ -263,9 +291,9 @@ subroutine Vorticity2Velocity(uk,work,vort)
         kx2    =kx*kx
         k_abs_2=kx2+ky2+kz2
         if (abs(k_abs_2) .ne. 0.0) then  
-          work(iz,iy,ix,1)=-work(iz,iy,ix,1) / k_abs_2
-          work(iz,iy,ix,2)=-work(iz,iy,ix,2) / k_abs_2
-          work(iz,iy,ix,3)=-work(iz,iy,ix,3) / k_abs_2
+          work(iz,iy,ix,1)=+work(iz,iy,ix,1) / k_abs_2
+          work(iz,iy,ix,2)=+work(iz,iy,ix,2) / k_abs_2
+          work(iz,iy,ix,3)=+work(iz,iy,ix,3) / k_abs_2
         else
           work(iz,iy,ix,1)=dcmplx(0.d0,0.d0)
           work(iz,iy,ix,2)=dcmplx(0.d0,0.d0)

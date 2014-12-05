@@ -3,7 +3,10 @@ module turbulent_inlet_module
   implicit none
   
   ! inflow field
-  complex(kind=pr),allocatable,save::uk_turb(:,:,:,:)
+  real(kind=pr),allocatable,save :: u_turb(:,:,:,:)
+  
+  integer :: nx_turb, ny_turb, nz_turb
+  real(kind=pr) :: xl_turb, yl_turb, zl_turb
   
   !!!!!!!!
   contains
@@ -13,87 +16,113 @@ module turbulent_inlet_module
 !-----------------------------------------------------------------------------
 ! Initialize the turbulent inflow
 !-----------------------------------------------------------------------------
-subroutine init_turbulent_inlet ( work )
+subroutine init_turbulent_inlet ( )
   use p3dfft_wrapper
+  use basic_operators
   implicit none
   
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr)::u1,u2,u3
+  real(kind=pr) :: u1, u2, u3
+  integer :: nx_org, L, N, iy, iz, q
+  real(Kind=pr),allocatable :: f(:,:), fk(:,:)
+  real(kind=pr) :: time, umax
   
+  complex (kind=pr), dimension (:), allocatable :: cworkx, expx0, expx ! work array and shift in x
+    
   if (mpirank==0) write(*,*) "Initializing turbulent inlet..."
   
-  !--allocate 
-  if (.not.allocated(uk_turb)) then
-    allocate(uk_turb(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-  endif
+  ! The resolution in the inlet file and the resolution of our simulation do not
+  ! nessesarily match in the x-direction (they DO match in y-z direction). We 
+  ! first determine how many points in x-direction the file has, then allocate
+  ! the field u_turb accordingly
+  call Fetch_attributes( "ux_turb.h5", "ux", nx_turb,ny_turb,nz_turb,&
+       xl_turb,yl_turb,zl_turb,time)
+       
+       
+  if (mpirank==0) write(*,*) "inlet file resolution is ",nx_turb, ny_turb, nz_turb
+  if (mpirank==0) write(*,*) "inlet file domain is ",xl_turb, yl_turb, zl_turb
+  nx_org = nx
+  ra(1) = 0
+  rb(1) = nx_turb-1
+  nx = nx_turb
   
-  !-- read files
-  call Read_Single_File ( "ux_turb.h5", work )
-  call fft( inx=work, outk=uk_turb(:,:,:,1) )
+  ! allocate inlet velocity in physical space with the dimensions gathered from 
+  ! the file
+  allocate( u_turb(0:nx_turb-1,ra(2):rb(2),ra(3):rb(3),1:3) )
   
-  call Read_Single_File ( "uy_turb.h5", work )
-  call fft( inx=work, outk=uk_turb(:,:,:,2) )
+  ! read files into allocated array
+  call Read_Single_File ( "ux_turb.h5", u_turb(:,:,:,1) )
+  call Read_Single_File ( "uy_turb.h5", u_turb(:,:,:,2) )
+  call Read_Single_File ( "uz_turb.h5", u_turb(:,:,:,3) )
   
-  call Read_Single_File ( "uz_turb.h5", work )
-  call fft( inx=work, outk=uk_turb(:,:,:,3) )
+  ! determine the maximum velocity of the perturbation field
+  umax = fieldmaxabs(u_turb)  
+  if (mpirank==0) write (*,*) " turbulence intensity in infile", umax
+
+  u_turb = u_turb / umax
   
+  umax = fieldmaxabs(u_turb)  
+  if (mpirank==0) write (*,*) " turbulence intensity, nomalized", umax
+
+  u_turb = u_turb * 1.d0
+
+  umax = fieldmaxabs(u_turb)  
+  if (mpirank==0) write (*,*) " turbulence intensity, in use", umax
+
+  ! reset dimensions to old value (for the rest of the program)
+  nx = nx_org
+  rb(1) = nx-1
+
   if (mpirank==0) write(*,*) "DONE init turbulent inlet."
-  
-  
-  call get_mean_flow(uk_turb,u1,u2,u3)
-  if (mpirank==0) write(*,'("inlet mean flow= ",3(es15.8,1x))') u1,u2,u3
 end subroutine
   
 
 !-----------------------------------------------------------------------------
 ! create the mask function for turbulent inlet
 !-----------------------------------------------------------------------------
-subroutine turbulent_inlet( time, workc )
+subroutine turbulent_inlet( time )
   use p3dfft_wrapper
   use penalization
   implicit none
   
   real(kind=pr),intent(in) :: time
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  complex(kind=pr)::expc
-  integer::ix,iy,iz
+  real(kind=pr) :: x_turb, x, dx_turb, C1, C2
+  integer :: ix,iy,iz
+  integer :: n, i1,i2
+  
+  ! thickness of inflow velocity sponge
+  n = 24
+  dx_turb = xl_turb / dble(nx_turb)
+
+  ! note x-direction is contiguous among MPI procs, i.e. it is NOT split
+  do ix = 0,n-1
+    x = dble(ix)*dx
+    x_turb = -uxmean*time + x
     
-  do iz=ca(1),cb(1)
-    do iy=ca(2),cb(2)
-        do ix=ca(3),cb(3)
-          expc = exp(-dcmplx(0.d0,1.d0)*uxmean*time*wave_x(ix))
-          workc(iz,iy,ix,1) = expc*uk_turb(iz,iy,ix,1)
-          workc(iz,iy,ix,2) = expc*uk_turb(iz,iy,ix,2)
-          workc(iz,iy,ix,3) = expc*uk_turb(iz,iy,ix,3)
-      enddo
-    enddo
+    if (x_turb >= xl_turb) x_turb = x_turb - xl_turb*dble(floor(abs(x_turb/xl_turb)))
+    if (x_turb < 0.d0 ) x_turb = x_turb + xl_turb*dble(floor(abs(x_turb/xl_turb)))
+    
+    i1 = floor(x_turb/dx_turb)
+    i2 = i1 + 1
+    
+    ! weights for linear interpolation
+    C1 = (dble(i2)*dx_turb - x_turb)  /  dx_turb
+    C2 = (x_turb - dble(i1)*dx_turb)  /  dx_turb
+    
+    ! ensure periodic indices
+    i1 = per(i1,nx_turb)
+    i2 = per(i2,nx_turb)
+    
+    if ((i1<0 .or. i1>nx_turb-1).or.(i2<0 .or. i2>nx_turb-1)) then
+      if(mpirank==0) write(*,*) "indices for inlet fail: ", i1,i2
+      call abort()
+    endif
+    
+    mask(ix,:,:) = 1.d0
+    us(ix,:,:,1) = u_turb(i1,:,:,1)*C1 + u_turb(i2,:,:,1)*C2 + uxmean
+    us(ix,:,:,2) = u_turb(i1,:,:,2)*C1 + u_turb(i2,:,:,2)*C2!+ uxmean
+    us(ix,:,:,3) = u_turb(i1,:,:,3)*C1 + u_turb(i2,:,:,3)*C2    !+ uxmean
   enddo
   
-  
-  call ifft( ink=workc(:,:,:,1), outx=us(:,:,:,1) )
-  call ifft( ink=workc(:,:,:,2), outx=us(:,:,:,2) )
-  call ifft( ink=workc(:,:,:,3), outx=us(:,:,:,3) )
-  
-  do ix=ra(1),rb(1)
-    do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
-        if (ix<=10) then
-          mask(ix,iy,iz)=1.d0
-          mask_color(ix,iy,iz)=0
-        endif
-      enddo
-    enddo
-  enddo  
-  
-  ! delete flow field outside inlet
-  us(:,:,:,1) = us(:,:,:,1)*mask !+ uxmean
-  us(:,:,:,2) = us(:,:,:,2)*mask !+ uymean
-  us(:,:,:,3) = us(:,:,:,3)*mask !+ uzmean
-  
-!   us(:,:,:,1) = us(:,:,:,1) + uxmean
-!   us(:,:,:,2) = us(:,:,:,2) + uymean
-!   us(:,:,:,3) = us(:,:,:,3) + uzmean
-!   
 end subroutine
   
   

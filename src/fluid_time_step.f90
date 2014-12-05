@@ -181,7 +181,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! create mask
     !---------------------------------------------------------------------------
-    call create_mask(time, Insect_dummy, beams, workc)
+    call create_mask(time, Insect_dummy, beams)
     
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
@@ -316,7 +316,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   !---------------------------------------------------------------------------
   ! create mask
   !---------------------------------------------------------------------------
-  call create_mask(time,Insect_dummy, beams(1), workc)
+  call create_mask(time,Insect_dummy, beams(1))
   
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
@@ -381,7 +381,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   !---------------------------------------------------------------------------
   ! create mask
   !---------------------------------------------------------------------------
-  call create_mask(time,Insect_dummy, beams(1), workc)
+  call create_mask(time,Insect_dummy, beams(1))
   
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
