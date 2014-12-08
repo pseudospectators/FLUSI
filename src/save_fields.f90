@@ -232,12 +232,28 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
 
   ! Create the file collectively. (existing files are overwritten)
 #ifdef TURING  
-  call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
+  if ( index(filename,'.h5')==0 ) then
+    ! file does not contain *.h5 ending -> add suffix
+    call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  else
+    ! field DOES contain .h5 ending -> just write
+    call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  endif
 #else
-  call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
+  if ( index(filename,'.h5')==0 ) then
+    ! file does not contain *.h5 ending -> add suffix
+    call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  else
+    ! field DOES contain .h5 ending -> just write
+    call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  endif
 #endif 
+
+
   ! this closes the property list plist_id (we'll re-use it)
   call h5pclose_f(plist_id, error)
 
