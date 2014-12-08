@@ -251,6 +251,10 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1),Insect,beams)
   endif
   
+  
+  ! when computing running time avg, initialize
+  if (time_avg=="yes") uk_avg = uk
+  
 end subroutine init_fields_fsi
 
 
@@ -321,4 +325,6 @@ subroutine Vorticity2Velocity(uk,work,vort)
       enddo
     enddo
   enddo
+  
+  
 end subroutine Vorticity2Velocity

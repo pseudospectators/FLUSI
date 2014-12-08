@@ -227,6 +227,11 @@ subroutine Start_Simulation()
   
   allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
   
+  ! for time averaging
+  if (time_avg=="yes") then
+    allocate(uk_avg(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+    memory = memory + dble(neq)*mem_field
+  endif
   
   ! read in turbulent inlet fields
   if (use_turbulent_inlet=="yes") then
@@ -293,7 +298,7 @@ subroutine Start_Simulation()
   if (allocated(press))  deallocate(press)
   if (allocated(uk_old))  deallocate(uk_old)
   if (allocated(nlk_tmp))  deallocate(nlk_tmp)
-  
+  if (allocated(uk_avg)) deallocate(uk_avg)
   
   if (iMask=="Insect") then
     ! Clean kinematics (Dmitry, 14 Nov 2013)

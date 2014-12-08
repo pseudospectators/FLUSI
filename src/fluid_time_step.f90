@@ -102,6 +102,11 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   ! Set the divergence of the magnetic field to zero to avoid drift.
   if(method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
 
+  ! compute running average, if used
+  if ((method=="fsi").and.(time_avg=="yes")) then
+    uk_avg = (uk*dt1  + time*uk_avg) / ( time+dt1 )
+  endif
+  
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
 

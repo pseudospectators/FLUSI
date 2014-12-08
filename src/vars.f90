@@ -28,6 +28,7 @@ module vars
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
   character(len=strlen),save :: dry_run_without_fluid ! just save mask function
+  character(len=strlen),save :: time_avg
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
   integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD, 4 for 
@@ -53,6 +54,11 @@ module vars
   ! only root rank has this true:
   logical, save :: root=.false.
 
+  
+  ! this is a hack, currently the avg velocity field is global
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk_avg
+  
+  
 
   real(kind=pr),save :: pi ! 3.14....
 

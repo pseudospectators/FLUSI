@@ -151,6 +151,15 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
   endif
   
+  !-----------
+  ! if time-avg velocity field is computed, save this here, but always to the same file.
+  !-----------
+  if (time_avg=="yes") then
+    call ifft3( ink=uk_avg(:,:,:,1:3), outx=u(:,:,:,1:3) )
+    call save_field_hdf5(time,"./uavgx_0000",u(:,:,:,1),"uavgx")
+    call save_field_hdf5(time,"./uavgy_0000",u(:,:,:,2),"uavgy")
+    call save_field_hdf5(time,"./uavgz_0000",u(:,:,:,3),"uavgz")
+  endif
   
   if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields_fsi
