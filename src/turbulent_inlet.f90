@@ -30,6 +30,12 @@ subroutine init_turbulent_inlet ( )
     
   if (mpirank==0) write(*,*) "Initializing turbulent inlet..."
   
+  if (mpirank==0.and.iMoving==0) then
+    write(*,*) "Using turbulent inlet requires setting iMoving=1 since the us "
+    write(*,*) "field is not updated otherwise. stop."
+    call abort()
+  endif
+  
   ! The resolution in the inlet file and the resolution of our simulation do not
   ! nessesarily match in the x-direction (they DO match in y-z direction). We 
   ! first determine how many points in x-direction the file has, then allocate
@@ -40,10 +46,18 @@ subroutine init_turbulent_inlet ( )
        
   if (mpirank==0) write(*,*) "inlet file resolution is ",nx_turb, ny_turb, nz_turb
   if (mpirank==0) write(*,*) "inlet file domain is ",xl_turb, yl_turb, zl_turb
+  
+  ! initialize global constants. note we assume that the file resolution matches
+  ! in y,z directions the one of our simulation
   nx_org = nx
   ra(1) = 0
   rb(1) = nx_turb-1
   nx = nx_turb
+  if((mpirank==0).and.((ny_turb.ne.ny).or.(nz_turb.ne.nz))) then
+    write(*,*) "the turbulent inlet file resolution must match ny,nz"
+    write(*,*) "it doesn't: stop."
+    call abort()
+  endif
   
   ! allocate inlet velocity in physical space with the dimensions gathered from 
   ! the file
@@ -57,14 +71,9 @@ subroutine init_turbulent_inlet ( )
   ! determine the maximum velocity of the perturbation field
   umax = fieldmaxabs(u_turb)  
   if (mpirank==0) write (*,*) " turbulence intensity in infile", umax
-
-  u_turb = u_turb / umax
   
-  umax = fieldmaxabs(u_turb)  
-  if (mpirank==0) write (*,*) " turbulence intensity, nomalized", umax
-
-  u_turb = u_turb * 1.d0
-
+  u_turb = u_turb * rescale
+  
   umax = fieldmaxabs(u_turb)  
   if (mpirank==0) write (*,*) " turbulence intensity, in use", umax
 

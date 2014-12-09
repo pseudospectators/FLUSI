@@ -154,9 +154,11 @@ subroutine get_params_common(PARAMS,i)
 
   ! turbulent inlet
   call param_str(PARAMS,i,"TurbulentInlet","use_turbulent_inlet",use_turbulent_inlet, "no")
+  call param_dbl(PARAMS,i,"TurbulentInlet","rescale",rescale, 1.d0)
   
   ! averaging in time
   call param_str(PARAMS,i,"Averaging","time_avg",time_avg, "no")
+  call param_dbl(PARAMS,i,"Averaging","tstart_avg",tstart_avg,0.d0)
     
   ! Saving section
   call param_int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)

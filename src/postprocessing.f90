@@ -166,7 +166,7 @@ subroutine time_avg_HDF5()
         endif
         
         ! read the field from file
-        call read_single_file_serial( fname_bin, field)
+        call read_single_file_serial( fname_bin, field )
         
         field_avg = field_avg + field
         

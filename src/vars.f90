@@ -57,7 +57,7 @@ module vars
   
   ! this is a hack, currently the avg velocity field is global
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk_avg
-  
+  real(kind=pr)::tstart_avg
   
 
   real(kind=pr),save :: pi ! 3.14....
@@ -120,13 +120,16 @@ module vars
 
 
   ! Boundary conditions:
-  character(len=strlen),save :: iMask, use_turbulent_inlet
+  character(len=strlen),save :: iMask
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
   character(len=strlen) :: iSmoothing ! how to smooth the mask
   real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
 
+  ! turbulent inlet:
+  character(len=strlen),save :: use_turbulent_inlet
+  real(kind=pr) :: rescale
   
   contains 
 

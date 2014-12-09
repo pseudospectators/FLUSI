@@ -229,8 +229,9 @@ subroutine Start_Simulation()
   
   ! for time averaging
   if (time_avg=="yes") then
-    allocate(uk_avg(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-    memory = memory + dble(neq)*mem_field
+    if(mpirank==0) write(*,*) "averaging module is in use: allocate additional memory"
+    allocate(uk_avg(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+    memory = memory + dble(3)*mem_field
   endif
   
   ! read in turbulent inlet fields
