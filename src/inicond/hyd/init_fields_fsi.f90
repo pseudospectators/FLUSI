@@ -255,8 +255,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   ! when computing running time avg, initialize
   !-----------------------------------------------------------------------------
   if (time_avg=="yes") then
-    uk_avg(:,:,:,1:3) = uk(:,:,:,1:3)
-    e_avg=0.d0
+    if (vel_avg=="yes") uk_avg(:,:,:,1:3) = uk(:,:,:,1:3)
+    if (ekin_avg=="yes") e_avg=0.d0
     ! read averaged velocity
     if (inicond(1:8) == "backup::" .and. vel_avg=="yes") then
       if (mpirank==0) write(*,*) "Resuming backup and we are computing time avg"
