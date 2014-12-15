@@ -252,35 +252,13 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   endif
   
   !-----------------------------------------------------------------------------
-  ! when computing running time avg, initialize
+  ! when computing running time avg, initialize (note that if we're resuming
+  ! a backup, it is read from that file)
   !-----------------------------------------------------------------------------
-  if (time_avg=="yes") then
+  if ((time_avg=="yes").and.(index(inicond,"backup::")==0)) then
     if (vel_avg=="yes") uk_avg(:,:,:,1:3) = uk(:,:,:,1:3)
     if (ekin_avg=="yes") e_avg=0.d0
-    ! read averaged velocity
-    if (inicond(1:8) == "backup::" .and. vel_avg=="yes") then
-      if (mpirank==0) write(*,*) "Resuming backup and we are computing time avg"
-      if (mpirank==0) write(*,*) "trying to load old avg  uavgx_0000.h5"
-      call check_file_exists( "uavgx_0000.h5" )
-      call check_file_exists( "uavgy_0000.h5" )
-      call check_file_exists( "uavgz_0000.h5" )
-      
-      call Read_Single_File ( "uavgx_0000.h5", vort(:,:,:,1) )
-      call fft ( inx=vort(:,:,:,1) , outk=uk_avg(:,:,:,1) )
-      
-      call Read_Single_File ( "uavgy_0000.h5", vort(:,:,:,2) )
-      call fft ( inx=vort(:,:,:,2) , outk=uk_avg(:,:,:,2) )
-      
-      call Read_Single_File ( "uavgz_0000.h5", vort(:,:,:,3) )
-      call fft ( inx=vort(:,:,:,3) , outk=uk_avg(:,:,:,3) )
-    endif
-    ! read averaged kinetic energy 
-    if (inicond(1:8) == "backup::" .and. ekin_avg=="yes") then
-      call check_file_exists( "ekinavg_0000.h5" )
-      call Read_Single_File ( "ekinavg_0000.h5", e_avg )
-    endif
   endif
-  
 end subroutine init_fields_fsi
 
 

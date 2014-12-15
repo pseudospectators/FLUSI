@@ -154,15 +154,15 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   !-----------
   ! if time-avg velocity field is computed, save this here, but always to the same file.
   !-----------
-  if (time_avg=="yes") then
+  if ((time_avg=="yes").and.(time>=tstart_avg)) then
     if (vel_avg=="yes") then
       call ifft3( ink=uk_avg(:,:,:,1:3), outx=u(:,:,:,1:3) )
-      call save_field_hdf5(time,"./uavgx_0000",u(:,:,:,1),"uavgx")
-      call save_field_hdf5(time,"./uavgy_0000",u(:,:,:,2),"uavgy")
-      call save_field_hdf5(time,"./uavgz_0000",u(:,:,:,3),"uavgz")
+      call save_field_hdf5(time,"./uavgx_"//name,u(:,:,:,1),"uavgx")
+      call save_field_hdf5(time,"./uavgy_"//name,u(:,:,:,2),"uavgy")
+      call save_field_hdf5(time,"./uavgz_"//name,u(:,:,:,3),"uavgz")
     endif
     if (ekin_avg=="yes") then
-      call save_field_hdf5(time,"./ekinavg_0000",e_avg,"ekinavg")
+      call save_field_hdf5(time,"./ekinavg_"//name,e_avg,"ekinavg")
     endif
   endif
   
@@ -499,6 +499,22 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
      call ifft(work,nlk(:,:,:,6,1))
      call dump_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
   endif
+  
+  !-- initialize runnning avg from file
+  if((method=="fsi").and.(time_avg=="yes").and.(vel_avg=="yes")) then
+    call ifft ( outx=work , ink=uk_avg(:,:,:,1) )
+    call dump_field_backup(work,"uavgx",time,dt0,dt1,n1,it,file_id)    
+    call ifft ( outx=work , ink=uk_avg(:,:,:,2) )
+    call dump_field_backup(work,"uavgy",time,dt0,dt1,n1,it,file_id)    
+    call ifft ( outx=work , ink=uk_avg(:,:,:,3) )
+    call dump_field_backup(work,"uavgz",time,dt0,dt1,n1,it,file_id)    
+  endif
+  
+  if((method=="fsi").and.(time_avg=="yes").and.(ekin_avg=="yes")) then
+    call dump_field_backup(e_avg,"ekinavg",time,dt0,dt1,n1,it,file_id)
+  endif
+  
+  
 
   ! Close the file:
   call h5fclose_f(file_id, error)
@@ -1005,6 +1021,20 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
     call fft(nlk(:,:,:,4,1),work)
   endif
   
+  !-- initialize runnning avg from file
+  if((method=="fsi").and.(time_avg=="yes").and.(vel_avg=="yes")) then
+    call read_field_backup(work,"uavgx",time,dt0,dt1,n1,it,file_id)
+    call fft ( inx=work , outk=uk_avg(:,:,:,1) )
+    call read_field_backup(work,"uavgy",time,dt0,dt1,n1,it,file_id)
+    call fft ( inx=work , outk=uk_avg(:,:,:,2) )
+    call read_field_backup(work,"uavgz",time,dt0,dt1,n1,it,file_id)
+    call fft ( inx=work , outk=uk_avg(:,:,:,3) )
+  endif
+  
+  if((method=="fsi").and.(time_avg=="yes").and.(ekin_avg=="yes")) then
+    call read_field_backup(e_avg,"ekinavg",time,dt0,dt1,n1,it,file_id)
+  endif
+  
   if(method == "mhd") then
      ! Read MHD nonlinear source term backup too:
      call read_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
@@ -1099,6 +1129,10 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
      call MPI_BCAST(chunking_dims(i),1,MPI_INTEGER8,0,MPI_COMM_WORLD,mpierror)
   enddo
 
+  if (mpirank==0) then
+    write(*,'("Reading ",A," from backup file")') trim(adjustl(dsetname))
+  endif
+  
   !----------------------------------------------------------------------------
   ! Read actual field from file (dataset)
   !----------------------------------------------------------------------------
