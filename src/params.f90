@@ -399,6 +399,7 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
        Insect%mass_solid, 54.414118839786745d0)
   call param_dbl(PARAMS,i,"Insects","gravity",&
        Insect%gravity, -0.055129281110537755d0)
+  call param_dbl(PARAMS,i,"Insects","eta_stroke",Insect%eta_stroke,0.d0)        
 
   ! Legs model parameters
   call param_int(PARAMS,i,"Insects","ilegs",Insect%ilegs, 1)

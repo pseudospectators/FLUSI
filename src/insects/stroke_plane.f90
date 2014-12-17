@@ -13,6 +13,8 @@ subroutine StrokePlane ( time, Insect )
   real(kind=pr) :: eta_stroke
 
   select case (Insect%BodyMotion)
+  case ("forward")
+    eta_stroke = Insect%eta_stroke
   case ("fixed")
     eta_stroke = deg2rad(0.d0)   
   case ("fixed45")

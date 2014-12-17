@@ -26,6 +26,16 @@ subroutine BodyMotion(time, Insect)
   real(kind=pr) :: T,R
   
   select case (Insect%BodyMotion)
+  case ("forward")
+    psi = 0.d0
+    beta = deg2rad(-15.0d0)
+    gamma = deg2rad(180.d0)
+    psi_dt = 0.d0
+    beta_dt = 0.d0
+    gamma_dt = 0.d0
+    xc = (/0.5*xl, 0.5*yl,0.5*zl/)
+    vc = (/0.0, 0.0, 0.0/)
+ 
   case ("fixed")
     psi      = 0.d0
     beta     = 0.d0
