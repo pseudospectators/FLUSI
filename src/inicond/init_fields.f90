@@ -85,9 +85,9 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   ! Compute energy and fluid area (for normalization later).
   pekin=0.d0
   pfluidarea=0.d0
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1) 
            if(mask(ix,iy,iz) == 0.d0) then
               ux=f1(ix,iy,iz)
               uy=f2(ix,iy,iz)

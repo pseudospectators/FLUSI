@@ -25,9 +25,9 @@ subroutine add_cavity()
     uz = uzmean
   endif
   
-  do ix = ra(1), rb(1)
-    do iy = ra(2), rb(2)
-       do iz = ra(3), rb(3)
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1) 
        
           if ((ix<=cavity_size-1).or.(ix>=nx-1-cavity_size+1)) then            
             mask(ix,iy,iz) = 1.d0

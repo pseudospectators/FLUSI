@@ -50,9 +50,9 @@ subroutine cal_drag ( time, u, Insect )
   !---------------------------------------------------------------------------
   ! loop over penalization term (this saves a work array)
   !---------------------------------------------------------------------------
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1) 
         ! actual penalization term
         penalx = -mask(ix,iy,iz)*(u(ix,iy,iz,1)-us(ix,iy,iz,1))
         penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
@@ -273,9 +273,9 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   
   norm = dx*dy*dz*eps
   
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1) 
         color = mask_color(ix,iy,iz)
         ! sum up new integral as a function of color
         force_new_locx(color) = force_new_locx(color)+mask(ix,iy,iz)*us(ix,iy,iz,1)*norm
@@ -331,9 +331,9 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   torque_new_locy0 = 0.d0
   torque_new_locz0 = 0.d0
   
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)  
+      do ix=ra(1),rb(1)   
         ! for torque moment
         xlev = dble(ix)*dx - x0
         ylev = dble(iy)*dy - y0

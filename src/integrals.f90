@@ -338,9 +338,9 @@ subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3)
   LEz=0.d0
 
   ! Add contributions in physical space
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1) 
            if(mask(ix,iy,iz) == 0.d0) then
               
               v1=f1(ix,iy,iz)
@@ -400,9 +400,9 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
   LEz=0.d0
 
   ! Add contributions in physical space
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1) 
           ux=u(ix,iy,iz,1)
           uy=u(ix,iy,iz,2)
           uz=u(ix,iy,iz,3)
@@ -454,9 +454,9 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
   LCz=0.d0
 
   ! Add contributions in physical space
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1) 
            if(mask(ix,iy,iz) == 0.d0) then
               v1=f1(ix,iy,iz)
               v2=f2(ix,iy,iz)
@@ -540,9 +540,9 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   ! without loss of functionality or performance.
   
   locmax=0.d0
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1) 
            if(mask(ix,iy,iz) == 0.d0) then
               
               v1=f1(ix,iy,iz)
@@ -594,9 +594,9 @@ subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
 
   ! Find the (per-process) max norm and max components in physical
   ! space
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1) 
            if(mask(ix,iy,iz) == 0.d0) then
               v1=f1(ix,iy,iz)
               v2=f2(ix,iy,iz)
@@ -643,9 +643,9 @@ subroutine compute_mean_norm(mean,f1,f2,f3)
 
   Lmean=0.d0
   
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1) 
            if(mask(ix,iy,iz) == 0.d0) then
               v1=f1(ix,iy,iz)
               v2=f2(ix,iy,iz)
@@ -684,9 +684,9 @@ subroutine compute_fluid_volume(volume)
      Lvolume=0.d0
      dxyz=dx*dy*dz
 
-     do ix=ra(1),rb(1)
-        do iy=ra(2),rb(2)
-           do iz=ra(3),rb(3)
+     do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1) 
               if(mask(ix,iy,iz) == 0.d0) then
                  Lvolume=Lvolume +dxyz
               endif

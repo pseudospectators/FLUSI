@@ -156,9 +156,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   !-- Non-Linear terms
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)  
+      do ix=ra(1),rb(1)        
         ! local loop variables
         ux   = u(ix,iy,iz,1)
         uy   = u(ix,iy,iz,2)
@@ -439,9 +439,9 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   enddo
 
   ! Put the x-space version of the nonlinear source term in wj.
-  do ix=ra(1),rb(1)
-     do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
            ! Loop-local variables for velocity and magnetic field:
            u1=ub(ix,iy,iz,1)
            u2=ub(ix,iy,iz,2)

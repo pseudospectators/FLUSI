@@ -364,9 +364,9 @@ real(kind=pr) function fieldmaxabs3( inx )
   integer :: mpicode
   integer ::ix,iy,iz
   max_local = 0.d0
-  do ix = ra(1), rb(1)
-    do iy = ra(2), rb(2)
-       do iz = ra(3), rb(3)
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1) 
         value = inx(ix,iy,iz,1)*inx(ix,iy,iz,1) + inx(ix,iy,iz,2)*inx(ix,iy,iz,2) &
               + inx(ix,iy,iz,3)*inx(ix,iy,iz,3)
         if (max_local<value) max_local=value
@@ -414,9 +414,9 @@ subroutine checknan_real( field, msg )
   character(len=*),intent(in)::msg
   integer :: foundnan,foundnans,mpicode,ix,iy,iz
   foundnan = 0
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)  
+      do ix=ra(1),rb(1)   
         if (is_nan(field(ix,iy,iz))) foundnan = 1
       enddo
     enddo
