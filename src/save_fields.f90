@@ -174,15 +174,63 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
         call save_field_hdf5(time,"./ekinavg_"//name,e_avg,"ekinavg")
       endif
     endif
+    if (enstrophy_avg=="yes") then
+      if (save_one_only=="yes") then
+        call save_field_hdf5(time,"./zavg_000",Z_avg,"zavg")
+      else
+        call save_field_hdf5(time,"./zavg_"//name,Z_avg,"zavg")
+      endif
+    endif
   endif
   
   if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields_fsi
 
 
+
+!-------------------------------------------------------------------------------
+! Same as save_fields_fsi, but for slices of the given field.
+! INPUT
+!       time 
+!       u       real valued vector field to be stored. A slice of all three
+!               components will be saved, at the given x-position "islice"
+! NOTES
+!       this routine cannot be used for slices in the x-y plane with z=const
+!       it is only working for x=const
+!-------------------------------------------------------------------------------
+subroutine save_slice( time, it, u, islice )
+  use vars
+  implicit none
+  real(kind=pr),intent(in) :: time
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  integer, intent(inout) :: islice, it
+  character(len=strlen) :: name
+  
+  ! create name for the file
+  write(name,'(i4.4,"-",i5.5,".h5")') islice, it
+  
+  ! useful error message
+  if ((islice>nx-1).and.(mpirank==0)) then
+    write(*,*) "Slicing: index out of domain size...."
+    call abort()
+  endif
+  
+  ! if the value islice is negative, we will not save it. This way, you can 
+  ! also save less then four slices if you want
+  if (islice >= 0) then
+    call save_slice_hdf5(time,"sliceux_"//trim(adjustl(name)),u(islice,:,:,1),"sliceux")
+    call save_slice_hdf5(time,"sliceuy_"//trim(adjustl(name)),u(islice,:,:,2),"sliceuy")
+    call save_slice_hdf5(time,"sliceuz_"//trim(adjustl(name)),u(islice,:,:,3),"sliceuz")
+  endif
+end subroutine save_slice
+
+
+
+!-------------------------------------------------------------------------------
 ! Write the field field_out to file filename, saving the name of the
 ! field, dsetname, (as well as time, eps, and resolution) to the
-! metadata of the hdf file .
+! metadata of the hdf file.
+!-------------------------------------------------------------------------------
 subroutine save_field_hdf5(time,filename,field_out,dsetname)
   use mpi
   use vars
@@ -1506,41 +1554,14 @@ subroutine init_empty_file( fname )
 end subroutine
 
 
-
-
-! saves a sclice at ix=islice 
-subroutine save_slice( time, it, u, islice )
-  use vars
-  implicit none
-  real(kind=pr),intent(in) :: time
-  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  integer, intent(inout) :: islice, it
-  character(len=strlen) :: name
-  
-  write(name,'(i4.4,"-",i5.5,".h5")') islice, it
-  
-  if ((islice>nx-1).and.(mpirank==0)) then
-    write(*,*) "Slicing: index out of domain size...."
-    call abort()
-  endif
-  
-  if (islice >= 0) then
-    call save_field_hdf5_2(time,"sliceux_"//trim(adjustl(name)),u(islice,:,:,1),"sliceux")
-    call save_field_hdf5_2(time,"sliceuy_"//trim(adjustl(name)),u(islice,:,:,2),"sliceuy")
-    call save_field_hdf5_2(time,"sliceuz_"//trim(adjustl(name)),u(islice,:,:,3),"sliceuz")
-  endif
-end subroutine save_slice
-  
-  
-  
-  
-  
-  
-  
-  ! Write the field field_out to file filename, saving the name of the
+!-------------------------------------------------------------------------------
+! Write the field field_out to file filename, saving the name of the
 ! field, dsetname, (as well as time, eps, and resolution) to the
-! metadata of the hdf file .
-subroutine save_field_hdf5_2(time,filename,field_out,dsetname)
+! metadata of the hdf file. 
+! NOTE this routine assumes the dimension nx=1, thus it is suited only for 
+! saving a slice of the total field
+!-------------------------------------------------------------------------------
+subroutine save_slice_hdf5(time,filename,field_out,dsetname)
   use mpi
   use vars
   use hdf5
@@ -1588,6 +1609,7 @@ subroutine save_field_hdf5_2(time,filename,field_out,dsetname)
   dimensions_local(1) = 1
   dimensions_local(2) = rb(2)-ra(2) +1
   dimensions_local(3) = rb(3)-ra(3) +1
+  
   ! each process knows how much data it has and where to store it.
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
@@ -1695,4 +1717,4 @@ subroutine save_field_hdf5_2(time,filename,field_out,dsetname)
   endif
 
   time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
-end subroutine save_field_hdf5_2
+end subroutine save_slice_hdf5

@@ -126,9 +126,13 @@ module vars
   
   ! averaging
   character(len=strlen),save :: time_avg, vel_avg, ekin_avg, save_one_only
+  character(len=strlen),save :: enstrophy_avg
   ! this is a hack, currently the avg velocity field is global
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk_avg
+  ! kinetic energy:
   real(kind=pr),dimension(:,:,:),allocatable :: e_avg  
+  ! enstrophy:
+  real(kind=pr),dimension(:,:,:),allocatable :: Z_avg  
   real(kind=pr)::tstart_avg
   
   ! saving of slices

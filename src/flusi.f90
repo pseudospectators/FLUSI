@@ -238,7 +238,11 @@ subroutine Start_Simulation()
     if (ekin_avg=="yes") then
       allocate(e_avg(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
       memory = memory + dble(1)*mem_field
-    endif    
+    endif 
+    if (enstrophy_avg=="yes") then
+      allocate(Z_avg(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+      memory = memory + dble(1)*mem_field
+    endif 
   endif
   
   ! read in turbulent inlet fields

@@ -160,6 +160,7 @@ subroutine get_params_common(PARAMS,i)
   call param_str(PARAMS,i,"Averaging","time_avg",time_avg, "no")
   call param_str(PARAMS,i,"Averaging","vel_avg",vel_avg, "yes")
   call param_str(PARAMS,i,"Averaging","ekin_avg",ekin_avg, "no")
+  call param_str(PARAMS,i,"Averaging","enstrophy_avg",enstrophy_avg, "no")
   call param_str(PARAMS,i,"Averaging","save_one_only",save_one_only, "yes")
   call param_dbl(PARAMS,i,"Averaging","tstart_avg",tstart_avg,0.d0)  
   if (vel_avg/="yes" .and. ekin_avg/="yes") then

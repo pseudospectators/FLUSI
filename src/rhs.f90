@@ -111,7 +111,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: t0,t1,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   real(kind=pr) :: fx,fy,fz,fx1,fy1,fz1
-  real(kind=pr) :: soft_startup
+  real(kind=pr) :: soft_startup, dt
   integer :: ix,iz,iy,mpicode
   t0 = MPI_wtime()
   fx=0.d0; fy=0.d0; fz=0.d0
@@ -132,6 +132,18 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   ! transform it to physical space
   call ifft3 ( ink=nlk, outx=vort)  
   time_vor = time_vor + MPI_wtime() - t1  
+  
+  !-----------------------------------------------------------------------------
+  ! compute time-averaged enstrophy Z_avg
+  !-----------------------------------------------------------------------------
+  ! we do this here since we happen to have the voriticy and want to save FFTs
+  if ((enstrophy_avg=="yes").and.(time>=tstart_avg)) then
+    ! we need to know here what the time step will be
+    call adjust_dt(dt,u)
+    ! compute incremental avg
+    Z_avg = ( (vort(:,:,:,1)**2 + vort(:,:,:,2)**2 + vort(:,:,:,3)**2)*dt  &
+          + (time-tstart_avg)*Z_avg ) / ( (time-tstart_avg)+dt )
+  endif
   
   !-----------------------------------------------------------------------------
   !-- vorticity sponge term
