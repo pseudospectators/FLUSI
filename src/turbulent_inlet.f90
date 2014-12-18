@@ -45,6 +45,11 @@ subroutine init_turbulent_inlet ( )
        
        
   if (mpirank==0) write(*,*) "inlet file resolution is ",nx_turb, ny_turb, nz_turb
+  !HACK
+  xl_turb = xl
+  yl_turb = yl
+  zl_turb = zl
+  !HACK
   if (mpirank==0) write(*,*) "inlet file domain is ",xl_turb, yl_turb, zl_turb
   
   ! initialize global constants. note we assume that the file resolution matches
@@ -127,6 +132,7 @@ subroutine turbulent_inlet( time )
     endif
     
     mask(ix,:,:) = 1.d0
+    mask_color(ix,:,:) = 0
     us(ix,:,:,1) = u_turb(i1,:,:,1)*C1 + u_turb(i2,:,:,1)*C2 + uxmean
     us(ix,:,:,2) = u_turb(i1,:,:,2)*C1 + u_turb(i2,:,:,2)*C2!+ uxmean
     us(ix,:,:,3) = u_turb(i1,:,:,3)*C1 + u_turb(i2,:,:,3)*C2    !+ uxmean
