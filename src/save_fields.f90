@@ -157,12 +157,22 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   if ((time_avg=="yes").and.(time>=tstart_avg)) then
     if (vel_avg=="yes") then
       call ifft3( ink=uk_avg(:,:,:,1:3), outx=u(:,:,:,1:3) )
-      call save_field_hdf5(time,"./uavgx_"//name,u(:,:,:,1),"uavgx")
-      call save_field_hdf5(time,"./uavgy_"//name,u(:,:,:,2),"uavgy")
-      call save_field_hdf5(time,"./uavgz_"//name,u(:,:,:,3),"uavgz")
+      if (save_one_only=="yes") then
+        call save_field_hdf5(time,"./uavgx_000",u(:,:,:,1),"uavgx")
+        call save_field_hdf5(time,"./uavgy_000",u(:,:,:,2),"uavgy")
+        call save_field_hdf5(time,"./uavgz_000",u(:,:,:,3),"uavgz")
+      else
+        call save_field_hdf5(time,"./uavgx_"//name,u(:,:,:,1),"uavgx")
+        call save_field_hdf5(time,"./uavgy_"//name,u(:,:,:,2),"uavgy")
+        call save_field_hdf5(time,"./uavgz_"//name,u(:,:,:,3),"uavgz")
+      endif
     endif
     if (ekin_avg=="yes") then
-      call save_field_hdf5(time,"./ekinavg_"//name,e_avg,"ekinavg")
+      if (save_one_only=="yes") then
+        call save_field_hdf5(time,"./ekinavg_000",e_avg,"ekinavg")
+      else
+        call save_field_hdf5(time,"./ekinavg_"//name,e_avg,"ekinavg")
+      endif
     endif
   endif
   

@@ -125,7 +125,7 @@ module vars
   real(kind=pr) :: rescale
   
   ! averaging
-  character(len=strlen),save :: time_avg, vel_avg, ekin_avg
+  character(len=strlen),save :: time_avg, vel_avg, ekin_avg, save_one_only
   ! this is a hack, currently the avg velocity field is global
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk_avg
   real(kind=pr),dimension(:,:,:),allocatable :: e_avg  

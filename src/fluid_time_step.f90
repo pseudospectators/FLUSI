@@ -103,16 +103,16 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   if(method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
 
   ! compute running average, if used. applies to FSI only
-  if ((method=="fsi").and.(time_avg=="yes")) then
+  if ((method=="fsi").and.(time_avg=="yes").and.(time>=tstart_avg)) then
     if (vel_avg=="yes") then
       ! average the velocity
-      uk_avg = (uk*dt1  + time*uk_avg) / ( time+dt1 )
+      uk_avg = (uk*dt1  + (time-tstart_avg)*uk_avg) / ( (time-tstart_avg)+dt1 )
     endif
     
     if (ekin_avg=="yes") then
       ! average kinetic energy 
       e_avg = ( 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)*dt1  &
-            + time*e_avg ) / ( time+dt1 )
+            + (time-tstart_avg)*e_avg ) / ( (time-tstart_avg)+dt1 )
     endif
   endif
   
