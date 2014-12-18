@@ -315,6 +315,15 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   call param_dbl(PARAMS,i,"PassiveScalar","source_zmin",source_zmin,0.d0)
   call param_dbl(PARAMS,i,"PassiveScalar","source_zmax",source_zmax,0.d0)
 
+  
+  ! slice extraction
+  call param_str(PARAMS,i,"SaveSlices","save_slices",save_slices,"no")
+  call param_int(PARAMS,i,"SaveSlices","slice1",slice1,-2)
+  call param_int(PARAMS,i,"SaveSlices","slice1",slice2,-2)
+  call param_int(PARAMS,i,"SaveSlices","slice1",slice3,-2)
+  call param_int(PARAMS,i,"SaveSlices","slice1",slice4,-2)
+  call param_int(PARAMS,i,"SaveSlices","itslice",itslice,9999900)
+  
   ! ---------------------------------------------------
   ! DONE..
   ! ---------------------------------------------------

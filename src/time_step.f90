@@ -112,6 +112,16 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      endif
      
      !-----------------------------------------------
+     ! save slices to hard disk
+     !-----------------------------------------------     
+     if ((method=="fsi").and.(save_slices=="yes").and.(modulo(it,itslice)==0)) then
+        call save_slice( time, it, u, slice1 )
+        call save_slice( time, it, u, slice2 )
+        call save_slice( time, it, u, slice3 )
+        call save_slice( time, it, u, slice4 )
+     endif    
+     
+     !-----------------------------------------------
      ! Output how much time remains
      !-----------------------------------------------
      if ((modulo(it,300)==0).or.(it==20)) then

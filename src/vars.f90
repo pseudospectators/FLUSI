@@ -131,6 +131,10 @@ module vars
   real(kind=pr),dimension(:,:,:),allocatable :: e_avg  
   real(kind=pr)::tstart_avg
   
+  ! saving of slices
+  character(len=strlen),save :: save_slices
+  integer,save :: itslice, slice1, slice2, slice3, slice4
+  
   
   contains 
 
