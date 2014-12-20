@@ -131,34 +131,31 @@ subroutine taylor_couette_u_us(f1,f2,f3)
   f1=0.d0
   f2=0.d0
   f3=0.d0
-  
-  do ix=ra(1),rb(1)  
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
+ 
+  do iz=ra(3),rb(3)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
+        do ix=ra(1),rb(1)
+           x=xl*(dble(ix)/dble(nx) -0.5d0)
 
-        r=dsqrt(x*x + y*y)
+           r=dsqrt(x*x + y*y)
         
-        if(r <= R1) then
-           do iz=ra(3),rb(3)
+           if(r <= R1) then
               ! Velocity field:
               f1(ix,iy,iz)=-omega1*y
               f2(ix,iy,iz)=omega1*x
               f3(ix,iy,iz)=0.d0
-           enddo
-        endif
-        if(r >= R2) then
-           do iz=ra(3),rb(3)
+           endif
+           if(r >= R2) then
               ! NB: We assume that the outer wall is not moving.
               f1(ix,iy,iz)=0.d0
               f2(ix,iy,iz)=0.d0
               f3(ix,iy,iz)=0.d0
-           enddo
-        endif
+           endif
 
+        enddo
      enddo
   enddo
-
 
 end subroutine taylor_couette_u_us
 

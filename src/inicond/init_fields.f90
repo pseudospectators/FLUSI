@@ -85,9 +85,9 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   ! Compute energy and fluid area (for normalization later).
   pekin=0.d0
   pfluidarea=0.d0
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
      do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+        do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
               ux=f1(ix,iy,iz)
               uy=f2(ix,iy,iz)
@@ -155,12 +155,13 @@ subroutine randgen3d(fk1,fk2,fk3,w)
   k0=3.d0*sqrt(2.d0)*pi/4.d0
 
   !-- generate 3D gaussian field 
-  do iz=ca(1),cb(1)          
-    kz = wave_z(iz)       
-    do iy=ca(2), cb(2)
+  do ix=ca(3),cb(3)
+    kx = wave_x(ix)
+    do iy=ca(2),cb(2)
       ky = wave_y(iy)
-      do ix=ca(3), cb(3)
-        kx = wave_x(ix)
+      do iz=ca(1),cb(1)
+        kz = wave_z(iz)
+
         k = dsqrt(kx*kx +ky*ky +kz*kz)
 
         !-- ek = sqrt(Ek/4pik^2), Ek imposed spectrum
@@ -208,7 +209,7 @@ subroutine randgen3d(fk1,fk2,fk3,w)
         endif
       enddo
     enddo
-enddo
+  enddo
 
   ! Enforce Hermitian symmetry the lazy way:
   call ifft(w,fk1)
@@ -238,7 +239,7 @@ subroutine init_taylorcouette_u(ubk,ub)
   real(kind=pr) :: x,y,r
   real(kind=pr) :: A,B,F
 
-    if(mpirank == 0) then
+  if(mpirank == 0) then
      if(r1 >= r2) then
         write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
         call abort()
@@ -248,10 +249,10 @@ subroutine init_taylorcouette_u(ubk,ub)
   A=-omega1*r1*r1/(r2*r2 - r1*r1)
   B=omega1*r1*r1*r2*r2/(r2*r2 - r1*r1)
 
-  do ix=ra(1),rb(1)
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy=ra(2),rb(2)
-        y=yl*(dble(iy)/dble(ny) -0.5d0)
+  do iy=ra(2),rb(2)
+     y=yl*(dble(iy)/dble(ny) -0.5d0)
+     do ix=ra(1),rb(1)
+        x=xl*(dble(ix)/dble(nx) -0.5d0)
 
         r=dsqrt(x*x +y*y)
 

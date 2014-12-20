@@ -787,9 +787,9 @@ subroutine extract_subset()
   allocate ( field_out(0:nx_red-1,0:ny_red-1,0:nz_red-1) )
   
   ! fill the target field
-  do ix_red = 0, nx_red-1
+  do iz_red = 0, nz_red-1
     do iy_red = 0, ny_red-1
-      do iz_red = 0, nz_red-1
+      do ix_red = 0, nx_red-1
         ix = nx1 + ix_red*nxs
         iy = ny1 + iy_red*nys
         iz = nz1 + iz_red*nzs

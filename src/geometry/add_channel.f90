@@ -13,11 +13,10 @@ subroutine add_channel()
   integer :: ix,iy,iz
   real (kind=pr) :: x,y, z, usponge, H_eff, z_chan
   
-  
   ! loop over the physical space
-  do ix = ra(1), rb(1)
-    do iy = ra(2), rb(2)
-       do iz = ra(3), rb(3)
+  do iz = ra(3), rb(3)
+     do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
           !----------------
           select case (iChannel)
           case ("xz")
@@ -73,8 +72,8 @@ subroutine add_channel()
             call abort()
           end select
           !----------------
-       enddo
-    enddo
+        enddo
+     enddo
   enddo
  
 end subroutine add_channel

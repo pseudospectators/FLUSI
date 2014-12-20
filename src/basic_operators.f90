@@ -53,12 +53,12 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
   imag = dcmplx(0.d0,1.d0)
   
   ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
 
            out1(iz,iy,ix)=imag*(ky*in3(iz,iy,ix) -kz*in2(iz,iy,ix))
            out2(iz,iy,ix)=imag*(kz*in1(iz,iy,ix) -kx*in3(iz,iy,ix))
@@ -90,12 +90,12 @@ subroutine curl_inplace(fx,fy,fz)
   imag = dcmplx(0.d0,1.d0)
   
   ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
            
            t1=fx(iz,iy,ix)
            t2=fy(iz,iy,ix)
@@ -129,12 +129,12 @@ subroutine curl3_inplace(fk)
   imag = dcmplx(0.d0,1.d0)
   
   ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
            
            t1=fk(iz,iy,ix,1)
            t2=fk(iz,iy,ix,2)
@@ -171,12 +171,12 @@ subroutine curl_2nd (fx,fy,fz)
   imag = dcmplx(0.d0,1.d0)
   
   ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=dsin(dz*wave_z(iz))/ dz ! (reduced to 2nd order)
+  do ix=ca(3),cb(3)
+     kx=dsin(dx*wave_x(ix))/dx ! (reduced to 2nd order)
      do iy=ca(2),cb(2)
-        ky=dsin(dy*wave_y(iy))/dy ! (reduced to 2nd order)
-        do ix=ca(3),cb(3)
-           kx=dsin(dx*wave_x(ix))/dx ! (reduced to 2nd order)
+        ky=dsin(dy*wave_y(iy))/dy ! (reduced to 2nd order) 
+        do iz=ca(1),cb(1)
+           kz=dsin(dz*wave_z(iz))/dz ! (reduced to 2nd order)
            
            t1=fx(iz,iy,ix)
            t2=fy(iz,iy,ix)
@@ -211,13 +211,13 @@ subroutine curl3(ink,outk)
   imag = dcmplx(0.d0,1.d0)
   
   ! Compute curl of given field in Fourier space:
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           
            outk(iz,iy,ix,1)=imag*(ky*ink(iz,iy,ix,3) -kz*ink(iz,iy,ix,2))
            outk(iz,iy,ix,2)=imag*(kz*ink(iz,iy,ix,1) -kx*ink(iz,iy,ix,3))
            outk(iz,iy,ix,3)=imag*(kx*ink(iz,iy,ix,2) -ky*ink(iz,iy,ix,1))
@@ -244,15 +244,15 @@ subroutine divergence( ink, outk )
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz
 
-  do iz=ca(1),cb(1)          
-    !-- wavenumber in z-direction
-    kz = wave_z(iz)       
-    do iy=ca(2), cb(2)
-      !-- wavenumber in y-direction
-      ky = wave_y(iy)      
-      do ix=ca(3), cb(3)
-        !-- wavenumber in x-direction
-        kx = wave_x(ix)
+  do ix=ca(3),cb(3)
+    !-- wavenumber in x-direction
+    kx = wave_x(ix)
+    do iy=ca(2),cb(2)
+      !-- wavenumber in y-direction 
+      ky = wave_y(iy)
+      do iz=ca(1),cb(1)
+        !-- wavenumber in z-direction
+        kz = wave_z(iz)
         outk(iz,iy,ix)=kx*ink(iz,iy,ix,1)+ky*ink(iz,iy,ix,2)+kz*ink(iz,iy,ix,3)
         outk(iz,iy,ix)=dcmplx(0.d0,1.d0)*outk(iz,iy,ix)
       enddo
@@ -272,15 +272,15 @@ subroutine laplacien_inplace( ink )
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
 
-  do iz=ca(1),cb(1)          
-    !-- wavenumber in z-direction
-    kz = wave_z(iz)
-    do iy=ca(2), cb(2)
-      !-- wavenumber in y-direction
+  do ix=ca(3),cb(3)
+    !-- wavenumber in x-direction
+    kx = wave_x(ix)
+    do iy=ca(2),cb(2)
+      !-- wavenumber in y-direction 
       ky = wave_y(iy)
-      do ix=ca(3), cb(3)
-        !-- wavenumber in x-direction
-        kx = wave_x(ix)
+      do iz=ca(1),cb(1)
+        !-- wavenumber in z-direction
+        kz = wave_z(iz)
         k2 = kx*kx + ky*ky + kz*kz
         ink(iz,iy,ix) = -k2*ink(iz,iy,ix)
       enddo
@@ -302,15 +302,15 @@ subroutine laplacien_inplace_filtered( ink )
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
 
-  do iz=ca(1),cb(1)          
-    !-- wavenumber in z-direction (reduced to 2nd order)
-    kz = dsin( dz*wave_z(iz) )/ dz
-    do iy=ca(2), cb(2)
+  do ix=ca(3),cb(3)
+    !-- wavenumber in x-direction  (reduced to 2nd order)
+    kx = dsin(dx*wave_x(ix))/dx
+    do iy=ca(2),cb(2)
       !-- wavenumber in y-direction  (reduced to 2nd order)
       ky = dsin( dy*wave_y(iy) )/dy
-      do ix=ca(3), cb(3)
-        !-- wavenumber in x-direction  (reduced to 2nd order)
-        kx = dsin(dx*wave_x(ix))/dx
+      do iz=ca(1),cb(1)
+        !-- wavenumber in z-direction (reduced to 2nd order) 
+        kz = dsin( dz*wave_z(iz) )/ dz
         k2 = kx*kx + ky*ky + kz*kz
         ink(iz,iy,ix) = -k2*ink(iz,iy,ix)
       enddo
@@ -363,10 +363,11 @@ real(kind=pr) function fieldmaxabs3( inx )
   real(kind=pr) :: max_local, max_global, value
   integer :: mpicode
   integer ::ix,iy,iz
+
   max_local = 0.d0
-  do ix = ra(1), rb(1)
-    do iy = ra(2), rb(2)
-       do iz = ra(3), rb(3)
+  do iz = ra(3),rb(3)
+    do iy = ra(2),rb(2)
+      do ix = ra(1),rb(1)
         value = inx(ix,iy,iz,1)*inx(ix,iy,iz,1) + inx(ix,iy,iz,2)*inx(ix,iy,iz,2) &
               + inx(ix,iy,iz,3)*inx(ix,iy,iz,3)
         if (max_local<value) max_local=value
@@ -413,10 +414,11 @@ subroutine checknan_real( field, msg )
   real(kind=pr),intent(in)::field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   character(len=*),intent(in)::msg
   integer :: foundnan,foundnans,mpicode,ix,iy,iz
+
   foundnan = 0
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)  
+      do ix=ra(1),rb(1) 
         if (is_nan(field(ix,iy,iz))) foundnan = 1
       enddo
     enddo
@@ -438,10 +440,11 @@ subroutine checknan_cmplx( field, msg )
   complex(kind=pr),intent(in)::field(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   character(len=*),intent(in)::msg
   integer :: foundnan,foundnans,mpicode,ix,iy,iz
+
   foundnan = 0
-  do iz=ca(1),cb(1)
+  do ix=ca(3),cb(3)
     do iy=ca(2),cb(2)
-      do ix=ca(3),cb(3)
+      do iz=ca(1),cb(1)
         if (is_nan(aimag(field(iz,iy,ix)))) foundnan = 1
         if (is_nan(real (field(iz,iy,ix)))) foundnan = 1
       enddo

@@ -57,12 +57,13 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
   !------------------------------------------------------------------------------  
   do id = 1,3
     ! step 1: compute id-component of gradient theta in f-space
-    do iz=ca(1),cb(1)
-      kz=wave_z(iz)
+    do ix=ca(3),cb(3)
+      kx=wave_x(ix)
       do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-          kx=wave_x(ix)
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
+
           k = (/kx, ky ,kz /)
           workc1(iz,iy,ix) = uk(iz,iy,ix) * imag * k(id)
         enddo
@@ -75,9 +76,9 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
     work(:,:,:,2) = work(:,:,:,1)
     
     ! step 4 one compontent of transport operator, add it to R3
-    do ix=ra(1),rb(1)
+    do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3) 
+        do ix=ra(1),rb(1)
           chi = mask(ix,iy,iz)*eps
           w = -( (1.d0-chi)*u(ix,iy,iz,id) + chi*us(ix,iy,iz,id) )
           work(ix,iy,iz,3) = work(ix,iy,iz,3) + work(ix,iy,iz,1)*w
@@ -88,9 +89,9 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
     !-------------------------------------------------------------
 
     ! step 5 use backup of step 3 and compute inner product for div op
-    do ix=ra(1),rb(1)
+    do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3) 
+        do ix=ra(1),rb(1)
           chi = mask(ix,iy,iz)*eps
           !-- inside obstacle, reduced fluxes
           D = kappa*(1.d0-chi) + eps_scalar*chi
@@ -103,12 +104,12 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
     call fft( inx=work(:,:,:,2), outk=workc1 )
     
     ! step 7: compute id-component of gradient theta in f-space
-    do iz=ca(1),cb(1)
-      kz=wave_z(iz)
+    do ix=ca(3),cb(3)
+      kx=wave_x(ix)
       do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-          kx=wave_x(ix)
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
           k = (/kx, ky ,kz /)
           workc1(iz,iy,ix) = workc1(iz,iy,ix) * imag * k(id)
         enddo
@@ -164,9 +165,9 @@ subroutine scalar_source ( time, theta )
 
   select case (source_term)
   case ("for_flapper")
-    do ix=ra(1),rb(1)
+    do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)  
+        do ix=ra(1),rb(1)
           x = dble(ix)*dx
           y = dble(iy)*dy
           z = dble(iz)*dz
@@ -192,9 +193,9 @@ subroutine scalar_source ( time, theta )
     enddo  
   
   case("cuboid")
-    do ix=ra(1),rb(1)
+    do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)  
+        do ix=ra(1),rb(1)
           x = dble(ix)*dx
           y = dble(iy)*dy
           z = dble(iz)*dz
@@ -213,9 +214,9 @@ subroutine scalar_source ( time, theta )
       enddo
     enddo
   case("cuboid_framed")
-    do ix=ra(1),rb(1)
+    do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)  
+        do ix=ra(1),rb(1)
           x = dble(ix)*dx
           y = dble(iy)*dy
           z = dble(iz)*dz

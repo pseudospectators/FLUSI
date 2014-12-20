@@ -144,9 +144,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   !-- Non-Linear terms
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)  
+      do ix=ra(1),rb(1)
         ! local loop variables
         ux   = u(ix,iy,iz,1)
         uy   = u(ix,iy,iz,2)
@@ -266,28 +266,26 @@ subroutine pressure(nlk,pk)
 
   ! as the RHS in cal_nlk is on the left side, i.e. -(vor x u) -chi*(u-us)
   ! its sign is inversed when computing the pressure
-  
   imag = dcmplx(0.d0,1.d0)
-
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-          kx=wave_x(ix)
-          k2=kx*kx + ky*ky + kz*kz
-          if(k2 .ne. 0.0) then
-            ! contains the pressure in Fourier space
-            ! note "-" sign
-            nlkx = nlk(iz,iy,ix,1)
-            nlky = nlk(iz,iy,ix,2)
-            nlkz = nlk(iz,iy,ix,3)
-            pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
-          else
-            pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
-          endif
-      enddo
-    enddo
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           k2=kx*kx + ky*ky + kz*kz
+           if(k2 .ne. 0.0) then
+             ! contains the pressure in Fourier space
+             ! note "-" sign
+             nlkx = nlk(iz,iy,ix,1)
+             nlky = nlk(iz,iy,ix,2)
+             nlkz = nlk(iz,iy,ix,3)
+             pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
+           else
+             pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
+           endif
+        enddo
+     enddo
   enddo
 end subroutine pressure
 
@@ -338,21 +336,17 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   complex(kind=pr) :: imag   ! imaginary unit
 
   imag = dcmplx(0.d0,1.d0)
-  
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
-           
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
            k2=kx*kx + ky*ky + kz*kz
-
            if (k2 .ne. 0.0) then
               nlx=nlk1(iz,iy,ix)
               nly=nlk2(iz,iy,ix)
               nlz=nlk3(iz,iy,ix)
-
               ! qk is the Fourier coefficient of thr pressure
               qk=(kx*nlx + ky*nly + kz*nlz)/k2
               ! add the gradient to the non-linear terms
@@ -427,9 +421,9 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   enddo
 
   ! Put the x-space version of the nonlinear source term in wj.
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
      do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+        do ix=ra(1),rb(1)
            ! Loop-local variables for velocity and magnetic field:
            u1=ub(ix,iy,iz,1)
            u2=ub(ix,iy,iz,2)
@@ -518,12 +512,12 @@ subroutine div_field_nul(fx,fy,fz)
   real(kind=pr) :: kx, ky, kz, k2
   complex(kind=pr) :: val, vx,vy,vz
 
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3), cb(3)
-           kx=wave_x(ix)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
            
            k2=kx*kx +ky*ky +kz*kz
 

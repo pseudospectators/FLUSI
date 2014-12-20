@@ -191,9 +191,9 @@ subroutine surface_interpolation_testing( time, beams, work )
 
   work=0.d0
   !-- the array "mask" with some values (analytic)
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1)
         x=dble(ix)*dx
         y=dble(iy)*dy
         z=dble(iz)*dz

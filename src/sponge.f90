@@ -44,18 +44,18 @@ subroutine vorticity_sponge( vort, work1, workc )
     ! imaginary unit
     im=dcmplx(0.d0,1.d0)    
     
-    do iz=ca(1), cb(1)
-      kz=wave_z(iz)
-      kz2=kz*kz
-      
+    do ix=ca(3), cb(3)
+      kx=wave_x(ix)
+      kx2=kx*kx
+
       do iy=ca(2), cb(2)
         ky=wave_y(iy)
         ky2=ky*ky
-        
-        do ix=ca(3), cb(3)
-          kx=wave_x(ix)
-          kx2=kx*kx
-          
+
+        do iz=ca(1), cb(1)
+          kz=wave_z(iz)
+          kz2=kz*kz
+
           k_abs_2=kx2+ky2+kz2
           if (abs(k_abs_2) .ne. 0.0) then  
             ! we first "solve" the poisson eqn 
@@ -111,9 +111,9 @@ subroutine penalize_vort ( vort_penalized, vort )
     ! of if). But you can also use it without the solid wall
     ! ie iCavity=no and iSponge=yes, iSpongeType=cavity
     !--------------------------------------------
-    do ix = ra(1), rb(1)
+    do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3) 
+        do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
             !------------------------
@@ -143,9 +143,9 @@ subroutine penalize_vort ( vort_penalized, vort )
     ! of if). But you can also use it without the solid wall
     ! ie iCavity=no and iSponge=yes, iSpongeType=cavity
     !--------------------------------------------
-    do ix = ra(1), rb(1)
+    do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3) 
+        do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
             !------------------------
@@ -169,9 +169,9 @@ subroutine penalize_vort ( vort_penalized, vort )
     ! Dmitry, 25 Oct 2013
     ! At xmin, xmax, ymin, ymax walls only. No sponge at zmin, zmax walls.
     !--------------------------------------------
-    do ix = ra(1), rb(1)
+    do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3)
+        do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
@@ -191,9 +191,9 @@ subroutine penalize_vort ( vort_penalized, vort )
     ! Dmitry, 25 Oct 2013
     ! At xmin, xmax walls only.
     !--------------------------------------------
-    do ix = ra(1), rb(1)
+    do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3)
+        do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
@@ -209,9 +209,9 @@ subroutine penalize_vort ( vort_penalized, vort )
     ! Dmitry, 25 Oct 2013
     ! At xmin, xmax, zmin, zmax walls only.
     !--------------------------------------------
-    do ix = ra(1), rb(1)
+    do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3)
+        do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
@@ -231,8 +231,8 @@ subroutine penalize_vort ( vort_penalized, vort )
     ! Thomas, 3 Jul 2014
     ! frame around domain, "cavity" for 2D. note nx=1.
     !--------------------------------------------
-    do iy = ra(2), rb(2)
-      do iz = ra(3), rb(3)
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
         if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then
           vort_penalized(:,iy,iz) = -vort(:,iy,iz)*eps_inv
         endif

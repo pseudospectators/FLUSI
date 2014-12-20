@@ -89,12 +89,12 @@ complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
 
   beta=0.8d0
 
-  do ix=ra(1),rb(1)
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
+  do iz=ra(3),rb(3)
+     z=zl*(dble(iz)/dble(nz) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
-        do iz=ra(3),rb(3)
-           z=zl*(dble(iz)/dble(nz) -0.5d0)
+        do ix=ra(1),rb(1)
+           x=xl*(dble(ix)/dble(nx) -0.5d0)
 
            ub(ix,iy,iz,1)=-2.d0*dsin(y)
            ub(ix,iy,iz,2)=2.d0*dsin(x)
@@ -170,29 +170,29 @@ complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   C=-3.d0*A*r3*r3 -2.d0*B*r3
   D=2.d0*A*r3*r3*r3 +B*r3*r3
 
-  do ix=ra(1),rb(1)
-     x=xl*(dble(ix)/dble(nx) -0.5d0)
-     do iy=ra(2),rb(2)
-        y=yl*(dble(iy)/dble(ny) -0.5d0)
-        
+  do iy=ra(2),rb(2)
+     y=yl*(dble(iy)/dble(ny) -0.5d0)
+     do ix=ra(1),rb(1)
+        x=xl*(dble(ix)/dble(nx) -0.5d0)
+   
         r=dsqrt(x*x + y*y)
 
         if(r < r2) then
-do iz=ra(3),rb(3)
+           do iz=ra(3),rb(3)
               ub(ix,iy,iz,4)=-y*Bc/R1
               ub(ix,iy,iz,5)= x*Bc/R1
            enddo
         endif
 
-if(r >= r2 .and. r <= r3) then
-h=(A*r*r*r +B*r*r +C*r +D)
+        if(r >= r2 .and. r <= r3) then
+           h=(A*r*r*r +B*r*r +C*r +D)
            do iz=ra(3),rb(3)
               ub(ix,iy,iz,4)= h*y/r
               ub(ix,iy,iz,5)=-h*x/r
            enddo
         endif
 
-enddo
+     enddo
   enddo
 
   do i=3,nd
@@ -222,9 +222,9 @@ complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
 
   if(mpirank == 0) write(*,*) "Setting magnetic field to penalization field:"
   ! Set up the magnetic field
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
      do iy=ra(2),rb(2)
-        do iz=ra(3),rb(3)
+        do ix=ra(1),rb(1)
            ub(ix,iy,iz,4)=us(ix,iy,iz,4)
            ub(ix,iy,iz,5)=us(ix,iy,iz,5)
            ub(ix,iy,iz,6)=b0

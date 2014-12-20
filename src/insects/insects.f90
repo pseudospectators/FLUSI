@@ -261,9 +261,9 @@ subroutine Draw_Insect ( time, Insect )
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (Insect%BodyType /= "nobody") then
-  do ix = ra(1), rb(1)
+  do iz = ra(3), rb(3)
      do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3)
+        do ix = ra(1), rb(1)
            !-- define the various coordinate systems we are going to use
            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
            x_body = matmul(M_body,x-Insect%xc_body)
@@ -281,9 +281,9 @@ subroutine Draw_Insect ( time, Insect )
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (Insect%HasEye == "yes") then           
-  do ix = ra(1), rb(1)
+  do iz = ra(3), rb(3)
      do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3)
+        do ix = ra(1), rb(1)
            !-- define the various coordinate systems we are going to use
            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
            x_body   = matmul(M_body,x-Insect%xc_body)
@@ -304,9 +304,9 @@ subroutine Draw_Insect ( time, Insect )
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (Insect%HasHead == "yes") then           
-  do ix = ra(1), rb(1)
+  do iz = ra(3), rb(3)
      do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3)
+        do ix = ra(1), rb(1)
            !-- define the various coordinate systems we are going to use
            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
            x_body   = matmul(M_body,x-Insect%xc_body)
@@ -328,9 +328,9 @@ subroutine Draw_Insect ( time, Insect )
   t1 = MPI_wtime()
   if (fourier_wing) then
     if (Insect%RightWing == "yes") then
-      do ix = ra(1), rb(1)
+      do iz = ra(3), rb(3)
         do iy = ra(2), rb(2)
-          do iz = ra(3), rb(3)
+          do ix = ra(1), rb(1)
             !-- define the various coordinate systems we are going to use
             x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
             x_body   = matmul(M_body,x-Insect%xc_body)
@@ -342,9 +342,9 @@ subroutine Draw_Insect ( time, Insect )
       enddo  
     endif
     if (Insect%LeftWing == "yes") then
-      do ix = ra(1), rb(1)
+      do iz = ra(3), rb(3)
         do iy = ra(2), rb(2)
-          do iz = ra(3), rb(3)
+          do ix = ra(1), rb(1)
             !-- define the various coordinate systems we are going to use
             x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
             x_body   = matmul(M_body,x-Insect%xc_body)
@@ -358,9 +358,9 @@ subroutine Draw_Insect ( time, Insect )
   else
   ! *** simple wings ***
     if (Insect%RightWing == "yes") then
-      do ix = ra(1), rb(1)
+      do iz = ra(3), rb(3)
         do iy = ra(2), rb(2)
-          do iz = ra(3), rb(3)
+          do ix = ra(1), rb(1)
             !-- define the various coordinate systems we are going to use
             x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
             x_body   = matmul(M_body,x-Insect%xc_body)
@@ -372,9 +372,9 @@ subroutine Draw_Insect ( time, Insect )
       enddo  
     endif
     if (Insect%LeftWing == "yes") then
-      do ix = ra(1), rb(1)
+      do iz = ra(3), rb(3)
         do iy = ra(2), rb(2)
-          do iz = ra(3), rb(3)
+          do ix = ra(1), rb(1)
             !-- define the various coordinate systems we are going to use
             x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
             x_body   = matmul(M_body,x-Insect%xc_body)
@@ -394,9 +394,9 @@ subroutine Draw_Insect ( time, Insect )
   ! were the only ones set plus they are in the body reference frame
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  do ix = ra(1), rb(1)
+  do iz = ra(3), rb(3)
      do iy = ra(2), rb(2)
-        do iz = ra(3), rb(3)    
+        do ix = ra(1), rb(1)
           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
           x_body = matmul(M_body,x-Insect%xc_body)
           ! add solid body rotation in the body-reference frame, if color 

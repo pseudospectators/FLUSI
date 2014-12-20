@@ -86,20 +86,16 @@ subroutine delta_interpolation(x,field,value)
       
       value = 0.d0
       
-      do ix=ix0-N_support,ix0+N_support ! the box size around the point
+      do iz=iz0-N_support,iz0+N_support ! the box size around the point
+        zz = dble(iz)*dz
+        delz = delta(abs(zz - x(3)),dz)
         do iy=iy0-N_support,iy0+N_support
-          do iz=iz0-N_support,iz0+N_support
-          
+          yy = dble(iy)*dy
+          dely = delta(abs(yy - x(2)),dy)
+          do ix=ix0-N_support,ix0+N_support
             xx = dble(ix)*dx
-            yy = dble(iy)*dy
-            zz = dble(iz)*dz
-            
             delx = delta(abs(xx - x(1)),dx)
-            dely = delta(abs(yy - x(2)),dy)
-            delz = delta(abs(zz - x(3)),dz) 
-            
             value = value + delx*dely*delz*field( per(ix,nx),per(iy,ny),per(iz,nz) )
-            
           enddo
         enddo
       enddo

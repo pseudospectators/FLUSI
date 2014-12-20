@@ -222,9 +222,9 @@ subroutine romain_open_cavity
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z
 
-  do ix=ra(1),rb(1)
+  do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1)
         x=dble(ix)*dx - 0.5*xl
         if (x<=-1.d0 .or. x>=+1.d0 ) then
           mask (ix, iy, iz) = 1.d0
