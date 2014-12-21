@@ -37,10 +37,10 @@ do
     
     if [ -f $file ]; then    
         # get four characteristic values describing the field
-        ./flusi --postprocess --keyvalues ${file}        
+        ${mpi_serial} ./flusi --postprocess --keyvalues ${file}        
         # and compare them to the ones stored
         if [ -f $reffile ]; then        
-            ./flusi --postprocess --compare-keys $keyfile $reffile 
+            ${mpi_serial} ./flusi --postprocess --compare-keys $keyfile $reffile 
             result=$?
             if [ $result == "0" ]; then
               echo -e ":) Happy, this looks okay! " $keyfile $reffile 
@@ -73,7 +73,7 @@ for file in ${files[@]}
 do
   echo comparing $file time series...
   
-  ./flusi --postprocess --compare-timeseries $file swimmer2_staggered/$file
+  ${mpi_serial} ./flusi --postprocess --compare-timeseries $file swimmer2_staggered/$file
   
   result=$?
   if [ $result == "0" ]; then

@@ -13,7 +13,7 @@ params="./solid_model/CSM3.ini"
 happy=0
 sad=0
 
-./flusi --solid ${params}
+${mpi_serial} ./flusi --solid ${params}
 
 echo "============================"
 echo "run done, analyzing data now"
@@ -28,7 +28,7 @@ file="beam_data1.t"
 
 echo comparing $file time series...
 
-./flusi --postprocess --compare-timeseries $file solid_model/$file
+${mpi_serial} ./flusi --postprocess --compare-timeseries $file solid_model/$file
 
 result=$?
 if [ $result == "0" ]; then

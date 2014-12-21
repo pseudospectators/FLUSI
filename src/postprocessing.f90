@@ -414,7 +414,7 @@ subroutine compare_timeseries()
   character(len=15) ::format
   real(kind=pr),dimension(:),allocatable :: values1, values2, error
   real(kind=pr)::diff
-  integer :: i,columns,io_error,columns2
+  integer :: i,columns,io_error,columns2,mpicode
   
   call get_command_argument(3,file1)
   call get_command_argument(4,file2)
@@ -484,6 +484,7 @@ subroutine compare_timeseries()
       write(*,format) values1
       write(*,format) values2
       write(*,format) error
+      call MPI_FINALIZE(mpicode)
       call exit(666)
     endif
   enddo
@@ -503,6 +504,7 @@ subroutine compare_key(key1,key2)
   character(len=*), intent(in) :: key1,key2
   real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2
   real(kind=pr) :: e1,e2,e3,e4
+  integer :: mpicode
   
   call check_file_exists(key1)
   call check_file_exists(key2) 
@@ -552,10 +554,12 @@ subroutine compare_key(key1,key2)
   if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4)) then
     ! all cool
     write (*,*) "OKAY..."
+    call MPI_FINALIZE(mpicode)
     call exit(0)            
   else
     ! very bad
     write (*,*) "ERROR"
+    call MPI_FINALIZE(mpicode)
     call exit(1)
   endif 
 end subroutine compare_key
@@ -655,7 +659,7 @@ subroutine extract_subset()
   character(len=strlen) :: fname_in, fname_out, dsetname_in, dsetname_out
   character(len=strlen) :: xset,yset,zset
   real(kind=pr)::time
-  integer :: ix,iy,iz,i
+  integer :: ix,iy,iz,i,mpicode
   ! reduced domain size
   integer :: nx1,nx2, ny1,ny2, nz1,nz2, nxs,nys,nzs
   ! sizes of the new array
@@ -669,6 +673,7 @@ subroutine extract_subset()
 
   if (mpisize/=1) then
     write(*,*) "./flusi --postprocessing --extract-subset is a SERIAL routine, use 1CPU only"
+    call MPI_FINALIZE(mpicode)
     call abort()
   endif
   

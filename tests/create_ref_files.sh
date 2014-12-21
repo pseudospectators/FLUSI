@@ -13,6 +13,6 @@
 # loop over all HDF5 files an generate keyvalues using flusi
 for file in *.h5
 do  
-  ./flusi --postprocess --keyvalues ${file}        
+  ${mpi_serial} ./flusi --postprocess --keyvalues ${file}        
   mv ${file%%.h5}.key ${file%%.h5}.ref
 done
