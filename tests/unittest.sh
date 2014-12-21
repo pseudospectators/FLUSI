@@ -22,7 +22,7 @@ fi
 if [ -z "$nprocs" ]; then
     nprocs=4
 fi
-if [ -z $mpi_command ]; then
+if [ -z "$mpi_command" ]; then
     export mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
 fi
 if [ -z "$mpi_serial" ]; then
