@@ -342,13 +342,15 @@ subroutine cal_unst_corrections ( time, dt, Insect )
         usx = us(ix,iy,iz,1)*mask(ix,iy,iz)*eps
         usy = us(ix,iy,iz,2)*mask(ix,iy,iz)*eps
         usz = us(ix,iy,iz,3)*mask(ix,iy,iz)*eps
+        
+        color = mask_color(ix,iy,iz)
 
         ! moment with respect to (x0,y0,z0)
-        torque_new_locx0 = torque_new_locx0 + (ylev*usz - zlev*usy)
-        torque_new_locy0 = torque_new_locy0 + (zlev*usx - xlev*usz)
-        torque_new_locz0 = torque_new_locz0 + (xlev*usy - ylev*usx)   
-
-        color = mask_color(ix,iy,iz)
+        if (color>0) then
+          torque_new_locx0 = torque_new_locx0 + (ylev*usz - zlev*usy)
+          torque_new_locy0 = torque_new_locy0 + (zlev*usx - xlev*usz)
+          torque_new_locz0 = torque_new_locz0 + (xlev*usy - ylev*usx)   
+        endif
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points
