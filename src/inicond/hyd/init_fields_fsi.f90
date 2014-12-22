@@ -164,6 +164,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   case("turbulence")
      !--------------------------------------------------
      ! random vorticity
+     ! This case has two parameters read from ini file:
+     ! the maximum vorticity in each direction and the 
+     ! smoothing parameter
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
      call random_seed()
@@ -171,18 +174,14 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      do iz=ra(3), rb(3)
         do iy=ra(2), rb(2)
            do ix=ra(1), rb(1)
-              vort (ix,iy,iz,1)=50.d0*(2.0d0*rand_nbr() - 1.d0)
-              vort (ix,iy,iz,2)=50.d0*(2.0d0*rand_nbr() - 1.d0)
-              vort (ix,iy,iz,3)=50.d0*(2.0d0*rand_nbr() - 1.d0)
+              vort (ix,iy,iz,1)=omega1*(2.0d0*rand_nbr() - 1.d0)
+              vort (ix,iy,iz,2)=omega1*(2.0d0*rand_nbr() - 1.d0)
+              vort (ix,iy,iz,3)=omega1*(2.0d0*rand_nbr() - 1.d0)
            end do
         end do
      end do
      
-!      call Read_Single_File ('vorx_inicond.h5', vort(:,:,:,1))
-!      call Read_Single_File ('vory_inicond.h5', vort(:,:,:,2))
-!      call Read_Single_File ('vorz_inicond.h5', vort(:,:,:,3))
-     
-     call cal_vis( 1.0e-2/nu, explin(:,:,:,1))
+     call cal_vis( nu_smoothing/nu, explin(:,:,:,1))
      call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
      nlk(:,:,:,1,0)=nlk(:,:,:,1,0)*explin(:,:,:,1)
      nlk(:,:,:,2,0)=nlk(:,:,:,2,0)*explin(:,:,:,1)

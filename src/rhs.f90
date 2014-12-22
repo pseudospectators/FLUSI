@@ -137,7 +137,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   ! compute time-averaged enstrophy Z_avg
   !-----------------------------------------------------------------------------
   ! we do this here since we happen to have the voriticy and want to save FFTs
-  if ((enstrophy_avg=="yes").and.(time>=tstart_avg)) then
+  if ((time_avg=="yes").and.(enstrophy_avg=="yes").and.(time>=tstart_avg)) then
     ! we need to know here what the time step will be
     call adjust_dt(dt,u)
     ! compute incremental avg

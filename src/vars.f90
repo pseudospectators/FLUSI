@@ -109,7 +109,7 @@ module vars
   ! Initial conditions:
   character(len=strlen),save :: inicond, file_ux,file_uy,file_uz
   character(len=strlen),save :: file_bx,file_by,file_bz
-  real(kind=pr),save :: omega1 ! FIXME: what is omega1?
+  real(kind=pr),save :: omega1, nu_smoothing
 
 
   ! Boundary conditions:

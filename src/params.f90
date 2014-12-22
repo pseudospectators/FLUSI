@@ -125,6 +125,7 @@ subroutine get_params_common(PARAMS,i)
   ! Initial conditions section
   call param_str(PARAMS,i,"InitialCondition","inicond",inicond, "none")
   call param_dbl(PARAMS,i,"InitialCondition","omega1",omega1,0.d0) 
+  call param_dbl(PARAMS,i,"InitialCondition","nu_smoothing",nu_smoothing,1.0d-13) 
   ! if reading from file, which files?
   if (inicond=="infile") then 
     call param_str(PARAMS,i,"InitialCondition","file_ux",file_ux, "none")
