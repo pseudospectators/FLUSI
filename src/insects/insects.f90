@@ -28,6 +28,8 @@ module insect_module
     real(kind=pr), dimension(1:3) :: xc_body, vc_body
     ! roll pitch yaw angles and their time derivatives
     real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+    ! body pitch angle, if it is constant (used in forward flight and hovering)
+    real(kind=pr) :: body_pitch_const
     ! angles of the wings (left and right)
     real(kind=pr) :: phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r
     real(kind=pr) :: phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l

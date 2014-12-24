@@ -25,7 +25,7 @@ subroutine draw_wing(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,
          M_wing,x_pivot,rot)
   case ("drosophila","drosophila_mutated","drosophila_sandberg",&
         "drosophila_maeda","drosophila_sun","flapper_sane",&
-        "flapper_dickinsonII","robofly_dickinson")
+        "bumblebee","flapper_dickinsonII","robofly_dickinson")
     call draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,M_wing,&
          x_pivot,rot)
   case default
@@ -618,6 +618,34 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     2.9924999100355387E-4/)
     Insect%xc = 0.0
     Insect%yc = 0.399446382250523
+  case ('bumblebee')
+    !********************************************
+    !  Bumblebee
+    !  http://www.entomology.umn.edu/museum/links/coursefiles/JPEG%20images/Hymenoptera%20web%20jpeg/Bombus-wings.jpg 
+    !********************************************        
+    Insect%n_fft = 25
+    allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
+    Insect%a0 = 0.594557593733011d0
+    ai = (/-0.0128037920989526d0,-0.106777418654552d0,0.0380851289321982d0,&
+    0.0330548081081197d0,-0.0178496286355627d0,-0.00328588543359649d0,&
+    0.0108246924336137d0,-0.00489302388329943d0,-0.00708808441172961d0,&
+    0.00518244772891516d0,0.00445979960844562d0,-0.000108072056165527d0,&
+    0.00204437845603716d0,0.00147176382618797d0,-0.00229559463098105d0,&
+    -0.000514633972391526d0,0.00134150515430486d0,-0.000149860228261824d0,&
+    9.01456938813568d-05,0.00150639712261487d0,0.000914624010720407d0,&
+    -0.000737650894315551d0,-0.000843849923321745d0,-0.000354971670482499d0,&
+    -0.000382956472432449d0/)
+    bi = (/-0.0158061138788171d0,0.0308243584184200d0,-0.00903330410923372d0,&
+    -0.0185758334697500d0,-0.000924452934252486d0,-0.00242101213359519d0,&
+    -0.00204549530064489d0,0.00291468131401423d0,-0.000140755032337495d0,&
+    -0.00135036427128534d0,0.00141285439042451d0,-0.000334215276598231d0,&
+    -0.00161521722061879d0,-0.000164055684312904d0,-0.000256278551727569d0,&
+    -0.000740258481681094d0,0.000847498161852221d0,0.00157442110960973d0,&
+    -0.000559835622451578d0,-0.000617498559228280d0,0.00115413452523474d0,&
+    0.000322564770099778d0,-0.000917375185844477d0,4.44819399488798d-05,&
+    0.000710028654602170d0/)
+    Insect%xc = -0.1d0
+    Insect%yc = 0.501549263807117d0
   case ('flapper_sane')
     !********************************************
     !  Mechanical model from Sane and Dickinson, JEB 205, 2002 

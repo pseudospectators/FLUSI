@@ -402,7 +402,14 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
 
   ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
   call param_str(PARAMS,i,"Insects","KineFromFile",Insect%KineFromFile,"no")     
-  
+ 
+  ! Body pitch angle used for hovering and forward flight
+  select case (Insect%BodyMotion)
+  case ("forward")
+    call param_dbl(PARAMS,i,"Insects","body_pitch_const",Insect%body_pitch_const, 15.0d0)
+  case ("hovering")
+    call param_dbl(PARAMS,i,"Insects","body_pitch_const",Insect%body_pitch_const, 45.0d0)
+  end select
  
   ! Takeoff 
   call param_dbl(PARAMS,i,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)

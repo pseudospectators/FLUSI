@@ -28,7 +28,8 @@ subroutine BodyMotion(time, Insect)
   select case (Insect%BodyMotion)
   case ("forward")
     psi = 0.d0
-    beta = deg2rad(-15.0d0)
+!    beta = deg2rad(-15.0d0)
+    beta = -deg2rad(Insect%body_pitch_const)
     gamma = deg2rad(180.d0)
     psi_dt = 0.d0
     beta_dt = 0.d0
@@ -84,7 +85,8 @@ subroutine BodyMotion(time, Insect)
   case ("hovering")
     psi      = 0.0
 !    beta     = deg2rad(-55.d0)
-    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
+    beta = -deg2rad(Insect%body_pitch_const)
+!    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
     gamma    = deg2rad(45.d0)
     psi_dt   = 0.0
     beta_dt  = 0.0
