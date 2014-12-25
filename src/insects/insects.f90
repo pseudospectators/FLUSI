@@ -68,7 +68,7 @@ module insect_module
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion 
     !-------------------------------------------------------------
-    character(len=strlen) :: WingShape, BodyType, BodyMotion
+    character(len=strlen) :: WingShape, BodyType, BodyMotion, HasDetails
     character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
     character(len=strlen) :: KineFromFile, infile, LeftWing, RightWing
     ! parameters for body:

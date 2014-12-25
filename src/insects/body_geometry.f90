@@ -174,87 +174,102 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
   enddo  
   
   !-----------------------------------------------------------------------------
-  ! Legs and antennae
+  ! Legs, antennae and proboscis
   !-----------------------------------------------------------------------------
-  ! Bounding box
-  xmin_bbox = -0.74-Insect%safety
-  xmax_bbox = 0.8+Insect%safety
-  ymin_bbox = -0.35-Insect%safety
-  ymax_bbox = 0.35+Insect%safety
-  zmin_bbox = -0.38-Insect%safety
-  zmax_bbox = 0.1+Insect%safety
+  if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")&
+                  .or.(Insect%HasDetails=="antennae_proboscis")) then
+    ! Bounding box
+    xmin_bbox = -0.74-Insect%safety
+    xmax_bbox = 0.8+Insect%safety
+    ymin_bbox = -0.35-Insect%safety
+    ymax_bbox = 0.35+Insect%safety
+    zmin_bbox = -0.38-Insect%safety
+    zmax_bbox = 0.1+Insect%safety
 
-  xl1 = (/-0.74,-0.63,-0.4,-0.1,0.1/)
-  yl1 = (/0.32,0.32,0.31,0.3,0.12/)
-  zl1 = (/-0.35,-0.37,-0.2,-0.1,-0.16/)
-  rl1 = (/0.015,0.03,0.04,0.03/)*1.3
-  xl2 = (/-0.24,-0.15,0.02,0.17,0.19/)
-  yl2 = (/0.33,0.33,0.32,0.3,0.15/)
-  zl2 = (/-0.29,-0.28,-0.2,-0.15,-0.19/)
-  rl2 = (/0.015,0.03,0.04,0.03/)*1.3
-  xl3 = (/0.28,0.35,0.45,0.4,0.35/)
-  yl3 = (/0.31,0.30,0.28,0.2,0.15/)
-  zl3 = (/-0.3,-0.28,-0.25,-0.18,-0.18/)
-  rl3 = (/0.015,0.02,0.03,0.02/)*1.3
-  xf = (/0.43,0.6/)
-  yf = (/0.0,0.0/)
-  zf = (/-0.28,-0.23/)
-  rf = 0.017*1.3
-  xan = (/0.63,0.8/)
-  yan = (/0.05,0.27/)
-  zan = (/-0.03,0.1/)
-  ran = 0.015*1.3
+    ! Parameters of legs, antennae and proboscis 
+    xl1 = (/-0.74,-0.63,-0.4,-0.1,0.1/)
+    yl1 = (/0.32,0.32,0.31,0.3,0.12/)
+    zl1 = (/-0.35,-0.37,-0.2,-0.1,-0.16/)
+    rl1 = (/0.015,0.03,0.04,0.03/)*1.3
+    xl2 = (/-0.24,-0.15,0.02,0.17,0.19/)
+    yl2 = (/0.33,0.33,0.32,0.3,0.15/)
+    zl2 = (/-0.29,-0.28,-0.2,-0.15,-0.19/)
+    rl2 = (/0.015,0.03,0.04,0.03/)*1.3
+    xl3 = (/0.28,0.35,0.45,0.4,0.35/)
+    yl3 = (/0.31,0.30,0.28,0.2,0.15/)
+    zl3 = (/-0.3,-0.28,-0.25,-0.18,-0.18/)
+    rl3 = (/0.015,0.02,0.03,0.02/)*1.3
+    xf = (/0.43,0.6/)
+    yf = (/0.0,0.0/)
+    zf = (/-0.28,-0.23/)
+    rf = 0.017*1.3
+    xan = (/0.63,0.8/)
+    yan = (/0.05,0.27/)
+    zan = (/-0.03,0.1/)
+    ran = 0.015*1.3
 
-  do iz = ra(3), rb(3)
-     do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
-          !-- define the head coordinate systems we are going to use
-          x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-          x_body   = matmul(M_body,x_glob-Insect%xc_body)
+    ! Assign values to mask pointwise
+    do iz = ra(3), rb(3)
+       do iy = ra(2), rb(2)
+          do ix = ra(1), rb(1)
+            !-- define the head coordinate systems we are going to use
+            x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+            x_body   = matmul(M_body,x_glob-Insect%xc_body)
 
-          !-- check bounds
-          if ((x_body(1)>=xmin_bbox).and.(x_body(1)<=xmax_bbox)&
-             .and.(x_body(2)>=ymin_bbox).and.(x_body(2)<=ymax_bbox)&
-             .and.(x_body(3)>=zmin_bbox).and.(x_body(3)<=zmax_bbox)) then
+            !-- check bounds
+            if ((x_body(1)>=xmin_bbox).and.(x_body(1)<=xmax_bbox)&
+               .and.(x_body(2)>=ymin_bbox).and.(x_body(2)<=ymax_bbox)&
+               .and.(x_body(3)>=zmin_bbox).and.(x_body(3)<=zmax_bbox)) then
 
-            !-- left and right legs and antennae
-            if (x_body(2)>0) then
-              do j=1,4
-                call draw_cylinder(x_body,xl1(j),yl1(j),zl1(j),&
-                     xl1(j+1),yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-              enddo
-              do j=1,4
-                call draw_cylinder(x_body,xl2(j),yl2(j),zl2(j),&
-                     xl2(j+1),yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-              enddo
-              do j=1,4
-                call draw_cylinder(x_body,xl3(j),yl3(j),zl3(j),&
-                     xl3(j+1),yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-              enddo
-              call draw_cylinder(x_body,xan(1),yan(1),zan(1),&
-                   xan(2),yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-            else
-              do j=1,4
-                call draw_cylinder(x_body,xl1(j),-yl1(j),zl1(j),&
-                     xl1(j+1),-yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-              enddo
-              do j=1,4
-                call draw_cylinder(x_body,xl2(j),-yl2(j),zl2(j),&
-                     xl2(j+1),-yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-              enddo
-              do j=1,4
-                call draw_cylinder(x_body,xl3(j),-yl3(j),zl3(j),&
-                     xl3(j+1),-yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-              enddo
-              call draw_cylinder(x_body,xan(1),-yan(1),zan(1),&
-                   xan(2),-yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              !-- left and right legs, antennae and proboscis
+              if (x_body(2)>0) then
+                if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")) then
+                  do j=1,4
+                    call draw_cylinder(x_body,xl1(j),yl1(j),zl1(j),&
+                         xl1(j+1),yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                  do j=1,4
+                    call draw_cylinder(x_body,xl2(j),yl2(j),zl2(j),&
+                         xl2(j+1),yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                  do j=1,4
+                    call draw_cylinder(x_body,xl3(j),yl3(j),zl3(j),&
+                         xl3(j+1),yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                endif
+                if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+                  call draw_cylinder(x_body,xan(1),yan(1),zan(1),&
+                       xan(2),yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                endif
+              else
+                if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")) then
+                  do j=1,4
+                    call draw_cylinder(x_body,xl1(j),-yl1(j),zl1(j),&
+                         xl1(j+1),-yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                  do j=1,4
+                    call draw_cylinder(x_body,xl2(j),-yl2(j),zl2(j),&
+                         xl2(j+1),-yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                  do j=1,4
+                    call draw_cylinder(x_body,xl3(j),-yl3(j),zl3(j),&
+                         xl3(j+1),-yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                endif
+                if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+                  call draw_cylinder(x_body,xan(1),-yan(1),zan(1),&
+                       xan(2),-yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                endif
+              endif
+              if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+                call draw_cylinder(x_body,xf(1),yf(1),zf(1),&
+                     xf(2),yf(2),zf(2),rf,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              endif
             endif
-            call draw_cylinder(x_body,xf(1),yf(1),zf(1),&
-                 xf(2),yf(2),zf(2),rf,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-          endif
-        enddo
-     enddo
-  enddo
+          enddo
+       enddo
+    enddo
+  endif
 
 end subroutine draw_body_bumblebee
 
