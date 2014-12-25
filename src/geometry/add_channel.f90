@@ -40,6 +40,38 @@ subroutine add_channel()
               mask_color(ix,iy,iz) = 0
             endif
             
+          case ("xz_sliding")
+            ! Floor - xz solid wall between y_wall-thick_wall and y_wall
+            ! Non-zero velocity is imposed inside the wall
+            ! Same value is used as for the zeroth mode forcing
+            ! This is required to conserve Galilean invariance
+            ! when forward flight near the wall is simulated
+            y = dble(iy)*dy
+            if ( (y>=pos_wall-thick_wall) .and. (y<=pos_wall) ) then
+              mask(ix,iy,iz) = 1.d0
+              us(ix,iy,iz,1) = uxmean
+              us(ix,iy,iz,2) = uymean
+              us(ix,iy,iz,3) = uzmean
+              ! external boxes have color 0 (important for forces)
+              mask_color(ix,iy,iz) = 0
+            endif
+
+          case ("xy_sliding")
+            ! Floor - xy solid wall between z_wall-thick_wall and z_wall
+            ! Non-zero velocity is imposed inside the wall
+            ! Same value is used as for the zeroth mode forcing
+            ! This is required to conserve Galilean invariance
+            ! when forward flight near the wall is simulated
+            z = dble(iz)*dz
+            if ( (z>=pos_wall-thick_wall) .and. (z<=pos_wall) ) then
+              mask(ix,iy,iz) = 1.d0
+              us(ix,iy,iz,1) = uxmean
+              us(ix,iy,iz,2) = uymean
+              us(ix,iy,iz,3) = uzmean
+              ! external boxes have color 0 (important for forces)
+              mask_color(ix,iy,iz) = 0
+            endif
+
           case ("turek")                  !      z
             ! Turek walls:                !      ^
             thick_wall = 0.2577143d0      !      |
