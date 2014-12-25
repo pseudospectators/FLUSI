@@ -321,9 +321,9 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   ! slice extraction
   call param_str(PARAMS,i,"SaveSlices","save_slices",save_slices,"no")
   call param_int(PARAMS,i,"SaveSlices","slice1",slice1,-2)
-  call param_int(PARAMS,i,"SaveSlices","slice1",slice2,-2)
-  call param_int(PARAMS,i,"SaveSlices","slice1",slice3,-2)
-  call param_int(PARAMS,i,"SaveSlices","slice1",slice4,-2)
+  call param_int(PARAMS,i,"SaveSlices","slice2",slice2,-2)
+  call param_int(PARAMS,i,"SaveSlices","slice3",slice3,-2)
+  call param_int(PARAMS,i,"SaveSlices","slice4",slice4,-2)
   call param_int(PARAMS,i,"SaveSlices","itslice",itslice,9999900)
   
   ! ---------------------------------------------------
