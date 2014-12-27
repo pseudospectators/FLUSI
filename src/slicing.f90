@@ -71,7 +71,7 @@ subroutine flush_slices
   real(kind=pr), allocatable :: tmp(:,:,:)
   
   if (mpirank==0) then
-    write(*,'("Flushing slice cache to disk, icache=",i3, " flush=",i4)',advance="no")&
+    write(*,'("Flushing slice cache to disk, icache=",i3, " flush=",i6.6)',advance="no")&
     icache, iflush
   endif
   
@@ -82,8 +82,8 @@ subroutine flush_slices
       do slice_slot = 1, nslices
         if (slices_to_save(slice_slot) >= 0) then
           do idir = 1,3
-            write(dsetname,'("sliceu",i1,"-x",i4.4)') idir, slices_to_save(slice_slot)
-            write(fname, '(A12,"_",i4.4,".h5")') dsetname, iflush 
+            write(dsetname,'("sliceu",i1,"-ix",i4.4)') idir, slices_to_save(slice_slot)
+            write(fname, '(A14,"_",i6.6,".h5")') dsetname, iflush 
             
             tmp = slice_cache(0:icache-1,:,:,idir,slice_slot)
             call save_field_hdf5_xvar(9.9e9,fname,tmp,dsetname,icache)
@@ -95,7 +95,7 @@ subroutine flush_slices
       if (mpirank==0) then
         open(14,file='slice_times.t',status='unknown',position='append')
         do i = 0, icache-1
-          write (14,'(es15.8,1x,"sliceu?-x????_",i4.4,".h5")') times_cache(i), iflush
+          write (14,'(es15.8,1x,i6.6)') times_cache(i), iflush
         enddo
         close(14)
       endif
@@ -115,8 +115,9 @@ end subroutine flush_slices
 
 
 ! initialize the slicing module. 
-subroutine slice_init
+subroutine slice_init(time)
   implicit none
+  real(kind=pr),intent(inout)::time
   character(len=4)::f
   integer :: i
   
@@ -126,6 +127,8 @@ subroutine slice_init
   if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
     call init_empty_file('slice_times.t')
   endif
+  
+  iflush = nint( time * 1000.d0 )
   
   if (mpirank==0) then
     do i=1,nslices
@@ -167,6 +170,7 @@ end subroutine slice_free
 
 
 
+! collect a yz-slice of data from all procs on the root rank.
 subroutine gather_slice_yz( u, slice, ixslice )
   implicit none
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))

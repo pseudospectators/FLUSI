@@ -253,18 +253,6 @@ subroutine Start_Simulation()
     call init_turbulent_inlet ( )
   endif
   
-  
-  
-  if (use_slicing=="yes") then
-    call slice_init
-  endif
-  
-  
-  !!!!!!!!!!!!!!!!!!!!!!!!
-!   call test_slices( u )
-  !!!!!!!!!!!!!!!!!!!!!!!!
-  
-  
   !-----------------------------------------------------------------------------
   ! show memory consumption for information
   !-----------------------------------------------------------------------------
@@ -302,6 +290,9 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
   
+  if (use_slicing=="yes") then
+    call slice_init(time)
+  endif
   
   !*****************************************************************************
   ! Step forward in time
