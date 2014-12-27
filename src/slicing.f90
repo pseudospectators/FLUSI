@@ -44,8 +44,6 @@ subroutine save_slices( time, u )
   if (icache == ncache) then
       ! the cache is full
       call flush_slices
-      ! start over
-      icache = 0
   else
       ! the cache is not full
       icache = icache + 1
@@ -76,7 +74,7 @@ subroutine flush_slices
   endif
   
   ! flush only if there's something to flush
-  if (icache>1) then
+  if (icache>0) then
       allocate( tmp(0:icache-1,ra(2):rb(2),ra(3):rb(3)) )
       
       do slice_slot = 1, nslices
@@ -107,6 +105,9 @@ subroutine flush_slices
       ! count flushes (filename contains the flush number)
       iflush = iflush + 1
       deallocate (tmp)
+      
+      ! start over
+      icache = 0
   endif
 end subroutine flush_slices
 
