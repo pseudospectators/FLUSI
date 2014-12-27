@@ -6,6 +6,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   use p3dfft_wrapper
   use solid_model
   use insect_module
+  use slicing
   implicit none
   
   integer :: inter
@@ -49,7 +50,6 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   do while ((time<tmax) .and. (it<=nt) .and. (continue_timestepping) )
      t4=MPI_wtime()
      dt0=dt1
-     
      !-------------------------------------------------
      ! If the mask is time-dependend,we create it here
      !-------------------------------------------------
@@ -114,11 +114,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
      !-----------------------------------------------
      ! save slices to hard disk
      !-----------------------------------------------     
-     if ((method=="fsi").and.(save_slices=="yes").and.(modulo(it,itslice)==0)) then
-        call save_slice( time, it, u, slice1 )
-        call save_slice( time, it, u, slice2 )
-        call save_slice( time, it, u, slice3 )
-        call save_slice( time, it, u, slice4 )
+     if ((method=="fsi").and.(use_slicing=="yes").and.(modulo(it,itslice)==0)) then
+        call save_slices( time, u )
      endif    
      
      !-----------------------------------------------

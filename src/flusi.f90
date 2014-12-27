@@ -61,6 +61,7 @@ subroutine Start_Simulation()
   use p3dfft_wrapper
   use solid_model
   use insect_module
+  use slicing
   use turbulent_inlet_module
   use penalization ! mask array etc
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
@@ -101,6 +102,8 @@ subroutine Start_Simulation()
   time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
+  tslices=0.d0
+  
   
   if (root) then
      write(*,'(A)') '--------------------------------------'
@@ -250,6 +253,18 @@ subroutine Start_Simulation()
     call init_turbulent_inlet ( )
   endif
   
+  
+  
+  if (use_slicing=="yes") then
+    call slice_init
+  endif
+  
+  
+  !!!!!!!!!!!!!!!!!!!!!!!!
+!   call test_slices( u )
+  !!!!!!!!!!!!!!!!!!!!!!!!
+  
+  
   !-----------------------------------------------------------------------------
   ! show memory consumption for information
   !-----------------------------------------------------------------------------
@@ -320,6 +335,10 @@ subroutine Start_Simulation()
     call insect_clean(Insect)
   endif
   
+  if (use_slicing=="yes") then
+    call slice_free
+  endif
+  
   ! write empty success file
   if (root) call init_empty_file("success")
   
@@ -357,6 +376,7 @@ subroutine show_timings(t2)
   write(*,8) time_integrals, 100.d0*time_integrals/t2, "integrals"
   write(*,8) time_save, 100.d0*time_save/t2, "save fields"
   write(*,8) time_bckp, 100.d0*time_bckp/t2, "backuping"
+  write(*,8) tslices, 100.d0*tslices/t2, "slicing"
   write(*,3)
   write(*,'("Create Mask:")')
   write(*,8) time_insect_body, 100.d0*time_insect_body/t2, "insect::body"

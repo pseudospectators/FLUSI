@@ -59,7 +59,7 @@ module vars
 
   ! Vabiables timing statistics.  Global to simplify syntax.
   real(kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_nlk2
-  real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u
+  real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u,tslices
   real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
   real(kind=pr),save :: time_sponge,time_insect_head,time_insect_body, time_scalar
   real(kind=pr),save :: time_insect_eye,time_insect_wings, time_insect_vel
@@ -136,8 +136,9 @@ module vars
   real(kind=pr)::tstart_avg
   
   ! saving of slices
-  character(len=strlen),save :: save_slices
-  integer,save :: itslice, slice1, slice2, slice3, slice4
+  character(len=strlen),save :: use_slicing
+  integer,save :: itslice, ncache_slices
+  integer,save :: slices_to_save(1:4)
   
   
   contains 

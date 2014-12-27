@@ -319,12 +319,17 @@ subroutine get_params_fsi(PARAMS,i,Insect)
 
   
   ! slice extraction
-  call param_str(PARAMS,i,"SaveSlices","save_slices",save_slices,"no")
-  call param_int(PARAMS,i,"SaveSlices","slice1",slice1,-2)
-  call param_int(PARAMS,i,"SaveSlices","slice2",slice2,-2)
-  call param_int(PARAMS,i,"SaveSlices","slice3",slice3,-2)
-  call param_int(PARAMS,i,"SaveSlices","slice4",slice4,-2)
+  ! the first one is for compatibility; it is overwritten if the 2nd is found
+  call param_str(PARAMS,i,"SaveSlices","use_slicing",use_slicing,"xxx")
+  if (use_slicing=="xxx") then 
+    call param_str(PARAMS,i,"SaveSlices","save_slices",use_slicing,"no")
+  endif
+  call param_int(PARAMS,i,"SaveSlices","slice1",slices_to_save(1),-2)
+  call param_int(PARAMS,i,"SaveSlices","slice2",slices_to_save(2),-2)
+  call param_int(PARAMS,i,"SaveSlices","slice3",slices_to_save(3),-2)
+  call param_int(PARAMS,i,"SaveSlices","slice4",slices_to_save(4),-2)
   call param_int(PARAMS,i,"SaveSlices","itslice",itslice,9999900)
+  call param_int(PARAMS,i,"SaveSlices","ncache_slices",ncache_slices,nx)
   
   ! ---------------------------------------------------
   ! DONE..
