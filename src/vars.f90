@@ -92,7 +92,7 @@ module vars
   real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
   ! for periodically repeating flows, it may be better to always have only 
   ! one set of files on the disk
-  character(len=strlen),save :: save_only_one_period
+  character(len=strlen),save :: save_only_one_period, field_precision
   real(kind=pr),save :: tsave_period ! then this is period time
 
   ! Time-stepping parameters

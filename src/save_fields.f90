@@ -193,160 +193,17 @@ end subroutine save_fields_fsi
 ! metadata of the hdf file.
 !-------------------------------------------------------------------------------
 subroutine save_field_hdf5(time,filename,field_out,dsetname)
-  use mpi
   use vars
-  use hdf5
   implicit none
   
   ! The field to be written to disk:
   real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename
   character(len=*), intent (in) :: dsetname
 
-  integer(hid_t) :: file_id   ! file identifier
-  integer(hid_t) :: dset_id   ! dataset identifier
-  integer(hid_t) :: filespace ! dataspace identifier in file
-  integer(hid_t) :: memspace  ! dataspace identifier in memory
-  integer(hid_t) :: plist_id  ! property list identifier
-
-  ! dataset dimensions in the file.
-  integer(hsize_t), dimension(rank) :: dimensions_file
-  ! hyperslab dimensions
-  integer(hsize_t), dimension(rank) :: dimensions_local
-  ! chunk dimensions
-  integer(hsize_t), dimension(rank) :: chunking_dims
-  ! how many blocks to select from dataspace
-  integer(hsize_t),  dimension(rank) :: count  = 1
-  integer(hssize_t), dimension(rank) :: offset
-  ! stride is spacing between elements, this is one here
-  integer(hsize_t),  dimension(rank) :: stride = 1
-  integer :: error  ! error flags
-
-  ! HDF attribute variables
-  integer, parameter :: arank = 1
-  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
-
-  integer :: mpierror, i
-  real(kind=pr) :: t1 ! diagnostic used for performance analysis.
-  t1 = MPI_wtime()
-  
-  !!! Tell HDF5 how our  data is organized:
-  dimensions_file = (/nx,ny,nz/)
-  offset(1) = ra(1)
-  offset(2) = ra(2)
-  offset(3) = ra(3)
-  dimensions_local(1) = rb(1)-ra(1) +1
-  dimensions_local(2) = rb(2)-ra(2) +1
-  dimensions_local(3) = rb(3)-ra(3) +1
-  ! each process knows how much data it has and where to store it.
-  ! now, define the dataset chunking. Chunking is largest dimension in
-  ! each direction
-  do i = 1, 3
-     call MPI_REDUCE(dimensions_local(i),chunking_dims(i),1, &
-          MPI_INTEGER8,MPI_MAX,0,&
-          MPI_COMM_WORLD,mpierror)
-     call MPI_BCAST(chunking_dims(i),1,MPI_INTEGER8,0, &
-          MPI_COMM_WORLD,mpierror )
-  enddo
-
-  !!! Set up the HDF data structures:
-
-  ! Initialize HDF5 library and Fortran interfaces.
-  call h5open_f(error)
-  ! Setup file access property list with parallel I/O access.
-  ! this sets up a property list (plist_id) with standard values for
-  ! FILE_ACCESS
-  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
-  ! Modify the property list and store the MPI IO comminucator
-  ! information in the file access property list
-  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
-
-  ! Create the file collectively. (existing files are overwritten)
-#ifdef TURING  
-  if ( index(filename,'.h5')==0 ) then
-    ! file does not contain *.h5 ending -> add suffix
-    call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  else
-    ! field DOES contain .h5 ending -> just write
-    call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  endif
-#else
-  if ( index(filename,'.h5')==0 ) then
-    ! file does not contain *.h5 ending -> add suffix
-    call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  else
-    ! field DOES contain .h5 ending -> just write
-    call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  endif
-#endif 
-
-
-  ! this closes the property list plist_id (we'll re-use it)
-  call h5pclose_f(plist_id, error)
-
-  ! Create the data space for the  dataset.
-  ! Dataspace in the file: contains all data from all procs
-  call h5screate_simple_f(rank, dimensions_file, filespace, error)
-  ! dataspace in memory: contains only local data
-  call h5screate_simple_f(rank, dimensions_local, memspace, error)
-
-  ! Create chunked dataset.
-  ! NB: chunking and hyperslab are unrelated
-  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
-  ! Output files are single-precition
-  call h5dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, &
-       dset_id, error, plist_id)
-  call h5sclose_f(filespace, error)
-
-  ! Select hyperslab in the file.
-  call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
-       error, stride, dimensions_local)
-
-  ! Create property list for collective dataset write
-  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
-
-  ! Write the dataset collectively, double precision in memory
-  call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, &
-       error, file_space_id = filespace, mem_space_id = memspace,&
-       xfer_prp = plist_id)
-
-  !!! Write the attributes to the HDF files.
-  ! The attributes written are time, penalisation parameter,
-  ! computational resolution, and physical domain size.
-  adims = (/1/)
-  call write_attribute_dble(adims,"time",(/time/),1,dset_id)
-  call write_attribute_dble(adims,"epsi",(/eps/),1,dset_id)
-  adims = (/3/)
-  call write_attribute_dble(adims,"domain_size",(/xl,yl,zl/),3,dset_id)
-  call write_attribute_int(adims,"nxyz",(/nx,ny,nz/),3,dset_id)
-
-  !!! Close dataspaces:
-  call h5sclose_f(filespace, error)
-  call h5sclose_f(memspace, error)
-  call h5dclose_f(dset_id, error) ! Close the dataset.
-  call h5pclose_f(plist_id, error) ! Close the property list.
-  call h5fclose_f(file_id, error) ! Close the file.
-  call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
-
-  ! write the XMF data for all of the saved fields
-  if ((mpirank==0).and.(isaveXMF==1)) then
-     ! the filename contains a leading "./" which we must remove
-     call Write_XMF(time,&
-          trim(adjustl(filename(3:len(filename)))),&
-          trim(adjustl(dsetname))&
-          )
-  endif
-
-  time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
+  ! avoid redundant code, this routine is just a special case of the other one:
+  call save_field_hdf5_xvar(time,filename,field_out,dsetname,nx)
 end subroutine save_field_hdf5
 
 
@@ -464,9 +321,19 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
   ! NB: chunking and hyperslab are unrelated
   call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
   call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
-  ! Output files are single-precition
-  call h5dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, &
+  
+  if (field_precision=="double") then
+    ! Output files in double precision
+    call h5dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, &
        dset_id, error, plist_id)
+  else
+    ! Output files in single precision
+    call h5dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, &
+       dset_id, error, plist_id)
+  endif
+  
+  
+  
   call h5sclose_f(filespace, error)
 
   ! Select hyperslab in the file.

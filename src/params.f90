@@ -186,6 +186,8 @@ subroutine get_params_common(PARAMS,i)
   call param_dbl(PARAMS,i,"Saving","tsave_period",tsave_period,1.0d0)
   call param_str(PARAMS,i,"Saving","save_only_one_period",&
        save_only_one_period,"no")  
+  call param_str(PARAMS,i,"Saving","field_precision",&
+       field_precision,"single")  
   call param_int(PARAMS,i,"Saving","itdrag",itdrag,99999)
   call param_int(PARAMS,i,"Saving","itbeam",itbeam,99999)
   
