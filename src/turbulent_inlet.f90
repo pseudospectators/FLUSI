@@ -46,7 +46,7 @@ subroutine init_turbulent_inlet ( )
        
   if (mpirank==0) write(*,*) "inlet file resolution is ",nx_turb, ny_turb, nz_turb
   !HACK
-  xl_turb = xl
+  xl_turb = yl
   yl_turb = yl
   zl_turb = zl
   !HACK
