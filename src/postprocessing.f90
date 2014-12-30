@@ -201,7 +201,8 @@ subroutine convert_bin2hdf()
   character(len=strlen) :: fname_bin,fname_hdf,dsetname,tmp  
   real, dimension(:,:,:), allocatable :: field
   integer, parameter :: pr_out = 4 
-  integer :: ix, iy ,iz, record_length,i,j,k
+  integer :: ix, iy ,iz, i,j,k
+  integer(kind=8) :: record_length
   real(kind=pr) :: time 
   
   if ( mpisize>1 ) then
