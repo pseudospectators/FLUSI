@@ -1,19 +1,22 @@
 !-------------------------------------------------------------------------------
 ! Body motion protocoll, different choices.
 ! Input: 
-!       time (self explanatory)
+!      time (self explanatory)
 ! Output:
-!       psi:      roll angle
-!       beta:     pitch angle
-!       gamma:    yaw angle
-!       psi_dt:   roll angular velocity
-!       beta_dt:  pitch angular velocity
-!       gamma_dt: yaw angular velocity
-!       xc:       center of gravity coordinate
-!       vc:       translational velocity of the body
+!      Insect% psi:      roll angle
+!      Insect%beta:     pitch angle
+!      Insect%gamma:    yaw angle
+!      Insect%psi_dt:   roll angular velocity
+!      Insect%beta_dt:  pitch angular velocity
+!      Insect%gamma_dt: yaw angular velocity
+!      Insect%xc:       center of gravity coordinate
+!      Insect%vc:       translational velocity of the body
 ! The actual motion depends on the choices in the parameter file, namely
 ! Insect%BodyMotion, and sub-parameters that may further precise a given motion 
 ! protocoll
+! Note that in new versions, all the angles and positions are stored in one 
+! datastructure, which is then the only output variable of this routine.
+!-------------------------------------------------------------------------------
 subroutine BodyMotion(time, Insect)
   use vars
   use kine 
@@ -24,6 +27,10 @@ subroutine BodyMotion(time, Insect)
   real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
   real(kind=pr) :: xc(1:3), vc(1:3)
   real(kind=pr) :: T,R
+  
+  ! the tag body_moves is used to draw the insect's body only once
+  body_moves = "yes"
+  
   
   select case (Insect%BodyMotion)
   case ("forward")
@@ -36,7 +43,8 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 0.d0
     xc = (/x0, y0, z0/)
     vc = (/0.0, 0.0, 0.0/)
- 
+    body_moves = "no"
+    
   case ("fixed")
     psi      = 0.d0
     beta     = 0.d0
@@ -46,7 +54,8 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 0.d0
     xc = (/0.5*xl, 0.5*yl,0.5*zl/)
     vc = (/0.0, 0.0, 0.0/)
-  
+    body_moves = "no"
+    
   case ("fixed45")
     psi      = 0.d0
     beta     = deg2rad(-45.d0)
@@ -54,6 +63,7 @@ subroutine BodyMotion(time, Insect)
     psi_dt   = 0.d0
     beta_dt  = 0.d0
     gamma_dt = 0.d0
+    
     xc = (/x0, y0, z0/)
     vc = (/0.0, 0.0, 0.0/)
 
@@ -82,6 +92,8 @@ subroutine BodyMotion(time, Insect)
     xc = (/R*dcos(1.5d0*pi+gamma)+0.5d0*xl, R*dsin(1.5d0*pi+gamma)+0.5d0*yl, 0.5d0*zl/)
     vc = (/-R*dsin(1.5d0*pi+gamma)*gamma_dt, R*dcos(1.5d0*pi+gamma)*gamma_dt,0.d0/)
 
+    body_moves = "yes"
+    
   case ("hovering")
     psi      = 0.0
 !    beta     = deg2rad(-55.d0)
@@ -110,6 +122,7 @@ subroutine BodyMotion(time, Insect)
     vc = (/0.0d0, 0.0d0, 0.0d0/)    
 
   case ("takeoff")  ! Takeoff kinematics read from file (Dmitry, 14 Nov 2013)
+    body_moves = "yes"
     if (Insect%KineFromFile=="yes") then
       ! interpolate.
       call body_kine_interp(time,beta,xc(3),xc(1),beta_dt,vc(3),vc(1))
@@ -151,11 +164,18 @@ subroutine BodyMotion(time, Insect)
     endif
   case default
     if (mpirank==0) then
-      write (*,*) Insect%BodyMotion
-      write (*,*) "insects.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
+      write(*,*) Insect%BodyMotion
+      write(*,*) "body_motion.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
       call abort()
     endif
   end select
+  
+  if ((mpirank==0).and.(maxval(vc)>0.0d0).and.(body_moves=="no")) then
+    write(*,*) "error in body_motion.f90: I found maxval(vc)>0 but the body_moves"
+    write(*,*) "flag is set to no, which means we will draw the body only once"
+    write(*,*) "This is probably not intented - you should look into it."
+    call abort()
+  endif
   
   
   ! save above values in the insect
@@ -176,6 +196,5 @@ subroutine BodyMotion(time, Insect)
   z0 = xc(3)
   
 end subroutine BodyMotion
-
 
 

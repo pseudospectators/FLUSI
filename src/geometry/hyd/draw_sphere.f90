@@ -8,6 +8,12 @@ subroutine draw_sphere
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
+  
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+  
   N_smooth = 1.5d0
 
   do iz=ra(3),rb(3)
@@ -40,6 +46,13 @@ subroutine draw_cylinder_x
 
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
+  
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+  
+  
 
   N_smooth = 1.5d0
 

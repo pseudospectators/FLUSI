@@ -113,7 +113,7 @@ subroutine turbulent_inlet( time )
     x_turb = -uxmean*time + x
     
     if (x_turb >= xl_turb) x_turb = x_turb - xl_turb*dble(ceiling(abs(x_turb/xl_turb)))
-    if (x_turb < 0.d0 ) x_turb = x_turb + xl_turb*dble(ceiling(abs(x_turb/xl_turb)))
+    if (x_turb < 0.d0 )    x_turb = x_turb + xl_turb*dble(ceiling(abs(x_turb/xl_turb)))
     
     i1 = floor(x_turb/dx_turb)
     i2 = i1 + 1

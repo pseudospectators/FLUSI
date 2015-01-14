@@ -18,7 +18,7 @@ echo "big insect test"
 # list of prefixes the test generates
 prefixes=(mask p usx usy usz ux uy uz vorx vory vorz)
 # list of possible times (no need to actually have them)
-times=(00000 00010 00020 00030 00040 00050)
+times=(000000 000101 000201 000301 000400 000500)
 # run actual test
 ${mpi_command} ./flusi ${params}
 echo "============================"

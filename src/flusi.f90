@@ -25,7 +25,7 @@ program FLUSI
       !-------------------------------------------------------------------------
       call Start_Simulation()    
 
-  elseif ( infile == "--postprocess") then 
+  elseif (( infile == "--postprocess").or.(infile=="-p")) then 
       !-------------------------------------------------------------------------
       ! the first argument tells us that we're postprocessing 
       !-------------------------------------------------------------------------
@@ -478,7 +478,7 @@ subroutine initialize_time_series_files()
   
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
-  write (14,'(4(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
+  write (14,'(5(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
   close (14)    
   
   open  (14,file='meanflow.t',status='replace')

@@ -17,6 +17,9 @@ module insect_module
   real(kind=pr), allocatable, dimension(:) :: ai_phi, bi_phi, ai_theta,&
       bi_theta, ai_alpha, bi_alpha
   
+  ! variables to decide whether to draw the body or not. 
+  logical :: body_already_drawn = .false.
+  character(len=strlen) :: body_moves="yes"
   
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
@@ -137,6 +140,42 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   ! what type of subroutine to call for the wings: fourier or simple
   logical :: fourier_wing = .true. ! almost always we have this
   
+  !-----------------------------------------------------------------------------
+  ! colors for Diptera (one body, two wings)
+  !-----------------------------------------------------------------------------
+  color_body = 1
+  color_l = 2
+  color_r = 3
+  
+  !-----------------------------------------------------------------------------
+  ! delete old mask
+  !-----------------------------------------------------------------------------
+  if (body_moves=="no") then
+    ! the body is at rest, so we will not draw it. Delete everything EXCEPT the 
+    ! body, which is marked by its specific color
+    where (mask_color/=color_body)
+      mask = 0.d0
+      mask_color = 0
+    end where
+    ! the value in the mask array is divided by eps already and will be divided
+    ! by eps again in the main mask wrapper. we thus multiply the existing body
+    ! by eps.
+    where (mask_color==color_body) 
+      mask = mask*eps
+    end where
+    ! as the body rests it has no solid body velocity, which means we can safely
+    ! reset the velocity everywhere (this step is actually unnessesary, but for
+    ! safety we do it as well)
+    us = 0.d0
+  else
+    ! the body of the insect moves, so we will construct the entire insect in this
+    ! (and all other) call, and therefore we can safely reset the entire mask to zeros.
+    mask = 0.d0
+    mask_color = 0
+    us = 0.d0
+  endif
+  
+  
   !-- decide what wing routine to call (call simplified wing 
   ! routines that don't use fourier)
   if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
@@ -230,13 +269,7 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   !-----------------------------------------------------------------------------
   Insect%x_pivot_l_glob = matmul(M_body_inv, Insect%x_pivot_l)
   Insect%x_pivot_r_glob = matmul(M_body_inv, Insect%x_pivot_r) 
-
-  !-----------------------------------------------------------------------------
-  ! colors for Diptera (one body, two wings)
-  !-----------------------------------------------------------------------------
-  color_body = 1
-  color_l = 2
-  color_r = 3
+  
   
   !-----------------------------------------------------------------------------
   ! write kinematics to disk (Dmitry, 28 Oct 2013)
@@ -256,9 +289,26 @@ subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
   ! Draw indivudual parts of the Diptera. Separate loops are faster
   ! since the compiler can optimize them better
   !-----------------------------------------------------------------------------
-  ! BODY
+  ! BODY. Now the body is special: if the insect does not move (or rotate), the 
+  ! body does not change in time. On the other hand, it is quite expensive to 
+  ! compute, since it involves a lot of points (volume), and it is a source of
+  ! load balancing problems, since many cores do not draw the body at all.
+  ! We thus try to draw it only once and then simply not to erase it later.
   !-----------------------------------------------------------------------------
-  call draw_body( mask, mask_color, us, Insect, color_body, M_body)
+  if (body_moves=="no") then
+    if (body_already_drawn .eqv. .false.) then
+      ! the body is at rest, but it is the first call to this routine, so
+      ! draw it now.
+      if (mpirank==0) write(*,*) "Flag body_moves is no and we did not yet draw"
+      if (mpirank==0) write(*,*) "the body once: we do that now, and skip draw_body"
+      if (mpirank==0) write(*,*) "from now on."
+      call draw_body( mask, mask_color, us, Insect, color_body, M_body)
+      body_already_drawn = .true. 
+    endif
+  else
+    ! the body moves, draw it
+    call draw_body( mask, mask_color, us, Insect, color_body, M_body)
+  endif
   
   !-----------------------------------------------------------------------------
   ! Wings 

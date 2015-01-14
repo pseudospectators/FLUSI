@@ -520,9 +520,7 @@ subroutine convert_velocity()
   
   call divergence(uk,workc(:,:,:,1))
   call ifft(ink=workc(:,:,:,1),outx=u(:,:,:,1))
-  
-  call save_field_hdf5 ( time,"divu_0000",u(:,:,:,1),"divu")
-  
+  !call save_field_hdf5 ( time,"divu_0000",u(:,:,:,1),"divu")
   write(*,*) "maximum divergence=", fieldmax(u(:,:,:,1)), fieldmin(u(:,:,:,1))
   
   call curl3_inplace(uk)

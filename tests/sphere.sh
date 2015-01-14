@@ -19,7 +19,7 @@ echo "Sphere unit test: phase one"
 # list of prefixes the test generates
 prefixes=(ux uy uz p vorx vory vorz mask)
 # list of possible times (no need to actually have them)
-times=(00000 00100 00200)
+times=(000000 001000 002000)
 # run actual test
 ${mpi_command} ./flusi ${params}
 echo "============================"

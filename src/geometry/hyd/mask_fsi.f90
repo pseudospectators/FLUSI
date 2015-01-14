@@ -11,16 +11,6 @@ subroutine create_mask_fsi (time, Insect, beams )
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   
-  ! reset everything
-  mask = 0.d0
-  mask_color = 0
-  us = 0.d0
-
-  ! set turbulent inflow condition
-  if (use_turbulent_inlet=="yes") then
-    call turbulent_inlet( time )
-  endif
-  
   !-------------------------------------------------------------
   ! create obstacle mask
   !-------------------------------------------------------------  
@@ -47,7 +37,8 @@ subroutine create_mask_fsi (time, Insect, beams )
     case ("couette")
       call taylor_couette()
     case("none")
-!       mask = 0.d0
+      ! in this case, no extra mask is set, but you might have e.g. the turbulent
+      ! inlet or channel walls.
     case default    
       write (*,*) "iMask="//iMask//" not properly set; stopping."
       call abort()
@@ -55,7 +46,10 @@ subroutine create_mask_fsi (time, Insect, beams )
   endif
 
   !-------------------------------------------------------------
-  ! add cavity / channel mask 
+  ! add cavity / channel / inlet mask 
+  ! The following mask functions are additional, i.e. they are added to existing
+  ! mask functions. This way, one can for example compute a sphere in a channel
+  ! or an insect in a turbulent inlet.
   !-------------------------------------------------------------  
   ! if desired, add cavity mask surrounding the domain
   if ((iCavity/="no").and.(iPenalization==1)) then
@@ -65,6 +59,11 @@ subroutine create_mask_fsi (time, Insect, beams )
   ! if desired, add channel mask 
   if ((iChannel/="no").and.(iPenalization==1)) then
     call Add_Channel ()
+  endif
+  
+  ! set turbulent inflow condition
+  if ((use_turbulent_inlet=="yes").and.(iPenalization==1)) then
+    call turbulent_inlet( time )
   endif
   
 end subroutine create_mask_fsi
@@ -94,6 +93,11 @@ subroutine Flapper (time)
   real (kind=pr) :: x,y,z,ys,zs, alpha,L,H,W, tmp1, N, tmp2
   real (kind=pr) :: safety
 
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0  
+  
   ! motion protocoll (pitching around the x-axis with point y0,z0)
   alpha_max = deg2rad(14.d0)
   alpha   =           alpha_max*dsin(time*2.d0*pi)
@@ -224,6 +228,11 @@ subroutine romain_open_cavity
 
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z
+  
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
 
   do ix=ra(1),rb(1)
     do iy=ra(2),rb(2)
@@ -249,6 +258,12 @@ subroutine taylor_couette()
   
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, R,omega
+  
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+  
   
   R1=0.5d0
   R2=1.0d0

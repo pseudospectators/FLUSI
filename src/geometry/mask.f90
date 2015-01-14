@@ -14,9 +14,6 @@ subroutine create_mask(time,Insect,beams)
   real(kind=pr) :: t1
   t1 = MPI_wtime() 
   
-  ! Attention: mask is reset here (and not in subroutines)
-  mask = 0.d0
-
   ! Actual mask functions:
   select case(method)
   case("fsi")
@@ -76,34 +73,17 @@ subroutine smoothstep(f,x,t,h)
   implicit none
   real (kind=pr), intent (out) :: f
   real (kind=pr), intent (in)  :: x,t,h
-  real (kind=pr) :: delta, GradientERF
 
-!  select case (iSmoothing)
-!  case ("erf")
-!      !-------------------------------------------------
-!      ! error function as non-oscilatory shape
-!      !-------------------------------------------------
-!      ! h - delta (gradient thickness)
-!      ! t - thickness (radius)
-!      GradientERF = dabs( ( dexp(-(2.d0*1.d0)**2)  - 1.d0 )/dsqrt(pi) )
-!      delta = h*GradientERF
-!      f = 0.5d0*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
-!  case ("cos")
-      !-------------------------------------------------
-      ! cos shaped smoothing (compact in phys.space)
-      !-------------------------------------------------
-      if (x<=t-h) then
-        f = 1.d0
-      elseif (((t-h)<x).and.(x<(t+h))) then
-        f = 0.5d0*(1.d0+dcos((x-t+h)*pi/(2.d0*h)) )
-      else
-        f = 0.d0
-      endif
-!  case default
-!      !-------------------------------------------------
-!      write(*,*) "Smoothing parameter not rightly set", iSmoothing
-!      call abort()
-!  end select
+  !-------------------------------------------------
+  ! cos shaped smoothing (compact in phys.space)
+  !-------------------------------------------------
+  if (x<=t-h) then
+    f = 1.d0
+  elseif (((t-h)<x).and.(x<(t+h))) then
+    f = 0.5d0*(1.d0+dcos((x-t+h)*pi/(2.d0*h)) )
+  else
+    f = 0.d0
+  endif
   
 end subroutine smoothstep
 

@@ -81,7 +81,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
     ! to compute the forces, we need the mask at time t. not we cannot suppose
     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
     ! have to reconstruct the mask now. solids are also at time t
-    if(iMoving==1) call create_mask(time, Insect, beams, work3c)
+    if(iMoving==1) call create_mask(time, Insect, beams)
     call cal_drag (time, u, Insect)
     time_drag = time_drag + MPI_wtime() - t3
   endif

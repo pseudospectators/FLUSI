@@ -23,7 +23,7 @@ echo "Sphere unit test: restart facility test"
 # list of prefixes the test generates
 prefixes=(ux uy uz p vorx vory vorz)
 # list of possible times (no need to actually have them)
-times=(00000 00100 00200)
+times=(000000 001000 002000)
 # run first part: starting (runs untill T=1.0)
 ${mpi_command} ./flusi ./sphere/testing_sphere_start.ini
 echo -e "\t\t============================"

@@ -117,7 +117,6 @@ module vars
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
-  character(len=strlen) :: iSmoothing ! how to smooth the mask
   real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
 
   ! turbulent inlet:
