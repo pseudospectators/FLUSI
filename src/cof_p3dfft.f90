@@ -90,11 +90,12 @@ subroutine fft_initialize
   include 'fftw3.f'
 
   integer,parameter :: nmpidims = 2
-  integer :: mpicode,idir,L,n
+  integer :: mpicode,idir,L,n,ix,iy,iz
   integer,dimension(1:3) :: ka,kb,ks,kat,kbt,kst
   logical,dimension(2) :: subcart
   real(kind=pr),dimension(:,:),allocatable :: f,ft
   integer, dimension(:,:), allocatable :: yz_plane_local
+  real(kind=pr) :: k
 
   !-----------------------------------------------------------------------------
   !------ Three-dimensional FFT                                           ------
@@ -183,6 +184,7 @@ subroutine fft_initialize
     close(14)
   endif
   
+  
 !   !-----------------------------------------------------------------------------     
 !   ! ------ Multiple one-dimensional FFTs                                  ------
 !   !-----------------------------------------------------------------------------
@@ -264,7 +266,7 @@ subroutine fft_free
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
 
-  deallocate(yz_plane_ranks)
+  deallocate(yz_plane_ranks, ra_table, rb_table)
 
 end subroutine fft_free
 
