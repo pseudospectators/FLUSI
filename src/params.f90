@@ -127,17 +127,13 @@ subroutine get_params_common(PARAMS,i)
   call param_dbl(PARAMS,i,"InitialCondition","omega1",omega1,0.d0) 
   call param_dbl(PARAMS,i,"InitialCondition","nu_smoothing",nu_smoothing,1.0d-13) 
   ! if reading from file, which files?
-  if (inicond=="infile") then 
-    call param_str(PARAMS,i,"InitialCondition","file_ux",file_ux, "none")
-    call param_str(PARAMS,i,"InitialCondition","file_uy",file_uy, "none")
-    call param_str(PARAMS,i,"InitialCondition","file_uz",file_uz, "none")
-    ! if running in MHD mode, we also need the B-field initialized
-    if (method=="mhd") then
-      call param_str(PARAMS,i,"InitialCondition","file_bx",file_bx, "none")
-      call param_str(PARAMS,i,"InitialCondition","file_by",file_by, "none")
-      call param_str(PARAMS,i,"InitialCondition","file_bz",file_bz, "none")
-    endif
-  endif
+  call param_str(PARAMS,i,"InitialCondition","file_ux",file_ux, "none")
+  call param_str(PARAMS,i,"InitialCondition","file_uy",file_uy, "none")
+  call param_str(PARAMS,i,"InitialCondition","file_uz",file_uz, "none")
+  ! if running in MHD mode, we also need the B-field initialized
+  call param_str(PARAMS,i,"InitialCondition","file_bx",file_bx, "none")
+  call param_str(PARAMS,i,"InitialCondition","file_by",file_by, "none")
+  call param_str(PARAMS,i,"InitialCondition","file_bz",file_bz, "none")
 
   ! Dealasing section
   call param_int(PARAMS,i,"Dealiasing","iDealias",iDealias, 1)

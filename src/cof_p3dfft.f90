@@ -266,7 +266,9 @@ subroutine fft_free
      call dfftw_destroy_plan(Desc_Handle_1D_b(j))
   enddo
 
-  deallocate(yz_plane_ranks, ra_table, rb_table)
+  if (allocated(yz_plane_ranks)) deallocate(yz_plane_ranks)
+  if (allocated(ra_table)) deallocate(ra_table)
+  if (allocated(rb_table)) deallocate(rb_table)
 
 end subroutine fft_free
 

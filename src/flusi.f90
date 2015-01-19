@@ -44,7 +44,7 @@ program FLUSI
       call OnlySolidSimulation()
       
   else
-      if (mpirank==0) write(*,*) "nothing to do..."      
+      if (mpirank==0) write(*,*) "nothing to do; the argument " // infile // " is unkown.."      
   endif
 
   

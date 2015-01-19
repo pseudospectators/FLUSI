@@ -5,6 +5,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   use p3dfft_wrapper
   use solid_model
   use insect_module
+  use basic_operators
   implicit none
 
   integer,intent (inout) :: n1,it,n0
@@ -16,11 +17,12 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
+  real(kind=pr),dimension(:,:,:),allocatable::tmp
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect 
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega
-  real (kind=pr) :: uu
+  real (kind=pr) :: uu,E,Ex,Ey,Ez
 
   ! Assign zero values
   time = 0.0d0
@@ -188,7 +190,62 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      nlk(:,:,:,3,0)=nlk(:,:,:,3,0)*explin(:,:,:,1)
      call ifft3( ink=nlk(:,:,:,:,0), outx=vort )
      call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
+  case("half_HIT") 
+    ! this is a very specialized case. it reads a field from files, but the field
+    ! is only half as long in the x-direction. it is then padded by itself (we
+    ! take the same field twice), we compute the curl and add a 0.5% white noise
+    ! to the vorticity, recompute the velocity and go from there
+    allocate (tmp(0:nx/2-1,ra(2):rb(2),ra(3):rb(3)) )
 
+    if (mpirank==0) write(*,*) "Inicond HALF_HIT "//file_ux
+    if (mpirank==0) write(*,*) "Inicond HALF_HIT "//file_uy
+    if (mpirank==0) write(*,*) "Inicond HALF_HIT "//file_uz    
+    
+    nx=nx/2
+    rb(1)=nx-1
+    if(mpirank==0) write(*,*) "Reduced to ", nx, ra, rb
+    
+
+    
+    call read_single_file( file_ux, tmp )
+    vort(0:nx-1,:,:,1) = tmp
+    vort(nx:2*nx-1,:,:,1) = tmp
+    
+    call read_single_file( file_uy, tmp )
+    vort(0:nx-1,:,:,2) = tmp
+    vort(nx:2*nx-1,:,:,2) = tmp
+    
+    call read_single_file( file_uz, tmp )
+    vort(0:nx-1,:,:,3) = tmp
+    vort(nx:2*nx-1,:,:,3) = tmp
+    
+    deallocate (tmp)
+    
+    nx = nx*2
+    rb(1)=nx-1
+    if(mpirank==0) write(*,*) "Back to ", nx, ra, rb
+    
+    call fft3(inx=vort,outk=uk)
+    call curl3_inplace(uk)
+    call ifft3(ink=uk,outx=vort)
+    
+    call compute_energies(vort,E,Ex,Ey,Ez)
+    
+    omega1 = 0.02d0 *  sqrt( 2.d0*E / (xl*yl*zl) )
+    
+    if(mpirank==0) write(*,*) "Perturbation is ", omega1
+    
+    do iz=ra(3), rb(3)
+      do iy=ra(2), rb(2)
+          do ix=ra(1), rb(1)
+            vort(ix,iy,iz,1) = vort(ix,iy,iz,1)+omega1*(2.0d0*rand_nbr() - 1.d0)
+            vort(ix,iy,iz,2) = vort(ix,iy,iz,2)+omega1*(2.0d0*rand_nbr() - 1.d0)
+            vort(ix,iy,iz,3) = vort(ix,iy,iz,3)+omega1*(2.0d0*rand_nbr() - 1.d0)
+          end do
+      end do
+    end do
+    
+    call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
   case("MeanFlow")
      !--------------------------------------------------
      ! mean flow only
