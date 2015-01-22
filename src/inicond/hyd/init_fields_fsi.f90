@@ -97,6 +97,37 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
      call fft3 ( uk,vort )
      if (mpirank==0) write (*,*) "*** done reading infiles"
+     
+  case("infile_perturbed")
+    ! read velocity field from file, as is done in inicond="infile", but add a 
+    ! small perturbation to the vorticity, as done in "half_HIT"
+    ! useful to read in a turbulence field, add a perturbation, to trigger a different decay
+    if (mpirank==0) write (*,*) "*** inicond: reading infiles, and perturbing them"
+    call Read_Single_File ( file_ux, vort(:,:,:,1) )
+    call Read_Single_File ( file_uy, vort(:,:,:,2) )
+    call Read_Single_File ( file_uz, vort(:,:,:,3) )
+    if (mpirank==0) write (*,*) "*** done reading infiles"
+    
+    call fft3(inx=vort,outk=uk)
+    call curl3_inplace(uk)
+    call ifft3(ink=uk,outx=vort)    
+    call compute_energies(vort,E,Ex,Ey,Ez)    
+    omega1 = 0.02d0 *  sqrt( 2.d0*E / (xl*yl*zl) )
+    
+    if(mpirank==0) write(*,*) "Perturbation is ", omega1
+    
+    do iz=ra(3), rb(3)
+      do iy=ra(2), rb(2)
+          do ix=ra(1), rb(1)
+            vort(ix,iy,iz,1) = vort(ix,iy,iz,1)+omega1*(2.0d0*rand_nbr() - 1.d0)
+            vort(ix,iy,iz,2) = vort(ix,iy,iz,2)+omega1*(2.0d0*rand_nbr() - 1.d0)
+            vort(ix,iy,iz,3) = vort(ix,iy,iz,3)+omega1*(2.0d0*rand_nbr() - 1.d0)
+          end do
+      end do
+    end do
+    
+    call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
+     
   case("VortexRing")
      !--------------------------------------------------
      ! Vortex ring
@@ -246,6 +277,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     end do
     
     call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
+    
+  
+    
   case("MeanFlow")
      !--------------------------------------------------
      ! mean flow only
