@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-! right hand side for passive scalars. all input arrays are scalars (and not 
+! right hand side for passive scalars. all input arrays are scalars (and not
 ! vectors), in future revisions this will be called for *each* passive scalar
 ! while for starters we have only one.
 !-------------------------------------------------------------------------------
@@ -14,18 +14,18 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
   integer, intent(in) :: it
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout)::workc1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) 
+  complex(kind=pr),intent(inout)::workc1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  
+
   real(kind=pr) :: kx,ky,kz,chi,w,D,maxi,t1
   real(kind=pr) :: k(1:3) ! wavenumber vector
   complex(kind=pr) :: imag
   integer :: ix,iy,iz,id,mpicode
   t1 = MPI_wtime()
-  
+
   !-----------------------------------------------------------------------------
-  ! Sanity test: if the scalar values are out of range, we skip the entire 
+  ! Sanity test: if the scalar values are out of range, we skip the entire
   ! right hand side, but we do not abort (since the fluid is fine, it's just
   ! the scalar that fails.
   !-----------------------------------------------------------------------------
@@ -34,7 +34,7 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
      !-- global maximum
      call MPI_ALLREDUCE(maxval(work(:,:,:,1)),maxi,1,MPI_DOUBLE_PRECISION,&
           MPI_MAX,MPI_COMM_WORLD,mpicode)
-     !-- skip passive scalar from now on, if out of range    
+     !-- skip passive scalar from now on, if out of range
      if ( maxi > 1.0e2 ) then
         if (mpirank==0) then
           write(*,'("WARNING! PASSIVE SCALAR FAILED! time=",es12.4)') time
@@ -44,17 +44,17 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
         if (stop_on_fail=="yes") call abort()
         !-- otherwise, warn and continue without scalar
         compute_scalar = .false. ! callees will skip
-     endif    
+     endif
   endif
-  
+
   !-- initialization
   nlk = dcmplx(0.d0,0.d0)
   imag = dcmplx(0.d0,1.d0)
   work(:,:,:,3) = 0.d0
-  
+
   !------------------------------------------------------------------------------
   ! compute right hand side of passive scalar, component by component
-  !------------------------------------------------------------------------------  
+  !------------------------------------------------------------------------------
   do id = 1,3
     ! step 1: compute id-component of gradient theta in f-space
     do iz=ca(1),cb(1)
@@ -68,29 +68,29 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
         enddo
       enddo
     enddo
-    
+
     ! step 2: a-component of gradient to x-space, make a copy
     call ifft ( ink=workc1, outx=work(:,:,:,1))
     ! step 3: make a copy
     work(:,:,:,2) = work(:,:,:,1)
-    
+
     ! step 4 one compontent of transport operator, add it to R3
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1) 
+        do ix=ra(1),rb(1)
           chi = mask(ix,iy,iz)*eps
           w = -( (1.d0-chi)*u(ix,iy,iz,id) + chi*us(ix,iy,iz,id) )
           work(ix,iy,iz,3) = work(ix,iy,iz,3) + work(ix,iy,iz,1)*w
         enddo
       enddo
     enddo
-    
+
     !-------------------------------------------------------------
 
     ! step 5 use backup of step 3 and compute inner product for div op
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)  
+        do ix=ra(1),rb(1)
           chi = mask(ix,iy,iz)*eps
           !-- inside obstacle, reduced fluxes
           D = kappa*(1.d0-chi) + eps_scalar*chi
@@ -98,10 +98,10 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
         enddo
       enddo
     enddo
-    
+
     ! step 6
     call fft( inx=work(:,:,:,2), outk=workc1 )
-    
+
     ! step 7: compute id-component of gradient theta in f-space
     do iz=ca(1),cb(1)
       kz=wave_z(iz)
@@ -115,9 +115,9 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
       enddo
     enddo
     ! step 8
-    nlk = nlk + workc1   
+    nlk = nlk + workc1
   enddo
-  
+
   ! step 10
   call fft ( inx=work(:,:,:,3), outk=workc1 )
   ! step 11
@@ -136,12 +136,12 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
     !-- add it to existing NLK terms
     nlk = nlk + workc1
   endif
-  
+
   !--------------------------------
   ! dealiasing
   !--------------------------------
   call dealias1( nlk )
-  
+
   time_scalar = time_scalar + MPI_wtime() - t1
 end subroutine cal_nlk_scalar
 
@@ -166,17 +166,17 @@ subroutine scalar_source ( time, theta )
   case ("for_flapper")
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)  
+        do ix=ra(1),rb(1)
           x = dble(ix)*dx
           y = dble(iy)*dy
           z = dble(iz)*dz
           chi = 0.d0
-          
+
           ! first 8 px: remove outlet
           if (ix>=nx-1-8) then
             chi = -(theta(ix,iy,iz)) / eps
           endif
-          
+
           ! dye injectin line
           if (dabs(x-x0) <= 0.54d0 / 2.d0 ) then
           if (dabs(y-y0+8.d0*dx) < 4.d0*dx) then
@@ -185,21 +185,21 @@ subroutine scalar_source ( time, theta )
           endif
           endif
           endif
-          
+
           theta(ix,iy,iz)=chi
         enddo
       enddo
-    enddo  
-  
+    enddo
+
   case("cuboid")
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1) 
+        do ix=ra(1),rb(1)
           x = dble(ix)*dx
           y = dble(iy)*dy
           z = dble(iz)*dz
           chi = 0.d0
-          
+
           if ((x>=source_xmin).and.(x<=source_xmax)) then
           if ((y>=source_ymin).and.(y<=source_ymax)) then
           if ((z>=source_zmin).and.(z<=source_zmax)) then
@@ -207,7 +207,7 @@ subroutine scalar_source ( time, theta )
           endif
           endif
           endif
-          
+
           theta(ix,iy,iz)=chi
         enddo
       enddo
@@ -215,12 +215,12 @@ subroutine scalar_source ( time, theta )
   case("cuboid_framed")
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1) 
+        do ix=ra(1),rb(1)
           x = dble(ix)*dx
           y = dble(iy)*dy
           z = dble(iz)*dz
           chi = 0.d0
-          
+
           if ((x>=source_xmin).and.(x<=source_xmax)) then
           if ((y>=source_ymin).and.(y<=source_ymax)) then
           if ((z>=source_zmin).and.(z<=source_zmax)) then
@@ -241,7 +241,7 @@ subroutine scalar_source ( time, theta )
           theta(ix,iy,iz)=chi
         enddo
       enddo
-    enddo  
+    enddo
   case default
     if(mpirank==0) write(*,*) "Scalar: source term not defined"//source_term
     call abort()

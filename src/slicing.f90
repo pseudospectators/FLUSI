@@ -1,19 +1,19 @@
 module slicing
   use fsi_vars
   implicit none
-  
+
   ! module global variables
   integer, parameter :: nslices = 4
   integer, save :: icache = 0, iflush = 0, ncache = 200 !(set in params file)
   real(kind=pr),allocatable, save :: slice_cache(:,:,:,:,:), times_cache(:)
-  
-  
-  
+
+
+
   contains
 
-  
-! save slices to cache, and flush when the cache is full. The module allows to 
-! save up to nslices yz-cuts with x=const. They are first stored in a module-global 
+
+! save slices to cache, and flush when the cache is full. The module allows to
+! save up to nslices yz-cuts with x=const. They are first stored in a module-global
 ! cache array, where the x-coordinate is the time. When the cache is full, the
 ! field is flushed into a single HDF5 file. I/O is in parallel, there is no
 ! communication cost. Since the HDF5 file does not contain the times at which
@@ -26,20 +26,20 @@ subroutine save_slices( time, u )
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: t1
   integer :: slice_slot
-  
+
   t1 = MPI_wtime()
-  
+
   ! loop over slices (we save up to four different ones)
   do slice_slot = 1, nslices
-    ! save only if the index is positive (use negative ones to disable) 
+    ! save only if the index is positive (use negative ones to disable)
     if (slices_to_save(slice_slot) >= 0) then
       ! save slice in cache
       slice_cache( icache, :, :, :, slice_slot) = u( slices_to_save(slice_slot) ,:,:,: )
       times_cache( icache ) = time
     endif
   enddo
-  
-  
+
+
   ! if the cache is full, then we flush it to disk and start over
   if (icache == ncache) then
       ! the cache is full
@@ -48,17 +48,17 @@ subroutine save_slices( time, u )
       ! the cache is not full
       icache = icache + 1
   endif
-  
+
   tslices = tslices + MPI_wtime() - t1
-  
-end subroutine save_slices  
-  
-  
-  
+
+end subroutine save_slices
+
+
+
 ! flush slices. Saves the content of the slice cache (module-global) to an HDF5
 ! file. The x-dimension of that file is the time
-! note we save only until icache, so only the 
-! updated values in the cache, and not the entire array, since entries 
+! note we save only until icache, so only the
+! updated values in the cache, and not the entire array, since entries
 ! greater then icache are from earlier times
 ! Thus: If the cache is half full and flush_slices
 ! is called, then we only save half of the cache (no redundancy)
@@ -67,28 +67,28 @@ subroutine flush_slices
   integer :: idir, slice_slot, i
   character(len=strlen)::fname, dsetname
   real(kind=pr), allocatable :: tmp(:,:,:)
-  
+
   if (mpirank==0) then
     write(*,'("Flushing slice cache to disk, icache=",i3, " flush=",i6.6)',advance="no")&
     icache, iflush
   endif
-  
+
   ! flush only if there's something to flush
   if (icache>0) then
       allocate( tmp(0:icache-1,ra(2):rb(2),ra(3):rb(3)) )
-      
+
       do slice_slot = 1, nslices
         if (slices_to_save(slice_slot) >= 0) then
           do idir = 1,3
             write(dsetname,'("sliceu",i1,"-ix",i4.4)') idir, slices_to_save(slice_slot)
-            write(fname, '(A14,"_",i6.6,".h5")') dsetname, iflush 
-            
+            write(fname, '(A14,"_",i6.6,".h5")') dsetname, iflush
+
             tmp = slice_cache(0:icache-1,:,:,idir,slice_slot)
             call save_field_hdf5_xvar(9.9e9,fname,tmp,dsetname,icache)
           enddo
         endif
       enddo
-      
+
       ! flush also the times at which the slices are
       if (mpirank==0) then
         open(14,file='slice_times.t',status='unknown',position='append')
@@ -97,15 +97,15 @@ subroutine flush_slices
         enddo
         close(14)
       endif
-      
+
       if (mpirank==0) then
         write(*,*) "...DONE!"
       endif
-      
+
       ! count flushes (filename contains the flush number)
       iflush = iflush + 1
       deallocate (tmp)
-      
+
       ! start over
       icache = 0
   endif
@@ -115,22 +115,22 @@ end subroutine flush_slices
 
 
 
-! initialize the slicing module. 
+! initialize the slicing module.
 subroutine slice_init(time)
   implicit none
   real(kind=pr),intent(inout)::time
   character(len=4)::f
   integer :: i
-  
+
   if (mpirank==0) write(*,'(A)',advance='no') "Initializing slicing module.."
-  
+
   ! overwrite the time-log file (note the time is not included in the HDF5 file)
-  if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then 
+  if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then
     call init_empty_file('slice_times.t')
   endif
-  
+
   iflush = nint( time * 1000.d0 )
-  
+
   if (mpirank==0) then
     do i=1,nslices
       if (slices_to_save(i)>=nx) then
@@ -139,16 +139,16 @@ subroutine slice_init(time)
       endif
     enddo
   endif
-  
+
   ! copy value from global parameters vars
   ncache = ncache_slices
-  
+
   ! ensure the slice cache is allocated
-  if (.not.allocated(slice_cache) ) then 
+  if (.not.allocated(slice_cache) ) then
     allocate ( slice_cache(0:ncache-1, ra(2):rb(2), ra(3):rb(3), 1:nd, 1:nslices) )
   endif
-  
-  if (.not.allocated(times_cache) ) then 
+
+  if (.not.allocated(times_cache) ) then
     allocate ( times_cache(0:ncache-1) )
   endif
   if (mpirank==0) write(*,*) "..DONE!"
@@ -158,13 +158,13 @@ end subroutine slice_init
 
 
 
-! free the memory occupied by slicing and flush the cache to disk, in case 
+! free the memory occupied by slicing and flush the cache to disk, in case
 ! this has not yet been done.
 subroutine slice_free
   implicit none
-  
+
   call flush_slices
-  
+
   if (allocated(slice_cache)) deallocate( slice_cache )
   if (allocated(times_cache)) deallocate( times_cache )
 end subroutine slice_free
@@ -177,14 +177,14 @@ subroutine gather_slice_yz( u, slice, ixslice )
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout) :: slice(0:,0:)
   integer, intent(in) :: ixslice
-  
+
   integer :: mpierror,newtype,extent2
   integer :: resizedtype, ierr, dims, iy
   integer(8) :: begin, extent1
   integer, dimension(2) :: sizes, subsizes, starts
   integer, allocatable :: displs(:), counts(:)
   real(kind=pr), allocatable ::local(:,:)
-  
+
   !-----------------------------------------------------------------------------
   ! allocate storage for the local slice. This way we are sure about it's memory
   ! layout: it is FORTRAN column-major ordering, and the second index is slowest.
@@ -192,10 +192,10 @@ subroutine gather_slice_yz( u, slice, ixslice )
   allocate( local(ra(2):rb(2),ra(3):rb(3)) )
   local = u(ixslice,:,:)
 
-  
+
   !-----------------------------------------------------------------------------
-  ! create receiving datatype, relevant only on root. This datatype in non 
-  ! contiguous in memory. A very good description of the problem is found in 
+  ! create receiving datatype, relevant only on root. This datatype in non
+  ! contiguous in memory. A very good description of the problem is found in
   ! http://stackoverflow.com/questions/17508647/sending-2d-arrays-in-fortran-with-mpi-gather
   !-----------------------------------------------------------------------------
   ! size of global array
@@ -215,9 +215,9 @@ subroutine gather_slice_yz( u, slice, ixslice )
   ! resize the datatype to the size of one double
   call MPI_Type_create_resized(newtype, begin, extent1, resizedtype, ierr)
   call MPI_Type_commit(resizedtype, ierr)
-  
 
-  
+
+
   !-----------------------------------------------------------------------------
   ! root has to know how much data it is going to receive (counts) and where to
   ! put it in a 1D array in memory (displs). For each proc, we allow a different
@@ -230,21 +230,21 @@ subroutine gather_slice_yz( u, slice, ixslice )
     ! displacement on the 1D line on root
     displs(iy) = ra_table(2,iy) + (nz)*(ra_table(3,iy))
   enddo
-  
-  
-  
+
+
+
   !-----------------------------------------------------------------------------
   ! Note different datatypes for sender and receiver. The sender can simple use
   ! MPI_DOUBLE_PRECISION, since it is sending the entire slice, which is locally
-  ! contiguous in memory. 
-  ! The situation on the receiver, root, is very different: the 2D data is not 
+  ! contiguous in memory.
+  ! The situation on the receiver, root, is very different: the 2D data is not
   ! at all contiguous, but it has holes in it, which is why we created the data-
   ! type "resizedtype"
   !-----------------------------------------------------------------------------
   call MPI_Gatherv( local, (rb(2)-ra(2)+1)*(rb(3)-ra(3)+1), MPI_DOUBLE_PRECISION, &
                     slice, counts, displs, resizedtype, &
                     0, MPI_COMM_WORLD, ierr)
-                    
+
   ! cleanup
   deallocate( counts, displs, local )
 end subroutine gather_slice_yz
@@ -263,11 +263,11 @@ subroutine test_slices( u )
   integer :: ix,iy,iz,mpierror
   real(kind=pr) ::x,y,z
 
-  
+
   u = -17.d0
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)  
+      do ix=ra(1),rb(1)
         x = dble(ix)*dx
         y = dble(iy)*dy
         z = dble(iz)*dz
@@ -275,25 +275,25 @@ subroutine test_slices( u )
       enddo
     enddo
   enddo
-  
-  
+
+
   if (mpirank==0) then
     allocate( slice(0:ny-1,0:nz-1) )
   else
     allocate( slice(0:0,0:0) )
   endif
-  
-  
+
+
   !!!!!!!!!!!!!!!!!!!!!!!!!!!
-  call gather_slice_yz( u(:,:,:,1), slice, 1 )  
+  call gather_slice_yz( u(:,:,:,1), slice, 1 )
   !!!!!!!!!!!!!!!!!!!!!!!!!!!
-  
-  
+
+
   if (mpirank==0) then
     do iz = 0, nz-1
       write (*,'(18(f4.1,1x))') slice(:,iz)
     enddo
-    
+
     do iz=0,nz-1
     do iy=0,ny-1
         y = dble(iy)*dy
@@ -301,20 +301,18 @@ subroutine test_slices( u )
         if (abs(slice(iy,iz)-(y+z)) > 1.0e-11 ) write(*,*) "ERROR"
     enddo
     enddo
-    
+
   endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!
-  
-  
-  call MPI_barrier (MPI_COMM_world, mpierror) 
+
+
+  call MPI_barrier (MPI_COMM_world, mpierror)
   call abort()
-  
-  
-end subroutine 
+
+
+end subroutine
 
 
 
 
 end module slicing
-
-

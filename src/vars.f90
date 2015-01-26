@@ -1,5 +1,5 @@
 ! the mask and us (the solid Velocity) are for historic reasons global arrays
-! that do not appear in the argument lists. to gain flexibility, we move them out 
+! that do not appear in the argument lists. to gain flexibility, we move them out
 ! of "vars". Then newer routines from newer codes, that do not have mask as a global
 ! can be adapted easier.
 module penalization
@@ -8,7 +8,7 @@ module penalization
   real(kind=8),dimension (:,:,:),allocatable,save :: mask ! mask function
   integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color ! mask color function
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
-  real(kind=8),allocatable,save :: us(:,:,:,:)  ! Velocity in solid  
+  real(kind=8),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
 end module penalization
 
 
@@ -21,20 +21,21 @@ module vars
   ! Used in params.f90
   integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
   integer,parameter :: strlen=80   ! standard string length
-  
+
   ! Precision of doubles
-  integer,parameter :: pr = 8 
+  integer,parameter :: pr = 8
 
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
   character(len=strlen),save :: dry_run_without_fluid ! just save mask function
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
-  integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD, 4 for 
+  integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD, 4 for
                       ! passive scalar (ux,uy,uz,theta)
   integer,save :: nrw ! number of real work arrays in work
   integer,save :: ncw ! number of complex work arrays in workc
   integer,save :: ng  ! number of ghostpoints (if used)
+  integer,save :: nrhs ! number of registers for right-hand sides
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize, mpirank
@@ -44,9 +45,9 @@ module vars
   integer,dimension (1:3),save :: ga,gb
   ! Local array bounds for real arrays for all MPI processes
   integer, dimension (:,:), allocatable, save :: ra_table, rb_table, yz_plane_ranks
-  ! for simplicity, store what decomposition we use 
+  ! for simplicity, store what decomposition we use
   character(len=strlen), save :: decomposition
-  
+
   ! p3dfft only parameters (move to appropraite .f90 file?)
   integer,save :: mpicommcart
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
@@ -67,7 +68,7 @@ module vars
   real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar
 
   ! Variables set via the parameters file
-  real(kind=pr),save :: length 
+  real(kind=pr),save :: length
 
   ! Domain size variables:
   integer,save :: nx,ny,nz
@@ -90,7 +91,7 @@ module vars
   integer,save :: itbeam
   real(kind=pr),save :: truntime, truntimenext ! Number of hours bet
   real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
-  ! for periodically repeating flows, it may be better to always have only 
+  ! for periodically repeating flows, it may be better to always have only
   ! one set of files on the disk
   character(len=strlen),save :: save_only_one_period, field_precision
   real(kind=pr),save :: tsave_period ! then this is period time
@@ -122,25 +123,25 @@ module vars
   ! turbulent inlet:
   character(len=strlen),save :: use_turbulent_inlet
   real(kind=pr) :: rescale
-  
+
   ! averaging
   character(len=strlen),save :: time_avg, vel_avg, ekin_avg, save_one_only
   character(len=strlen),save :: enstrophy_avg
   ! this is a hack, currently the avg velocity field is global
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk_avg
   ! kinetic energy:
-  real(kind=pr),dimension(:,:,:),allocatable :: e_avg  
+  real(kind=pr),dimension(:,:,:),allocatable :: e_avg
   ! enstrophy:
-  real(kind=pr),dimension(:,:,:),allocatable :: Z_avg  
+  real(kind=pr),dimension(:,:,:),allocatable :: Z_avg
   real(kind=pr)::tstart_avg
-  
+
   ! saving of slices
   character(len=strlen),save :: use_slicing
   integer,save :: itslice, ncache_slices
   integer,save :: slices_to_save(1:4)
-  
-  
-  contains 
+
+
+  contains
 
     ! Routines to allocate real and complex arrays using the standard
     ! dimensions.
@@ -149,19 +150,19 @@ module vars
       real(kind=pr),dimension(:,:,:),allocatable :: u
       allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
     end subroutine allocreal
-    
+
     subroutine alloccomplex(u)
       implicit none
       complex(kind=pr),dimension(:,:,:),allocatable :: u
       allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
     end subroutine alloccomplex
-    
+
     subroutine allocrealnd(u)
       implicit none
       real(kind=pr),dimension(:,:,:,:),allocatable :: u
       allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
     end subroutine allocrealnd
-    
+
     subroutine alloccomplexnd(u)
       implicit none
       complex(kind=pr),dimension(:,:,:,:),allocatable :: u
@@ -195,7 +196,7 @@ module vars
       use mpi
       implicit none
       integer :: mpicode
-      
+
       if (mpirank==0) write(*,*) "Killing run..."
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine suicide1
@@ -205,7 +206,7 @@ module vars
       implicit none
       integer :: mpicode
       character(len=*), intent(in) :: msg
-      
+
       if (mpirank==0) write(*,*) "Killing run..."
       if (mpirank==0) write(*,*) msg
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
@@ -223,17 +224,17 @@ module vars
     real(kind=pr) function rand_nbr()
       implicit none
       call random_number( rand_nbr )
-    end function 
+    end function
     !---------------------------------------------------------------------------
     ! soft startup funtion, is zero until time=time_release, then gently goes to
-    ! one during the time period time_tau 
+    ! one during the time period time_tau
     real(kind=pr) function startup_conditioner(time,time_release,time_tau)
       implicit none
       real(kind=pr), intent(in) :: time,time_release,time_tau
       real(kind=pr) :: t
-      
+
       t = time-time_release
-      
+
       if (time <= time_release) then
         startup_conditioner = 0.d0
       elseif ( ( time >time_release ).and.(time<(time_release + time_tau)) ) then
@@ -241,7 +242,7 @@ module vars
       else
         startup_conditioner = 1.d0
       endif
-      
+
     end function
 end module vars
 
@@ -250,39 +251,39 @@ end module vars
 module fsi_vars
   use vars
   implicit none
-  
+
   ! switch for vorticity sponge:
   character(len=strlen), save :: iVorticitySponge, iSpongeType
   real(kind=pr), save :: eps_sponge
   integer, save :: sponge_thickness
-  
+
   ! cavity mask:
   character(len=strlen), save :: iCavity, iChannel
   integer, save :: cavity_size
   ! wall thickness
   real(kind=pr),save :: thick_wall
   ! wall position (solid from pos_wall to pos_wall+thick_wall)
-  real(kind=pr),save :: pos_wall 
-  
+  real(kind=pr),save :: pos_wall
+
   ! save forces and use unsteady corrections?
-  integer, save :: compute_forces  
-  
+  integer, save :: compute_forces
+
   ! for the iterative FSI coupling, we need these two work
   ! arrays (THIS IS A HACK - TO BE REMOVED)
   complex(kind=pr),allocatable,dimension(:,:,:,:)::nlk_tmp
   complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
   integer,save :: iSaveSolidVelocity
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
-  
+
   ! mean flow control
   real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid
   character(len=strlen),save :: iMeanFlow_x,iMeanFlow_y,iMeanFlow_z
   ! mean flow startup conditioner (if "dynamic" and mean flow at t=0 is not zero
-  ! the forces are singular at the beginning. use the startup conditioner to 
+  ! the forces are singular at the beginning. use the startup conditioner to
   ! avoid large accelerations in mean flow at the beginning)
   character(len=strlen),save :: iMeanFlowStartupConditioner
   real(kind=pr) :: tau_meanflow, T_release_meanflow
-  
+
   ! parameters for passive scalar advection
   integer, save :: use_passive_scalar
   integer, save :: n_scalars
@@ -314,8 +315,8 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Force_unst
      real(kind=pr),dimension(1:3) :: Torque
      real(kind=pr),dimension(1:3) :: Torque_unst
-  end type Integrals  
-  
+  end type Integrals
+
   !-----------------------------------------------------------------------------
   ! derived datatype for rigid solid dynamics solver
   type SolidDynType
@@ -336,7 +337,7 @@ module fsi_vars
     real(kind=pr) :: time
     real(kind=pr) :: dt1
     real(kind=pr) :: dt0
-    integer :: it 
+    integer :: it
     integer :: n0
     integer :: n1
   end type timetype
@@ -344,10 +345,10 @@ module fsi_vars
 
   type(Integrals),save :: GlobalIntegrals
   type(SolidDynType), save :: SolidDyn
- 
+
   contains
   !-----------------------------------------------------------------------------
-  
+
   ! this function simplifies my life with the insects
   real(kind=pr) function deg2rad(deg)
     use vars
@@ -356,7 +357,7 @@ module fsi_vars
     deg2rad=deg*pi/180.d0
     return
   end function
-  
+
   function cross(a,b)
     use vars
     implicit none
@@ -366,8 +367,8 @@ module fsi_vars
     cross(2) = a(3)*b(1)-a(1)*b(3)
     cross(3) = a(1)*b(2)-a(2)*b(1)
   end function
-    
-    
+
+
 end module fsi_vars
 
 
@@ -385,5 +386,3 @@ module mhd_vars
   ! Determine whether we save various fields
   integer,save :: iSaveMagneticField,iSaveCurrent
 end module mhd_vars
-
-

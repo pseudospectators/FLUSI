@@ -12,14 +12,14 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   real (kind=pr),intent (inout) :: time,dt1,dt0
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),dimension(:,:,:),allocatable::tmp
   type(solid),dimension(1:nBeams), intent(inout) :: beams
-  type(diptera),intent(inout)::Insect 
+  type(diptera),intent(inout)::Insect
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega
   real (kind=pr) :: uu,E,Ex,Ey,Ez
@@ -28,35 +28,35 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   time = 0.0d0
   dt1  = tsave
   it = 0
-  
+
   uk = dcmplx(0.0d0,0.0d0)
   nlk = dcmplx(0.0d0,0.0d0)
   explin = 0.0
   vort = 0.0d0
-  
+
   select case(inicond)
   case ("couette")
     !--------------------------------------------------
     ! couette flow
-    !--------------------------------------------------  
+    !--------------------------------------------------
     R1=0.5d0
     R2=1.0d0
     omega=1.25d0
-    
+
     a = omega*(-R1**2 / (R2**2 - R1**2))
     b = omega*(R1**2 * R2**2) / (R2**2 - R1**2)
-    
+
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
         y = dble(iy)*dy - 0.5d0*yl
         z = dble(iz)*dz - 0.5d0*zl
         R = dsqrt(y**2 + z**2)
-        
+
         if ((R>R1).and.(R<R2)) then
           ! fluid domain
           uu = a*R + b/R
           vort(:,iy,iz,1) = 0.d0
-          vort(:,iy,iz,2) =+uu*z/R 
+          vort(:,iy,iz,2) =+uu*z/R
           vort(:,iy,iz,3) =-uu*y/R
         elseif (R>=R2) then
           ! outer cylinder
@@ -72,7 +72,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
       enddo
     enddo
     call fft3 ( uk,vort )
-    
+
   case ("taylor_green_2d")
     !--------------------------------------------------
     ! taylor green vortices
@@ -86,20 +86,20 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
       enddo
     enddo
     call fft3 ( uk,vort )
-    
+
   case("infile")
      !--------------------------------------------------
      ! read HDF5 files
-     !--------------------------------------------------  
+     !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: reading infiles"
      call Read_Single_File ( file_ux, vort(:,:,:,1) )
      call Read_Single_File ( file_uy, vort(:,:,:,2) )
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
      call fft3 ( uk,vort )
      if (mpirank==0) write (*,*) "*** done reading infiles"
-     
+
   case("infile_perturbed")
-    ! read velocity field from file, as is done in inicond="infile", but add a 
+    ! read velocity field from file, as is done in inicond="infile", but add a
     ! small perturbation to the vorticity, as done in "half_HIT"
     ! useful to read in a turbulence field, add a perturbation, to trigger a different decay
     if (mpirank==0) write (*,*) "*** inicond: reading infiles, and perturbing them"
@@ -107,15 +107,15 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     call Read_Single_File ( file_uy, vort(:,:,:,2) )
     call Read_Single_File ( file_uz, vort(:,:,:,3) )
     if (mpirank==0) write (*,*) "*** done reading infiles"
-    
+
     call fft3(inx=vort,outk=uk)
     call curl3_inplace(uk)
-    call ifft3(ink=uk,outx=vort)    
-    call compute_energies(vort,E,Ex,Ey,Ez)    
+    call ifft3(ink=uk,outx=vort)
+    call compute_energies(vort,E,Ex,Ey,Ez)
     omega1 = 0.02d0 *  sqrt( 2.d0*E / (xl*yl*zl) )
-    
+
     if(mpirank==0) write(*,*) "Perturbation is ", omega1
-    
+
     do iz=ra(3), rb(3)
       do iy=ra(2), rb(2)
           do ix=ra(1), rb(1)
@@ -125,17 +125,17 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
           end do
       end do
     end do
-    
+
     call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
-     
+
   case("VortexRing")
      !--------------------------------------------------
      ! Vortex ring
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
      r00=yl/8.d0
-     a  =0.4131d0 * r00 
-     a  =0.82d0 * r00 
+     a  =0.4131d0 * r00
+     a  =0.82d0 * r00
      gamma0=12.0d0
      x00=0.5d0 * xl
 
@@ -162,14 +162,14 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
         end do
      end do
      call Vorticity2Velocity(uk, nlk(:,:,:,:,0), vort)
-     
+
      call set_mean_flow(uk,time)
-     
+
   case ("vortex")
      if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
      r00=yl/8.d0
-     a  =0.4131d0 * r00 
-     a  =0.82d0 * r00 
+     a  =0.4131d0 * r00
+     a  =0.82d0 * r00
      gamma0=12.0d0
      x00=0.5d0 * xl
 
@@ -180,25 +180,25 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
            y=dble(iy) * yl / dble(ny)
            do ix=ra(1), rb(1)
               x=dble(ix) * xl / dble(nx)
-              
+
               r=dsqrt( (x-0.5d0*xl)**2+ (y-0.5d0*yl)**2 + (z-0.5d0*zl)**2 )
-              
+
               omega = 10.d0*exp( -(r / (0.1*zl))**2 )
 
               vort (ix,iy,iz,3)=omega
            enddo
         enddo
      enddo
-     
+
      call Vorticity2Velocity(uk, nlk(:,:,:,:,0), vort)
-     
+
      call set_mean_flow(uk,time)
-  
+
   case("turbulence")
      !--------------------------------------------------
      ! random vorticity
      ! This case has two parameters read from ini file:
-     ! the maximum vorticity in each direction and the 
+     ! the maximum vorticity in each direction and the
      ! smoothing parameter
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
@@ -213,7 +213,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
            end do
         end do
      end do
-     
+
      call cal_vis( nu_smoothing/nu, explin(:,:,:,1))
      call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
      nlk(:,:,:,1,0)=nlk(:,:,:,1,0)*explin(:,:,:,1)
@@ -221,7 +221,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      nlk(:,:,:,3,0)=nlk(:,:,:,3,0)*explin(:,:,:,1)
      call ifft3( ink=nlk(:,:,:,:,0), outx=vort )
      call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
-  case("half_HIT") 
+  case("half_HIT")
     ! this is a very specialized case. it reads a field from files, but the field
     ! is only half as long in the x-direction. it is then padded by itself (we
     ! take the same field twice), we compute the curl and add a 0.5% white noise
@@ -230,42 +230,42 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
 
     if (mpirank==0) write(*,*) "Inicond HALF_HIT "//file_ux
     if (mpirank==0) write(*,*) "Inicond HALF_HIT "//file_uy
-    if (mpirank==0) write(*,*) "Inicond HALF_HIT "//file_uz    
-    
+    if (mpirank==0) write(*,*) "Inicond HALF_HIT "//file_uz
+
     nx=nx/2
     rb(1)=nx-1
     if(mpirank==0) write(*,*) "Reduced to ", nx, ra, rb
-    
 
-    
+
+
     call read_single_file( file_ux, tmp )
     vort(0:nx-1,:,:,1) = tmp
     vort(nx:2*nx-1,:,:,1) = tmp
-    
+
     call read_single_file( file_uy, tmp )
     vort(0:nx-1,:,:,2) = tmp
     vort(nx:2*nx-1,:,:,2) = tmp
-    
+
     call read_single_file( file_uz, tmp )
     vort(0:nx-1,:,:,3) = tmp
     vort(nx:2*nx-1,:,:,3) = tmp
-    
+
     deallocate (tmp)
-    
+
     nx = nx*2
     rb(1)=nx-1
     if(mpirank==0) write(*,*) "Back to ", nx, ra, rb
-    
+
     call fft3(inx=vort,outk=uk)
     call curl3_inplace(uk)
     call ifft3(ink=uk,outx=vort)
-    
+
     call compute_energies(vort,E,Ex,Ey,Ez)
-    
+
     omega1 = 0.02d0 *  sqrt( 2.d0*E / (xl*yl*zl) )
-    
+
     if(mpirank==0) write(*,*) "Perturbation is ", omega1
-    
+
     do iz=ra(3), rb(3)
       do iy=ra(2), rb(2)
           do ix=ra(1), rb(1)
@@ -275,11 +275,11 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
           end do
       end do
     end do
-    
+
     call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
-    
-  
-    
+
+
+
   case("MeanFlow")
      !--------------------------------------------------
      ! mean flow only
@@ -288,7 +288,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      uk=dcmplx(0.0d0,0.0d0)
      ! note this inicond also works without meanflow forcing, it is then
      ! really just an inicond
-     
+
      ! forcing = zeroth Fourier mode only
      if ( (ca(1) == 0) .and. (ca(2) == 0) .and. (ca(3) == 0) ) then
        uk(0, 0, 0,1) = Uxmean
@@ -299,7 +299,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   case("quiescent")
      !--------------------------------------------------
      ! fluid at rest
-     !--------------------------------------------------  
+     !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
      uk=dcmplx(0.0d0,0.0d0)
 
@@ -307,7 +307,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      if(inicond(1:8) == "backup::") then
         !--------------------------------------------------
         ! read from backup
-        !--------------------------------------------------  
+        !--------------------------------------------------
         if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
              inicond(9:len(inicond))
         call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
@@ -321,8 +321,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
         call abort()
      endif
   end select
-  
-  
+
+
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the solid solver
   !-----------------------------------------------------------------------------
@@ -332,7 +332,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     call surface_interpolation_testing( time, beams(1), press )
     call init_beams( beams )
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the passive scalar(s)
   !-----------------------------------------------------------------------------
@@ -340,7 +340,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     ! only if not resuming a backup
     call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1),Insect,beams)
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! when computing running time avg, initialize (note that if we're resuming
   ! a backup, it is read from that file)
@@ -372,12 +372,12 @@ subroutine Vorticity2Velocity(uk,work,vort)
   ! Compute vorticity in Fourier space
   !-------------------------------------------------
   call fft3(inx=vort,outk=work)
-  
+
   !-------------------------------------------------
   ! Compute streamfunction in Fourier space
   ! work(:,:,:,1:3, 1) will contain the three components of
   ! streamfunction
-  !------------------------------------------------- 
+  !-------------------------------------------------
   do iz=ca(1), cb(1)
     kz=wave_z(iz)
     kz2=kz*kz
@@ -388,7 +388,7 @@ subroutine Vorticity2Velocity(uk,work,vort)
         kx     =wave_x(ix)
         kx2    =kx*kx
         k_abs_2=kx2+ky2+kz2
-        if (abs(k_abs_2) .ne. 0.0) then  
+        if (abs(k_abs_2) .ne. 0.0) then
           work(iz,iy,ix,1)=+work(iz,iy,ix,1) / k_abs_2
           work(iz,iy,ix,2)=+work(iz,iy,ix,2) / k_abs_2
           work(iz,iy,ix,3)=+work(iz,iy,ix,3) / k_abs_2
@@ -404,12 +404,12 @@ subroutine Vorticity2Velocity(uk,work,vort)
   !-----------------------------------------------
   !-- compute velocity as curl of streamfunction
   !-----------------------------------------------
-  do iz=ca(1),cb(1)          
+  do iz=ca(1),cb(1)
     !-- wavenumber in z-direction
-    kz = wave_z(iz)      
+    kz = wave_z(iz)
     do iy=ca(2), cb(2)
       !-- wavenumber in y-direction
-      ky = wave_y(iy)      
+      ky = wave_y(iy)
       do ix=ca(3), cb(3)
         !-- wavenumber in x-direction
         kx = wave_x(ix)
@@ -419,6 +419,6 @@ subroutine Vorticity2Velocity(uk,work,vort)
       enddo
     enddo
   enddo
-  
-  
+
+
 end subroutine Vorticity2Velocity

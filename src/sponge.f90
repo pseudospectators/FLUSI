@@ -3,7 +3,7 @@
 !
 ! adds a damping term to the vorticity and thus removes partly the periodicity
 !
-! input is penalized vorticity in fourier space, output is the penalization 
+! input is penalized vorticity in fourier space, output is the penalization
 ! term to be added to the Navier--Stokes eqn.
 !
 ! the vorticity sponge term is chi_sp * (vort) / eta_sponge
@@ -11,7 +11,7 @@
 ! so we compute the streamfunctions vort = - LAPLACE(psi)
 ! and then take the curl sponge = nabla \cross psi
 !
-! INPUT: 
+! INPUT:
 !       vort: the vorticity vector in x-space
 !       work1: real valued work array (that will hold penalized vorticity)
 ! OUTPUT:
@@ -22,53 +22,53 @@
 subroutine vorticity_sponge( vort, work1, workc )
   use mpi
   use p3dfft_wrapper
-  use fsi_vars  
-  implicit none  
+  use fsi_vars
+  implicit none
   complex (kind=pr) :: im, spx,spy,spz
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
   integer :: i, ix, iy, iz
   real(kind=pr),intent(in):: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout):: work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))  
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
-  
-  if (iVorticitySponge == "yes") then    
+  real(kind=pr),intent(inout):: work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
+
+  if (iVorticitySponge == "yes") then
     ! loop over components
-    do i=1,3  
+    do i=1,3
       ! penalize this vorticity component in the work array
       call penalize_vort ( work1, vort(:,:,:,i) )
       ! transform it to fourier space and store it in the sponge array workc
-      call fft ( inx=work1, outk=workc(:,:,:,i)  )  
-    enddo  
-    
-    
+      call fft ( inx=work1, outk=workc(:,:,:,i)  )
+    enddo
+
+
     ! imaginary unit
-    im=dcmplx(0.d0,1.d0)    
-    
+    im=dcmplx(0.d0,1.d0)
+
     do iz=ca(1), cb(1)
       kz=wave_z(iz)
       kz2=kz*kz
-      
+
       do iy=ca(2), cb(2)
         ky=wave_y(iy)
         ky2=ky*ky
-        
+
         do ix=ca(3), cb(3)
           kx=wave_x(ix)
           kx2=kx*kx
-          
+
           k_abs_2=kx2+ky2+kz2
-          if (abs(k_abs_2) .ne. 0.0) then  
-            ! we first "solve" the poisson eqn 
+          if (abs(k_abs_2) .ne. 0.0) then
+            ! we first "solve" the poisson eqn
             ! which gives us the streamfunction components
             spx = workc(iz,iy,ix,1) / k_abs_2
             spy = workc(iz,iy,ix,2) / k_abs_2
             spz = workc(iz,iy,ix,3) / k_abs_2
-            
+
             ! we then take the curl of the streamfunction
             workc(iz,iy,ix,1)=im*(ky*spz - kz*spy)
             workc(iz,iy,ix,2)=im*(kz*spx - kx*spz)
-            workc(iz,iy,ix,3)=im*(kx*spy - ky*spx)          
-            
+            workc(iz,iy,ix,3)=im*(kx*spy - ky*spx)
+
           else
             workc(iz,iy,ix,1)=dcmplx(0.d0,0.d0)
             workc(iz,iy,ix,2)=dcmplx(0.d0,0.d0)
@@ -76,8 +76,8 @@ subroutine vorticity_sponge( vort, work1, workc )
           endif
         enddo
       enddo
-    enddo  
-  endif 
+    enddo
+  endif
 end subroutine vorticity_sponge
 
 
@@ -102,7 +102,7 @@ subroutine penalize_vort ( vort_penalized, vort )
   integer :: ix,iy,iz
   eps_inv= 1.d0 / eps_sponge
   vort_penalized = 0.d0
-  
+
   select case (iSpongeType)
   case ("cavity")
     !--------------------------------------------
@@ -118,16 +118,16 @@ subroutine penalize_vort ( vort_penalized, vort )
           if (mask(ix,iy,iz) < 1e-12) then
             !------------------------
             if (nx>4) then ! skip this direction for 2D runs...
-            if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
+            if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
               vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
             endif
             endif
             !------------------------
-            if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
+            if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then
               vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-            endif    
+            endif
             !------------------------
-            if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
+            if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then
               vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
             endif
             !------------------------
@@ -135,7 +135,7 @@ subroutine penalize_vort ( vort_penalized, vort )
         enddo
       enddo
     enddo
-    
+
   case ("cavity_open_z")
     !--------------------------------------------
     ! sponge for the cavity type (ie we set a solid wall
@@ -145,24 +145,24 @@ subroutine penalize_vort ( vort_penalized, vort )
     !--------------------------------------------
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1) 
+        do ix=ra(1),rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
             !------------------------
             if (nx>4) then ! skip this direction for 2D runs...
-            if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then            
+            if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
               vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
             endif
             endif
             !------------------------
-            if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then            
+            if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then
               vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
-            endif    
+            endif
             !------------------------
           endif
         enddo
       enddo
-    enddo      
+    enddo
 
   case ("xmin_xmax_ymin_ymax")
     !--------------------------------------------
@@ -171,7 +171,7 @@ subroutine penalize_vort ( vort_penalized, vort )
     !--------------------------------------------
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1) 
+        do ix=ra(1),rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
@@ -185,7 +185,7 @@ subroutine penalize_vort ( vort_penalized, vort )
         enddo
       enddo
     enddo
-   
+
   case ("xmin_xmax")
     !--------------------------------------------
     ! Dmitry, 25 Oct 2013
@@ -193,7 +193,7 @@ subroutine penalize_vort ( vort_penalized, vort )
     !--------------------------------------------
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1) 
+        do ix=ra(1),rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
@@ -202,15 +202,15 @@ subroutine penalize_vort ( vort_penalized, vort )
           endif
         enddo
       enddo
-    enddo   
-    
+    enddo
+
   case ("outlet_x")
     !--------------------------------------------
     ! sponge is one at right outflow, ie for ix>nx-1-sponge_thickness+1
     !--------------------------------------------
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1) 
+        do ix=ra(1),rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
           if (ix>=nx-1-sponge_thickness+1) then
@@ -219,7 +219,7 @@ subroutine penalize_vort ( vort_penalized, vort )
           endif
         enddo
       enddo
-    enddo   
+    enddo
 
   case ("xmin_xmax_zmin_zmax")
     !--------------------------------------------
@@ -228,21 +228,21 @@ subroutine penalize_vort ( vort_penalized, vort )
     !--------------------------------------------
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1) 
+        do ix=ra(1),rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
             vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
           endif
-          
-          if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
+
+          if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then
             vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
           endif
           endif
         enddo
       enddo
-    enddo  
-    
+    enddo
+
   case ("2D_frame")
     !--------------------------------------------
     ! Thomas, 3 Jul 2014
@@ -253,23 +253,23 @@ subroutine penalize_vort ( vort_penalized, vort )
         if ((iy<=sponge_thickness-1).or.(iy>=ny-1-sponge_thickness+1)) then
           vort_penalized(:,iy,iz) = -vort(:,iy,iz)*eps_inv
         endif
-        
-        if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then            
+
+        if ((iz<=sponge_thickness-1).or.(iz>=nz-1-sponge_thickness+1)) then
           vort_penalized(:,iy,iz) = -vort(:,iy,iz)*eps_inv
         endif
       enddo
     enddo
- 
+
   case ("top_cover")
     !--------------------------------------------
-    ! sponge as a cover on top of the domain 
+    ! sponge as a cover on top of the domain
     ! (top=positive z)
     !--------------------------------------------
-    do iz=ra(3),rb(3) 
+    do iz=ra(3),rb(3)
       ! note we currenly do not allocate a mask for this
       if ( iz>nz-sponge_thickness ) then
         vort_penalized(:,:,iz) = - vort(:,:,iz)*eps_inv
       endif
-    enddo  
-  end select    
+    enddo
+  end select
 end subroutine penalize_vort

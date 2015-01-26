@@ -11,22 +11,22 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   real (kind=pr),intent (inout) :: time,dt1,dt0
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   type(solid),dimension(1:nBeams), intent(out) :: beams
-  type(diptera),intent(inout)::Insect 
- 
+  type(diptera),intent(inout)::Insect
+
   if (mpirank==0) write(*,*) "Set up initial conditions...."
-  
+
   !-----------------------------------------------------------------------------
   ! initialize fields, possibly read in backup file
-  !----------------------------------------------------------------------------- 
+  !-----------------------------------------------------------------------------
   select case(method)
-  case("fsi") 
+  case("fsi")
      call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
           workc,press,Insect,beams)
   case("mhd")
@@ -37,13 +37,13 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   end select
 
   n0 = 1-n1 !important to do this now in case we're retaking a backp
-  
+
   !-----------------------------------------------------------------------------
   ! create startup mask function
   !-----------------------------------------------------------------------------
   if (mpirank==0) write(*,'("Creating startup mask...time=",es12.4)') time
   call create_mask(time,Insect,beams)
-  
+
   !-----------------------------------------------------------------------------
   ! save initial conditions (if not resuming a backup)
   !-----------------------------------------------------------------------------
@@ -62,7 +62,7 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   use p3dfft_wrapper
   use penalization ! mask array etc
   implicit none
-  
+
   complex(kind=pr),intent(inout):: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout):: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout):: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
@@ -87,7 +87,7 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   pfluidarea=0.d0
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1) 
+      do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
               ux=f1(ix,iy,iz)
               uy=f2(ix,iy,iz)
@@ -101,7 +101,7 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   enddo
 
   pekin = 0.5*pekin
-  
+
   call MPI_REDUCE(pekin,ekin,&
        1,MPI_DOUBLE_PRECISION,MPI_SUM,&
        0,MPI_COMM_WORLD,mpicode)
@@ -117,7 +117,7 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   ! Normalize the field to the desired energy:
   enorm=dsqrt(energy/ekin)
   f1=f1*enorm
-  f2=f2*enorm  
+  f2=f2*enorm
   f3=f3*enorm
 
   call fft(fk1,f1)
@@ -154,9 +154,9 @@ subroutine randgen3d(fk1,fk2,fk3,w)
 
   k0=3.d0*sqrt(2.d0)*pi/4.d0
 
-  !-- generate 3D gaussian field 
-  do iz=ca(1),cb(1)          
-    kz = wave_z(iz)       
+  !-- generate 3D gaussian field
+  do iz=ca(1),cb(1)
+    kz = wave_z(iz)
     do iy=ca(2), cb(2)
       ky = wave_y(iy)
       do ix=ca(3), cb(3)
@@ -244,7 +244,7 @@ subroutine init_taylorcouette_u(ubk,ub)
         call abort()
      endif
   endif
-  
+
   A=-omega1*r1*r1/(r2*r2 - r1*r1)
   B=omega1*r1*r1*r2*r2/(r2*r2 - r1*r1)
 
@@ -269,7 +269,7 @@ subroutine init_taylorcouette_u(ubk,ub)
               ub(ix,iy,iz,2)=F*x/r
            enddo
         endif
-        
+
         if(r >= R2) then
            do iz=ra(3),rb(3)
               ! NB: We assume that the outer wall is not moving.
@@ -282,10 +282,10 @@ subroutine init_taylorcouette_u(ubk,ub)
   enddo
 
   us(:,:,:,3)=0.d0
-  
+
   ! Transform velocity field to Fourier space:
   do i=1,3
      call fft(ubk(:,:,:,i),ub(:,:,:,i))
   enddo
-  
+
 end subroutine init_taylorcouette_u

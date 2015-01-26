@@ -18,17 +18,17 @@ module basic_operators
     module procedure fieldmaxabs, fieldmaxabs3
   end interface
 
-  !-- check fields for NaN 
+  !-- check fields for NaN
   interface checknan
     module procedure checknan_cmplx, checknan_real
   end interface
- 
- 
-!!!!!!!!!!! 
+
+
+!!!!!!!!!!!
  contains
-!!!!!!!!!!! 
- 
- 
+!!!!!!!!!!!
+
+
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl(out1,out2,out3,in1,in2,in3)
@@ -51,7 +51,7 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
   complex(kind=pr) :: imag   ! imaginary unit
 
   imag = dcmplx(0.d0,1.d0)
-  
+
   ! Compute curl of given field in Fourier space:
   do iz=ca(1),cb(1)
      kz=wave_z(iz)
@@ -66,7 +66,7 @@ subroutine curl(out1,out2,out3,in1,in2,in3)
         enddo
      enddo
   enddo
-end subroutine curl 
+end subroutine curl
 
 
 ! Given three components of a fields in Fourier space, compute the
@@ -88,7 +88,7 @@ subroutine curl_inplace(fx,fy,fz)
   complex(kind=pr) :: imag   ! imaginary unit
 
   imag = dcmplx(0.d0,1.d0)
-  
+
   ! Compute curl of given field in Fourier space:
   do iz=ca(1),cb(1)
      kz=wave_z(iz)
@@ -96,7 +96,7 @@ subroutine curl_inplace(fx,fy,fz)
         ky=wave_y(iy)
         do ix=ca(3),cb(3)
            kx=wave_x(ix)
-           
+
            t1=fx(iz,iy,ix)
            t2=fy(iz,iy,ix)
            t3=fz(iz,iy,ix)
@@ -127,7 +127,7 @@ subroutine curl3_inplace(fk)
   complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
 
   imag = dcmplx(0.d0,1.d0)
-  
+
   ! Compute curl of given field in Fourier space:
   do iz=ca(1),cb(1)
      kz=wave_z(iz)
@@ -135,7 +135,7 @@ subroutine curl3_inplace(fk)
         ky=wave_y(iy)
         do ix=ca(3),cb(3)
            kx=wave_x(ix)
-           
+
            t1=fk(iz,iy,ix,1)
            t2=fk(iz,iy,ix,2)
            t3=fk(iz,iy,ix,3)
@@ -146,7 +146,7 @@ subroutine curl3_inplace(fk)
         enddo
      enddo
   enddo
-end subroutine curl3_inplace 
+end subroutine curl3_inplace
 
 
 ! Given three components of an input fields in Fourier space, compute
@@ -169,7 +169,7 @@ subroutine curl_2nd (fx,fy,fz)
   complex(kind=pr) :: imag   ! imaginary unit
 
   imag = dcmplx(0.d0,1.d0)
-  
+
   ! Compute curl of given field in Fourier space:
   do iz=ca(1),cb(1)
      kz=dsin(dz*wave_z(iz))/ dz ! (reduced to 2nd order)
@@ -177,7 +177,7 @@ subroutine curl_2nd (fx,fy,fz)
         ky=dsin(dy*wave_y(iy))/dy ! (reduced to 2nd order)
         do ix=ca(3),cb(3)
            kx=dsin(dx*wave_x(ix))/dx ! (reduced to 2nd order)
-           
+
            t1=fx(iz,iy,ix)
            t2=fy(iz,iy,ix)
            t3=fz(iz,iy,ix)
@@ -209,7 +209,7 @@ subroutine curl3(ink,outk)
   complex(kind=pr) :: imag   ! imaginary unit
 
   imag = dcmplx(0.d0,1.d0)
-  
+
   ! Compute curl of given field in Fourier space:
   do iz=ca(1),cb(1)
      kz=wave_z(iz)
@@ -224,7 +224,7 @@ subroutine curl3(ink,outk)
         enddo
      enddo
   enddo
-end subroutine curl3 
+end subroutine curl3
 
 
 !-------------------------------------------------------------------------------
@@ -240,16 +240,16 @@ subroutine divergence( ink, outk )
   complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
   ! output scalar field in Fourier space
   complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  
+
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz
 
-  do iz=ca(1),cb(1)          
+  do iz=ca(1),cb(1)
     !-- wavenumber in z-direction
-    kz = wave_z(iz)       
+    kz = wave_z(iz)
     do iy=ca(2), cb(2)
       !-- wavenumber in y-direction
-      ky = wave_y(iy)      
+      ky = wave_y(iy)
       do ix=ca(3), cb(3)
         !-- wavenumber in x-direction
         kx = wave_x(ix)
@@ -268,11 +268,11 @@ subroutine laplacien_inplace( ink )
   use vars
   implicit none
   complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  
+
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
 
-  do iz=ca(1),cb(1)          
+  do iz=ca(1),cb(1)
     !-- wavenumber in z-direction
     kz = wave_z(iz)
     do iy=ca(2), cb(2)
@@ -287,10 +287,10 @@ subroutine laplacien_inplace( ink )
     enddo
   enddo
 end subroutine laplacien_inplace
-  
-  
+
+
 ! computes laplace(ink) for a scalar valued field and returns it in the same array
-! note wavenumbers are reduced to second order accuracy (for the Q-criterion, 
+! note wavenumbers are reduced to second order accuracy (for the Q-criterion,
 ! the result is nicer if filtered)
 subroutine laplacien_inplace_filtered( ink )
   use mpi
@@ -298,11 +298,11 @@ subroutine laplacien_inplace_filtered( ink )
   use vars
   implicit none
   complex(kind=pr),intent(inout)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  
+
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
 
-  do iz=ca(1),cb(1)          
+  do iz=ca(1),cb(1)
     !-- wavenumber in z-direction (reduced to 2nd order)
     kz = dsin( dz*wave_z(iz) )/ dz
     do iy=ca(2), cb(2)
@@ -318,7 +318,7 @@ subroutine laplacien_inplace_filtered( ink )
   enddo
 end subroutine laplacien_inplace_filtered
 
-  
+
 ! returns the globally largest entry of a given (real) field
 real(kind=pr) function fieldmax( inx )
   use mpi
@@ -327,11 +327,11 @@ real(kind=pr) function fieldmax( inx )
   real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: max_local, max_global
   integer :: mpicode
-  
+
   max_local = maxval(inx)
   call MPI_ALLREDUCE (max_local,max_global,1,&
-       MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)  
-  ! return the value    
+       MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  ! return the value
   fieldmax = max_global
 end function fieldmax
 
@@ -344,11 +344,11 @@ real(kind=pr) function fieldmin( inx )
   real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: min_local, min_global
   integer :: mpicode
-  
+
   min_local = minval(inx)
   call MPI_ALLREDUCE (min_local,min_global,1,&
-       MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)  
-  ! return the value    
+       MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  ! return the value
   fieldmin = min_global
 end function fieldmin
 
@@ -366,7 +366,7 @@ real(kind=pr) function fieldmaxabs3( inx )
   max_local = 0.d0
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1) 
+      do ix=ra(1),rb(1)
         value = inx(ix,iy,iz,1)*inx(ix,iy,iz,1) + inx(ix,iy,iz,2)*inx(ix,iy,iz,2) &
               + inx(ix,iy,iz,3)*inx(ix,iy,iz,3)
         if (max_local<value) max_local=value
@@ -377,7 +377,7 @@ real(kind=pr) function fieldmaxabs3( inx )
   max_local = dsqrt( max_local )
   call MPI_ALLREDUCE (max_local,max_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
-  ! return the value    
+  ! return the value
   fieldmaxabs3 = max_global
 end function fieldmaxabs3
 
@@ -396,13 +396,13 @@ real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
 
   max_local = maxval( inx1*inx1 + inx2*inx2  + inx3*inx3 )
   max_local = dsqrt( max_local )
-  
+
   call MPI_ALLREDUCE (max_local,max_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
-  ! return the value    
+  ! return the value
   fieldmaxabs = max_global
 end function fieldmaxabs
-  
+
 
 !-------------------------------------------------------------------------------
 ! check a real valued field for NaNs and display warning if found
@@ -416,16 +416,16 @@ subroutine checknan_real( field, msg )
   foundnan = 0
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)   
+      do ix=ra(1),rb(1)
         if (is_nan(field(ix,iy,iz))) foundnan = 1
       enddo
     enddo
-  enddo  
-  
-  call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,&
-       MPI_COMM_WORLD,mpicode)  
+  enddo
 
-  if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans      
+  call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,&
+       MPI_COMM_WORLD,mpicode)
+
+  if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans
 end subroutine checknan_real
 
 
@@ -446,12 +446,12 @@ subroutine checknan_cmplx( field, msg )
         if (is_nan(real (field(iz,iy,ix)))) foundnan = 1
       enddo
     enddo
-  enddo  
-  
+  enddo
+
   call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,&
-       MPI_COMM_WORLD,mpicode)  
+       MPI_COMM_WORLD,mpicode)
 
   if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans
-end subroutine checknan_cmplx  
-  
+end subroutine checknan_cmplx
+
 end module basic_operators
