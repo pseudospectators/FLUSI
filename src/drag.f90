@@ -34,6 +34,8 @@ subroutine cal_drag ( time, u, Insect )
   real(kind=pr) :: power,powerx,powery,powerz
   character(len=1024) :: forcepartfilename
 
+  if (iPenalization==1) then
+
   forcex  = 0.d0
   forcey  = 0.d0
   forcez  = 0.d0
@@ -213,6 +215,10 @@ subroutine cal_drag ( time, u, Insect )
       GlobalIntegrals%Torque_unst
       close(14)
     endif
+  endif
+
+
+
   endif
 end subroutine cal_drag
 

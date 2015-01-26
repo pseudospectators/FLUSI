@@ -559,22 +559,22 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
 
   !-- SECOND runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,0)
-  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,Insect,beams)
 
 
   !--THIRD runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,1)
-  call cal_nlk(time,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,Insect,beams)
 
 
-  !-- FOURTH runge kutta set
+  !-- FOURTH runge kutta step
   uk = nlk(:,:,:,:,4) + dt1*nlk(:,:,:,:,2)
-  call cal_nlk(time,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time+dt1,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,Insect,beams)
 
 
   !-- FINAL step
   uk = nlk(:,:,:,:,4) + (dt1/6.d0) * ( nlk(:,:,:,:,0) + 2.d0*nlk(:,:,:,:,1) + &
-       2.d0*nlk(:,:,:,:,2) + nlk(:,:,:,:,3))
+       2.d0*nlk(:,:,:,:,2) + nlk(:,:,:,:,3) )
 
 end subroutine rungekutta4
 
