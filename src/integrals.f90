@@ -720,3 +720,83 @@ subroutine compute_mask_volume(volume)
           MPI_COMM_WORLD,mpicode)
 
 end subroutine compute_mask_volume
+
+
+
+subroutine compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+  ! ----------------------------------------------------------------------------
+  ! Compute the energy spectrum of a velocity field in in Fourier space
+  ! It is assumed that the x-direction is not split among processes, i.e. we
+  ! deal with a 2D data decomposition.
+  ! This code also works for non-cubic data (with more points in the x-direction)
+  ! The domain size is assumed to be (2*pi)^3 (or, if nx=2*ny, then it is 4*pi)
+  ! The wavenumber ordering is given by the wrapper is p3dfft_wrapper
+  ! Assumes using STRIDE-1 ordering: (ix,iy,iz) but (kz,ky,kx) and NOT (kz,kx,ky)
+  ! ----------------------------------------------------------------------------
+
+
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  real(kind=pr), intent(in) :: time
+  complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+
+  real(kind=pr) :: kx, ky, kz, kreal
+  integer :: ix, iy, iz, k, mpicode
+  ! NOTE: we assume the x-direction to be contiguous (i.e. it is NOT split among CPU)
+  real(kind=pr), dimension(0:nx-1), intent(inout) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx_loc,S_Ekiny_loc,S_Ekinz_loc,S_Ekin_loc
+  real(kind=pr) :: sum_ux, sum_uy, sum_uz, sum_u
+
+  S_Ekinx=0.0d0
+  S_Ekiny=0.0d0
+  S_Ekinz=0.0d0
+  S_Ekin=0.0d0
+
+  S_Ekinx_loc=0.0d0
+  S_Ekiny_loc=0.0d0
+  S_Ekinz_loc=0.0d0
+  S_Ekin_loc=0.0d0
+
+  do iz=ca(1),cb(1)
+    kz=wave_z(iz)
+    do iy=ca(2),cb(2)
+      ky=wave_y(iy)
+      do ix=ca(3),cb(3)
+        kx=wave_x(ix)
+        ! compute 2-norm of wavenumber
+        kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz))
+        ! then round it so that we can fit it in the corresponding bin
+        k = nint(kreal)
+
+        if ( ix==0 .or. ix==nx/2 ) then
+          sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2.
+          sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2.
+          sum_uz=dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+        else
+          sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)
+          sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)
+          sum_uz=dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+        endif
+
+        sum_u = sum_ux + sum_uy + sum_uz
+        S_Ekinx_loc(k) = S_Ekinx_loc(k) + sum_ux
+        S_Ekiny_loc(k) = S_Ekiny_loc(k) + sum_uy
+        S_Ekinz_loc(k) = S_Ekinz_loc(k) + sum_uz
+        S_Ekin_loc(k)  = S_Ekin_loc(k)  + sum_u
+      enddo
+    enddo
+  enddo
+
+  call MPI_REDUCE(S_Ekinx_loc,S_Ekinx,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  MPI_COMM_WORLD,mpicode) ! sum at 0th process
+  call MPI_REDUCE(S_Ekiny_loc,S_Ekiny,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  MPI_COMM_WORLD,mpicode) ! sum at 0th process
+  call MPI_REDUCE(S_Ekinz_loc,S_Ekinz,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  MPI_COMM_WORLD,mpicode) ! sum at 0th process
+  call MPI_REDUCE(S_Ekin_loc ,S_Ekin ,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  MPI_COMM_WORLD,mpicode) ! sum at 0th process
+
+end subroutine compute_spectrum
