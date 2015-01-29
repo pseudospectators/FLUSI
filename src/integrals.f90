@@ -15,7 +15,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
   use insect_module
   implicit none
 
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -56,7 +56,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::work3r(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
@@ -66,7 +66,12 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   real(kind=pr) :: ekin, ekinx, ekiny, ekinz
   real(kind=pr) :: diss, dissx, dissy, dissz
   real(kind=pr) :: dissf, dissxf, dissyf, disszf
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
   integer :: ix,iy,iz,mpicode
+
+  ! fetch u in x-space at time t. note the output u of fluidtimestep is not
+  ! nessesarily what we need, so we must ensure u=ifft(uk) here
+  call ifft3 (ink=uk, outx=u)
 
   !-----------------------------------------------------------------------------
   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
@@ -75,9 +80,6 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   ! we can skip the separate computation in INTEGRALS
   if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
     t3 = MPI_wtime()
-    ! fetch u in x-space at time t. note the output u of fluidtimestep is not
-    ! nessesarily what we need, so we must ensure u=ifft(uk) here
-    call ifft3 (ink=uk, outx=u)
     ! to compute the forces, we need the mask at time t. not we cannot suppose
     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
     ! have to reconstruct the mask now. solids are also at time t
@@ -186,6 +188,26 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
     close(14)
   endif
 
+  !-----------------------------------------------------------------------------
+  ! Spectrum
+  !-----------------------------------------------------------------------------
+  if (iSaveSpectrae=="yes") then
+    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    if(mpirank == 0) then
+      open(14,file='spectrum_tot.t',status='unknown',position='append')
+      write (14,'(1024(es15.8,1x))') time,S_Ekin
+      close(14)
+      open(14,file='spectrum_x.t',status='unknown',position='append')
+      write (14,'(1024(es15.8,1x))') time,S_Ekinx
+      close(14)
+      open(14,file='spectrum_y.t',status='unknown',position='append')
+      write (14,'(1024(es15.8,1x))') time,S_Ekiny
+      close(14)
+      open(14,file='spectrum_z.t',status='unknown',position='append')
+      write (14,'(1024(es15.8,1x))') time,S_Ekinz
+      close(14)
+    endif
+  endif
 end subroutine write_integrals_fsi
 
 
@@ -722,19 +744,16 @@ subroutine compute_mask_volume(volume)
 end subroutine compute_mask_volume
 
 
-
+! ----------------------------------------------------------------------------
+! Compute the energy spectrum of a velocity field in in Fourier space
+! It is assumed that the x-direction is not split among processes, i.e. we
+! deal with a 2D data decomposition.
+! This code also works for non-cubic data (with more points in the x-direction)
+! The domain size is assumed to be (2*pi)^3 (or, if nx=2*ny, then it is 4*pi)
+! The wavenumber ordering is given by the wrapper is p3dfft_wrapper
+! Assumes using STRIDE-1 ordering: (ix,iy,iz) but (kz,ky,kx) and NOT (kz,kx,ky)
+! ----------------------------------------------------------------------------
 subroutine compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
-  ! ----------------------------------------------------------------------------
-  ! Compute the energy spectrum of a velocity field in in Fourier space
-  ! It is assumed that the x-direction is not split among processes, i.e. we
-  ! deal with a 2D data decomposition.
-  ! This code also works for non-cubic data (with more points in the x-direction)
-  ! The domain size is assumed to be (2*pi)^3 (or, if nx=2*ny, then it is 4*pi)
-  ! The wavenumber ordering is given by the wrapper is p3dfft_wrapper
-  ! Assumes using STRIDE-1 ordering: (ix,iy,iz) but (kz,ky,kx) and NOT (kz,kx,ky)
-  ! ----------------------------------------------------------------------------
-
-
   use mpi
   use vars
   use p3dfft_wrapper
@@ -753,12 +772,12 @@ subroutine compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
   S_Ekinx=0.0d0
   S_Ekiny=0.0d0
   S_Ekinz=0.0d0
-  S_Ekin=0.0d0
+  S_Ekin =0.0d0
 
   S_Ekinx_loc=0.0d0
   S_Ekiny_loc=0.0d0
   S_Ekinz_loc=0.0d0
-  S_Ekin_loc=0.0d0
+  S_Ekin_loc =0.0d0
 
   do iz=ca(1),cb(1)
     kz=wave_z(iz)
@@ -790,13 +809,13 @@ subroutine compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
     enddo
   enddo
 
-  call MPI_REDUCE(S_Ekinx_loc,S_Ekinx,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-  MPI_COMM_WORLD,mpicode) ! sum at 0th process
-  call MPI_REDUCE(S_Ekiny_loc,S_Ekiny,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-  MPI_COMM_WORLD,mpicode) ! sum at 0th process
-  call MPI_REDUCE(S_Ekinz_loc,S_Ekinz,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-  MPI_COMM_WORLD,mpicode) ! sum at 0th process
-  call MPI_REDUCE(S_Ekin_loc ,S_Ekin ,nx,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-  MPI_COMM_WORLD,mpicode) ! sum at 0th process
+  call MPI_ALLREDUCE(S_Ekinx_loc,S_Ekinx,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(S_Ekiny_loc,S_Ekiny,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(S_Ekinz_loc,S_Ekinz,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(S_Ekin_loc ,S_Ekin ,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
 
 end subroutine compute_spectrum

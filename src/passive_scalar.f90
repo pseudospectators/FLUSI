@@ -8,6 +8,7 @@ subroutine cal_nlk_scalar( time, it, u, uk, nlk, workc1, work )
   use p3dfft_wrapper
   use fsi_vars
   use penalization ! mask array etc
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(in) :: time

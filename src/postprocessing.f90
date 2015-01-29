@@ -106,8 +106,8 @@ subroutine convert_hdf2bin()
   ! dump binary file (this file will be called ux_00100.h5.binary)
   open (12, file = trim(fname_bin), form='unformatted', status='replace',&
       convert="little_endian")
-!   write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
-  write(12) field_out
+  write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
+!  write(12) field_out
   close (12)
 
   deallocate (field, field_out)
@@ -1230,7 +1230,7 @@ end subroutine upsample
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocess --spectrum ux_00000.h5 uy_00000.h5 uz_00000.h5
+! ./flusi --postprocess --spectrum ux_00000.h5 uy_00000.h5 uz_00000.h5 spectrum.dat
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! can be done in parallel. the flag --second order can be used for filtering
@@ -1240,7 +1240,7 @@ subroutine post_spectrum()
   use basic_operators
   use mpi
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, order
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, spectrum_file
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time, sum_u
@@ -1250,7 +1250,7 @@ subroutine post_spectrum()
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
-  call get_command_argument(6,order)
+  call get_command_argument(6,spectrum_file)
 
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
@@ -1272,6 +1272,14 @@ subroutine post_spectrum()
   dx = xl/dble(nx)
   dy = yl/dble(ny)
   dz = zl/dble(nz)
+
+  if (mpirank==0) then
+    write(*,'("Computing spectrum of ",A,1x,A,1x,A)') &
+    trim(adjustl(fname_ux)), trim(adjustl(fname_uy)), trim(adjustl(fname_uz))
+    write(*,'("Spectrum will be written to ",A)') trim(adjustl(spectrum_file))
+    write(*,'("Resolution is ",i4,1x,i4,1x,i4)') nx, ny, nz
+    write(*,'("Domain size is", es12.4,1x,es12.4,1x,es12.4)') xl, yl ,zl
+  endif
 
   call fft_initialize() ! also initializes the domain decomp
 
@@ -1296,24 +1304,22 @@ subroutine post_spectrum()
   call fft (uk(:,:,:,3),u(:,:,:,3))
 
   ! compute the actual spectrum
-  call compute_spectrum(0.0d0, uk, S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+  call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
   ! on root, write it to disk
   if (mpirank == 0) then
-    !-----------write spectrum, calculate integral scale and Etot
-    open(10,file='spectrum.dat',status='unknown')
+    open(10,file=spectrum_file,status='replace')
     write(10,'(5(A15,1x))') '%   K ','E_u(K)','E_ux(K)','E_uy(K)','E_uz(K)'
     do k=0,nx-1
-      write(10,97) dble(k),S_Ekin(k),S_Ekinx(k),S_Ekiny(k),S_Ekinz(k)
+      write(10,'(5(1x,es15.8))') dble(k),S_Ekin(k),S_Ekinx(k),S_Ekiny(k),S_Ekinz(k)
     enddo
-
-    97 format(1X,9(E15.8,' '))
 
     sum_u=0.0d0
     do k=1,nx-1
       sum_u=sum_u +S_Ekin(k)
     enddo
     write(10,*) '% Etot = ',sum_u
+    write(10,*) '% time = ',time
     close(10)
   endif
 

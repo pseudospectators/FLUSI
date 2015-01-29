@@ -275,6 +275,13 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
     call add_explicit_diffusion(uk,nlk)
   endif
 
+  !-----------------------------------------------------------------------------
+  ! Add forcing term for isotropic turbulence, if used
+  !-----------------------------------------------------------------------------
+  if (forcing_type/="none") then
+    call add_forcing_term(time,uk,nlk)
+  endif
+
 
   time_nlk = time_nlk + MPI_wtime() - t0
 end subroutine cal_nlk_fsi
@@ -389,6 +396,51 @@ subroutine add_explicit_diffusion(uk,nlk)
   enddo
 end subroutine add_explicit_diffusion
 
+
+
+subroutine add_forcing_term(time,uk,nlk)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  real(kind=pr) :: time
+  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr) :: kx,ky,kz,kreal,factor
+  integer :: ix,iy,iz
+
+  select case(forcing_type)
+  case ("machiels")
+    ! Forcing by Machiels PRL1997 ("Predictability of Small-scale Motion in Isotropic...")
+    ! get spectrum (on all procs, MPI_ALLREDUCE)
+    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    ! force wavenumber shells
+    do iz=ca(1),cb(1)
+      kz=wave_z(iz)
+      do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do ix=ca(3),cb(3)
+          kx=wave_x(ix)
+          ! compute 2-norm of wavenumber
+          kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
+
+          ! forcing lives around this shell
+          if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
+            factor = eps / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+            nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
+            nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
+            nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
+          endif
+
+        enddo
+      enddo
+    enddo
+
+  end select
+end subroutine add_forcing_term
 
 
 

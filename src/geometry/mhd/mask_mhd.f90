@@ -1,4 +1,4 @@
-! MHD wrapper for different mask functions 
+! MHD wrapper for different mask functions
 subroutine create_mask_mhd()
   use penalization ! mask array etc
   use mhd_vars
@@ -24,88 +24,6 @@ subroutine create_mask_mhd()
      end select
   endif
 end subroutine create_mask_mhd
-
-subroutine dealias(fk1,fk2,fk3) 
-  use vars
-  use penalization ! mask array etc
-  use p3dfft_wrapper
-  implicit none
-
-  integer :: ix,iy,iz
-  complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout) :: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  complex(kind=pr),intent(inout) :: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr) :: kx2,ky2,kz2,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
-
-  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
-  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
-  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)  
-
-  do iz=ca(1),cb(1)
-     kz2 =wave_z(iz)**2
-     kzt2=(wave_z(iz)/scalez) / kz_trunc
-     kzt2=kzt2*kzt2
-     
-     do iy=ca(2),cb(2)
-        ky2=wave_y(iy)**2
-        kyt2=(wave_y(iy)/scaley) / ky_trunc
-        kyt2=kyt2*kyt2
-
-        do ix=ca(3),cb(3)
-           kx2=wave_x(ix)**2
-           kxt2=(wave_x(ix)/scalex) / kx_trunc
-           kxt2=kxt2*kxt2
-
-           if ((kxt2 + kyt2 + kzt2  .ge. 1.d0) .and. (iDealias==1)) then
-              fk1(iz,iy,ix)=0.d0
-              fk2(iz,iy,ix)=0.d0
-              fk3(iz,iy,ix)=0.d0
-           endif
-
-        enddo
-     enddo
-  enddo
-
-end subroutine dealias
-
-subroutine dealias1(fk1)
-  use vars
-  use penalization ! mask array etc
-  use p3dfft_wrapper
-  implicit none
-
-  integer :: ix,iy,iz
-  complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr) :: kx2,ky2,kz2,kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
-
-  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
-  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
-  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)  
-
-  do iz=ca(1),cb(1)
-     kz2 =wave_z(iz)**2
-     kzt2=(wave_z(iz)/scalez) / kz_trunc
-     kzt2=kzt2*kzt2
-     
-     do iy=ca(2),cb(2)
-        ky2=wave_y(iy)**2
-        kyt2=(wave_y(iy)/scaley) / ky_trunc
-        kyt2=kyt2*kyt2
-
-        do ix=ca(3),cb(3)
-           kx2=wave_x(ix)**2
-           kxt2=(wave_x(ix)/scalex) / kx_trunc
-           kxt2=kxt2*kxt2
-
-           if ((kxt2 + kyt2 + kzt2  .ge. 1.d0) .and. (iDealias==1)) then
-              fk1(iz,iy,ix)=0.d0
-           endif
-
-        enddo
-     enddo
-  enddo
-
-end subroutine dealias1
 
 
 ! MHD wrapper for setting (possibly velocity-dependent) imposed field.
@@ -141,23 +59,23 @@ subroutine tc_us_mhd()
   use penalization ! mask array etc
   use mhd_vars
   implicit none
-  
+
 !  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: r, x, y
   integer :: ix, iy, iz
-  
+
   us=0.d0
 
   ! Set the velocity field to be the steady-state solution:
   call taylor_couette_u_us(us(:,:,:,1),us(:,:,:,2),us(:,:,:,3))
 
-  do ix=ra(1),rb(1)  
+  do ix=ra(1),rb(1)
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
 
         r=dsqrt(x*x + y*y)
-        
+
         if(r <= R1) then
            do iz=ra(3),rb(3)
               ! Magnetic field:
@@ -171,7 +89,7 @@ subroutine tc_us_mhd()
         if(r >= R2) then
            do iz=ra(3),rb(3)
               ! NB: We assume that the outer wall is not moving.
-              ! Magnetic field: 
+              ! Magnetic field:
               ! FIXME: non-penetration for b?
               us(ix,iy,iz,4)=0.d0
               us(ix,iy,iz,5)=0.d0
@@ -181,7 +99,7 @@ subroutine tc_us_mhd()
   enddo
 
   ! Always penalize the z-component to the axial field.
-  us(:,:,:,6)=B0 
+  us(:,:,:,6)=B0
 end subroutine tc_us_mhd
 
 
@@ -190,13 +108,13 @@ subroutine tc_mask_mhd()
   use penalization ! mask array etc
   use mhd_vars
   implicit none
-  
+
   real (kind=pr) :: r,x,y
   integer :: ix,iy,iz
 
   mask=0.d0
 
-  do ix=ra(1),rb(1)  
+  do ix=ra(1),rb(1)
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
@@ -219,13 +137,13 @@ subroutine smc_mask_mhd()
   use mhd_vars
   use penalization ! mask array etc
   implicit none
-  
+
   real (kind=pr) :: r, x, y
   integer :: ix, iy, iz
 
   mask=0.d0
 
-  do ix=ra(1),rb(1)  
+  do ix=ra(1),rb(1)
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
@@ -248,13 +166,13 @@ subroutine smcnum_mask_mhd()
   use mhd_vars
   use penalization ! mask array etc
   implicit none
-  
+
   real (kind=pr) :: r, x, y
   integer :: ix, iy, iz
 
   mask=0.d0
 
-  do ix=ra(1),rb(1)  
+  do ix=ra(1),rb(1)
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
@@ -278,16 +196,16 @@ subroutine smc_us_mhd()
   use penalization ! mask array etc
   use mhd_vars
   implicit none
-  
+
 !  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr) :: r,x,y
   integer :: ix,iy,iz
   real (kind=pr) :: a,b,c,d,k1,k2,h
-  logical, save :: firstcall = .true. 
-  
+  logical, save :: firstcall = .true.
+
   if (firstcall) then
      firstcall = .false.
-     
+
      ! Velocity is no-slip:
      us(:,:,:,1)=0.d0
      us(:,:,:,2)=0.d0
@@ -344,7 +262,7 @@ subroutine bcpoint(on,x,y)
   logical, intent(out) :: on
   real(kind=pr), intent(in) :: x,y
   real(kind=pr) :: f
-  
+
   ! f is a sort of search width to find points representing \partial\Omega_f
   ! The larger the value of f, the more points.
   ! Too many points and the boundary has non-zero volume.
@@ -385,7 +303,7 @@ subroutine setpen(p1,p2,p3)
   use penalization ! mask array etc
   use mhd_vars
   implicit none
-  
+
   real(kind=pr),intent(out)::p1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(out)::p2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(out)::p3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -394,11 +312,11 @@ subroutine setpen(p1,p2,p3)
   integer :: ix,iy,iz
   real(kind=pr) :: x,y,bcx,bcy
 
-  do ix=ra(1),rb(1)  
+  do ix=ra(1),rb(1)
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
-        
+
         call bcpoint(onboundary,x,y)
         if(onboundary) then
            call bcval(bcx,bcy,x,y)
@@ -423,7 +341,7 @@ subroutine checkbc(diff,us1,us2)
   use penalization ! mask array etc
   use mhd_vars
   implicit none
-  
+
   real(kind=pr),intent(in)::us1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in)::us2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 !  real(kind=pr),intent(in)::us3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -436,14 +354,14 @@ subroutine checkbc(diff,us1,us2)
   diff=0.d0
 !  write(*,*) -0.5d0*xl,-0.5d0*yl
 !  write(*,*) 0.5d0*xl,0.5d0*yl
-  
+
   do ix=ra(1),rb(1)
      x=xl*(dble(ix)/dble(nx) -0.5d0)
 
 
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
-        
+
         call bcpoint(onboundary,x,y)
         if(onboundary) then
            call bcval(bcx,bcy,x,y)
@@ -455,10 +373,10 @@ subroutine checkbc(diff,us1,us2)
 
               ux=us1(ix,iy,iz)
               uy=us2(ix,iy,iz)
-              
+
               pnorm=bcx*bcx + bcy*bcy +1d-16
               perror=(ux-bcx)*(ux-bcx) +(uy-bcy)*(uy-bcy)
-              
+
               perror=perror/pnorm
               if(perror > diff) diff=perror
            enddo
@@ -475,7 +393,7 @@ subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
   use mhd_vars
   use p3dfft_wrapper
   implicit none
-  
+
   real(kind=pr),intent(in)::ux(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in)::uy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in)::uz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -508,14 +426,14 @@ subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
            kx=wave_x(ix)
 
            k2=100d0*(kx*kx +ky*ky +kz*kz)
-           
+
            ukx(iz,iy,ix)=-k2*ukx(iz,iy,ix)
            uky(iz,iy,ix)=-k2*uky(iz,iy,ix)
            ukz(iz,iy,ix)=-k2*ukz(iz,iy,ix)
         enddo
      enddo
   enddo
- 
+
   ! call dealias(ukx,uky,ukz)
 
   call ifft(sx,ukx)
@@ -523,11 +441,11 @@ subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
   call ifft(sz,ukz)
 
   ! Compute penalisation
-  do ix=ra(1),rb(1)  
+  do ix=ra(1),rb(1)
      x=xl*(dble(ix)/dble(nx) -0.5d0)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
-  
+
         call bcpoint(onboundary,x,y)
         if(onboundary) then
            call bcval(bcx,bcy,x,y)
@@ -539,7 +457,7 @@ subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
         endif
      enddo
   enddo
-  
+
 end subroutine pseudosource
 
 ! Compute the Euclideian distance between points (ax,ay,az) and
@@ -548,7 +466,7 @@ end subroutine pseudosource
 subroutine dist(ax,ay,az,bx,by,bz,d)
   use vars
   implicit none
-  
+
   real(kind=pr), intent(in) :: ax,ay,az,bx,by,bz
   real(kind=pr) :: d1,d2,d3
   real(kind=pr), intent(out) :: d
@@ -566,7 +484,7 @@ end subroutine dist
 subroutine maxdist(ax,ay,az,bx,by,bz,d)
   use vars
   implicit none
-  
+
   real(kind=pr),intent(in)::ax(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in)::ay(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in)::az(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -597,13 +515,13 @@ subroutine smcnum_us_mhd()
   use p3dfft_wrapper
   use mhd_vars
   implicit none
-  
+
 !  real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: mydt,diff,diff0
   integer :: ix,iy,iz
   integer :: myi,mpicode
 
-  logical, save :: firstcall = .true. 
+  logical, save :: firstcall = .true.
   ! the penalisation field
   real(kind=pr),dimension(:,:,:),allocatable :: usx, usy, usz
   ! for the 2-stage time-stepper
@@ -613,7 +531,7 @@ subroutine smcnum_us_mhd()
   ! PC time-stepping source buffers
   real(kind=pr),dimension(:,:,:),allocatable :: s1x, s1y, s1z
   real(kind=pr),dimension(:,:,:),allocatable :: s2x, s2y, s2z
-  
+
   ! Local loop variables, which, in modern languages, are declared
   ! locally in the loop
   real (kind=pr) :: peps
@@ -627,7 +545,7 @@ subroutine smcnum_us_mhd()
      ! pseudo time-stepping parameters
      peps=pseudoeps
      mydt=pseudodt
-     
+
      if (mpirank == 0) then
         write(*,*) "Computing penalization field via pseudo time-stepping...."
         write(*,*) "pseudoeps=",pseudoeps
@@ -647,7 +565,7 @@ subroutine smcnum_us_mhd()
      call allocreal(s1x)
      call allocreal(s1y)
      call allocreal(s1z)
-     
+
      call allocreal(s2x)
      call allocreal(s2y)
      call allocreal(s2z)
@@ -655,7 +573,7 @@ subroutine smcnum_us_mhd()
      call alloccomplex(uskx)
      call alloccomplex(usky)
      call alloccomplex(uskz)
-     
+
      keeponkeepingon=.true.
 
      ! initialize penalization field to zero
@@ -671,14 +589,14 @@ subroutine smcnum_us_mhd()
      do while(keeponkeepingon) ! Solve for us
 
         myi=myi+1
-        
+
         ! compute source for first stage:
         call pseudosource(usx,usy,usz,uskx,usky,uskz,s1x,s1y,s1z)
         ! perform the first stage
         tusx = usx +0.5d0*pseudodt*s1x
         tusy = usy +0.5d0*pseudodt*s1y
         tusz = usz +0.5d0*pseudodt*s1z
-                
+
         ! compute source for second stage:
         call pseudosource(tusx,tusy,tusz,uskx,usky,uskz,s2x,s2y,s2z)
         ! perform the second stage
@@ -694,7 +612,7 @@ subroutine smcnum_us_mhd()
         call ifft(usx,uskx)
         call ifft(usy,usky)
         call ifft(usz,uskz)
-        
+
         ! output a sample bc point and what it should reach:
         ! ix=8
         ! iy=39
@@ -719,7 +637,7 @@ subroutine smcnum_us_mhd()
 
            if(mod(myi,100) == 0) then
               ! I really hate this part of Fortran.
-20            format (es10.2,x,es10.2,x,es10.2) 
+20            format (es10.2,x,es10.2,x,es10.2)
               write(*,20) pseudodt,diff0,error
            endif
 
@@ -759,7 +677,7 @@ subroutine smcnum_us_mhd()
 
      if (mpirank == 0) write(*,*) "setting magnetic penalty field...."
      ! copy ust to appropriate field for time-stepping. (us 4 and us 5)
-     do ix=ra(1),rb(1)  
+     do ix=ra(1),rb(1)
         do iy=ra(2),rb(2)
            do iz=ra(3),rb(3)
               us(ix,iy,iz,4)=usx(ix,iy,iz)
@@ -768,8 +686,8 @@ subroutine smcnum_us_mhd()
         enddo
      enddo
      ! the z-component of the magnetic field is penalized to B0
-     us(:,:,:,6)=b0 
-     
+     us(:,:,:,6)=b0
+
      if (mpirank == 0) write(*,*) "deallocating temporary buffers..."
      ! Deallocate temporary buffers
      deallocate(usx,usy,usz)
@@ -783,5 +701,5 @@ subroutine smcnum_us_mhd()
      if (mpirank == 0) write(*,*) "Finished setting penalty fields."
 
   end if ! if(firstcall)
-  
+
 end subroutine smcnum_us_mhd

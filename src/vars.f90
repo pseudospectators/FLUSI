@@ -77,6 +77,11 @@ module vars
   ! FIXME: please document
   integer,save :: iDealias
 
+  ! Isotropic Turbulence Forcing
+  character(len=strlen), save :: forcing_type
+  real(kind=pr), save :: kf, eps_forcing
+
+
   ! Parameters to set which files are saved and how often:
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
   integer,save :: idobackup
@@ -95,6 +100,7 @@ module vars
   ! one set of files on the disk
   character(len=strlen),save :: save_only_one_period, field_precision
   real(kind=pr),save :: tsave_period ! then this is period time
+  character(len=strlen),save :: iSaveSpectrae
 
   ! Time-stepping parameters
   real(kind=pr),save :: tmax
