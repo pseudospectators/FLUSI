@@ -1237,8 +1237,9 @@ end subroutine upsample
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocess --spectrum ux_00000.h5 uy_00000.h5 uz_00000.h5 spectrum.dat
 !-------------------------------------------------------------------------------
-! load the velocity components from file and compute & save the vorticity
-! can be done in parallel. the flag --second order can be used for filtering
+! NOTE: I actually did not figure out what happens if xl=yl=zl/=2*pi
+! which is a rare case in all isotropic turbulence situtations, and neither
+! of the corresponding routines have been tested for that case.
 subroutine post_spectrum()
   use vars
   use p3dfft_wrapper
@@ -1338,6 +1339,9 @@ end subroutine post_spectrum
 
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocess --turbulence-analysis ux_00000.h5 uy_00000.h5 uz_00000.h5 nu outfile.dat
+! NOTE: I actually did not figure out what happens if xl=yl=zl/=2*pi
+! which is a rare case in all isotropic turbulence situtations, and neither
+! of the corresponding routines have been tested for that case.
 !-------------------------------------------------------------------------------
 subroutine turbulence_analysis()
   use vars
@@ -1403,7 +1407,7 @@ subroutine turbulence_analysis()
   call curl (uk,vork)
   call ifft3 (ink=vork,outx=vor)
 
-  ! compute pectrum
+  ! compute spectrum
   call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
   !-----------------------------------------------------------------------------
@@ -1418,7 +1422,9 @@ subroutine turbulence_analysis()
   endif
 
   !-----------------------------------------------------------------------------
-  ! dissipation rate from spectrum
+  ! dissipation rate from spectrum; see Ishihara, Kaneda "High
+  ! resolution DNS of incompressible Homogeneous forced turbulence -time dependence
+  ! of the statistics" or my thesis
   !-----------------------------------------------------------------------------
   if (mpirank==0) then
     epsilon=0.0

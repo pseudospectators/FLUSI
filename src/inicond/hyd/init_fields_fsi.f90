@@ -22,7 +22,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   type(diptera),intent(inout)::Insect
   integer :: ix,iy,iz
   real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega
-  real (kind=pr) :: uu,E,Ex,Ey,Ez
+  real (kind=pr) :: uu,Ek,E,Ex,Ey,Ez,kx,ky,kz,theta1,theta2,phi,kabs,kh,kp,maxdiv
+  complex(kind=pr) :: alpha,beta
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
 
   ! Assign zero values
   time = 0.0d0
@@ -73,6 +75,108 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     enddo
     call fft3 ( uk,vort )
 
+  case("turbulence_rogallo")
+    !---------------------------------------------------------------------------
+    ! randomized initial condition with given spectrum k^4*exp(-k^2 /2)
+    ! the field is normalized to have the given energy "omega1"=E, where omega1
+    ! is set in parameter file
+    ! NOTE: I actually did not figure out what happens if xl=yl=zl/=2*pi
+    ! which is a rare case in all isotropic turbulence situtations, and neither
+    ! of the corresponding routines have been tested for that case.
+    ! NOTE: This technique is validated; just give it a spectrum and see
+    ! if that is what you get in return
+    !---------------------------------------------------------------------------
+
+    if (mpirank==0) then
+      write(*,'(80("-"))')
+      write(*,*) "Initial condition: turbulence_rogallo"
+      write(*,*) "randomized divergence-free field with given spectum"
+      write(*,*) "and total energy ", omega1
+    endif
+
+    ! initialize the random number generator
+    call random_seed()
+
+    ! loop over wavenumbers
+    do iz=ca(1),cb(1)
+      kz = wave_z(iz)
+      do iy=ca(2),cb(2)
+        ky = wave_y(iy)
+        do ix=ca(3),cb(3)
+          kx = wave_x(ix)
+          ! The spectrum E(k) is defined for "binned" wavenumbers, i.e.
+          ! for example 0.5 <= k <= 1.5 is K=1 (this is a spherical wavenumber
+          ! shell in k-space). this operation can easily be achieved by rounding
+          ! kabs to the nearest integer and then re-converting it to double precision
+          kabs = dble( nint(dsqrt(kx**2 + ky**2 + kz**2)) )
+          kh   = dsqrt( kx**2 + ky**2)
+          ! the wavenumber kp has the highest energy in the field. Mostly, you will
+          ! want to set either 1.d0 or 2.d0
+          kp   = 2.d0
+
+          ! random numbers for rogallo's initial conditions. Note we use the
+          ! wrapper rand_nbr which is in vars.f90
+          theta1 = 2.d0*pi*rand_nbr()
+          theta2 = 2.d0*pi*rand_nbr()
+          phi    = 2.d0*pi*rand_nbr()
+
+          ! this is the given spectrum of the field, which depends on the (radially
+          ! rounded) absolute wavenumber: E(k). You can set whatever you like
+          ! here, but most people use k^4 * exp(-k^2) (normalized to a given energy)
+          Ek = 1.0d2 * (kabs**4 / kp**5) * exp(-2.d0*(kabs/kp)**2)
+
+          ! the coefficients alpha and beta follow exactly Rogallo's notation
+          if (kabs /= 0.d0) then
+            alpha = 2.d0 * sqrt(Ek/(4.d0*pi*kabs**2)) * exp(cmplx(0.d0,theta1)) * cos(phi)
+            beta  = 2.d0 * sqrt(Ek/(4.d0*pi*kabs**2)) * exp(cmplx(0.d0,theta2)) * sin(phi)
+          else
+            alpha = cmplx(0.d0,0.d0)
+            beta  = cmplx(0.d0,0.d0)
+          endif
+
+          ! These formulaes come out of Rogallo's NASA 1981 paper, page 53 directly
+          ! but note that Rogallo made a typo in the third component (the one
+          ! here is correct)
+          if (kabs*kh /= 0.d0) then
+            uk(iz,iy,ix,1) = ( alpha*kabs*ky + beta*kx*kz) / (kabs*kh)
+            uk(iz,iy,ix,2) = (-alpha*kabs*kx + beta*kz*ky) / (kabs*kh)
+            uk(iz,iy,ix,3) = (-beta*kh**2) / (kabs*kh)
+          else
+            uk(iz,iy,ix,1) = cmplx(0.d0,0.d0)
+            uk(iz,iy,ix,2) = cmplx(0.d0,0.d0)
+            uk(iz,iy,ix,3) = cmplx(0.d0,0.d0)
+          endif
+       enddo
+      enddo
+    enddo
+
+    ! enforce hermitian symmetry the lazy way
+    call ifft3(ink=uk,outx=vort)
+    call fft3(inx=vort,outk=uk)
+
+    ! we now renomalize the velocity, such that it has the given energy omega1
+    ! which is set in the parameter file
+    call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+    Ek = sum(S_Ekin)
+    if (mpirank==0) write(*,*) "MEAN Energy before normalization=" ,ek
+
+    ! actual normalization
+    uk = uk * dsqrt(omega1/Ek)
+
+    ! check if this really worked
+    call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+    if (mpirank==0) write(*,*) "MEAN Energy after normalization =" ,sum(S_Ekin)
+    if (mpirank==0) write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
+    if (mpirank==0) write(*,*) "because it is the volume integral and not the mean"
+
+    
+    ! check if our initial condition is indeed divergence-free
+    call divergence( ink=uk, outk=workc(:,:,:,1) )
+    call ifft( ink=workc(:,:,:,1), outx=vort(:,:,:,1) )
+    ! vort(:,:,:,1) is now div in phys space
+    maxdiv = fieldmax(vort(:,:,:,1))
+    if(mpirank == 0) write(*,*) "Maximum divergence in field=", maxdiv
+    if(mpirank == 0) write(*,'(80("-"))')
   case ("taylor_green_2d")
     !--------------------------------------------------
     ! taylor green vortices
@@ -203,7 +307,6 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
      call random_seed()
-     call create_mask( 0.d0, Insect, beams )
      do iz=ra(3), rb(3)
         do iy=ra(2), rb(2)
            do ix=ra(1), rb(1)

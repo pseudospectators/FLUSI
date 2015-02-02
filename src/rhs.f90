@@ -156,7 +156,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   ! we do this here since we happen to have the voriticy and want to save FFTs
   if ((time_avg=="yes").and.(enstrophy_avg=="yes").and.(time>=tstart_avg)) then
     ! we need to know here what the time step will be
-    call adjust_dt(dt,u)
+    call adjust_dt(time,u,dt)
     ! compute incremental avg
     Z_avg = ( (vort(:,:,:,1)**2 + vort(:,:,:,2)**2 + vort(:,:,:,3)**2)*dt  &
           + (time-tstart_avg)*Z_avg ) / ( (time-tstart_avg)+dt )
@@ -404,17 +404,22 @@ subroutine add_forcing_term(time,uk,nlk)
   use p3dfft_wrapper
   implicit none
 
-  real(kind=pr) :: time
+  real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
 
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
-  real(kind=pr) :: kx,ky,kz,kreal,factor, epsilon
+  real(kind=pr) :: kx,ky,kz,kreal,factor, epsilon, dt
+  real(kind=pr) :: a,b,c,d
   integer :: ix,iy,iz
 
   select case(forcing_type)
   case ("machiels")
     ! Forcing by Machiels PRL1997 ("Predictability of Small-scale Motion in Isotropic...")
+    ! This forcing aims at specifying the dissipation rate epsilon, which is
+    ! directly related to the kolmogorov scales. The desired value is set in
+    ! eps_forcing, which is read from the parameter file.
+
     ! get spectrum (on all procs, MPI_ALLREDUCE)
     call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
     ! force wavenumber shells
@@ -443,11 +448,32 @@ subroutine add_forcing_term(time,uk,nlk)
     ! get spectrum (on all procs, MPI_ALLREDUCE)
     call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
 
-    !compute current dissipation rate
+    ! compute current dissipation rate from spectrum, see Ishihara, Kaneda "High
+    ! resolution DNS of incompressible Homogeneous forced turbulence -time dependence
+    ! of the statistics" or my thesis
     epsilon=0.0
     do ix = 0,nx-1
       epsilon = epsilon + 2.d0 * nu * dble(ix**2) * S_Ekin(ix)
     enddo
+
+    !epsilon = epsilon
+
+    if (mpirank==0) then
+      a = sum(S_Ekin)
+      write(*,*)  "at time, ", time, "forcing gets eps=", epsilon, "E=", a
+    endif
+
+dt=1.0d-5;
+    ! single euler step
+    uk = uk+dt*nlk
+
+    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    if (mpirank==0) then
+      b = sum(S_ekin)
+      write(*,*)  "nxt step w/o forcing  E=", b , b/a-1.0
+    endif
+! undo
+    uk = uk-dt*nlk
 
     ! force wavenumber shells
     do iz=ca(1),cb(1)
@@ -461,7 +487,11 @@ subroutine add_forcing_term(time,uk,nlk)
 
           ! forcing lives around this shell
           if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
-            factor = epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+            factor = -1.36875*epsilon / (( S_Ekin(1)+S_Ekin(2) ))
+            !factor = -epsilon / (2.d0*sum(s_ekin))
+      !      nlk(iz,iy,ix,1) =  uk(iz,iy,ix,1)*factor
+    !        nlk(iz,iy,ix,2) =  uk(iz,iy,ix,2)*factor
+  !          nlk(iz,iy,ix,3) =  uk(iz,iy,ix,3)*factor
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
@@ -470,6 +500,21 @@ subroutine add_forcing_term(time,uk,nlk)
         enddo
       enddo
     enddo
+
+    ! single euler step
+    uk = uk+dt*nlk
+
+    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    if (mpirank==0) then
+      c = sum(s_ekin)
+      write(*,*)  "nxt step with forcing E=",c , c/a-1.0, (c/a) - (b/a)
+    endif
+    ! undo
+    uk = uk-dt*nlk
+!call abort()
+  case default
+    if (mpirank==0) write(*,*) "unknown forcing method.."
+    call abort()
   end select
 end subroutine add_forcing_term
 

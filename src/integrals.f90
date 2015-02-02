@@ -769,6 +769,16 @@ subroutine compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx_loc,S_Ekiny_loc,S_Ekinz_loc,S_Ekin_loc
   real(kind=pr) :: sum_ux, sum_uy, sum_uz, sum_u
 
+  ! NOTE: I actually did not figure out what happens if xl=yl=zl/=2*pi
+  ! which is a rare case in all isotropic turbulence situtations, and neither
+  ! of the corresponding routines have been tested for that case.
+  if ((abs(xl-2.d0*pi)>1.d-10).or.(abs(xl-2.d0*pi)>1.d-10).or.(abs(xl-2.d0*pi)>1.d-10)) then
+    if (mpirank==0) write(*,*) "compute_spectrum requires xl=yl=zl=2*pi which is not the case; return"
+    return
+  endif
+
+  ! initalize local and global arrays. note all CPU hold an (0:nx-1) array (since
+  ! in flusi, the x-direction is always local)
   S_Ekinx=0.0d0
   S_Ekiny=0.0d0
   S_Ekinz=0.0d0
@@ -787,7 +797,10 @@ subroutine compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
         kx=wave_x(ix)
         ! compute 2-norm of wavenumber
         kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz))
-        ! then round it so that we can fit it in the corresponding bin
+        ! then round it so that we can fit it in the corresponding bin, i.e.
+        ! for example 0.5 <= k <= 1.5 is K=1 (this is a spherical wavenumber
+        ! shell in k-space). this operation can easily be achieved by rounding
+        ! kabs to the nearest integer
         k = nint(kreal)
 
         if ( ix==0 .or. ix==nx/2 ) then

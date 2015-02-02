@@ -846,14 +846,14 @@ subroutine adjust_dt(time,u,dt1)
 
     !-- Adjust time step at 0th process
     if(mpirank == 0) then
-      if(.NOT.(umax.eq.umax)) then
+      if(is_nan(umax)) then
         write(*,*) "Evolved field contains a NAN: aborting run."
         call abort()
       endif
 
       !-- Impose the CFL condition.
       if (umax >= 1.0d-8) then
-        dt1=min(dx,dy,dz)*cfl/umax
+        dt1=min(dx,dy,dz)*CFL/umax
       else
         !-- umax is very very small
         dt1=1.0d-2
