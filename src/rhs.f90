@@ -422,6 +422,8 @@ subroutine add_forcing_term(time,uk,nlk)
 
     ! get spectrum (on all procs, MPI_ALLREDUCE)
     call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    factor = eps_forcing / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+
     ! force wavenumber shells
     do iz=ca(1),cb(1)
       kz=wave_z(iz)
@@ -434,7 +436,6 @@ subroutine add_forcing_term(time,uk,nlk)
 
           ! forcing lives around this shell
           if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
-            factor = eps_forcing / (2.d0*(S_Ekin(1)+S_Ekin(2)))
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
@@ -453,8 +454,11 @@ subroutine add_forcing_term(time,uk,nlk)
     ! of the statistics" or my thesis
     epsilon=0.0
     do ix = 0,nx-1
-      epsilon = epsilon - 2.d0 * nu * dble(ix**2) * S_Ekin(ix)
+      ! this is the volume specific enstrophy
+      epsilon = epsilon + 2.d0 * nu * dble(ix**2) * S_Ekin(ix)
     enddo
+
+    factor = epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
 
     ! force wavenumber shells
     do iz=ca(1),cb(1)
@@ -468,7 +472,6 @@ subroutine add_forcing_term(time,uk,nlk)
 
           ! forcing lives around this shell
           if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
-            factor = -epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
