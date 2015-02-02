@@ -453,27 +453,8 @@ subroutine add_forcing_term(time,uk,nlk)
     ! of the statistics" or my thesis
     epsilon=0.0
     do ix = 0,nx-1
-      epsilon = epsilon + 2.d0 * nu * dble(ix**2) * S_Ekin(ix)
+      epsilon = epsilon - 2.d0 * nu * dble(ix**2) * S_Ekin(ix)
     enddo
-
-    !epsilon = epsilon
-
-    if (mpirank==0) then
-      a = sum(S_Ekin)
-      write(*,*)  "at time, ", time, "forcing gets eps=", epsilon, "E=", a
-    endif
-
-dt=1.0d-5;
-    ! single euler step
-    uk = uk+dt*nlk
-
-    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
-    if (mpirank==0) then
-      b = sum(S_ekin)
-      write(*,*)  "nxt step w/o forcing  E=", b , b/a-1.0
-    endif
-! undo
-    uk = uk-dt*nlk
 
     ! force wavenumber shells
     do iz=ca(1),cb(1)
@@ -487,11 +468,7 @@ dt=1.0d-5;
 
           ! forcing lives around this shell
           if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
-            factor = -1.36875*epsilon / (( S_Ekin(1)+S_Ekin(2) ))
-            !factor = -epsilon / (2.d0*sum(s_ekin))
-      !      nlk(iz,iy,ix,1) =  uk(iz,iy,ix,1)*factor
-    !        nlk(iz,iy,ix,2) =  uk(iz,iy,ix,2)*factor
-  !          nlk(iz,iy,ix,3) =  uk(iz,iy,ix,3)*factor
+            factor = -epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
@@ -501,17 +478,14 @@ dt=1.0d-5;
       enddo
     enddo
 
-    ! single euler step
-    uk = uk+dt*nlk
 
     call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
     if (mpirank==0) then
       c = sum(s_ekin)
-      write(*,*)  "nxt step with forcing E=",c , c/a-1.0, (c/a) - (b/a)
+      write(*,*)  "E=",c
     endif
-    ! undo
-    uk = uk-dt*nlk
-!call abort()
+
+
   case default
     if (mpirank==0) write(*,*) "unknown forcing method.."
     call abort()
