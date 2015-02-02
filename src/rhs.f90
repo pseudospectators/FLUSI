@@ -409,7 +409,7 @@ subroutine add_forcing_term(time,uk,nlk)
   complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
 
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
-  real(kind=pr) :: kx,ky,kz,kreal,factor
+  real(kind=pr) :: kx,ky,kz,kreal,factor, epsilon
   integer :: ix,iy,iz
 
   select case(forcing_type)
@@ -429,7 +429,7 @@ subroutine add_forcing_term(time,uk,nlk)
 
           ! forcing lives around this shell
           if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
-            factor = eps / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+            factor = eps_forcing / (2.d0*(S_Ekin(1)+S_Ekin(2)))
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
@@ -438,7 +438,38 @@ subroutine add_forcing_term(time,uk,nlk)
         enddo
       enddo
     enddo
+  case ("kaneda")
+    !
+    ! get spectrum (on all procs, MPI_ALLREDUCE)
+    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
 
+    !compute current dissipation rate
+    epsilon=0.0
+    do ix = 0,nx-1
+      epsilon = epsilon + 2.d0 * nu * dble(ix**2) * S_Ekin(ix)
+    enddo
+
+    ! force wavenumber shells
+    do iz=ca(1),cb(1)
+      kz=wave_z(iz)
+      do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do ix=ca(3),cb(3)
+          kx=wave_x(ix)
+          ! compute 2-norm of wavenumber
+          kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
+
+          ! forcing lives around this shell
+          if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
+            factor = epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+            nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
+            nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
+            nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
+          endif
+
+        enddo
+      enddo
+    enddo
   end select
 end subroutine add_forcing_term
 

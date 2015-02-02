@@ -51,6 +51,11 @@ subroutine postprocessing()
     call upsample()
   case ("--spectrum")
     call post_spectrum()
+  case ("--turbulence-analysis")
+    call turbulence_analysis()
+  case default
+    if(mpirank==0) write(*,*) "Postprocessing option is "// postprocessing_mode
+    if(mpirank==0) write(*,*) "But I don't know what to do with that"
   end select
 
   if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1
@@ -1329,3 +1334,154 @@ subroutine post_spectrum()
   call fft_free()
 
 end subroutine post_spectrum
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocess --turbulence-analysis ux_00000.h5 uy_00000.h5 uz_00000.h5 nu outfile.dat
+!-------------------------------------------------------------------------------
+subroutine turbulence_analysis()
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use mpi
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, viscosity, outfile
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk,vork
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u, vor
+  real(kind=pr) :: time, epsilon_loc, epsilon, fact, E, u_rms,lambda_macro,lambda_micro
+  real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  integer :: ix, mpicode
+
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+  call get_command_argument(6,viscosity)
+  call get_command_argument(7,outfile)
+  read(viscosity,*) nu
+
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
+    write (*,*) "Error in arguments, files do not start with ux uy and uz"
+    write (*,*) "note files have to be in the right order"
+    call abort()
+  endif
+
+  if(mpirank==0) then
+    write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
+    open(17,file=trim(adjustl(outfile)),status='replace')
+    !open(17,file=trim(adjustl(outfile)),status='unknown',position='append')
+  endif
+
+
+  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+  allocate(vor(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(vork(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+  allocate(S_Ekinx(0:nx-1),S_Ekiny(0:nx-1),S_Ekinz(0:nx-1),S_Ekin(0:nx-1))
+
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+
+  call fft3 (inx=u,outk=uk)
+  call curl (uk,vork)
+  call ifft3 (ink=vork,outx=vor)
+
+  ! compute pectrum
+  call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+
+  !-----------------------------------------------------------------------------
+  ! dissipation rate from vorticty
+  !-----------------------------------------------------------------------------
+  epsilon_loc = nu * sum(vor(:,:,:,1)**2+vor(:,:,:,2)**2+vor(:,:,:,3)**2)
+  call MPI_REDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+       MPI_COMM_WORLD,mpicode)
+
+  if (mpirank==0) then
+    write(17,'(g15.8,5x,A)') epsilon/dble(nx*ny*nz), "Dissipation rate from vorticity"
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! dissipation rate from spectrum
+  !-----------------------------------------------------------------------------
+  if (mpirank==0) then
+    epsilon=0.0
+    do ix = 0,nx-1
+      epsilon = epsilon + 2.d0 * nu * dble(ix**2) * S_Ekin(ix)
+    enddo
+    write(17,'(g15.8,5x,A)') epsilon, "Dissipation rate from spectrum"
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! energy from velocity
+  !-----------------------------------------------------------------------------
+  epsilon_loc = 0.5d0*sum(u(:,:,:,1)**2+u(:,:,:,2)**2+u(:,:,:,3)**2)
+  call MPI_REDUCE(epsilon_loc,E,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  MPI_COMM_WORLD,mpicode)
+
+  if (mpirank==0) then
+    write(17,'(g15.8,5x,A)') E/dble(nx*ny*nz), "energy from velocity"
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! energy from spectrum
+  !-----------------------------------------------------------------------------
+  if (mpirank==0) then
+    E=0.0
+    do ix = 0,nx-1
+      E = E + S_Ekin(ix)
+    enddo
+    write(17,'(g15.8,5x,A)') E, "energy from spectrum"
+  endif
+
+  u_rms=dsqrt(2.d0*E/3.d0)
+  !-----------------------------------------------------------------------------
+  ! kolmogrov scales
+  !-----------------------------------------------------------------------------
+  if (mpirank==0) then
+    write(17,'(g15.8,5x,A)') (nu**3 / epsilon)**(0.25d0), "kolmogorov length scale"
+    write(17,'(g15.8,5x,A)') (nu / epsilon)**(0.5d0), "kolmogorov time scale"
+    write(17,'(g15.8,5x,A)') (nu*epsilon)**(0.25d0), "kolmogorov velocity scale"
+    write(17,'(g15.8,5x,A)') u_rms, "RMS velocity"
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! taylor scales
+  !-----------------------------------------------------------------------------
+  if (mpirank==0) then
+    lambda_micro = (15.d0*nu*u_rms**2 / epsilon)**(0.5d0)
+    lambda_macro=0.0
+    do ix = 1,nx-1
+      lambda_macro = lambda_macro + pi/(2.d0*u_rms) * S_Ekin(ix) / dble(ix)
+    enddo
+    write(17,'(g15.8,5x,A)') lambda_micro, "taylor micro scale"
+    write(17,'(g15.8,5x,A)') lambda_macro, "taylor macro scale"
+    write(17,'(g15.8,5x,A)') u_rms*lambda_macro/nu, "Renolds taylor macro scale"
+    write(17,'(g15.8,5x,A)') u_rms*lambda_micro/nu, "Renolds taylor micro scale"
+    write(17,'(g15.8,5x,A)') lambda_macro/u_rms, "eddy turnover time"
+  endif
+
+  if(mpirank==0) close(17)
+
+  deallocate (u,vor,vork)
+  deallocate (uk)
+  deallocate (S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+  call fft_free()
+
+end subroutine turbulence_analysis
