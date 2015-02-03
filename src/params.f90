@@ -114,6 +114,7 @@ subroutine get_params_common(PARAMS,i)
   ! Time section
   call param_int(PARAMS,i,"Time","nt",nt, 9999999)
   call param_str(PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid,"AB2")
+  call param_str(PARAMS,i,"Time","intelligent_dt",intelligent_dt,"no")
   call param_dbl(PARAMS,i,"Time","Tmax",Tmax,1.d9)
   call param_dbl(PARAMS,i,"Time","CFL",cfl,0.1d0)
   call param_dbl(PARAMS,i,"Time","dt_max",dt_max,0.d0)
@@ -333,6 +334,8 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   call param_int(PARAMS,i,"SaveSlices","slice4",slices_to_save(4),-2)
   call param_int(PARAMS,i,"SaveSlices","itslice",itslice,9999900)
   call param_int(PARAMS,i,"SaveSlices","ncache_slices",ncache_slices,nx)
+  call param_dbl(PARAMS,i,"SaveSlices","tslice",tslice,99999.9d0)
+
 
   ! ---------------------------------------------------
   ! DONE..

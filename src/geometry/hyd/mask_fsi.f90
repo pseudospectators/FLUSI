@@ -278,11 +278,11 @@ subroutine taylor_couette()
 
       ! inner cylinder
       if ( R<=R1) then
-        mask (ix, iy, iz) = 1.d0
+        mask (:, iy, iz) = 1.d0
         us (:,iy,iz,1) = 0.d0
         us (:,iy,iz,2) = +omega * z
         us (:,iy,iz,3) = -omega * y
-        mask_color(ix,iy,iz) = 0
+        mask_color(:,iy,iz) = 0
       endif
 
       ! outer cylinder

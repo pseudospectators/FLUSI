@@ -829,7 +829,7 @@ subroutine adjust_dt(time,u,dt1)
   real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   integer::mpicode
   real(kind=pr), intent(out)::dt1
-  real(kind=pr)::umax
+  real(kind=pr)::umax, t
 
   if (dt_fixed>0.0) then
     !-- fix the time step no matter what. the result may be unstable.
@@ -868,26 +868,48 @@ subroutine adjust_dt(time,u,dt1)
       !-- Impose penalty stability condition: dt cannot be larger than eps
       if (iPenalization > 0) dt1=min(0.99*eps,dt1)
 
-      ! Don't jump past save-points: if the time-step is larger than
-      ! the time interval between outputs, decrease the time-step.
-      if(tsave > 0.d0 .and. dt1 > tsave) then
-        dt1=tsave
-      endif
-      if(tintegral > 0.d0 .and. dt1 > tintegral) then
-        dt1=tintegral
-      endif
-
-      !      if (time+dt1 > tmax) then
-      !        dt1 = tmax-time
-      !        endif
-
-
       !-- RungeKutta4 treats diffusive terms explicitly, so there is a condition
       !   for the viscosity as well.
       if (iTimeMethodFluid=="RK4") then
         dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
       endif
+
+      !*************************************************************************
+      ! we respect all necessary restrictions, the following ones are optional
+      !*************************************************************************
+
+      ! Don't jump past save-points: if the time-step is larger than
+      ! the time interval between outputs, decrease the time-step.
+      dt1 = minval( (/dt1,tsave,tintegral,tslice,tmax/) )
+
+      if (intelligent_dt=="yes") then
+        ! intelligent dt means we make sure not to jump past multiples of tsave
+        ! tend tintegral tslice.
+        ! The AB2 scheme may have problems if the new time step is much smaller
+        ! then the new one, so it may be wiser not to use it in that case (it has
+        ! not been tested)
+        t = dble(ceiling(time/tsave))*tsave
+        if ((time+dt1>t).and.(time/=t)) then
+          dt1=t-time
+        endif
+
+        t = dble(ceiling(time/tintegral))*tintegral
+        if ((time+dt1>t).and.(time/=t)) then
+          dt1=t-time
+        endif
+
+        t = dble(ceiling(time/tslice))*tslice
+        if ((time+dt1>t).and.(time/=t)) then
+          dt1=t-time
+        endif
+
+        t = tmax
+        if ((time+dt1>t).and.(time/=t)) then
+          dt1 = tmax-time
+        endif
+      endif
     endif
+
 
     ! Broadcast time step to all processes
     call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)

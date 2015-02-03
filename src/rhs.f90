@@ -266,7 +266,6 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
     endif
   endif
 
-
   !---------------------------------------------------------------------------
   ! Add explicit diffusion term here, if RK4 is used (other time steppers have
   ! integrating factors and thus implicit diffusion)

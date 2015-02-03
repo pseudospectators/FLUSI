@@ -108,7 +108,7 @@ module vars
   real(kind=pr),save :: dt_max=0.d0
   real(kind=pr),save :: cfl
   integer,save :: nt
-  character(len=strlen),save :: iTimeMethodFluid
+  character(len=strlen),save :: iTimeMethodFluid, intelligent_dt
 
   ! Physical parameters:
   real(kind=pr),save :: nu
@@ -145,6 +145,7 @@ module vars
   character(len=strlen),save :: use_slicing
   integer,save :: itslice, ncache_slices
   integer,save :: slices_to_save(1:4)
+  real(kind=pr) :: tslice
 
 
   contains
