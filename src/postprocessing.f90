@@ -1354,7 +1354,9 @@ subroutine turbulence_analysis()
   real(kind=pr),dimension(:,:,:,:),allocatable :: u, vor
   real(kind=pr) :: time, epsilon_loc, epsilon, fact, E, u_rms,lambda_macro,lambda_micro
   real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
-  integer :: ix, mpicode
+  integer :: ix,iy,iz, mpicode
+  real(kind=pr)::kx,ky,kz,kreal
+
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -1376,8 +1378,13 @@ subroutine turbulence_analysis()
   if(mpirank==0) then
     write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
     open(17,file=trim(adjustl(outfile)),status='replace')
-    !open(17,file=trim(adjustl(outfile)),status='unknown',position='append')
+    write(17,'(A)') "-----------------------------------"
+    write(17,'(A)') "FLUSI turbulence analysis"
+    write(17,'("call: ./flusi -p --turbulence-analysis ",5(A,1x))') trim(adjustl(fname_ux)),&
+    trim(adjustl(fname_uy)),trim(adjustl(fname_uz)),trim(adjustl(viscosity)),trim(adjustl(outfile))
+    write(17,'(A)') "-----------------------------------"
   endif
+
 
 
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
@@ -1409,6 +1416,43 @@ subroutine turbulence_analysis()
 
   ! compute spectrum
   call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+
+  !-----------------------------------------------------------------------------
+  ! dissipation rate from velocity in Fourier space
+  !-----------------------------------------------------------------------------
+  do iz=ca(1),cb(1)
+    kz=wave_z(iz)
+    do iy=ca(2),cb(2)
+      ky=wave_y(iy)
+      do ix=ca(3),cb(3)
+        kx=wave_x(ix)
+        kreal = ( (kx*kx)+(ky*ky)+(kz*kz) )
+
+        if ( ix==0 .or. ix==nx/2 ) then
+          E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
+          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
+          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+        else
+          E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
+          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
+          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+        endif
+
+        epsilon_loc = epsilon_loc + kreal * E
+      enddo
+    enddo
+  enddo
+
+  epsilon_loc = 2.d0 * nu * epsilon_loc
+
+  call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+
+  if (mpirank==0) then
+    write(17,'(g15.8,5x,A)') epsilon, "Dissipation rate from velocity in Fourier space"
+  endif
+
+
 
   !-----------------------------------------------------------------------------
   ! dissipation rate from vorticty

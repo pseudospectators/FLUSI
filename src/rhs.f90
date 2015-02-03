@@ -409,9 +409,9 @@ subroutine add_forcing_term(time,uk,nlk)
   complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
 
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
-  real(kind=pr) :: kx,ky,kz,kreal,factor, epsilon, dt
-  real(kind=pr) :: a,b,c,d
-  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,kreal,factor,epsilon,epsilon_loc,k2
+  real(kind=pr) :: E
+  integer :: ix,iy,iz, k, mpicode
 
   select case(forcing_type)
   case ("machiels")
@@ -445,19 +445,46 @@ subroutine add_forcing_term(time,uk,nlk)
       enddo
     enddo
   case ("kaneda")
-    !
     ! get spectrum (on all procs, MPI_ALLREDUCE)
     call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
 
-    ! compute current dissipation rate from spectrum, see Ishihara, Kaneda "High
-    ! resolution DNS of incompressible Homogeneous forced turbulence -time dependence
-    ! of the statistics" or my thesis
-    epsilon=0.0
-    do ix = 0,nx-1
-      ! this is the volume specific enstrophy
-      epsilon = epsilon + 2.d0 * nu * dble(ix**2) * S_Ekin(ix)
+    ! compute current dissipation rate. There are several ways to do this; one
+    ! is computing the enstrophy in x-space, using the vorticity, but we can also
+    ! stay with the velocity in k-space and integrate k^2 * E(k)
+    ! However, this is exact only if E(k) is not averaged over the wavenumber shell
+    ! as it is done when computing the spectrum.
+    do iz=ca(1),cb(1)
+      kz = wave_z(iz)
+      do iy=ca(2),cb(2)
+        ky = wave_y(iy)
+        do ix=ca(3),cb(3)
+          kx = wave_x(ix)
+          k2 = (kx*kx)+(ky*ky)+(kz*kz)
+
+          if ( ix==0 .or. ix==nx/2 ) then
+            E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
+             +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
+             +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+          else
+            E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
+             +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
+             +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+          endif
+
+          epsilon_loc = epsilon_loc + k2 * E
+        enddo
+      enddo
     enddo
 
+    epsilon_loc = 2.d0 * nu * epsilon_loc
+
+    call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+         MPI_COMM_WORLD,mpicode)
+
+    ! The actual forcing term follows. We now have the current dissipation rate
+    ! epsilon, which we would like to be balanced by the energy input through
+    ! the forcing. The forcing is c*uk (where c="factor" here). Note the dissipation
+    ! rate is divided by the energy of the first two wavenumber shells
     factor = epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
 
     ! force wavenumber shells
@@ -480,14 +507,6 @@ subroutine add_forcing_term(time,uk,nlk)
         enddo
       enddo
     enddo
-
-
-    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
-    if (mpirank==0) then
-      c = sum(s_ekin)
-      write(*,*)  "E=",c
-    endif
-
 
   case default
     if (mpirank==0) write(*,*) "unknown forcing method.."

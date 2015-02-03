@@ -560,30 +560,30 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
 
   !-- FIRST runge kutta step
   call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,Insect,beams)
-  call dealias(nlk(:,:,:,1,0),nlk(:,:,:,2,0),nlk(:,:,:,3,0))
+  call dealias(nlk(:,:,:,:,0))
   call adjust_dt(time,u,dt1)
 
 
   !-- SECOND runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,0)
   call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,Insect,beams)
-  call dealias(nlk(:,:,:,1,1),nlk(:,:,:,2,1),nlk(:,:,:,3,1))
+  call dealias(nlk(:,:,:,:,1))
 
   !--THIRD runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,1)
   call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,Insect,beams)
-  call dealias(nlk(:,:,:,1,2),nlk(:,:,:,2,2),nlk(:,:,:,3,2))
+  call dealias(nlk(:,:,:,:,2))
 
   !-- FOURTH runge kutta step
   uk = nlk(:,:,:,:,4) + dt1*nlk(:,:,:,:,2)
   call cal_nlk(time+dt1,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,Insect,beams)
-  call dealias(nlk(:,:,:,1,3),nlk(:,:,:,2,3),nlk(:,:,:,3,3))
+  call dealias(nlk(:,:,:,:,3))
 
   !-- FINAL step
   uk = nlk(:,:,:,:,4) + (dt1/6.d0) * ( nlk(:,:,:,:,0) + 2.d0*nlk(:,:,:,:,1) + &
   2.d0*nlk(:,:,:,:,2) + nlk(:,:,:,:,3) )
 
-  call dealias(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  call dealias(uk)
 
 end subroutine rungekutta4
 
