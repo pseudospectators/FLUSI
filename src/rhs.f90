@@ -453,6 +453,8 @@ subroutine add_forcing_term(time,uk,nlk)
     ! stay with the velocity in k-space and integrate k^2 * E(k)
     ! However, this is exact only if E(k) is not averaged over the wavenumber shell
     ! as it is done when computing the spectrum.
+    epsilon_loc = 0.d0
+
     do ix=ca(3),cb(3)
       kx=wave_x(ix)
       do iy=ca(2),cb(2)
