@@ -66,14 +66,14 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,Insect,beams)
     time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
 
   case("mhd")
-     !--------------------------------------------------------------------------
-     ! MHD case
-     !--------------------------------------------------------------------------
-     call cal_nlk_mhd(nlk,uk,u,vort)
+    !--------------------------------------------------------------------------
+    ! MHD case
+    !--------------------------------------------------------------------------
+    call cal_nlk_mhd(nlk,uk,u,vort)
 
   case default
-     if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
-     call abort()
+    if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
+    call abort()
   end select
 
   time_rhs = time_rhs + MPI_wtime() - t0
@@ -159,7 +159,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
     call adjust_dt(time,u,dt)
     ! compute incremental avg
     Z_avg = ( (vort(:,:,:,1)**2 + vort(:,:,:,2)**2 + vort(:,:,:,3)**2)*dt  &
-          + (time-tstart_avg)*Z_avg ) / ( (time-tstart_avg)+dt )
+    + (time-tstart_avg)*Z_avg ) / ( (time-tstart_avg)+dt )
   endif
 
   !-----------------------------------------------------------------------------
@@ -314,22 +314,22 @@ subroutine pressure(nlk,pk)
   imag = dcmplx(0.d0,1.d0)
 
   do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-          kx=wave_x(ix)
-          k2=kx*kx + ky*ky + kz*kz
-          if(k2 .ne. 0.0) then
-            ! contains the pressure in Fourier space
-            ! note "-" sign
-            nlkx = nlk(iz,iy,ix,1)
-            nlky = nlk(iz,iy,ix,2)
-            nlkz = nlk(iz,iy,ix,3)
-            pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
-          else
-            pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
-          endif
+    kz=wave_z(iz)
+    do iy=ca(2),cb(2)
+      ky=wave_y(iy)
+      do ix=ca(3),cb(3)
+        kx=wave_x(ix)
+        k2=kx*kx + ky*ky + kz*kz
+        if(k2 .ne. 0.0) then
+          ! contains the pressure in Fourier space
+          ! note "-" sign
+          nlkx = nlk(iz,iy,ix,1)
+          nlky = nlk(iz,iy,ix,2)
+          nlkz = nlk(iz,iy,ix,3)
+          pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
+        else
+          pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
+        endif
       enddo
     enddo
   enddo
@@ -425,12 +425,12 @@ subroutine add_forcing_term(time,uk,nlk)
     factor = eps_forcing / (2.d0*(S_Ekin(1)+S_Ekin(2)))
 
     ! force wavenumber shells
-    do iz=ca(1),cb(1)
-      kz=wave_z(iz)
+    do ix=ca(3),cb(3)
+      kx=wave_x(ix)
       do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-          kx=wave_x(ix)
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
           ! compute 2-norm of wavenumber
           kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
 
@@ -453,12 +453,12 @@ subroutine add_forcing_term(time,uk,nlk)
     ! stay with the velocity in k-space and integrate k^2 * E(k)
     ! However, this is exact only if E(k) is not averaged over the wavenumber shell
     ! as it is done when computing the spectrum.
-    do iz=ca(1),cb(1)
-      kz = wave_z(iz)
+    do ix=ca(3),cb(3)
+      kx=wave_x(ix)
       do iy=ca(2),cb(2)
-        ky = wave_y(iy)
-        do ix=ca(3),cb(3)
-          kx = wave_x(ix)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
           k2 = (kx*kx)+(ky*ky)+(kz*kz)
 
           if ( ix==0 .or. ix==nx/2 ) then
@@ -479,7 +479,7 @@ subroutine add_forcing_term(time,uk,nlk)
     epsilon_loc = 2.d0 * nu * epsilon_loc
 
     call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-         MPI_COMM_WORLD,mpicode)
+    MPI_COMM_WORLD,mpicode)
 
     ! The actual forcing term follows. We now have the current dissipation rate
     ! epsilon, which we would like to be balanced by the energy input through
@@ -488,12 +488,12 @@ subroutine add_forcing_term(time,uk,nlk)
     factor = epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
 
     ! force wavenumber shells
-    do iz=ca(1),cb(1)
-      kz=wave_z(iz)
+    do ix=ca(3),cb(3)
+      kx=wave_x(ix)
       do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-          kx=wave_x(ix)
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
           ! compute 2-norm of wavenumber
           kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
 
@@ -538,28 +538,28 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   imag = dcmplx(0.d0,1.d0)
 
   do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3),cb(3)
-           kx=wave_x(ix)
+    kz=wave_z(iz)
+    do iy=ca(2),cb(2)
+      ky=wave_y(iy)
+      do ix=ca(3),cb(3)
+        kx=wave_x(ix)
 
-           k2=kx*kx + ky*ky + kz*kz
+        k2=kx*kx + ky*ky + kz*kz
 
-           if (k2 .ne. 0.0) then
-              nlx=nlk1(iz,iy,ix)
-              nly=nlk2(iz,iy,ix)
-              nlz=nlk3(iz,iy,ix)
+        if (k2 .ne. 0.0) then
+          nlx=nlk1(iz,iy,ix)
+          nly=nlk2(iz,iy,ix)
+          nlz=nlk3(iz,iy,ix)
 
-              ! qk is the Fourier coefficient of thr pressure
-              qk=(kx*nlx + ky*nly + kz*nlz)/k2
-              ! add the gradient to the non-linear terms
-              nlk1(iz,iy,ix)=nlx - kx*qk
-              nlk2(iz,iy,ix)=nly - ky*qk
-              nlk3(iz,iy,ix)=nlz - kz*qk
-           endif
-        enddo
-     enddo
+          ! qk is the Fourier coefficient of thr pressure
+          qk=(kx*nlx + ky*nly + kz*nlz)/k2
+          ! add the gradient to the non-linear terms
+          nlk1(iz,iy,ix)=nlx - kx*qk
+          nlk2(iz,iy,ix)=nly - ky*qk
+          nlk3(iz,iy,ix)=nlz - kz*qk
+        endif
+      enddo
+    enddo
   enddo
 end subroutine add_grad_pressure
 
@@ -594,7 +594,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   complex(kind=pr),intent(inout) ::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-   !  real(kind=pr) :: t1,t0
+  !  real(kind=pr) :: t1,t0
   integer :: i,ix,iy,iz
   real(kind=pr) :: w1,w2,w3,j1,j2,j3
   real(kind=pr) :: u1,u2,u3,b1,b2,b3
@@ -602,7 +602,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
 
   ! Transform u and B into physical space:
   do i=1,nd
-     call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+    call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
 
   ! Compute us, the imposed penalty field:
@@ -611,63 +611,63 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-       ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
+  ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
 
   ! Compute the current density and store the result in the last three
   ! 3D arrays of nlk.
   call curl(nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
-       ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
+  ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
 
   ! Transform vorcitity and current density to physical space, store
   ! in wj
   do i=1,nd
-     call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+    call ifft(wj(:,:,:,i),nlk(:,:,:,i))
   enddo
 
   ! Put the x-space version of the nonlinear source term in wj.
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
-           ! Loop-local variables for velocity and magnetic field:
-           u1=ub(ix,iy,iz,1)
-           u2=ub(ix,iy,iz,2)
-           u3=ub(ix,iy,iz,3)
-           b1=ub(ix,iy,iz,4)
-           b2=ub(ix,iy,iz,5)
-           b3=ub(ix,iy,iz,6)
+        ! Loop-local variables for velocity and magnetic field:
+        u1=ub(ix,iy,iz,1)
+        u2=ub(ix,iy,iz,2)
+        u3=ub(ix,iy,iz,3)
+        b1=ub(ix,iy,iz,4)
+        b2=ub(ix,iy,iz,5)
+        b3=ub(ix,iy,iz,6)
 
-           ! Loop-local variables for vorticity and current density:
-           w1=wj(ix,iy,iz,1)
-           w2=wj(ix,iy,iz,2)
-           w3=wj(ix,iy,iz,3)
-           j1=wj(ix,iy,iz,4)
-           j2=wj(ix,iy,iz,5)
-           j3=wj(ix,iy,iz,6)
+        ! Loop-local variables for vorticity and current density:
+        w1=wj(ix,iy,iz,1)
+        w2=wj(ix,iy,iz,2)
+        w3=wj(ix,iy,iz,3)
+        j1=wj(ix,iy,iz,4)
+        j2=wj(ix,iy,iz,5)
+        j3=wj(ix,iy,iz,6)
 
-           ! Loop-local variables for mask and imposed velocity field:
-           m=mask(ix,iy,iz)
-           us1=us(ix,iy,iz,1)
-           us2=us(ix,iy,iz,2)
-           us3=us(ix,iy,iz,3)
+        ! Loop-local variables for mask and imposed velocity field:
+        m=mask(ix,iy,iz)
+        us1=us(ix,iy,iz,1)
+        us2=us(ix,iy,iz,2)
+        us3=us(ix,iy,iz,3)
 
-            ! Nonlinear source term for fluid, including penalization:
-            wj(ix,iy,iz,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
-            wj(ix,iy,iz,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
-            wj(ix,iy,iz,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
+        ! Nonlinear source term for fluid, including penalization:
+        wj(ix,iy,iz,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
+        wj(ix,iy,iz,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
+        wj(ix,iy,iz,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
 
-            ! Nonlinear source term for magnetic field (missing the
-            ! curl and without penalization):
-            wj(ix,iy,iz,4)=u2*b3 - u3*b2
-            wj(ix,iy,iz,5)=u3*b1 - u1*b3
-            wj(ix,iy,iz,6)=u1*b2 - u2*b1
-        enddo
-     enddo
+        ! Nonlinear source term for magnetic field (missing the
+        ! curl and without penalization):
+        wj(ix,iy,iz,4)=u2*b3 - u3*b2
+        wj(ix,iy,iz,5)=u3*b1 - u1*b3
+        wj(ix,iy,iz,6)=u1*b2 - u2*b1
+      enddo
+    enddo
   enddo
 
   ! Transform B to Fourier space.  Keep the first three fields free so
   ! that we can use it to store the penalization for the B field.
   do i=4,nd
-     call fft(nlk(:,:,:,i),wj(:,:,:,i))
+    call fft(nlk(:,:,:,i),wj(:,:,:,i))
   enddo
   ! NB: the last three sub-arrays of wj and the first three sub-arrays
   ! of nlk are free.
@@ -677,16 +677,16 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
 
   ! Penalization for B-field:
   if(iPenalization == 1) then
-     do i=4,nd
-        wj(:,:,:,4)=-mask*(ub(:,:,:,i) - us(:,:,:,i))
-        call fft(nlk(:,:,:,1),wj(:,:,:,4))
-        nlk(:,:,:,i)=nlk(:,:,:,i) + nlk(:,:,:,1)
-     enddo
+    do i=4,nd
+      wj(:,:,:,4)=-mask*(ub(:,:,:,i) - us(:,:,:,i))
+      call fft(nlk(:,:,:,1),wj(:,:,:,4))
+      nlk(:,:,:,i)=nlk(:,:,:,i) + nlk(:,:,:,1)
+    enddo
   endif
 
   ! Transform u source-term to Fourier space:
   do i=1,3
-     call fft(nlk(:,:,:,i),wj(:,:,:,i))
+    call fft(nlk(:,:,:,i),wj(:,:,:,i))
   enddo
 
   ! NB: wj is now completely free, and contains nothing useful.
@@ -717,29 +717,29 @@ subroutine div_field_nul(fx,fy,fz)
   complex(kind=pr) :: val, vx,vy,vz
 
   do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3), cb(3)
-           kx=wave_x(ix)
+    kz=wave_z(iz)
+    do iy=ca(2),cb(2)
+      ky=wave_y(iy)
+      do ix=ca(3), cb(3)
+        kx=wave_x(ix)
 
-           k2=kx*kx +ky*ky +kz*kz
+        k2=kx*kx +ky*ky +kz*kz
 
-           if(k2 /= 0.d0) then
-              ! val = (k \cdot{} f) / k^2
-              vx=fx(iz,iy,ix)
-              vy=fy(iz,iy,ix)
-              vz=fz(iz,iy,ix)
+        if(k2 /= 0.d0) then
+          ! val = (k \cdot{} f) / k^2
+          vx=fx(iz,iy,ix)
+          vy=fy(iz,iy,ix)
+          vz=fz(iz,iy,ix)
 
-              val=(kx*vx + ky*vy + kz*vz)/k2
+          val=(kx*vx + ky*vy + kz*vz)/k2
 
-              ! f <- f - k \cdot{} val
-              fx(iz,iy,ix)=vx -kx*val
-              fy(iz,iy,ix)=vy -ky*val
-              fz(iz,iy,ix)=vz -kz*val
-           endif
-        enddo
-     enddo
+          ! f <- f - k \cdot{} val
+          fx(iz,iy,ix)=vx -kx*val
+          fy(iz,iy,ix)=vy -ky*val
+          fz(iz,iy,ix)=vz -kz*val
+        endif
+      enddo
+    enddo
   enddo
 
 end subroutine div_field_nul

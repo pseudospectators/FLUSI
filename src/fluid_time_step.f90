@@ -552,7 +552,7 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
 
   if ((mpirank==0).and.(it==1)) then
     write(*,'("RungeKutta treats diffusion explicitly, and this is the restriction: dt<",es12.4)') &
-    min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
+    0.5d0*min(dx,dy,dz)**2 / nu
   endif
 
   ! copy velocity at old time level
