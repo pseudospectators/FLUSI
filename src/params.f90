@@ -335,6 +335,7 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   call param_int(PARAMS,i,"SaveSlices","itslice",itslice,9999900)
   call param_int(PARAMS,i,"SaveSlices","ncache_slices",ncache_slices,nx)
   call param_dbl(PARAMS,i,"SaveSlices","tslice",tslice,99999.9d0)
+  call param_dbl(PARAMS,i,"SaveSlices","tslice_first",tslice_first,99999.9d0)
 
 
   ! ---------------------------------------------------

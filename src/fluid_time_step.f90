@@ -829,7 +829,7 @@ subroutine adjust_dt(time,u,dt1)
   real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   integer::mpicode
   real(kind=pr), intent(out)::dt1
-  real(kind=pr)::umax, t
+  real(kind=pr)::umax,t , t1,t2
 
   if (dt_fixed>0.0) then
     !-- fix the time step no matter what. the result may be unstable.
@@ -877,7 +877,6 @@ subroutine adjust_dt(time,u,dt1)
       !*************************************************************************
       ! we respect all necessary restrictions, the following ones are optional
       !*************************************************************************
-
       if (intelligent_dt=="yes") then
         ! intelligent dt means we make sure not to jump past multiples of tsave
         ! tend tintegral tslice.
@@ -889,7 +888,7 @@ subroutine adjust_dt(time,u,dt1)
           ! the time interval between outputs, decrease the time-step.
           dt1 = min(dt1,tsave)
           t = dble(ceiling(time/tsave))*tsave
-          if ((time+dt1>t).and.(time/=t)) then
+          if ((time+dt1>t).and.(abs(time-t)>=1.d-8)) then
             dt1=t-time
           endif
         endif
@@ -898,7 +897,7 @@ subroutine adjust_dt(time,u,dt1)
         ! the time interval between outputs, decrease the time-step.
         dt1 = min(dt1,tintegral)
         t = dble(ceiling(time/tintegral))*tintegral
-        if ((time+dt1>t).and.(time/=t)) then
+        if ((time+dt1>t).and.(abs(time-t)>=1.d-8)) then
           dt1=t-time
         endif
 
@@ -907,13 +906,13 @@ subroutine adjust_dt(time,u,dt1)
           ! the time interval between outputs, decrease the time-step.
           dt1 = min(dt1,tslice)
           t = dble(ceiling(time/tslice))*tslice
-          if ((time+dt1>t).and.(time/=t)) then
+          if ((time+dt1>t).and.(abs(time-t)>=1.d-8)) then
             dt1=t-time
           endif
         endif
 
         t = tmax
-        if ((time+dt1>t).and.(time/=t)) then
+        if ((time+dt1>t).and.(abs(time-t)>=1.d-8)) then
           dt1 = tmax-time
         endif
       endif

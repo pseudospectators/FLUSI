@@ -15,7 +15,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   ! runtime_backup1,2 - no backup
   integer :: it_start
   real(kind=pr),intent(inout) :: time,dt0,dt1
-  real(kind=pr) :: t1,t2,t3,t4
+  real(kind=pr) :: t1,t2,t3,t4,tnext1,tnext2
   character(len=strlen)  :: command ! for runtime control
   character(len=strlen),intent(in)  :: params_file ! for runtime control
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -89,13 +89,21 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     !-------------------------------------------------
     ! Output FIELDS+BACKUPING (after tsave)
     !-------------------------------------------------
-    if (((modulo(time,tsave)<dt1).and.(time>=tsave_first)).or.(time==tmax)) then
+    ! this is the next instant we want to save
+    tnext1 = dble(ceiling(time/tsave))*tsave
+    tnext2 = dble(floor  (time/tsave))*tsave
+    if (time>=tsave_first) then
+      if (((intelligent_dt/="yes").and.(modulo(time,tsave)<dt1)) .or.&
+          ((intelligent_dt=="yes").and.((abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8)))&
+          .or.(time==tmax)) then
+
       call are_we_there_yet(it,it_start,time,t2,t1,dt1)
       ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
       ! never matters,and for AB2 this is the one to be overwritten
       ! in the next step.  This frees 3 complex arrays, which are
       ! then used in Dump_Runtime_Backup.
       call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)
+    endif
     endif
 
     ! Backup if that's specified in the PARAMS.ini file. We try to do
@@ -110,7 +118,10 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! save slices to hard disk
     !-----------------------------------------------
     if ((method=="fsi").and.(use_slicing=="yes").and.(time>=tslice_first)) then
-      if ((modulo(time,tslice)<dt1).or.(modulo(it,itslice)==0)) then
+      ! this is the next instant we want to save
+      tnext1 = dble(ceiling(time/tslice))*tslice
+      tnext2 = dble(floor  (time/tslice))*tslice
+      if ( (abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8).or.(modulo(it,itslice)==0) ) then
         call save_slices( time, u )
       endif
     endif
@@ -155,16 +166,16 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1,t4)
   enddo
 
-  !-----------------------------------------------------------------------------
-  ! save final backup so we can resume where we left
-  !-----------------------------------------------------------------------------
-  if(idobackup==1) then
-    if(root) write (*,*) "final backup..."
-    call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-    work(:,:,:,1),Insect,beams)
-  endif
+!-----------------------------------------------------------------------------
+! save final backup so we can resume where we left
+!-----------------------------------------------------------------------------
+if(idobackup==1) then
+  if(root) write (*,*) "final backup..."
+  call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
+  work(:,:,:,1),Insect,beams)
+endif
 
-  if(root) write(*,'("Done time stepping; did nt=",i5," steps")') it-it_start
+if(root) write(*,'("Done time stepping; did nt=",i5," steps")') it-it_start
 end subroutine time_step
 
 
