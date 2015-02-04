@@ -878,29 +878,38 @@ subroutine adjust_dt(time,u,dt1)
       ! we respect all necessary restrictions, the following ones are optional
       !*************************************************************************
 
-      ! Don't jump past save-points: if the time-step is larger than
-      ! the time interval between outputs, decrease the time-step.
-      dt1 = minval( (/dt1,tsave,tintegral,tslice,tmax/) )
-
       if (intelligent_dt=="yes") then
         ! intelligent dt means we make sure not to jump past multiples of tsave
         ! tend tintegral tslice.
         ! The AB2 scheme may have problems if the new time step is much smaller
         ! then the new one, so it may be wiser not to use it in that case (it has
         ! not been tested)
-        t = dble(ceiling(time/tsave))*tsave
-        if ((time+dt1>t).and.(time/=t)) then
-          dt1=t-time
+        if (time>=tsave_first) then
+          ! Don't jump past save-points: if the time-step is larger than
+          ! the time interval between outputs, decrease the time-step.
+          dt1 = min(dt1,tsave)
+          t = dble(ceiling(time/tsave))*tsave
+          if ((time+dt1>t).and.(time/=t)) then
+            dt1=t-time
+          endif
         endif
 
+        ! Don't jump past save-points: if the time-step is larger than
+        ! the time interval between outputs, decrease the time-step.
+        dt1 = min(dt1,tintegral)
         t = dble(ceiling(time/tintegral))*tintegral
         if ((time+dt1>t).and.(time/=t)) then
           dt1=t-time
         endif
 
-        t = dble(ceiling(time/tslice))*tslice
-        if ((time+dt1>t).and.(time/=t)) then
-          dt1=t-time
+        if (time>=tslice_first) then
+          ! Don't jump past save-points: if the time-step is larger than
+          ! the time interval between outputs, decrease the time-step.
+          dt1 = min(dt1,tslice)
+          t = dble(ceiling(time/tslice))*tslice
+          if ((time+dt1>t).and.(time/=t)) then
+            dt1=t-time
+          endif
         endif
 
         t = tmax
