@@ -145,7 +145,7 @@ module vars
   character(len=strlen),save :: use_slicing
   integer,save :: itslice, ncache_slices
   integer,save :: slices_to_save(1:4)
-  real(kind=pr) :: tslice
+  real(kind=pr) :: tslice,tslice_first
 
 
   contains

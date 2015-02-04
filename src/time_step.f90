@@ -109,7 +109,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     !-----------------------------------------------
     ! save slices to hard disk
     !-----------------------------------------------
-    if ((method=="fsi").and.(use_slicing=="yes")) then
+    if ((method=="fsi").and.(use_slicing=="yes").and.(time>=tslice_first)) then
       if ((modulo(time,tslice)<dt1).or.(modulo(it,itslice)==0)) then
         call save_slices( time, u )
       endif
