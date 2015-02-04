@@ -1518,7 +1518,7 @@ subroutine turbulence_analysis()
     lambda_micro = (15.d0*nu*u_rms**2 / epsilon)**(0.5d0)
     lambda_macro=0.0
     do ix = 1,nx-1
-      lambda_macro = lambda_macro + pi/(2.d0*u_rms) * S_Ekin(ix) / dble(ix)
+      lambda_macro = lambda_macro + pi/(2.d0*u_rms**2) * S_Ekin(ix) / dble(ix)
     enddo
     write(17,'(g15.8,5x,A)') lambda_micro, "taylor micro scale"
     write(17,'(g15.8,5x,A)') lambda_macro, "taylor macro scale"
