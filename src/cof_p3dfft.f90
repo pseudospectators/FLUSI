@@ -20,14 +20,14 @@ end module fftw3_descriptors
 module p3dfft_wrapper
   use vars
   implicit none
-  
+
   contains
 
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
 subroutine fft(outk,inx)
     use mpi
-    use vars ! For precision specficiation and array sizes    
+    use vars ! For precision specficiation and array sizes
     real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
 
@@ -39,7 +39,7 @@ end subroutine fft
 ! output in the real-valued 3D array outx.
 subroutine ifft(outx,ink)
     use mpi
-    use vars ! For precision specficiation and array sizes    
+    use vars ! For precision specficiation and array sizes
     complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
     real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
@@ -51,7 +51,7 @@ end subroutine ifft
 ! in the complex-valued 3D array outk.
 subroutine fft3(outk,inx)
     use mpi
-    use vars ! For precision specficiation and array sizes    
+    use vars ! For precision specficiation and array sizes
     real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
     complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
     call coftxyz(inx(:,:,:,1),outk(:,:,:,1))
@@ -64,12 +64,12 @@ end subroutine fft3
 ! output in the real-valued 3D array outx.
 subroutine ifft3(outx,ink)
     use mpi
-    use vars ! For precision specficiation and array sizes    
+    use vars ! For precision specficiation and array sizes
     complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
     real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
     call cofitxyz(ink(:,:,:,1),outx(:,:,:,1))
     call cofitxyz(ink(:,:,:,2),outx(:,:,:,2))
-    call cofitxyz(ink(:,:,:,3),outx(:,:,:,3))    
+    call cofitxyz(ink(:,:,:,3),outx(:,:,:,3))
 end subroutine ifft3
 
 subroutine fft_initialize
@@ -77,7 +77,7 @@ subroutine fft_initialize
   !     Allocate memory and initialize FFT
   !-----------------------------------------------------------------------------
   ! This subroutine performs two major tasks:
-  !     * Initialize P3DFFT and provide the memory management (how big are the 
+  !     * Initialize P3DFFT and provide the memory management (how big are the
   !       chunks of data on each process (coftxyz and cofitxyz)
   !     * Initialize 1D transforms that rely on FFTW (cofts and cofits)
   !       the auxiliary subroutine textents is used here
@@ -102,10 +102,17 @@ subroutine fft_initialize
   !-----------------------------------------------------------------------------
   ! default case, no decomposition
   decomposition="none"
-  
+
+  if (mpirank==0) then
+    write(*,'(80("%"))')
+    write(*,'("Initializing P3DFFT, n=(",3(i4,1x),")")') nx,ny,nz
+    write(*,'("P3DFFT reserves about ",i8,"MB (",i4,"GB) for internal work arrays")'), &
+    nint(1.6d-5*dble(nx*ny*nz)), nint(1.6d-5*dble(nx*ny*nz)/1000.d0)
+  endif
+
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
-  ! along the z direction in real space. 
+  ! along the z direction in real space.
   if (nz>mpisize) then
      mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
      mpidims(2) = mpisize       ! 3rd index in real space.
@@ -120,7 +127,7 @@ subroutine fft_initialize
      endif
      decomposition="2D"
   endif
-  
+
   if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims
   if (root) write(*,'("Using ",A," decomposition!")') trim(adjustl(decomposition))
 
@@ -140,7 +147,7 @@ subroutine fft_initialize
   rb(:) = rb(:) - 1
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
-  
+
   !-- extends of real arrays that have ghost points
   ga=ra
   gb=rb
@@ -153,9 +160,9 @@ subroutine fft_initialize
     ga(3) = ga(3)-ng
     gb(3) = gb(3)+ng
   endif
-  
-  
-  !-- Allocate domain partitioning tables and gather sizes from all processes 
+
+
+  !-- Allocate domain partitioning tables and gather sizes from all processes
   !-- (only for real arrays)
   allocate ( ra_table(1:3,0:mpisize-1), rb_table(1:3,0:mpisize-1) )
   call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
@@ -165,13 +172,13 @@ subroutine fft_initialize
   !-- in the y-z plane
   allocate (yz_plane_ranks(0:ny-1,0:nz-1) )
   allocate (yz_plane_local(0:ny-1,0:nz-1) )
-  
+
   yz_plane_local = 0
   yz_plane_local( ra(2):rb(2), ra(3):rb(3) ) = mpirank
-  
+
   call MPI_ALLREDUCE ( yz_plane_local,yz_plane_ranks,ny*nz,&
                       MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
-  
+
   !-- save the 2D decomposition to disk
   if (mpirank==0) then
     open(14,file='decomposition',status='replace')
@@ -183,9 +190,9 @@ subroutine fft_initialize
     enddo
     close(14)
   endif
-  
-  
-!   !-----------------------------------------------------------------------------     
+
+
+!   !-----------------------------------------------------------------------------
 !   ! ------ Multiple one-dimensional FFTs                                  ------
 !   !-----------------------------------------------------------------------------
 !   !-- Create Cartesian topology for one-dimensional transforms
@@ -193,7 +200,7 @@ subroutine fft_initialize
 !        .false.,mpicommcart,mpicode)
 !   ! call MPI_CART_CREATE(MPI_COMM_WORLD,nmpidims,mpidims,(/0,0/),0,mpicommcart,mpicode)
 !   call MPI_CART_COORDS(mpicommcart,mpirank,nmpidims,mpicoords,mpicode)
-! 
+!
 !   !-- Restrict communications to slabs:
 !   !-- Communicate between processes which have the same second(for idir=1) or third(for idir=2) index in the cartesian topology
 !   do idir = 1,2
@@ -201,11 +208,11 @@ subroutine fft_initialize
 !      subcart(idir) = .false.
 !      call MPI_CART_SUB(mpicommcart,subcart,mpicommslab(idir),mpicode)
 !   enddo
-! 
+!
 !   !-- Create FFTW plans for all possible sizes
 !   ! extents of arrays before and after transpose x->y
 !   call trextents(1,(/nx,ny,nz/),mpidims,mpicoords,ka,kb,ks,kat,kbt,kst)
-! 
+!
 !   ! allocate plan for transform with x leading
 !   L = nx
 !   n = ks(2)*ks(3)
@@ -215,7 +222,7 @@ subroutine fft_initialize
 !   call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(1),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
 !        FFTW_ESTIMATE)
 !   deallocate(f,ft )
-! 
+!
 !   ! allocate plan for transform with y leading
 !   L = ny
 !   n = kst(2)*kst(3)
@@ -225,10 +232,10 @@ subroutine fft_initialize
 !   call dfftw_plan_many_dft_c2r(Desc_Handle_1D_b(2),1,L,n,ft,0,1,L/2+1,f,0,1,L,&
 !        FFTW_ESTIMATE)
 !   deallocate(f,ft )
-! 
+!
 !   ! extents of arrays before and after transpose y->z
 !   call trextents(2,(/ny,nx,nz/),mpidims,mpicoords,ka,kb,ks,kat,kbt,kst)
-! 
+!
 !   ! allocate plan for transform with z leading
 !   L = nz
 !   n = kst(2)*kst(3)
@@ -239,6 +246,7 @@ subroutine fft_initialize
 !        FFTW_ESTIMATE)
 !   deallocate(f,ft )
 !   deallocate (yz_plane_local)
+if (mpirank==0) write(*,'(80("%"))')
 end subroutine fft_initialize
 
 
@@ -420,7 +428,7 @@ subroutine trextents(idir,n,mpidims,mpicoords,ka,kb,ks,kat,kbt,kst )
   kst(:) = kbt(:)-kat(:)+1
 
 end subroutine trextents
- 
+
 
 !----------------------------------------------------------------
 ! wavenumber functions: return the kx,ky,kz wavenumbers

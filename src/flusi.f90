@@ -175,7 +175,8 @@ subroutine Start_Simulation()
 
   ! size (in bytes) of one field
   mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
-  memory = 0.d0
+  ! memory reserved by p3dffft:
+  memory = dble(nx*ny*nz)*1.6d-5*1000.d0*1000.d0
 
   ! integrating factors
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
