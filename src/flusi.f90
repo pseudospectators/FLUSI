@@ -200,14 +200,17 @@ subroutine Start_Simulation()
 
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  mask=0.d0
   memory = memory + mem_field
 
   ! mask color function (distinguishes between different parts of the mask)
   allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  mask_color=0
   memory = memory + mem_field/4.d0
 
   ! solid body velocities
   allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  us=0.d0
   memory = memory + dble(nd)*mem_field
 
   ! real valued work array(s)
