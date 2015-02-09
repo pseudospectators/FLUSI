@@ -54,6 +54,16 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   t1=MPI_wtime()
 
+  ! dry runs just create (and save) the mask function, but do not solve Navie--Stokes
+  ! this is very useful for insects, since one frequently does use this to test
+  ! newly implemented species.
+  if (dry_run_without_fluid=="yes") then
+    if ((iMoving==1).and.(iPenalization==1)) then
+      call create_mask( time, Insect, beams )
+    endif
+    return
+  endif
+
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
   case("RK2")
@@ -848,6 +858,11 @@ subroutine adjust_dt(time,u,dt1)
     if(mpirank == 0) then
       if(is_nan(umax)) then
         write(*,*) "Evolved field contains a NAN: aborting run."
+        call abort()
+      endif
+
+      if(umax>=1.0d3) then
+        write(*,*) "Umax is very big, surely this is an error, ", umax
         call abort()
       endif
 

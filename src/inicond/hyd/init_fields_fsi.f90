@@ -20,11 +20,12 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   real(kind=pr),dimension(:,:,:),allocatable::tmp
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  integer :: ix,iy,iz
+  integer :: ix,iy,iz, nxs,nys,nzs, nxb,nyb,nzb
   real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega
   real (kind=pr) :: uu,Ek,E,Ex,Ey,Ez,kx,ky,kz,theta1,theta2,phi,kabs,kh,kp,maxdiv
   complex(kind=pr) :: alpha,beta
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  character(len=strlen) :: dsetname
 
   ! Assign zero values
   time = 0.0d0
@@ -169,7 +170,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     if (mpirank==0) write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
     if (mpirank==0) write(*,*) "because it is the volume integral and not the mean"
 
-    
+
     ! check if our initial condition is indeed divergence-free
     call divergence( ink=uk, outk=workc(:,:,:,1) )
     call ifft( ink=workc(:,:,:,1), outx=vort(:,:,:,1) )
@@ -177,6 +178,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     maxdiv = fieldmax(vort(:,:,:,1))
     if(mpirank == 0) write(*,*) "Maximum divergence in field=", maxdiv
     if(mpirank == 0) write(*,'(80("-"))')
+
   case ("taylor_green_2d")
     !--------------------------------------------------
     ! taylor green vortices
@@ -201,6 +203,50 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
      call fft3 ( uk,vort )
      if (mpirank==0) write (*,*) "*** done reading infiles"
+
+  case("infile_inlet")
+    ! read fields from file, but repeat it in the x-direction, since it is too short
+    ! note that the resulting field is non-periodic (but the boundary conditions
+    ! will regularize this, i.e. with sponges)
+
+    nxb=nx
+    nyb=ny
+    nzb=nz
+
+    if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_ux
+    if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_uy
+    if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_uz
+
+    dsetname = file_ux ( 1:index( file_ux, '_' )-1 )
+    call fetch_attributes( file_ux, dsetname, nxs, nys, nzs, x, y, z, time )
+    time = 0.d0
+    ra(1) = 0
+    rb(1) = nxs-1
+    nx=nxs
+    if(mpirank==0) write(*,*) "Reduced to ", nxs, ra, rb
+    allocate (tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+
+    call read_single_file( file_ux, tmp )
+    vort(0:nxs-1,:,:,1) = tmp
+    vort(nxs:nxb-1,:,:,1) = tmp(0:nxb-1-nxs+1,:,:)
+
+
+    call read_single_file( file_uy, tmp )
+    vort(0:nxs-1,:,:,2) = tmp
+    vort(nxs:nxb-1,:,:,2) = tmp(0:nxb-1-nxs+1,:,:)
+
+    call read_single_file( file_uz, tmp )
+    vort(0:nxs-1,:,:,3) = tmp
+    vort(nxs:nxb-1,:,:,3) = tmp(0:nxb-1-nxs+1,:,:)
+    
+    deallocate (tmp)
+
+    nx=nxb
+    ra(1)=0
+    rb(1)=nx-1
+    if(mpirank==0) write(*,*) "Back to ", nx, ra, rb
+
+    call fft3(inx=vort,outk=uk)
 
   case("infile_perturbed")
     ! read velocity field from file, as is done in inicond="infile", but add a

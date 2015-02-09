@@ -27,6 +27,8 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
 
   t1=MPI_wtime()
 
+  if (dry_run_without_fluid=="yes") return
+
   select case(method)
   case("fsi")
      call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),Insect,beams)
