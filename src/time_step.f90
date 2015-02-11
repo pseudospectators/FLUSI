@@ -73,8 +73,21 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! Output of INTEGRALS after every tintegral time
     ! units or itdrag time steps
     !-------------------------------------------------
-    if (modulo(time,tintegral)<=dt1.or.modulo(it,itdrag)==0) then
-      call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
+    if (intelligent_dt=="yes") then
+      ! with intelligent time step
+      ! this is the next instant we want to save
+      tnext1 = dble(ceiling(time/tintegral))*tintegral
+      tnext2 = dble(floor  (time/tintegral))*tintegral
+      if ( (abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8).or.(modulo(it,itdrag)==0) ) then
+        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
+      endif
+    !!!!
+    else
+    !!!!
+      ! without intelligent time step
+      if ( (modulo(time,tintegral)<dt1).or.(modulo(it,itdrag)==0) ) then
+        call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
+      endif
     endif
 
     !-------------------------------------------------
@@ -87,21 +100,30 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     !-------------------------------------------------
     ! Output FIELDS+BACKUPING (after tsave)
     !-------------------------------------------------
-    ! this is the next instant we want to save
-    tnext1 = dble(ceiling(time/tsave))*tsave
-    tnext2 = dble(floor  (time/tsave))*tsave
+    ! save only if we've passed tsave_first already
     if (time>=tsave_first) then
-      if (((intelligent_dt/="yes").and.(modulo(time,tsave)<dt1)) .or.&
-          ((intelligent_dt=="yes").and.((abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8)))&
-          .or.(time==tmax)) then
-
-      call are_we_there_yet(it,it_start,time,t2,t1,dt1)
-      ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
-      ! never matters,and for AB2 this is the one to be overwritten
-      ! in the next step.  This frees 3 complex arrays, which are
-      ! then used in Dump_Runtime_Backup.
-      call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)
-    endif
+      ! with intelligent time step, we hit tsave precisely
+      if (intelligent_dt=="yes") then
+        ! this is the next instant we want to save
+        tnext1 = dble(ceiling(time/tsave))*tsave
+        tnext2 = dble(floor  (time/tsave))*tsave
+        if ((abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8).or.(time==tmax)) then
+          call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+          ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
+          ! never matters,and for AB2 this is the one to be overwritten
+          ! in the next step.  This frees 3 complex arrays, which are
+          ! then used in Dump_Runtime_Backup.
+          call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)
+        endif
+      !!!!
+      else
+      !!!!
+        ! without intelligent dt, we save if we're close enough
+        if ((modulo(time,tsave)<dt1).or.(time==tmax)) then
+          call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+          call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)
+      endif
+      endif
     endif
 
     ! Backup if that's specified in the PARAMS.ini file. We try to do
@@ -116,12 +138,23 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! save slices to hard disk
     !-----------------------------------------------
     if ((method=="fsi").and.(use_slicing=="yes").and.(time>=tslice_first)) then
-      ! this is the next instant we want to save
-      tnext1 = dble(ceiling(time/tslice))*tslice
-      tnext2 = dble(floor  (time/tslice))*tslice
-      if ( (abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8).or.(modulo(it,itslice)==0) ) then
-        call save_slices( time, u )
+      if (intelligent_dt=="yes") then
+        ! with intelligent time step
+        ! this is the next instant we want to save
+        tnext1 = dble(ceiling(time/tslice))*tslice
+        tnext2 = dble(floor  (time/tslice))*tslice
+        if ( (abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8).or.(modulo(it,itslice)==0) ) then
+          call save_slices( time, u )
+        endif
+      !!!!
+      else
+      !!!!
+        ! without intelligent time step
+        if ( (modulo(time,tslice)<dt1).or.(modulo(it,itslice)==0) ) then
+          call save_slices( time, u )
+        endif
       endif
+
     endif
 
     !-----------------------------------------------
