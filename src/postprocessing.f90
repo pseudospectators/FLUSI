@@ -586,6 +586,7 @@ subroutine keyvalues(filename)
   ! the dataset is named the same way as the file:
   dsetname = filename ( 1:index( filename, '_' )-1 )
   call fetch_attributes( filename, dsetname, nx, ny, nz, xl, yl, zl, time )
+  write(*,'("File is at time=",es12.4)') time
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
 
   call read_single_file_serial (filename, field)

@@ -58,9 +58,6 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   ! this is very useful for insects, since one frequently does use this to test
   ! newly implemented species.
   if (dry_run_without_fluid=="yes") then
-    if ((iMoving==1).and.(iPenalization==1)) then
-      call create_mask( time, Insect, beams )
-    endif
     return
   endif
 
