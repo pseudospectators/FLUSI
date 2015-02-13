@@ -80,7 +80,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
       ! this is the next instant we want to save
       tnext1 = dble(ceiling(time/tintegral))*tintegral
       tnext2 = dble(floor  (time/tintegral))*tintegral
-      if ( (abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8).or.(modulo(it,itdrag)==0) ) then
+      if ( (abs(time-tnext1)<=1.0d-6).or.(abs(time-tnext2)<=1.0d-6)&
+          .or.(modulo(it,itdrag)==0).or.(abs(time-tmax)<=1.0d-6) ) then
         call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,Insect,beams)
       endif
     !!!!
@@ -109,7 +110,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
         ! this is the next instant we want to save
         tnext1 = dble(ceiling(time/tsave))*tsave
         tnext2 = dble(floor  (time/tsave))*tsave
-        if ((abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8).or.(time==tmax)) then
+        if ((abs(time-tnext1)<=1.0d-6).or.(abs(time-tnext2)<=1.0d-6).or.(abs(time-tmax)<=1.0d-6)) then
           call are_we_there_yet(it,it_start,time,t2,t1,dt1)
           ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
           ! never matters,and for AB2 this is the one to be overwritten
@@ -145,7 +146,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
         ! this is the next instant we want to save
         tnext1 = dble(ceiling(time/tslice))*tslice
         tnext2 = dble(floor  (time/tslice))*tslice
-        if ( (abs(time-tnext1)<=1.d-8).or.(abs(time-tnext2)<=1.d-8).or.(modulo(it,itslice)==0) ) then
+        if ( (abs(time-tnext1)<=1.0d-6).or.(abs(time-tnext2)<=1.0d-6).or.(modulo(it,itslice)==0) ) then
           call save_slices( time, u )
         endif
       !!!!
@@ -256,7 +257,7 @@ subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
   if(root) then
     t2= MPI_wtime() - t1
     time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
-    write(*,'("time left: ",i3,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",g10.2)') &
+    write(*,'("time left: ",i2,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",g10.2)') &
     floor(time_left/(24.d0*3600.d0))   ,&
     floor(mod(time_left,24.*3600.d0)/3600.d0),&
     floor(mod(time_left,3600.d0)/60.d0),&

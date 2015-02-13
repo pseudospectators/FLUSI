@@ -885,7 +885,7 @@ subroutine adjust_dt(time,u,dt1)
       if (iTimeMethodFluid=="RK4") then
         dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
       endif
-
+      
       !*************************************************************************
       ! we respect all necessary restrictions, the following ones are optional
       !*************************************************************************
@@ -898,33 +898,33 @@ subroutine adjust_dt(time,u,dt1)
         if (time>=tsave_first) then
           ! Don't jump past save-points: if the time-step is larger than
           ! the time interval between outputs, decrease the time-step.
-          dt1 = min(dt1,tsave)
+          dt1 = min(dt1,0.98d0*tsave)
           t = dble(ceiling(time/tsave))*tsave
-          if ((time+dt1>t).and.(abs(time-t)>=1.d-8)) then
+          if ((time+dt1>t).and.(abs(time-t)>=1.d-6)) then
             dt1=t-time
           endif
         endif
 
         ! Don't jump past save-points: if the time-step is larger than
         ! the time interval between outputs, decrease the time-step.
-        dt1 = min(dt1,tintegral)
+        dt1 = min(dt1,0.98d0*tintegral)
         t = dble(ceiling(time/tintegral))*tintegral
-        if ((time+dt1>t).and.(abs(time-t)>=1.d-8)) then
+        if ((time+dt1>t).and.(abs(time-t)>=1.d-6)) then
           dt1=t-time
         endif
 
         if (time>=tslice_first) then
           ! Don't jump past save-points: if the time-step is larger than
           ! the time interval between outputs, decrease the time-step.
-          dt1 = min(dt1,tslice)
+          dt1 = min(dt1,0.98d0*tslice)
           t = dble(ceiling(time/tslice))*tslice
-          if ((time+dt1>t).and.(abs(time-t)>=1.d-8)) then
+          if ((time+dt1>t).and.(abs(time-t)>=1.d-6)) then
             dt1=t-time
           endif
         endif
 
         t = tmax
-        if ((time+dt1>t).and.(abs(time-t)>=1.d-8)) then
+        if ((time+dt1>t).and.(abs(time-t)>=1.d-6)) then
           dt1 = tmax-time
         endif
       endif
