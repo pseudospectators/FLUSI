@@ -30,6 +30,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   logical :: continue_timestepping
+  t1=MPI_wtime()
 
   ! first backup is in "truntime" hours
   truntimenext = truntime
@@ -46,12 +47,10 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   if (root) write(*,*) "Start time-stepping...."
 
   ! Loop over time steps
-  t1=MPI_wtime()
+
   do while ((time<tmax) .and. (it<=nt) .and. (continue_timestepping) )
     t4=MPI_wtime()
     dt0=dt1
-
-    ! note the create_mask call is now a part of RHS
 
     !-------------------------------------------------
     ! advance fluid/B-field in time
@@ -111,7 +110,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
         tnext1 = dble(ceiling(time/tsave))*tsave
         tnext2 = dble(floor  (time/tsave))*tsave
         if ((abs(time-tnext1)<=1.0d-6).or.(abs(time-tnext2)<=1.0d-6).or.(abs(time-tmax)<=1.0d-6)) then
-          call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+          call are_we_there_yet(time,t1,dt1)
           ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it
           ! never matters,and for AB2 this is the one to be overwritten
           ! in the next step.  This frees 3 complex arrays, which are
@@ -123,7 +122,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
       !!!!
         ! without intelligent dt, we save if we're close enough
         if ((modulo(time,tsave)<dt1).or.(time==tmax)) then
-          call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+          call are_we_there_yet(time,t1,dt1)
           call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)
       endif
       endif
@@ -164,7 +163,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! Output how much time remains
     !-----------------------------------------------
     if ((modulo(it,300)==0).or.(it==20)) then
-      call are_we_there_yet(it,it_start,time,t2,t1,dt1)
+      call are_we_there_yet(time,t1,dt1)
     endif
 
     !-------------------------------------------------
@@ -242,21 +241,16 @@ end subroutine save_time_stepping_info
 !-------------------------------------------------------------------------------
 ! Output how much time remains in the simulation.
 !-------------------------------------------------------------------------------
-subroutine are_we_there_yet(it,it_start,time,t2,t1,dt1)
+subroutine are_we_there_yet(time,wtime_tstart,dt1)
   use vars
   implicit none
 
-  real(kind=pr),intent(inout) :: time,t2,t1,dt1
-  integer,intent(inout) :: it,it_start
-  real(kind=pr):: time_left
+  real(kind=pr),intent(inout) :: time,wtime_tstart,dt1
+  real(kind=pr):: time_left, t2
 
-  ! This is done every 300 time steps, but it may happen that this is
-  ! too seldom or too often. in future versions, maybe we try doing it
-  ! once in an hour or so. We also output a first estimate after 20
-  ! time steps.
-  if(root) then
-    t2= MPI_wtime() - t1
-    time_left=(((tmax-time)/dt1)*(t2/dble(it-it_start)))
+  if(mpirank==0) then
+    t2 = MPI_wtime() - wtime_tstart
+    time_left = (tmax-time) * (t2/(time-tstart))
     write(*,'("time left: ",i2,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",g10.2)') &
     floor(time_left/(24.d0*3600.d0))   ,&
     floor(mod(time_left,24.*3600.d0)/3600.d0),&

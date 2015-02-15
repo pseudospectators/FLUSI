@@ -1526,6 +1526,8 @@ subroutine turbulence_analysis()
     write(17,'(g15.8,5x,A)') u_rms*lambda_macro/nu, "Renolds taylor macro scale"
     write(17,'(g15.8,5x,A)') u_rms*lambda_micro/nu, "Renolds taylor micro scale"
     write(17,'(g15.8,5x,A)') lambda_macro/u_rms, "eddy turnover time"
+    write(17,'(g15.8,5x,A)') (2./3.)*(dble(nx/2-1)), "kmax"
+    write(17,'(g15.8,5x,A)') (2./3.)*(dble(nx/2-1))*(nu**3 / epsilon)**(0.25d0), "kmax*eta"
   endif
 
   if(mpirank==0) close(17)

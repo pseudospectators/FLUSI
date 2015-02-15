@@ -1113,6 +1113,9 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   ! FIXME: only compute if dt0=dt1?
   call cal_vis(dt1,explin)
 
+  ! note when we started this run
+  tstart = time
+
   if(mpirank == 0) then
      write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
      write(*,'("!!! DONE READING BACKUP (thats good news!)")')

@@ -21,6 +21,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   type(diptera),intent(inout)::Insect
 
   if (mpirank==0) write(*,*) "Set up initial conditions...."
+  tstart = 0.d0
 
   !-----------------------------------------------------------------------------
   ! initialize fields, possibly read in backup file
