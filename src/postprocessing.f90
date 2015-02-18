@@ -1562,7 +1562,7 @@ subroutine TKE_mean()
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
 
-  call get_command_argument(4,fname_ekin)
+  call get_command_argument(3,fname_ekin)
   call get_command_argument(4,fname_ux)
   call get_command_argument(5,fname_uy)
   call get_command_argument(6,fname_uz)
