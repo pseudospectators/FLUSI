@@ -104,7 +104,7 @@ subroutine fft_initialize
   decomposition="none"
 
   if (mpirank==0) then
-    write(*,'(80("%"))')
+    write(*,'(A)') "-----------------------------------p3dfft init---------------------------"
     write(*,'("Initializing P3DFFT, n=(",3(i4,1x),")")') nx,ny,nz
     write(*,'("P3DFFT reserves about ",i8,"MB (",i4,"GB) for internal work arrays")'), &
     nint(1.6d-5*dble(nx*ny*nz)), nint(1.6d-5*dble(nx*ny*nz)/1000.d0)
@@ -246,7 +246,7 @@ subroutine fft_initialize
 !        FFTW_ESTIMATE)
 !   deallocate(f,ft )
 !   deallocate (yz_plane_local)
-if (mpirank==0) write(*,'(80("%"))')
+if (mpirank==0) write(*,'(A)') "------------------------------p3dfft init DONE---------------------------"
 end subroutine fft_initialize
 
 

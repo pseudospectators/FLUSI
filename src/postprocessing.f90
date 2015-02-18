@@ -53,6 +53,10 @@ subroutine postprocessing()
     call post_spectrum()
   case ("--turbulence-analysis")
     call turbulence_analysis()
+  case ("--TKE-mean")
+    call tke_mean()
+  case ("--max-over-x")
+    call max_over_x()
   case default
     if(mpirank==0) write(*,*) "Postprocessing option is "// postprocessing_mode
     if(mpirank==0) write(*,*) "But I don't know what to do with that"
@@ -1538,3 +1542,141 @@ subroutine turbulence_analysis()
   call fft_free()
 
 end subroutine turbulence_analysis
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --TKE-mean ekinavg_00.h5 uavgx_00.h5 uavgy_00.h5 uavgz_00.h5 tkeavg_000.h5
+! From the time-avg kinetic energy field and the components of the time avg
+! velocity field, compute the mean turbulent kinetic energy.
+! See TKE note 18 feb 2015 (Thomas) and 13 feb 2015 (Dmitry)
+! Can be done in parallel
+!-------------------------------------------------------------------------------
+subroutine TKE_mean()
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use mpi
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, fname_ekin, outfile
+  real(kind=pr),dimension(:,:,: ),allocatable :: ekin
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr) :: time
+
+  call get_command_argument(4,fname_ekin)
+  call get_command_argument(4,fname_ux)
+  call get_command_argument(5,fname_uy)
+  call get_command_argument(6,fname_uz)
+  call get_command_argument(7,outfile)
+
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+  call check_file_exists( fname_ekin )
+
+  if (mpirank == 0) then
+    write(*,*) "Processing "//trim(adjustl(fname_ux))//" "//trim(adjustl(fname_uy))//&
+    &" "//trim(adjustl(fname_uz))//" and "//fname_ekin
+  endif
+
+  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(ekin(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+  call read_single_file ( fname_ekin, ekin )
+
+  ekin = ekin - 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
+
+  dsetname = outfile ( 1:index( outfile, '_' )-1 )
+  if (mpirank==0) write(*,*) "Wrote to "//trim(adjustl(outfile))//" "//trim(adjustl(dsetname))
+  call save_field_hdf5 ( time,outfile,ekin,dsetname)
+
+
+  deallocate (u,ekin)
+  call fft_free()
+
+end subroutine tke_mean
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --max-over-x tkeavg_000.h5 outfile.dat
+! This function reads in the specified *.h5 file and outputs the maximum value
+! max_yz(x) into the specified ascii-outfile
+! It may be used rarely, but we needed it for turbulent bumblebees.
+! Can be done in parallel.
+!-------------------------------------------------------------------------------
+subroutine max_over_x()
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use mpi
+  implicit none
+  character(len=strlen) :: dsetname, fname_ekin, outfile
+  real(kind=pr),dimension(:,:,:),allocatable :: u
+  real(kind=pr), dimension(:), allocatable :: umaxx,umaxx_loc
+  real(kind=pr) :: time
+  integer :: ix, mpicode
+
+
+  call get_command_argument(3,fname_ekin)
+  call get_command_argument(4,outfile)
+  call check_file_exists( fname_ekin )
+
+  dsetname = fname_ekin ( 1:index( fname_ekin, '_' )-1 )
+  call fetch_attributes( fname_ekin, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate( u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  allocate( umaxx(0:nx-1) )
+  allocate( umaxx_loc(0:nx-1) )
+
+  call read_single_file ( fname_ekin, u )
+
+  do ix=0,nx-1
+    umaxx_loc(ix)=maxval(u(ix,:,:))
+  enddo
+
+  call MPI_ALLREDUCE(umaxx_loc,umaxx,nx,MPI_DOUBLE_PRECISION,MPI_MAX,&
+       MPI_COMM_WORLD,mpicode)
+
+  if(mpirank==0) then
+    write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
+    open(17,file=trim(adjustl(outfile)),status='replace')
+    write(17,'(A)') "%-----------------------------------"
+    write(17,'(A)') "%FLUSI max-over-x file="//trim(adjustl(fname_ekin))
+    write(17,'(A)') "%-----------------------------------"
+    do ix=0,nx-1
+      write(17,'(es15.8)') umaxx(ix)
+    enddo
+    close(17)
+  endif
+
+
+
+  deallocate (u,umaxx,umaxx_loc)
+  call fft_free()
+
+end subroutine max_over_x

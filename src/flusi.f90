@@ -292,7 +292,9 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! check if at least FFT works okay
   !-----------------------------------------------------------------------------
-  call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
+  if (dry_run_without_fluid /= "yes") then
+    call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
+  endif
 
   !-----------------------------------------------------------------------------
   ! Initial condition
@@ -325,7 +327,7 @@ subroutine Start_Simulation()
   if (allocated(press))  deallocate(press)
   if (allocated(uk_old))  deallocate(uk_old)
   if (allocated(nlk_tmp))  deallocate(nlk_tmp)
-  if (allocated(uk_avg)) deallocate(uk_avg)
+  if (allocated(uk_avg))  deallocate(uk_avg)
   if (allocated(e_avg)) deallocate(e_avg)
 
   if (iMask=="Insect") then
