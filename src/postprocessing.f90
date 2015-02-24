@@ -57,6 +57,8 @@ subroutine postprocessing()
     call tke_mean()
   case ("--max-over-x")
     call max_over_x()
+  case ("--mean-over-x-subdomain")
+    call mean_over_x_subdomain()
   case default
     if(mpirank==0) write(*,*) "Postprocessing option is "// postprocessing_mode
     if(mpirank==0) write(*,*) "But I don't know what to do with that"
@@ -1680,3 +1682,95 @@ subroutine max_over_x()
   call fft_free()
 
 end subroutine max_over_x
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --max-over-x tkeavg_000.h5 outfile.dat
+! This function reads in the specified *.h5 file and outputs the maximum value
+! max_yz(x) into the specified ascii-outfile
+! It may be used rarely, but we needed it for turbulent bumblebees.
+! Can be done in parallel.
+!-------------------------------------------------------------------------------
+subroutine mean_over_x_subdomain()
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use mpi
+  implicit none
+  character(len=strlen) :: dsetname, fname_ekin, outfile
+  real(kind=pr),dimension(:,:,:),allocatable :: u, mask
+  real(kind=pr), dimension(:), allocatable :: umaxx,umaxx_loc
+  real(kind=pr) :: time,x,y,z
+  integer :: ix,iy,iz, mpicode
+
+
+  call get_command_argument(3,fname_ekin)
+  call get_command_argument(4,outfile)
+  call check_file_exists( fname_ekin )
+
+  dsetname = fname_ekin ( 1:index( fname_ekin, '_' )-1 )
+  call fetch_attributes( fname_ekin, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate( u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  allocate( mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  allocate( umaxx(0:nx-1) )
+  allocate( umaxx_loc(0:nx-1) )
+
+  call read_single_file ( fname_ekin, u )
+
+  ! set a 1/0 mask to cancel values out of the bounds we want
+  mask =0.d0
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        x=dble(ix)*dx-0.5*xl
+        y=dble(iy)*dy-0.5*yl
+        z=dble(iz)*dz-0.5*zl
+
+        if ( abs(y)<=1.3d0 .and. abs(z)<=1.3d0 ) then
+          mask(ix, iy, iz) = 1.d0
+        endif
+      enddo
+    enddo
+  enddo
+
+
+  u = u*mask
+
+  do ix=0,nx-1
+    umaxx_loc(ix)=sum(u(ix,:,:)) / sum(mask(ix,:,:))
+  enddo
+
+  call MPI_ALLREDUCE(umaxx_loc,umaxx,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+
+
+
+  if(mpirank==0) then
+    write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
+    open(17,file=trim(adjustl(outfile)),status='replace')
+    write(17,'(A)') "%-----------------------------------"
+    write(17,'(A)') "%FLUSI mean over x (boxed) file="//trim(adjustl(fname_ekin))
+    write(17,'(A)') "%-----------------------------------"
+    do ix=0,nx-1
+      write(17,'(es15.8)') umaxx(ix)
+    enddo
+    close(17)
+  endif
+
+
+
+  deallocate (u,umaxx,umaxx_loc,mask)
+  call fft_free()
+
+end subroutine mean_over_x_subdomain
