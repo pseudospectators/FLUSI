@@ -720,6 +720,7 @@ subroutine read_single_file_serial(filename,field)
   use mpi
   use vars
   use hdf5
+  use basic_operators
   implicit none
 
   character(len=*),intent(in) :: filename
@@ -823,6 +824,7 @@ subroutine read_single_file_serial(filename,field)
   call h5fclose_f(file_id,error)
   call H5close_f(error)
 
+  call checknan(field,"recently loaded field")
 
 end subroutine read_single_file_serial
 
@@ -836,6 +838,7 @@ subroutine Read_Single_File ( filename, field )
   use mpi
   use vars
   use hdf5
+  use basic_operators
   implicit none
 
   character(len=*),intent(in) :: filename
@@ -977,6 +980,8 @@ subroutine Read_Single_File ( filename, field )
   call h5dclose_f(dset_id, error)
   call h5fclose_f(file_id,error)
   call H5close_f(error)
+
+  call checknan(field,"recently loaded field")
 
   if (mpirank==0) then
     write (*,'("...DONE! ")',advance='yes')
@@ -1132,6 +1137,7 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use mpi
   use fsi_vars
   use hdf5
+  use basic_operators
   implicit none
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), &
        intent(out) :: field
@@ -1252,6 +1258,7 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
 
   ! Close dataset
   call h5dclose_f(dset_id, error)
+  call checknan(field,'recently read backup file!!')
 end subroutine read_field_backup
 
 

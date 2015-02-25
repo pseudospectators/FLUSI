@@ -106,7 +106,7 @@ subroutine fft_initialize
   if (mpirank==0) then
     write(*,'(A)') "-----------------------------------p3dfft init---------------------------"
     write(*,'("Initializing P3DFFT, n=(",3(i4,1x),")")') nx,ny,nz
-    write(*,'("P3DFFT reserves about ",i8,"MB (",i4,"GB) for internal work arrays")'), &
+    write(*,'("P3DFFT reserves about ",i8,"MB (",i4,"GB) for internal work arrays")') &
     nint(1.6d-5*dble(nx*ny*nz)), nint(1.6d-5*dble(nx*ny*nz)/1000.d0)
   endif
 
