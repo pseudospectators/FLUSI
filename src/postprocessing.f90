@@ -1048,6 +1048,9 @@ subroutine extract_subset()
   nx = nx_red
   ny = ny_red
   nz = nz_red
+  dx = xl_file / dble(nx_file)
+  dy = yl_file / dble(ny_file)
+  dz = zl_file / dble(nz_file)
   xl = dx + dble(nx1+(nx_red-1)*nxs)*dx - dble(nx1)*dx
   yl = dy + dble(ny1+(ny_red-1)*nys)*dy - dble(ny1)*dy
   zl = dz + dble(nz1+(nz_red-1)*nzs)*dz - dble(nz1)*dz
