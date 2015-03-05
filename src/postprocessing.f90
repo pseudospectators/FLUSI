@@ -1001,7 +1001,7 @@ subroutine extract_subset()
   dimensions_local = (/ nx_red , ny_red,  nz_red /)
   offset = (/ nx1, ny1, nz1 /)
   stride = (/ nxs, nys, nzs /)
-  chunking_dims = 32 !min(nx_red,ny_red,nz_red)
+  chunking_dims = 1 !min(nx_red,ny_red,nz_red)
 
   !----------------------------------------------------------------------------
   ! Read actual field from file (dataset)
@@ -1021,7 +1021,7 @@ subroutine extract_subset()
   ! Select hyperslab in the file.
   call h5dget_space_f(dset_id, filespace, error)
   call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, dimensions_local, &
-  error, stride)
+  error, stride, count)
 
 
   ! Create property list for collective dataset read
