@@ -963,9 +963,9 @@ subroutine extract_subset()
 
   !-----------------------------------------------------------------------------
   ! compute dimensions of reduced subset:
-  nx_red = nx1 + nxs * floor( dble(nx2-nx1)/dble(nxs) )  - nx1 + 1
-  ny_red = ny1 + nys * floor( dble(ny2-ny1)/dble(nys) )  - ny1 + 1
-  nz_red = nz1 + nzs * floor( dble(nz2-nz1)/dble(nzs) )  - nz1 + 1
+  nx_red = nx1 + floor( dble(nx2-nx1)/dble(nxs) )  - nx1 + 1
+  ny_red = ny1 + floor( dble(ny2-ny1)/dble(nys) )  - ny1 + 1
+  nz_red = nz1 + floor( dble(nz2-nz1)/dble(nzs) )  - nz1 + 1
   write (*,'("Size of subset is ",3(i4,1x))') nx_red, ny_red, nz_red
   !-----------------------------------------------------------------------------
 
