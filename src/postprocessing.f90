@@ -80,8 +80,9 @@ subroutine convert_hdf2bin()
   use vars
   use mpi
   use basic_operators
+  use helpers
   implicit none
-  character(len=strlen) :: fname, dsetname  ,fname_bin
+  character(len=strlen) :: fname, fname_bin
   real(kind=pr), dimension(:,:,:), allocatable :: field
   integer, parameter :: pr_out = 4
   integer :: ix, iy ,iz
@@ -98,8 +99,7 @@ subroutine convert_hdf2bin()
     return
   endif
 
-  dsetname = fname ( 1:index( fname, '_' )-1 )
-  call fetch_attributes( fname, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname, get_dsetname(fname), nx, ny, nz, xl, yl, zl, time )
 
   write (*,'("Converting ",A," to ",A," Resolution is",3(i4,1x))') &
         trim(fname), trim(fname_bin), nx,ny,nz
@@ -135,8 +135,9 @@ subroutine time_avg_HDF5()
   use vars
   use mpi
   use basic_operators
+  use helpers
   implicit none
-  character(len=strlen) :: fname, dsetname  ,fname_bin, fname_avg
+  character(len=strlen) :: fname, fname_bin, fname_avg
   real(kind=pr), dimension(:,:,:), allocatable :: field_avg, field
   integer :: ix, iy ,iz, io_error=0, i=0
   real(kind=pr) :: time
@@ -166,10 +167,8 @@ subroutine time_avg_HDF5()
         write(*,*) "Processing file "//trim(adjustl(fname_bin))
 
         call check_file_exists ( fname_bin )
-
-        dsetname = fname_bin ( 1:index( fname_bin, '_' )-1 )
-        write(*,*) "Dsetname="//dsetname
-        call fetch_attributes( fname_bin, dsetname, nx, ny, nz, xl, yl, zl, time )
+        call fetch_attributes( fname_bin, get_dsetname(fname_bin), nx, ny, nz, &
+             xl, yl, zl, time )
 
         ! first time? allocate then.
         if ( .not. allocated(field_avg) ) then
@@ -192,8 +191,7 @@ subroutine time_avg_HDF5()
 
   field_avg = field_avg / dble(i)
 
-  dsetname = fname_avg ( 1:index( fname_avg, '_' )-1 )
-  call save_field_hdf5(0.d0, fname_avg, field_avg, dsetname)
+  call save_field_hdf5(0.d0, fname_avg, field_avg, get_dsetname(fname_avg))
 
   deallocate(field_avg)
   deallocate(field)
@@ -212,8 +210,9 @@ subroutine convert_bin2hdf()
   use vars
   use mpi
   use basic_operators
+  use helpers
   implicit none
-  character(len=strlen) :: fname_bin,fname_hdf,dsetname,tmp
+  character(len=strlen) :: fname_bin,fname_hdf,tmp
   real, dimension(:,:,:), allocatable :: field
   integer, parameter :: pr_out = 4
   integer :: ix, iy ,iz, i,j,k
@@ -230,8 +229,6 @@ subroutine convert_bin2hdf()
   call get_command_argument(3,fname_bin)
   ! hdf5 file name
   call get_command_argument(4,fname_hdf)
-  ! name of field in hdf5 file
-  dsetname=fname_hdf ( 1:index( fname_hdf, '_' )-1 )
   call get_command_argument(5,tmp)
   read (tmp,*) nx
   call get_command_argument(6,tmp)
@@ -275,7 +272,7 @@ subroutine convert_bin2hdf()
   ra=(/0, 0, 0/)
   rb=(/nx-1, ny-1, nz-1/)
 
-  call save_field_hdf5(time,trim(adjustl(fname_hdf)),dble(field),trim(adjustl(dsetname)))
+  call save_field_hdf5(time,trim(adjustl(fname_hdf)),dble(field),get_dsetname(fname_hdf))
 
   deallocate (field)
 end subroutine convert_bin2hdf
@@ -293,6 +290,7 @@ subroutine convert_abs_vorticity()
   use vars
   use p3dfft_wrapper
   use mpi
+  use helpers
   use basic_operators
   implicit none
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
@@ -319,8 +317,7 @@ subroutine convert_abs_vorticity()
   endif
 
 
-  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, get_dsetname(fname_ux), nx, ny, nz, xl, yl, zl, time )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -849,18 +846,29 @@ end subroutine pressure_to_Qcriterion
 ! loads a file to memory and extracts a subset, writing to a different file. We
 ! assume here that you do this for visualization; in this case, one usually keeps
 ! the original, larger files. For simplicity, ensure all files follow FLUSI
-! naming convention, it is thus recommended to use a subfolder.
+! naming convention.
+!---
+! Note: through using helpers.f90::get_dsetname, it is finally possible to write
+! to a subfolder *.h5 file directly from flusi
+! (Thomas, 03/2015)
+!---
+! Using HDF5s hyperslab functions, we can read only a specific part into the
+! memory - at no point we have to load the entire original file before we can
+! downsample it. This is a good step forward. (Thomas 03/2015)
 !-------------------------------------------------------------------------------
 ! call:
-! ./flusi --postprocess --extract-subset ux_00000.h5 resized/ux_00000.h5 128:1:256 128:2:1024 1:1:end
+! ./flusi --postprocess --extract-subset ux_00000.h5 sux_00000.h5 128:1:256 128:2:1024 1:1:9999
 !-------------------------------------------------------------------------------
 subroutine extract_subset()
   use mpi
   use vars
+  use hdf5
+  use basic_operators
+  use helpers
   implicit none
+
   character(len=strlen) :: fname_in, fname_out, dsetname_in, dsetname_out
   character(len=strlen) :: xset,yset,zset
-  real(kind=pr)::time
   integer :: ix,iy,iz,i
   ! reduced domain size
   integer :: nx1,nx2, ny1,ny2, nz1,nz2, nxs,nys,nzs
@@ -868,10 +876,32 @@ subroutine extract_subset()
   integer :: nx_red, ny_red, nz_red, ix_red, iy_red, iz_red
   ! reduced domain extends
   real(kind=pr) :: xl1, yl1, zl1
-  ! original field
-  real(kind=pr), dimension(:,:,:), allocatable :: field_in
-  ! reduced field
-  real(kind=pr), dimension(:,:,:), allocatable :: field_out
+  real(kind=pr), dimension(:,:,:), allocatable :: field
+
+  integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
+  real (kind=pr)                :: time, xl_file, yl_file, zl_file
+  character(len=80)             :: dsetname
+  integer                       :: nx_file, ny_file, nz_file, mpierror
+
+  integer(hid_t) :: file_id       ! file identifier
+  integer(hid_t) :: dset_id       ! dataset identifier
+  integer(hid_t) :: filespace     ! dataspace identifier in file
+  integer(hid_t) :: memspace      ! dataspace identifier in memory
+  integer(hid_t) :: plist_id      ! property list identifier
+
+  ! dataset dimensions in the file.
+  integer(hsize_t), dimension(rank) :: dimensions_file
+  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
+  integer(hsize_t), dimension(rank) :: chunking_dims  ! chunks dimensions
+
+  integer(hsize_t),  dimension(rank) :: count  = 1
+  integer(hssize_t), dimension(rank) :: offset
+  integer(hsize_t),  dimension(rank) :: stride = 1
+  integer :: error  ! error flags
+
+  ! what follows is for the attribute "time"
+  integer, parameter :: arank = 1
+
 
   if (mpisize/=1) then
     write(*,*) "./flusi --postprocess --extract-subset is a SERIAL routine, use 1CPU only"
@@ -882,11 +912,13 @@ subroutine extract_subset()
   call get_command_argument(3,fname_in)
   call check_file_exists( fname_in )
 
-  ! get filename to save Q criterion to
+  ! get filename to save subset to
   call get_command_argument(4,fname_out)
 
-  dsetname_in = fname_in ( 1:index( fname_in, '_' )-1 )
-  dsetname_out = fname_out ( 1:index( fname_out, '_' )-1 )
+  dsetname_in  = get_dsetname( fname_in )
+  dsetname_out = get_dsetname( fname_out )
+
+  write(*,'("dsetname=",A,1x,A)') trim(adjustl(dsetname_in)),trim(adjustl(dsetname_out))
 
   call fetch_attributes( fname_in, dsetname_in, nx, ny, nz, xl, yl, zl, time )
 
@@ -929,82 +961,84 @@ subroutine extract_subset()
 
 
 
-  allocate ( field_in(0:nx-1,0:ny-1,0:nz-1) )
-  call read_single_file_serial(fname_in,field_in)
-
-  dx = xl/dble(nx)
-  dy = yl/dble(ny)
-  dz = zl/dble(nz)
-
-
   !-----------------------------------------------------------------------------
-  ix = nx1
-  nx_red = 1
-  do while (ix<=nx2)
-    nx_red = nx_red + 1
-    ix = ix+nxs
-  enddo
-  ! we counted one too far
-  ix = ix-nxs
-  nx_red = nx_red -1
-  ! warn if spacing does not allow to take last point into account
-  if (ix /= nx2) then
-    write(*,'("Warning, with the spacing ",i2," you provided we extract "&
-    &,i4,":",i4, " rather then what you specified (last point is missing)" )') &
-    nxs,nx1,ix
-  endif
-  !-----------------------------------------------------------------------------
-  iy = ny1
-  ny_red = 1
-  do while (iy<=ny2)
-    ny_red = ny_red + 1
-    iy = iy+nys
-  enddo
-  ! we counted one too far
-  iy = iy-nys
-  ny_red = ny_red -1
-  ! warn if spacing does not allow to take last point into account
-  if (iy /= ny2) then
-    write(*,'("Warning, with the spacing ",i2," you provided we extract "&
-    &,i4,":",i4, " rather then what you specified (last point is missing)" )') &
-    nys,ny1,iy
-  endif
-  !-----------------------------------------------------------------------------
-  iz=nz1
-  nz_red = 1
-  do while (iz<=nz2)
-    iz = iz+nzs
-    nz_red = nz_red+1
-  enddo
-  ! we counted one too far
-  nz_red = nz_red-1
-  iz = iz-nzs
-  ! warn if spacing does not allow to take last point into account
-  if (iz /= nz2) then
-    write(*,'("Warning, with the spacing ",i2," you provided we extract "&
-    &,i4,":",i4, " rather then what you specified (last point is missing)" )') &
-    nzs,nz1,iz
-  endif
-  !-----------------------------------------------------------------------------
+  ! compute dimensions of reduced subset:
+  nx_red = nx1 + nxs * floor( dble(nx2-nx1)/dble(nxs) )  - nx1 + 1
+  ny_red = ny1 + nys * floor( dble(ny2-ny1)/dble(nys) )  - ny1 + 1
+  nz_red = nz1 + nzs * floor( dble(nz2-nz1)/dble(nzs) )  - nz1 + 1
   write (*,'("Size of subset is ",3(i4,1x))') nx_red, ny_red, nz_red
   !-----------------------------------------------------------------------------
 
   ! we figured out how big the subset array is
-  allocate ( field_out(0:nx_red-1,0:ny_red-1,0:nz_red-1) )
+  allocate ( field(0:nx_red-1,0:ny_red-1,0:nz_red-1) )
 
-  ! fill the target field
-  do ix_red = 0, nx_red-1
-    do iy_red = 0, ny_red-1
-      do iz_red = 0, nz_red-1
-        ix = nx1 + ix_red*nxs
-        iy = ny1 + iy_red*nys
-        iz = nz1 + iz_red*nzs
-        field_out(ix_red,iy_red,iz_red) = field_in(ix,iy,iz)
-      enddo
-    enddo
-  enddo
 
-  write(*,*) maxval(field_out), maxval(field_in)
+  call Fetch_attributes( fname_in, dsetname_in, nx_file,ny_file,nz_file,&
+  xl_file,yl_file,zl_file,time )
+
+  !-----------------------------------------------------------------------------
+  ! load the file
+  ! the basic idea is to just allocate the smaller field, and use hdf5
+  ! to read just this field from the input file.
+  !-----------------------------------------------------------------------------
+  ! Initialize HDF5 library and Fortran interfaces.
+  call h5open_f(error)
+
+  ! Setup file access property list with parallel I/O access.  this
+  ! sets up a property list ("plist_id") with standard values for
+  ! FILE_ACCESS
+  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! this modifies the property list and stores MPI IO
+  ! comminucator information in the file access property list
+  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+  ! open the file in parallel
+  call h5fopen_f (fname_in, H5F_ACC_RDWR_F, file_id, error, plist_id)
+  ! this closes the property list (we'll re-use it)
+  call h5pclose_f(plist_id, error)
+
+  ! Definition of memory distribution
+  dimensions_file  = (/ nx_file, ny_file, nz_file/)
+  dimensions_local = (/ nx_red , ny_red,  nz_red /)
+  offset = (/ nx1, ny1, nz1 /)
+  stride = (/ nxs, nys, nzs /)
+  chunking_dims = 32 !min(nx_red,ny_red,nz_red)
+
+  !----------------------------------------------------------------------------
+  ! Read actual field from file (dataset)
+  !----------------------------------------------------------------------------
+  ! dataspace in the file: contains all data from all procs
+  call h5screate_simple_f(rank, dimensions_file, filespace, error)
+  ! dataspace in memory: contains only local data
+  call h5screate_simple_f(rank, dimensions_local, memspace, error)
+
+  ! Create chunked dataset
+  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
+
+  ! Open an existing dataset.
+  call h5dopen_f(file_id, dsetname_in, dset_id, error)
+
+  ! Select hyperslab in the file.
+  call h5dget_space_f(dset_id, filespace, error)
+  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+  error , stride, dimensions_local)
+
+  ! Create property list for collective dataset read
+  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+  ! actual read is the next command:
+  call h5dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
+  mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
+
+  ! check if we loaded crap
+  call checknan(field,"recently loaded field")
+
+  call h5sclose_f(filespace, error)
+  call h5sclose_f(memspace, error)
+  call h5pclose_f(plist_id, error)
+  call h5dclose_f(dset_id, error)
+  call h5fclose_f(file_id,error)
+  call H5close_f(error)
 
   ! set up dimensions in global variables, since save_field_hdf5 relies on this
   ra = 0
@@ -1014,14 +1048,13 @@ subroutine extract_subset()
   nx = nx_red
   ny = ny_red
   nz = nz_red
-  xl = dx+dble(nx1 + (nx_red-1)*nxs)*dx - dble(nx1)*dx
-  yl = dy+dble(ny1 + (ny_red-1)*nys)*dy - dble(ny1)*dy
-  zl = dz+dble(nz1 + (nz_red-1)*nzs)*dz - dble(nz1)*dz
+  xl = dx + dble(nx1+(nx_red-1)*nxs)*dx - dble(nx1)*dx
+  yl = dy + dble(ny1+(ny_red-1)*nys)*dy - dble(ny1)*dy
+  zl = dz + dble(nz1+(nz_red-1)*nzs)*dz - dble(nz1)*dz
 
+  ! Done! Write extracted subset to disk and be happy with the result
+  call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field, dsetname_out )
 
-  call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field_out, dsetname_out )
-
-  deallocate (field_in, field_out)
 end subroutine extract_subset
 
 

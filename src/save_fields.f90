@@ -325,11 +325,11 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
 
   if (field_precision=="double") then
     ! Output files in double precision
-    call h5dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, &
+    call h5dcreate_f(file_id, trim(adjustl(dsetname)), H5T_NATIVE_DOUBLE, filespace, &
        dset_id, error, plist_id)
   else
     ! Output files in single precision
-    call h5dcreate_f(file_id, dsetname, H5T_NATIVE_REAL, filespace, &
+    call h5dcreate_f(file_id, trim(adjustl(dsetname)), H5T_NATIVE_REAL, filespace, &
        dset_id, error, plist_id)
   endif
 
