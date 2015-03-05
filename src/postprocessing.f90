@@ -1020,8 +1020,9 @@ subroutine extract_subset()
 
   ! Select hyperslab in the file.
   call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
-  error , stride, dimensions_local)
+  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, dimensions_local, &
+  error, stride)
+
 
   ! Create property list for collective dataset read
   call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
