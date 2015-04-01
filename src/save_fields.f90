@@ -356,6 +356,7 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
   ! computational resolution, and physical domain size.
   adims = (/1/)
   call write_attribute_dble(adims,"time",(/time/),1,dset_id)
+  call write_attribute_dble(adims,"viscosity",(/nu/),1,dset_id)
   call write_attribute_dble(adims,"epsi",(/eps/),1,dset_id)
   adims = (/3/)
   call write_attribute_dble(adims,"domain_size",(/xl,yl,zl/),3,dset_id)
@@ -369,72 +370,8 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
   call h5fclose_f(file_id, error) ! Close the file.
   call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
 
-  ! write the XMF data for all of the saved fields
-  if ((mpirank==0).and.(isaveXMF==1)) then
-     ! the filename contains a leading "./" which we must remove
-     call Write_XMF(time,&
-          trim(adjustl(filename(3:len(filename)))),&
-          trim(adjustl(dsetname))&
-          )
-  endif
-
   time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
 end subroutine save_field_hdf5_xvar
-
-
-
-
-! Generate an XMF file for paraview.  Note: this is a single scalar
-! field, no time-stepping or vectors are available but this allows to
-! directly copy-paste a single field and load it into paraview without
-! any effort.
-subroutine Write_XMF(time,filename,dsetname)
-  use vars
-  implicit none
-
-  real (kind=pr), intent (in) :: time
-  character(len=*), intent (in) :: filename, dsetname
-  character(len=128) :: tmp_time, tmp_nxyz
-
-  write(tmp_time,'(es15.8)') time
-  ! note index changes. paraview requirement.
-  write(tmp_nxyz,'(3(i4,1x))') nz,ny,nx
-
-  ! note the XMF file goes also in the fields/ directory
-  open (14, file='./'//trim(adjustl(filename))//'.xmf', status='replace')
-
-  write(14,'(A)') '<?xml version="1.0" ?>'
-  write(14,'(A)') '<!DOCTYPE Xdmf SYSTEM "Xdmf.dtd" []>'
-  write(14,'(A)') '<Xdmf Version="2.0">'
-  write(14,'(A)') '<Domain>'
-  write(14,'(A)') '<Grid Name="FLUSI_cartesian_grid" GridType="Uniform">'
-  write(14,'(A)') '    <Time Value="'//trim(adjustl(tmp_time))//'" />'
-  write(14,'(A)') '    <Topology TopologyType="3DCoRectMesh" Dimensions="'&
-                //trim(adjustl(tmp_nxyz))//'"/>'
-  write(14,'(A)') ' '
-  write(14,'(A)') '    <Geometry GeometryType="Origin_DxDyDz">'
-  write(14,'(A)') '    <DataItem Dimensions="3" NumberType="Float" Format="XML">'
-  write(14,'(A)') '    0 0 0'
-  write(14,'(A)') '    </DataItem>'
-  write(14,'(A)') '    <DataItem Dimensions="3" NumberType="Float" Format="XML">'
-  write(14,'(4x,3(es15.8,1x))') dx, dy, dz
-  write(14,'(A)') '    </DataItem>'
-  write(14,'(A)') '    </Geometry>'
-  write(14,'(A)') ' '
-  write(14,'(A)') '    <Attribute Name="'//trim(adjustl(dsetname)) &
-                //'" AttributeType="Scalar" Center="Node">'
-  write(14,'(A)') '    <DataItem Dimensions="'//trim(adjustl(tmp_nxyz))&
-                //'" NumberType="Float" Format="HDF">'
-  write(14,'(A)') '    '//trim(adjustl(filename))//'.h5:/'&
-                //trim(adjustl(dsetname))
-  write(14,'(A)') '    </DataItem>'
-  write(14,'(A)') '    </Attribute>'
-  write(14,'(A)') '</Grid>'
-  write(14,'(A)') '</Domain>'
-  write(14,'(A)') '</Xdmf>'
-
-  close (14)
-end subroutine Write_XMF
 
 
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
@@ -1432,6 +1369,7 @@ end subroutine save_fields_mhd
 !----------------------------------------------------
 subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   use hdf5
+  use mpi
   implicit none
 
   integer, parameter :: pr = 8
@@ -1454,13 +1392,14 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
 
   integer     ::   error ! error flag
   integer(hsize_t), dimension(1) :: data_dims
+  integer :: mpirank, mpicode
 
+  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
 
   call check_file_exists ( filename )
 
   ! Initialize FORTRAN interface.
   CALL h5open_f(error)
-
   ! Open an existing file.
   CALL h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error)
   ! Open an existing dataset.
@@ -1499,6 +1438,25 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
 
   CALL h5aclose_f(attr_id, error) ! Close the attribute.
   CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
+
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! open attribute (viscosity)
+  !!!!!!!!!!!!!!!!!!!!!!!!!!
+  ! aname = "viscosity"
+  ! CALL h5aopen_f(dset_id, "viscosity", attr_id, error)
+  ! if (error == 0) then
+  !   ! Get dataspace and read
+  !   CALL h5aget_space_f(attr_id, aspace_id, error)
+  !   data_dims(1) = 1
+  !   CALL h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attr_data, data_dims, error)
+  !
+  !   ! nu = attr_data
+  !   write(*,*) "did read viscosity", attr_data
+  !   CALL h5aclose_f(attr_id, error) ! Close the attribute.
+  !   CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
+  ! else
+  !   if(mpirank==0) write (*,*) "the file did not contain this attribute!"
+  ! endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (sizes)

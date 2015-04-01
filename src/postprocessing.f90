@@ -59,6 +59,10 @@ subroutine postprocessing()
     call max_over_x()
   case ("--mean-over-x-subdomain")
     call mean_over_x_subdomain()
+  case ("--set-hdf5-attribute")
+    call set_hdf5_attribute()
+  case ("-ux-from-uyuz")
+    call ux_from_uyuz()
   case default
     if(mpirank==0) write(*,*) "Postprocessing option is "// postprocessing_mode
     if(mpirank==0) write(*,*) "But I don't know what to do with that"
@@ -102,9 +106,9 @@ subroutine convert_hdf2bin()
   call fetch_attributes( fname, get_dsetname(fname), nx, ny, nz, xl, yl, zl, time )
 
   write (*,'("Converting ",A," to ",A," Resolution is",3(i4,1x))') &
-        trim(fname), trim(fname_bin), nx,ny,nz
+  trim(fname), trim(fname_bin), nx,ny,nz
   write (*,'("time=",es12.4," xl=",es12.4," yl=",es12.4," zl=",es12.4)') &
-        time, xl, yl, zl
+  time, xl, yl, zl
 
   allocate ( field(0:nx-1,0:ny-1,0:nz-1),field_out(0:nx-1,0:ny-1,0:nz-1) )
   ! read field from hdf file
@@ -116,9 +120,9 @@ subroutine convert_hdf2bin()
 
   ! dump binary file (this file will be called ux_00100.h5.binary)
   open (12, file = trim(fname_bin), form='unformatted', status='replace',&
-      convert="little_endian")
+  convert="little_endian")
   write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
-!  write(12) field_out
+  !  write(12) field_out
   close (12)
 
   deallocate (field, field_out)
@@ -164,27 +168,27 @@ subroutine time_avg_HDF5()
     read (14,'(A)', iostat=io_error) fname_bin
     write(*,*) "read "//trim(adjustl(fname_bin))
     if (io_error == 0) then
-        write(*,*) "Processing file "//trim(adjustl(fname_bin))
+      write(*,*) "Processing file "//trim(adjustl(fname_bin))
 
-        call check_file_exists ( fname_bin )
-        call fetch_attributes( fname_bin, get_dsetname(fname_bin), nx, ny, nz, &
-             xl, yl, zl, time )
+      call check_file_exists ( fname_bin )
+      call fetch_attributes( fname_bin, get_dsetname(fname_bin), nx, ny, nz, &
+      xl, yl, zl, time )
 
-        ! first time? allocate then.
-        if ( .not. allocated(field_avg) ) then
-          ra=(/0,0,0/)
-          rb=(/nx-1,ny-1,nz-1/)
-          allocate(field_avg(0:nx-1,0:ny-1,0:nz-1))
-          allocate(field(0:nx-1,0:ny-1,0:nz-1))
-          field_avg = 0.d0
-        endif
+      ! first time? allocate then.
+      if ( .not. allocated(field_avg) ) then
+        ra=(/0,0,0/)
+        rb=(/nx-1,ny-1,nz-1/)
+        allocate(field_avg(0:nx-1,0:ny-1,0:nz-1))
+        allocate(field(0:nx-1,0:ny-1,0:nz-1))
+        field_avg = 0.d0
+      endif
 
-        ! read the field from file
-        call read_single_file_serial( fname_bin, field )
+      ! read the field from file
+      call read_single_file_serial( fname_bin, field )
 
-        field_avg = field_avg + field
+      field_avg = field_avg + field
 
-        i = i+1
+      i = i+1
     endif
   enddo
   close (14)
@@ -245,20 +249,20 @@ subroutine convert_bin2hdf()
   read (tmp,*) time
 
   write(*,'("converting ",A," into ",A," resolution: ",3(i4,1x)," box size: ",&
-       &3(es15.8,1x)," time=",es15.8)') trim(adjustl(fname_bin)), &
-       trim(adjustl(fname_hdf)), nx,ny,nz, xl,yl,zl,time
+  &3(es15.8,1x)," time=",es15.8)') trim(adjustl(fname_bin)), &
+  trim(adjustl(fname_hdf)), nx,ny,nz, xl,yl,zl,time
 
   !-----------------------------------------------------------------------------
   ! read in the binary field to be converted
   !-----------------------------------------------------------------------------
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
 
-!   inquire (iolength=record_length) field
-!   open(11, file=fname_bin, form='unformatted', &
-!   access='direct', recl=record_length, convert="little_endian")
-!   read (11,rec=1) field
-!   close (11)
-!   write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field),minval(field)
+  !   inquire (iolength=record_length) field
+  !   open(11, file=fname_bin, form='unformatted', &
+  !   access='direct', recl=record_length, convert="little_endian")
+  !   read (11,rec=1) field
+  !   close (11)
+  !   write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field),minval(field)
 
 
   OPEN(10,FILE=fname_bin,FORM='unformatted',STATUS='OLD', convert='LITTLE_ENDIAN')
@@ -311,9 +315,9 @@ subroutine convert_abs_vorticity()
   endif
 
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-     write (*,*) "Error in arguments, files do not start with ux uy and uz"
-     write (*,*) "note files have to be in the right order"
-     call abort()
+    write (*,*) "Error in arguments, files do not start with ux uy and uz"
+    write (*,*) "note files have to be in the right order"
+    call abort()
   endif
 
 
@@ -396,9 +400,9 @@ subroutine convert_vorticity()
   call check_file_exists( fname_uz )
 
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-     write (*,*) "Error in arguments, files do not start with ux uy and uz"
-     write (*,*) "note files have to be in the right order"
-     call abort()
+    write (*,*) "Error in arguments, files do not start with ux uy and uz"
+    write (*,*) "note files have to be in the right order"
+    call abort()
   endif
 
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
@@ -481,9 +485,9 @@ subroutine convert_velocity()
   call check_file_exists( fname_uz )
 
   if ((fname_ux(1:4).ne."vorx").or.(fname_uy(1:4).ne."vory").or.(fname_uz(1:4).ne."vorz")) then
-     write (*,*) "Error in arguments, files do not start with vorx vory and vorz"
-     write (*,*) "note files have to be in the right order"
-     call abort()
+    write (*,*) "Error in arguments, files do not start with vorx vory and vorz"
+    write (*,*) "note files have to be in the right order"
+    call abort()
   endif
 
   dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
@@ -655,7 +659,7 @@ subroutine compare_timeseries()
   endif
 
   write(format,'("(",i2.2,"(es15.8,1x))")') columns
-!   write(*,*) format
+  !   write(*,*) format
   !-----------------------------------------------------------------------------
   ! alloc arrays, then scan line by line for errors
   !-----------------------------------------------------------------------------
@@ -719,10 +723,10 @@ subroutine compare_key(key1,key2)
   close (14)
 
   write (*,'("present  : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-        a1,b1,c1,d1
+  a1,b1,c1,d1
 
   write (*,'("reference: max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-        a2,b2,c2,d2
+  a2,b2,c2,d2
 
   ! errors:
   if (dabs(a2)>=1.0d-7) then
@@ -750,7 +754,7 @@ subroutine compare_key(key1,key2)
   endif
 
   write (*,'("err(rel) : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-        e1,e2,e3,e4
+  e1,e2,e3,e4
 
   if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4)) then
     ! all cool
@@ -1068,21 +1072,20 @@ end subroutine extract_subset
 ! which is then not conformal to flusi naming convention.
 ! call:
 ! ./flusi --postprocess --cp ux_00000.h5 new_00000.h5
+!
+!
+! since I learned about h5copy tool, this subroutine is deprecated
+!
+! h5copy -i mask_000000.h5 -s mask -o hallo.h5 -d test
+!
 !-------------------------------------------------------------------------------
 subroutine copy_hdf_file()
   use mpi
   use vars
+  use helpers
   implicit none
   character(len=strlen) :: fname_in, fname_out, dsetname_in, dsetname_out
-  character(len=strlen) :: xset,yset,zset
   real(kind=pr)::time
-  integer :: ix,iy,iz,i
-  ! reduced domain size
-  integer :: nx1,nx2, ny1,ny2, nz1,nz2, nxs,nys,nzs
-  ! sizes of the new array
-  integer :: nx_red, ny_red, nz_red, ix_red, iy_red, iz_red
-  ! reduced domain extends
-  real(kind=pr) :: xl1, yl1, zl1
   ! input field
   real(kind=pr), dimension(:,:,:), allocatable :: field_in
 
@@ -1101,8 +1104,8 @@ subroutine copy_hdf_file()
   ! get filename to save file to
   call get_command_argument(4,fname_out)
 
-  dsetname_in = fname_in ( 1:index( fname_in, '_' )-1 )
-  dsetname_out = fname_out ( 1:index( fname_out, '_' )-1 )
+  dsetname_in = get_dsetname(fname_in)
+  dsetname_out = get_dsetname(fname_out)
 
   call fetch_attributes( fname_in, dsetname_in, nx, ny, nz, xl, yl, zl, time )
   ra=0
@@ -1117,6 +1120,88 @@ subroutine copy_hdf_file()
   deallocate (field_in)
 end subroutine copy_hdf_file
 
+
+
+
+!-------------------------------------------------------------------------------
+! Add or modifiy an attribute to the dataset stored in a HDF5 file.
+! This is useful for example if one creates stroke-averaged fields
+! that would all have the same time 0.0.
+! We also want to use this to add new attributes to our data, namely the
+! viscosity
+!-------------------------------------------------------------------------------
+! ./flusi -p --set-hd5-attrbute [FILE] [ATTRIBUTE_NAME] [ATTRIBUTE_VALUE(S)]
+!-------------------------------------------------------------------------------
+subroutine set_hdf5_attribute()
+  use mpi
+  use hdf5
+  use vars
+  use helpers
+  implicit none
+  character(len=strlen) :: fname, attribute_name, dsetname,tmp
+  integer :: error
+
+  integer(hid_t) :: file_id       ! file identifier
+  integer(hid_t) :: dset_id       ! dataset identifier
+  integer(hid_t) :: attr_id       ! attribute identifier
+  integer(hid_t) :: aspace_id     ! attribute dataspace identifier
+  integer(hsize_t), dimension(1) :: data_dims
+  real(kind=pr) ::  attr_data  ! attribute data
+  real(kind=pr) :: new_value
+
+  data_dims(1) = 1
+
+  ! get file to read pressure from and check if this is present
+  call get_command_argument(3,fname)
+  call check_file_exists( fname )
+  dsetname = get_dsetname(fname)
+
+  ! get filename to save file to
+  call get_command_argument(4,attribute_name)
+  call get_command_argument(5,tmp)
+  read(tmp,*) new_value
+
+  ! Initialize FORTRAN interface.
+  CALL h5open_f(error)
+  ! Open an existing file.
+  CALL h5fopen_f (fname, H5F_ACC_RDWR_F, file_id, error)
+  ! Open an existing dataset.
+  CALL h5dopen_f(file_id, dsetname, dset_id, error)
+
+  ! try to open the attribute
+  CALL h5aopen_f(dset_id, trim(adjustl(attribute_name)), attr_id, error)
+
+  if (error == 0) then
+    ! the attribute is already a part of the HDF5 file
+    ! Get dataspace and read
+    CALL h5aget_space_f(attr_id, aspace_id, error)
+    ! read
+    CALL h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attr_data, data_dims, error)
+    if(mpirank==0) then
+      write(*,'("old value of ",A," is ",es15.8)') trim(adjustl(attribute_name)), attr_data
+    endif
+    ! write
+    call h5awrite_f(attr_id, H5T_NATIVE_DOUBLE, (/new_value/), data_dims, error)
+    ! Close the attribute.
+    CALL h5aclose_f(attr_id, error)
+    ! Terminate access to the data space.
+    CALL h5sclose_f(aspace_id, error)
+  else
+    ! the attribute is NOT a part of the file yet, we add it now
+    if(mpirank==0) then
+      write(*,'(80("-"))')
+      write (*,*) "the file did not yet contain this attribute, adding it!"
+      write(*,'(80("-"))')
+    endif
+    call write_attribute_dble(data_dims,trim(adjustl(attribute_name)),(/new_value/),1,dset_id)
+  endif
+
+  ! finalize HDF5
+  CALL h5dclose_f(dset_id, error) ! End access to the dataset and release resources used by it.
+  CALL h5fclose_f(file_id, error) ! Close the file.
+  CALL h5close_f(error)  ! Close FORTRAN interface.
+
+end subroutine set_hdf5_attribute
 
 
 
@@ -1201,7 +1286,7 @@ subroutine upsample()
   call fft_free
   !-----------------------
   write(*,*) "Initializing big FFT and copying source Fourier coefficients to &
-             & target field in k-space"
+  & target field in k-space"
 
   nx=nx_new
   ny=ny_new
@@ -1223,42 +1308,42 @@ subroutine upsample()
 
   !------------------------------------------------------------------
   do iz_org=ca_org(1),cb_org(1)
-     nx=nx_org; ny=ny_org; nz=nz_org
-     kz_org=wave_z(iz_org)
-     ! find corresponding iz_new
-     do iz_new=ca_new(1),cb_new(1)
-       nx=nx_new; ny=ny_new; nz=nz_new
-       kz_new = wave_z(iz_new)
-       if (kz_new==kz_org) exit
-     enddo
-     ! we now have the pair (iz_org, iz_new)
-     !------------------------------------------------------------------
-     do iy_org=ca_org(2),cb_org(2)
-          nx=nx_org; ny=ny_org; nz=nz_org
-          ky_org=wave_y(iy_org)
-          ! find corresponding iz_new
-          do iy_new=ca_new(2),cb_new(2)
-            nx=nx_new; ny=ny_new; nz=nz_new
-            ky_new = wave_y(iy_new)
-            if (ky_new==ky_org) exit
-          enddo
-          ! we now have the pair (iy_org, iy_new)
-          !------------------------------------------------------------------
-          do ix_org=ca_org(3),cb_org(3)
-              nx=nx_org; ny=ny_org; nz=nz_org
-              kx_org=wave_x(ix_org)
-              ! find corresponding iz_new
-              do ix_new=ca_new(3),cb_new(3)
-                nx=nx_new; ny=ny_new; nz=nz_new
-                kx_new = wave_x(ix_new)
-                if (kx_new==kx_org) exit
-              enddo
-              ! we now have the pair (ix_org, ix_new)
+    nx=nx_org; ny=ny_org; nz=nz_org
+    kz_org=wave_z(iz_org)
+    ! find corresponding iz_new
+    do iz_new=ca_new(1),cb_new(1)
+      nx=nx_new; ny=ny_new; nz=nz_new
+      kz_new = wave_z(iz_new)
+      if (kz_new==kz_org) exit
+    enddo
+    ! we now have the pair (iz_org, iz_new)
+    !------------------------------------------------------------------
+    do iy_org=ca_org(2),cb_org(2)
+      nx=nx_org; ny=ny_org; nz=nz_org
+      ky_org=wave_y(iy_org)
+      ! find corresponding iz_new
+      do iy_new=ca_new(2),cb_new(2)
+        nx=nx_new; ny=ny_new; nz=nz_new
+        ky_new = wave_y(iy_new)
+        if (ky_new==ky_org) exit
+      enddo
+      ! we now have the pair (iy_org, iy_new)
+      !------------------------------------------------------------------
+      do ix_org=ca_org(3),cb_org(3)
+        nx=nx_org; ny=ny_org; nz=nz_org
+        kx_org=wave_x(ix_org)
+        ! find corresponding iz_new
+        do ix_new=ca_new(3),cb_new(3)
+          nx=nx_new; ny=ny_new; nz=nz_new
+          kx_new = wave_x(ix_new)
+          if (kx_new==kx_org) exit
+        enddo
+        ! we now have the pair (ix_org, ix_new)
 
-              ! copy the old Fourier coefficients to the new field
-              uk_new(iz_new,iy_new,ix_new) = uk_org(iz_org,iy_org,ix_org)
-          enddo
-     enddo
+        ! copy the old Fourier coefficients to the new field
+        uk_new(iz_new,iy_new,ix_new) = uk_org(iz_org,iy_org,ix_org)
+      enddo
+    enddo
   enddo
 
   deallocate( uk_org )
@@ -1503,7 +1588,7 @@ subroutine turbulence_analysis()
   !-----------------------------------------------------------------------------
   epsilon_loc = nu * sum(vor(:,:,:,1)**2+vor(:,:,:,2)**2+vor(:,:,:,3)**2)
   call MPI_REDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-       MPI_COMM_WORLD,mpicode)
+  MPI_COMM_WORLD,mpicode)
 
   if (mpirank==0) then
     write(17,'(g15.8,5x,A)') epsilon/dble(nx*ny*nz), "Dissipation rate from vorticity"
@@ -1699,7 +1784,7 @@ subroutine max_over_x()
   enddo
 
   call MPI_ALLREDUCE(umaxx_loc,umaxx,nx,MPI_DOUBLE_PRECISION,MPI_MAX,&
-       MPI_COMM_WORLD,mpicode)
+  MPI_COMM_WORLD,mpicode)
 
   if(mpirank==0) then
     write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
@@ -1722,10 +1807,9 @@ end subroutine max_over_x
 
 
 !-------------------------------------------------------------------------------
-! ./flusi -p --max-over-x tkeavg_000.h5 outfile.dat
-! This function reads in the specified *.h5 file and outputs the maximum value
-! max_yz(x) into the specified ascii-outfile
-! It may be used rarely, but we needed it for turbulent bumblebees.
+! ./flusi -p --mean_over_x_subdomain tkeavg_000.h5 outfile.dat
+! Compute the avg value as a function of x for a subdomain [-1.3,1.3]x[-1.3,1.3]
+! in the y-z plane
 ! Can be done in parallel.
 !-------------------------------------------------------------------------------
 subroutine mean_over_x_subdomain()
@@ -1737,7 +1821,7 @@ subroutine mean_over_x_subdomain()
   character(len=strlen) :: dsetname, fname_ekin, outfile
   real(kind=pr),dimension(:,:,:),allocatable :: u, mask
   real(kind=pr), dimension(:), allocatable :: umaxx,umaxx_loc
-  real(kind=pr) :: time,x,y,z
+  real(kind=pr) :: time,x,y,z,points,allpoints
   integer :: ix,iy,iz, mpicode
 
 
@@ -1770,10 +1854,11 @@ subroutine mean_over_x_subdomain()
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
-        x=dble(ix)*dx-0.5*xl
+        x=dble(ix)*dx-2.0
+        ! note we center y,z in the middle
         y=dble(iy)*dy-0.5*yl
         z=dble(iz)*dz-0.5*zl
-
+        ! is the point inside the valid bounds?
         if ( abs(y)<=1.3d0 .and. abs(z)<=1.3d0 ) then
           mask(ix, iy, iz) = 1.d0
         endif
@@ -1781,16 +1866,41 @@ subroutine mean_over_x_subdomain()
     enddo
   enddo
 
+  ! check if we loaded bullshit
+  call checknan(mask,"mask")
+  call checknan(u,"energy")
 
-  u = u*mask
+  if (minval(u)<0.d0) then
+    write(*,*) "Warning, E<0 will produce NaN...correct that"
+    where (u<0.d0)
+      u=0.d0
+    end where
+  endif
+
+  ! make TU intensity out of e
+  u = dsqrt(2.d0*u/3.d0) * mask
+
+  umaxx_loc=0.d0
+  umaxx=0.d0
+
+  call checknan(u,"urms")
 
   do ix=0,nx-1
-    umaxx_loc(ix)=sum(u(ix,:,:)) / sum(mask(ix,:,:))
+    if (sum(mask(ix,:,:))>0.d0) then
+      umaxx_loc(ix)=sum(u(ix,:,:))
+    else
+      umaxx_loc(ix)=0.0
+    endif
   enddo
 
+  ! get results from all CPUs, gather on all ranks
   call MPI_ALLREDUCE(umaxx_loc,umaxx,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
   MPI_COMM_WORLD,mpicode)
 
+  ! get total number of points from all CPUs
+  points = sum(mask)/dble(nx)
+  call MPI_ALLREDUCE(points,allpoints,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
 
 
   if(mpirank==0) then
@@ -1800,7 +1910,7 @@ subroutine mean_over_x_subdomain()
     write(17,'(A)') "%FLUSI mean over x (boxed) file="//trim(adjustl(fname_ekin))
     write(17,'(A)') "%-----------------------------------"
     do ix=0,nx-1
-      write(17,'(es15.8)') umaxx(ix)
+      write(17,'(es15.8)') umaxx(ix) / allpoints
     enddo
     close(17)
   endif
@@ -1811,3 +1921,90 @@ subroutine mean_over_x_subdomain()
   call fft_free()
 
 end subroutine mean_over_x_subdomain
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocess --ux-from-uyuz ux_00000.h5 uy_00000.h5 uz_00000.h5
+!-------------------------------------------------------------------------------
+! compute missing ux component from given uy,uz components assuming incompressibility
+subroutine ux_from_uyuz()
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use mpi
+  use helpers
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr) :: time
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz
+
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
+    write (*,*) "Error in arguments, files do not start with ux uy and uz"
+    write (*,*) "note files have to be in the right order"
+    call abort()
+  endif
+
+  call fetch_attributes( fname_uy, get_dsetname(fname_uy), nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+
+  u =0.d0
+  uk = dcmplx(0.d0,0.d0)
+
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+
+  call fft (uk(:,:,:,2),u(:,:,:,2))
+  call fft (uk(:,:,:,3),u(:,:,:,3))
+
+  do iz=ca(1),cb(1)
+    !-- wavenumber in z-direction
+    kz = wave_z(iz)
+    do iy=ca(2), cb(2)
+      !-- wavenumber in y-direction
+      ky = wave_y(iy)
+      do ix=ca(3), cb(3)
+        !-- wavenumber in x-direction
+        kx = wave_x(ix)
+        if (kx/=0.0) then
+          uk(iz,iy,ix,1) = -(ky/kx)*uk(iz,iy,ix,2) -(kz/kx)*uk(iz,iy,ix,3)
+        else
+          uk(iz,iy,ix,1) = dcmplx(0.d0,0.d0)
+        endif
+      enddo
+    enddo
+  enddo
+
+  call ifft (u(:,:,:,1),uk(:,:,:,1))
+
+
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"ux")
+  if (mpirank==0) write(*,*) "Wrote vorx to "//trim(fname_ux)
+
+  deallocate (u)
+  deallocate (uk)
+  call fft_free()
+
+end subroutine

@@ -44,7 +44,8 @@ program FLUSI
       call OnlySolidSimulation()
 
   else
-      if (mpirank==0) write(*,*) "nothing to do; the argument " // infile // " is unkown.."
+      if (mpirank==0) write(*,*) "nothing to do; the argument " // &
+        trim(adjustl(infile)) // " is unkown.."
   endif
 
 
@@ -490,6 +491,11 @@ subroutine initialize_time_series_files()
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
   write (14,'(5(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
+  close (14)
+
+
+  open  (14,file='dt.t',status='replace')
+  write (14,'(5(A15,1x))') "%        time","dt","CFL","viscous", "penalization"
   close (14)
 
   open  (14,file='meanflow.t',status='replace')

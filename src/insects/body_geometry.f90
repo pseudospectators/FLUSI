@@ -1,17 +1,17 @@
 subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
   use vars
   implicit none
-  
-  type(diptera),intent(inout) :: Insect  
+
+  type(diptera),intent(inout) :: Insect
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
-  
+
   real(kind=pr) :: t1
   t1 = MPI_wtime()
-  
+
   select case (Insect%BodyType)
   case ("nobody")
     return
@@ -39,8 +39,8 @@ end subroutine
 subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body)
   use vars
   implicit none
-  
-  type(diptera),intent(inout) :: Insect  
+
+  type(diptera),intent(inout) :: Insect
   real(kind=pr),intent(inout) :: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout) :: us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout) :: mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -55,7 +55,7 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
   real(kind=pr) :: xl1(5),yl1(5),zl1(5),rl1(4),xl2(5),yl2(5),zl2(5),rl2(4),&
          xl3(5),yl3(5),zl3(5),rl3(4),xf(2),yf(2),zf(2),rf,xan(2),yan(2),zan(2),ran,&
          xmin_bbox,xmax_bbox,ymin_bbox,ymax_bbox,zmin_bbox,zmax_bbox
-  
+
   !-----------------------------------------------------------------------------
   ! Body
   !-----------------------------------------------------------------------------
@@ -66,11 +66,11 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
            x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
            ! x_body is in the body coordinate system
            x_body = matmul(M_body,x_glob-Insect%xc_body)
-           
+
            ! ------------------------------------
             ! approximation to mesh from Maeda
             ! similar to Aono et al.
-            ! ------------------------------------    
+            ! ------------------------------------
             x = x_body(1)
             y = x_body(2)
             z = x_body(3)
@@ -84,15 +84,15 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
             thbc2 = 53.0d0 *pi/180.0d0
             x0bc = 0.0782301255230126d0
             z0bc = -1.26512552301255d0
-          
+
             ! chordwise dimensionless coordinate, from head to abdomen
-            s = (datan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1) 
+            s = (datan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1)
             ! body center coordinates at s
             xcs = x0bc + (x-x0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
             zcs = z0bc + (z-z0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
 
             ! check if inside body bounds (in s-direction)
-            if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then    
+            if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then
               R0 = 0.0d0
               ! round section by default
               a_body = 1.0d0
@@ -100,8 +100,8 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
               s1 = 1.0d0 - ( s + 0.08d0*dtanh(30.0d0*s) ) / (1.0d0+0.08d0*dtanh(30.0d0))
               s1 = ( s1 + 0.04d0*dtanh(60.0d0*s1) ) / (1.0d0+0.04d0*dtanh(60.0d0))
               s1 = ( dsin(1.2d0*s1)/dsin(1.2d0) )**1.25
-              
-              x1 = 1.075d0 * s1 
+
+              x1 = 1.075d0 * s1
               ! compute radius as a function of x1 (counting from the tail on)
               ! same shape as 'drosophila'
               if (x1 < 0.6333d0) then
@@ -110,7 +110,7 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
                 ! flatten abdomen
                 a_body = 1.0d0-0.07d0*(x1-0.6333d0)*x1/0.0488d0
               elseif ((x1 >= 0.6333d0) .and. (x1 <=1.075d0 )) then
-                ! we're in the THORAX 
+                ! we're in the THORAX
                 R0 = max( -2.1667d0*x1**2 + 3.4661d0*x1 - 1.2194d0, 0.d0)
               endif
               ! distortion of R0
@@ -120,21 +120,21 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
 
               ! smoothing
               if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
-                R_tmp = steps(R,R0)        
+                R_tmp = steps(R,R0)
                 mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
                 mask_color(ix,iy,iz) = color_body
-              endif      
-            
+              endif
+
             endif
         enddo
      enddo
-  enddo  
-  
+  enddo
+
   !-----------------------------------------------------------------------------
   ! Head
   !-----------------------------------------------------------------------------
   a_head = 1.04d0
-  
+
   ! ellipsoid head, assumes xc_head=0 in .ini file
   xx_head = 0.58125d0
   zz_head = -0.1d0
@@ -148,13 +148,13 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
           x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
           x_body   = matmul(M_body,x_glob-Insect%xc_body)
           x_head   = x_body - Insect%x_head
-          
+
           ! check if inside the surrounding box (save comput. time)
           if ( dabs(x_head(2)) <= dz_head + Insect%safety ) then
             if ( dabs(x_head(3)-zz_head) <= dz_head + Insect%safety ) then
               ! check for length inside ellipsoid:
               if ( dabs(x_head(1)-xx_head) < dx_head + Insect%safety ) then
-              
+
                 R  = dsqrt ( (a_head*x_head(2))**2 + (x_head(3)-zz_head)**2 )
                 ! this gives the R(x) shape
                 if ( ((x_head(1)-xx_head)/dx_head)**2 <= 1.d0) then
@@ -167,12 +167,12 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
               endif
             endif
           endif
-           
-           
+
+
         enddo
      enddo
-  enddo  
-  
+  enddo
+
   !-----------------------------------------------------------------------------
   ! Legs, antennae and proboscis
   !-----------------------------------------------------------------------------
@@ -186,7 +186,7 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
     zmin_bbox = -0.38-Insect%safety
     zmax_bbox = 0.1+Insect%safety
 
-    ! Parameters of legs, antennae and proboscis 
+    ! Parameters of legs, antennae and proboscis
     xl1 = (/-0.74,-0.63,-0.4,-0.1,0.1/)
     yl1 = (/0.32,0.32,0.31,0.3,0.12/)
     zl1 = (/-0.35,-0.37,-0.2,-0.1,-0.16/)
@@ -279,8 +279,8 @@ end subroutine draw_body_bumblebee
 subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body, M_body)
   use vars
   implicit none
-  
-  type(diptera),intent(inout) :: Insect  
+
+  type(diptera),intent(inout) :: Insect
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
@@ -292,8 +292,8 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
   real(kind=pr) :: x_glob(1:3),x_body(1:3),x_head(1:3)
   real(kind=pr) :: rbc,thbc1,thbc2,x0bc,z0bc,xcs,zcs
   real(kind=pr) :: xx_head,zz_head,dx_head,dz_head,a_head
-  
-  
+
+
   !-----------------------------------------------------------------------------
   ! Body
   !-----------------------------------------------------------------------------
@@ -304,11 +304,11 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
            x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
            ! x_body is in the body coordinate system
            x_body = matmul(M_body,x_glob-Insect%xc_body)
-           
+
            ! ------------------------------------
             ! approximation to mesh from Maeda
             ! similar to Aono et al.
-            ! ------------------------------------    
+            ! ------------------------------------
             x = x_body(1)
             y = x_body(2)
             z = x_body(3)
@@ -322,18 +322,18 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
             thbc2 = 53.0d0 *pi/180.0d0
             x0bc = -0.24476987447698745d0
             z0bc = -0.9301255230125524d0
-          
+
             ! chordwise dimensionless coordinate, from head to abdomen
-            s = (datan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1) 
+            s = (datan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1)
             ! body center coordinates at s
             xcs = x0bc + (x-x0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
             zcs = z0bc + (z-z0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
 
             ! check if inside body bounds (in s-direction)
-            if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then    
+            if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then
               R0 = 0.0d0
               ! round section by default
-              if (Insect%BodyType == 'drosophila_slim') then 
+              if (Insect%BodyType == 'drosophila_slim') then
                 a_body = 1.09d0
               else
                 a_body = 1.0d0
@@ -341,17 +341,17 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
               ! distortion of s
               s1 = 1.0d0 - ( s + 0.08d0*dtanh(30.0d0*s) ) / (1.0d0+0.08d0*dtanh(30.0d0))
               s1 = ( s1 + 0.04d0*dtanh(60.0d0*s1) ) / (1.0d0+0.04d0*dtanh(60.0d0))
-        !       s1 = ( max(dsin(1.2d0*s1)/dsin(1.2d0), 0.d0) )**1.25  
+        !       s1 = ( max(dsin(1.2d0*s1)/dsin(1.2d0), 0.d0) )**1.25
               s1 = ( dsin(1.2d0*s1)/dsin(1.2d0) )**1.25
-              
-              x1 = 1.075d0 * s1 
+
+              x1 = 1.075d0 * s1
               ! compute radius as a function of x1 (counting from the tail on)
               ! same shape as 'drosophila'
               if (x1 < 0.6333d0) then
                 ! we're in the ABDOMEN
                 R0 = max( -1.2990d0*x1**2 + 0.9490d0*x1 + 0.0267d0, 0.d0)
               elseif ((x1 >= 0.6333d0) .and. (x1 <=1.075d0 )) then
-                ! we're in the THORAX 
+                ! we're in the THORAX
                 R0 = max( -2.1667d0*x1**2 + 3.4661d0*x1 - 1.2194d0, 0.d0)
                 ! slim body
                 if (Insect%BodyType == 'drosophila_slim') &
@@ -364,16 +364,16 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
 
               ! smoothing
               if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
-                R_tmp = steps(R,R0)        
+                R_tmp = steps(R,R0)
                 mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
                 mask_color(ix,iy,iz) = color_body
-              endif      
-            
+              endif
+
             endif
         enddo
      enddo
-  enddo  
-  
+  enddo
+
   !-----------------------------------------------------------------------------
   ! Head
   !-----------------------------------------------------------------------------
@@ -382,7 +382,7 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
   else
     a_head = 1.0d0
   endif
-  
+
   ! ellipsoid head, assumes xc_head=0 in .ini file
   xx_head = 0.17d0
   zz_head = -0.1d0
@@ -396,13 +396,13 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
           x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
           x_body   = matmul(M_body,x_glob-Insect%xc_body)
           x_head   = x_body - Insect%x_head
-          
+
           ! check if inside the surrounding box (save comput. time)
           if ( dabs(x_head(2)) <= dz_head + Insect%safety ) then
             if ( dabs(x_head(3)-zz_head) <= dz_head + Insect%safety ) then
               ! check for length inside ellipsoid:
               if ( dabs(x_head(1)-xx_head) < dx_head + Insect%safety ) then
-              
+
                 R  = dsqrt ( (a_head*x_head(2))**2 + (x_head(3)-zz_head)**2 )
                 ! this gives the R(x) shape
                 if ( ((x_head(1)-xx_head)/dx_head)**2 <= 1.d0) then
@@ -415,11 +415,11 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
               endif
             endif
           endif
-           
-           
+
+
         enddo
      enddo
-  enddo  
+  enddo
 end subroutine draw_body_drosophila_maeda
 
 !-------------------------------------------------------------------------------
@@ -430,19 +430,19 @@ end subroutine draw_body_drosophila_maeda
 subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_body)
   use vars
   implicit none
-  
-  type(diptera),intent(inout) :: Insect  
+
+  type(diptera),intent(inout) :: Insect
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
-  
+
   real(kind=pr) :: x,R0,R,R_tmp,x_tmp
   real(kind=pr) :: x_body(1:3), x_glob(1:3)
   integer :: ix,iy,iz
-  
-  
+
+
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
@@ -450,49 +450,49 @@ subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_bod
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x_glob-Insect%xc_body)
-        
+
         ! ------------------------------------
         ! two b-splines body (abdomen+thorax)
-        ! ------------------------------------    
+        ! ------------------------------------
         x = x_body(1) + 0.8067d0 ! centers the thickest part of the thorax at the origin
-        
+
         ! check if inside body bounds (in x-direction)
-        if ( (x>=-Insect%safety) .and. (x<=1.2+Insect%safety) ) then    
+        if ( (x>=-Insect%safety) .and. (x<=1.2+Insect%safety) ) then
           R0=0.0
           ! compute radius as a function of x (counting from the tail on)
           if (x < 0.6333) then
             ! we're in the ABDOMEN
             R0 = max( -1.2990*x**2 + 0.9490*x + 0.0267, 0.d0)
           elseif ((x >= 0.6333) .and. (x <=1.0 )) then
-            ! we're in the THORAX 
+            ! we're in the THORAX
             R0 = max( -2.1667*x**2 + 3.4661*x - 1.2194, 0.d0)
           elseif ((x >= 1.0) .and. (x <=1.2 )) then
             ! we're in the HEAD
             R0 = max( -12.68*x**2 + 27.4960*x - 14.7360, 0.d0)
           endif
-        
+
           ! radius at this point
           R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
-          
+
           ! smoothing in x-direction
           if (x<Insect%safety) then  ! xs is chordlength coordinate
             x_tmp = steps(-x, Insect%smooth)
           else
             x_tmp = steps( x,1.2-Insect%smooth)
-          endif     
-          
-          
+          endif
+
+
           if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
-            R_tmp = steps(R,R0)        
+            R_tmp = steps(R,R0)
             mask(ix,iy,iz)= max( R_tmp*x_tmp , mask(ix,iy,iz) )
             mask_color(ix,iy,iz) = color_body
-          endif      
-        
-        endif  
+          endif
+
+        endif
       enddo
     enddo
   enddo
-  
+
 end subroutine draw_body_drosophila
 
 !-------------------------------------------------------------------------------
@@ -500,18 +500,18 @@ end subroutine draw_body_drosophila
 subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   use vars
   implicit none
-  
-  type(diptera),intent(inout) :: Insect  
+
+  type(diptera),intent(inout) :: Insect
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
-  
+
   real(kind=pr) :: x,R0,R,R_tmp,x_tmp,a_body
   real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
   integer :: ix,iy,iz
-  
+
   ! overwrite
   Insect%R_head = 0.125d0
   Insect%R_eye = 0.0625d0
@@ -524,7 +524,7 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
                    *0.8d0*(/1.d0,+1.d0,1.d0/)
   Insect%x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&
                    *0.8d0*(/1.d0,-1.d0,1.d0/)
-  
+
   !-----------------------------------------------------------------------------
   ! ellipsoid body
   !-----------------------------------------------------------------------------
@@ -535,9 +535,9 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x_glob-Insect%xc_body)
-        
+
         a_body = Insect%L_body / 2.d0
-        
+
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
           if ( dabs(x_body(3)) <= Insect%b_body + Insect%safety ) then
@@ -559,16 +559,16 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
       enddo
     enddo
   enddo
-  
+
   !-----------------------------------------------------------------------------
   ! spherical head
   !-----------------------------------------------------------------------------
   x_head = Insect%xc_body + matmul(transpose(M_body),Insect%x_head)
   call drawsphere( x_head,Insect%R_head,mask,mask_color,us,Insect,color_body )
-  
+
   x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_l)
   call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
-  
+
   x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_r)
   call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
 end subroutine draw_body_jerry
@@ -580,17 +580,17 @@ end subroutine draw_body_jerry
 subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
   use vars
   implicit none
-  
+
   real(kind=pr),intent(in)::xc(1:3),R0
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer(kind=2),intent(in) :: icolor
   type(diptera),intent(inout) :: Insect
-  
+
   integer :: ix,iy,iz
   real(kind=pr)::x(1:3),R
-  
+
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
@@ -598,7 +598,7 @@ subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
         ! x is now centered in the sphere's center point
         x = x - xc
-        
+
         if (dabs(x(1)) <= R0+Insect%safety) then
           if (dabs(x(2)) <= R0+Insect%safety) then
             if (dabs(x(3)) <= R0+Insect%safety) then
@@ -609,27 +609,27 @@ subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
               endif
             endif
           endif
-        endif 
-        
+        endif
+
       enddo
     enddo
-  enddo  
-  
-end subroutine 
+  enddo
+
+end subroutine
 
 ! draw a cylinder defined by points (x1,y1,z1), (x2,y2,z2) and radius R0
 subroutine draw_cylinder( xp,x1,y1,z1,x2,y2,z2,R0,mask_val,color_val,icolor,safety )
   use vars
   implicit none
-  
+
   real(kind=pr),intent(in)::xp(1:3),x1,x2,y1,y2,z1,z2,R0,safety
   real(kind=pr),intent(inout)::mask_val
   integer(kind=2),intent(in)::icolor
   integer(kind=2),intent(inout)::color_val
-  
+
   real(kind=pr)::x(1:3),R,xab,yab,zab,xu,yu,zu,xvp,yvp,zvp,&
                  cbx,cby,cbz,rbx,rby,rbz
-  
+
   ! draw cylinder without endpoint treatment
   cbx = 0.5*(x1+x2) - xp(1)
   cby = 0.5*(y1+y2) - xp(2)
@@ -652,8 +652,8 @@ subroutine draw_cylinder( xp,x1,y1,z1,x2,y2,z2,R0,mask_val,color_val,icolor,safe
        mask_val = max(steps(R,R0),mask_val)
        color_val = icolor
      endif
-  endif 
-        
+  endif
+
   ! spheres at endpoints
   x = xp - (/x1,y1,z1/)
   if (dabs(x(1)) <= R0+safety) then
@@ -666,7 +666,7 @@ subroutine draw_cylinder( xp,x1,y1,z1,x2,y2,z2,R0,mask_val,color_val,icolor,safe
         endif
       endif
     endif
-  endif 
+  endif
   x = xp - (/x2,y2,z2/)
   if (dabs(x(1)) <= R0+safety) then
     if (dabs(x(2)) <= R0+safety) then
@@ -678,7 +678,6 @@ subroutine draw_cylinder( xp,x1,y1,z1,x2,y2,z2,R0,mask_val,color_val,icolor,safe
         endif
       endif
     endif
-  endif 
-  
-end subroutine 
+  endif
 
+end subroutine

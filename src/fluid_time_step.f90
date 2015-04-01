@@ -885,7 +885,7 @@ subroutine adjust_dt(time,u,dt1)
       if (iTimeMethodFluid=="RK4") then
         dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
       endif
-      
+
       !*************************************************************************
       ! we respect all necessary restrictions, the following ones are optional
       !*************************************************************************
@@ -928,6 +928,15 @@ subroutine adjust_dt(time,u,dt1)
           dt1 = tmax-time
         endif
       endif
+    endif
+
+    if(mpirank==0) then
+      open(14,file='dt.t',status='unknown',position='append')
+      write (14,'(5(g15.8,1x))') time, dt1, &
+      dt1*umax/min(dx,dy,dz),& ! currently valid CFL number
+      dt1*nu/min(dx,dy,dz)**2, & ! coefficient in front of viscous stability (below 0.5 for RK4)
+      dt1/eps ! penalization limit
+      close(14)
     endif
 
 

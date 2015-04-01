@@ -238,7 +238,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
     call read_single_file( file_uz, tmp )
     vort(0:nxs-1,:,:,3) = tmp
     vort(nxs:nxb-1,:,:,3) = tmp(0:nxb-1-nxs+1,:,:)
-    
+
     deallocate (tmp)
 
     nx=nxb
