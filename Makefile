@@ -1,5 +1,4 @@
-# Makefile for fsi and mhd codes. See README for necessary environment
-# variables.
+# Makefile for fsi and mhd codes. See WIKI on github for comments
 
 # Non-module Fortran files to be compiled:
 FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
