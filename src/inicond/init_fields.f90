@@ -11,7 +11,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   real (kind=pr),intent (inout) :: time,dt1,dt0
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
@@ -21,6 +21,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   type(diptera),intent(inout)::Insect 
  
   if (mpirank==0) write(*,*) "Set up initial conditions...."
+  tstart = 0.d0
   
   !-----------------------------------------------------------------------------
   ! initialize fields, possibly read in backup file
@@ -47,7 +48,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   !-----------------------------------------------------------------------------
   ! save initial conditions (if not resuming a backup)
   !-----------------------------------------------------------------------------
-  if (index(inicond,'backup::')==0) then
+  if (index(inicond,'backup::')==0 .and. (time>=tsave_first)) then
     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
     call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)
   endif
@@ -86,8 +87,8 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   pekin=0.d0
   pfluidarea=0.d0
   do iz=ra(3),rb(3)
-     do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+  do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
               ux=f1(ix,iy,iz)
               uy=f2(ix,iy,iz)
@@ -209,7 +210,7 @@ subroutine randgen3d(fk1,fk2,fk3,w)
         endif
       enddo
     enddo
-  enddo
+enddo
 
   ! Enforce Hermitian symmetry the lazy way:
   call ifft(w,fk1)
@@ -239,7 +240,7 @@ subroutine init_taylorcouette_u(ubk,ub)
   real(kind=pr) :: x,y,r
   real(kind=pr) :: A,B,F
 
-  if(mpirank == 0) then
+    if(mpirank == 0) then
      if(r1 >= r2) then
         write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
         call abort()

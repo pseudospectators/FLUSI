@@ -29,11 +29,12 @@ subroutine cal_drag ( time, u, Insect )
   real(kind=pr) :: penalx,penaly,penalz,xlev,ylev,zlev,apowtotal,ipowtotal
   ! we can choose up to 6 different colors
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
-  real(kind=pr) :: torquex0,torquey0,torquez0
+  real(kind=pr),dimension(0:5) :: torquex0,torquey0,torquez0
   ! power (flux of energy) 
   real(kind=pr) :: power,powerx,powery,powerz
   character(len=1024) :: forcepartfilename
   
+  if (iPenalization==1) then
   forcex  = 0.d0
   forcey  = 0.d0
   forcez  = 0.d0  
@@ -52,7 +53,7 @@ subroutine cal_drag ( time, u, Insect )
   !---------------------------------------------------------------------------
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)
+  do ix=ra(1),rb(1)
         ! actual penalization term
         penalx = -mask(ix,iy,iz)*(u(ix,iy,iz,1)-us(ix,iy,iz,1))
         penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
@@ -72,9 +73,9 @@ subroutine cal_drag ( time, u, Insect )
         zlev = dble(iz)*dz - z0
  
         ! compute moment with respect to (x0,y0,z0)
-        torquex0 = torquex0 - (ylev*penalz - zlev*penaly)
-        torquey0 = torquey0 - (zlev*penalx - xlev*penalz)
-        torquez0 = torquez0 - (xlev*penaly - ylev*penalx)
+        torquex0(color) = torquex0(color) - (ylev*penalz - zlev*penaly)
+        torquey0(color) = torquey0(color) - (zlev*penalx - xlev*penalz)
+        torquez0(color) = torquez0(color) - (xlev*penaly - ylev*penalx)
         
         ! input power due to penalization term
         powerx = powerx + u(ix,iy,iz,1)*penalx
@@ -157,11 +158,11 @@ subroutine cal_drag ( time, u, Insect )
   torquez = torquez*dx*dy*dz  
  
   ! Integral moment with respect to (x0,y0,z0) 
-  call MPI_ALLREDUCE ( torquex0,GlobalIntegrals%Torque(1),1,&
+  call MPI_ALLREDUCE ( sum(torquex0(1:5)),GlobalIntegrals%Torque(1),1,&
           MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
-  call MPI_ALLREDUCE ( torquey0,GlobalIntegrals%Torque(2),1,&
+  call MPI_ALLREDUCE ( sum(torquey0(1:5)),GlobalIntegrals%Torque(2),1,&
           MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode) 
-  call MPI_ALLREDUCE ( torquez0,GlobalIntegrals%Torque(3),1,&
+  call MPI_ALLREDUCE ( sum(torquez0(1:5)),GlobalIntegrals%Torque(3),1,&
           MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)  
           
   ! the insects have torques on the wing and body separate
@@ -213,6 +214,7 @@ subroutine cal_drag ( time, u, Insect )
       GlobalIntegrals%Torque_unst
       close(14)
     endif
+  endif
   endif
 end subroutine cal_drag
 
@@ -275,7 +277,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)
+  do ix=ra(1),rb(1)
         color = mask_color(ix,iy,iz)
         ! sum up new integral as a function of color
         force_new_locx(color) = force_new_locx(color)+mask(ix,iy,iz)*us(ix,iy,iz,1)*norm
@@ -333,7 +335,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)
+  do ix=ra(1),rb(1)
         ! for torque moment
         xlev = dble(ix)*dx - x0
         ylev = dble(iy)*dy - y0
@@ -343,12 +345,14 @@ subroutine cal_unst_corrections ( time, dt, Insect )
         usy = us(ix,iy,iz,2)*mask(ix,iy,iz)*eps
         usz = us(ix,iy,iz,3)*mask(ix,iy,iz)*eps
 
+        color = mask_color(ix,iy,iz)
         ! moment with respect to (x0,y0,z0)
+        if (color>0) then
         torque_new_locx0 = torque_new_locx0 + (ylev*usz - zlev*usy)
         torque_new_locy0 = torque_new_locy0 + (zlev*usx - xlev*usz)
         torque_new_locz0 = torque_new_locz0 + (xlev*usy - ylev*usx)   
 
-        color = mask_color(ix,iy,iz)
+        endif
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points

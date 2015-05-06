@@ -25,7 +25,7 @@ program FLUSI
       !-------------------------------------------------------------------------
       call Start_Simulation()    
 
-  elseif ( infile == "--postprocess") then 
+  elseif (( infile == "--postprocess").or.(infile=="-p")) then
       !-------------------------------------------------------------------------
       ! the first argument tells us that we're postprocessing 
       !-------------------------------------------------------------------------
@@ -44,7 +44,8 @@ program FLUSI
       call OnlySolidSimulation()
       
   else
-      if (mpirank==0) write(*,*) "nothing to do..."      
+      if (mpirank==0) write(*,*) "nothing to do; the argument " // &
+        trim(adjustl(infile)) // " is unkown.."
   endif
 
   
@@ -61,6 +62,8 @@ subroutine Start_Simulation()
   use p3dfft_wrapper
   use solid_model
   use insect_module
+  use slicing
+  use turbulent_inlet_module
   use penalization ! mask array etc
   use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
@@ -91,6 +94,7 @@ subroutine Start_Simulation()
   neq=nd  ! number of equations, can be higher than 3 if using passive scalar
   nrw=1   ! number of real valued work arrays
   ncw=1   ! number of complex values work arrays (decide that later)
+  nrhs=2  ! number of right-hand side registers
 
   ! initialize timing variables
   time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
@@ -100,6 +104,7 @@ subroutine Start_Simulation()
   time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
+  tslices=0.d0
   
   if (root) then
      write(*,'(A)') '--------------------------------------'
@@ -134,6 +139,9 @@ subroutine Start_Simulation()
   
   if (root) write(*,'("Set up ng=",i1," ghost points")') ng
   
+  ! we need more memory for RK4:
+  if (iTimeMethodFluid=="RK4") nrhs=5
+  if (root) write(*,'("Using nrhs=",i1," right hand side registers")') nrhs
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
   !-----------------------------------------------------------------------------  
@@ -166,7 +174,8 @@ subroutine Start_Simulation()
 
   ! size (in bytes) of one field  
   mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
-  memory = 0.d0
+  ! memory reserved by p3dffft:
+  memory = dble(nx*ny*nz)*1.6d-5*1000.d0*1000.d0
   
   ! integrating factors
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
@@ -177,8 +186,8 @@ subroutine Start_Simulation()
   memory = memory + dble(neq)*mem_field
   
   ! right hand side of navier-stokes (possibly with passive scalar)
-  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:1))
-  memory = memory + 2.d0*dble(neq)*mem_field
+  allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1))
+  memory = memory + dble(nrhs)*dble(neq)*mem_field
   
   ! velocity in physical space (WITHOUT passive scalar)
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
@@ -190,14 +199,17 @@ subroutine Start_Simulation()
   
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))  
+  mask=0.d0
   memory = memory + mem_field
   
   ! mask color function (distinguishes between different parts of the mask)
   allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  mask_color=0
   memory = memory + mem_field/4.d0
   
   ! solid body velocities
   allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)) 
+  us=0.d0
   memory = memory + dble(nd)*mem_field
   
   ! real valued work array(s)
@@ -225,6 +237,28 @@ subroutine Start_Simulation()
   endif
   allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
   
+  ! for time averaging
+  if (time_avg=="yes") then
+    if(mpirank==0) write(*,*) "averaging module is in use: allocate additional memory"
+
+    if (vel_avg=="yes") then
+      allocate(uk_avg(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+      memory = memory + dble(3)*mem_field
+    endif
+    if (ekin_avg=="yes") then
+      allocate(e_avg(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+      memory = memory + dble(1)*mem_field
+    endif
+    if (enstrophy_avg=="yes") then
+      allocate(Z_avg(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+      memory = memory + dble(1)*mem_field
+    endif
+  endif
+
+  ! read in turbulent inlet fields
+  if (use_turbulent_inlet=="yes") then
+    call init_turbulent_inlet ( )
+  endif
   !-----------------------------------------------------------------------------
   ! show memory consumption for information
   !-----------------------------------------------------------------------------
@@ -255,13 +289,18 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! check if at least FFT works okay
   !-----------------------------------------------------------------------------
+  if (dry_run_without_fluid /= "yes") then
   call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
+  endif
   
   !-----------------------------------------------------------------------------
   ! Initial condition
   !-----------------------------------------------------------------------------
   call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
   
+  if (use_slicing=="yes") then
+    call slice_init(time)
+  endif
   
   !*****************************************************************************
   ! Step forward in time
@@ -286,6 +325,8 @@ subroutine Start_Simulation()
   if (allocated(uk_old))  deallocate(uk_old)
   if (allocated(nlk_tmp))  deallocate(nlk_tmp)
   
+  if (allocated(uk_avg))  deallocate(uk_avg)
+  if (allocated(e_avg)) deallocate(e_avg)
   
   if (iMask=="Insect") then
     ! Clean kinematics (Dmitry, 14 Nov 2013)
@@ -294,6 +335,9 @@ subroutine Start_Simulation()
     call insect_clean(Insect)
   endif
   
+  if (use_slicing=="yes") then
+    call slice_free
+  endif
   ! write empty success file
   if (root) call init_empty_file("success")
   
@@ -331,6 +375,7 @@ subroutine show_timings(t2)
   write(*,8) time_integrals, 100.d0*time_integrals/t2, "integrals"
   write(*,8) time_save, 100.d0*time_save/t2, "save fields"
   write(*,8) time_bckp, 100.d0*time_bckp/t2, "backuping"
+  write(*,8) tslices, 100.d0*tslices/t2, "slicing"
   write(*,3)
   write(*,'("Create Mask:")')
   write(*,8) time_insect_body, 100.d0*time_insect_body/t2, "insect::body"
@@ -441,7 +486,12 @@ subroutine initialize_time_series_files()
   
   ! this file contains, time, iteration#, time step and performance
   open  (14,file='timestep.t',status='replace')
-  write (14,'(4(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
+  write (14,'(5(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
+  close (14)
+
+
+  open  (14,file='dt.t',status='replace')
+  write (14,'(5(A15,1x))') "%        time","dt","CFL","viscous", "penalization"
   close (14)    
   
   open  (14,file='meanflow.t',status='replace')

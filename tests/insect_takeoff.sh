@@ -18,7 +18,7 @@ echo "big insect test"
 # list of prefixes the test generates
 prefixes=(mask ux uy uz)
 # list of possible times (no need to actually have them)
-times=(00000 00050 00100 00150)
+times=(000000 000501 001000 001500)
 # run actual test
 cp insect_takeoff/data_kin.dat .
 ${mpi_command} ./flusi ${params}

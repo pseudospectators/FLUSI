@@ -17,7 +17,7 @@ sad=0
 # list of prefixes the test generates
 prefixes=(mask usx usy usz)
 # list of possible times (no need to actually have them)
-times=(00000 00025 00050 00075 00100 00125 00150 00175 00200)
+times=(000000 000750 001500 002250)
 # run actual test
 ${mpi_command} ./flusi ${params}
 echo "============================"

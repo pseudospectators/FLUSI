@@ -55,7 +55,7 @@ subroutine vorticity_sponge( vort, work1, workc )
         do iz=ca(1), cb(1)
           kz=wave_z(iz)
           kz2=kz*kz
-
+          
           k_abs_2=kx2+ky2+kz2
           if (abs(k_abs_2) .ne. 0.0) then  
             ! we first "solve" the poisson eqn 
@@ -113,7 +113,7 @@ subroutine penalize_vort ( vort_penalized, vort )
     !--------------------------------------------
     do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
+        do ix = ra(1), rb(1) 
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
             !------------------------
@@ -204,14 +204,30 @@ subroutine penalize_vort ( vort_penalized, vort )
       enddo
     enddo   
 
+  case ("outlet_x")
+    !--------------------------------------------
+    ! sponge is one at right outflow, ie for ix>nx-1-sponge_thickness+1
+    !--------------------------------------------
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
+          ! do not use vorticity sponge and solid wall simulateously
+          if (mask(ix,iy,iz) < 1e-12) then
+          if (ix>=nx-1-sponge_thickness+1) then
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+          endif
+        enddo
+      enddo
+    enddo
   case ("xmin_xmax_zmin_zmax")
     !--------------------------------------------
     ! Dmitry, 25 Oct 2013
     ! At xmin, xmax, zmin, zmax walls only.
     !--------------------------------------------
-    do iz = ra(3), rb(3)
-      do iy = ra(2), rb(2)
-        do ix = ra(1), rb(1)
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
           ! do not use vorticity sponge and solid wall simulateously
           if (mask(ix,iy,iz) < 1e-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then

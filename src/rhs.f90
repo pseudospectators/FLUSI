@@ -1,7 +1,9 @@
 ! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
-subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
+subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,Insect,beams)
   use fsi_vars
   use p3dfft_wrapper
+  use solid_model
+  use insect_module
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -12,10 +14,22 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(in) :: time
+  type(solid), dimension(1:nBeams),intent(inout) :: beams
+  type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1,t0
   integer, intent(in) :: it
   t0 = MPI_wtime()
   
+  !-----------------------------------------------------------------------------
+  ! If the mask is time-dependend,we create it here
+  ! 26/01/2015 Moved the mask routine here to RHS, since this is where it con-
+  ! ceptually belongs. RK2 and RK4 need to create the mask several times per time
+  ! step
+  !-----------------------------------------------------------------------------
+  if ((iMoving==1).and.(iPenalization==1)) then
+    ! for FSI schemes, the mask is created in fluidtimestep
+    call create_mask( time, Insect, beams )
+  endif
   select case(method)
   case("fsi") 
     !---------------------------------------------------------------------------
@@ -103,15 +117,15 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
 
   real(kind=pr),intent (in) :: time
   integer, intent(in) :: it
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(out)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr) :: t0,t1,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   real(kind=pr) :: fx,fy,fz,fx1,fy1,fz1
-  real(kind=pr) :: soft_startup
+  real(kind=pr) :: soft_startup, dt
   integer :: ix,iz,iy,mpicode
   t0 = MPI_wtime()
   fx=0.d0; fy=0.d0; fz=0.d0
@@ -134,6 +148,18 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   time_vor = time_vor + MPI_wtime() - t1  
   
   !-----------------------------------------------------------------------------
+  ! compute time-averaged enstrophy Z_avg
+  !-----------------------------------------------------------------------------
+  ! we do this here since we happen to have the voriticy and want to save FFTs
+  if ((time_avg=="yes").and.(enstrophy_avg=="yes").and.(time>=tstart_avg)) then
+    ! we need to know here what the time step will be
+    call adjust_dt(time,u,dt)
+    ! compute incremental avg
+    Z_avg = ( (vort(:,:,:,1)**2 + vort(:,:,:,2)**2 + vort(:,:,:,3)**2)*dt  &
+    + (time-tstart_avg)*Z_avg ) / ( (time-tstart_avg)+dt )
+  endif
+
+  !-----------------------------------------------------------------------------
   !-- vorticity sponge term
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
@@ -146,7 +172,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
   t1 = MPI_wtime()
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)
+  do ix=ra(1),rb(1)
         ! local loop variables
         ux   = u(ix,iy,iz,1)
         uy   = u(ix,iy,iz,2)
@@ -237,6 +263,20 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc)
     endif
   endif
   
+  !---------------------------------------------------------------------------
+  ! Add explicit diffusion term here, if RK4 is used (other time steppers have
+  ! integrating factors and thus implicit diffusion)
+  !---------------------------------------------------------------------------
+  if (iTimeMethodFluid=="RK4") then
+    call add_explicit_diffusion(uk,nlk)
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! Add forcing term for isotropic turbulence, if used
+  !-----------------------------------------------------------------------------
+  if (forcing_type/="none") then
+    call add_forcing_term(time,uk,nlk)
+  endif
   
   
   time_nlk = time_nlk + MPI_wtime() - t0
@@ -266,7 +306,9 @@ subroutine pressure(nlk,pk)
 
   ! as the RHS in cal_nlk is on the left side, i.e. -(vor x u) -chi*(u-us)
   ! its sign is inversed when computing the pressure
+  
   imag = dcmplx(0.d0,1.d0)
+
   do ix=ca(3),cb(3)
      kx=wave_x(ix)
      do iy=ca(2),cb(2)
@@ -274,18 +316,19 @@ subroutine pressure(nlk,pk)
         do iz=ca(1),cb(1)
            kz=wave_z(iz)
            k2=kx*kx + ky*ky + kz*kz
-           if(k2 .ne. 0.0) then
-             ! contains the pressure in Fourier space
-             ! note "-" sign
-             nlkx = nlk(iz,iy,ix,1)
-             nlky = nlk(iz,iy,ix,2)
-             nlkz = nlk(iz,iy,ix,3)
-             pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
-           else
-             pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
-           endif
-        enddo
-     enddo
+
+          if(k2 .ne. 0.0) then
+            ! contains the pressure in Fourier space
+            ! note "-" sign
+            nlkx = nlk(iz,iy,ix,1)
+            nlky = nlk(iz,iy,ix,2)
+            nlkz = nlk(iz,iy,ix,3)
+            pk(iz,iy,ix) = -imag*(kx*nlkx + ky*nlky + kz*nlkz) / k2
+          else
+            pk(iz,iy,ix) = dcmplx(0.d0,0.d0)
+          endif
+      enddo
+    enddo
   enddo
 end subroutine pressure
 
@@ -305,7 +348,7 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
   
   call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc) 
@@ -315,6 +358,160 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
 end subroutine 
 
 
+!-------------------------------------------------------------------------------
+! Add the explicit diffusion term to the right hand side. This is only necessary
+! for RK4 scheme currently (01/2015) since all other time steppers have integrating
+! factors.
+!-------------------------------------------------------------------------------
+subroutine add_explicit_diffusion(uk,nlk)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz,k2
+
+
+  do iz=ca(1),cb(1)
+    !-- wavenumber in z-direction
+    kz = wave_z(iz)
+    do iy=ca(2), cb(2)
+      !-- wavenumber in y-direction
+      ky = wave_y(iy)
+      do ix=ca(3), cb(3)
+        !-- wavenumber in x-direction
+        kx = wave_x(ix)
+        k2 = kx*kx + ky*ky + kz*kz
+        nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) - nu * k2 * uk(iz,iy,ix,1)
+        nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) - nu * k2 * uk(iz,iy,ix,2)
+        nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) - nu * k2 * uk(iz,iy,ix,3)
+      enddo
+    enddo
+  enddo
+end subroutine add_explicit_diffusion
+
+
+
+subroutine add_forcing_term(time,uk,nlk)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  real(kind=pr),intent(in) :: time
+  complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr) :: kx,ky,kz,kreal,factor,epsilon,epsilon_loc,k2
+  real(kind=pr) :: E
+  integer :: ix,iy,iz, k, mpicode
+
+  select case(forcing_type)
+  case ("machiels")
+    ! Forcing by Machiels PRL1997 ("Predictability of Small-scale Motion in Isotropic...")
+    ! This forcing aims at specifying the dissipation rate epsilon, which is
+    ! directly related to the kolmogorov scales. The desired value is set in
+    ! eps_forcing, which is read from the parameter file.
+
+    ! get spectrum (on all procs, MPI_ALLREDUCE)
+    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    factor = eps_forcing / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+
+    ! force wavenumber shells
+    do ix=ca(3),cb(3)
+      kx=wave_x(ix)
+      do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
+          ! compute 2-norm of wavenumber
+          kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
+
+          ! forcing lives around this shell
+          if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
+            nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
+            nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
+            nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
+          endif
+
+        enddo
+      enddo
+    enddo
+  case ("kaneda")
+    ! get spectrum (on all procs, MPI_ALLREDUCE)
+    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+
+    ! compute current dissipation rate. There are several ways to do this; one
+    ! is computing the enstrophy in x-space, using the vorticity, but we can also
+    ! stay with the velocity in k-space and integrate k^2 * E(k)
+    ! However, this is exact only if E(k) is not averaged over the wavenumber shell
+    ! as it is done when computing the spectrum.
+    epsilon_loc = 0.d0
+
+    do ix=ca(3),cb(3)
+      kx=wave_x(ix)
+      do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
+          k2 = (kx*kx)+(ky*ky)+(kz*kz)
+
+          if ( ix==0 .or. ix==nx/2 ) then
+            E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
+             +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
+             +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+          else
+            E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
+             +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
+             +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+          endif
+
+          epsilon_loc = epsilon_loc + k2 * E
+        enddo
+      enddo
+    enddo
+
+    epsilon_loc = 2.d0 * nu * epsilon_loc
+
+    call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+    MPI_COMM_WORLD,mpicode)
+
+    ! The actual forcing term follows. We now have the current dissipation rate
+    ! epsilon, which we would like to be balanced by the energy input through
+    ! the forcing. The forcing is c*uk (where c="factor" here). Note the dissipation
+    ! rate is divided by the energy of the first two wavenumber shells
+    factor = epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+
+    ! force wavenumber shells
+    do ix=ca(3),cb(3)
+      kx=wave_x(ix)
+      do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+          kz=wave_z(iz)
+          ! compute 2-norm of wavenumber
+          kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
+
+          ! forcing lives around this shell
+          if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
+            nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
+            nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
+            nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
+          endif
+
+        enddo
+      enddo
+    enddo
+
+  case default
+    if (mpirank==0) write(*,*) "unknown forcing method.."
+    call abort()
+  end select
+end subroutine add_forcing_term
 
 !-------------------------------------------------------------------------------
 ! Add the gradient of the pressure to the nonlinear term, which is the actual
@@ -336,6 +533,7 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
   complex(kind=pr) :: imag   ! imaginary unit
 
   imag = dcmplx(0.d0,1.d0)
+  
   do ix=ca(3),cb(3)
      kx=wave_x(ix)
      do iy=ca(2),cb(2)
@@ -343,10 +541,12 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
         do iz=ca(1),cb(1)
            kz=wave_z(iz)
            k2=kx*kx + ky*ky + kz*kz
+
            if (k2 .ne. 0.0) then
               nlx=nlk1(iz,iy,ix)
               nly=nlk2(iz,iy,ix)
               nlz=nlk3(iz,iy,ix)
+
               ! qk is the Fourier coefficient of thr pressure
               qk=(kx*nlx + ky*nly + kz*nlz)/k2
               ! add the gradient to the non-linear terms
@@ -422,8 +622,8 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
 
   ! Put the x-space version of the nonlinear source term in wj.
   do iz=ra(3),rb(3)
-     do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+  do ix=ra(1),rb(1)
            ! Loop-local variables for velocity and magnetic field:
            u1=ub(ix,iy,iz,1)
            u2=ub(ix,iy,iz,2)
@@ -512,12 +712,12 @@ subroutine div_field_nul(fx,fy,fz)
   real(kind=pr) :: kx, ky, kz, k2
   complex(kind=pr) :: val, vx,vy,vz
 
-  do ix=ca(3),cb(3)
-     kx=wave_x(ix)
+  do iz=ca(1),cb(1)
+     kz=wave_z(iz)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
-        do iz=ca(1),cb(1)
-           kz=wave_z(iz)
+        do ix=ca(3), cb(3)
+           kx=wave_x(ix)
            
            k2=kx*kx +ky*ky +kz*kz
 

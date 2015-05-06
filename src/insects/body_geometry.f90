@@ -1,262 +1,683 @@
-!------------------------------------------------------------------------------
-! Draws an insect's body, several options available.
-! the body is, in the local coordinate system, always aligned with the
-! x-axis. also, we currently use only rotational symmetric bodies.
-subroutine DrawBody(ix,iy,iz,Insect,x_body,icolor)
-  use fsi_vars
-  use mpi
+subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
   implicit none
-  real(kind=pr) :: a_body, R, R0, x, y, z, s, s1, x1, x_tmp, R_tmp
-  real(kind=pr) :: rbc, x0bc, z0bc, thbc1, thbc2, xcs, zcs
-  type(diptera), intent(inout) :: Insect
-  integer, intent(in) :: ix,iy,iz
-  real(kind=pr),intent(in) :: x_body(1:3)
-  integer(kind=2),intent(in) :: icolor
-  
-  select case (Insect%BodyType)
-  case ('ellipsoid')  
-    ! ------------------------------------
-    ! ellipsoid body (jerry)
-    ! ------------------------------------
-    a_body = Insect%L_body / 2.d0
-    
-    ! check if inside the surrounding box (save comput. time)
-    if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
-    if ( dabs(x_body(3)) <= Insect%b_body + Insect%safety ) then
-    
-    ! check for length inside ellipsoid:
-    if ( dabs(x_body(1) ) < Insect%L_body/2 + Insect%safety ) then
-        R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
-        ! this gives the R(x) shape
-        if ( (x_body(1)/a_body)**2 <= 1.d0) then
-        R0 = dsqrt( Insect%b_body**2 *(1.d0- (x_body(1)/a_body)**2 ) )
 
-        if ( R < R0 + Insect%safety ) then
-          mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
-          ! body has the color "icolor"
-          mask_color(ix,iy,iz) = icolor
-        endif
-        endif
-    endif
-    endif
-    endif
-    
-    
-  case ('drosophila')
-    ! ------------------------------------
-    ! two b-splines body (abdomen+thorax)
-    ! ------------------------------------    
-    x = x_body(1) + 0.8067 ! centers the thickest part of the thorax at the origin
-    
-    ! check if inside body bounds (in x-direction)
-    if ( (x>=-Insect%safety) .and. (x<=1.2+Insect%safety) ) then    
-      R0=0.0
-      ! compute radius as a function of x (counting from the tail on)
-      if (x < 0.6333) then
-        ! we're in the ABDOMEN
-        R0 = max( -1.2990*x**2 + 0.9490*x + 0.0267, 0.d0)
-      elseif ((x >= 0.6333) .and. (x <=1.0 )) then
-        ! we're in the THORAX 
-        R0 = max( -2.1667*x**2 + 3.4661*x - 1.2194, 0.d0)
-      elseif ((x >= 1.0) .and. (x <=1.2 )) then
-        ! we're in the HEAD
-        R0 = max( -12.68*x**2 + 27.4960*x - 14.7360, 0.d0)
-      endif
-    
-      ! radius at this point
-      R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
-      
-      ! smoothing in x-direction
-      if (x<Insect%safety) then  ! xs is chordlength coordinate
-        x_tmp = steps(-x, Insect%smooth)
-      else
-        x_tmp = steps( x,1.2-Insect%smooth)
-      endif     
-      
-      
-      if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
-        R_tmp = steps(R,R0)        
-        mask(ix,iy,iz)= max( R_tmp*x_tmp , mask(ix,iy,iz) )
-        ! body has the color "icolor"
-        mask_color(ix,iy,iz) = icolor
-      endif      
-    
-    endif
-    
-  
-  
-  case ('drosophila_maeda','drosophila_slim')
-    ! ------------------------------------
-    ! approximation to mesh from Maeda
-    ! similar to Aono et al.
-    ! ------------------------------------    
-    x = x_body(1)
-    y = x_body(2)
-    z = x_body(3)
-
-    ! symmetry plane is xz
-    ! +x direction is forward
-    ! body centerline is an arc with center at x0bc,y0bc
-    ! radius rbc and angles th counted from negative z
-    rbc = 0.9464435146443515
-    thbc1 = 112.0d0 *pi/180.0d0
-    thbc2 = 53.0d0 *pi/180.0d0
-    x0bc = -0.24476987447698745d0
-    z0bc = -0.9301255230125524
-  
-    ! chordwise dimensionless coordinate, from head to abdomen
-    s = (datan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1) 
-    ! body center coordinates at s
-    xcs = x0bc + (x-x0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
-    zcs = z0bc + (z-z0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
-
-    ! check if inside body bounds (in s-direction)
-    if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then    
-      R0 = 0.0d0
-      ! round section by default
-      if (Insect%BodyType == 'drosophila_slim') then 
-        a_body = 1.09d0
-      else
-        a_body = 1.0d0
-      endif
-      ! distortion of s
-      s1 = 1.0d0 - ( s + 0.08d0*dtanh(30.0d0*s) ) / (1.0d0+0.08d0*dtanh(30.0d0))
-      s1 = ( s1 + 0.04d0*dtanh(60.0d0*s1) ) / (1.0d0+0.04d0*dtanh(60.0d0))
-!       s1 = ( max(dsin(1.2d0*s1)/dsin(1.2d0), 0.d0) )**1.25  
-      s1 = ( dsin(1.2d0*s1)/dsin(1.2d0) )**1.25
-      
-      x1 = 1.075d0 * s1 
-      ! compute radius as a function of x1 (counting from the tail on)
-      ! same shape as 'drosophila'
-      if (x1 < 0.6333d0) then
-        ! we're in the ABDOMEN
-        R0 = max( -1.2990d0*x1**2 + 0.9490d0*x1 + 0.0267d0, 0.d0)
-      elseif ((x1 >= 0.6333d0) .and. (x1 <=1.075d0 )) then
-        ! we're in the THORAX 
-        R0 = max( -2.1667d0*x1**2 + 3.4661d0*x1 - 1.2194d0, 0.d0)
-        ! slim body
-        if (Insect%BodyType == 'drosophila_slim') &
-          a_body = 1.09d0-0.19d0*(x1-0.6333d0)*(x1-1.075d0)/0.0488d0
-      endif
-      ! distortion of R0
-      R0 = 0.8158996d0 * (1.0d0+0.6d0*(1.0d0-s)**2) * R0
-      ! distance to the body center at s
-      R = sqrt( (x-xcs)**2 + (a_body*y)**2 + (z-zcs)**2 )
-
-      ! smoothing
-      if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
-        R_tmp = steps(R,R0)        
-        mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
-        ! body has the color "icolor"
-        mask_color(ix,iy,iz) = icolor
-      endif      
-    
-    endif
-
-    
-  case ('nobody')
-    ! doesn't do anything
-  case default
-    if (mpirank==0) then
-    write (*,*) "In DrawBody: unkown body type."
-    call abort()
-    endif
-  end select
-  
-end subroutine
-
-
-
-
-!------------------------------------------------------------------------------
-! Draws a sphere with radius R, as we need for the head and the eyes, if present
-subroutine DrawSphere(ix,iy,iz,Insect,x,R0,icolor)
-  use fsi_vars
-  use mpi
-  implicit none
-  real(kind=pr), intent(in) :: R0
-  real(kind=pr) :: R
-  integer, intent(in) :: ix,iy,iz
-  integer(kind=2), intent(in) :: icolor
-  real(kind=pr),intent(in) :: x(1:3)
   type(diptera),intent(inout) :: Insect
-  
-  if (abs(x(1))<R0+Insect%safety) then
-  if (abs(x(2))<R0+Insect%safety) then
-  if (abs(x(3))<R0+Insect%safety) then
-      R = sqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
-      if ( R <= R0+Insect%safety ) then
-        mask(ix,iy,iz) = max(steps(R,R0),mask(ix,iy,iz))
-        ! body parts have the color "icolor"
-        mask_color(ix,iy,iz) = icolor
-      endif
-  endif
-  endif
-  endif  
-end subroutine
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
 
-! routine DrawEye is only called if the flag Insect%HasEye=='yes'
-subroutine DrawEye(ix,iy,iz,Insect,x,icolor)
-  use fsi_vars
-  use mpi
-  implicit none
-  integer, intent(in) :: ix,iy,iz
-  type(diptera), intent(inout) :: Insect
-  integer(kind=2), intent(in) :: icolor
-  real(kind=pr),intent(in) :: x(1:3)
-  call DrawSphere(ix,iy,iz,Insect,x,Insect%R_eye,icolor)
-end subroutine
+  real(kind=pr) :: t1
+  t1 = MPI_wtime()
 
-
-! routine DrawHead is only called if the flag Insect%HasHead=='yes'
-subroutine DrawHead(ix,iy,iz,Insect,x,icolor)
-  use fsi_vars
-  use mpi
-  implicit none
-  integer, intent(in) :: ix,iy,iz
-  integer(kind=2), intent(in) :: icolor
-  real(kind=pr),intent(in) :: x(1:3)
-  type(diptera), intent(inout) :: Insect
-  real(kind=pr) :: x_head,z_head,dx_head,dz_head,R,R0,a_head
-  
   select case (Insect%BodyType)
-  case ('ellipsoid')  
-  ! an ellipsoid body goes with a spherical head
-  call DrawSphere(ix,iy,iz,Insect,x,Insect%R_head,icolor)
+  case ("nobody")
+    return
+  case ("jerry")
+    call draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
+  case ("drosophila")
+    call draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_body)
+  case ("drosophila_maeda","drosophila_slim")
+    call draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body, M_body)
+  case ("bumblebee")
+    call draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body)
+  case default
+    if(mpirank==0) write(*,*) "Insect::draw_body::Insect%BodyType unknown..."
+    if(mpirank==0) write(*,*) Insect%bodytype
+    call abort()
+  end select
 
-  case ('drosophila')
-  ! drosophilae have different heads.
+  time_insect_body = time_insect_body + MPI_wtime() - t1
+end subroutine
 
-  case ('drosophila_maeda','drosophila_slim')  
-    ! ellipsoid head, assumes xc_head=0 in .ini file
-    x_head = 0.17d0
-    z_head = -0.1d0
-    dx_head = 0.5d0*  0.185d0
-    dz_head = 0.5d0*  0.27d0
-    ! check if inside the surrounding box (save comput. time)
-    if ( dabs(x(2)) <= dz_head + Insect%safety ) then
-      if ( dabs(x(3)-z_head) <= dz_head + Insect%safety ) then
-        ! check for length inside ellipsoid:
-        if ( dabs(x(1)-x_head) < dx_head + Insect%safety ) then
-          if (Insect%BodyType == 'drosophila_slim') then
-            a_head = 1.09d0
-          else
-            a_head = 1.0d0
+
+!-------------------------------------------------------------------------------
+
+! Bumblebee body, BB1 in Dudley & Ellington JEB 1990
+subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout) :: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout) :: us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout) :: mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  integer :: ix,iy,iz,j
+  real(kind=pr) :: x,y,z,s,s1,a_body,R,R0,R_tmp,x1
+  real(kind=pr) :: x_glob(1:3),x_body(1:3),x_head(1:3)
+  real(kind=pr) :: rbc,thbc1,thbc2,x0bc,z0bc,xcs,zcs
+  real(kind=pr) :: xx_head,zz_head,dx_head,dz_head,a_head
+  real(kind=pr) :: xl1(5),yl1(5),zl1(5),rl1(4),xl2(5),yl2(5),zl2(5),rl2(4),&
+         xl3(5),yl3(5),zl3(5),rl3(4),xf(2),yf(2),zf(2),rf,xan(2),yan(2),zan(2),ran,&
+         xmin_bbox,xmax_bbox,ymin_bbox,ymax_bbox,zmin_bbox,zmax_bbox
+
+  !-----------------------------------------------------------------------------
+  ! Body
+  !-----------------------------------------------------------------------------
+  do iz = ra(3), rb(3)
+     do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+           ! x_glob is in the global coordinate system
+           x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           ! x_body is in the body coordinate system
+           x_body = matmul(M_body,x_glob-Insect%xc_body)
+
+           ! ------------------------------------
+            ! approximation to mesh from Maeda
+            ! similar to Aono et al.
+            ! ------------------------------------
+            x = x_body(1)
+            y = x_body(2)
+            z = x_body(3)
+
+            ! symmetry plane is xz
+            ! +x direction is forward
+            ! body centerline is an arc with center at x0bc,y0bc
+            ! radius rbc and angles th counted from negative z
+            rbc = 1.3d0
+            thbc1 = 112.0d0 *pi/180.0d0
+            thbc2 = 53.0d0 *pi/180.0d0
+            x0bc = 0.0782301255230126d0
+            z0bc = -1.26512552301255d0
+
+            ! chordwise dimensionless coordinate, from head to abdomen
+            s = (datan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1)
+            ! body center coordinates at s
+            xcs = x0bc + (x-x0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
+            zcs = z0bc + (z-z0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
+
+            ! check if inside body bounds (in s-direction)
+            if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then
+              R0 = 0.0d0
+              ! round section by default
+              a_body = 1.0d0
+              ! distortion of s
+              s1 = 1.0d0 - ( s + 0.08d0*dtanh(30.0d0*s) ) / (1.0d0+0.08d0*dtanh(30.0d0))
+              s1 = ( s1 + 0.04d0*dtanh(60.0d0*s1) ) / (1.0d0+0.04d0*dtanh(60.0d0))
+              s1 = ( dsin(1.2d0*s1)/dsin(1.2d0) )**1.25
+
+              x1 = 1.075d0 * s1
+              ! compute radius as a function of x1 (counting from the tail on)
+              ! same shape as 'drosophila'
+              if (x1 < 0.6333d0) then
+                ! we're in the ABDOMEN
+                R0 = max( -1.2990d0*x1**2 + 0.9490d0*x1 + 0.0267d0, 0.d0)
+                ! flatten abdomen
+                a_body = 1.0d0-0.07d0*(x1-0.6333d0)*x1/0.0488d0
+              elseif ((x1 >= 0.6333d0) .and. (x1 <=1.075d0 )) then
+                ! we're in the THORAX
+                R0 = max( -2.1667d0*x1**2 + 3.4661d0*x1 - 1.2194d0, 0.d0)
+              endif
+              ! distortion of R0
+              R0 = 1.2d0 * (1.0d0+0.6d0*(1.0d0-s)**2) * R0
+              ! distance to the body center at s
+              R = dsqrt( (x-xcs)**2 + y**2 + (a_body*(z-zcs))**2 )
+
+              ! smoothing
+              if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
+                R_tmp = steps(R,R0)
+                mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
+                mask_color(ix,iy,iz) = color_body
+              endif
+
+            endif
+        enddo
+     enddo
+  enddo
+
+  !-----------------------------------------------------------------------------
+  ! Head
+  !-----------------------------------------------------------------------------
+  a_head = 1.04d0
+
+  ! ellipsoid head, assumes xc_head=0 in .ini file
+  xx_head = 0.58125d0
+  zz_head = -0.1d0
+  dx_head = 0.5d0 * 0.2035d0
+  dz_head = 0.5d0 * 0.297d0
+
+  do iz = ra(3), rb(3)
+     do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          !-- define the head coordinate systems we are going to use
+          x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+          x_body   = matmul(M_body,x_glob-Insect%xc_body)
+          x_head   = x_body - Insect%x_head
+
+          ! check if inside the surrounding box (save comput. time)
+          if ( dabs(x_head(2)) <= dz_head + Insect%safety ) then
+            if ( dabs(x_head(3)-zz_head) <= dz_head + Insect%safety ) then
+              ! check for length inside ellipsoid:
+              if ( dabs(x_head(1)-xx_head) < dx_head + Insect%safety ) then
+
+                R  = dsqrt ( (a_head*x_head(2))**2 + (x_head(3)-zz_head)**2 )
+                ! this gives the R(x) shape
+                if ( ((x_head(1)-xx_head)/dx_head)**2 <= 1.d0) then
+                  R0 = dz_head*dsqrt(1.d0- ((x_head(1)-xx_head)/dx_head)**2 )
+                  if ( R < R0 + Insect%safety ) then
+                    mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+                    mask_color(ix,iy,iz) = color_body
+                  endif
+                endif
+              endif
+            endif
           endif
-          R  = dsqrt ( (a_head*x(2))**2 + (x(3)-z_head)**2 )
-          ! this gives the R(x) shape
-          if ( ((x(1)-x_head)/dx_head)**2 <= 1.d0) then
-            R0 = dz_head*dsqrt(1.d0- ((x(1)-x_head)/dx_head)**2 )
-            if ( R < R0 + Insect%safety ) then
-              mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
-              ! body parts have the color "icolor"
-              mask_color(ix,iy,iz) = icolor
+
+
+        enddo
+     enddo
+  enddo
+
+  !-----------------------------------------------------------------------------
+  ! Legs, antennae and proboscis
+  !-----------------------------------------------------------------------------
+  if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")&
+                  .or.(Insect%HasDetails=="antennae_proboscis")) then
+    ! Bounding box
+    xmin_bbox = -0.74-Insect%safety
+    xmax_bbox = 0.8+Insect%safety
+    ymin_bbox = -0.35-Insect%safety
+    ymax_bbox = 0.35+Insect%safety
+    zmin_bbox = -0.38-Insect%safety
+    zmax_bbox = 0.1+Insect%safety
+
+    ! Parameters of legs, antennae and proboscis
+    xl1 = (/-0.74,-0.63,-0.4,-0.1,0.1/)
+    yl1 = (/0.32,0.32,0.31,0.3,0.12/)
+    zl1 = (/-0.35,-0.37,-0.2,-0.1,-0.16/)
+    rl1 = (/0.015,0.03,0.04,0.03/)*1.3
+    xl2 = (/-0.24,-0.15,0.02,0.17,0.19/)
+    yl2 = (/0.33,0.33,0.32,0.3,0.15/)
+    zl2 = (/-0.29,-0.28,-0.2,-0.15,-0.19/)
+    rl2 = (/0.015,0.03,0.04,0.03/)*1.3
+    xl3 = (/0.28,0.35,0.45,0.4,0.35/)
+    yl3 = (/0.31,0.30,0.28,0.2,0.15/)
+    zl3 = (/-0.3,-0.28,-0.25,-0.18,-0.18/)
+    rl3 = (/0.015,0.02,0.03,0.02/)*1.3
+    xf = (/0.43,0.6/)
+    yf = (/0.0,0.0/)
+    zf = (/-0.28,-0.23/)
+    rf = 0.017*1.3
+    xan = (/0.63,0.8/)
+    yan = (/0.05,0.27/)
+    zan = (/-0.03,0.1/)
+    ran = 0.015*1.3
+
+    ! Assign values to mask pointwise
+    do iz = ra(3), rb(3)
+       do iy = ra(2), rb(2)
+          do ix = ra(1), rb(1)
+            !-- define the head coordinate systems we are going to use
+            x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+            x_body   = matmul(M_body,x_glob-Insect%xc_body)
+
+            !-- check bounds
+            if ((x_body(1)>=xmin_bbox).and.(x_body(1)<=xmax_bbox)&
+               .and.(x_body(2)>=ymin_bbox).and.(x_body(2)<=ymax_bbox)&
+               .and.(x_body(3)>=zmin_bbox).and.(x_body(3)<=zmax_bbox)) then
+
+              !-- left and right legs, antennae and proboscis
+              if (x_body(2)>0) then
+                if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")) then
+                  do j=1,4
+                    call draw_cylinder(x_body,xl1(j),yl1(j),zl1(j),&
+                         xl1(j+1),yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                  do j=1,4
+                    call draw_cylinder(x_body,xl2(j),yl2(j),zl2(j),&
+                         xl2(j+1),yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                  do j=1,4
+                    call draw_cylinder(x_body,xl3(j),yl3(j),zl3(j),&
+                         xl3(j+1),yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                endif
+                if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+                  call draw_cylinder(x_body,xan(1),yan(1),zan(1),&
+                       xan(2),yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                endif
+              else
+                if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")) then
+                  do j=1,4
+                    call draw_cylinder(x_body,xl1(j),-yl1(j),zl1(j),&
+                         xl1(j+1),-yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                  do j=1,4
+                    call draw_cylinder(x_body,xl2(j),-yl2(j),zl2(j),&
+                         xl2(j+1),-yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                  do j=1,4
+                    call draw_cylinder(x_body,xl3(j),-yl3(j),zl3(j),&
+                         xl3(j+1),-yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                  enddo
+                endif
+                if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+                  call draw_cylinder(x_body,xan(1),-yan(1),zan(1),&
+                       xan(2),-yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+                endif
+              endif
+              if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+                call draw_cylinder(x_body,xf(1),yf(1),zf(1),&
+                     xf(2),yf(2),zf(2),rf,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              endif
+            endif
+          enddo
+       enddo
+    enddo
+  endif
+
+end subroutine draw_body_bumblebee
+
+!------------------------------------------------------------------------------
+
+! Body adapted from Maeda & Liu. It assumes Insect%x_head=0.0
+subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  integer :: ix,iy,iz
+  real(kind=pr) :: x,y,z,s,s1, a_body, R,R0,R_tmp,x1
+  real(kind=pr) :: x_glob(1:3),x_body(1:3),x_head(1:3)
+  real(kind=pr) :: rbc,thbc1,thbc2,x0bc,z0bc,xcs,zcs
+  real(kind=pr) :: xx_head,zz_head,dx_head,dz_head,a_head
+
+
+  !-----------------------------------------------------------------------------
+  ! Body
+  !-----------------------------------------------------------------------------
+  do iz = ra(3), rb(3)
+     do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+           ! x_glob is in the global coordinate system
+           x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+           ! x_body is in the body coordinate system
+           x_body = matmul(M_body,x_glob-Insect%xc_body)
+
+           ! ------------------------------------
+            ! approximation to mesh from Maeda
+            ! similar to Aono et al.
+            ! ------------------------------------
+            x = x_body(1)
+            y = x_body(2)
+            z = x_body(3)
+
+            ! symmetry plane is xz
+            ! +x direction is forward
+            ! body centerline is an arc with center at x0bc,y0bc
+            ! radius rbc and angles th counted from negative z
+            rbc = 0.9464435146443515d0
+            thbc1 = 112.0d0 *pi/180.0d0
+            thbc2 = 53.0d0 *pi/180.0d0
+            x0bc = -0.24476987447698745d0
+            z0bc = -0.9301255230125524d0
+
+            ! chordwise dimensionless coordinate, from head to abdomen
+            s = (datan2(z-z0bc,-(x-x0bc))-thbc1)/(thbc2-thbc1)
+            ! body center coordinates at s
+            xcs = x0bc + (x-x0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
+            zcs = z0bc + (z-z0bc)*rbc/dsqrt((x-x0bc)**2+(z-z0bc)**2)
+
+            ! check if inside body bounds (in s-direction)
+            if ( (s>=-Insect%safety) .and. (s<=1.075d0+Insect%safety) ) then
+              R0 = 0.0d0
+              ! round section by default
+              if (Insect%BodyType == 'drosophila_slim') then
+                a_body = 1.09d0
+              else
+                a_body = 1.0d0
+              endif
+              ! distortion of s
+              s1 = 1.0d0 - ( s + 0.08d0*dtanh(30.0d0*s) ) / (1.0d0+0.08d0*dtanh(30.0d0))
+              s1 = ( s1 + 0.04d0*dtanh(60.0d0*s1) ) / (1.0d0+0.04d0*dtanh(60.0d0))
+        !       s1 = ( max(dsin(1.2d0*s1)/dsin(1.2d0), 0.d0) )**1.25
+              s1 = ( dsin(1.2d0*s1)/dsin(1.2d0) )**1.25
+
+              x1 = 1.075d0 * s1
+              ! compute radius as a function of x1 (counting from the tail on)
+              ! same shape as 'drosophila'
+              if (x1 < 0.6333d0) then
+                ! we're in the ABDOMEN
+                R0 = max( -1.2990d0*x1**2 + 0.9490d0*x1 + 0.0267d0, 0.d0)
+              elseif ((x1 >= 0.6333d0) .and. (x1 <=1.075d0 )) then
+                ! we're in the THORAX
+                R0 = max( -2.1667d0*x1**2 + 3.4661d0*x1 - 1.2194d0, 0.d0)
+                ! slim body
+                if (Insect%BodyType == 'drosophila_slim') &
+                  a_body = 1.09d0-0.19d0*(x1-0.6333d0)*(x1-1.075d0)/0.0488d0
+              endif
+              ! distortion of R0
+              R0 = 0.8158996d0 * (1.0d0+0.6d0*(1.0d0-s)**2) * R0
+              ! distance to the body center at s
+              R = dsqrt( (x-xcs)**2 + (a_body*y)**2 + (z-zcs)**2 )
+
+              ! smoothing
+              if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
+                R_tmp = steps(R,R0)
+                mask(ix,iy,iz)= max( R_tmp , mask(ix,iy,iz) )
+                mask_color(ix,iy,iz) = color_body
+              endif
+
+            endif
+        enddo
+     enddo
+  enddo
+
+  !-----------------------------------------------------------------------------
+  ! Head
+  !-----------------------------------------------------------------------------
+  if (Insect%BodyType == 'drosophila_slim') then
+    a_head = 1.09d0
+  else
+    a_head = 1.0d0
+  endif
+
+  ! ellipsoid head, assumes xc_head=0 in .ini file
+  xx_head = 0.17d0
+  zz_head = -0.1d0
+  dx_head = 0.5d0 * 0.185d0
+  dz_head = 0.5d0 * 0.27d0
+
+  do iz = ra(3), rb(3)
+     do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          !-- define the head coordinate systems we are going to use
+          x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+          x_body   = matmul(M_body,x_glob-Insect%xc_body)
+          x_head   = x_body - Insect%x_head
+
+          ! check if inside the surrounding box (save comput. time)
+          if ( dabs(x_head(2)) <= dz_head + Insect%safety ) then
+            if ( dabs(x_head(3)-zz_head) <= dz_head + Insect%safety ) then
+              ! check for length inside ellipsoid:
+              if ( dabs(x_head(1)-xx_head) < dx_head + Insect%safety ) then
+
+                R  = dsqrt ( (a_head*x_head(2))**2 + (x_head(3)-zz_head)**2 )
+                ! this gives the R(x) shape
+                if ( ((x_head(1)-xx_head)/dx_head)**2 <= 1.d0) then
+                  R0 = dz_head*dsqrt(1.d0- ((x_head(1)-xx_head)/dx_head)**2 )
+                  if ( R < R0 + Insect%safety ) then
+                    mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+                    mask_color(ix,iy,iz) = color_body
+                  endif
+                endif
+              endif
+            endif
+          endif
+
+
+        enddo
+     enddo
+  enddo
+end subroutine draw_body_drosophila_maeda
+
+!-------------------------------------------------------------------------------
+
+! frist attempt drosophila body ("doro"). It is a straight body (center line
+! undistorted), and its radius is a single function, defined in thorax
+! abdomen and head
+subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: x,R0,R,R_tmp,x_tmp
+  real(kind=pr) :: x_body(1:3), x_glob(1:3)
+  integer :: ix,iy,iz
+
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        ! x_body is in the body coordinate system
+        x_body = matmul(M_body,x_glob-Insect%xc_body)
+
+        ! ------------------------------------
+        ! two b-splines body (abdomen+thorax)
+        ! ------------------------------------
+        x = x_body(1) + 0.8067d0 ! centers the thickest part of the thorax at the origin
+
+        ! check if inside body bounds (in x-direction)
+        if ( (x>=-Insect%safety) .and. (x<=1.2+Insect%safety) ) then
+          R0=0.0
+          ! compute radius as a function of x (counting from the tail on)
+          if (x < 0.6333) then
+            ! we're in the ABDOMEN
+            R0 = max( -1.2990*x**2 + 0.9490*x + 0.0267, 0.d0)
+          elseif ((x >= 0.6333) .and. (x <=1.0 )) then
+            ! we're in the THORAX
+            R0 = max( -2.1667*x**2 + 3.4661*x - 1.2194, 0.d0)
+          elseif ((x >= 1.0) .and. (x <=1.2 )) then
+            ! we're in the HEAD
+            R0 = max( -12.68*x**2 + 27.4960*x - 14.7360, 0.d0)
+          endif
+
+          ! radius at this point
+          R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
+
+          ! smoothing in x-direction
+          if (x<Insect%safety) then  ! xs is chordlength coordinate
+            x_tmp = steps(-x, Insect%smooth)
+          else
+            x_tmp = steps( x,1.2-Insect%smooth)
+          endif
+
+
+          if (( R < R0 + Insect%safety ).and.(R0>0.d0)) then
+            R_tmp = steps(R,R0)
+            mask(ix,iy,iz)= max( R_tmp*x_tmp , mask(ix,iy,iz) )
+            mask_color(ix,iy,iz) = color_body
+          endif
+
+        endif
+      enddo
+    enddo
+  enddo
+
+end subroutine draw_body_drosophila
+
+!-------------------------------------------------------------------------------
+
+subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: x,R0,R,R_tmp,x_tmp,a_body
+  real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
+  integer :: ix,iy,iz
+
+  ! overwrite
+  Insect%R_head = 0.125d0
+  Insect%R_eye = 0.0625d0
+  Insect%x_pivot_r =(/ 0.05d0, -0.2165d0, 0.d0 /)
+  Insect%x_pivot_l =(/ 0.05d0, +0.2165d0, 0.d0 /)
+  Insect%b_body = 0.1
+  Insect%L_body = 1.0
+  Insect%x_head = (/0.5*Insect%L_body,0.d0,0.d0 /)
+  Insect%x_eye_r = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&
+                   *0.8d0*(/1.d0,+1.d0,1.d0/)
+  Insect%x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&
+                   *0.8d0*(/1.d0,-1.d0,1.d0/)
+
+  !-----------------------------------------------------------------------------
+  ! ellipsoid body
+  !-----------------------------------------------------------------------------
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        ! x_body is in the body coordinate system
+        x_body = matmul(M_body,x_glob-Insect%xc_body)
+
+        a_body = Insect%L_body / 2.d0
+
+        ! check if inside the surrounding box (save comput. time)
+        if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
+          if ( dabs(x_body(3)) <= Insect%b_body + Insect%safety ) then
+            ! check for length inside ellipsoid:
+            if ( dabs(x_body(1) ) < Insect%L_body/2 + Insect%safety ) then
+                R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
+                ! this gives the R(x) shape
+                if ( (x_body(1)/a_body)**2 <= 1.d0) then
+                  R0 = dsqrt( Insect%b_body**2 *(1.d0- (x_body(1)/a_body)**2 ) )
+
+                  if ( R < R0 + Insect%safety ) then
+                    mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+                    mask_color(ix,iy,iz) = color_body
+                  endif
+                endif
             endif
           endif
         endif
+      enddo
+    enddo
+  enddo
+
+  !-----------------------------------------------------------------------------
+  ! spherical head
+  !-----------------------------------------------------------------------------
+  x_head = Insect%xc_body + matmul(transpose(M_body),Insect%x_head)
+  call drawsphere( x_head,Insect%R_head,mask,mask_color,us,Insect,color_body )
+
+  x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_l)
+  call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
+
+  x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_r)
+  call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
+end subroutine draw_body_jerry
+
+!-------------------------------------------------------------------------------
+
+! draw a sphere with radius R0 centered at xc. as part of the body, it has no
+! velocity vector (this is added to the entire insect later)
+subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
+  use vars
+  implicit none
+
+  real(kind=pr),intent(in)::xc(1:3),R0
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: icolor
+  type(diptera),intent(inout) :: Insect
+
+  integer :: ix,iy,iz
+  real(kind=pr)::x(1:3),R
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x is in the global coordinate system
+        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        ! x is now centered in the sphere's center point
+        x = x - xc
+
+        if (dabs(x(1)) <= R0+Insect%safety) then
+          if (dabs(x(2)) <= R0+Insect%safety) then
+            if (dabs(x(3)) <= R0+Insect%safety) then
+              R = dsqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
+              if ( R <= R0+Insect%safety ) then
+                mask(ix,iy,iz) = max(steps(R,R0),mask(ix,iy,iz))
+                mask_color(ix,iy,iz) = icolor
+              endif
+            endif
+          endif
+        endif
+
+      enddo
+    enddo
+  enddo
+
+end subroutine
+
+! draw a cylinder defined by points (x1,y1,z1), (x2,y2,z2) and radius R0
+subroutine draw_cylinder( xp,x1,y1,z1,x2,y2,z2,R0,mask_val,color_val,icolor,safety )
+  use vars
+  implicit none
+
+  real(kind=pr),intent(in)::xp(1:3),x1,x2,y1,y2,z1,z2,R0,safety
+  real(kind=pr),intent(inout)::mask_val
+  integer(kind=2),intent(in)::icolor
+  integer(kind=2),intent(inout)::color_val
+
+  real(kind=pr)::x(1:3),R,xab,yab,zab,xu,yu,zu,xvp,yvp,zvp,&
+                 cbx,cby,cbz,rbx,rby,rbz
+
+  ! draw cylinder without endpoint treatment
+  cbx = 0.5*(x1+x2) - xp(1)
+  cby = 0.5*(y1+y2) - xp(2)
+  cbz = 0.5*(z1+z2) - xp(3)
+  rbx = x1-x2
+  rby = y1-y2
+  rbz = z1-z2
+  if ( cbx*cbx+cby*cby+cbz*cbz < 0.25*(rbx*rbx+rby*rby+rbz*rbz) ) then
+     xab = xp(1)-x1
+     yab = xp(2)-y1
+     zab = xp(3)-z1
+     xu = x2-x1
+     yu = y2-y1
+     zu = z2-z1
+     xvp = yab*zu-zab*yu
+     yvp = zab*xu-xab*zu
+     zvp = xab*yu-yab*xu
+     R = sqrt((xvp*xvp+yvp*yvp+zvp*zvp)/(xu*xu+yu*yu+zu*zu))
+     if ( R <= R0+safety ) then
+       mask_val = max(steps(R,R0),mask_val)
+       color_val = icolor
+     endif
+  endif
+
+  ! spheres at endpoints
+  x = xp - (/x1,y1,z1/)
+  if (dabs(x(1)) <= R0+safety) then
+    if (dabs(x(2)) <= R0+safety) then
+      if (dabs(x(3)) <= R0+safety) then
+        R = dsqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
+        if ( R <= R0+safety ) then
+          mask_val = max(steps(R,R0),mask_val)
+          color_val = icolor
+        endif
       endif
     endif
-  case default
-  ! do nothing
-  end select 
+  endif
+  x = xp - (/x2,y2,z2/)
+  if (dabs(x(1)) <= R0+safety) then
+    if (dabs(x(2)) <= R0+safety) then
+      if (dabs(x(3)) <= R0+safety) then
+        R = dsqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
+        if ( R <= R0+safety ) then
+          mask_val = max(steps(R,R0),mask_val)
+          color_val = icolor
+        endif
+      endif
+    endif
+  endif
+
 end subroutine

@@ -3,13 +3,16 @@
 echo "Unit-testing script for flusi/mhd pseudospectators."
 echo
 
+# this is to reduce the number of files in the repository
+tar xzf tests_data.tar.gz
+
 # list all the test scrits you want, separated by spaces
-tests=(solid_model.sh jerry.sh fruitfly_mask.sh fruitfly_mask2.sh scalar.sh 
-       vortexring1_AB2.sh 
-       vortexring2_RK2.sh vortexring3_EE1.sh vortexring4_sponge.sh 
-       sphere_sponge_RK2.sh sphere.sh sphere_restart.sh mhdorszagtang.sh 
-       swimmer1_iteration.sh swimmer2_staggered.sh swimmer3_semiimplicit.sh 
-       insect.sh insect_takeoff.sh )
+tests=(solid_model.sh jerry.sh fruitfly_mask.sh fruitfly_mask2.sh scalar.sh
+       vortexring1_AB2.sh
+       vortexring2_RK2.sh vortexring4_sponge.sh
+       sphere_sponge_RK2.sh sphere.sh sphere_restart.sh mhdorszagtang.sh
+       swimmer1_iteration.sh swimmer2_staggered.sh swimmer3_semiimplicit.sh
+       insect.sh insect_RK4.sh insect_takeoff.sh )
 
 # link flusi and mhd from .. to . if this isn't already done.
 if [ ! -f flusi ]; then
