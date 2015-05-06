@@ -3,7 +3,7 @@
 ! Input:
 !      time (self explanatory)
 ! Output:
-!      Insect% psi:      roll angle
+!      Insect% psi:     roll angle
 !      Insect%beta:     pitch angle
 !      Insect%gamma:    yaw angle
 !      Insect%psi_dt:   roll angular velocity
@@ -28,14 +28,16 @@ subroutine BodyMotion(time, Insect)
   real(kind=pr) :: xc(1:3), vc(1:3)
   real(kind=pr) :: T,R
 
-  ! the tag body_moves is used to draw the insect's body only once
+  ! the tag body_moves is used to draw the insect's body only once, if the body
+  ! does not move (body_moves=="no"). For safety, we initialize the body as moving
+  ! so if you forget to specify (body_moves=="no"), the body is drawn every time
   body_moves = "yes"
 
 
   select case (Insect%BodyMotion)
   case ("forward")
     psi = 0.d0
-!    beta = deg2rad(-15.0d0)
+    !    beta = deg2rad(-15.0d0)
     beta = -deg2rad(Insect%body_pitch_const)
     gamma = deg2rad(180.d0)
     psi_dt = 0.d0
@@ -98,18 +100,18 @@ subroutine BodyMotion(time, Insect)
 
   case ("hovering")
     psi      = 0.0
-!    beta     = deg2rad(-55.d0)
+    !    beta     = deg2rad(-55.d0)
     beta = -deg2rad(Insect%body_pitch_const)
-!    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
+    !    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
     gamma    = deg2rad(45.d0)
     psi_dt   = 0.0
     beta_dt  = 0.0
     gamma_dt = 0.0
 
-   xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 26 Oct 2013
-!    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)  ! Dmitry, 30 Oct 2013 -one wing length from top
-!     xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
-!    xc = (/0.5d0*xl, 0.5d0*yl, 0.8d0/)  ! Dmitry, 28 Oct 2013  - ground dist+0.3
+    xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 26 Oct 2013
+    !    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)  ! Dmitry, 30 Oct 2013 -one wing length from top
+    !     xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
+    !    xc = (/0.5d0*xl, 0.5d0*yl, 0.8d0/)  ! Dmitry, 28 Oct 2013  - ground dist+0.3
     vc = (/0.0d0, 0.0d0, 0.0d0/)
     body_moves = "no"
 
@@ -124,7 +126,7 @@ subroutine BodyMotion(time, Insect)
     xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)
     vc = (/0.0d0, 0.0d0, 0.0d0/)
     body_moves = "no"
-    
+
   case ("takeoff")  ! Takeoff kinematics read from file (Dmitry, 14 Nov 2013)
     body_moves = "yes"
     if (Insect%KineFromFile=="yes") then
@@ -166,6 +168,11 @@ subroutine BodyMotion(time, Insect)
       vc(1) = SolidDyn%var_new(3)
       vc(3) = SolidDyn%var_new(4)
     endif
+
+  case ("free_flight")
+    ! in this case, the position is dynamically computed, and quaternions are used
+    body_moves = "yes"
+
   case default
     if (mpirank==0) then
       write(*,*) Insect%BodyMotion

@@ -15,7 +15,7 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
   select case (Insect%BodyType)
   case ("nobody")
     return
-  case ("jerry")
+  case ("jerry","Jerry")
     call draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   case ("drosophila")
     call draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_body)
@@ -512,7 +512,12 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
   integer :: ix,iy,iz
 
-  ! overwrite
+  ! the following are coordinates of specific points on the insect's body, for
+  ! example the position of the head, its size etc. In older versions, these
+  ! parameters were set in the *.ini file, which proved to be too much flexibility.
+  ! in practice, the insect is created once, while implementing it, and then
+  ! no longer changed. For Jerry, we overwrite the coordinates with hard-coded
+  ! values here. the advantage is that we can set   BodyType=jerry;  and voilà!
   Insect%R_head = 0.125d0
   Insect%R_eye = 0.0625d0
   Insect%x_pivot_r =(/ 0.05d0, -0.2165d0, 0.d0 /)
@@ -526,7 +531,7 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
                    *0.8d0*(/1.d0,-1.d0,1.d0/)
 
   !-----------------------------------------------------------------------------
-  ! ellipsoid body
+  ! Jerry's body is an ellipsoid
   !-----------------------------------------------------------------------------
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
@@ -561,7 +566,7 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   enddo
 
   !-----------------------------------------------------------------------------
-  ! spherical head
+  ! Jerry's head and eyes are spheres
   !-----------------------------------------------------------------------------
   x_head = Insect%xc_body + matmul(transpose(M_body),Insect%x_head)
   call drawsphere( x_head,Insect%R_head,mask,mask_color,us,Insect,color_body )
@@ -573,10 +578,13 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
 end subroutine draw_body_jerry
 
-!-------------------------------------------------------------------------------
 
-! draw a sphere with radius R0 centered at xc. as part of the body, it has no
-! velocity vector (this is added to the entire insect later)
+!-------------------------------------------------------------------------------
+! draw a sphere with radius R0 centered at the point xc
+! This routiner's intended use is for drawing the insect's body, for example
+! the head and eyes of Jerry. The velocity field inside the body is added
+! later, thus, the field us is untouched in this routines.
+!-------------------------------------------------------------------------------
 subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
   use vars
   implicit none
