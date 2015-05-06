@@ -76,11 +76,6 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
       call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
       workc,expvis,press,0,Insect,beams)
     endif
-    if (SolidDyn%idynamics/=0 .and. mpirank==0) then
-      write(*,*) "using AB2 with rigid solid solver is deprecated."
-      write(*,*) "use AB2_rigid_solid instead."
-      call abort()
-    endif
   case ("AB2_rigid_solid")
     call AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     workc,expvis,press,Insect,beams)
@@ -772,7 +767,7 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
 
-  if ((SolidDyn%idynamics/=1).and.(mpirank==0)) then
+  if ((Insect%BodyMotion/="free_flight").and.(root)) then
     write(*,*) "ERROR AB2_rigid_solid and flag SolidDyn%idynamics/=1"
     write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
     call abort()

@@ -1,22 +1,24 @@
 !-------------------------------------------------------------------------------
 ! Stroke plane
-! Input: 
-!       time 
+! Input:
+!       time
 ! Output:
-!       eta_stroke: stroke plane angle 
+!       eta_stroke: stroke plane angle
 subroutine StrokePlane ( time, Insect )
   use vars
   implicit none
-  
+
   real(kind=pr), intent(in) :: time
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: eta_stroke
 
   select case (Insect%BodyMotion)
+  case ("free_flight")
+    eta_stroke = deg2rad(0.d0)   
   case ("forward")
     eta_stroke = Insect%eta_stroke
   case ("fixed")
-    eta_stroke = deg2rad(0.d0)   
+    eta_stroke = deg2rad(0.d0)
   case ("fixed45")
     eta_stroke = deg2rad(-45.d0)
   case ("wheeling")
@@ -37,8 +39,8 @@ subroutine StrokePlane ( time, Insect )
     call abort()
     endif
   end select
-  
+
   ! save it in the insect
   Insect%eta_stroke = eta_stroke
-  
+
 end subroutine StrokePlane

@@ -4,10 +4,10 @@
 subroutine FlappingMotion_left ( time, Insect )
   use vars
   implicit none
-  
+
   real(kind=pr), intent(in) :: time
   type(diptera) :: Insect
-  
+
   call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
        Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
        Insect%alpha_dt_l, Insect%theta_dt_l )
@@ -20,10 +20,10 @@ end subroutine FlappingMotion_left
 subroutine FlappingMotion_right ( time, Insect )
   use vars
   implicit none
-  
+
   real(kind=pr), intent(in) :: time
   type(diptera) :: Insect
-  
+
   call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
        Insect%phi_r, Insect%alpha_r, Insect%theta_r, Insect%phi_dt_r, &
        Insect%alpha_dt_r, Insect%theta_dt_r )
@@ -33,9 +33,9 @@ end subroutine FlappingMotion_right
 
 !-------------------------------------------------------------------------------
 ! Flapping wing motion protocoll, different choices.
-! Input: 
+! Input:
 !       time (self explanatory)
-!       protocoll: string containing what motion you want to have (may be 
+!       protocoll: string containing what motion you want to have (may be
 !                  different for both wings)
 ! Output:
 !       phi: flapping/positonal angle
@@ -45,14 +45,14 @@ end subroutine FlappingMotion_right
 !       alpha_dt: feathering angular velocity
 !       theta_dt: deviatory angular velocity
 ! The actual motion depends on the choices in the parameter file, namely
-! Insect%WingMotion, and sub-parameters that may further precise a given motion 
-! protocoll. Note we allow both wings to follow a differen motion, but they both 
+! Insect%WingMotion, and sub-parameters that may further precise a given motion
+! protocoll. Note we allow both wings to follow a differen motion, but they both
 ! call this routine here.
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, alpha_dt, theta_dt)
   use vars
   implicit none
-  
+
   real(kind=pr), intent(in) :: time
   type(diptera), intent(inout) :: Insect
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
@@ -70,7 +70,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
   real(kind=pr) :: alphacdeg
   integer :: i,mpicode
   character(len=strlen) :: dummy
-  
+
   select case ( protocoll )
   case ("from_file")
     !---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     ! in hovering. if the wing motion varies appreciably between strokes,
     ! the kinematic loader is the method of choice. The file is specified
     ! in the params file and stored in Insect%infile. Input Fourier coeffients
-    ! are in DEGREE, output of this function is IN RADIANT!  An example file 
+    ! are in DEGREE, output of this function is IN RADIANT!  An example file
     ! (kinematics_fourier_example.in) is in the git-repository
     !---------------------------------------------------------------------------
     if (.not.allocated(ai_phi)) then
@@ -98,15 +98,15 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       call MPI_BCAST( Insect%nfft_phi,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
       call MPI_BCAST( Insect%nfft_alpha,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
       call MPI_BCAST( Insect%nfft_theta,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
-      
+
       ! allocate fourier coefficent arrays
       allocate ( ai_phi(1:Insect%nfft_phi) )
-      allocate ( bi_phi(1:Insect%nfft_phi) ) 
+      allocate ( bi_phi(1:Insect%nfft_phi) )
       allocate ( ai_alpha(1:Insect%nfft_alpha) )
       allocate ( bi_alpha(1:Insect%nfft_alpha) )
       allocate ( ai_theta(1:Insect%nfft_theta) )
       allocate ( bi_theta(1:Insect%nfft_theta) )
-      
+
       ! read coefficients
       if (mpirank==0) then
         read(37,*) dummy ! skip lines added for documentation
@@ -135,7 +135,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
         close(37)
       endif
-      
+
       call MPI_BCAST( Insect%a0_phi,1,MPI_DOUBLE_PRECISION,0,&
            MPI_COMM_WORLD,mpicode )
       call MPI_BCAST( ai_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
@@ -155,26 +155,26 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       call MPI_BCAST( bi_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,&
            MPI_COMM_WORLD,mpicode )
     endif
-      
+
     ! this block is executed every time
     call fseries_eval(time,phi,phi_dt,Insect%a0_phi,ai_phi,bi_phi)
     call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,ai_alpha,bi_alpha)
     call fseries_eval(time,theta,theta_dt,Insect%a0_theta,ai_theta,bi_theta)
-    
+
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
     theta = deg2rad(theta)
-    
+
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
-    
+
   case ("from_file_hermite")
     !---------------------------------------------------------------------------
     ! motion protocol from hermite coeffients (instead of Fourier coefficients)
     ! it is designed closely to "from_file", Insect%ai... is function values and
     ! Insect%bi is derivatives. Insect%a0 is unused.
-    ! Input values are assumed IN DEGREE (°), output of this function is 
+    ! Input values are assumed IN DEGREE (°), output of this function is
     ! IN RADIANTS! An example file (kinematics_hermite_example.in) is in the
     ! git-repository
     !---------------------------------------------------------------------------
@@ -196,15 +196,15 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       call MPI_BCAST( Insect%nfft_phi,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
       call MPI_BCAST( Insect%nfft_alpha,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
       call MPI_BCAST( Insect%nfft_theta,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
-      
+
       ! allocate fourier coefficent arrays
       allocate ( ai_phi(1:Insect%nfft_phi) )
-      allocate ( bi_phi(1:Insect%nfft_phi) ) 
+      allocate ( bi_phi(1:Insect%nfft_phi) )
       allocate ( ai_alpha(1:Insect%nfft_alpha) )
       allocate ( bi_alpha(1:Insect%nfft_alpha) )
       allocate ( ai_theta(1:Insect%nfft_theta) )
       allocate ( bi_theta(1:Insect%nfft_theta) )
-      
+
       ! read coefficients
       if (mpirank==0) then
         read(37,*) dummy ! skip lines added for documentation
@@ -225,7 +225,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
         close(37)
       endif
-      
+
       call MPI_BCAST( ai_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
            MPI_COMM_WORLD,mpicode )
       call MPI_BCAST( bi_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
@@ -239,20 +239,20 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       call MPI_BCAST( bi_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,&
            MPI_COMM_WORLD,mpicode )
     endif
-      
+
     ! this block is executed every time
     call hermite_eval(time,phi,phi_dt,ai_phi,bi_phi)
     call hermite_eval(time,alpha,alpha_dt,ai_alpha,bi_alpha)
     call hermite_eval(time,theta,theta_dt,ai_theta,bi_theta)
-    
+
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
     theta = deg2rad(theta)
-    
+
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
-  
+
   case ("Drosophila_hovering_fry")
     !---------------------------------------------------------------------------
     ! motion protocoll digitalized from Fry et al JEB 208, 2303-2318 (2005)
@@ -263,14 +263,14 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       Insect%nfft_alpha = 10
       Insect%nfft_theta = 10
       Insect%nfft_phi   = 10
-      allocate ( ai_phi(1:Insect%nfft_phi), bi_phi(1:Insect%nfft_phi) ) 
+      allocate ( ai_phi(1:Insect%nfft_phi), bi_phi(1:Insect%nfft_phi) )
       allocate ( ai_alpha(1:Insect%nfft_alpha), bi_alpha(1:Insect%nfft_alpha) )
       allocate ( ai_theta(1:Insect%nfft_theta), bi_theta(1:Insect%nfft_theta) )
-      
+
       Insect%a0_phi   =25.4649398
       Insect%a0_alpha =-0.3056968
       Insect%a0_theta =-17.8244658  ! - sign (Dmitry, 10 Nov 2013)
-      
+
       ai_phi   =(/71.1061858,2.1685448,-0.1986978,0.6095268,-0.0311298,&
                 -0.1255648,-0.0867778,0.0543518,0.0,0.0/)
       bi_phi   =(/5.4547058,-3.5461688,0.6260698,0.1573728,-0.0360498,-0.0205348,&
@@ -284,15 +284,15 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       bi_theta =(/-2.2839398,-3.5213068,1.9296668,-1.0832488,-0.3011748,0.1786648,&
                 -0.1228608,0.0004808,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
     endif
-    
+
     call fseries_eval(time,phi,phi_dt,Insect%a0_phi,ai_phi,bi_phi)
     call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,ai_alpha,bi_alpha)
     call fseries_eval(time,theta,theta_dt,Insect%a0_theta,ai_theta,bi_theta)
-    
+
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
     theta = deg2rad(theta)
-    
+
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
@@ -307,10 +307,10 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       Insect%nfft_alpha = 10
       Insect%nfft_theta = 10
       Insect%nfft_phi   = 10
-      allocate ( ai_phi(1:Insect%nfft_phi), bi_phi(1:Insect%nfft_phi) ) 
+      allocate ( ai_phi(1:Insect%nfft_phi), bi_phi(1:Insect%nfft_phi) )
       allocate ( ai_alpha(1:Insect%nfft_alpha), bi_alpha(1:Insect%nfft_alpha) )
       allocate ( ai_theta(1:Insect%nfft_theta), bi_theta(1:Insect%nfft_theta) )
-      
+
       Insect%a0_phi   =38.2280144124915
       Insect%a0_alpha =1.09156750841542
       Insect%a0_theta =-17.0396438317138
@@ -333,27 +333,27 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       ai_theta =(/-0.0876540586926952,-6.32825811106895,0.461710021840119,&
                   -0.196290365124456,0.266829219535534,0.191278837298358,&
                   0.0651359677824226,0.132751714936873,0.104342707251547,&
-                  0.0251049936194829/)  
+                  0.0251049936194829/)
       bi_theta =(/5.05944308805575,-0.677547202362310,-1.30945644385840,&
                   -0.741962147111828,-0.351209215835472,-0.0374224119537382,&
                   -0.0940160961803885,-0.0563224030429001,0.0533369476976694,&
                 0.0507212428142968/)
     endif
-    
+
     call fseries_eval(time,phi,phi_dt,Insect%a0_phi,ai_phi,bi_phi)
     call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,ai_alpha,bi_alpha)
     call fseries_eval(time,theta,theta_dt,Insect%a0_theta,ai_theta,bi_theta)
-    
+
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
     theta = deg2rad(theta)
-    
+
     phi_dt = deg2rad(phi_dt)
     alpha_dt = deg2rad(alpha_dt)
     theta_dt = deg2rad(theta_dt)
   case ("Drosophila_hovering_maeda")
     !---------------------------------------------------------------------------
-    ! Drosophila hovering kinematics protocol 
+    ! Drosophila hovering kinematics protocol
     !
     ! Fourier coefficients provided by Maeda
     ! Diditized from Fry et al.
@@ -387,9 +387,9 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
         dangle_posi_dt = 0.0d0
         dangle_elev_dt = 0.0d0
         dangle_feth_dt = 0.0d0
-  
+
       case default !! Fourier n-th orders
-  
+
         call get_dangle( &
             & angles, &                !! intent(in)
             & i, &                     !! intent(in)
@@ -400,7 +400,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
             & dangle_posi, &      !! intent(out)
             & dangle_posi_dt &   !! intent(out)
         & )
-  
+
         call get_dangle( &
             & angles, &                !! intent(in
             & i, &                     !! intent(in)
@@ -411,7 +411,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
             & dangle_elev, &      !! intent(out)
             & dangle_elev_dt &   !! intent(out)
         & )
-  
+
         call get_dangle( &
             & angles, &                !! intent(in
             & i, &                     !! intent(in)
@@ -422,9 +422,9 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
             & dangle_feth, &      !! intent(out)
             & dangle_feth_dt &   !! intent(out)
         & )
-  
+
       endselect
-  
+
       posi = posi +dangle_posi
       elev = elev +dangle_elev
       feth = feth +dangle_feth
@@ -433,16 +433,16 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       elev_dt = elev_dt +dangle_elev_dt
       feth_dt = feth_dt +dangle_feth_dt
     enddo
- 
+
     ! Convert to FLUSI's variables
     phi = posi
     alpha = -feth
     theta = -elev
-    
+
     phi_dt = posi_dt
     alpha_dt = -feth_dt
     theta_dt = -elev_dt
-    
+
   case ("flapper_sane")
     !---------------------------------------------------------------------------
     ! motion protocol from Sane and Dickinson, JEB 204, 2607-2626 (2001)
@@ -456,7 +456,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     !---------------------------------------------------------------------------
 
     ! *** I. feathering motion ***
-    ! Corresponds to Fig. 3D in JEB 204, p. 2613 
+    ! Corresponds to Fig. 3D in JEB 204, p. 2613
     ! Note that this is feathering angle measured from the vertical.
     ! This is NOT angle of attack
     bi_alpha_flapper =(/48.807554373967804d0,&
@@ -470,14 +470,14 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
     alpha = 0.0
     alpha_dt = 0.0
-    
+
     ! frequency factor
     f = 2.d0*pi
-    
+
     ! Fourier series
     do i=1,29
       ! allows the spaces I like with the 80 columns malcolm likes :)
-      s = dsin(f*dble(i)*time) 
+      s = dsin(f*dble(i)*time)
       c = dcos(f*dble(i)*time)
       alpha = alpha + bi_alpha_flapper(i) * s
       alpha_dt = alpha_dt + f*dble(i)* bi_alpha_flapper(i) * c
@@ -488,11 +488,11 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     alphacdeg = 90.0d0 - 00.0d0
     alpha = alphacdeg/40.0d0 * alpha
     alpha_dt = alphacdeg/40.0d0 * alpha_dt
-   
-    ! convert in radians 
+
+    ! convert in radians
     alpha = deg2rad(alpha)
     alpha_dt = deg2rad(alpha_dt)
-    
+
     ! *** II. position ***
     ai_phi_flapper =(/72.96795908179631d0,&
      0.0d0,8.064401876272864d0,0.0d0,2.769062401215844d0,&
@@ -506,29 +506,29 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
     phi = 0.0
     phi_dt = 0.0
-    
+
     ! frequency factor
     f = 2.d0*pi
-    
+
     ! Fourier series
     do i=1,31
       ! allows the spaces I like with the 80 columns malcolm likes :)
-      s = dsin(f*dble(i)*time) 
+      s = dsin(f*dble(i)*time)
       c = dcos(f*dble(i)*time)
       phi   = phi   + ai_phi_flapper(i) * c
       phi_dt   = phi_dt   + f*dble(i)*(-ai_phi_flapper(i) * s)
     enddo
-    
+
     ! Scale to a given value of max angle in gedrees
     ! phicdeg is Phi of JEB 204 (eg twice the max value of triangular wave)
     phicdeg = 180.0d0
     phi = phicdeg/180.0d0 * phi
     phi_dt = phicdeg/180.0d0 * phi_dt
-   
-    ! convert in radians 
+
+    ! convert in radians
     phi = deg2rad(phi)
     phi_dt = deg2rad(phi_dt)
-    
+
     ! *** III. elevation ***
     theta = 0.0d0
     theta_dt = 0.0d0
@@ -564,14 +564,14 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
     alpha = 0.0
     alpha_dt = 0.0
-    
+
     ! frequency factor
     f = 2.d0*pi
-    
+
     ! Fourier series
     do i=1,29
       ! allows the spaces I like with the 80 columns malcolm likes :)
-      s = dsin(f*dble(i)*(time+tadv)) 
+      s = dsin(f*dble(i)*(time+tadv))
       c = dcos(f*dble(i)*(time+tadv))
       alpha = alpha + bi_alpha_flapper(i) * s
       alpha_dt = alpha_dt + f*dble(i)* bi_alpha_flapper(i) * c
@@ -582,11 +582,11 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     alphacdeg = 90.0d0 - 40.0d0
     alpha = alphacdeg/40.0d0 * alpha
     alpha_dt = alphacdeg/40.0d0 * alpha_dt
-   
-    ! convert in radians 
+
+    ! convert in radians
     alpha = deg2rad(alpha)
     alpha_dt = deg2rad(alpha_dt)
-    
+
     ! *** II. position ***
     ai_phi_flapper =(/63.24528806534019d0,&
       0.0d0,5.753991800610726d0,0.0d0,1.3887974015525626d0,&
@@ -600,26 +600,26 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
     phi = 0.0
     phi_dt = 0.0
-    
+
     ! frequency factor
     f = 2.d0*pi
-    
+
     ! Fourier series
     do i=1,31
       ! allows the spaces I like with the 80 columns malcolm likes :)
-      s = dsin(f*dble(i)*time) 
+      s = dsin(f*dble(i)*time)
       c = dcos(f*dble(i)*time)
       phi   = phi   + ai_phi_flapper(i) * c
       phi_dt   = phi_dt   + f*dble(i)*(-ai_phi_flapper(i) * s)
     enddo
-    
+
     ! Scale to a given value of max angle in gedrees
     ! phicdeg is Phi of JEB 204 (eg twice the max value of triangular wave)
     phicdeg = 180.0d0
     phi = phicdeg/180.0d0 * phi
     phi_dt = phicdeg/180.0d0 * phi_dt
-   
-    ! convert in radians 
+
+    ! convert in radians
     phi = deg2rad(phi)
     phi_dt = deg2rad(phi_dt)
 
@@ -669,23 +669,23 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
     alpha = 0.0d0
     alpha_dt = 0.0d0
-    
+
     ! frequency factor
     f = 2.d0*pi
-    
+
     ! Fourier series
     do i=1,29
       ! allows the spaces I like with the 80 columns malcolm likes :)
-      s = dsin(f*dble(i)*(time+tadv+t0adv)) 
+      s = dsin(f*dble(i)*(time+tadv+t0adv))
       c = dcos(f*dble(i)*(time+tadv+t0adv))
       alpha = alpha + bi_alpha_flapper(i) * s
       alpha_dt = alpha_dt + f*dble(i)* bi_alpha_flapper(i) * c
     enddo
 
-    ! convert in radians 
+    ! convert in radians
     alpha = deg2rad(alpha)
     alpha_dt = deg2rad(alpha_dt)
-    
+
     ! *** II. position ***
 !    ai_phi_flapper =(/63.24528806534019d0,&
 !      0.0d0,5.753991800610726d0,0.0d0,1.3887974015525626d0,&
@@ -710,29 +710,29 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
     phi = 0.5d0 * a0_phi
     phi_dt = 0.0d0
-    
+
     ! frequency factor
     f = 2.d0*pi
-    
+
     ! Fourier series
     do i=1,31
       ! allows the spaces I like with the 80 columns malcolm likes :)
-      s = dsin(f*dble(i)*(time+t0adv)) 
+      s = dsin(f*dble(i)*(time+t0adv))
       c = dcos(f*dble(i)*(time+t0adv))
       phi   = phi   + ai_phi_flapper(i) * c
       phi_dt   = phi_dt   + f*dble(i)*(-ai_phi_flapper(i) * s)
     enddo
-    
-    ! convert in radians 
+
+    ! convert in radians
     phi = deg2rad(phi)
     phi_dt = deg2rad(phi_dt)
 
     ! *** III. elevation ***
     theta = 0.0d0
     theta_dt = 0.0d0
-    
-    
-  
+
+
+
   case ("suzuki")
 
     ! frequency
@@ -754,15 +754,15 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     alpha_dt = alpha_max/tanh(c)*f*c*cos(f*time)*(1-tanh(c*sin(f*time))**2)
     alpha = deg2rad(alpha)
     alpha_dt = deg2rad(alpha_dt)
-   
+
     ! *** III. elevation ***
     theta = 0.0d0
     theta_dt = 0.0d0
-  
-   
+
+
   case ("takeoff")
     !--------------------------------------------------
-    ! Fontaine et al. 
+    ! Fontaine et al.
     !--------------------------------------------------
     if (Insect%KineFromFile/="no") then
       call wing_kine_interp(time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt)
@@ -770,20 +770,20 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       phi = deg2rad(phi)
       phi_dt = deg2rad(phi_dt)
       ! feathering angle
-      alpha = deg2rad(alpha)         
-      alpha_dt = deg2rad(alpha_dt)    
+      alpha = deg2rad(alpha)
+      alpha_dt = deg2rad(alpha_dt)
       ! elevation angle in flusi coordinates
       theta = -theta
       theta_dt = - theta_dt
       theta = deg2rad(theta)
       theta_dt = deg2rad(theta_dt)
-    endif 
- 
+    endif
+
   case ("simplified")
     !---------------------------------------------------------------------------
     ! simplified motion protocoll
     !
-    ! J. comput. Phys. 231 (2012) 1822-1847 "A fluid-structure interaction 
+    ! J. comput. Phys. 231 (2012) 1822-1847 "A fluid-structure interaction
     ! model of insect flight with flexible wings"
     !
     ! the pase shift "phase" was my idea
@@ -792,24 +792,31 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     alpha_max   = 0.d0!45.d0*pi/180.d0  ! alpha is tethering
     phase       = 0.d0! 10.d0*pi/180.d0  ! phase shift between flapping and tethering
     f = 1.d0*2.0*pi
-    
+
     phi      = phi_max  *dcos(f*time)
     alpha    = alpha_max*dsin(f*(time+phase))
     theta    = 0.0
-    
+
     phi_dt   =-phi_max *f *dsin(f*time)
     alpha_dt = alpha_max*f*dcos(f*(time+phase))
     theta_dt = 0.0
   case ("debug")
-    phi      = deg2rad(45.d0)   
-    alpha    = deg2rad(0.d0)
+    phi      = 0.0
+    alpha    = deg2rad(-45.d0)
+    theta    = 0.0
+    phi_dt   = 0.0
+    alpha_dt = 0.0
+    theta_dt = 0.0
+  case ("debug2")
+    phi      = 0.0
+    alpha    = deg2rad(45.d0)
     theta    = 0.0
     phi_dt   = 0.0
     alpha_dt = 0.0
     theta_dt = 0.0
   case ("none")
     phi      = 0.0
-    alpha    = 0.0
+    alpha    = deg2rad(45.d0)
     theta    = 0.0
     phi_dt   = 0.0
     alpha_dt = 0.0
@@ -818,9 +825,9 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     if (mpirank==0) then
     write (*,*) "insects.f90::FlappingMotion: motion case (protocoll) undefined"
     call abort()
-    endif    
+    endif
   end select
-  
+
 end subroutine FlappingMotion
 
 !-------------------------------------------------------------------------------
@@ -831,23 +838,23 @@ end subroutine FlappingMotion
 subroutine fseries_eval(time,u,u_dt,a0,ai,bi)
   use vars
   implicit none
-  
+
   real(kind=pr), intent(in) :: a0, time
   real(kind=pr), intent(in), dimension(:) :: ai,bi
   real(kind=pr), intent(out) :: u, u_dt
   real(kind=pr) :: c,s,f
   integer :: nfft, i
-  
+
   nfft=size(ai)
-  
+
   ! frequency factor
   f = 2.d0*pi
 
-  u = 0.5d0*a0  
+  u = 0.5d0*a0
   u_dt = 0.d0
-  
+
   do i=1,nfft
-      s = dsin(f*dble(i)*time) 
+      s = dsin(f*dble(i)*time)
       c = dcos(f*dble(i)*time)
       ! function value
       u    = u + ai(i)*c + bi(i)*s
@@ -866,15 +873,15 @@ end subroutine fseries_eval
 subroutine hermite_eval(time,u,u_dt,ai,bi)
   use vars
   implicit none
-  
+
   real(kind=pr), intent(in) :: time
   real(kind=pr), intent(in), dimension(:) :: ai,bi
   real(kind=pr), intent(out) :: u, u_dt
   real(kind=pr) :: dt,h00,h10,h01,h11,t
   integer :: n, j1,j2
-  
+
   n=size(ai)
-  
+
   dt = 1.d0 / dble(n)
   j1 = floor(time/dt) + 1
   j2 = j1 + 1
@@ -882,23 +889,23 @@ subroutine hermite_eval(time,u,u_dt,ai,bi)
   if (j2 > n) j2=1
   ! normalized time (between two data points)
   t = (time-dble(j1-1)*dt) /dt
-  
+
   ! values of hermite interpolant
   h00 = (1.d0+2.d0*t)*((1.d0-t)**2)
   h10 = t*((1.d0-t)**2)
   h01 = (t**2)*(3.d0-2.d0*t)
   h11 = (t**2)*(t-1.d0)
-  
+
   ! function value
   u = h00*ai(j1) + h10*dt*bi(j1) &
     + h01*ai(j2) + h11*dt*bi(j2)
-  
+
   ! derivative values of basis functions
   h00 = 6.d0*t**2 - 6.d0*t
   h10 = 3.d0*t**2 - 4.d0*t + 1.d0
-  h01 =-6.d0*t**2 + 6.d0*t 
+  h01 =-6.d0*t**2 + 6.d0*t
   h11 = 3.d0*t**2 - 2.d0*t
-  
+
   ! function derivative value
   u_dt = (h00*ai(j1) + h10*dt*bi(j1) &
        + h01*ai(j2) + h11*dt*bi(j2) ) / dt

@@ -323,21 +323,6 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Torque
      real(kind=pr),dimension(1:3) :: Torque_unst
   end type Integrals
-
-  !-----------------------------------------------------------------------------
-  ! derived datatype for rigid solid dynamics solver
-  type SolidDynType
-    ! solid dynamics solver flag (0=off, 1=on)
-    integer :: idynamics
-    ! vector of unknowns at new time step
-    real(kind=pr), dimension(1:4) :: var_new
-    ! vector of unknowns at current time step
-    real(kind=pr), dimension(1:4) :: var_this
-    ! rhs at current time step
-    real(kind=pr), dimension(1:4) :: rhs_this
-    ! rhs at previous time step
-    real(kind=pr), dimension(1:4) :: rhs_old
-  end type SolidDynType
   !-----------------------------------------------------------------------------
   ! derived datatype for time
   type timetype
@@ -351,7 +336,6 @@ module fsi_vars
   !-----------------------------------------------------------------------------
 
   type(Integrals),save :: GlobalIntegrals
-  type(SolidDynType), save :: SolidDyn
 
   contains
   !-----------------------------------------------------------------------------

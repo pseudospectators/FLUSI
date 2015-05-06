@@ -12,6 +12,7 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
   real(kind=pr) :: t1
   t1 = MPI_wtime()
 
+
   select case (Insect%BodyType)
   case ("nobody")
     return

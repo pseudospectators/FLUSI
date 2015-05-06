@@ -127,51 +127,27 @@ subroutine BodyMotion(time, Insect)
     vc = (/0.0d0, 0.0d0, 0.0d0/)
     body_moves = "no"
 
-  case ("takeoff")  ! Takeoff kinematics read from file (Dmitry, 14 Nov 2013)
-    body_moves = "yes"
-    if (Insect%KineFromFile=="yes") then
-      ! interpolate.
-      call body_kine_interp(time,beta,xc(3),xc(1),beta_dt,vc(3),vc(1))
-      ! x coordinate
-      xc(1) = xc(1) + Insect%x_takeoff
-      ! y coordinate
-      xc(2) = 0.5d0*yl
-      vc(2) = 0.0d0
-      ! vertical position corrected
-      xc(3) = xc(3) + Insect%z_takeoff
-      ! convert pitch angle to flusi conventions
-      beta = deg2rad(-beta)
-      beta_dt = deg2rad(-beta_dt)
-      ! zero heading and yaw
-      psi = 0.0d0
-      psi_dt = 0.0d0
-      gamma = 0.0d0
-      gamma_dt = 0.0d0
-
-    elseif (Insect%KineFromFile=="simplified_dynamic") then
-      ! interpolate. xc(3),xc(1),vc(3),vc(1) are unused!
-      call body_kine_interp(time,beta,xc(3),xc(1),beta_dt,vc(3),vc(1))
-      ! y coordinate
-      xc(2) = 0.5d0*yl
-      vc(2) = 0.0d0
-      ! convert pitch angle to flusi conventions
-      beta = deg2rad(-beta)
-      beta_dt = deg2rad(-beta_dt)
-      ! zero heading and yaw
-      psi = 0.0d0
-      psi_dt = 0.0d0
-      gamma = 0.0d0
-      gamma_dt = 0.0d0
-      ! Use data from flight dynamics solver
-      xc(1) = SolidDyn%var_new(1) + Insect%x_takeoff
-      xc(3) = SolidDyn%var_new(2) + Insect%z_takeoff
-      vc(1) = SolidDyn%var_new(3)
-      vc(3) = SolidDyn%var_new(4)
-    endif
-
   case ("free_flight")
+    ! The case "free_flight" is different from the others. The free flight solver
+    ! computes the current state of the insect in INSECT%STATE, which is a 13
+    ! component vector (6 translation, 4 quaternions, 3 angular velocity)
     ! in this case, the position is dynamically computed, and quaternions are used
     body_moves = "yes"
+
+    psi      = 0.0d0!Insect%psi
+    beta     = 0.0d0!Insect%beta
+    gamma    = 0.0d0!Insect%gamma
+    psi_dt   = 0.0d0!Insect%psi_dt
+    beta_dt  = 0.0d0!Insect%beta_dt
+    gamma_dt = 0.0d0!Insect%gamma_dt
+
+    xc = Insect%STATE(1:3)
+    vc = Insect%STATE(4:6)
+    Insect%rot_body = Insect%STATE(11:13)
+
+    call rotation_matrix_from_quaternion( Insect%STATE(7:10) , Insect%M_body_quaternion )
+
+    if(root) write(*,'(6(es12.4,1x))') xc, Insect%rot_body
 
   case default
     if (mpirank==0) then
@@ -180,6 +156,9 @@ subroutine BodyMotion(time, Insect)
       call abort()
     endif
   end select
+
+
+
 
   if ((mpirank==0).and.(maxval(vc)>0.0d0).and.(body_moves=="no")) then
     write(*,*) "error in body_motion.f90: I found maxval(vc)>0 but the body_moves"

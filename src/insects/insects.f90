@@ -51,6 +51,12 @@ module insect_module
     real(kind=pr), dimension(1:3) :: x_head,x_eye_r,x_eye_l,x_pivot_l,x_pivot_r
 
     !-------------------------------------------------------------
+    ! for free flight solver
+    !-------------------------------------------------------------
+    real(kind=pr), dimension(1:3,1:3) :: M_body_quaternion
+    real(kind=pr), dimension(1:13) :: RHS_old, RHS_this, STATE
+
+    !-------------------------------------------------------------
     ! wing shape parameters
     !-------------------------------------------------------------
     real(kind=pr) :: a0
@@ -207,8 +213,25 @@ contains
     ! define the rotation matrices to change between coordinate systems
     !-----------------------------------------------------------------------------
     if (Insect%BodyMotion=="free_flight") then
-      ! QUATERNIONS
-      M_body = 0.0d0
+      ! call Rx(M1_b,Insect%psi)
+      ! call Ry(M2_b,Insect%beta)
+      ! call Rz(M3_b,Insect%gamma)
+      ! M_body = matmul(M1_b,matmul(M2_b,M3_b))
+      ! write(*,*) "--rotmat-"
+      ! write(*,'(3(es12.4,1x))') M_body(1,:)
+      ! write(*,'(3(es12.4,1x))') M_body(2,:)
+      ! write(*,'(3(es12.4,1x))') M_body(3,:)
+      ! write(*,*) "--quat-"
+      ! write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(1,:)
+      ! write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(2,:)
+      ! write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(3,:)
+      ! write(*,*) "---"
+      !
+      ! ! QUATERNIONS
+      M_body = Insect%M_body_quaternion
+      !
+      ! if(maxval(M_body)==0.d0) call abort()
+
     else
       ! conventional yaw, pitch, roll. Note the order of matrices is important.
       ! first we yaw, then we pitch, then we roll the insect. Note that when the
@@ -253,6 +276,8 @@ contains
       ! body angular velocity in the body coodrinate system
       Insect%rot_body = matmul(M_body,matmul(transpose(M3_b),rot_b_gamma+ &
       matmul(transpose(M2_b),rot_b_beta+matmul(transpose(M1_b),rot_b_psi))))
+    else
+      Insect%rot_body = 0.d0
     endif
 
     ! wing angular velocities in the wing coordinate system
@@ -264,6 +289,7 @@ contains
     call angular_accel( time, Insect )
 
     !-----------------------------------------------------------------------------
+
     ! inverse of the rotation matrices
     !-----------------------------------------------------------------------------
     M_body_inv = transpose(M_body)
@@ -423,158 +449,6 @@ contains
     return
   end subroutine get_dangle
 
-
-
-  ! Insect free flight dynamics.
-  ! RHS of the ODE system.
-  subroutine dynamics_insect(time,it,Insect)
-    use mpi
-    use vars
-    implicit none
-
-    integer, intent(in) :: it
-    real (kind=pr), intent (in) :: time
-    type(diptera),intent(inout)::Insect
-    real (kind=pr) :: accx,accz,mass_solid,mass_fluid,gravity
-    real (kind=pr) :: anglegs,kzlegsmax,dzlegsmax,t0,tmaxlegs,kzlegs0,anglegsend
-    real (kind=pr) :: kxlegs,kzlegs,fxlegs,fzlegs,fxaero,fzaero,displacement_z
-
-    ! mass
-    mass_solid = Insect%mass_solid
-    mass_fluid = 0.0d0  ! TODO
-
-    ! gravity acceleration
-    gravity = Insect%gravity
-
-    select case (Insect%BodyMotion)
-    case ("free_flight")
-      ! we will implement the free-flight solver's RHS here
-
-    case ("takeoff")
-      if (Insect%KineFromFile=="simplified_dynamic") then
-
-        ! Current body center displacement
-        displacement_z = SolidDyn%var_new(2)
-
-        anglegsend = Insect%anglegsend
-        kzlegsmax = Insect%kzlegsmax
-        dzlegsmax = Insect%dzlegsmax
-        t0 = Insect%t0legs
-        tmaxlegs = t0 + Insect%tlinlegs
-        kzlegs0 = (mass_solid-mass_fluid)*(-gravity) / dzlegsmax
-
-        ! Legs force
-        fxlegs = 0.0d0
-        fzlegs = 0.0d0
-        if (Insect%ilegs>0) then
-          ! If legs touch the ground
-          if (displacement_z<dzlegsmax) then
-            ! Compute torsion spring stiffness and angle
-            if (time<t0) then
-              kzlegs = kzlegs0
-              anglegs = 0.5d0*pi
-            elseif (time<tmaxlegs) then
-              kzlegs = kzlegs0 + (kzlegsmax-kzlegs0) * (time-t0)/(tmaxlegs-t0)
-              anglegs = 0.5d0*pi + (anglegsend-0.5d0*pi) * (time-t0)/(tmaxlegs-t0)
-            else
-              kzlegs = kzlegsmax
-              anglegs = anglegsend
-            endif
-            if (tan(anglegs)<1.0d-8) then
-              kxlegs = 0.0d0
-            else
-              kxlegs = kzlegs/tan(anglegs)
-            endif
-            ! Compute legs forces
-            fxlegs = kxlegs*(dzlegsmax-displacement_z)
-            fzlegs = kzlegs*(dzlegsmax-displacement_z)
-          endif
-        endif
-
-        ! Fluid force. Unsteady correction treated implicitly
-        fxaero = GlobalIntegrals%Force(1)
-        fzaero = GlobalIntegrals%Force(3)
-
-        ! Accelerations
-        accx = (fxaero+fxlegs)/(mass_solid-mass_fluid)
-        accz = (fzaero+fzlegs)/(mass_solid-mass_fluid) + gravity
-
-        ! RHS of the solid ODEs
-        SolidDyn%rhs_this(1) = SolidDyn%var_this(3) ! horizontal velocity
-        SolidDyn%rhs_this(2) = SolidDyn%var_this(4) ! vertical velocity
-        SolidDyn%rhs_this(3) = accx ! horizontal acceleration
-        SolidDyn%rhs_this(4) = accz ! vertical acceleration
-
-        ! Write legs forces to file
-        if(mpirank == 0) then
-          open(14,file='legs.t',status='unknown',position='append')
-          write (14,'(3(e12.5,1x))') time,fxlegs,fzlegs
-          close(14)
-        endif
-
-      endif
-    case default
-      if (mpirank==0) then
-        write (*,*) "insects.f90::dynamics_insects case not defined"
-        call abort()
-      endif
-    end select
-
-  end subroutine dynamics_insect
-
-
-  ! Initialize insect free flight dynamics solver
-  subroutine dynamics_insect_init(idynamics,Insect)
-    use mpi
-    use vars
-    implicit none
-
-    integer, intent(out) :: idynamics
-    type(diptera),intent(inout)::Insect
-    integer :: mpicode
-
-    ! dynamics solver inactive by default
-    idynamics = 0
-
-
-    select case (Insect%BodyMotion)
-    case ("takeoff")
-      if (Insect%KineFromFile=="simplified_dynamic") then
-        if (inicond(1:8).ne."backup::") then
-          !--  we are not resuming a backup
-          idynamics = 1
-          SolidDyn%var_new(1) = 0.0d0
-          SolidDyn%var_new(2) = 0.0d0
-          SolidDyn%var_new(3) = 0.0d0
-          SolidDyn%var_new(4) = 0.0d0
-        else
-          !-- we are resuming a backup
-          idynamics = 1
-          !-- root rank reads in backup file
-          if (mpirank==0) then
-            !-- backup files are called "runtime_backup0.h5.rigidsolver"
-            write (*,*) "------"
-            write (*,*) "Insect solver is resuming from file="//inicond(9:len_trim(inicond))//".rigidsolver"
-            !-- open file
-            open(10, file=inicond(9:len_trim(inicond))//".rigidsolver", form='formatted', status='old')
-            read(10, *) SolidDyn%var_new, SolidDyn%var_this, SolidDyn%rhs_this, SolidDyn%rhs_old
-            write (*,*) SolidDyn%var_new
-            write (*,*) SolidDyn%var_this
-            write (*,*) SolidDyn%rhs_this
-            write (*,*) SolidDyn%rhs_old
-            !-- close file
-            close(10)
-            write (*,*) "------"
-          endif
-          call MPI_BCAST( SolidDyn%var_new,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-          call MPI_BCAST( SolidDyn%var_this,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-          call MPI_BCAST( SolidDyn%rhs_this,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-          call MPI_BCAST( SolidDyn%rhs_old,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-        endif
-      endif
-    end select
-
-  end subroutine dynamics_insect_init
 
 
   ! Compute aerodynamic power

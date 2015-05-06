@@ -8,7 +8,7 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -19,24 +19,24 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
 
 
   select case(method)
-     case("fsi") 
-        call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)        
-     case("mhd") 
+     case("fsi")
+        call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
+     case("mhd")
         call save_fields_mhd(time,uk,u,vort,nlk)
      case default
         if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
         call abort()
   end select
-  
-  time_save=time_save + MPI_wtime() - t1 ! performance analysis  
+
+  time_save=time_save + MPI_wtime() - t1 ! performance analysis
 end subroutine save_fields
 
 
 !-------------------------------------------------------------------------------
 ! Main save routine for fields for fsi. it computes missing values
 ! (such as p and vorticity) and stores the fields in several HDF5
-! files. 
-! The latest version calls cal_nlk_fsi to avoid redudant code. 
+! files.
+! The latest version calls cal_nlk_fsi to avoid redudant code.
 !-------------------------------------------------------------------------------
 subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   use fsi_vars
@@ -50,7 +50,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -59,7 +59,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
-  !--Set up file name base    
+  !--Set up file name base
   if ( save_only_one_period == "yes" ) then
     ! overwrite files from last period to save disk space
     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
@@ -68,9 +68,9 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     ! name is just the time
     write(name,'(i6.6)') floor(time*1000.d0)
   endif
-  
+
   if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') & 
+    write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') &
     time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
   endif
 
@@ -82,8 +82,8 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
   endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    
-  !-------------  
+
+  !-------------
   ! Velocity (returned in x-space by cal_nlk_fsi)
   !-------------
   if (isaveVelocity == 1) then
@@ -95,11 +95,11 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
     call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
   endif
-  
-  !-------------  
+
+  !-------------
   ! Pressure
   !-------------
-  if (isavePress == 1) then  
+  if (isavePress == 1) then
     ! compute pressure (remember NLK is *not* divergence free)
     call pressure( nlk,workc(:,:,:,1) )
     ! total pressure in x-space
@@ -108,10 +108,10 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
     call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
   endif
-     
-  !-------------  
+
+  !-------------
   ! Vorticity
-  !-------------   
+  !-------------
   if (isaveVorticity==1) then
     !-- compute vorticity:
     call curl( ink=uk, outk=nlk)
@@ -123,8 +123,8 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
       call save_field_hdf5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
     endif
   endif
-      
-  !-------------  
+
+  !-------------
   ! Mask
   !-------------
   if (isaveMask == 1 .and. iPenalization == 1) then
@@ -134,8 +134,8 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
     mask = mask/eps
   endif
-  
-  !-------------  
+
+  !-------------
   ! solid velocity
   !-------------
   if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
@@ -143,7 +143,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
     call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
   endif
-  
+
   !------------
   ! passive scalar
   !-------------
@@ -151,7 +151,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call ifft ( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
     call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
   endif
-  
+
   !-----------
   ! if time-avg velocity field is computed, save this here
   !-----------
@@ -183,7 +183,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
       endif
     endif
   endif
-  
+
   if (mpirank==0) write(*,*) " ...DONE!"
 end subroutine save_fields_fsi
 
@@ -218,7 +218,7 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
   use vars
   use hdf5
   implicit none
-  
+
   ! The field to be written to disk:
   real(kind=pr),intent(in) :: field_out(0:nnx-1,ra(2):rb(2),ra(3):rb(3))
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
@@ -253,7 +253,7 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
   integer :: mpierror, i
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
   t1 = MPI_wtime()
-  
+
   !!! Tell HDF5 how our  data is organized:
   dimensions_file = (/nnx,ny,nz/)
   offset(1) = 0
@@ -286,7 +286,7 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
   call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
 
   ! Create the file collectively. (existing files are overwritten)
-#ifdef TURING  
+#ifdef TURING
   if ( index(filename,'.h5')==0 ) then
     ! file does not contain *.h5 ending -> add suffix
   call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
@@ -306,7 +306,7 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
     call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
     file_id, error, access_prp = plist_id)
   endif
-#endif 
+#endif
   ! this closes the property list plist_id (we'll re-use it)
   call h5pclose_f(plist_id, error)
 
@@ -389,7 +389,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(solid), dimension(1), intent(in) :: beams
   type(diptera), intent(in) :: Insect
-  
+
   character(len=18) :: filename
 
   real(kind=pr) :: t1
@@ -431,10 +431,10 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   call dump_field_backup(work,"uy",time,dt0,dt1,n1,it,file_id)
   call ifft(work,ub(:,:,:,3))
   call dump_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
-  
-  if((method=="fsi").and.(use_passive_scalar==1)) then 
+
+  if((method=="fsi").and.(use_passive_scalar==1)) then
     call ifft(work,ub(:,:,:,4))
-    call dump_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)   
+    call dump_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)
   endif
 
   if(method == "mhd") then
@@ -460,15 +460,15 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   call dump_field_backup(work,"nlky1",time,dt0,dt1,n1,it,file_id)
   call ifft(work,nlk(:,:,:,3,1))
   call dump_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
-  
-  
-  if((method=="fsi").and.(use_passive_scalar==1)) then 
+
+
+  if((method=="fsi").and.(use_passive_scalar==1)) then
     call ifft(work,nlk(:,:,:,4,0))
     call dump_field_backup(work,"nlkscalar0",time,dt0,dt1,n1,it,file_id)
     call ifft(work,nlk(:,:,:,4,1))
     call dump_field_backup(work,"nlkscalar1",time,dt0,dt1,n1,it,file_id)
   endif
-  
+
   if(method == "mhd") then
      ! Write the MHD backup field:
      call ifft(work,nlk(:,:,:,4,0))
@@ -502,30 +502,30 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   call h5fclose_f(file_id, error)
   ! Close FORTRAN interfaces and HDF5 library:
   call h5close_f(error)
-  
-  
+
+
   !-------------------------------------------------------------------------
   ! backup for the rigid body solver (free-flight insect)
   !-------------------------------------------------------------------------
-  if ((method=="fsi").and.(mpirank==0)) then
-  if (iMask=="Insect") then
-  if ((Insect%BodyMotion=="takeoff").and.(Insect%KineFromFile=="simplified_dynamic")) then
-    write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
-    open(10, file=filename//".rigidsolver", form='formatted', status='replace') 
-    write(10, *) SolidDyn%var_new, SolidDyn%var_this,&
-                 SolidDyn%rhs_this, SolidDyn%rhs_old
-    close(10)
-  endif
-  endif
-  endif
-  
+  ! if ((method=="fsi").and.(mpirank==0)) then
+  ! if (iMask=="Insect") then
+  ! if ((Insect%BodyMotion=="takeoff").and.(Insect%KineFromFile=="simplified_dynamic")) then
+  !   write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
+  !   open(10, file=filename//".rigidsolver", form='formatted', status='replace')
+  !   write(10, *) SolidDyn%var_new, SolidDyn%var_this,&
+  !                SolidDyn%rhs_this, SolidDyn%rhs_old
+  !   close(10)
+  ! endif
+  ! endif
+  ! endif
+  !
   !-------------------------------------------------------------------------
   !-- backup solid solver, if doing active FSI
   !-------------------------------------------------------------------------
   if((use_solid_model=="yes").and.(method=="fsi")) then
     call dump_solid_backup( time, beams, nbackup )
-  endif    
-  
+  endif
+
   nbackup = 1 - nbackup
   time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
 
@@ -654,7 +654,7 @@ subroutine read_single_file_serial(filename,field)
 
   character(len=*),intent(in) :: filename
   real(kind=pr), intent (out) :: field(0:nx-1,0:ny-1,0:nz-1)
-  
+
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
   character(len=80)             :: dsetname
 
@@ -676,7 +676,7 @@ subroutine read_single_file_serial(filename,field)
 
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
-  
+
   ! the dataset is named the same way as the file: (this is convention)
   dsetname = filename ( 1:index( filename, '_' )-1 )
 
@@ -684,7 +684,7 @@ subroutine read_single_file_serial(filename,field)
     write (*,*) "this routine is currently serial only"
     call abort()
   endif
-  
+
   ! check if file exist
   call check_file_exists( filename )
 
@@ -702,7 +702,7 @@ subroutine read_single_file_serial(filename,field)
   call h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
   ! this closes the property list (we'll re-use it)
   call h5pclose_f(plist_id, error)
-  
+
   ! Definition of memory distribution
   dimensions_file = (/nx,ny,nz/)
   dimensions_local(1) = nx
@@ -712,7 +712,7 @@ subroutine read_single_file_serial(filename,field)
   offset(1) = 0
   offset(2) = 0
   offset(3) = 0
-  
+
   chunking_dims(1) = nx
   chunking_dims(2) = ny
   chunking_dims(3) = nz
@@ -752,9 +752,9 @@ subroutine read_single_file_serial(filename,field)
   call h5dclose_f(dset_id, error)
   call h5fclose_f(file_id,error)
   call H5close_f(error)
-  
+
   call checknan(field,"recently loaded field")
-  
+
 end subroutine read_single_file_serial
 
 
@@ -774,11 +774,11 @@ subroutine Read_Single_File ( filename, field )
   real(kind=pr),&
   dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
   intent (out) :: field
-  
+
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr)                :: time, xl_file, yl_file, zl_file
   character(len=80)             :: dsetname
-  integer                       :: nx_file, ny_file, nz_file, mpierror, i  
+  integer                       :: nx_file, ny_file, nz_file, mpierror, i
 
   integer(hid_t) :: file_id       ! file identifier
   integer(hid_t) :: dset_id       ! dataset identifier
@@ -804,18 +804,18 @@ subroutine Read_Single_File ( filename, field )
   if (mpirank==0) then
     write (*,'("Reading file ",A,"  .....")',advance='no') trim(adjustl(filename))
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! perform tests
   !-----------------------------------------------------------------------------
   call check_file_exists ( filename )
-  
+
   ! fetch attributes from file to see if it is a good idea to load it
-  call Fetch_attributes( filename, dsetname,nx_file,ny_file,nz_file,& 
+  call Fetch_attributes( filename, dsetname,nx_file,ny_file,nz_file,&
                          xl_file,yl_file ,zl_file,time )
-         
-  ! if the resolutions do not match, yell and hang yourself       
-  if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then                         
+
+  ! if the resolutions do not match, yell and hang yourself
+  if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then
     if (mpirank == 0) then
     write (*,'(A)') "read_single_file: ERROR " // trim(filename)
     write (*,'("nx=",i4,"ny=",i4,"nz=",i4)') nx,ny,nz
@@ -823,22 +823,22 @@ subroutine Read_Single_File ( filename, field )
     call abort()
     endif
   endif
-  
+
   ! if the domain size doesn't match, proceed, but yell.
-  if ((xl.ne.xl_file).or.(yl.ne.yl_file).or.(zl.ne.zl_file)) then                         
+  if ((xl.ne.xl_file).or.(yl.ne.yl_file).or.(zl.ne.zl_file)) then
     if (mpirank == 0) then
     write (*,'(A)') "read_single_file: WARNING " // trim(filename)
     write (*,'("xl=",es12.4,"yl=",es12.4,"zl=",es12.4)')&
       xl,yl,zl
-    write (*,'("but in file: xl=",es12.4,"yl=",es12.4,"zl=",es12.4)') & 
+    write (*,'("but in file: xl=",es12.4,"yl=",es12.4,"zl=",es12.4)') &
       xl_file,yl_file,zl_file
     write (*,'(A)') "proceed, with fingers crossed."
     endif
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! load the file
-  !-----------------------------------------------------------------------------  
+  !-----------------------------------------------------------------------------
   ! Initialize HDF5 library and Fortran interfaces.
   call h5open_f(error)
 
@@ -853,7 +853,7 @@ subroutine Read_Single_File ( filename, field )
   call h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
   ! this closes the property list (we'll re-use it)
   call h5pclose_f(plist_id, error)
-  
+
   ! Definition of memory distribution
   dimensions_file = (/nx,ny,nz/)
   dimensions_local(1) = rb(1)-ra(1) +1
@@ -863,7 +863,7 @@ subroutine Read_Single_File ( filename, field )
   offset(1) = ra(1)
   offset(2) = ra(2)
   offset(3) = ra(3)
-  
+
   ! Each process knows how much data it has and where to store it.
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
@@ -909,12 +909,12 @@ subroutine Read_Single_File ( filename, field )
   call h5dclose_f(dset_id, error)
   call h5fclose_f(file_id,error)
   call H5close_f(error)
-  
+
   call checknan(field,"recently loaded field")
   if (mpirank==0) then
     write (*,'("...DONE! ")',advance='yes')
   endif
-  
+
 end subroutine Read_Single_File
 
 
@@ -945,7 +945,7 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
      write(*,'("---------")')
      write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
   endif
-  
+
   call check_file_exists ( filename )
 
   ! Initialize HDF5 library and Fortran interfaces.
@@ -971,11 +971,11 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   call read_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,3),work)
 
-  if((method=="fsi").and.(use_passive_scalar==1)) then 
+  if((method=="fsi").and.(use_passive_scalar==1)) then
     call read_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)
     call fft(uk(:,:,:,4),work)
   endif
-  
+
   if(method == "mhd") then
      ! Read MHD backup field:
      call read_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
@@ -1000,13 +1000,13 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   call read_field_backup(work,"nlkz1",time,dt0,dt1,n1,it,file_id)
   call fft(nlk(:,:,:,3,1),work)
 
-  if((method=="fsi").and.(use_passive_scalar==1)) then 
+  if((method=="fsi").and.(use_passive_scalar==1)) then
     call read_field_backup(work,"nlkscalar0",time,dt0,dt1,n1,it,file_id)
     call fft(nlk(:,:,:,4,0),work)
     call read_field_backup(work,"nlkscalar1",time,dt0,dt1,n1,it,file_id)
     call fft(nlk(:,:,:,4,1),work)
   endif
-  
+
   !-- initialize runnning avg from file
   if((method=="fsi").and.(time_avg=="yes").and.(vel_avg=="yes")) then
     call read_field_backup(work,"uavgx",time,dt0,dt1,n1,it,file_id)
@@ -1041,7 +1041,7 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
 
   ! It is important to have explin, because it won't be initialized
   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
-  ! are you sure about dt1??? TODO) 
+  ! are you sure about dt1??? TODO)
   ! FIXME: only compute if dt0=dt1?
   call cal_vis(dt1,explin)
 
@@ -1283,7 +1283,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
         call ifft(ub(:,:,:,i),ubk(:,:,:,i))
      enddo
   endif
-    
+
   ! We need the magnetic fields velocity for saving the magnetic field
   ! and/or current density
   if(isaveMagneticfield == 1  .or. isaveCurrent == 1) then
@@ -1291,20 +1291,20 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
         call ifft(ub(:,:,:,i),ubk(:,:,:,i))
      enddo
   endif
-    
+
   ! save the velocity
   if(isaveVelocity == 1) then
      call save_field_hdf5(time,'./ux_'//name,ub(:,:,:,1),"ux")
      call save_field_hdf5(time,'./uy_'//name,ub(:,:,:,2),"uy")
      call save_field_hdf5(time,'./uz_'//name,ub(:,:,:,3),"uz")
   endif
-  
+
   ! save the vorticity
   if(isaveVorticity == 1) then
      ! compute vorticity
      call curl(&
           nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-          ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3)) 
+          ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
      do i=1,3
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
@@ -1312,7 +1312,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
      call save_field_hdf5(time,'./vory_'//name,wj(:,:,:,2),"vory")
      call save_field_hdf5(time,'./vorz_'//name,wj(:,:,:,3),"vorz")
   endif
-  
+
   ! save the magnetic field
   if(isaveMagneticfield == 1) then
      call save_field_hdf5(time,'./bx_'//name,ub(:,:,:,4),"bx")
@@ -1324,7 +1324,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
   if(isaveCurrent == 1) then
      call curl(&
           nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
-          ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6)) 
+          ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
      do i=4,6
         call ifft(wj(:,:,:,i),nlk(:,:,:,i))
      enddo
@@ -1332,7 +1332,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
      call save_field_hdf5(time,'./jy_'//name,wj(:,:,:,5),"jy")
      call save_field_hdf5(time,'./jz_'//name,wj(:,:,:,6),"jz")
   endif
-  
+
   ! save Mask
   ! FIXME: for stationary masks, this should be done only once
   if((isaveMask == 1).and.(iPenalization == 1)) then
@@ -1385,7 +1385,7 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
 
   call check_file_exists ( filename )
-  
+
   ! Initialize FORTRAN interface.
   CALL h5open_f(error)
 
@@ -1479,7 +1479,7 @@ subroutine check_file_exists(fname)
   use vars
   use mpi
   implicit none
-  
+
   character (len=*), intent(in) :: fname
   logical :: exist1
   integer :: mpicode
@@ -1487,11 +1487,11 @@ subroutine check_file_exists(fname)
   if (mpirank == 0) then
     inquire ( file=fname, exist=exist1 )
     if ( exist1 .eqv. .false.) then
-      write (*,'("ERROR! file: ",A," not found")') trim(fname) 
+      write (*,'("ERROR! file: ",A," not found")') trim(fname)
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    endif  
+    endif
   endif
-  
+
 end subroutine check_file_exists
 
 
@@ -1500,7 +1500,7 @@ subroutine init_empty_file( fname )
   use vars
   implicit none
   character (len=*), intent(in) :: fname
-  
+
   open (15, file=fname,status='replace')
   close(15)
 end subroutine
