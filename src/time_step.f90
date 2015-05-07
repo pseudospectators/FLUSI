@@ -52,7 +52,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     t4=MPI_wtime()
     dt0=dt1
 
- ! if ((Insect%xc_body(3)<1.0).or.(Insect%xc_body(2)<0.5).or.(Insect%xc_body(2)>yl-0.5).or.(Insect%xc_body(1)<0.5).or.(Insect%xc_body(1)>xl-0.5)) continue_timestepping=.false.
+ if ((Insect%xc_body(3)<1.0).or.(Insect%xc_body(2)<0.5).or.(Insect%xc_body(2)>yl-0.5).or.&
+ (Insect%xc_body(1)<0.5).or.(Insect%xc_body(1)>xl-0.5)) continue_timestepping=.false.
 
     !-------------------------------------------------
     ! advance fluid/B-field in time

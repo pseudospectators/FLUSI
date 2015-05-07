@@ -283,7 +283,7 @@ subroutine Start_Simulation()
     endif
     ! If required, initialize rigid solid dynamics solver
     ! and set idynamics flag on or off
-    call rigid_solid_init(Insect)
+    call rigid_solid_init(time,Insect)
   endif
 
   !-----------------------------------------------------------------------------

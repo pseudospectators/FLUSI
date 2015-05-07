@@ -25,7 +25,7 @@ subroutine BodyMotion(time, Insect)
   real(kind=pr), intent(in) :: time
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
-  real(kind=pr) :: xc(1:3), vc(1:3)
+  real(kind=pr) :: xc(1:3), vc(1:3), ep(0:3)
   real(kind=pr) :: T,R
 
   ! the tag body_moves is used to draw the insect's body only once, if the body
@@ -35,97 +35,17 @@ subroutine BodyMotion(time, Insect)
 
 
   select case (Insect%BodyMotion)
-  case ("forward")
-    psi = 0.d0
-    !    beta = deg2rad(-15.0d0)
-    beta = -deg2rad(Insect%body_pitch_const)
-    gamma = deg2rad(180.d0)
-    psi_dt = 0.d0
-    beta_dt = 0.d0
-    gamma_dt = 0.d0
-    xc = (/x0, y0, z0/)
-    vc = (/0.0, 0.0, 0.0/)
-    body_moves = "no"
-
-  case ("fixed")
-    psi      = 0.d0
-    beta     = 0.d0
-    gamma    = 0.d0
-    psi_dt   = 0.d0
+  case ("tethered")
+    psi      = Insect%yawpitchroll_0(3) ! roll
+    beta     = Insect%yawpitchroll_0(2) ! pitch
+    gamma    = Insect%yawpitchroll_0(1) ! yaw
+    psi_dt   = 0.d0  ! tethered: angles const
     beta_dt  = 0.d0
     gamma_dt = 0.d0
-    xc = (/0.5*xl, 0.5*yl,0.5*zl/)
-    vc = (/0.0, 0.0, 0.0/)
-    body_moves = "no"
+    xc = Insect%x0
+    vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
+    body_moves = "no" ! tethered: body does not move
 
-  case ("fixed45")
-    psi      = 0.d0
-    beta     = deg2rad(-45.d0)
-    gamma    = deg2rad(45.d0)
-    psi_dt   = 0.d0
-    beta_dt  = 0.d0
-    gamma_dt = 0.d0
-
-    xc = (/x0, y0, z0/)
-    vc = (/0.0, 0.0, 0.0/)
-    body_moves = "no"
-
-  case ("x0y0z0")
-    psi      = 0.0
-    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
-    gamma    = 0.0
-    psi_dt   = 0.0
-    beta_dt  = 0.0
-    gamma_dt = 0.0
-
-    xc = (/x0, y0, z0/)
-    vc = (/0.0d0, 0.0d0, 0.0d0/)
-    body_moves = "no"
-
-  case ("wheeling")
-    T = 20.0 ! time to do one turn
-    R = 1.5  ! circle radius
-
-    psi      = deg2rad(-30.d0)
-    beta     = 0.0
-    gamma    = (2.d0*pi/T )*time
-    psi_dt   = 0.0
-    beta_dt  = 0.0
-    gamma_dt = 2.d0*pi/T
-
-    xc = (/R*dcos(1.5d0*pi+gamma)+0.5d0*xl, R*dsin(1.5d0*pi+gamma)+0.5d0*yl, 0.5d0*zl/)
-    vc = (/-R*dsin(1.5d0*pi+gamma)*gamma_dt, R*dcos(1.5d0*pi+gamma)*gamma_dt,0.d0/)
-
-    body_moves = "yes"
-
-  case ("hovering")
-    psi      = 0.0
-    !    beta     = deg2rad(-55.d0)
-    beta = -deg2rad(Insect%body_pitch_const)
-    !    beta     = deg2rad(-45.d0)  ! Comparison with Maeda (Dmitry, 7 Nov 2013)
-    gamma    = deg2rad(45.d0)
-    psi_dt   = 0.0
-    beta_dt  = 0.0
-    gamma_dt = 0.0
-
-    xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 26 Oct 2013
-    !    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)  ! Dmitry, 30 Oct 2013 -one wing length from top
-    !     xc = (/0.5*xl, 0.5*yl, zl-1.3d0/)  ! Dmitry, 30 Oct 2013 -1.3 wing length from top
-    !    xc = (/0.5d0*xl, 0.5d0*yl, 0.8d0/)  ! Dmitry, 28 Oct 2013  - ground dist+0.3
-    vc = (/0.0d0, 0.0d0, 0.0d0/)
-    body_moves = "no"
-
-  case ("flapper")  ! Comparison with Dickinson et al. (Dmitry, 19 Nov 2013)
-    psi      = 0.0
-    beta     = deg2rad(-90.d0)
-    gamma    = deg2rad(45.d0)
-    psi_dt   = 0.0
-    beta_dt  = 0.0
-    gamma_dt = 0.0
-
-    xc = (/0.5*xl, 0.5*yl, zl-1.0d0/)
-    vc = (/0.0d0, 0.0d0, 0.0d0/)
-    body_moves = "no"
 
   case ("free_flight")
     ! The case "free_flight" is different from the others. The free flight solver
@@ -134,18 +54,26 @@ subroutine BodyMotion(time, Insect)
     ! in this case, the position is dynamically computed, and quaternions are used
     body_moves = "yes"
 
-    psi      = 0.0d0!Insect%psi
-    beta     = 0.0d0!Insect%beta
-    gamma    = 0.0d0!Insect%gamma
-    psi_dt   = 0.0d0!Insect%psi_dt
-    beta_dt  = 0.0d0!Insect%beta_dt
-    gamma_dt = 0.0d0!Insect%gamma_dt
-
-    xc = Insect%STATE(1:3)
-    vc = Insect%STATE(4:6)
+    ! copy data from insect state vector
+    xc              = Insect%STATE(1:3)
+    vc              = Insect%STATE(4:6)
+    ep              = Insect%STATE(7:10)
     Insect%rot_body = Insect%STATE(11:13)
 
-    call rotation_matrix_from_quaternion( Insect%STATE(7:10) , Insect%M_body_quaternion )
+    ! compute yaw pitch roll from the quaternion. attention: this is just for
+    ! information to dump in the log file (may be useful), but NOT for the rotation
+    ! matrix. otherwise, we could just omit the quaternion
+    psi      = (180.d0/pi)*atan2(2*(ep(2)*ep(3) + ep(0)*ep(1)), ep(0)*ep(0) - ep(1)*ep(1) - ep(2)*ep(2) + ep(3)*ep(3))
+    beta     = (180.d0/pi)*asin(-2*(ep(1)*ep(3) - ep(0)*ep(2)))
+    gamma    = (180.d0/pi)*atan2(2*(ep(1)*ep(2) + ep(0)*ep(3)), ep(0)*ep(0) + ep(1)*ep(1) - ep(2)*ep(2) - ep(3)*ep(3))
+    ! these values cannot easily be computed, but they are not really necessary
+    psi_dt   = 0.0d0
+    beta_dt  = 0.0d0
+    gamma_dt = 0.0d0
+
+    ! note yaw,pitch and roll do NOT enter the body rotation matrix, it is computed
+    ! from thr orientation quaternion
+    call rotation_matrix_from_quaternion( ep , Insect%M_body_quaternion )
 
     if(root) write(*,'(6(es12.4,1x))') xc, Insect%rot_body
 

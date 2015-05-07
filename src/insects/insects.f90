@@ -29,8 +29,10 @@ module insect_module
     !-------------------------------------------------------------
     ! position of logical center, and translational velocity
     real(kind=pr), dimension(1:3) :: xc_body, vc_body
+    ! initial or tethered position, velocity and yawpitchroll angles:
+    real(kind=pr), dimension(1:3) :: x0, v0, yawpitchroll_0
     ! roll pitch yaw angles and their time derivatives
-    real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+    real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt, eta0
     ! body pitch angle, if it is constant (used in forward flight and hovering)
     real(kind=pr) :: body_pitch_const
     ! angles of the wings (left and right)
@@ -49,10 +51,14 @@ module insect_module
     ! vectors desribing the positoions of insect's key elements
     ! in the body coordinate system
     real(kind=pr), dimension(1:3) :: x_head,x_eye_r,x_eye_l,x_pivot_l,x_pivot_r
-
+    ! moments of inertia in the body reference frame
+    real(kind=pr) :: Jroll_body, Jyaw_body, Jpitch_body
+    ! total mass of insect:
+    real(kind=pr) :: mass
     !-------------------------------------------------------------
     ! for free flight solver
     !-------------------------------------------------------------
+    real(kind=pr) :: time
     real(kind=pr), dimension(1:3,1:3) :: M_body_quaternion
     real(kind=pr), dimension(1:13) :: RHS_old, RHS_this, STATE
 
@@ -152,6 +158,10 @@ contains
     color_body = 1
     color_l = 2
     color_r = 3
+
+    if ((dabs(Insect%time-time)>1.0d-10).and.(mpirank==0)) then
+      write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
+    endif
 
     !-----------------------------------------------------------------------------
     ! delete old mask
@@ -276,8 +286,6 @@ contains
       ! body angular velocity in the body coodrinate system
       Insect%rot_body = matmul(M_body,matmul(transpose(M3_b),rot_b_gamma+ &
       matmul(transpose(M2_b),rot_b_beta+matmul(transpose(M1_b),rot_b_psi))))
-    else
-      Insect%rot_body = 0.d0
     endif
 
     ! wing angular velocities in the wing coordinate system
