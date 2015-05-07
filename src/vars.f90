@@ -226,6 +226,18 @@ module vars
       is_nan = .false.
       if (.not.(x.eq.x)) is_nan=.true.
     end function
+
+    !---------------------------------------------------------------------------
+    ! check wether real coordinates x are in the domain
+    logical function in_domain( x )
+      implicit none
+      real(kind=pr)::x(1:3)
+      in_domain = .false.
+      if ( ((x(1)>=0.d0).and.(x(1)<xl)).and.&
+           ((x(2)>=0.d0).and.(x(2)<yl)).and.&
+           ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain=.true.
+    end function
+
     !---------------------------------------------------------------------------
     ! wrapper for random number generator (this may be compiler dependent)
     real(kind=pr) function rand_nbr()

@@ -865,7 +865,7 @@ subroutine adjust_dt(time,u,dt1)
         endif
       else
         !-- umax is very very small
-        dt1=1.0d-2
+        dt1=1.0d-3
       endif
 
       !-- Round the time-step to one digit to reduce calls of cal_vis

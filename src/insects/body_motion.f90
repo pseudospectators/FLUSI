@@ -63,19 +63,20 @@ subroutine BodyMotion(time, Insect)
     ! compute yaw pitch roll from the quaternion. attention: this is just for
     ! information to dump in the log file (may be useful), but NOT for the rotation
     ! matrix. otherwise, we could just omit the quaternion
-    psi      = (180.d0/pi)*atan2(2*(ep(2)*ep(3) + ep(0)*ep(1)), ep(0)*ep(0) - ep(1)*ep(1) - ep(2)*ep(2) + ep(3)*ep(3))
-    beta     = (180.d0/pi)*asin(-2*(ep(1)*ep(3) - ep(0)*ep(2)))
-    gamma    = (180.d0/pi)*atan2(2*(ep(1)*ep(2) + ep(0)*ep(3)), ep(0)*ep(0) + ep(1)*ep(1) - ep(2)*ep(2) - ep(3)*ep(3))
+    psi      = atan2(2*(ep(2)*ep(3) + ep(0)*ep(1)), ep(0)*ep(0) - ep(1)*ep(1) - ep(2)*ep(2) + ep(3)*ep(3))
+    beta     = asin(-2*(ep(1)*ep(3) - ep(0)*ep(2)))
+    gamma    = atan2(2*(ep(1)*ep(2) + ep(0)*ep(3)), ep(0)*ep(0) + ep(1)*ep(1) - ep(2)*ep(2) - ep(3)*ep(3))
     ! these values cannot easily be computed, but they are not really necessary
     psi_dt   = 0.0d0
     beta_dt  = 0.0d0
     gamma_dt = 0.0d0
 
     ! note yaw,pitch and roll do NOT enter the body rotation matrix, it is computed
-    ! from thr orientation quaternion
+    ! from the orientation quaternion
     call rotation_matrix_from_quaternion( ep , Insect%M_body_quaternion )
 
-    if(root) write(*,'(6(es12.4,1x))') xc, Insect%rot_body
+    if(root) write(*,'(f12.4,2x,9(es12.4,1x),"Ghosts=",i1)') time, &
+    xc,vc,Insect%rot_body,Insect%n_relevant_ghosts
 
   case default
     if (mpirank==0) then

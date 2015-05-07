@@ -809,7 +809,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     theta_dt = 0.0
   case ("debug2")
     phi      = 0.0
-    alpha    = deg2rad(45.d0)
+    alpha    = deg2rad(+45.d0)
     theta    = 0.0
     phi_dt   = 0.0
     alpha_dt = 0.0

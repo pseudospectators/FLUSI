@@ -358,9 +358,11 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
 
   type(diptera),intent(inout) :: Insect
   integer,intent(in) :: i
+  integer :: j, tmp
   ! Contains the ascii-params file
   character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
   real(kind=pr),dimension(1:3)::defaultvec
+  character(len=strlen) :: DoF_string
 
   call param_str(PARAMS,i,"Insects","WingShape",Insect%WingShape,"none")
   call param_dbl(PARAMS,i,"Insects","b_top",Insect%b_top, 0.d0)
@@ -381,6 +383,7 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
   call param_dbl(PARAMS,i,"Insects","mass",Insect%mass, 1.d0)
   call param_dbl(PARAMS,i,"Insects","gravity",Insect%gravity, 1.d0)
   call param_dbl(PARAMS,i,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx)
+
   call param_vct(PARAMS,i,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/))
   Insect%Jroll_body  = defaultvec(3)
   Insect%Jyaw_body   = defaultvec(1)
@@ -393,6 +396,20 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
   Insect%yawpitchroll_0 = Insect%yawpitchroll_0 * (pi/180.d0)
   call param_dbl(PARAMS,i,"Insects","eta0",Insect%eta0, 0.0d0)
   Insect%eta0 = Insect%eta0*(pi/180.d0)
+
+
+  ! degrees of freedom for free flight solver. The string from ini file contains
+  ! 6 characters 1 or 0 that turn on/off x,y,z,yaw,pitch,roll degrees of freedom
+  ! by multiplying the respective RHS by zero, keeping the value thus constant
+  call param_str(PARAMS,i,"Insects","DoF",DoF_string, "111111")
+  do j=1,6
+    read (DoF_string(j:j), '(i1)') tmp
+    Insect%DoF_on_off(j) = dble(tmp)
+  enddo
+  if (root) write(*,'(6(f4.2,1x))') Insect%DoF_on_off
+
+
+Insect%periodic = .true.
 
 
   ! wing inertia tensor (we currently assume two identical wings)

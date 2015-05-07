@@ -30,6 +30,7 @@ subroutine cal_drag ( time, u, Insect )
   ! we can choose up to 6 different colors
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
   real(kind=pr),dimension(0:5) :: torquex0,torquey0,torquez0
+  real(kind=pr) :: xc(1:3)
   ! power (flux of energy)
   real(kind=pr) :: power,powerx,powery,powerz
   character(len=strlen) :: forcepartfilename
@@ -68,9 +69,10 @@ subroutine cal_drag ( time, u, Insect )
           forcez(color) = forcez(color) - penalz
 
           ! for torque moment with respect to (x0,y0,z0)
-          xlev = dble(ix)*dx - x0
-          ylev = dble(iy)*dy - y0
-          zlev = dble(iz)*dz - z0
+          xc = get_nearest_center(Insect, (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/))
+          xlev = dble(ix)*dx - xc(1)
+          ylev = dble(iy)*dy - xc(2)
+          zlev = dble(iz)*dz - xc(3)
 
           ! compute moment with respect to (x0,y0,z0)
           torquex0(color) = torquex0(color) - (ylev*penalz - zlev*penaly)

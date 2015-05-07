@@ -35,6 +35,18 @@ subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
     Insect%STATE = Insect%STATE + b10*Insect%RHS_this + b11*Insect%RHS_old
   endif
   Insect%time = Insect%time + dt1
+
+  ! Periodization: if the insect moves out of the box, eg, x<0.0 or x>xl then
+  ! we
+  if (Insect%periodic) then
+    if (Insect%STATE(1)<0.0) Insect%STATE(1) = Insect%STATE(1) + xl
+    if (Insect%STATE(2)<0.0) Insect%STATE(2) = Insect%STATE(2) + yl
+    if (Insect%STATE(3)<0.0) Insect%STATE(3) = Insect%STATE(3) + zl
+
+    if (Insect%STATE(1)>=xl) Insect%STATE(1) = Insect%STATE(1) - xl
+    if (Insect%STATE(2)>=yl) Insect%STATE(2) = Insect%STATE(2) - yl
+    if (Insect%STATE(3)>=zl) Insect%STATE(3) = Insect%STATE(3) - zl
+  endif
 end subroutine rigid_solid_time_step
 
 
@@ -65,7 +77,7 @@ subroutine rigid_solid_rhs(time,it,Insect)
     call abort()
   endif
 
-
+  ! copy some shortcuts (this is easier to code)
   g  = Insect%gravity
   m  = Insect%mass
   Jx = Insect%Jroll_body
@@ -76,21 +88,24 @@ subroutine rigid_solid_rhs(time,it,Insect)
   ! matrix from it.
   ep = Insect%STATE(7:10)
   call rotation_matrix_from_quaternion( ep,Insect%M_body_quaternion )
-  ! extract angular velocity vector from state vector
-  ROT = Insect%STATE(11:13)
-
   ! The equations of motion for the rotation are written in the body reference
   ! frame, thus the fluid torque has to be transformed to the body system
   torque_body = matmul( Insect%M_body_quaternion, GlobalIntegrals%torque)
 
+  ! extract angular velocity vector from state vector
+  ROT = Insect%STATE(11:13)
+
   !-----------------------------------------------------------------------------
   ! Integrate the 13 equations of motion (written in quaternion formulation)
+  ! The underlying eqns can be found in
+  ! M. Maeda et al. (2012) A free-flight Simulation of Insect flapping flight
+  ! J. Aero Aqua Bio-Mech(1):1,71-79
   !-----------------------------------------------------------------------------
-  ! integrates coordinates (dx/dt = vx)
+  ! integrate coordinates (dx/dt = vx)
   Insect%RHS_this(1) = Insect%STATE(4)
   Insect%RHS_this(2) = Insect%STATE(5)
   Insect%RHS_this(3) = Insect%STATE(6)
-  ! integrates velocities (dvx/dt = F)
+  ! integrate velocities (dvx/dt = F)
   Insect%RHS_this(4) = GlobalIntegrals%force(1)/m
   Insect%RHS_this(5) = GlobalIntegrals%force(2)/m
   Insect%RHS_this(6) = GlobalIntegrals%force(3)/m + g
@@ -99,7 +114,7 @@ subroutine rigid_solid_rhs(time,it,Insect)
   Insect%RHS_this(8) = +ep(0)*ROT(1)-ep(3)*ROT(2)+ep(2)*ROT(3)
   Insect%RHS_this(9) = +ep(3)*ROT(1)+ep(0)*ROT(2)-ep(1)*ROT(3)
   Insect%RHS_this(10) =-ep(2)*ROT(1)+ep(1)*ROT(2)+ep(0)*ROT(3)
-
+  ! integrate angular velocities
   Insect%RHS_this(11) = ( (Jy-Jz)*ROT(2)*ROT(3)+torque_body(1) )/Jx
   Insect%RHS_this(12) = ( (Jz-Jx)*ROT(3)*ROT(1)+torque_body(2) )/Jy
   Insect%RHS_this(13) = ( (Jx-Jy)*ROT(1)*ROT(2)+torque_body(3) )/Jz
@@ -107,7 +122,16 @@ subroutine rigid_solid_rhs(time,it,Insect)
   ! there is a factor 1/2 missing!
   Insect%RHS_this(7:13) = Insect%RHS_this(7:13) / 2.d0
 
-
+  ! turn on or off degrees of freedom for free flight solver. The string from
+  ! ini file contains 6 characters 1 or 0 that turn on/off x,y,z,yaw,pitch,roll
+  ! degrees of freedom by multiplying the respective RHS by zero, keeping the
+  ! value thus constant
+  Insect%RHS_this(4) = Insect%RHS_this(4) * Insect%DoF_on_off(1)   ! x translation
+  Insect%RHS_this(5) = Insect%RHS_this(5) * Insect%DoF_on_off(2)   ! y translation
+  Insect%RHS_this(6) = Insect%RHS_this(6) * Insect%DoF_on_off(3)   ! z translation
+  Insect%RHS_this(13) = Insect%RHS_this(13) * Insect%DoF_on_off(4) ! yaw rotation
+  Insect%RHS_this(12) = Insect%RHS_this(12) * Insect%DoF_on_off(5) ! pitch rotation
+  Insect%RHS_this(11) = Insect%RHS_this(11) * Insect%DoF_on_off(6) ! roll rotation
 end subroutine rigid_solid_rhs
 
 
@@ -159,14 +183,14 @@ subroutine rigid_solid_init(time, Insect)
 
   ! Assemble the state vector
   Insect%STATE = (/ Insect%xc_body(1),Insect%xc_body(2),Insect%xc_body(3), &
-                    Insect%vc_body(1),Insect%vc_body(2),Insect%vc_body(3), &
-                   ep(0),ep(1),ep(2),ep(3),&
-                   Insect%rot_body(1),Insect%rot_body(2),Insect%rot_body(3) /)
+  Insect%vc_body(1),Insect%vc_body(2),Insect%vc_body(3), &
+  ep(0),ep(1),ep(2),ep(3),&
+  Insect%rot_body(1),Insect%rot_body(2),Insect%rot_body(3) /)
 
   Insect%RHS_this = 0.0
   Insect%RHS_old = 0.0
 
-  write (*,*) "Insect%STATE", Insect%STATE
+  if(root) write (*,*) "Insect%STATE", Insect%STATE
 
 
 end subroutine rigid_solid_init

@@ -21,6 +21,9 @@ module insect_module
   logical :: body_already_drawn = .false.
   character(len=strlen) :: body_moves="yes"
 
+  real(kind=pr), allocatable, dimension(:,:) :: relevant_ghosts
+  real(kind=pr), allocatable, dimension(:) :: dists
+
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
   type diptera
@@ -61,6 +64,9 @@ module insect_module
     real(kind=pr) :: time
     real(kind=pr), dimension(1:3,1:3) :: M_body_quaternion
     real(kind=pr), dimension(1:13) :: RHS_old, RHS_this, STATE
+    real(kind=pr), dimension(1:6) :: DoF_on_off
+    logical :: periodic
+    integer :: n_relevant_ghosts
 
     !-------------------------------------------------------------
     ! wing shape parameters
@@ -115,6 +121,7 @@ contains
 
 
   !---------------------------------------
+  include "periodization.f90"
   include "body_geometry.f90"
   include "body_motion.f90"
   include "rigid_solid_time_stepper.f90"
@@ -150,7 +157,19 @@ contains
     integer, save :: counter = 0
     integer(kind=2) :: color_body, color_l, color_r
     ! what type of subroutine to call for the wings: fourier or simple
-    logical :: fourier_wing = .true. ! almost always we have this
+
+
+
+
+
+
+
+
+    call init_periodic_insect(Insect)
+
+
+
+
 
     !-----------------------------------------------------------------------------
     ! colors for Diptera (one body, two wings)
@@ -191,17 +210,7 @@ contains
       us = 0.d0
     endif
 
-
-    !-- decide what wing routine to call (call simplified wing
-    ! routines that don't use fourier)
-    if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
-    if (Insect%WingShape=='rectangular') fourier_wing = .false.
-    if (Insect%WingShape=='suzuki') fourier_wing = .false.
-
-    !-- define the wings fourier coeffients, but only once
-    if (fourier_wing) call Setup_Wing_Fourier_coefficients(Insect)
-
-    Insect%safety = 2.0d0*max(dz,dy,dx)
+    Insect%safety = 2.5d0*max(dz,dy,dx)
     Insect%smooth = 1.0d0*max(dz,dy,dx)
     smoothing = Insect%smooth
 
@@ -223,19 +232,21 @@ contains
     ! define the rotation matrices to change between coordinate systems
     !-----------------------------------------------------------------------------
     if (Insect%BodyMotion=="free_flight") then
-      ! call Rx(M1_b,Insect%psi)
-      ! call Ry(M2_b,Insect%beta)
-      ! call Rz(M3_b,Insect%gamma)
-      ! M_body = matmul(M1_b,matmul(M2_b,M3_b))
-      ! write(*,*) "--rotmat-"
-      ! write(*,'(3(es12.4,1x))') M_body(1,:)
-      ! write(*,'(3(es12.4,1x))') M_body(2,:)
-      ! write(*,'(3(es12.4,1x))') M_body(3,:)
-      ! write(*,*) "--quat-"
-      ! write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(1,:)
-      ! write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(2,:)
-      ! write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(3,:)
-      ! write(*,*) "---"
+    !   call Rx(M1_b,Insect%psi)
+    !   call Ry(M2_b,Insect%beta)
+    !   call Rz(M3_b,Insect%gamma)
+    !   M_body = matmul(M1_b,matmul(M2_b,M3_b))
+    !   if(root) then
+    !   write(*,*) "--rotmat-"
+    !   write(*,'(3(es12.4,1x))') M_body(1,:)
+    !   write(*,'(3(es12.4,1x))') M_body(2,:)
+    !   write(*,'(3(es12.4,1x))') M_body(3,:)
+    !   write(*,*) "--quat-"
+    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(1,:)
+    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(2,:)
+    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(3,:)
+    !   write(*,*) "---"
+    ! endif
       !
       ! ! QUATERNIONS
       M_body = Insect%M_body_quaternion
@@ -381,22 +392,36 @@ contains
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-          x_body = matmul(M_body,x-Insect%xc_body)
+
+          x_body = matmul(M_body,x - get_nearest_center(Insect,x))
           ! add solid body rotation in the body-reference frame, if color
           ! indicates that this part of the mask belongs to the insect
           if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
-            ! add solid body rotation to the translational velocity field
-            v_tmp=Insect%vc_body
+
+            ! translational part. we compute the rotational part in the body
+            ! reference frame, therefore, we must transform the body translation
+            ! velocity Insect%vc (which is in global coordinates) to the body frame
+            v_tmp = matmul(M_body,Insect%vc_body)
+
+            ! add solid body rotation to the translational velocity field. Note
+            ! that rot_body and x_body are in the body reference frame
             v_tmp(1) = v_tmp(1)+Insect%rot_body(2)*x_body(3)-Insect%rot_body(3)*x_body(2)
             v_tmp(2) = v_tmp(2)+Insect%rot_body(3)*x_body(1)-Insect%rot_body(1)*x_body(3)
             v_tmp(3) = v_tmp(3)+Insect%rot_body(1)*x_body(2)-Insect%rot_body(2)*x_body(1)
 
-            us(ix,iy,iz,1:3) = matmul(M_body_inv,us(ix,iy,iz,1:3)+v_tmp)
+            ! the body motion is added to the wing motion, which is already in us
+            ! and they are also in the body refrence frame. However, us has to be
+            ! in the global reference frame, so M_body_inverse is applied
+            us(ix,iy,iz,1:3) = matmul( M_body_inv, us(ix,iy,iz,1:3)+v_tmp )
           endif
         enddo
       enddo
     enddo
     time_insect_vel = time_insect_vel + MPI_wtime() - t1
+
+
+call free_periodic_insect()
+
 
   end subroutine Draw_Insect
 
@@ -579,7 +604,7 @@ contains
   !-------------------------------------------------------------------------------
   ! given the angles of each wing (and their time derivatives), compute
   ! the angular velocity vectors for both wings.
-  ! output rot_r, rot_l are understood in the WING coordinate system.
+  ! output Insect%rot_r, Insect%rot_l is understood in the WING coordinate system.
   !-------------------------------------------------------------------------------
   subroutine angular_velocities ( time, Insect )
     use vars

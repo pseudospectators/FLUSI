@@ -184,6 +184,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   mask = mask*eps
   call compute_mask_volume(volume)
   mask = mask/eps
+
   if(mpirank == 0) then
     open(14,file='mask_volume.t',status='unknown',position='append')
     write (14,'(2(es15.8,1x))') time,volume
@@ -738,7 +739,7 @@ subroutine compute_mask_volume(volume)
   integer :: mpicode
   real(kind=pr) :: Lvolume ! Process-local volume
 
-  Lvolume=sum(mask)*dx*dy*dz
+  Lvolume=sum(us(:,:,:,3))*dx*dy*dz
 
   call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
           MPI_COMM_WORLD,mpicode)
