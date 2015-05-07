@@ -351,13 +351,22 @@ contains
           ! add solid body rotation in the body-reference frame, if color
           ! indicates that this part of the mask belongs to the insect
           if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
-            ! add solid body rotation to the translational velocity field
-            v_tmp=Insect%vc_body
+
+            ! translational part. we compute the rotational part in the body
+            ! reference frame, therefore, we must transform the body translation
+            ! velocity Insect%vc (which is in global coordinates) to the body frame
+            v_tmp = matmul(M_body,Insect%vc_body)
+
+            ! add solid body rotation to the translational velocity field. Note
+            ! that rot_body and x_body are in the body reference frame
             v_tmp(1) = v_tmp(1)+Insect%rot_body(2)*x_body(3)-Insect%rot_body(3)*x_body(2)
             v_tmp(2) = v_tmp(2)+Insect%rot_body(3)*x_body(1)-Insect%rot_body(1)*x_body(3)
             v_tmp(3) = v_tmp(3)+Insect%rot_body(1)*x_body(2)-Insect%rot_body(2)*x_body(1)
 
-            us(ix,iy,iz,1:3) = matmul(M_body_inv,us(ix,iy,iz,1:3)+v_tmp)
+            ! the body motion is added to the wing motion, which is already in us
+            ! and they are also in the body refrence frame. However, us has to be
+            ! in the global reference frame, so M_body_inverse is applied
+            us(ix,iy,iz,1:3) = matmul( M_body_inv, us(ix,iy,iz,1:3)+v_tmp )
           endif
         enddo
       enddo
