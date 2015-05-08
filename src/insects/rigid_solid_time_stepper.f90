@@ -38,7 +38,7 @@ subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
 
   ! Periodization: if the insect moves out of the box, eg, x<0.0 or x>xl then
   ! we
-  if (Insect%periodic) then
+  if (periodic) then
     if (Insect%STATE(1)<0.0) Insect%STATE(1) = Insect%STATE(1) + xl
     if (Insect%STATE(2)<0.0) Insect%STATE(2) = Insect%STATE(2) + yl
     if (Insect%STATE(3)<0.0) Insect%STATE(3) = Insect%STATE(3) + zl

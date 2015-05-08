@@ -132,7 +132,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call compute_mask_volume(volume)
     if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
-    call save_field_hdf5(time,'./color_'//name,dble(mask_color),"color")
+    ! call save_field_hdf5(time,'./color_'//name,dble(mask_color),"color")
     mask = mask/eps
   endif
 

@@ -75,8 +75,8 @@ subroutine BodyMotion(time, Insect)
     ! from the orientation quaternion
     call rotation_matrix_from_quaternion( ep , Insect%M_body_quaternion )
 
-    if(root) write(*,'(f12.4,2x,9(es12.4,1x),"Ghosts=",i1)') time, &
-    xc,vc,Insect%rot_body,Insect%n_relevant_ghosts
+    if(root) write(*,'(f12.4,2x,9(es12.4,1x))') time, &
+    xc,vc,Insect%rot_body
 
   case default
     if (mpirank==0) then

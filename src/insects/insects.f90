@@ -20,9 +20,8 @@ module insect_module
   ! variables to decide whether to draw the body or not.
   logical :: body_already_drawn = .false.
   character(len=strlen) :: body_moves="yes"
-
-  real(kind=pr), allocatable, dimension(:,:) :: relevant_ghosts
-  real(kind=pr), allocatable, dimension(:) :: dists
+  ! do we use periodicity?
+  logical :: periodic = .true.
 
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
@@ -65,8 +64,6 @@ module insect_module
     real(kind=pr), dimension(1:3,1:3) :: M_body_quaternion
     real(kind=pr), dimension(1:13) :: RHS_old, RHS_this, STATE
     real(kind=pr), dimension(1:6) :: DoF_on_off
-    logical :: periodic
-    integer :: n_relevant_ghosts
 
     !-------------------------------------------------------------
     ! wing shape parameters
@@ -156,20 +153,6 @@ contains
     integer :: ix, iy, iz
     integer, save :: counter = 0
     integer(kind=2) :: color_body, color_l, color_r
-    ! what type of subroutine to call for the wings: fourier or simple
-
-
-
-
-
-
-
-
-    call init_periodic_insect(Insect)
-
-
-
-
 
     !-----------------------------------------------------------------------------
     ! colors for Diptera (one body, two wings)
@@ -392,8 +375,8 @@ contains
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-
-          x_body = matmul(M_body,x - get_nearest_center(Insect,x))
+          x = periodize_coordinate(x - Insect%xc_body)
+          x_body = matmul(M_body,x)
           ! add solid body rotation in the body-reference frame, if color
           ! indicates that this part of the mask belongs to the insect
           if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
@@ -418,11 +401,6 @@ contains
       enddo
     enddo
     time_insect_vel = time_insect_vel + MPI_wtime() - t1
-
-
-call free_periodic_insect()
-
-
   end subroutine Draw_Insect
 
 

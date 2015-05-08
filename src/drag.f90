@@ -69,10 +69,9 @@ subroutine cal_drag ( time, u, Insect )
           forcez(color) = forcez(color) - penalz
 
           ! for torque moment with respect to (x0,y0,z0)
-          xc = get_nearest_center(Insect, (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/))
-          xlev = dble(ix)*dx - xc(1)
-          ylev = dble(iy)*dy - xc(2)
-          zlev = dble(iz)*dz - xc(3)
+          xlev = dble(ix)*dx - x0
+          ylev = dble(iy)*dy - y0
+          zlev = dble(iz)*dz - z0
 
           ! compute moment with respect to (x0,y0,z0)
           torquex0(color) = torquex0(color) - (ylev*penalz - zlev*penaly)

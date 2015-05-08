@@ -409,9 +409,6 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
   if (root) write(*,'(6(f4.2,1x))') Insect%DoF_on_off
 
 
-Insect%periodic = .true.
-
-
   ! wing inertia tensor (we currently assume two identical wings)
   ! this allows computing inertial power
   call param_dbl(PARAMS,i,"Insects","Jxx",Insect%Jxx,0.d0)

@@ -739,7 +739,7 @@ subroutine compute_mask_volume(volume)
   integer :: mpicode
   real(kind=pr) :: Lvolume ! Process-local volume
 
-  Lvolume=sum(us(:,:,:,3))*dx*dy*dz
+  Lvolume=sum(mask)*dx*dy*dz
 
   call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
           MPI_COMM_WORLD,mpicode)

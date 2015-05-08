@@ -534,7 +534,7 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   Insect%x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&
   *0.8d0*(/1.d0,-1.d0,1.d0/)
 
-  a_body = Insect%L_body / 2.d0
+  a_body = Insect%L_body !/ 2.d0
   !-----------------------------------------------------------------------------
   ! Jerry's body is an ellipsoid
   !-----------------------------------------------------------------------------
@@ -545,9 +545,11 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
         ! x_body is in the body coordinate system, which is centered at Insect%xc_body
-        ! or the center of the closest virtual insect, if periodization is applied
-        x_body = matmul( M_body,x_glob - get_nearest_center(Insect,x_glob) )
+        x_body = matmul( M_body, x_glob)
+
+
 
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
@@ -623,20 +625,18 @@ subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
         ! x is in the global coordinate system
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
         ! x is now centered in the sphere's center point
-        x = x - xc
+        x = periodize_coordinate(x - xc)
 
-        if (x(1)<-xl/2.0) x(1)=x(1)+xl
-        if (x(2)<-yl/2.0) x(2)=x(2)+yl
-        if (x(3)<-zl/2.0) x(3)=x(3)+zl
-
-        if (x(1)>xl/2.0) x(1)=x(1)-xl
-        if (x(2)>yl/2.0) x(2)=x(2)-yl
-        if (x(3)>zl/2.0) x(3)=x(3)-zl
-
-        R = dsqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
-        if ( R <= R0+Insect%safety ) then
-          mask(ix,iy,iz) = max(steps(R,R0),mask(ix,iy,iz))
-          mask_color(ix,iy,iz) = icolor
+        if (dabs(x(1)) <= R0+Insect%safety) then
+          if (dabs(x(2)) <= R0+Insect%safety) then
+            if (dabs(x(3)) <= R0+Insect%safety) then
+              R = dsqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
+              if ( R <= R0+Insect%safety ) then
+                mask(ix,iy,iz) = max(steps(R,R0),mask(ix,iy,iz))
+                mask_color(ix,iy,iz) = icolor
+              endif
+            endif
+          endif
         endif
 
 
