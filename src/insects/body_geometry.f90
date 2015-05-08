@@ -534,7 +534,7 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   Insect%x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&
   *0.8d0*(/1.d0,-1.d0,1.d0/)
 
-  a_body = Insect%L_body !/ 2.d0
+  a_body = Insect%L_body / 2.d0
   !-----------------------------------------------------------------------------
   ! Jerry's body is an ellipsoid
   !-----------------------------------------------------------------------------

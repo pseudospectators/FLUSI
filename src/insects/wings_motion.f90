@@ -788,8 +788,8 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     !
     ! the pase shift "phase" was my idea
     !---------------------------------------------------------------------------
-    phi_max     = 60.d0*pi/180.d0  ! phi is up/down angle (flapping)
-    alpha_max   = 0.d0!45.d0*pi/180.d0  ! alpha is tethering
+    phi_max     = deg2rad(80.d0)  ! phi is up/down angle (flapping)
+    alpha_max   = deg2rad(45.d0)  ! alpha is tethering
     phase       = 0.d0! 10.d0*pi/180.d0  ! phase shift between flapping and tethering
     f = 1.d0*2.0*pi
 

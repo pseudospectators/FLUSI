@@ -155,41 +155,63 @@ subroutine rigid_solid_init(time, Insect)
 
   Insect%time = time
 
-  ! free flight solver based on quaternions. the task here is to initialize
-  ! the "attitude" quaternion (Insect%quaternion) from yaw, pitch and roll
-  ! angles. Note that for the free flight solver, this is the last time
-  ! body yaw,pitch,roll are meaningful. from now on, quaternions are used
+  if (inicond(1:8)=="backup::") then
+    ! resuming the rigid solid solver from a backup
+    if (mpirank==0) write(*,*) "Rigid solid solver is resuming from backup..."
+    if (mpirank==0) write(*,*) inicond(9:len_trim(inicond))//".rigidsolver"
 
-  ! initialization, these values are read from parameter file
-  Insect%gamma = Insect%yawpitchroll_0(1)
-  Insect%beta  = Insect%yawpitchroll_0(2)
-  Insect%psi   = Insect%yawpitchroll_0(3)
-  Insect%xc_body = Insect%x0
-  Insect%vc_body = Insect%v0
-  Insect%rot_body = 0.d0
+    if (mpirank==0) then
+      open(10, file=inicond(9:len_trim(inicond))//".rigidsolver", &
+          form='formatted', status='old')
+      read(10, *) Insect%time, Insect%STATE, Insect%RHS_old, &
+          Insect%RHS_this, Insect%M_body_quaternion
+      close(10)
+    endif
 
-  ! create initial value for attitude quaternion
-  yaw   =  Insect%gamma / 2.d0
-  pitch =  Insect%beta  / 2.d0
-  roll  =  Insect%psi   / 2.d0
-  ep(0) = cos(roll)*cos(pitch)*cos(yaw) + sin(roll)*sin(pitch)*sin(yaw)
-  ep(1) = sin(roll)*cos(pitch)*cos(yaw) - cos(roll)*sin(pitch)*sin(yaw)
-  ep(2) = cos(roll)*sin(pitch)*cos(yaw) + sin(roll)*cos(pitch)*sin(yaw)
-  ep(3) = cos(roll)*cos(pitch)*sin(yaw) - sin(roll)*sin(pitch)*cos(yaw)
+    call MPI_BCAST( Insect%time, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_BCAST( Insect%STATE, 13, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_BCAST( Insect%RHS_this, 13, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_BCAST( Insect%RHS_old, 13, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_BCAST( Insect%M_body_quaternion(:,1), 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_BCAST( Insect%M_body_quaternion(:,2), 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_BCAST( Insect%M_body_quaternion(:,3), 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
 
-  ! to draw the very first insect, we also need the rotation matix
-  call rotation_matrix_from_quaternion( ep,Insect%M_body_quaternion )
+  else
+    ! free flight solver based on quaternions. the task here is to initialize
+    ! the "attitude" quaternion (Insect%quaternion) from yaw, pitch and roll
+    ! angles. Note that for the free flight solver, this is the last time
+    ! body yaw,pitch,roll are meaningful. from now on, quaternions are used
+
+    ! initialization, these values are read from parameter file
+    Insect%gamma = Insect%yawpitchroll_0(1)
+    Insect%beta  = Insect%yawpitchroll_0(2)
+    Insect%psi   = Insect%yawpitchroll_0(3)
+    Insect%xc_body = Insect%x0
+    Insect%vc_body = Insect%v0
+    Insect%rot_body = 0.d0
+
+    ! create initial value for attitude quaternion
+    yaw   =  Insect%gamma / 2.d0
+    pitch =  Insect%beta  / 2.d0
+    roll  =  Insect%psi   / 2.d0
+    ep(0) = cos(roll)*cos(pitch)*cos(yaw) + sin(roll)*sin(pitch)*sin(yaw)
+    ep(1) = sin(roll)*cos(pitch)*cos(yaw) - cos(roll)*sin(pitch)*sin(yaw)
+    ep(2) = cos(roll)*sin(pitch)*cos(yaw) + sin(roll)*cos(pitch)*sin(yaw)
+    ep(3) = cos(roll)*cos(pitch)*sin(yaw) - sin(roll)*sin(pitch)*cos(yaw)
+
+    ! to draw the very first insect, we also need the rotation matix
+    call rotation_matrix_from_quaternion( ep,Insect%M_body_quaternion )
 
 
-  ! Assemble the state vector
-  Insect%STATE = (/ Insect%xc_body(1),Insect%xc_body(2),Insect%xc_body(3), &
-  Insect%vc_body(1),Insect%vc_body(2),Insect%vc_body(3), &
-  ep(0),ep(1),ep(2),ep(3),&
-  Insect%rot_body(1),Insect%rot_body(2),Insect%rot_body(3) /)
+    ! Assemble the state vector
+    Insect%STATE = (/ Insect%xc_body(1),Insect%xc_body(2),Insect%xc_body(3), &
+    Insect%vc_body(1),Insect%vc_body(2),Insect%vc_body(3), &
+    ep(0),ep(1),ep(2),ep(3),&
+    Insect%rot_body(1),Insect%rot_body(2),Insect%rot_body(3) /)
 
-  Insect%RHS_this = 0.0
-  Insect%RHS_old = 0.0
-
+    Insect%RHS_this = 0.0
+    Insect%RHS_old = 0.0
+  endif
   if(root) write (*,*) "Insect%STATE", Insect%STATE
 
 

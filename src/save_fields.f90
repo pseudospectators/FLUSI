@@ -508,18 +508,15 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   !-------------------------------------------------------------------------
   ! backup for the rigid body solver (free-flight insect)
   !-------------------------------------------------------------------------
-  ! if ((method=="fsi").and.(mpirank==0)) then
-  ! if (iMask=="Insect") then
-  ! if ((Insect%BodyMotion=="takeoff").and.(Insect%KineFromFile=="simplified_dynamic")) then
-  !   write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
-  !   open(10, file=filename//".rigidsolver", form='formatted', status='replace')
-  !   write(10, *) SolidDyn%var_new, SolidDyn%var_this,&
-  !                SolidDyn%rhs_this, SolidDyn%rhs_old
-  !   close(10)
-  ! endif
-  ! endif
-  ! endif
-  !
+  if ((method=="fsi").and.(mpirank==0)) then
+  if ((iMask=="Insect").and.(Insect%BodyMotion=="free_flight")) then
+    write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
+    open(10, file=filename//".rigidsolver", form='formatted', status='replace')
+    write(10, *) time, Insect%STATE, Insect%RHS_old, Insect%RHS_this, Insect%M_body_quaternion
+    close(10)
+  endif
+  endif
+
   !-------------------------------------------------------------------------
   !-- backup solid solver, if doing active FSI
   !-------------------------------------------------------------------------
