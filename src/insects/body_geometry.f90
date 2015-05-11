@@ -18,6 +18,8 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
     return
   case ("jerry","Jerry")
     call draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
+  case ("sphere","SPHERE","Sphere")
+    call draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
   case ("drosophila")
     call draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_body)
   case ("drosophila_maeda","drosophila_slim")
@@ -512,9 +514,7 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   real(kind=pr) :: x,R0,R,R_tmp,x_tmp,a_body
   real(kind=pr) :: corner
   real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
-  real(kind=pr), allocatable, dimension(:) :: dists
-  real(kind=pr), allocatable, dimension(:,:) :: valid_ghosts
-  integer :: ix,iy,iz,i,j,k,q, qq(1)
+  integer :: ix,iy,iz
 
   ! the following are coordinates of specific points on the insect's body, for
   ! example the position of the head, its size etc. In older versions, these
@@ -538,8 +538,6 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   !-----------------------------------------------------------------------------
   ! Jerry's body is an ellipsoid
   !-----------------------------------------------------------------------------
-
-
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
@@ -587,6 +585,29 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
 end subroutine draw_body_jerry
 
 
+
+subroutine draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: x,R0,R,R_tmp,x_tmp,a_body
+  real(kind=pr) :: corner
+  real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
+
+  x_head = Insect%xc_body
+  call drawsphere( x_head,0.50d0,mask,mask_color,us,Insect,color_body )
+
+end subroutine draw_body_sphere
+
+
+
 !-------------------------------------------------------------------------------
 ! draw a sphere with radius R0 centered at the point xc
 ! This routiner's intended use is for drawing the insect's body, for example
@@ -597,7 +618,8 @@ subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
   use vars
   implicit none
 
-  real(kind=pr),intent(inout)::xc(1:3),R0
+  real(kind=pr),intent(inout)::xc(1:3)
+  real(kind=pr),intent(in)::R0
   real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))

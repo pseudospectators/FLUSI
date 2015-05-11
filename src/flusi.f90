@@ -500,6 +500,14 @@ subroutine initialize_time_series_files()
 
   call init_empty_file('iterations.t')
   call init_empty_file('mask_volume.t')
+  call init_empty_file('rigidsolidsolver.t')
+
+  open  (14,file='rigidsolidsolver.t',status='replace')
+  write (14,'(4(A15,1x))') "%          time","x","y","z","vx","vy","vz",&
+  "eps0","eps1","eps2","eps3","rotx","roty","rotz"
+  close (14)
+
+
   if (use_passive_scalar==1) call init_empty_file('scalar.t')
 end subroutine
 

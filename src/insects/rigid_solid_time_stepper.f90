@@ -47,6 +47,13 @@ subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
     if (Insect%STATE(2)>=yl) Insect%STATE(2) = Insect%STATE(2) - yl
     if (Insect%STATE(3)>=zl) Insect%STATE(3) = Insect%STATE(3) - zl
   endif
+
+  if (mpirank==0) then
+    open  (17,file='rigidsolidsolver.t',status='unknown',position='append')
+    write (17,'(14(es15.8,1x))') time, Insect%STATE
+    close (17)
+  endif
+
 end subroutine rigid_solid_time_step
 
 
@@ -73,8 +80,7 @@ subroutine rigid_solid_rhs(time,it,Insect)
   Insect%RHS_this=0.d0
 
   if ((root).and.(Insect%BodyMotion/="free_flight")) then
-    write(*,*) "We have a problem in Insect%BodyMotion"
-    call abort()
+    call abort("Insect%BodyMotion"//trim(adjustl(Insect%BodyMotion))//" but using free-flight?")
   endif
 
   ! copy some shortcuts (this is easier to code)
@@ -132,9 +138,11 @@ subroutine rigid_solid_rhs(time,it,Insect)
   Insect%RHS_this(13) = Insect%RHS_this(13) * Insect%DoF_on_off(4) ! yaw rotation
   Insect%RHS_this(12) = Insect%RHS_this(12) * Insect%DoF_on_off(5) ! pitch rotation
   Insect%RHS_this(11) = Insect%RHS_this(11) * Insect%DoF_on_off(6) ! roll rotation
+
+  ! Insect%RHS_this(4:6) = Insect%RHS_this(4:6) * startup_conditioner(time,0.0d0,0.25d0)
+  ! Insect%RHS_this(11:13) = Insect%RHS_this(11:13) * startup_conditioner(time,0.0d0,0.25d0)
+
 end subroutine rigid_solid_rhs
-
-
 
 
 !-------------------------------------------------------------------------------

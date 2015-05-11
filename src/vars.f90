@@ -148,6 +148,11 @@ module vars
   real(kind=pr) :: tslice,tslice_first
 
 
+  interface abort
+    module procedure abort1, abort2
+  end interface
+
+
   contains
 
     ! Routines to allocate real and complex arrays using the standard
@@ -199,16 +204,16 @@ module vars
       return
     end function per
     !---------------------------------------------------------------------------
-    subroutine suicide1
+    subroutine abort1
       use mpi
       implicit none
       integer :: mpicode
 
       if (mpirank==0) write(*,*) "Killing run..."
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine suicide1
+    end subroutine abort1
     !---------------------------------------------------------------------------
-    subroutine suicide2(msg)
+    subroutine abort2(msg)
       use mpi
       implicit none
       integer :: mpicode
@@ -217,7 +222,7 @@ module vars
       if (mpirank==0) write(*,*) "Killing run..."
       if (mpirank==0) write(*,*) msg
       call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine suicide2
+    end subroutine abort2
     !---------------------------------------------------------------------------
     ! wrapper for NaN checking (this may be compiler dependent)
     logical function is_nan( x )
@@ -226,7 +231,6 @@ module vars
       is_nan = .false.
       if (.not.(x.eq.x)) is_nan=.true.
     end function
-
     !---------------------------------------------------------------------------
     ! check wether real coordinates x are in the domain
     logical function in_domain( x )
@@ -237,7 +241,6 @@ module vars
            ((x(2)>=0.d0).and.(x(2)<yl)).and.&
            ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain=.true.
     end function
-
     !---------------------------------------------------------------------------
     ! wrapper for random number generator (this may be compiler dependent)
     real(kind=pr) function rand_nbr()
