@@ -854,6 +854,27 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   enddo
 
   !-----------------------------------------------------------------------------
+  ! fill the interior of the particle with "-" signs (the above concentrates
+  ! on the interface!)
+  !-----------------------------------------------------------------------------
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        if (mask(ix,iy,iz) > 99.99e6) then
+          ! is either of my neighbors negative? that means it is inside.
+          ! now the fact that my value is large indicates I am far from the boundary
+          ! but on the inside.
+          ! in other words, if my value is large, and either of my neighbors negative,
+          ! we're sure to be inside the particle
+          if (mask(per(ix+1,nx),iy,iz)<0.d0.or.mask(per(ix-1,nx),iy,iz)<0.d0) then
+            mask(ix,iy,iz) = -mask(ix,iy,iz)
+          endif
+        endif
+      enddo
+    enddo
+  enddo
+
+  !-----------------------------------------------------------------------------
   ! convert signed distance function to mask function chi
   !-----------------------------------------------------------------------------
   do iz = ra(3), rb(3)
