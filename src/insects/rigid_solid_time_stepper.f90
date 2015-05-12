@@ -96,7 +96,7 @@ subroutine rigid_solid_rhs(time,it,Insect)
   call rotation_matrix_from_quaternion( ep,Insect%M_body_quaternion )
   ! The equations of motion for the rotation are written in the body reference
   ! frame, thus the fluid torque has to be transformed to the body system
-  torque_body = matmul( Insect%M_body_quaternion, GlobalIntegrals%torque)
+  torque_body = matmul( Insect%M_body_quaternion, GlobalIntegrals%torque+GlobalIntegrals%torque_unst)
 
   ! extract angular velocity vector from state vector
   ROT = Insect%STATE(11:13)
@@ -112,9 +112,9 @@ subroutine rigid_solid_rhs(time,it,Insect)
   Insect%RHS_this(2) = Insect%STATE(5)
   Insect%RHS_this(3) = Insect%STATE(6)
   ! integrate velocities (dvx/dt = F)
-  Insect%RHS_this(4) = GlobalIntegrals%force(1)/m
-  Insect%RHS_this(5) = GlobalIntegrals%force(2)/m
-  Insect%RHS_this(6) = GlobalIntegrals%force(3)/m + g
+  Insect%RHS_this(4) = (GlobalIntegrals%force(1)+GlobalIntegrals%force_unst(1))/m
+  Insect%RHS_this(5) = (GlobalIntegrals%force(2)+GlobalIntegrals%force_unst(2))/m
+  Insect%RHS_this(6) = (GlobalIntegrals%force(3)+GlobalIntegrals%force_unst(3))/m + g
   ! integrate quaternion attitudes
   Insect%RHS_this(7) = -ep(1)*ROT(1)-ep(2)*ROT(2)-ep(3)*ROT(3)
   Insect%RHS_this(8) = +ep(0)*ROT(1)-ep(3)*ROT(2)+ep(2)*ROT(3)

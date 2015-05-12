@@ -79,7 +79,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   if (iMoving==1) call create_mask (time, Insect, beams)
   ! if we save the pressure, we must compute the right hand side now:
   if (isavePress==1) then
-    call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
+    call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect)
   endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
