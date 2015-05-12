@@ -769,7 +769,17 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
       close(37)
     endif
     ! make sure all cpu know the particle well
-    call MPI_BCAST( particle_points,npoints,MPI_DOUBLE_PRECISION,0,&
+    call MPI_BCAST( particle_points(:,1),npoints,MPI_DOUBLE_PRECISION,0,&
+    MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( particle_points(:,2),npoints,MPI_DOUBLE_PRECISION,0,&
+    MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( particle_points(:,3),npoints,MPI_DOUBLE_PRECISION,0,&
+    MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( particle_points(:,4),npoints,MPI_DOUBLE_PRECISION,0,&
+    MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( particle_points(:,5),npoints,MPI_DOUBLE_PRECISION,0,&
+    MPI_COMM_WORLD,mpicode )
+    call MPI_BCAST( particle_points(:,6),npoints,MPI_DOUBLE_PRECISION,0,&
     MPI_COMM_WORLD,mpicode )
   endif
 
@@ -824,6 +834,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
             if ( R<=abs(mask(ix,iy,iz)) ) then
               ! this is closer, so we overwrite
               mask(ix,iy,iz) = R
+              mask_color(ix,iy,iz) = color_body
               ! compute scalar product of difference vector and outward pointing normal
               projected_length = (x_body(1)-x_part(1))*n_part(1) + &
               (x_body(2)-x_part(2))*n_part(2) + &
@@ -848,7 +859,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
-        mask(ix,iy,iz) = steps( mask(ix,iy,iz),0.d0)
+        mask(ix,iy,iz) = steps( mask(ix,iy,iz),0.d0 )
         mask_color(ix,iy,iz) = color_body
       enddo
     enddo
