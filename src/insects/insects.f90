@@ -16,6 +16,8 @@ module insect_module
   ! wing kinematics Fourier coefficients
   real(kind=pr), allocatable, dimension(:) :: ai_phi, bi_phi, ai_theta,&
   bi_theta, ai_alpha, bi_alpha
+  ! this will hold the surface markers and their normals used for particles:
+  real(kind=pr), allocatable, dimension(:,:) :: particle_points
 
   ! variables to decide whether to draw the body or not.
   logical :: body_already_drawn = .false.
@@ -738,6 +740,8 @@ contains
     if (allocated(bi_phi)) deallocate ( bi_phi )
     if (allocated(bi_alpha)) deallocate ( bi_alpha )
     if (allocated(bi_theta)) deallocate ( bi_theta )
+    if (allocated(particle_points)) deallocate ( particle_points )
+
   end subroutine insect_clean
 
 

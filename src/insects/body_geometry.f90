@@ -18,6 +18,8 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
     return
   case ("jerry","Jerry")
     call draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
+  case ("particle")
+    call draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   case ("sphere","SPHERE","Sphere")
     call draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
   case ("drosophila")
@@ -499,7 +501,6 @@ subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_bod
 end subroutine draw_body_drosophila
 
 !-------------------------------------------------------------------------------
-
 subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   use vars
   implicit none
@@ -511,8 +512,7 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
-  real(kind=pr) :: x,R0,R,R_tmp,x_tmp,a_body
-  real(kind=pr) :: corner
+  real(kind=pr) :: R0,R,a_body
   real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
   integer :: ix,iy,iz
 
@@ -546,9 +546,6 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
         x_glob = periodize_coordinate(x_glob - Insect%xc_body)
         ! x_body is in the body coordinate system, which is centered at Insect%xc_body
         x_body = matmul( M_body, x_glob)
-
-
-
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
           if ( dabs(x_body(3)) <= Insect%b_body + Insect%safety ) then
@@ -585,7 +582,7 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
 end subroutine draw_body_jerry
 
 
-
+! a body that is just a sphere of unit diameter. used for particles.
 subroutine draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
   use vars
   implicit none
@@ -732,3 +729,111 @@ subroutine draw_cylinder( xp,x1,y1,z1,x2,y2,z2,R0,mask_val,color_val,icolor,safe
   endif
 
 end subroutine
+
+
+
+!-------------------------------------------------------------------------------
+subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: R0,R,a_body, projected_length
+  real(kind=pr) :: x_body(1:3), x_glob(1:3), x_part(1:3), n_part(1:3)
+  integer :: ix,iy,iz,ip, npoints, mpicode, ijk(1:3), box
+
+  !-----------------------------------------------------------------------------
+  ! initialization phase, executed only once
+  !-----------------------------------------------------------------------------
+  if (.not.allocated(particle_points)) then
+    ! initialization, this is the first call to the routine.
+    if (mpirank==0) then
+      open(37, file='particle.in', form='formatted', status='old')
+      read(37,*) npoints
+      write(*,'("reading particle with ",i7," points")') npoints
+    endif
+    call MPI_BCAST( npoints,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+    allocate ( particle_points(1:npoints,1:6) )
+
+    if (mpirank==0) then
+      do ix = 1,npoints
+        read(37,*) particle_points(ix,:)
+      enddo
+      write(*,*) "done reading particle.in (that is excellent news!)"
+      close(37)
+    endif
+    ! make sure all cpu know the particle well
+    call MPI_BCAST( particle_points,npoints,MPI_DOUBLE_PRECISION,0,&
+    MPI_COMM_WORLD,mpicode )
+  endif
+
+  mask = 99.99e9
+
+  !-----------------------------------------------------------------------------
+  ! now, we are sure that all CPU know all points on the particle, and we can
+  ! proceed to draw it
+  !-----------------------------------------------------------------------------
+  npoints = size(particle_points,1)
+  ! loop over the marker points
+  do ip = 1, npoints
+    ! coordinate (in body system)
+    x_part = particle_points(ip,1:3)
+    ! normal vector (in body system)
+    n_part = particle_points(ip,4:6)
+
+    ! go to laboratory frame:
+    x_glob = matmul( transpose(M_body), x_part) + Insect%xc_body
+    ! x_glob = periodize_coordinate(x_glob)
+
+    ! coordinate (global) in integer space:
+    ijk = nint( x_glob/dx )
+    ! size of box around markers
+    box = 3
+
+    ! loop over neigborhood of marker
+    do iz = ijk(3)-box, ijk(3)+box
+      do iy = ijk(2)-box, ijk(2)+box
+        do ix = ijk(1)-box, ijk(1)+box
+          ! check if this point is on my rank
+          if ( on_proc( (/ix,iy,iz/)  ) ) then
+            ! x_glob is in the global coordinate system
+            x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+            x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+            ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+            x_body = matmul( M_body, x_glob )
+
+            ! unsigned distance to point
+            R = dsqrt(  (x_body(1)-x_part(1))*(x_body(1)-x_part(1)) + &
+                        (x_body(2)-x_part(2))*(x_body(2)-x_part(2)) + &
+                        (x_body(3)-x_part(3))*(x_body(3)-x_part(3)) )
+
+            if ( R<=abs(mask(ix,iy,iz)) ) then
+              ! this is closer, so we overwrite
+              mask(ix,iy,iz) = R
+              ! compute scalar product of difference vector and outward pointing normal
+              projected_length = (x_body(1)-x_part(1))*n_part(1) + &
+               (x_body(2)-x_part(2))*n_part(2) + &
+               (x_body(3)-x_part(3))*n_part(3)
+
+              if ( projected_length <= 0.d0  ) then
+                ! we're inside the particle
+                mask(ix,iy,iz) = -mask(ix,iy,iz)
+              endif
+            endif
+
+          endif ! on_proc
+
+        enddo
+      enddo
+    enddo
+  enddo
+
+  call save_field_hdf5(0.d0,'mask_00',mask,"mask")
+  call abort("as we wish")
+end subroutine draw_body_particle

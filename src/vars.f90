@@ -152,6 +152,13 @@ module vars
     module procedure abort1, abort2
   end interface
 
+  interface in_domain
+    module procedure in_domain1, in_domain2
+  end interface
+
+  interface on_proc
+    module procedure on_proc1, on_proc2
+  end interface
 
   contains
 
@@ -233,13 +240,43 @@ module vars
     end function
     !---------------------------------------------------------------------------
     ! check wether real coordinates x are in the domain
-    logical function in_domain( x )
+    logical function in_domain1( x )
       implicit none
-      real(kind=pr)::x(1:3)
-      in_domain = .false.
+      real(kind=pr),intent(in)::x(1:3)
+      in_domain1 = .false.
       if ( ((x(1)>=0.d0).and.(x(1)<xl)).and.&
            ((x(2)>=0.d0).and.(x(2)<yl)).and.&
-           ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain=.true.
+           ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain1=.true.
+    end function
+    !---------------------------------------------------------------------------
+    ! check wether integer coordinates x are in the domain
+    logical function in_domain2( x )
+      implicit none
+      integer,intent(in)::x(1:3)
+      in_domain2 = .false.
+      if (  ((x(1)>=0).and.(x(1)<nx-1)).and.&
+            ((x(2)>=0).and.(x(2)<ny-1)).and.&
+            ((x(3)>=0).and.(x(3)<nz-1)) ) in_domain2=.true.
+    end function
+    !---------------------------------------------------------------------------
+    ! check wether real coordinates x are on this mpi-process
+    logical function on_proc1( x )
+      implicit none
+      real(kind=pr),intent(in)::x(1:3)
+      on_proc1 = .false.
+      if (  ((x(1)>=ra(1)*dx).and.(x(1)<=rb(1)*dx)).and.&
+            ((x(2)>=ra(2)*dy).and.(x(2)<=rb(2)*dy)).and.&
+            ((x(3)>=ra(3)*dz).and.(x(3)<=rb(3)*dz)) ) on_proc1=.true.
+    end function
+    !---------------------------------------------------------------------------
+    ! check wether integer coordinates x are on this mpi-process
+    logical function on_proc2( x )
+      implicit none
+      integer,intent(in)::x(1:3)
+      on_proc2 = .false.
+      if ( ((x(1)>=ra(1)).and.(x(1)<=rb(1))).and.&
+           ((x(2)>=ra(2)).and.(x(2)<=rb(2))).and.&
+           ((x(3)>=ra(3)).and.(x(3)<=rb(3))) ) on_proc2=.true.
     end function
     !---------------------------------------------------------------------------
     ! wrapper for random number generator (this may be compiler dependent)
