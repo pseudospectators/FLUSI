@@ -790,6 +790,13 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     ! go to laboratory frame:
     x_glob = matmul( transpose(M_body), x_part) + Insect%xc_body
     ! x_glob = periodize_coordinate(x_glob)
+    if (x_glob(1)<0.0) x_glob(1)=x_glob(1)+xl
+    if (x_glob(2)<0.0) x_glob(2)=x_glob(2)+yl
+    if (x_glob(3)<0.0) x_glob(3)=x_glob(3)+zl
+
+    if (x_glob(1)>=xl) x_glob(1)=x_glob(1)-xl
+    if (x_glob(2)>=yl) x_glob(2)=x_glob(2)-yl
+    if (x_glob(3)>=zl) x_glob(3)=x_glob(3)-zl
 
     ! coordinate (global) in integer space:
     ijk = nint( x_glob/dx )
@@ -800,7 +807,8 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     do iz = ijk(3)-box, ijk(3)+box
       do iy = ijk(2)-box, ijk(2)+box
         do ix = ijk(1)-box, ijk(1)+box
-          ! check if this point is on my rank
+          ! check if this point is on my rank. note this also checks implicitly
+          ! if we're in the domain at all
           if ( on_proc( (/ix,iy,iz/)  ) ) then
             ! x_glob is in the global coordinate system
             x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
@@ -810,16 +818,16 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
 
             ! unsigned distance to point
             R = dsqrt(  (x_body(1)-x_part(1))*(x_body(1)-x_part(1)) + &
-                        (x_body(2)-x_part(2))*(x_body(2)-x_part(2)) + &
-                        (x_body(3)-x_part(3))*(x_body(3)-x_part(3)) )
+            (x_body(2)-x_part(2))*(x_body(2)-x_part(2)) + &
+            (x_body(3)-x_part(3))*(x_body(3)-x_part(3)) )
 
             if ( R<=abs(mask(ix,iy,iz)) ) then
               ! this is closer, so we overwrite
               mask(ix,iy,iz) = R
               ! compute scalar product of difference vector and outward pointing normal
               projected_length = (x_body(1)-x_part(1))*n_part(1) + &
-               (x_body(2)-x_part(2))*n_part(2) + &
-               (x_body(3)-x_part(3))*n_part(3)
+              (x_body(2)-x_part(2))*n_part(2) + &
+              (x_body(3)-x_part(3))*n_part(3)
 
               if ( projected_length <= 0.d0  ) then
                 ! we're inside the particle
@@ -834,6 +842,17 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     enddo
   enddo
 
-  call save_field_hdf5(0.d0,'mask_00',mask,"mask")
-  call abort("as we wish")
+  !-----------------------------------------------------------------------------
+  ! convert signed distance function to mask function chi
+  !-----------------------------------------------------------------------------
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        mask(ix,iy,iz) = steps( mask(ix,iy,iz),0.d0)
+        mask_color(ix,iy,iz) = color_body
+      enddo
+    enddo
+  enddo
+  ! call save_field_hdf5(0.d0,'mask_00',mask,"mask")
+  ! call abort("as we wish")
 end subroutine draw_body_particle
