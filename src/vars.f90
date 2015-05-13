@@ -205,6 +205,8 @@ module vars
       integer :: tmp
       tmp=ix
       if (tmp<0) tmp = tmp+nx
+      if (tmp<0) tmp = tmp+nx
+      if (tmp>nx-1) tmp = tmp-nx
       if (tmp>nx-1) tmp = tmp-nx
       if (nx==1) tmp=0
       per=tmp

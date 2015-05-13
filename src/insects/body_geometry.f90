@@ -746,7 +746,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
 
   real(kind=pr) :: R0,R,a_body, projected_length
   real(kind=pr) :: x_body(1:3), x_glob(1:3), x_part(1:3), n_part(1:3)
-  integer :: ix,iy,iz,ip, npoints, mpicode, ijk(1:3), box
+  integer :: ix,iy,iz,ip, npoints, mpicode, ijk(1:3), box, start
 
   !-----------------------------------------------------------------------------
   ! initialization phase, executed only once
@@ -783,6 +783,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     MPI_COMM_WORLD,mpicode )
   endif
 
+  ! initialize signed distance as very far away
   mask = 99.99e9
 
   !-----------------------------------------------------------------------------
@@ -792,18 +793,17 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   npoints = size(particle_points,1)
   ! loop over the marker points
   do ip = 1, npoints
-    ! coordinate (in body system)
+    ! coordinate of surface point (in body system)
     x_part = particle_points(ip,1:3)
-    ! normal vector (in body system)
+    ! normal vector of surface point (in body system)
     n_part = particle_points(ip,4:6)
 
     ! go to laboratory frame:
     x_glob = matmul( transpose(M_body), x_part) + Insect%xc_body
-    ! x_glob = periodize_coordinate(x_glob)
+    ! periodize:
     if (x_glob(1)<0.0) x_glob(1)=x_glob(1)+xl
     if (x_glob(2)<0.0) x_glob(2)=x_glob(2)+yl
     if (x_glob(3)<0.0) x_glob(3)=x_glob(3)+zl
-
     if (x_glob(1)>=xl) x_glob(1)=x_glob(1)-xl
     if (x_glob(2)>=yl) x_glob(2)=x_glob(2)-yl
     if (x_glob(3)>=zl) x_glob(3)=x_glob(3)-zl
@@ -811,7 +811,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     ! coordinate (global) in integer space:
     ijk = nint( x_glob/dx )
     ! size of box around markers
-    box = 3
+    box = 2
 
     ! loop over neigborhood of marker
     do iz = ijk(3)-box, ijk(3)+box
@@ -828,8 +828,8 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
 
             ! unsigned distance to point
             R = dsqrt(  (x_body(1)-x_part(1))*(x_body(1)-x_part(1)) + &
-            (x_body(2)-x_part(2))*(x_body(2)-x_part(2)) + &
-            (x_body(3)-x_part(3))*(x_body(3)-x_part(3)) )
+                        (x_body(2)-x_part(2))*(x_body(2)-x_part(2)) + &
+                        (x_body(3)-x_part(3))*(x_body(3)-x_part(3)) )
 
             if ( R<=abs(mask(ix,iy,iz)) ) then
               ! this is closer, so we overwrite
@@ -837,8 +837,8 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
               mask_color(ix,iy,iz) = color_body
               ! compute scalar product of difference vector and outward pointing normal
               projected_length = (x_body(1)-x_part(1))*n_part(1) + &
-              (x_body(2)-x_part(2))*n_part(2) + &
-              (x_body(3)-x_part(3))*n_part(3)
+                                (x_body(2)-x_part(2))*n_part(2) + &
+                                (x_body(3)-x_part(3))*n_part(3)
 
               if ( projected_length <= 0.d0  ) then
                 ! we're inside the particle
@@ -847,27 +847,30 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
             endif
 
           endif ! on_proc
-
-        enddo
-      enddo
-    enddo
-  enddo
+        enddo ! nx
+      enddo ! ny
+    enddo ! nz
+  enddo ! np
 
   !-----------------------------------------------------------------------------
   ! fill the interior of the particle with "-" signs (the above concentrates
   ! on the interface!)
+  ! we exploit the fact that the x-direction is continuous in memory and not
+  ! split among processes
   !-----------------------------------------------------------------------------
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
-        if (mask(ix,iy,iz) > 99.99e6) then
-          ! is either of my neighbors negative? that means it is inside.
-          ! now the fact that my value is large indicates I am far from the boundary
-          ! but on the inside.
-          ! in other words, if my value is large, and either of my neighbors negative,
-          ! we're sure to be inside the particle
+      ! we start at a point which is surely not inside
+      ! the particle. the algorithm cannot start on interior
+      ! points.
+      start = per(nint( (Insect%xc_body(1)+1.25d0)/dx), nx)
+      do ix = start, start+nx+1 ! we run all points, still
+        ! is the point not yet touched (i.e. large value)?
+        if (mask(per(ix,nx),iy,iz) > 99.99e6) then
+          ! is either of the neighbors inside (e.g. negative)
           if (mask(per(ix+1,nx),iy,iz)<0.d0.or.mask(per(ix-1,nx),iy,iz)<0.d0) then
-            mask(ix,iy,iz) = -mask(ix,iy,iz)
+            mask(per(ix,nx),iy,iz) = -mask(per(ix,nx),iy,iz)
+            mask_color(ix,iy,iz) = color_body
           endif
         endif
       enddo
@@ -881,10 +884,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         mask(ix,iy,iz) = steps( mask(ix,iy,iz),0.d0 )
-        mask_color(ix,iy,iz) = color_body
       enddo
     enddo
   enddo
-  ! call save_field_hdf5(0.d0,'mask_00',mask,"mask")
-  ! call abort("as we wish")
 end subroutine draw_body_particle
