@@ -746,7 +746,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
 
   real(kind=pr) :: R0,R,a_body, projected_length
   real(kind=pr) :: x_body(1:3), x_glob(1:3), x_part(1:3), n_part(1:3)
-  integer :: ix,iy,iz,ip, npoints, mpicode, ijk(1:3), box, start
+  integer :: ix,iy,iz,ip, npoints, mpicode, ijk(1:3), box, start,i,j,k
 
   !-----------------------------------------------------------------------------
   ! initialization phase, executed only once
@@ -784,7 +784,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   endif
 
   ! initialize signed distance as very far away
-  mask = 99.99e9
+  mask = 1.d8
 
   !-----------------------------------------------------------------------------
   ! now, we are sure that all CPU know all points on the particle, and we can
@@ -811,7 +811,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     ! coordinate (global) in integer space:
     ijk = nint( x_glob/dx )
     ! size of box around markers
-    box = 2
+    box = 1
 
     ! loop over neigborhood of marker
     do iz = ijk(3)-box, ijk(3)+box
@@ -837,12 +837,12 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
               mask_color(ix,iy,iz) = color_body
               ! compute scalar product of difference vector and outward pointing normal
               projected_length = (x_body(1)-x_part(1))*n_part(1) + &
-                                (x_body(2)-x_part(2))*n_part(2) + &
-                                (x_body(3)-x_part(3))*n_part(3)
+                                 (x_body(2)-x_part(2))*n_part(2) + &
+                                 (x_body(3)-x_part(3))*n_part(3)
 
               if ( projected_length <= 0.d0  ) then
                 ! we're inside the particle
-                mask(ix,iy,iz) = -mask(ix,iy,iz)
+                mask(ix,iy,iz) = -R!mask(ix,iy,iz)
               endif
             endif
 
@@ -852,30 +852,56 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     enddo ! nz
   enddo ! np
 
+
+  ! do iz = ra(3), rb(3)
+  !   do iy = ra(2), rb(2)
+  !     do ix = ra(1), rb(1)
+  !       if (mask(ix,iy,iz) < 0.d0) then
+  !         R=0.d0
+  !         do k=iz-1,iz+1
+  !           do j=iy-1,iy+1
+  !             do i=ix-1,ix+1
+  !               R=R+mask( per(i,nx),per(j,ny),per(k,nz) )
+  !             enddo
+  !           enddo
+  !         enddo
+  !         R=R-mask(ix,iy,iz)
+  !         if (R>26.5e8) mask(ix,iy,iz) = 1.0d8
+  !
+  !       endif
+  !     enddo
+  !   enddo
+  ! enddo
+
   !-----------------------------------------------------------------------------
   ! fill the interior of the particle with "-" signs (the above concentrates
   ! on the interface!)
   ! we exploit the fact that the x-direction is continuous in memory and not
   ! split among processes
   !-----------------------------------------------------------------------------
+  ! we start at a point which is surely not inside
+  ! the particle. the algorithm cannot start on interior
+  ! points.
+  ! start = per(nint( (Insect%xc_body(1)-0.5*xl)/dx), nx)
+  ! if(root) write(*,*) "point is", Insect%xc_body(1)-0.5*xl
+
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
-      ! we start at a point which is surely not inside
-      ! the particle. the algorithm cannot start on interior
-      ! points.
-      start = per(nint( (Insect%xc_body(1)+1.25d0)/dx), nx)
-      do ix = start, start+nx+1 ! we run all points, still
+      do ix = start, start+nx ! we run all points, still
         ! is the point not yet touched (i.e. large value)?
         if (mask(per(ix,nx),iy,iz) > 99.99e6) then
           ! is either of the neighbors inside (e.g. negative)
           if (mask(per(ix+1,nx),iy,iz)<0.d0.or.mask(per(ix-1,nx),iy,iz)<0.d0) then
             mask(per(ix,nx),iy,iz) = -mask(per(ix,nx),iy,iz)
-            mask_color(ix,iy,iz) = color_body
+            mask_color(per(ix,nx),iy,iz) = color_body
           endif
         endif
       enddo
     enddo
   enddo
+
+  ! call save_field_hdf5(0.d0,'./mask_00',mask,"mask")
+  ! stop
 
   !-----------------------------------------------------------------------------
   ! convert signed distance function to mask function chi
@@ -887,4 +913,6 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
       enddo
     enddo
   enddo
+
+
 end subroutine draw_body_particle

@@ -162,6 +162,7 @@ subroutine rigid_solid_init(time, Insect)
   real (kind=pr), dimension(1:3,1:3) :: C_mat
 
   Insect%time = time
+  if (mpirank==0) write(*,*) "rigid solid init at time=", Insect%time
 
   if (inicond(1:8)=="backup::") then
     ! resuming the rigid solid solver from a backup

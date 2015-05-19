@@ -163,7 +163,7 @@ contains
     color_l = 2
     color_r = 3
 
-    if ((dabs(Insect%time-time)>1.0d-10).and.(mpirank==0)) then
+    if ((dabs(Insect%time-time)>1.0d-10).and.(mpirank==0).and.(Insect%BodyMotion=="free_flight")) then
       write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
     endif
 

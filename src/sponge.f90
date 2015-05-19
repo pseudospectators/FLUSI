@@ -136,6 +136,27 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
         enddo
       enddo
     enddo
+    
+  case ("moving_insect_vertical")
+    ! this sponge moves with the center of gravity Insect%xc of an insect or particle
+    ! it is used since e.g a falling sphere that periodically re-enters the domain
+    ! hits its own wake if no sponge is applied.
+    ! on the other hand, traditional sponges were fixed in space (e.g. at the faces
+    ! of the domain), thus the insect or particle would move through the sponge,
+    ! which is very unphysical. thus the sponge has to move with the center of gravity
+    ! MAY CAUSE TROUBLE IF MORE THAN ONE IS PRESENT!
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          x = (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/) - Insect%xc_body
+          x = periodize_coordinate(x)
+          if ( (x(3)>zl/2.d0-dble(sponge_thickness)*dz).or.(x(3)<-zl/2.d0+dble(sponge_thickness)*dz)  ) then
+            vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
+          endif
+        enddo
+      enddo
+    enddo
+
 
 
   case ("cavity")
