@@ -1,4 +1,4 @@
-! FSI wrapper for different (possibly time-dependend) mask functions 
+! FSI wrapper for different (possibly time-dependend) mask functions
 subroutine create_mask_fsi (time, Insect, beams )
   use mpi
   use fsi_vars
@@ -14,24 +14,26 @@ subroutine create_mask_fsi (time, Insect, beams )
 
   !-------------------------------------------------------------
   ! create obstacle mask
-  !-------------------------------------------------------------  
+  !-------------------------------------------------------------
   ! do not create any mask when not using penalization
   if (iPenalization==1) then
     ! Actual mask functions:
     select case (iMask)
-    case ("sphere","Sphere")    
+    case ("sphere","Sphere")
       call Draw_Sphere()
-    case ("cylinder","cylinder_x")    
+    case ("cylinder","cylinder_x")
       call Draw_cylinder_x()
     case ("moving_cylinder","moving_cylinder_x")
       call Draw_moving_cylinder_x(time)
-    case ("romain_open_cavity")    
+    case ("romain_open_cavity")
       call romain_open_cavity()
-    case ("Flapper")    
-      call Flapper (time)    
+    case ("Flapper")
+      call Flapper (time)
+    case ("turek_wan")
+      call turek_wan (time)
     case ("Insect")
       call Draw_Insect ( time, Insect, mask, mask_color, us)
-    case("Flexibility")      
+    case("Flexibility")
       call Draw_flexible_plate(time, beams(1))
     case ("plate","Plate")
       call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
@@ -42,7 +44,7 @@ subroutine create_mask_fsi (time, Insect, beams )
     case("none")
       ! in this case, no extra mask is set, but you might have e.g. the turbulent
       ! inlet or channel walls.
-    case default    
+    case default
       write (*,*) "iMask="//iMask//" not properly set; stopping."
       call abort()
     end select
@@ -53,13 +55,13 @@ subroutine create_mask_fsi (time, Insect, beams )
   ! The following mask functions are additional, i.e. they are added to existing
   ! mask functions. This way, one can for example compute a sphere in a channel
   ! or an insect in a turbulent inlet.
-  !-------------------------------------------------------------  
+  !-------------------------------------------------------------
   ! if desired, add cavity mask surrounding the domain
   if ((iCavity/="no").and.(iPenalization==1)) then
     call Add_Cavity ()
   endif
-  
-  ! if desired, add channel mask 
+
+  ! if desired, add channel mask
   if ((iChannel/="no").and.(iPenalization==1)) then
     call Add_Channel ()
   endif
@@ -68,7 +70,7 @@ subroutine create_mask_fsi (time, Insect, beams )
   if ((use_turbulent_inlet=="yes").and.(iPenalization==1)) then
     call turbulent_inlet( time )
   endif
-  
+
 end subroutine create_mask_fsi
 
 
@@ -108,7 +110,7 @@ subroutine Flapper (time)
 
   ! length of plate
   L = 1.d0
-  ! half the plate thickness 
+  ! half the plate thickness
   H = 2.0d0*dx
   ! width of plate (Aspect ratio)
   W = 0.54d0
@@ -136,7 +138,7 @@ subroutine Flapper (time)
             mask(ix,iy,iz) = tmp1*tmp2
 
             ! assign color "1" where >0 indicates something "useful"
-            if (mask(ix,iy,iz) > 1.0d-12) then 
+            if (mask(ix,iy,iz) > 1.0d-12) then
               mask_color(ix,iy,iz) = 1
               R = dsqrt( y**2 + z**2  )
               ! normal velocity
@@ -148,7 +150,7 @@ subroutine Flapper (time)
           endif
         endif
       endif
-      
+
     enddo
    enddo
   enddo
@@ -166,7 +168,7 @@ subroutine Flapper (time)
            R = dsqrt( y**2 + z**2 )
            call SmoothStep (tmp1, R, H, N*max(dx,dy,dz))
            call SmoothStep (tmp2, dabs(x), 0.5d0*W, N*max(dx,dy,dz))
-           
+
            ! overwrite if new value is larger
            if (mask(ix,iy,iz)<tmp1*tmp2) then
               mask(ix,iy,iz) = tmp1*tmp2
@@ -188,7 +190,7 @@ subroutine Flapper (time)
         x = dble(ix)*dx - x0
         y = dble(iy)*dy - (y0 + L*dcos(alpha))
         z = dble(iz)*dz - (z0 + L*dsin(alpha))
-        
+
         if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
            R = dsqrt( y**2 + z**2 )
            call SmoothStep (tmp1, R, H, N*max(dx,dy,dz))
@@ -196,7 +198,7 @@ subroutine Flapper (time)
            ! overwrite if new value is larger
            if (mask(ix,iy,iz)<tmp1*tmp2) then
               mask(ix,iy,iz) = tmp1*tmp2
-              if (mask(ix,iy,iz) > 1.0e-12) then 
+              if (mask(ix,iy,iz) > 1.0e-12) then
                 ! assign color "1" where >0 indicates something "useful"
                 mask_color(ix,iy,iz) = 1
                 ! velocity (remember: rotation around x0,y0,z0)
@@ -217,10 +219,10 @@ end subroutine Flapper
 
 
 !-------------------------------------------------------------------------------
-! cavity as used by romain for "open cavity" tests. the wall is from 
+! cavity as used by romain for "open cavity" tests. the wall is from
 ! -2 ... -1 and +1 ... +2
 ! xxxx------------xxxx
-! constant in all other directions. this test was used for reproducing the 
+! constant in all other directions. this test was used for reproducing the
 ! results of Benjamin's JCP for the Neumann BC
 !-------------------------------------------------------------------------------
 subroutine romain_open_cavity
@@ -258,10 +260,10 @@ subroutine taylor_couette()
   use fsi_vars
   use penalization ! mask array etc
   implicit none
-  
+
   integer :: iy, iz
   real (kind=pr) :: y, z, R, omega
-  
+
   ! reset everything
   mask = 0.d0
   mask_color = 0
@@ -271,20 +273,20 @@ subroutine taylor_couette()
   R1=0.4d0
   R2=1.0d0
   omega=1.25d0
-  
+
   do iz=ra(3),rb(3)
     z = dble(iz)*dz - 0.5d0*zl
     do iy=ra(2),rb(2)
       y = dble(iy)*dy - 0.5d0*yl
-      
+
       R=dsqrt(z*z+y*y)
-      
+
       ! inner cylinder
       if ( R<=R1) then
         mask (:, iy, iz) = 1.d0
         mask_color(:,iy,iz) = 0
       endif
-      
+
       ! outer cylinder
       if (R>=R2) then
         mask (:, iy, iz) = 1.d0
@@ -302,5 +304,57 @@ subroutine taylor_couette()
 
     enddo
   enddo
-  
+
+end subroutine
+
+
+subroutine turek_wan(time)
+  use fsi_vars
+  use penalization
+  implicit none
+
+  integer :: iy, iz
+  real(kind=pr),intent(in) :: time
+  real (kind=pr) :: y, z, R, omega,A,f0,h, R0,tmp2,uu
+
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+
+
+  R0=0.05
+  h=0.07
+  A=0.25
+  f0=0.25
+
+  ! first we draw the channel relevant for this configuration
+  do iz=ra(3),rb(3)
+    z = dble(iz)*dz-h
+    if ((z<=0.d0).or.(z>=0.41)) then
+      mask(:,:,iz) = 1.d0
+      us(:,:,iz,:) = 0.d0
+      mask_color(:,:,iz) = 0
+    endif
+  enddo
+
+  y0 = 1.1 + A*sin(2.0*pi*f0*time)
+  uu = 2.0*pi*A*f0*cos(2.0*pi*f0*time)
+  z0 = 0.41/2.0
+
+  do iz=ra(3),rb(3)
+    z = dble(iz)*dz -h
+    do iy=ra(2),rb(2)
+      y = dble(iy)*dy
+
+      R = sqrt( (z-z0)**2 + (y-y0)**2 )
+      if (R<2*R0) then
+        call SmoothStep (tmp2, R, R0, 1.0*max(dy,dz))
+        mask(:,iy,iz) = tmp2
+        mask_color(:,iy,iz) = 1
+        us(:,iy,iz,2) = uu
+      endif
+    enddo
+  enddo
+
 end subroutine
