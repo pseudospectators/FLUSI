@@ -273,6 +273,19 @@ subroutine Start_Simulation()
   endif
 
   !-----------------------------------------------------------------------------
+  ! check if at least FFT works okay
+  !-----------------------------------------------------------------------------
+  if (dry_run_without_fluid /= "yes") then
+    call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! Initial condition
+  !-----------------------------------------------------------------------------
+  call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
+
+
+  !-----------------------------------------------------------------------------
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
@@ -282,21 +295,10 @@ subroutine Start_Simulation()
       call load_kine_init(mpirank)
     endif
     ! If required, initialize rigid solid dynamics solver
-    ! and set idynamics flag on or off
-    call rigid_solid_init(time,Insect)
+    if (Insect%BodyMotion=="free_flight") then
+      call rigid_solid_init(time,Insect)
+    endif
   endif
-
-  !-----------------------------------------------------------------------------
-  ! check if at least FFT works okay
-  !-----------------------------------------------------------------------------
-  if (dry_run_without_fluid /= "yes") then
-  call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
-  endif
-
-  !-----------------------------------------------------------------------------
-  ! Initial condition
-  !-----------------------------------------------------------------------------
-  call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
 
   if (use_slicing=="yes") then
     call slice_init(time)
