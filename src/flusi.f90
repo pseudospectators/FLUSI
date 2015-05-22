@@ -280,12 +280,6 @@ subroutine Start_Simulation()
   endif
 
   !-----------------------------------------------------------------------------
-  ! Initial condition
-  !-----------------------------------------------------------------------------
-  call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
-
-
-  !-----------------------------------------------------------------------------
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
@@ -296,9 +290,18 @@ subroutine Start_Simulation()
     endif
     ! If required, initialize rigid solid dynamics solver
     if (Insect%BodyMotion=="free_flight") then
-      call rigid_solid_init(time,Insect)
+      call rigid_solid_init(0.d0,Insect)
     endif
   endif
+
+
+  !-----------------------------------------------------------------------------
+  ! Initial condition
+  !-----------------------------------------------------------------------------
+  call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
+
+
+
 
   if (use_slicing=="yes") then
     call slice_init(time)

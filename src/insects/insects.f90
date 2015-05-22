@@ -195,8 +195,13 @@ contains
       us = 0.d0
     endif
 
-    Insect%safety = 2.5d0*max(dz,dy,dx)
-    Insect%smooth = 1.0d0*max(dz,dy,dx)
+    if (nx/=1) then
+      Insect%safety = 2.5d0*max(dz,dy,dx)
+      Insect%smooth = 1.0d0*max(dz,dy,dx)
+    else
+      Insect%safety = 2.5d0*max(dz,dy)
+      Insect%smooth = 1.0d0*max(dz,dy)
+    endif
     smoothing = Insect%smooth
 
     ! some checks

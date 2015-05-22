@@ -96,7 +96,7 @@ subroutine Flapper (time)
   integer :: iy,iz,ix
   real (kind=pr) :: R, alpha_t, un, alpha_max
   real (kind=pr) :: x,y,z,ys,zs, alpha,L,H,W, tmp1, N, tmp2
-  real (kind=pr) :: safety
+  real (kind=pr) :: safety, smoothing
 
   ! reset everything
   mask = 0.d0
@@ -111,18 +111,24 @@ subroutine Flapper (time)
   ! length of plate
   L = 1.d0
   ! half the plate thickness
-  H = 2.0d0*dx
+  H = 2.0d0*dy
   ! width of plate (Aspect ratio)
   W = 0.54d0
   ! smoothing coefficient
   N = 1.5d0
-  ! safety
-  safety = 2.d0*N*max(dx,dy,dz)+H
+  if (nx==1) then
+    smoothing = N*max(dy,dz)
+    safety = 2.d0*N*max(dy,dz)+H
+  else
+    smoothing = N*max(dx,dy,dz)
+    safety = 2.d0*N*max(dx,dy,dz)+H
+  endif
 
   do iz = ra(3), rb(3)
    do iy = ra(2), rb(2)
     do ix = ra(1), rb(1)
       x = dble(ix)*dx - x0
+      if (nx==1) x=0.d0
       y = dble(iy)*dy - y0
       z = dble(iz)*dz - z0
 
@@ -132,9 +138,14 @@ subroutine Flapper (time)
 
       if ( (ys>=0.d0) .and. (ys<=L) )  then
         if ( (zs>=-H-safety) .and. (zs<=H+safety) )  then
-          if ( (x>=-0.5d0*W-safety) .and. (x<=0.5d0*W+safety) )  then
-            call SmoothStep (tmp1, abs(zs), H, N*max(dx,dy,dz))
-            call SmoothStep (tmp2, abs(x), 0.5d0*W, N*max(dx,dy,dz))
+          if (( (x>=-0.5d0*W-safety) .and. (x<=0.5d0*W+safety) ) .or. (nx==1))  then
+            call SmoothStep (tmp1, abs(zs), H, smoothing)
+
+            if (nx/=1) then
+              call SmoothStep (tmp2, abs(x), 0.5d0*W, smoothing)
+            else
+              tmp2=1.d0
+            endif
             mask(ix,iy,iz) = tmp1*tmp2
 
             ! assign color "1" where >0 indicates something "useful"
@@ -160,14 +171,19 @@ subroutine Flapper (time)
    do iy = ra(2), rb(2)
     do ix = ra(1), rb(1)
         x = dble(ix)*dx - x0
+        if (nx==1) x=0.d0
         y = dble(iy)*dy - y0
         z = dble(iz)*dz - z0
 
         ! leading edge (fixed endpoint)
         if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
            R = dsqrt( y**2 + z**2 )
-           call SmoothStep (tmp1, R, H, N*max(dx,dy,dz))
-           call SmoothStep (tmp2, dabs(x), 0.5d0*W, N*max(dx,dy,dz))
+           call SmoothStep (tmp1, R, H, smoothing)
+           if (nx/=1) then
+             call SmoothStep (tmp2, abs(x), 0.5d0*W, smoothing)
+           else
+             tmp2=1.d0
+           endif
 
            ! overwrite if new value is larger
            if (mask(ix,iy,iz)<tmp1*tmp2) then
@@ -188,13 +204,18 @@ subroutine Flapper (time)
 
         ! trailing edge (moving endpoint)
         x = dble(ix)*dx - x0
+        if (nx==1) x=0.d0
         y = dble(iy)*dy - (y0 + L*dcos(alpha))
         z = dble(iz)*dz - (z0 + L*dsin(alpha))
 
         if ( ((y>=-15.d0*dy).and.(y<=+15.d0*dy)) .and.((z>=-15.d0*dz).and.(z<=+15.d0*dz))  )then
            R = dsqrt( y**2 + z**2 )
-           call SmoothStep (tmp1, R, H, N*max(dx,dy,dz))
-           call SmoothStep (tmp2, dabs(x), 0.5d0*W, N*max(dx,dy,dz))
+           call SmoothStep (tmp1, R, H, smoothing)
+           if (nx/=1) then
+             call SmoothStep (tmp2, abs(x), 0.5d0*W, smoothing)
+           else
+             tmp2=1.d0
+           endif
            ! overwrite if new value is larger
            if (mask(ix,iy,iz)<tmp1*tmp2) then
               mask(ix,iy,iz) = tmp1*tmp2
