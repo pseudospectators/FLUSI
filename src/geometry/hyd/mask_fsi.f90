@@ -96,7 +96,7 @@ subroutine Flapper (time)
   integer :: iy,iz,ix
   real (kind=pr) :: R, alpha_t, un, alpha_max
   real (kind=pr) :: x,y,z,ys,zs, alpha,L,H,W, tmp1, N, tmp2
-  real (kind=pr) :: safety, smoothing
+  real (kind=pr) :: safety, smoothing, f0
 
   ! reset everything
   mask = 0.d0
@@ -104,9 +104,10 @@ subroutine Flapper (time)
   us = 0.d0
 
   ! motion protocoll (pitching around the x-axis with point y0,z0)
+  f0 = 1.d0
   alpha_max = deg2rad(14.d0)
-  alpha   =           alpha_max*dsin(time*2.d0*pi)
-  alpha_t = (2.d0*pi)*alpha_max*dcos(time*2.d0*pi)
+  alpha   =              alpha_max*dsin(2.d0*pi*f0*time)
+  alpha_t = (2.d0*pi*f0)*alpha_max*dcos(2.d0*pi*f0*time)
 
   ! length of plate
   L = 1.d0
@@ -116,6 +117,7 @@ subroutine Flapper (time)
   W = 0.54d0
   ! smoothing coefficient
   N = 1.5d0
+  
   if (nx==1) then
     smoothing = N*max(dy,dz)
     safety = 2.d0*N*max(dy,dz)+H

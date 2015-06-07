@@ -31,6 +31,13 @@ program FLUSI
       !-------------------------------------------------------------------------
       call postprocessing()
 
+  elseif ( infile == "--dry-run" ) then
+      !-------------------------------------------------------------------------
+      ! dry run that only generates and dumps the mask function, without
+      ! allocating or computing the fluid.
+      !-------------------------------------------------------------------------
+      call dry_run()
+
   elseif ( infile == "--solid" ) then
       !-------------------------------------------------------------------------
       ! run solid model only
@@ -275,9 +282,7 @@ subroutine Start_Simulation()
   !-----------------------------------------------------------------------------
   ! check if at least FFT works okay
   !-----------------------------------------------------------------------------
-  if (dry_run_without_fluid /= "yes") then
-    call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
-  endif
+  call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
 
   !-----------------------------------------------------------------------------
   ! initalize some insect stuff, if used
@@ -351,7 +356,7 @@ subroutine Start_Simulation()
   !-------------------------
   ! Show the breakdown of timing information
   !-------------------------
-  if (root .and. dry_run_without_fluid /="yes") call show_timings(t2)
+  if (mpirank==0) call show_timings(t2)
 end subroutine Start_Simulation
 
 

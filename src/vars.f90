@@ -27,7 +27,6 @@ module vars
 
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
-  character(len=strlen),save :: dry_run_without_fluid ! just save mask function
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
   integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD, 4 for
@@ -68,7 +67,7 @@ module vars
   real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar,tstart
 
   ! Variables set via the parameters file
-  real(kind=pr),save :: length
+  real(kind=pr),save :: length, alpha_generic
 
   ! Domain size variables:
   integer,save :: nx,ny,nz

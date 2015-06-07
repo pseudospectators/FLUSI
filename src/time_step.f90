@@ -52,20 +52,13 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     t4=MPI_wtime()
     dt0=dt1
 
- ! if ((Insect%xc_body(3)<1.0).or.(Insect%xc_body(2)<0.5).or.(Insect%xc_body(2)>yl-0.5).or.&
- ! (Insect%xc_body(1)<0.5).or.(Insect%xc_body(1)>xl-0.5)) continue_timestepping=.false.
-
     !-------------------------------------------------
     ! advance fluid/B-field in time
     !-------------------------------------------------
     ! note: the array "vort" is a real work array and has neither input nor
     ! output values after fluid time stepper
-    if (dry_run_without_fluid/="yes") then
-      call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-            workc,explin,press,Insect,beams)
-    else
-      call create_mask( time, Insect, beams )
-    endif
+    call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
+          workc,explin,press,Insect,beams)
 
     !-----------------------------------------------
     ! time step done: advance iteration + time

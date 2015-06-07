@@ -175,7 +175,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   t1 = MPI_wtime()
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-  do ix=ra(1),rb(1)
+      do ix=ra(1),rb(1)
         ! local loop variables
         ux   = u(ix,iy,iz,1)
         uy   = u(ix,iy,iz,2)
@@ -343,6 +343,7 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
   use mpi
   use p3dfft_wrapper
   use vars
+  use insect_module
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -353,10 +354,16 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
-call abort("ERROR NOT TO DO")
-  ! call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc)
-  ! call pressure(nlk,workc(:,:,:,1))
-  ! call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  type(diptera) :: Insect_dummy
+
+  ! this is a hack - we should not call this routine with insects
+  if (iMask=="Insect") then
+    call abort("do not call pressure_given_uk with iMask==insect!!!")
+  endif
+
+  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect_dummy)
+  call pressure(nlk,workc(:,:,:,1))
+  call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
 end subroutine
 

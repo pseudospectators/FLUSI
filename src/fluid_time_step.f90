@@ -54,12 +54,6 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   t1=MPI_wtime()
 
-  ! dry runs just create (and save) the mask function, but do not solve Navie--Stokes
-  ! this is very useful for insects, since one frequently does use this to test
-  ! newly implemented species.
-  if (dry_run_without_fluid=="yes") then
-    return
-  endif
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
   case("RK2")

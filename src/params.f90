@@ -81,6 +81,7 @@ subroutine get_params_common(PARAMS,i)
   integer,intent(in) :: i
   ! Contains the ascii-params file
   character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=strlen) :: dummy
 
   ! Resolution section
   call param_int(PARAMS,i,"Resolution","nx",nx, 4)
@@ -107,6 +108,7 @@ subroutine get_params_common(PARAMS,i)
 
   ! Geometry section
   call param_dbl(PARAMS,i,"Geometry","Size",length, 0.d0)
+  call param_dbl(PARAMS,i,"Geometry","alpha",alpha_generic, 0.d0)
   call param_dbl(PARAMS,i,"Geometry","r1",r1,1.d0)
   call param_dbl(PARAMS,i,"Geometry","r2",r2,1.0681415d0)
   call param_dbl(PARAMS,i,"Geometry","r3",r3,1.206371d0)
@@ -192,15 +194,11 @@ subroutine get_params_common(PARAMS,i)
   call param_dbl(PARAMS,i,"Forcing","eps_forcing",eps_forcing, 0.d0)
 
   !-- dry run, just the mask function
-  call param_str(PARAMS,i,"DryRun","dry_run_without_fluid",dry_run_without_fluid,"no")
-  if (dry_run_without_fluid=="yes") then
-    write(*,*) "Attention! This is a dry run without fluid"
-    write(*,*) "Deactivating all useless save-switches..."
-    idobackup=0
-    iSavePress=0
-    iSaveVelocity=0
-    iSaveVorticity=0
+  call param_str(PARAMS,i,"DryRun","dry_run_without_fluid",dummy,"no")
+  if (dummy=="yes") then
+    call abort('dry_run_without_fluid is depecreated; run flusi with ./flusi --dry-run PARAMS.ini instead')
   endif
+
 
   ! Set other parameters (all procs)
   pi=4.d0 *datan(1.d0)
@@ -606,8 +604,8 @@ subroutine param_dbl (PARAMS, actual_lines, section, keyword, params_real, &
         else
           !-- the value is given in gridpoints (e.g. thickness=5*dx)
           read (value(1:index(value,'*dx')-1),*) params_real
-          params_real = params_real*max(dx,dy,dz)
-          write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/max(dx,dy,dz)
+          params_real = params_real*max(dy,dz)
+          write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/max(dy,dz)
           write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
         endif
      else
