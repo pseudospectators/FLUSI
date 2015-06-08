@@ -276,6 +276,11 @@ contains
     !-----------------------------------------------------------------------------
     ! angular velocity vectors
     !-----------------------------------------------------------------------------
+    ! If Insect%BodyMotion=="free_flight", then
+    ! the angular velocity is a state variable of the insect free flight
+    ! solver, and the value is copied in body-motion to the insect variable
+    ! in line 61 of body_motion.f90.
+    ! Otherwise, the following block is active:
     if (Insect%BodyMotion/="free_flight") then
       ! NOTE: when using the quaternion based free-flight solver, the angular
       ! velocity of the body is computed dynamically, and the rotation matrix that
