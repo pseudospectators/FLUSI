@@ -552,7 +552,7 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
            kz=wave_z(iz)
            k2=kx*kx + ky*ky + kz*kz
 
-           if (k2 .ne. 0.0) then
+           if (k2 .ne. 0.0d0) then
               nlx=nlk1(iz,iy,ix)
               nly=nlk2(iz,iy,ix)
               nlz=nlk3(iz,iy,ix)

@@ -95,7 +95,7 @@ subroutine draw_moving_cylinder_x (time)
   real (kind=pr) :: x, y, z, tmp, R, N_smooth, Vc, yc
 
   ! Velocity and positions of the cylinder
-  Vc = -1.0
+  Vc = -1.0d0
   yc = y0 + Vc * time
 
   N_smooth = 1.5d0

@@ -63,10 +63,10 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   if ( save_only_one_period == "yes" ) then
     ! overwrite files from last period to save disk space
     ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-    write(name,'(i6.6)') floor( (time-real(floor(time/tsave_period)))*1000.d0 )
+    write(name,'(i6.6)') nint( (time-dble(floor(time/tsave_period)))*1000.d0 )
   else
     ! name is just the time
-    write(name,'(i6.6)') floor(time*1000.d0)
+    write(name,'(i6.6)') nint(time*1000.d0)
   endif
 
   if (mpirank == 0 ) then
@@ -130,7 +130,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   if (isaveMask == 1 .and. iPenalization == 1) then
     mask = mask*eps
     call compute_mask_volume(volume)
-    if ((mpirank==0).and.(volume<1e-10)) write(*,*) "WARNING: saving empty mask"
+    if ((mpirank==0).and.(volume<1.0d-10)) write(*,*) "WARNING: saving empty mask"
     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
     ! call save_field_hdf5(time,'./color_'//name,dble(mask_color),"color")
     mask = mask/eps

@@ -253,7 +253,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ROC1 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / dble(ns)
     ROC2 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / norm
-    if (((ROC2<1.0e-3).or.(inter==100)).or.(it<2)) then
+    if (((ROC2<1.0d-3).or.(inter==100)).or.(it<2)) then
       iterate = .false.
     endif
 
@@ -504,7 +504,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
   !-- u^n+1=u_euler + dt/2*( -N(u^n)*vis + N(u_euler) )
   do i=1,nd
     !-- advance all nd fields
-    uk(:,:,:,i)=uk(:,:,:,i) +0.5*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
+    uk(:,:,:,i)=uk(:,:,:,i) +0.5d0*dt1*(-nlk(:,:,:,i,0) + nlk(:,:,:,i,1) )
   enddo
 end subroutine rungekutta2
 
@@ -689,8 +689,8 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   !-- Calculate velocity at new time step
   !-- (2nd order Adams-Bashforth with exact integration of diffusion term)
-  b10=dt1/dt0*(0.5*dt1 + dt0)
-  b11=-0.5*dt1*dt1/dt0
+  b10=dt1/dt0*(0.5d0*dt1 + dt0)
+  b11=-0.5d0*dt1*dt1/dt0
 
   !-- compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
@@ -824,7 +824,7 @@ subroutine adjust_dt(time,u,dt1)
   real(kind=pr), intent(out)::dt1
   real(kind=pr)::umax,t , t1,t2
 
-  if (dt_fixed>0.0) then
+  if (dt_fixed>0.0d0) then
     !-- fix the time step no matter what. the result may be unstable.
     dt1=dt_fixed
   else
@@ -868,7 +868,7 @@ subroutine adjust_dt(time,u,dt1)
       !-- impose max dt, if specified
       if (dt_max>0.d0) dt1=min(dt1,dt_max)
       !-- Impose penalty stability condition: dt cannot be larger than eps
-      if (iPenalization > 0) dt1=min(0.99*eps,dt1)
+      if (iPenalization > 0) dt1=min(0.99d0*eps,dt1)
 
       !-- RungeKutta4 treats diffusive terms explicitly, so there is a condition
       !   for the viscosity as well.
@@ -890,7 +890,7 @@ subroutine adjust_dt(time,u,dt1)
           ! the time interval between outputs, decrease the time-step.
           dt1 = min(dt1,0.98d0*tsave)
           t = dble(ceiling(time/tsave))*tsave
-          if ((time+dt1>t).and.(abs(time-t)>=1.d-6)) then
+          if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
             dt1=t-time
           endif
         endif
@@ -899,7 +899,7 @@ subroutine adjust_dt(time,u,dt1)
         ! the time interval between outputs, decrease the time-step.
         dt1 = min(dt1,0.98d0*tintegral)
         t = dble(ceiling(time/tintegral))*tintegral
-        if ((time+dt1>t).and.(abs(time-t)>=1.d-6)) then
+        if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
           dt1=t-time
         endif
 
@@ -908,13 +908,13 @@ subroutine adjust_dt(time,u,dt1)
           ! the time interval between outputs, decrease the time-step.
           dt1 = min(dt1,0.98d0*tslice)
           t = dble(ceiling(time/tslice))*tslice
-          if ((time+dt1>t).and.(abs(time-t)>=1.d-6)) then
+          if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
             dt1=t-time
           endif
         endif
 
         t = tmax
-        if ((time+dt1>t).and.(abs(time-t)>=1.d-6)) then
+        if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
           dt1 = tmax-time
         endif
       endif

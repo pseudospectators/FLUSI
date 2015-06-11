@@ -417,13 +417,13 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
 
   ! position vector of the head
   call param_vct(PARAMS,i,"Insects","x_head",&
-       Insect%x_head, (/0.5*Insect%L_body,0.d0,0.d0 /) )
+       Insect%x_head, (/0.5d0*Insect%L_body,0.d0,0.d0 /) )
 
   ! eyes
-  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,+1.,1./)
+  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,+1.0d0,1.0d0/)
   call param_vct(PARAMS,i,"Insects","x_eye_r",Insect%x_eye_r, defaultvec)
 
-  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8*(/1.,-1.,1./)
+  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,-1.0d0,1.0d0/)
   call param_vct(PARAMS,i,"Insects","x_eye_l",Insect%x_eye_l, defaultvec)
 
   ! wing hinges (root points)
@@ -433,7 +433,7 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
   call param_vct(PARAMS,i,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)
 
-  Insect%smooth = 2.0*dz
+  Insect%smooth = 2.0d0*dz
 
   ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
   call param_str(PARAMS,i,"Insects","KineFromFile",Insect%KineFromFile,"no")

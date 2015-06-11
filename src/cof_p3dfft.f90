@@ -357,7 +357,7 @@ subroutine cofts(iplan,f,fk,L,n)
   call dfftw_execute_dft_r2c(Desc_Handle_1D_f(iplan),f,ft)
 
   ! Output
-  norm = 1.0 / real(L)
+  norm = 1.0d0 / real(L)
   do j=0,n-1
      fk(:,j) = ft(0:L-1,j) * norm
   end do
@@ -392,7 +392,7 @@ subroutine cofits(iplan,fk,f,L,n)
   ! Input
   do j=0,n-1
      ft(0:L-1,j) = fk(:,j)
-     ft(L:L+1,j) = 0.0
+     ft(L:L+1,j) = 0.0d0
   end do
 
   call dfftw_execute_dft_c2r(Desc_Handle_1D_b(iplan),ft,f)

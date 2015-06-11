@@ -251,7 +251,7 @@ subroutine are_we_there_yet(time,wtime_tstart,dt1)
     time_left = (tmax-time) * (t2/(time-tstart))
     write(*,'("time left: ",i2,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",g10.2)') &
     floor(time_left/(24.d0*3600.d0))   ,&
-    floor(mod(time_left,24.*3600.d0)/3600.d0),&
+    floor(mod(time_left,24.d0*3600.d0)/3600.d0),&
     floor(mod(time_left,3600.d0)/60.d0),&
     floor(mod(mod(time_left,3600.d0),60.d0)),&
     (MPI_wtime()-time_total)/3600.d0,&

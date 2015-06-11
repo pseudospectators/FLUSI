@@ -84,7 +84,7 @@ subroutine flush_slices
             write(fname, '(A14,"_",i6.6,".h5")') dsetname, iflush
 
             tmp = slice_cache(0:icache-1,:,:,idir,slice_slot)
-            call save_field_hdf5_xvar(9.9e9,fname,tmp,dsetname,icache)
+            call save_field_hdf5_xvar(9.9d9,fname,tmp,dsetname,icache)
           enddo
         endif
       enddo

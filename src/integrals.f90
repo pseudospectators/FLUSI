@@ -379,10 +379,10 @@ subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3)
      enddo
   enddo
 
-  LE=0.5*dx*dy*dz*LE
-  LEx=0.5*dx*dy*dz*LEx
-  LEy=0.5*dx*dy*dz*LEy
-  LEz=0.5*dx*dy*dz*LEz
+  LE=0.50d0*dx*dy*dz*LE
+  LEx=0.50d0*dx*dy*dz*LEx
+  LEy=0.50d0*dx*dy*dz*LEy
+  LEz=0.50d0*dx*dy*dz*LEz
 
   ! Sum over all MPI processes
   call MPI_ALLREDUCE(LE,E,&
@@ -437,10 +437,10 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
      enddo
   enddo
 
-  LE= 0.5*dx*dy*dz*(LEx+LEy+LEz)
-  LEx=0.5*dx*dy*dz*LEx
-  LEy=0.5*dx*dy*dz*LEy
-  LEz=0.5*dx*dy*dz*LEz
+  LE= 0.50d0*dx*dy*dz*(LEx+LEy+LEz)
+  LEx=0.50d0*dx*dy*dz*LEx
+  LEy=0.50d0*dx*dy*dz*LEy
+  LEz=0.50d0*dx*dy*dz*LEz
 
   ! Sum over all MPI processes
   call MPI_ALLREDUCE(LE,E,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
@@ -805,9 +805,9 @@ subroutine compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
         k = nint(kreal)
 
         if ( ix==0 .or. ix==nx/2 ) then
-          sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2.
-          sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2.
-          sum_uz=dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+          sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2.d0
+          sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2.d0
+          sum_uz=dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.d0
         else
           sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)
           sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)

@@ -279,9 +279,9 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   !-----------------------------------------------------------------------------
   ! force
   !-----------------------------------------------------------------------------
-  force_new_locx = 0.0
-  force_new_locy = 0.0
-  force_new_locz = 0.0
+  force_new_locx = 0.0d0
+  force_new_locy = 0.0d0
+  force_new_locz = 0.0d0
 
   norm = dx*dy*dz*eps
 

@@ -117,7 +117,7 @@ subroutine Flapper (time)
   W = 0.54d0
   ! smoothing coefficient
   N = 1.5d0
-  
+
   if (nx==1) then
     smoothing = N*max(dy,dz)
     safety = 2.d0*N*max(dy,dz)+H
@@ -346,24 +346,24 @@ subroutine turek_wan(time)
   us = 0.d0
 
 
-  R0=0.05
-  h=0.07
-  A=0.25
-  f0=0.25
+  R0=0.05d0
+  h=0.07d0
+  A=0.25d0
+  f0=0.25d0
 
   ! first we draw the channel relevant for this configuration
   do iz=ra(3),rb(3)
     z = dble(iz)*dz-h
-    if ((z<=0.d0).or.(z>=0.41)) then
+    if ((z<=0.d0).or.(z>=0.41d0)) then
       mask(:,:,iz) = 1.d0
       us(:,:,iz,:) = 0.d0
       mask_color(:,:,iz) = 0
     endif
   enddo
 
-  y0 = 1.1 + A*sin(2.0*pi*f0*time)
-  uu = 2.0*pi*A*f0*cos(2.0*pi*f0*time)
-  z0 = 0.41/2.0
+  y0 = 1.1d0 + A*sin(2.0d0*pi*f0*time)
+  uu = 2.0*pi*A*f0*cos(2.0d0*pi*f0*time)
+  z0 = 0.41d0/2.0d0
 
   do iz=ra(3),rb(3)
     z = dble(iz)*dz -h

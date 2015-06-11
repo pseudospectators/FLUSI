@@ -136,7 +136,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
         enddo
       enddo
     enddo
-    
+
   case ("moving_insect_vertical")
     ! this sponge moves with the center of gravity Insect%xc of an insect or particle
     ! it is used since e.g a falling sphere that periodically re-enters the domain
@@ -170,7 +170,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
-          if (mask(ix,iy,iz) < 1e-12) then
+          if (mask(ix,iy,iz) < 1.0d-12) then
             !------------------------
             if (nx>4) then ! skip this direction for 2D runs...
             if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
@@ -202,7 +202,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
-          if (mask(ix,iy,iz) < 1e-12) then
+          if (mask(ix,iy,iz) < 1.0d-12) then
             !------------------------
             if (nx>4) then ! skip this direction for 2D runs...
             if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
@@ -228,7 +228,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
-          if (mask(ix,iy,iz) < 1e-12) then
+          if (mask(ix,iy,iz) < 1.0d-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
             vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
           endif
@@ -250,7 +250,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           ! do not use vorticity sponge and solid wall simulateously
-          if (mask(ix,iy,iz) < 1e-12) then
+          if (mask(ix,iy,iz) < 1.0d-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
             vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
           endif
@@ -284,7 +284,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
       do iy=ra(2),rb(2)
         do ix=ra(1),rb(1)
           ! do not use vorticity sponge and solid wall simulateously
-          if (mask(ix,iy,iz) < 1e-12) then
+          if (mask(ix,iy,iz) < 1.0d-12) then
           if ((ix<=sponge_thickness-1).or.(ix>=nx-1-sponge_thickness+1)) then
             vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
           endif

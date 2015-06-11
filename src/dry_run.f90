@@ -56,7 +56,7 @@ subroutine dry_run()
   !-----------------------------------------------------------------------------
   ! size (in bytes) of one field
   mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
-  memory = 0.0_pr
+  memory = 0.0d0
 
   ! mask function (defines the geometry)
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
@@ -100,8 +100,8 @@ subroutine dry_run()
 
 
   if (tsave == 0.d0) then
-    if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05!!!"
-    tsave = 0.05
+    if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
+    tsave = 0.05d0
   endif
 
   !*****************************************************************************
