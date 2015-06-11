@@ -11,7 +11,7 @@ subroutine add_channel()
   use penalization ! mask array etc
   implicit none
   integer :: ix,iy,iz
-  real (kind=pr) :: x,y, z, usponge, H_eff, z_chan
+  real (kind=pr) :: x,y,z,usponge,H_eff,z_chan,x_cyl,y_cyl,r_cyl
   
   
   ! loop over the physical space
@@ -99,7 +99,27 @@ subroutine add_channel()
               us(ix,iy,iz,2) = 1.5*z_chan*(H_eff-z_chan)/((0.5*H_eff)**2)              
               us(ix,iy,iz,3) = 0.d0
             endif
-            
+           
+          case ("cylinder")
+            ! Vertical circular cylinder
+            r_cyl = 0.947d0
+            x_cyl = 1.5d0
+            y_cyl = 0.5d0*yl
+            x = dble(ix)*dx
+            y = dble(iy)*dy
+            if ( (x-x_cyl)**2+(y-y_cyl)**2 < r_cyl**2 ) then
+              mask(ix,iy,iz) = 1.d0
+              mask_color(ix,iy,iz) = 0
+              us(ix,iy,iz,:) = 0.d0  
+            endif
+            ! Small cylinder to break symmetry
+            if ( (x-(x_cyl+r_cyl*cos(0.25d0*pi)))**2+(y-(y_cyl+r_cyl*sin(0.25d0*pi)))**2 < 0.05d0**2 ) then
+              mask(ix,iy,iz) = 1.d0
+              mask_color(ix,iy,iz) = 0
+              us(ix,iy,iz,:) = 0.d0  
+            endif
+ 
+
           case default
             write (*,*) "add_channel()::iChannel is not a known value"
             call abort()

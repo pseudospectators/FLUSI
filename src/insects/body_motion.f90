@@ -35,6 +35,7 @@ subroutine BodyMotion(time, Insect)
 
 
   select case (Insect%BodyMotion)
+
   case ("forward")
     psi = 0.d0
     !    beta = deg2rad(-15.0d0)
@@ -54,7 +55,7 @@ subroutine BodyMotion(time, Insect)
     psi_dt   = 0.d0
     beta_dt  = 0.d0
     gamma_dt = 0.d0
-    xc = (/0.5*xl, 0.5*yl,0.5*zl/)
+    xc = (/0.5*xl, 0.5*yl, 0.5*zl/)
     vc = (/0.0, 0.0, 0.0/)
     body_moves = "no"
 
