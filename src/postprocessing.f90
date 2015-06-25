@@ -312,7 +312,11 @@ subroutine convert_abs_vorticity()
   call check_file_exists(fname_uz)
 
   if (mpirank == 0) then
-    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
+    write(*,*) "Compute magnitude(vorticity) from velocity files:"
+    write(*,*) "ux="//trim(adjustl(fname_ux))
+    write(*,*) "uy="//trim(adjustl(fname_uy))
+    write(*,*) "uz="//trim(adjustl(fname_uz))
+    write(*,*) "order flag is: "//trim(adjustl(order))
   endif
 
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
@@ -349,8 +353,8 @@ subroutine convert_abs_vorticity()
   call fft (uk(:,:,:,2),u(:,:,:,2))
   call fft (uk(:,:,:,3),u(:,:,:,3))
 
-
   if (order=="--second-order") then
+    if (mpirank==0) write(*,*) "using second order!"
     call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   else
     call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
@@ -360,11 +364,11 @@ subroutine convert_abs_vorticity()
   call ifft (u(:,:,:,2),uk(:,:,:,2))
   call ifft (u(:,:,:,3),uk(:,:,:,3))
 
-  ! now u contains the vorticity in physical space
+  ! now u contains the mag(vorticity) in physical space
   fname_ux='vorabs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
 
   if (mpirank == 0) then
-    write (*,'("Writing to file",A)') trim(fname_ux)
+    write (*,'("Writing mag(vor) to file: ",A)') trim(fname_ux)
   endif
 
   ! compute absolute vorticity:
