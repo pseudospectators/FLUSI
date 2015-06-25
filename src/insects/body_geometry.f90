@@ -463,17 +463,17 @@ subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_bod
 
         ! check if inside body bounds (in x-direction)
         if ( (x>=-Insect%safety) .and. (x<=1.2+Insect%safety) ) then
-          R0=0.0
+          R0=0.0d0
           ! compute radius as a function of x (counting from the tail on)
-          if (x < 0.6333) then
+          if (x < 0.6333d0) then
             ! we're in the ABDOMEN
-            R0 = max( -1.2990*x**2 + 0.9490*x + 0.0267, 0.d0)
-          elseif ((x >= 0.6333) .and. (x <=1.0 )) then
+            R0 = max( -1.2990d0*x**2 + 0.9490d0*x + 0.0267d0, 0.0d0)
+          elseif ((x >= 0.6333d0) .and. (x <=1.0d0 )) then
             ! we're in the THORAX
-            R0 = max( -2.1667*x**2 + 3.4661*x - 1.2194, 0.d0)
-          elseif ((x >= 1.0) .and. (x <=1.2 )) then
+            R0 = max( -2.1667d0*x**2 + 3.4661d0*x - 1.2194d0, 0.0d0)
+          elseif ((x >= 1.0d0) .and. (x <=1.2d0 )) then
             ! we're in the HEAD
-            R0 = max( -12.68*x**2 + 27.4960*x - 14.7360, 0.d0)
+            R0 = max( -12.68d0*x**2 + 27.4960d0*x - 14.7360d0, 0.0d0)
           endif
 
           ! radius at this point
@@ -526,9 +526,9 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   Insect%R_eye = 0.0625d0
   Insect%x_pivot_r =(/ 0.05d0, -0.2165d0, 0.d0 /)
   Insect%x_pivot_l =(/ 0.05d0, +0.2165d0, 0.d0 /)
-  Insect%b_body = 0.1
-  Insect%L_body = 1.0
-  Insect%x_head = (/0.5*Insect%L_body,0.d0,0.d0 /)
+  Insect%b_body = 0.1d0
+  Insect%L_body = 1.0d0
+  Insect%x_head = (/0.5d0*Insect%L_body,0.d0,0.d0 /)
   Insect%x_eye_r = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&
   *0.8d0*(/1.d0,+1.d0,1.d0/)
   Insect%x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&

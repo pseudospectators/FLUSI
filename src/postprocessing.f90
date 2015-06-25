@@ -285,7 +285,7 @@ end subroutine convert_bin2hdf
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocess --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5
+! ./flusi --postprocess --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5 --second-order
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! directly compute the absolute value of vorticity, do not save components
@@ -297,7 +297,7 @@ subroutine convert_abs_vorticity()
   use helpers
   use basic_operators
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, order
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
@@ -305,6 +305,7 @@ subroutine convert_abs_vorticity()
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
+  call get_command_argument(6,order)
 
   call check_file_exists(fname_ux)
   call check_file_exists(fname_uy)
@@ -348,14 +349,19 @@ subroutine convert_abs_vorticity()
   call fft (uk(:,:,:,2),u(:,:,:,2))
   call fft (uk(:,:,:,3),u(:,:,:,3))
 
-  call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+
+  if (order=="--second-order") then
+    call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  else
+    call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  endif
 
   call ifft (u(:,:,:,1),uk(:,:,:,1))
   call ifft (u(:,:,:,2),uk(:,:,:,2))
   call ifft (u(:,:,:,3),uk(:,:,:,3))
 
   ! now u contains the vorticity in physical space
-  fname_ux='vor_abs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
+  fname_ux='vorabs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
 
   if (mpirank == 0) then
     write (*,'("Writing to file",A)') trim(fname_ux)
@@ -364,7 +370,7 @@ subroutine convert_abs_vorticity()
   ! compute absolute vorticity:
   u(:,:,:,1) = dsqrt(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vor_abs")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vorabs")
 
   deallocate (u)
   deallocate (uk)
