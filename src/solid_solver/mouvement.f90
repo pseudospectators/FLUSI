@@ -68,6 +68,19 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
       alpha_t = kt*y + yt*k
       alpha_tt = ktt*y + ytt*k + 2.d0*kt*yt
 
+  case ("heaving")
+      ! for comparison with Yeh, Alexeev (PoF 2014)
+      alpha = 0.d0
+      alpha_t = 0.d0
+      alpha_tt = 0.d0
+      LeadingEdge(1) = 0.d0
+      LeadingEdge(2) = 0.d0
+
+      LeadingEdge(3) = 0.d0
+      LeadingEdge(4) = 0.1d0*sin(2.d0*pi*time) * (2.d0*pi)
+
+      LeadingEdge(5) = 0.d0
+      LeadingEdge(6) = 0.1d0*cos(2.d0*pi*time) * (2.d0*pi)**2
   case ("flapper")
      R=1.d0
      LeadingEdge = 0.0 ! note that both x,y and u,v are zero (v0_plate contains the velocity)
@@ -177,6 +190,18 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
       beta_dt = 0.d0
       gamma_dt = 0.d0
 
+  case ("heaving")
+      ! for comparison with Yeh, Alexeev (PoF 2014)
+      x0_plate = (/ x0, y0+0.1d0*cos(2.d0*pi*time), z0 /)
+      v0_plate = (/ 0.d0,2.d0*pi*0.1d0*sin(2.d0*pi*time),0.d0/)
+
+      psi = 0.d0
+      beta = 0.d0
+      gamma = 0.d0
+      psi_dt = 0.d0
+      beta_dt = 0.d0
+      gamma_dt = 0.d0
+
   case ("flapper")
       R = 1.0 ! you need to change that in the above routine as well
       psi = deg2rad(45.d0)*dsin(time)
@@ -199,7 +224,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
    if (maxval(v0_plate)>0.d0) then
    write(*,*) "thomas, please be sure to check if the angular velocities are okay here so that you don't do the&
    & same mistake twice."
-   call abort()
+  !  call abort()
    endif
   endif
 
