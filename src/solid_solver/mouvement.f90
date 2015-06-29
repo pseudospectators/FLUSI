@@ -20,86 +20,86 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
   real(kind=pr) :: f,angle_max, R
   real(kind=pr) :: a,b,c,d,k,kt,ktt,y,yt,ytt, t
 
-   LeadingEdge = 0.0
+  LeadingEdge = 0.0
 
   select case (imposed_motion_leadingedge)
   case ("fixed_middle")
-     !--------------------------------------------------------------------------
-     ! fixed
-     !--------------------------------------------------------------------------
-     alpha    = beam%AngleBeam*pi/180.0
-     alpha_t  = 0.0
-     alpha_tt = 0.0!!
+    !--------------------------------------------------------------------------
+    ! fixed
+    !--------------------------------------------------------------------------
+    alpha    = beam%AngleBeam*pi/180.0
+    alpha_t  = 0.0
+    alpha_tt = 0.0!!
 
   case ("swimmer")
-      ! swimmer including the leading edge cylinder
-      f = frequ !-- normalizaton -> f is unity
-      angle_max = deg2rad(AngleBeam)
-      alpha    = angle_max * sin(2.d0*pi*f*time)
-      alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
-      alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
+    ! swimmer including the leading edge cylinder
+    f = frequ !-- normalizaton -> f is unity
+    angle_max = deg2rad(AngleBeam)
+    alpha    = angle_max * sin(2.d0*pi*f*time)
+    alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
+    alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
 
-      !-- leading edge acceleration
-      LeadingEdge(5) = -R_cylinder*alpha_tt*dsin(alpha) + &
-                        R_cylinder*(alpha_t**2)*(-dcos(alpha))
-      LeadingEdge(6) =  R_cylinder*alpha_tt*dcos(alpha) + &
-                        R_cylinder*(alpha_t**2)*(-dsin(alpha))
+    !-- leading edge acceleration
+    LeadingEdge(5) = -R_cylinder*alpha_tt*dsin(alpha) + &
+    R_cylinder*(alpha_t**2)*(-dcos(alpha))
+    LeadingEdge(6) =  R_cylinder*alpha_tt*dcos(alpha) + &
+    R_cylinder*(alpha_t**2)*(-dsin(alpha))
 
   case ("swimmer_simplified","swimmer_simplified_2D")
-      ! simplified swimmer without the leading edge cylinder
-      ! startup conditioner is applied on the first period
-      t = time * frequ
-      if (t <= 1.0) then
-        a = -20.d0; b= 70.d0; c=-84.d0; d=35.d0;
-        k    = a*t**7 + b*t**6 + c*t**5 + d*t**4
-        kt  = 7.d0*a*t**6 + 6.d0*b*t**5 + 5.d0*c*t**4 + 4.d0*d*t**3
-        ktt = 42.d0*a*t**5 + 30.d0*b*t**4 + 20.d0*c*t**3 + 12.d0*d*t**2
-      else
-        k = 1.d0; kt = 0.d0; ktt = 0.d0
-      endif
-      !-- actual motion protocoll
-      angle_max = deg2rad(AngleBeam)
-      y    = angle_max * sin(2.d0*pi*frequ*time)
-      yt   = angle_max * cos(2.d0*pi*frequ*time) * (2.d0*pi*frequ)
-      ytt  = -1.d0 * angle_max * sin(2.d0*pi*frequ*time) * (2.d0*pi*frequ)**2
+    ! simplified swimmer without the leading edge cylinder
+    ! startup conditioner is applied on the first period
+    t = time * frequ
+    if (t <= 1.0) then
+      a = -20.d0; b= 70.d0; c=-84.d0; d=35.d0;
+      k    = a*t**7 + b*t**6 + c*t**5 + d*t**4
+      kt  = 7.d0*a*t**6 + 6.d0*b*t**5 + 5.d0*c*t**4 + 4.d0*d*t**3
+      ktt = 42.d0*a*t**5 + 30.d0*b*t**4 + 20.d0*c*t**3 + 12.d0*d*t**2
+    else
+      k = 1.d0; kt = 0.d0; ktt = 0.d0
+    endif
+    !-- actual motion protocoll
+    angle_max = deg2rad(AngleBeam)
+    y    = angle_max * sin(2.d0*pi*frequ*time)
+    yt   = angle_max * cos(2.d0*pi*frequ*time) * (2.d0*pi*frequ)
+    ytt  = -1.d0 * angle_max * sin(2.d0*pi*frequ*time) * (2.d0*pi*frequ)**2
 
-      !-- motion protocoll times startup conditioner
-      alpha = k*y
-      alpha_t = kt*y + yt*k
-      alpha_tt = ktt*y + ytt*k + 2.d0*kt*yt
+    !-- motion protocoll times startup conditioner
+    alpha = k*y
+    alpha_t = kt*y + yt*k
+    alpha_tt = ktt*y + ytt*k + 2.d0*kt*yt
 
   case ("heaving")
-      ! for comparison with Yeh, Alexeev (PoF 2014)
-      alpha = 0.d0
-      alpha_t = 0.d0
-      alpha_tt = 0.d0
-      LeadingEdge(1) = 0.d0
-      LeadingEdge(2) = 0.d0
+    ! for comparison with Yeh, Alexeev (PoF 2014)
+    alpha = 0.d0
+    alpha_t = 0.d0
+    alpha_tt = 0.d0
+    LeadingEdge(1) = 0.d0
+    LeadingEdge(2) = 0.d0
 
-      LeadingEdge(3) = 0.d0
-      LeadingEdge(4) = 0.1d0*sin(2.d0*pi*time) * (2.d0*pi)
+    LeadingEdge(3) = 0.d0
+    LeadingEdge(4) = 0.1d0*sin(2.d0*pi*time) * (2.d0*pi)
 
-      LeadingEdge(5) = 0.d0
-      LeadingEdge(6) = 0.1d0*cos(2.d0*pi*time) * (2.d0*pi)**2
+    LeadingEdge(5) = 0.d0
+    LeadingEdge(6) = 0.1d0*cos(2.d0*pi*time) * (2.d0*pi)**2
   case ("flapper")
-     R=1.d0
-     LeadingEdge = 0.0 ! note that both x,y and u,v are zero (v0_plate contains the velocity)
-     ! however, leading edge acceleration is not zero
-     LeadingEdge(5) = 0.d0
-     LeadingEdge(6) = R*deg2rad(45.d0)*dsin(time)
-     alpha    = 0.0
-     alpha_t  = 0.0
-     alpha_tt = 0.0
+    R=1.d0
+    LeadingEdge = 0.0 ! note that both x,y and u,v are zero (v0_plate contains the velocity)
+    ! however, leading edge acceleration is not zero
+    LeadingEdge(5) = 0.d0
+    LeadingEdge(6) = R*deg2rad(45.d0)*dsin(time)
+    alpha    = 0.0
+    alpha_t  = 0.0
+    alpha_tt = 0.0
 
   case ("turek")
-     alpha    = 0.0
-     alpha_t  = 0.0
-     alpha_tt = 0.0
+    alpha    = 0.0
+    alpha_t  = 0.0
+    alpha_tt = 0.0
 
   case default
-      if (mpirank==0) write(*,*) "mouvement:: imposed_motion_leadingedge undefined"
-      if (mpirank==0) write(*,*) imposed_motion_leadingedge
-      call abort()
+    if (mpirank==0) write(*,*) "mouvement:: imposed_motion_leadingedge undefined"
+    if (mpirank==0) write(*,*) imposed_motion_leadingedge
+    call abort()
 
   end select
 
@@ -114,7 +114,7 @@ end subroutine mouvement
 ! gamma = yaw
 !-------------------------------------------------------------------------------
 subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
-               psi_dt, beta_dt, gamma_dt, M_plate )
+  psi_dt, beta_dt, gamma_dt, M_plate )
   use fsi_vars
   implicit none
 
@@ -127,105 +127,105 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
 
   select case (imposed_motion_leadingedge)
   case ("fixed_middle")
-      !-- beam is in the middle of the domain and bends in x-y direction
-      !-- z direction is height
-      x0_plate = (/ 0.5d0,0.5*yl,0.5*zl /)
-      v0_plate = 0.d0
-      psi = 0.d0
-      beta = 0.d0
-      gamma = 0.d0
-      psi_dt = 0.0
-      beta_dt = 0.d0
-      gamma_dt = 0.d0
+    !-- beam is in the middle of the domain and bends in x-y direction
+    !-- z direction is height
+    x0_plate = (/ 0.5d0,0.5*yl,0.5*zl /)
+    v0_plate = 0.d0
+    psi = 0.d0
+    beta = 0.d0
+    gamma = 0.d0
+    psi_dt = 0.0
+    beta_dt = 0.d0
+    gamma_dt = 0.d0
 
   case ("turek")
-      x0_plate = (/ 0.5d0*xl, 1.220287d0,  0.8291429d0 /)
-      if (nx==1) x0_plate(1)=0.d0
-      v0_plate = 0.d0
-      psi = deg2rad(+90.d0)
-      beta = 0.0
-      gamma = deg2rad(+90.d0)
-      psi_dt = 0.0
-      beta_dt = 0.d0
-      gamma_dt = 0.d0
+    x0_plate = (/ 0.5d0*xl, 1.220287d0,  0.8291429d0 /)
+    if (nx==1) x0_plate(1)=0.d0
+    v0_plate = 0.d0
+    psi = deg2rad(+90.d0)
+    beta = 0.0
+    gamma = deg2rad(+90.d0)
+    psi_dt = 0.0
+    beta_dt = 0.d0
+    gamma_dt = 0.d0
 
   case ("swimmer")
-      !-- beam is in the middle of the domain and bends in x-y direction
-      !-- z direction is height
-      f = frequ !-- normalizaton -> f is unity
-      angle_max = deg2rad(AngleBeam)
-      alpha    = angle_max * sin(2.d0*pi*f*time)
-      alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
-      alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
-      !-- note (/ x0,y0,z0 /) marks center of cylinder
-      x0_plate = (/ x0,y0,z0 /) + R_cylinder*(/dcos(alpha),dsin(alpha),0.d0/)
-      v0_plate = R_cylinder*alpha_t*(/-dsin(alpha),dcos(alpha),0.d0/)
-      !-- no rotation of relative system in swimmer case
-      psi = 0.d0
-      beta = 0.d0
-      gamma = 0.d0
-      psi_dt = 0.d0
-      beta_dt = 0.d0
-      gamma_dt = 0.d0
+    !-- beam is in the middle of the domain and bends in x-y direction
+    !-- z direction is height
+    f = frequ !-- normalizaton -> f is unity
+    angle_max = deg2rad(AngleBeam)
+    alpha    = angle_max * sin(2.d0*pi*f*time)
+    alpha_t  = angle_max * cos(2.d0*pi*f*time) * (2.d0*pi*f)
+    alpha_tt = -1.d0 * angle_max * sin(2.d0*pi*f*time) * (2.d0*pi*f)**2
+    !-- note (/ x0,y0,z0 /) marks center of cylinder
+    x0_plate = (/ x0,y0,z0 /) + R_cylinder*(/dcos(alpha),dsin(alpha),0.d0/)
+    v0_plate = R_cylinder*alpha_t*(/-dsin(alpha),dcos(alpha),0.d0/)
+    !-- no rotation of relative system in swimmer case
+    psi = 0.d0
+    beta = 0.d0
+    gamma = 0.d0
+    psi_dt = 0.d0
+    beta_dt = 0.d0
+    gamma_dt = 0.d0
 
   case ("swimmer_simplified")
-      x0_plate = (/ x0,y0,z0 /) +1.0d-8
-      v0_plate = 0.d0
+    x0_plate = (/ x0,y0,z0 /) +1.0d-8
+    v0_plate = 0.d0
 
-      psi = 0.d0
-      beta = 0.d0
-      gamma = 0.d0
-      psi_dt = 0.d0
-      beta_dt = 0.d0
-      gamma_dt = 0.d0
+    psi = 0.d0
+    beta = 0.d0
+    gamma = 0.d0
+    psi_dt = 0.d0
+    beta_dt = 0.d0
+    gamma_dt = 0.d0
 
   case ("swimmer_simplified_2D")
-      x0_plate = (/ 0.d0,y0,z0 /)
-      v0_plate = 0.d0
+    x0_plate = (/ 0.d0,y0,z0 /)
+    v0_plate = 0.d0
 
-      psi = deg2rad(+90.d0)
-      beta = 0.0
-      gamma = deg2rad(+90.d0)
-      psi_dt = 0.0
-      beta_dt = 0.d0
-      gamma_dt = 0.d0
+    psi = deg2rad(+90.d0)
+    beta = 0.0
+    gamma = deg2rad(+90.d0)
+    psi_dt = 0.0
+    beta_dt = 0.d0
+    gamma_dt = 0.d0
 
   case ("heaving")
-      ! for comparison with Yeh, Alexeev (PoF 2014)
-      x0_plate = (/ x0, y0+0.1d0*cos(2.d0*pi*time), z0 /)
-      v0_plate = (/ 0.d0,2.d0*pi*0.1d0*sin(2.d0*pi*time),0.d0/)
+    ! for comparison with Yeh, Alexeev (PoF 2014)
+    x0_plate = (/ x0, y0+0.1d0*cos(2.d0*pi*time), z0 /)
+    v0_plate = (/ 0.d0,2.d0*pi*0.1d0*sin(2.d0*pi*time),0.d0/)
 
-      psi = 0.d0
-      beta = 0.d0
-      gamma = 0.d0
-      psi_dt = 0.d0
-      beta_dt = 0.d0
-      gamma_dt = 0.d0
+    psi = 0.d0
+    beta = 0.d0
+    gamma = 0.d0
+    psi_dt = 0.d0
+    beta_dt = 0.d0
+    gamma_dt = 0.d0
 
   case ("flapper")
-      R = 1.0 ! you need to change that in the above routine as well
-      psi = deg2rad(45.d0)*dsin(time)
-      psi_dt = deg2rad(45.d0)*dcos(time)
-      x0_plate = (/ 0.5*xl, 0.5*yl+R*dsin(-psi), 0.5*zl+R*dcos(-psi) /)
-      v0_plate = (/0.d0, -R*psi_dt*dcos(-psi), +R*psi_dt*dsin(-psi)/)
-      beta = 0.d0
-      gamma = 0.d0
-      beta_dt = 0.d0
-      gamma_dt = 0.d0
+    R = 1.0 ! you need to change that in the above routine as well
+    psi = deg2rad(45.d0)*dsin(time)
+    psi_dt = deg2rad(45.d0)*dcos(time)
+    x0_plate = (/ 0.5*xl, 0.5*yl+R*dsin(-psi), 0.5*zl+R*dcos(-psi) /)
+    v0_plate = (/0.d0, -R*psi_dt*dcos(-psi), +R*psi_dt*dsin(-psi)/)
+    beta = 0.d0
+    gamma = 0.d0
+    beta_dt = 0.d0
+    gamma_dt = 0.d0
 
   case default
-      if (mpirank==0) write(*,*) "plate_coordinate_system:: imposed_motion_leadingedge undefined"
-      if (mpirank==0) write(*,*) imposed_motion_leadingedge
-      call abort()
+    if (mpirank==0) write(*,*) "plate_coordinate_system:: imposed_motion_leadingedge undefined"
+    if (mpirank==0) write(*,*) imposed_motion_leadingedge
+    call abort()
 
   end select
 
   if (mpirank==0) then
-   if (maxval(v0_plate)>0.d0) then
-   write(*,*) "thomas, please be sure to check if the angular velocities are okay here so that you don't do the&
-   & same mistake twice."
-  !  call abort()
-   endif
+    if (maxval((/beta,gamma,psi/)))>0.d0) then
+      write(*,*) "thomas, please be sure to check if the angular velocities are okay here so that you don't do the&
+      & same mistake twice."
+       call abort()
+    endif
   endif
 
 
