@@ -157,7 +157,7 @@ subroutine SolidModelConvergenceTest()
   !-----------------------------------------------------------------------------
   call init_empty_file('time_convergence_result')
   open (14, file = 'time_convergence_result', status = 'unknown',position='append')
-  write(14,'("% dt   error_y    error_vy"  error_theta)')
+  write(14,'("% dt   error_y    error_vy  error_theta")')
   do i=5,1,-1
     errors_y(i) = dsqrt(sum(solutions(i)%y - solutions(6)%y)**2) / dsqrt(sum((solutions(6)%y)**2))
     errors_th(i) = dsqrt(sum(solutions(i)%theta - solutions(6)%theta)**2) / dsqrt(sum((solutions(6)%theta)**2))
