@@ -38,7 +38,7 @@ program FLUSI
       !-------------------------------------------------------------------------
       call dry_run()
 
-  elseif ( infile == "--solid" ) then
+  elseif ( infile=="--solid" .or. infile=="--solid-time-convergence" ) then
       !-------------------------------------------------------------------------
       ! run solid model only
       !-------------------------------------------------------------------------
@@ -48,7 +48,14 @@ program FLUSI
       allocate(lin(1)) ! Set up the linear term
       call get_command_argument(2,infile)
       call get_params(infile,dummyinsect)
-      call OnlySolidSimulation()
+
+      ! if (infile=="--solid") then
+      !
+      !   call OnlySolidSimulation()
+      ! elseif (infile=="--solid-time-convergence") then
+
+        call SolidModelConvergenceTest()
+      ! endif
 
   else
       if (mpirank==0) write(*,*) "nothing to do; the argument " // &
@@ -315,6 +322,11 @@ subroutine Start_Simulation()
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
+  if (mpirank==0) then
+    write(*,'("Penalization parameter C_eta=",es12.4," and K_eta=",es12.4)') eps, &
+    sqrt(nu*eps)/dx
+  endif
+
   t1 = MPI_wtime()
   call time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
        press,infile,Insect,beams )

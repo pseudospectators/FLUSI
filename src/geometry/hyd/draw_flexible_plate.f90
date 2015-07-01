@@ -41,6 +41,8 @@ subroutine Draw_flexible_plate (time, beam)
   call mouvement ( time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
 
   ! angular velocity of moving relative frame
+  ! ISSUE #9: https://github.com/pseudospectators/FLUSI/issues/9
+  ! FIXME: the following line IS WRONG and needs to be corrected
   rot_body = (/psi_dt, beta_dt, gamma_dt/)
 
   ! reset everything
@@ -125,7 +127,8 @@ subroutine Draw_flexible_plate (time, beam)
                 mask(ix,iy,iz) = a
                 s = dble(is)*ds
                 ! if this is the first point on the beam, assign an s coordinate
-                ! that may be smaller than 0.0
+                ! that may be smaller than 0.0. we need the s-value for non-rectangular
+                ! shapes (value of "tmp2")
                 if (is==0) then
                   s = x_plate(1)*dcos(alpha) + x_plate(2)*dsin(alpha)
                 endif
@@ -137,8 +140,9 @@ subroutine Draw_flexible_plate (time, beam)
               if ( b <= mask(ix,iy,iz) ) then
                 mask(ix,iy,iz) = b
                 s = dble(is+1)*ds
-                !-- if this is the last point on the beam, assign an "s" coordinate
-                !-- that may be greater than 1.0
+                ! if this is the last point on the beam, assign an "s" coordinate
+                ! that may be greater than 1.0 we need the s-value for non-rectangular
+                ! shapes (value of "tmp2")
                 if ( is+1 == ns-1) then
                   !-- use the vector u that connects the last 2 points on the beam
                   uu = dsqrt( (beam%x(ns-1)-beam%x(ns-2))**2 +(beam%y(ns-1)-beam%y(ns-2))**2 )
@@ -154,8 +158,8 @@ subroutine Draw_flexible_plate (time, beam)
         endif
       enddo
 
-      !-- mask is now the distance function from the centerline
-      !-- convert distance function to mask function
+      ! mask is now the distance function from the centerline
+      ! convert distance function to mask function
       call smoothstep( tmp, mask(ix,iy,iz)-t_beam, 0.d0, smoothing )
 
       !-------------------------------------------------------------------------
@@ -171,7 +175,7 @@ subroutine Draw_flexible_plate (time, beam)
       if (infinite=="yes") tmp2 = 1.d0
 
 
-      !-- final value
+      !-- final value of mask function at this point
       mask(ix,iy,iz) = tmp*tmp2
 
       !-- assign mask color
@@ -183,9 +187,13 @@ subroutine Draw_flexible_plate (time, beam)
       v_tmp(1) = rot_body(2)*x_plate(3)-rot_body(3)*x_plate(2)
       v_tmp(2) = rot_body(3)*x_plate(1)-rot_body(1)*x_plate(3)
       v_tmp(3) = rot_body(1)*x_plate(2)-rot_body(2)*x_plate(1)
-      !-- up to now, all velocities are in the relative system, now bring them back
-      !-- note v0_plate is already described in the ablosute system
-      us(ix,iy,iz,1:3)=v0_plate + matmul(transpose(M_plate),u_tmp+v_tmp)
+
+      ! FIXME: make sure that upon correction above, you're sure that v_tmp
+      ! at this point is in BODY reference frame
+
+      ! up to now, all velocities are in the relative system, now bring them back
+      ! note v0_plate is already described in the global system
+      us(ix,iy,iz,1:3) = v0_plate + matmul(transpose(M_plate),u_tmp+v_tmp)
 
       endif !-- end of bounding box checks
       endif

@@ -73,14 +73,10 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
     alpha = 0.d0
     alpha_t = 0.d0
     alpha_tt = 0.d0
-    LeadingEdge(1) = 0.d0
-    LeadingEdge(2) = 0.d0
-
-    LeadingEdge(3) = 0.d0
-    LeadingEdge(4) = 0.1d0*sin(2.d0*pi*time) * (2.d0*pi)
 
     LeadingEdge(5) = 0.d0
-    LeadingEdge(6) = 0.1d0*cos(2.d0*pi*time) * (2.d0*pi)**2
+    LeadingEdge(6) = - 0.1d0 * dcos(2.d0*pi*time) * (2.d0*pi)**2
+    
   case ("flapper")
     R=1.d0
     LeadingEdge = 0.0 ! note that both x,y and u,v are zero (v0_plate contains the velocity)
@@ -97,11 +93,19 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
     alpha_tt = 0.0
 
   case default
-    if (mpirank==0) write(*,*) "mouvement:: imposed_motion_leadingedge undefined"
-    if (mpirank==0) write(*,*) imposed_motion_leadingedge
-    call abort()
-
+    call abort("Mouvement.f90: imposed_motion_leadingedge="//trim(adjustl(imposed_motion_leadingedge))//" is unknown")
   end select
+
+  if (maxval(LeadingEdge(1:4)) /= 0.d0) then
+    ! it is an history oddity that we have the relative system as a part of the
+    ! beam type and the plate_coordinate_system in addition. it comes from the
+    ! old 2D codes, where the relative system is simpler (3DoF).
+    ! Therefore, the LeadingEdge coordinate and velocity must be set zero, they
+    ! are taken into account in plate_coordinate_system. However, it is important
+    ! that the acceleraterion enters the BEQ solver, in the boundary condition.
+    ! The acceleration is thus non-zero if the beam moves
+    call abort("Mouvement.f90: at least one entry LeadingEdge(1:4) is nonzero, but is shouldn't ")
+  endif
 
 end subroutine mouvement
 
@@ -122,7 +126,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   real(kind=pr),dimension(1:3,1:3),intent(out)::M_plate
   real(kind=pr),intent(out)::psi,beta,gamma,psi_dt,beta_dt,gamma_dt
   real(kind=pr),intent(in)::time
-  real(kind=pr)::R, angle_max,f, alpha, alpha_t, alpha_tt
+  real(kind=pr)::R, angle_max,f, alpha, alpha_t, alpha_tt, a0
   real(kind=pr),dimension(1:3,1:3) :: M1,M2,M3
 
   select case (imposed_motion_leadingedge)
@@ -192,8 +196,10 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
 
   case ("heaving")
     ! for comparison with Yeh, Alexeev (PoF 2014)
-    x0_plate = (/ x0, y0+0.1d0*cos(2.d0*pi*time), z0 /)
-    v0_plate = (/ 0.d0,2.d0*pi*0.1d0*sin(2.d0*pi*time),0.d0/)
+    f=2.d0*pi
+    a0=0.1d0
+    x0_plate = (/ x0, y0 + a0*cos(f*time), z0 /)
+    v0_plate = (/ 0.d0, -a0*f*sin(f*time) ,0.d0/)
 
     psi = 0.d0
     beta = 0.d0
@@ -221,7 +227,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   end select
 
   if (mpirank==0) then
-    if (maxval((/beta,gamma,psi/)))>0.d0) then
+    if (maxval((/beta,gamma,psi/))>0.d0) then
       write(*,*) "thomas, please be sure to check if the angular velocities are okay here so that you don't do the&
       & same mistake twice."
        call abort()
