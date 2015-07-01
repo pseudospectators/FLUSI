@@ -76,7 +76,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
 
     LeadingEdge(5) = 0.d0
     LeadingEdge(6) = - 0.1d0 * dcos(2.d0*pi*time) * (2.d0*pi)**2
-    
+
   case ("flapper")
     R=1.d0
     LeadingEdge = 0.0 ! note that both x,y and u,v are zero (v0_plate contains the velocity)
@@ -227,7 +227,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   end select
 
   if (mpirank==0) then
-    if (maxval((/beta,gamma,psi/))>0.d0) then
+    if (maxval((/beta_dt,gamma_dt,psi_dt/))>0.d0) then
       write(*,*) "thomas, please be sure to check if the angular velocities are okay here so that you don't do the&
       & same mistake twice."
        call abort()
