@@ -63,6 +63,8 @@ subroutine postprocessing()
     call set_hdf5_attribute()
   case ("-ux-from-uyuz")
     call ux_from_uyuz()
+  case ("--check-params-file")
+    call check_params_file()
   case default
     if(mpirank==0) write(*,*) "Postprocessing option is "// postprocessing_mode
     if(mpirank==0) write(*,*) "But I don't know what to do with that"
@@ -2021,5 +2023,56 @@ subroutine ux_from_uyuz()
   deallocate (u)
   deallocate (uk)
   call fft_free()
+
+end subroutine
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocess --check-params-file PARAMS.ini
+!-------------------------------------------------------------------------------
+! load a parameter file and check for a bunch of common mistakes/typos
+! you tend to make, in order to help preventing stupid mistakes
+subroutine check_params_file()
+  use fsi_vars
+  use solid_model
+  use insect_module
+  use helpers
+  implicit none
+  character(len=strlen) :: infile
+  type(diptera) :: Insect
+  method="fsi"
+  nf = 1
+  nd = 3
+  allocate(lin(1))
+
+  call get_command_argument(3,infile)
+  call check_file_exists(infile)
+  call get_params(infile,Insect)
+
+  ! now we have the parameters and perform the tests
+  if ((dx /= dy).or.(dx /= dz).or.(dz /=dy)) then
+    write(*,*) "The resolution is NOT equidistant ", dx,dy,dz
+  endif
+
+  if (iMask=="insect") then
+    if ((Insect%BodyMotion=="free_flight").and.(iTimeMethodFluid/="AB2_rigid_solid")) then
+      write(*,*) "Insect%BodyMotion==free_flight but iTimeMethodFluid="//trim(adjustl(iTimeMethodFluid))
+    endif
+  endif
+
+
+  if ((use_solid_model=="yes").and.(iMask /= "Flexibility")) then
+    write(*,*) "we use the solid model but the mask is wrongly set"
+  endif
+
+  write(*,'("Penalization parameter C_eta=",es12.4," and K_eta=",es12.4)') eps, &
+  sqrt(nu*eps)/dx
+
+  write(*,'("This simulation will produce ",f5.1,"GB HDD output, if it runs until the end")') &
+  dble(iSaveVelocity*3+iSavePress+iSaveVorticity*3+iSaveMask+iSaveSolidVelocity*3) &
+  *(nx*ny*nz*4.d0/1000.d0**3)*tmax/tsave &
+  +dble(iDoBackup*2)*18.d0*(nx*ny*nz*4.d0/1000.d0**3)*2.d0 !two backup files à 18 fields double precision each.
+
 
 end subroutine
