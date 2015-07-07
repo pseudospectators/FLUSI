@@ -499,6 +499,10 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   if((method=="fsi").and.(time_avg=="yes").and.(ekin_avg=="yes")) then
     call dump_field_backup(e_avg,"ekinavg",time,dt0,dt1,n1,it,file_id)
   endif
+
+  if((method=="fsi").and.(time_avg=="yes").and.(enstrophy_avg=="yes")) then
+    call dump_field_backup(Z_avg,"Z_avg",time,dt0,dt1,n1,it,file_id)
+  endif
   ! Close the file:
   call h5fclose_f(file_id, error)
   ! Close FORTRAN interfaces and HDF5 library:
@@ -1018,6 +1022,11 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   if((method=="fsi").and.(time_avg=="yes").and.(ekin_avg=="yes")) then
     call read_field_backup(e_avg,"ekinavg",time,dt0,dt1,n1,it,file_id)
   endif
+
+  if((method=="fsi").and.(time_avg=="yes").and.(enstrophy_avg=="yes")) then
+    call read_field_backup(Z_avg,"Z_avg",time,dt0,dt1,n1,it,file_id)
+  endif
+
   if(method == "mhd") then
      ! Read MHD nonlinear source term backup too:
      call read_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
