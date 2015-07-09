@@ -59,12 +59,18 @@ subroutine postprocessing()
     call max_over_x()
   case ("--mean-over-x-subdomain")
     call mean_over_x_subdomain()
+  case ("--mean-2D")
+    call mean_2D()
   case ("--set-hdf5-attribute")
     call set_hdf5_attribute()
   case ("-ux-from-uyuz")
     call ux_from_uyuz()
   case ("--check-params-file")
     call check_params_file()
+  case ("--magnitude")
+    call magnitude_post()
+  case ("--energy")
+    call energy_post()
   case default
     if(mpirank==0) write(*,*) "Postprocessing option is "// postprocessing_mode
     if(mpirank==0) write(*,*) "But I don't know what to do with that"
@@ -73,6 +79,37 @@ subroutine postprocessing()
   if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1
 end subroutine postprocessing
 
+
+
+
+!-------------------------------------------------------------------------------
+! write the call to flusi (i.e. the command line arguments) to an ascii file
+! use this in conjunction with small ascii output files to document a little
+! bit what you have been doing.
+!-------------------------------------------------------------------------------
+subroutine postprocessing_ascii_header( io_stream )
+  use vars
+  implicit none
+  integer, intent(in) :: io_stream
+  integer :: i
+  character(len=strlen) :: arg
+
+  if (mpirank /= 0) return
+
+  ! MATLAB comment character:
+  write(io_stream,'(A,1x)',advance='no') "% CALL: ./flusi "
+
+  arg = "-p"
+  i=1
+  ! loop over command line arguments and dump them to the file:
+  do while ( arg /= "" )
+    call get_command_argument(i,arg)
+    write(io_stream,'(A,1x)',advance='no') trim(adjustl(arg))
+    i=i+1
+  end do
+
+  write(io_stream,'(A,1x)',advance='yes') "%"
+end subroutine postprocessing_ascii_header
 
 
 
@@ -1519,6 +1556,7 @@ subroutine turbulence_analysis()
   if(mpirank==0) then
     write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
     open(17,file=trim(adjustl(outfile)),status='replace')
+    call postprocessing_ascii_header(17)
     write(17,'(A)') "-----------------------------------"
     write(17,'(A)') "FLUSI turbulence analysis"
     write(17,'("call: ./flusi -p --turbulence-analysis ",5(A,1x))') trim(adjustl(fname_ux)),&
@@ -1683,7 +1721,7 @@ end subroutine turbulence_analysis
 !-------------------------------------------------------------------------------
 ! ./flusi -p --TKE-mean ekinavg_00.h5 uavgx_00.h5 uavgy_00.h5 uavgz_00.h5 tkeavg_000.h5
 ! From the time-avg kinetic energy field and the components of the time avg
-! velocity field, compute the mean turbulent kinetic energy.
+! velocity field, compute the time averaged turbulent kinetic energy.
 ! See TKE note 18 feb 2015 (Thomas) and 13 feb 2015 (Dmitry)
 ! Can be done in parallel
 !-------------------------------------------------------------------------------
@@ -1816,6 +1854,158 @@ subroutine max_over_x()
   call fft_free()
 
 end subroutine max_over_x
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --mean-2D [x,y,z] infile_000.h5 outfile.dat
+! This function reads in the specified *.h5 file and outputs the average over two
+! directions as a function of the remaining direction.
+! e.g., ./flusi -p --mean-2D z infile_000.h5 outfile.dat
+! averages over the x and y direction
+! e.g., ./flusi -p --mean-2D all infile_000.h5 outfile.dat
+! will loop over x,y,z and output all three to different files
+!-------------------------------------------------------------------------------
+subroutine mean_2d()
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use helpers
+  use mpi
+  implicit none
+  character(len=strlen) :: dsetname, infile, outfile, direction
+  real(kind=pr),dimension(:,:,:),allocatable :: u
+  real(kind=pr) :: time
+  integer :: ix,iy,iz
+
+  if (mpisize/=1) then
+    ! the reason for this is simplicity. if the y-z direction is nonlocal in memory
+    ! the avg is more complicated. only the x direction is always contiguous.
+    ! Plus: this acts on one field only, and it usually fits in the memory.
+    call abort("./flusi --postprocess --mean-2D is a SERIAL routine, use 1CPU only")
+  endif
+
+  call get_command_argument(3,direction)
+  call get_command_argument(4,infile)
+  call get_command_argument(5,outfile)
+  call check_file_exists( infile )
+
+  write(*,*) "computing average in a 2D plane"
+  write(*,*) "infile="//trim(adjustl(infile))
+  write(*,*) "outfile="//trim(adjustl(outfile))
+
+  dsetname = get_dsetname( infile )
+  call fetch_attributes( infile, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  ! allocate memory and read file
+  allocate( u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  call read_single_file ( infile, u )
+
+
+  !-----------------------------------------------------------------------------
+  ! the rest of the code depends on the direction
+  !-----------------------------------------------------------------------------
+  select case (direction)
+  case ("x")
+      open(17,file=trim(adjustl(outfile)),status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      write(*,*) "using X direction, thus averaging over y-z"
+      ! compute actual mean value in the y-z plane, directly write to file
+      do ix=0,nx-1
+        write(17,'(es15.8)') sum( u(ix,:,:) ) / dble(ny*nz)
+      enddo
+      close(17)
+  case ("y")
+      open(17,file=trim(adjustl(outfile)),status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      write(*,*) "using Y direction, thus averaging over x-z"
+      ! compute actual mean value in the x-z plane, directly write to file
+      do iy=0,ny-1
+        write(17,'(es15.8)') sum( u(:,iy,:) ) / dble(nx*nz)
+      enddo
+      close(17)
+  case ("z")
+      open(17,file=trim(adjustl(outfile)),status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      write(*,*) "using Z direction, thus averaging over x-y"
+      ! compute actual mean value in the y-z plane, directly write to file
+      do iz=0,nz-1
+        write(17,'(es15.8)') sum( u(:,:,iz) ) / dble(ny*nx)
+      enddo
+      close(17)
+  case ("all")
+      write(*,*) "we compute all three possible averages"
+      write(*,*) "--------------------------------------"
+      write(*,*) "using X direction, thus averaging over y-z"
+      ! compute actual mean value in the y-z planes, directly write to file
+      open(17,file=trim(adjustl(outfile))//"_x",status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      do ix=0,nx-1
+        write(17,'(es15.8)') sum( u(ix,:,:) ) / dble(ny*nz)
+      enddo
+      close(17)
+
+      write(*,*) "using Y direction, thus averaging over x-z"
+      ! compute actual mean value in the x-z plane, directly write to file
+      open(17,file=trim(adjustl(outfile))//"_y",status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      do iy=0,ny-1
+        write(17,'(es15.8)') sum( u(:,iy,:) ) / dble(nx*nz)
+      enddo
+      close(17)
+
+      write(*,*) "using Z direction, thus averaging over x-y"
+      ! compute actual mean value in the y-z plane, directly write to file
+      open(17,file=trim(adjustl(outfile))//"_z",status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      do iz=0,nz-1
+        write(17,'(es15.8)') sum( u(:,:,iz) ) / dble(ny*nx)
+      enddo
+      close(17)
+  case default
+      call abort("Bad choice for direction "//trim(adjustl(direction)) )
+  end select
+
+  deallocate (u)
+  call fft_free()
+
+end subroutine mean_2d
+
+
 
 
 !-------------------------------------------------------------------------------
@@ -2028,6 +2218,130 @@ end subroutine
 
 
 
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --magnitude ux_00.h5 uy_00.h5 uz_00.h5 outfile_00.h5
+!-------------------------------------------------------------------------------
+! load the vector components from file and compute & save the magnitude to
+! another HDF5 file.
+subroutine magnitude_post()
+  use vars
+  use basic_operators
+  use p3dfft_wrapper
+  use helpers
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, outfile
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time
+
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+  call get_command_argument(6,outfile)
+
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if (mpirank==0) write(*,*) "Computing magnitude of vector from these files: "
+  if (mpirank==0) write(*,*) trim(adjustl(fname_ux)), trim(adjustl(fname_uy)), trim(adjustl(fname_uz))
+  if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(outfile))
+
+  dsetname = get_dsetname( fname_ux )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+
+  work = dsqrt( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+
+  call save_field_hdf5 ( time, outfile, work, get_dsetname(outfile) )
+  if (mpirank==0) write(*,*) "Wrote magnitude to "//trim(outfile)
+
+  deallocate (u,work)
+  call fft_free()
+
+end subroutine magnitude_post
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --energy ux_00.h5 uy_00.h5 uz_00.h5 outfile_00.h5
+!-------------------------------------------------------------------------------
+! load the vector components from file and compute & save the energy to
+! another HDF5 file. (energy = (ux^2+uy^2+uz^2)/2)
+subroutine energy_post()
+  use vars
+  use basic_operators
+  use p3dfft_wrapper
+  use helpers
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, outfile
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time
+
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+  call get_command_argument(6,outfile)
+
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if (mpirank==0) write(*,*) "Computing energy of vector from these files: "
+  if (mpirank==0) write(*,*) trim(adjustl(fname_ux)), trim(adjustl(fname_uy)), trim(adjustl(fname_uz))
+  if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(outfile))
+
+  dsetname = get_dsetname( fname_ux )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+
+  work = 0.5d0 * ( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+
+  call save_field_hdf5 ( time, outfile, work, get_dsetname(outfile) )
+  if (mpirank==0) write(*,*) "Wrote energy to "//trim(outfile)
+
+  deallocate (u,work)
+  call fft_free()
+
+end subroutine energy_post
+
+
+
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocess --check-params-file PARAMS.ini
 !-------------------------------------------------------------------------------
@@ -2061,6 +2375,11 @@ subroutine check_params_file()
     endif
   endif
 
+  if ((method=="fsi").and.(use_slicing=="yes")) then
+    if (maxval(slices_to_save)>nx-1) then
+      write(*,*) "Slicing is ON but at least one index is out of bounds: ", slices_to_save
+    endif
+  endif
 
   if ((use_solid_model=="yes").and.(iMask /= "Flexibility")) then
     write(*,*) "we use the solid model but the mask is wrongly set"
