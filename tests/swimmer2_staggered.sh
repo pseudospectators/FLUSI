@@ -16,7 +16,7 @@ sad=0
 # list of prefixes the test generates
 prefixes=(ux uy uz p usx usy usz mask)
 # list of possible times (no need to actually have them)
-times=(000000 000250 000500 000750)
+times=(000000 000250 000501 000750)
 # run actual test
 ${mpi_command} ./flusi ${params}
 echo "============================"
@@ -25,7 +25,7 @@ echo "============================"
 
 # loop over all HDF5 files an generate keyvalues using flusi
 for p in ${prefixes[@]}
-do  
+do
   for t in ${times[@]}
   do
     # *.h5 file coming out of the code
@@ -33,20 +33,20 @@ do
     # will be transformed into this *.key file
     keyfile=${p}"_"${t}".key"
     # which we will compare to this *.ref file
-    reffile=./swimmer2_staggered/${p}"_"${t}".ref" 
-    
-    if [ -f $file ]; then    
+    reffile=./swimmer2_staggered/${p}"_"${t}".ref"
+
+    if [ -f $file ]; then
         # get four characteristic values describing the field
-        ${mpi_serial} ./flusi --postprocess --keyvalues ${file}        
+        ${mpi_serial} ./flusi --postprocess --keyvalues ${file}
         # and compare them to the ones stored
-        if [ -f $reffile ]; then        
-            ${mpi_serial} ./flusi --postprocess --compare-keys $keyfile $reffile 
+        if [ -f $reffile ]; then
+            ${mpi_serial} ./flusi --postprocess --compare-keys $keyfile $reffile
             result=$?
             if [ $result == "0" ]; then
-              echo -e ":) Happy, this looks okay! " $keyfile $reffile 
+              echo -e ":) Happy, this looks okay! " $keyfile $reffile
               happy=$((happy+1))
             else
-              echo -e ":[ Sad, this is failed! " $keyfile $reffile 
+              echo -e ":[ Sad, this is failed! " $keyfile $reffile
               sad=$((sad+1))
             fi
         else
@@ -59,7 +59,7 @@ do
     fi
     echo " "
     echo " "
-    
+
   done
 done
 
@@ -72,9 +72,9 @@ files=(beam_data1.t forces.t)
 for file in ${files[@]}
 do
   echo comparing $file time series...
-  
+
   ${mpi_serial} ./flusi --postprocess --compare-timeseries $file swimmer2_staggered/$file
-  
+
   result=$?
   if [ $result == "0" ]; then
     echo -e ":) Happy, time series: this looks okay! " $file
@@ -88,7 +88,7 @@ done
 
 
 
-echo -e "\thappy tests: \t" $happy 
+echo -e "\thappy tests: \t" $happy
 echo -e "\tsad tests: \t" $sad
 
 
@@ -97,7 +97,7 @@ echo -e "\tsad tests: \t" $sad
 #-------------------------------------------------------------------------------
 #                               RETURN
 #-------------------------------------------------------------------------------
-if [ $sad == 0 ] 
+if [ $sad == 0 ]
 then
   exit 0
 else

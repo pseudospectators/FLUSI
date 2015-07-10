@@ -85,9 +85,9 @@ subroutine cal_drag ( time, u, Insect )
         torquez0(color) = torquez0(color) - (xlev*penaly - ylev*penalx)
 
         ! input power due to penalization term
-        powerx = powerx + u(ix,iy,iz,1)*penalx
-        powery = powery + u(ix,iy,iz,2)*penaly
-        powerz = powerz + u(ix,iy,iz,3)*penalz
+        powerx = powerx + us(ix,iy,iz,1)*penalx
+        powery = powery + us(ix,iy,iz,2)*penaly
+        powerz = powerz + us(ix,iy,iz,3)*penalz 
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points

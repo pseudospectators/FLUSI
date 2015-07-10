@@ -4,10 +4,10 @@ echo "Unit-testing script for flusi/mhd pseudospectators."
 echo
 
 # this is to reduce the number of files in the repository
-tar xzf tests_data.tar.gz
+#tar xzf tests_data.tar.gz
 
 # list all the test scrits you want, separated by spaces
-tests=(solid_model.sh jerry.sh fruitfly_mask.sh fruitfly_mask2.sh scalar.sh
+tests=(solid_model.sh jerry.sh fruitfly_mask.sh bumblebee_mask.sh scalar.sh
        vortexring1_AB2.sh
        vortexring2_RK2.sh vortexring4_sponge.sh
        sphere_sponge_RK2.sh sphere.sh sphere_restart.sh mhdorszagtang.sh
