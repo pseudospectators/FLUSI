@@ -1110,7 +1110,7 @@ subroutine extract_subset()
   zl = dz + dble(nz1+(nz_red-1)*nzs)*dz - dble(nz1)*dz
 
   ! Done! Write extracted subset to disk and be happy with the result
-  call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field, dsetname_out )
+  call save_field_hdf5 ( time, fname_out, field, dsetname_out )
 
 end subroutine extract_subset
 
