@@ -218,7 +218,7 @@ module vars
       integer :: mpicode
 
       if (mpirank==0) write(*,*) "Killing run..."
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+      if (mpirank==0) call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine abort1
     !---------------------------------------------------------------------------
     subroutine abort2(msg)
@@ -229,7 +229,7 @@ module vars
 
       if (mpirank==0) write(*,*) "Killing run..."
       if (mpirank==0) write(*,*) msg
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+      if (mpirank==0) call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine abort2
     !---------------------------------------------------------------------------
     ! wrapper for NaN checking (this may be compiler dependent)
