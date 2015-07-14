@@ -1,6 +1,8 @@
 
 module solid_model
   use fsi_vars ! for the precision statement
+  ! we need the following line for presribed beams:
+  use helpers
   use basic_operators
   implicit none
 
@@ -173,6 +175,12 @@ end subroutine
 
 !-------------------------------------------------------------------------------
 !   SOLID SOLVER WRAPPER
+! Input:
+!   time: current time level (t^n)
+!   dt: time step for new level (t^n+1 - t^n)
+!   Beams: array of beams, all at the old time level t^n
+! Output:
+!   Beams: array of beams, all at the new time level t^n+1
 !-------------------------------------------------------------------------------
 subroutine SolidSolverWrapper ( time, dt, beams )
   use penalization ! mask array etc
@@ -199,29 +207,34 @@ subroutine SolidSolverWrapper ( time, dt, beams )
         call checknan( us(:,:,:,2), "usy")
         call checknan( us(:,:,:,3), "usz")
         ! time to go..
-        call abort()
+        call abort("The input forces for the solid solver contain NaN..abort")
       endif
 
       if (time>=T_release) then
         !-------------------------------------------
-        ! the beams are released, call IBES solvers
+        ! the beams are released (now: active FSI), call IBES solvers
         !-------------------------------------------
-        ! all implicit solvers are in one subroutine
         select case (TimeMethodSolid)
           case ("CN2","BDF2","EI1")
+            ! all implicit solvers are in one subroutine
             call IBES_solver (time, dt, beams(i))
           case ("RK4")
+            ! note this solver may be very unstable:
             call RK4_wrapper (time, dt, beams(i))
           case ("EE1")
+            ! note this solver may be very unstable:
             call EE1_wrapper (time, dt, beams(i))
+          case ("prescribed")
+            ! this is not a solver, but for passive FSI with prescribed deformation:
+            call prescribed_beam (time, dt, beams(i))
           case default
-            write(*,*) "SolidSolverWrapper::invalid value of TimeMethodSolid",&
-                TimeMethodSolid
-            call abort()
+            call abort("SolidSolverWrapper::invalid value of TimeMethodSolid"//&
+                 trim(adjustl(TimeMethodSolid)))
         end select
       else
         !-------------------------------------------
         ! the beams are not yet released, but their leading edges may move
+        ! (passive FSI)
         !-------------------------------------------
         call integrate_position (time+dt, beams(i))
       endif
@@ -283,6 +296,74 @@ subroutine SolidEnergies( beam )
 end subroutine SolidEnergies
 
 
+!-------------------------------------------------------------------------------
+! Prescribed beam deformation (given fseries of theta)
+! read the Fourier coefficients for theta from disk (only once of course)
+! and for any time t evaluate theta, theta_dot from the Fourier series
+! then, integrate the position vector and be happy.
+! this is for PASSIVE FSI
+! To DO: read nfft from file as well
+!        read filenames from params file
+!-------------------------------------------------------------------------------
+subroutine prescribed_beam ( time, dt, beam_solid )! note this is actuall only ONE beam!!
+  implicit none
+  real(kind=pr), intent (in) :: dt, time
+  type(solid), intent(inout) :: beam_solid
+  real(kind=pr),dimension(:,:),allocatable,save :: data_ai, data_bi
+  integer :: i, mpicode, ns_file, nfft
+
+  !-----------------------------------------------------------------------------
+  ! on first coll, allocate memory and read data
+  !-----------------------------------------------------------------------------
+  if (.not. allocated(data_ai)) then
+    ! initialization code
+
+    if (mpirank==0) then
+      ! read from disk.
+      open(37, file="beam_theta_prescribed_ai.in", form='formatted', status='old')
+      open(38, file="beam_theta_prescribed_bi.in", form='formatted', status='old')
+
+      read(37,*) ns_file, nfft
+      write(*,'("beam_theta_prescribed_ai.in: ns=",i3," nfft=",i3)') ns_file, nfft
+      read(38,*) ns_file, nfft
+      write(*,'("beam_theta_prescribed_bi.in: ns=",i3," nfft=",i3)') ns_file, nfft
+
+      if (ns_file /= ns) then
+        call abort("beam resolution and prescribed.in resolution different")
+      endif
+    endif
+
+    call MPI_BCAST(nfft,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
+
+    allocate(data_ai(0:ns-1,nfft+1)) !+1 for zero mode
+    allocate(data_bi(0:ns-1,nfft))
+
+    if (mpirank==0) then
+      do i = 0, ns-1 ! beam points are in rows
+        read(37,*) data_ai(i,:)
+        read(38,*) data_bi(i,:)
+      enddo
+
+      close(37)
+      close(38)
+    endif
+    call MPI_BCAST(data_ai,ns*6,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+    call MPI_BCAST(data_bi,ns*5,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! reading done, evaluate Fourier series for all points on the beam
+  !-----------------------------------------------------------------------------
+  do i=0,ns-1
+    call fseries_eval(time+dt, beam_solid%theta(i) , beam_solid%theta_dot(i) ,&
+                      data_ai(i,1), data_ai(i,2:nfft+1), data_bi(i,1:nfft))
+  enddo
+
+  ! note in the "true" solvers, the beam in the routine is advanced from t to
+  ! t_n+1, so this is what we do here, too.
+  call integrate_position ( time+dt, beam_solid )
+
+end subroutine prescribed_beam
 
 !-------------------------------------------------------------------------------
 !   SOLID SOLVER ROUTINES

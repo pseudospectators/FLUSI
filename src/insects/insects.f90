@@ -7,6 +7,7 @@
 
 module insect_module
   use fsi_vars
+  use helpers
   implicit none
 
   ! Fourier coefficients for wings

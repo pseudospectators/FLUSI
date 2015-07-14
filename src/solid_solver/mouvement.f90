@@ -45,6 +45,14 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
     LeadingEdge(6) =  R_cylinder*alpha_tt*dcos(alpha) + &
     R_cylinder*(alpha_t**2)*(-dsin(alpha))
 
+  case ("swimmer_simplified_impulsive")
+    ! simplified swimmer without the leading edge cylinder
+    ! no startup conditioner is applied
+    angle_max = deg2rad(AngleBeam)
+    alpha = angle_max * dsin(2.d0*pi*frequ*time)
+    alpha_t = angle_max * dcos(2.d0*pi*frequ*time) * (2.d0*pi*frequ)
+    alpha_tt = -1.d0 * angle_max * dsin(2.d0*pi*frequ*time) * (2.d0*pi*frequ)**2
+
   case ("swimmer_simplified","swimmer_simplified_2D")
     ! simplified swimmer without the leading edge cylinder
     ! startup conditioner is applied on the first period
