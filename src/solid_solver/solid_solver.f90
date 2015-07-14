@@ -310,7 +310,8 @@ subroutine prescribed_beam ( time, dt, beam_solid )! note this is actuall only O
   real(kind=pr), intent (in) :: dt, time
   type(solid), intent(inout) :: beam_solid
   real(kind=pr),dimension(:,:),allocatable,save :: data_ai, data_bi
-  integer :: i, mpicode, ns_file, nfft
+  integer :: i, mpicode, ns_file
+  integer, save :: nfft
 
   !-----------------------------------------------------------------------------
   ! on first coll, allocate memory and read data
@@ -347,8 +348,8 @@ subroutine prescribed_beam ( time, dt, beam_solid )! note this is actuall only O
       close(37)
       close(38)
     endif
-    call MPI_BCAST(data_ai,ns*6,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
-    call MPI_BCAST(data_bi,ns*5,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+    call MPI_BCAST(data_ai,ns*(nfft+1),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+    call MPI_BCAST(data_bi,ns*nfft,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
   endif
 
   !-----------------------------------------------------------------------------

@@ -543,15 +543,17 @@ program FLUSI
     implicit none
     integer :: mpicode
 
+    open  (14,file='mpi_distribution',status='replace')
 
     if (root) then
-      write(*,'(A)') '--------------------------------------'
-      write(*,'(A)') '*** Domain decomposition:'
-      write(*,'(A)') '--------------------------------------'
+      write(14,'(A)') '--------------------------------------'
+      write(14,'(A)') '*** Domain decomposition:'
+      write(14,'(A)') '--------------------------------------'
     endif
     call MPI_barrier (MPI_COMM_world, mpicode)
-    write (*,'("mpirank=",i5," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&
+    write (14,'("mpirank=",i5," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&
     &") k-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
     mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
     call MPI_barrier (MPI_COMM_world, mpicode)
+    close(14)
   end subroutine
