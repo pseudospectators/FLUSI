@@ -116,17 +116,14 @@ subroutine rigid_solid_rhs(time,it,Insect)
   Insect%RHS_this(5) = (GlobalIntegrals%force(2)+GlobalIntegrals%force_unst(2))/m
   Insect%RHS_this(6) = (GlobalIntegrals%force(3)+GlobalIntegrals%force_unst(3))/m + g
   ! integrate quaternion attitudes
-  Insect%RHS_this(7) = -ep(1)*ROT(1)-ep(2)*ROT(2)-ep(3)*ROT(3)
-  Insect%RHS_this(8) = +ep(0)*ROT(1)-ep(3)*ROT(2)+ep(2)*ROT(3)
-  Insect%RHS_this(9) = +ep(3)*ROT(1)+ep(0)*ROT(2)-ep(1)*ROT(3)
-  Insect%RHS_this(10) =-ep(2)*ROT(1)+ep(1)*ROT(2)+ep(0)*ROT(3)
+  Insect%RHS_this(7)  = 0.5d0*(-ep(1)*ROT(1)-ep(2)*ROT(2)-ep(3)*ROT(3))
+  Insect%RHS_this(8)  = 0.5d0*(+ep(0)*ROT(1)-ep(3)*ROT(2)+ep(2)*ROT(3))
+  Insect%RHS_this(9)  = 0.5d0*(+ep(3)*ROT(1)+ep(0)*ROT(2)-ep(1)*ROT(3))
+  Insect%RHS_this(10) = 0.5d0*(-ep(2)*ROT(1)+ep(1)*ROT(2)+ep(0)*ROT(3))
   ! integrate angular velocities
   Insect%RHS_this(11) = ( (Jy-Jz)*ROT(2)*ROT(3)+torque_body(1) )/Jx
   Insect%RHS_this(12) = ( (Jz-Jx)*ROT(3)*ROT(1)+torque_body(2) )/Jy
   Insect%RHS_this(13) = ( (Jx-Jy)*ROT(1)*ROT(2)+torque_body(3) )/Jz
-
-  ! there is a factor 1/2 missing!
-  Insect%RHS_this(7:13) = Insect%RHS_this(7:13) / 2.d0
 
   ! turn on or off degrees of freedom for free flight solver. The string from
   ! ini file contains 6 characters 1 or 0 that turn on/off x,y,z,yaw,pitch,roll
