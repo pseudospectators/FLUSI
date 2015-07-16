@@ -542,7 +542,7 @@ program FLUSI
     use mpi
     implicit none
     integer :: mpicode
-
+return
     open  (14,file='mpi_distribution',status='replace')
 
     if (root) then
