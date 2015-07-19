@@ -964,13 +964,13 @@ subroutine draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x)
 
-        if (dabs(x(1)) <= Insect%L_span+Insect%safety) then
-          if (dabs(x(2)) <= Insect%L_chord+Insect%safety) then
-            if (dabs(x(3)) <= Insect%WingThickness+Insect%safety) then
+        if (dabs(x_body(1)) <= Insect%L_span+Insect%safety) then
+          if (dabs(x_body(2)) <= Insect%L_chord+Insect%safety) then
+            if (dabs(x_body(3)) <= Insect%WingThickness+Insect%safety) then
               ! signed distance:
-              R = maxval( (/ dabs(x(3))-Insect%WingThickness/2.d0,&
-                             dabs(x(2))-Insect%L_chord/2.d0,&
-                             dabs(x(1))-Insect%L_span/2.d0 &
+              R = maxval( (/ dabs(x_body(3))-Insect%WingThickness/2.d0,&
+                             dabs(x_body(2))-Insect%L_chord/2.d0,&
+                             dabs(x_body(1))-Insect%L_span/2.d0 &
                           /) )
               mask(ix,iy,iz) = max(steps(R,0.d0),mask(ix,iy,iz))
               mask_color(ix,iy,iz) = color_body
