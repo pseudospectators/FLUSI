@@ -206,7 +206,7 @@ if(idobackup==1) then
   work(:,:,:,1),Insect,beams)
 endif
 
-if(root) write(*,'("Done time stepping; did nt=",i5," steps")') it-it_start
+if(root) write(*,'("Done time stepping; did nt=",i7," steps")') it-it_start
 end subroutine time_step
 
 
