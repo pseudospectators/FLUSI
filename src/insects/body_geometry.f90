@@ -22,6 +22,8 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
     call draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   case ("platicle")
     call draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
+  case ("coin")
+    call draw_body_coin( mask, mask_color, us, Insect, color_body, M_body)
   case ("sphere","SPHERE","Sphere")
     call draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
   case ("drosophila")
@@ -984,3 +986,66 @@ subroutine draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
   enddo
 
 end subroutine draw_body_platicle
+
+
+!-------------------------------------------------------------------------------
+! In our terminology, a macroscopic particle is an insect without wings and no
+! flapping motion in free flight. Therefore, the insect module contains nowadays
+! also body shapes that are not related to insects. This one is a flat COIN (D=1)
+!-------------------------------------------------------------------------------
+subroutine draw_body_coin( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: R0,R,a_body, projected_length
+  real(kind=pr) :: x_body(1:3), x(1:3), xc(1:3), n_part(1:3)
+  integer :: ix,iy,iz,ip, npoints, mpicode, ijk(1:3), box, start,i,j,k
+
+  ! periodization: if the center point is out of the domain, then correct that
+  xc = Insect%xc_body
+  if (xc(1)<0.0) xc(1)=xc(1)+xl
+  if (xc(2)<0.0) xc(2)=xc(2)+yl
+  if (xc(3)<0.0) xc(3)=xc(3)+zl
+
+  if (xc(1)>=xl) xc(1)=xc(1)-xl
+  if (xc(2)>=yl) xc(2)=xc(2)-yl
+  if (xc(3)>=zl) xc(3)=xc(3)-zl
+
+
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x is in the global coordinate system
+        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        ! x is now centered in the sphere's center point
+        x = periodize_coordinate(x - xc)
+        ! x_body is in the body coordinate system
+        x_body = matmul(M_body,x)
+
+        if (dabs(x_body(1)) <= 0.5d0+Insect%safety) then
+          if (dabs(x_body(2)) <= 0.5d0+Insect%safety) then
+            if (dabs(x_body(3)) <= Insect%WingThickness+Insect%safety) then
+              ! signed distance:
+              R = maxval( (/ dabs(x_body(3)) - Insect%WingThickness/2.d0,&
+                             dsqrt(x_body(2)**2 + x_body(1)**2)-0.5d0 &
+                          /) )
+              mask(ix,iy,iz) = max(steps(R,0.d0),mask(ix,iy,iz))
+              mask_color(ix,iy,iz) = color_body
+            endif
+          endif
+        endif
+
+
+      enddo
+    enddo
+  enddo
+
+end subroutine draw_body_coin
