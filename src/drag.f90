@@ -74,6 +74,8 @@ subroutine cal_drag ( time, u, Insect )
         ylev = dble(iy)*dy - y0
         zlev = dble(iz)*dz - z0
 
+        ! is the obstacle is near the boundary, parts of it may cross the periodic
+        ! boundary. therefore, ensure that xlev is periodized:
         xc = periodize_coordinate((/xlev,ylev,zlev/))
         xlev = xc(1)
         ylev = xc(2)
@@ -87,7 +89,7 @@ subroutine cal_drag ( time, u, Insect )
         ! input power due to penalization term
         powerx = powerx + us(ix,iy,iz,1)*penalx
         powery = powery + us(ix,iy,iz,2)*penaly
-        powerz = powerz + us(ix,iy,iz,3)*penalz 
+        powerz = powerz + us(ix,iy,iz,3)*penalz
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points

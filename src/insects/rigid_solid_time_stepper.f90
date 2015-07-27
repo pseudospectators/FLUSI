@@ -107,11 +107,28 @@ subroutine rigid_solid_rhs(time,it,Insect)
   ! M. Maeda et al. (2012) A free-flight Simulation of Insect flapping flight
   ! J. Aero Aqua Bio-Mech(1):1,71-79
   !-----------------------------------------------------------------------------
-  ! integrate coordinates (dx/dt = vx)
+  ! To avoid confusion with the famous unsteady corrections, the actual translation eqn reads:
+  !   rho_s*V*u_dot = (rho_s-rho_f)*V*g + F_fluid
+  ! but the latter term is
+  !   rho_s*V*u_dot = (rho_s-rho_f)*V*g + Integral(Penal) + V*rho_f*u_dot
+  ! so we can put this, as uhlmann does, on the right hand side:
+  !   (rho_s-rho_f)*V*u_dot = (rho_s-rho_f)*V*g + Integral(Penal)
+  ! We have thus two options regarding this, either
+  !   m_corrected * u_dot = m_corrected * g + Integral(penal)       [implicit unst corrections]
+  ! or
+  !   m * u_dot = m_corrected * g + Integral(penal) + force_unst    [explicit unst corrections]
+  ! the last equation can also be rewritten using twice the same m
+  !   m * u_dot = m * g_corrected + Integral(penal) + force_unst    [explicit unst corrections]
+  ! where g_corrected = (rho_s-rho_f)/rho_s * g
+  !-----------------------------------------------------------------------------
+  ! For the torque, the unsteady corrections are explicitly taken into account
+  ! above, thus cal_unst=1; is required in the parameter file.
+  !-----------------------------------------------------------------------------
+  ! integrate coordinates (dx/dt = vx) Note: this is in global reference frame
   Insect%RHS_this(1) = Insect%STATE(4)
   Insect%RHS_this(2) = Insect%STATE(5)
   Insect%RHS_this(3) = Insect%STATE(6)
-  ! integrate velocities (dvx/dt = F)
+  ! integrate velocities (dvx/dt = F) Note: this is in global reference frame
   Insect%RHS_this(4) = (GlobalIntegrals%force(1)+GlobalIntegrals%force_unst(1))/m
   Insect%RHS_this(5) = (GlobalIntegrals%force(2)+GlobalIntegrals%force_unst(2))/m
   Insect%RHS_this(6) = (GlobalIntegrals%force(3)+GlobalIntegrals%force_unst(3))/m + g

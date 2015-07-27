@@ -19,13 +19,13 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
 
 
   select case(method)
-     case("fsi")
-        call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
-     case("mhd")
-        call save_fields_mhd(time,uk,u,vort,nlk)
-     case default
-        if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
-        call abort()
+  case("fsi")
+    call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
+  case("mhd")
+    call save_fields_mhd(time,uk,u,vort,nlk)
+  case default
+    if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
+    call abort()
   end select
 
   time_save=time_save + MPI_wtime() - t1 ! performance analysis
@@ -91,14 +91,14 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
       ! the cal_nlk has not been called, and we need to do the IFFT
       call ifft3(ink=uk(:,:,:,1:nd),outx=u(:,:,:,1:nd))
     endif
-    call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1),"ux")
-    call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2),"uy")
-    call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3),"uz")
+    call save_field_hdf5(time,"./ux_"//name,u(:,:,:,1))
+    call save_field_hdf5(time,"./uy_"//name,u(:,:,:,2))
+    call save_field_hdf5(time,"./uz_"//name,u(:,:,:,3))
   endif
 
-  !-------------
+  !-----------------------------------------------------------------------------
   ! Pressure
-  !-------------
+  !-----------------------------------------------------------------------------
   if (isavePress == 1) then
     ! compute pressure (remember NLK is *not* divergence free)
     call pressure( nlk,workc(:,:,:,1) )
@@ -106,81 +106,89 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
     call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
     ! get actuall pressure (we're in the rotational formulation)
     work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-    call save_field_hdf5(time,'./p_'//name,work(:,:,:,1),"p")
+    call save_field_hdf5(time,'./p_'//name,work(:,:,:,1))
   endif
 
-  !-------------
+  !-----------------------------------------------------------------------------
   ! Vorticity
-  !-------------
-  if (isaveVorticity==1) then
+  !-----------------------------------------------------------------------------
+  if ((isaveVorticity==1).or.(iSaveMagVorticity==1)) then
     !-- compute vorticity:
     call curl( ink=uk, outk=nlk)
     call ifft3( ink=nlk, outx=vort )
-    !-- save Vorticity
-    if (isaveVorticity == 1) then
-      call save_field_hdf5(time,"./vorx_"//name,vort(:,:,:,1),"vorx")
-      call save_field_hdf5(time,"./vory_"//name,vort(:,:,:,2),"vory")
-      call save_field_hdf5(time,"./vorz_"//name,vort(:,:,:,3),"vorz")
-    endif
   endif
 
-  !-------------
+  if (isaveVorticity==1) then
+    !-- save Vorticity
+    call save_field_hdf5(time,"./vorx_"//name,vort(:,:,:,1))
+    call save_field_hdf5(time,"./vory_"//name,vort(:,:,:,2))
+    call save_field_hdf5(time,"./vorz_"//name,vort(:,:,:,3))
+  endif
+
+  if (iSaveMagVorticity==1) then
+    !-- save vorticity magnitude
+    work(:,:,:,1) = dsqrt( vort(:,:,:,1)**2 + vort(:,:,:,1)**2 + vort(:,:,:,1)**2 )
+    call save_field_hdf5(time,"./vorabs_"//name,work(:,:,:,1))
+  endif
+
+
+  !-----------------------------------------------------------------------------
   ! Mask
-  !-------------
+  !-----------------------------------------------------------------------------
   if (isaveMask == 1 .and. iPenalization == 1) then
     mask = mask*eps
     call compute_mask_volume(volume)
     if ((mpirank==0).and.(volume<1.0d-10)) write(*,*) "WARNING: saving empty mask"
-    call save_field_hdf5(time,'./mask_'//name,mask,"mask")
-    ! call save_field_hdf5(time,'./color_'//name,dble(mask_color),"color")
+    call save_field_hdf5(time,'./mask_'//name,mask)
+    ! call save_field_hdf5(time,'./color_'//name,dble(mask_color))
     mask = mask/eps
   endif
 
-  !-------------
+  !-----------------------------------------------------------------------------
   ! solid velocity
-  !-------------
+  !-----------------------------------------------------------------------------
   if (isaveSolidVelocity == 1 .and. iPenalization == 1 .and. iMoving == 1) then
-    call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1),"usx")
-    call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2),"usy")
-    call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3),"usz")
+    call save_field_hdf5(time,'./usx_'//name,us(:,:,:,1))
+    call save_field_hdf5(time,'./usy_'//name,us(:,:,:,2))
+    call save_field_hdf5(time,'./usz_'//name,us(:,:,:,3))
   endif
 
-  !------------
+  !-----------------------------------------------------------------------------
   ! passive scalar
-  !-------------
+  !-----------------------------------------------------------------------------
   if (use_passive_scalar==1) then
     call ifft ( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
-    call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1),"scalar")
+    call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1))
   endif
 
-  !-----------
+  !-----------------------------------------------------------------------------
   ! if time-avg velocity field is computed, save this here
-  !-----------
+  !-----------------------------------------------------------------------------
   if ((time_avg=="yes").and.(time>=tstart_avg)) then
     if (vel_avg=="yes") then
       call ifft3( ink=uk_avg(:,:,:,1:3), outx=u(:,:,:,1:3) )
       if (save_one_only=="yes") then
-        call save_field_hdf5(time,"./uavgx_000",u(:,:,:,1),"uavgx")
-        call save_field_hdf5(time,"./uavgy_000",u(:,:,:,2),"uavgy")
-        call save_field_hdf5(time,"./uavgz_000",u(:,:,:,3),"uavgz")
+        call save_field_hdf5(time,"./uavgx_000",u(:,:,:,1))
+        call save_field_hdf5(time,"./uavgy_000",u(:,:,:,2))
+        call save_field_hdf5(time,"./uavgz_000",u(:,:,:,3))
       else
-        call save_field_hdf5(time,"./uavgx_"//name,u(:,:,:,1),"uavgx")
-        call save_field_hdf5(time,"./uavgy_"//name,u(:,:,:,2),"uavgy")
-        call save_field_hdf5(time,"./uavgz_"//name,u(:,:,:,3),"uavgz")
+        call save_field_hdf5(time,"./uavgx_"//name,u(:,:,:,1))
+        call save_field_hdf5(time,"./uavgy_"//name,u(:,:,:,2))
+        call save_field_hdf5(time,"./uavgz_"//name,u(:,:,:,3))
       endif
     endif
     if (ekin_avg=="yes") then
       if (save_one_only=="yes") then
-        call save_field_hdf5(time,"./ekinavg_000",e_avg,"ekinavg")
+        call save_field_hdf5(time,"./ekinavg_000",e_avg)
       else
-        call save_field_hdf5(time,"./ekinavg_"//name,e_avg,"ekinavg")
+        call save_field_hdf5(time,"./ekinavg_"//name,e_avg)
       endif
     endif
     if (enstrophy_avg=="yes") then
       if (save_one_only=="yes") then
-        call save_field_hdf5(time,"./zavg_000",Z_avg,"zavg")
+        call save_field_hdf5(time,"./zavg_000",Z_avg)
       else
-        call save_field_hdf5(time,"./zavg_"//name,Z_avg,"zavg")
+        call save_field_hdf5(time,"./zavg_"//name,Z_avg)
       endif
     endif
   endif
@@ -190,11 +198,11 @@ end subroutine save_fields_fsi
 
 
 !-------------------------------------------------------------------------------
-! Write the field field_out to file filename, saving the name of the
-! field, dsetname, (as well as time, eps, and resolution) to the
-! metadata of the hdf file .
+! Standart wrapper for the HDF5 library, saves a single array (e.g. one vector component)
+! to a single HDF5 file. A bunch of useful attributes (resolution, domain size,
+! penalization, viscosity, time) are stored as well.
 !-------------------------------------------------------------------------------
-subroutine save_field_hdf5(time,filename,field_out,dsetname)
+subroutine save_field_hdf5(time,filename,field_out)
   use vars
   implicit none
 
@@ -202,19 +210,26 @@ subroutine save_field_hdf5(time,filename,field_out,dsetname)
   real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename
-  character(len=*), intent (in) :: dsetname
 
-  ! avoid redundant code, this routine is just a special case of the other one:
-  call save_field_hdf5_xvar(time,filename,field_out,dsetname,nx)
+  if (striding<1) call abort("Striding value is bad, exit!")
+
+  if (striding==1) then
+    ! save the entire field to disk (no striding)
+    call flusi_hdf5_wrapper(time,filename,ra,rb,field_out)
+  else
+    ! save strided field to disk
+    call save_field_hdf5_strided(time,filename,field_out)
+  endif
 end subroutine save_field_hdf5
 
 
 
 !-------------------------------------------------------------------------------
 ! Same as save_field_hdf5, but the x-axis is not the entire field
-! useful for saving slices (nnx=1) or smaller subsets
+! useful for saving single slices (nnx=1) or smaller subsets, or slice collections
+! (nnx>nx-1)
 !-------------------------------------------------------------------------------
-subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
+subroutine save_field_hdf5_xvar(time,filename,field_out,nnx)
   use mpi
   use vars
   use hdf5
@@ -222,158 +237,23 @@ subroutine save_field_hdf5_xvar(time,filename,field_out,dsetname,nnx)
 
   ! The field to be written to disk:
   real(kind=pr),intent(in) :: field_out(0:nnx-1,ra(2):rb(2),ra(3):rb(3))
-  integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
   integer, intent(in) :: nnx
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename
-  character(len=*), intent (in) :: dsetname
+  integer :: rared(1:3), rbred(1:3)
 
-  integer(hid_t) :: file_id   ! file identifier
-  integer(hid_t) :: dset_id   ! dataset identifier
-  integer(hid_t) :: filespace ! dataspace identifier in file
-  integer(hid_t) :: memspace  ! dataspace identifier in memory
-  integer(hid_t) :: plist_id  ! property list identifier
+  ! array bounds on MPI-procs:
+  rared = (/0,ra(2),ra(3)/)
+  rbred = (/nnx-1,rb(2),rb(3)/)
 
-  ! dataset dimensions in the file.
-  integer(hsize_t), dimension(rank) :: dimensions_file
-  ! hyperslab dimensions
-  integer(hsize_t), dimension(rank) :: dimensions_local
-  ! chunk dimensions
-  integer(hsize_t), dimension(rank) :: chunking_dims
-  ! how many blocks to select from dataspace
-  integer(hsize_t),  dimension(rank) :: count  = 1
-  integer(hssize_t), dimension(rank) :: offset
-  ! stride is spacing between elements, this is one here
-  integer(hsize_t),  dimension(rank) :: stride = 1
-  integer :: error  ! error flags
-
-  ! HDF attribute variables
-  integer, parameter :: arank = 1
-  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
-
-  integer :: mpierror, i
-  real(kind=pr) :: t1 ! diagnostic used for performance analysis.
-  t1 = MPI_wtime()
-
-  !!! Tell HDF5 how our  data is organized:
-  dimensions_file = (/nnx,ny,nz/)
-  offset(1) = 0
-  offset(2) = ra(2)
-  offset(3) = ra(3)
-  dimensions_local(1) = nnx
-  dimensions_local(2) = rb(2)-ra(2) +1
-  dimensions_local(3) = rb(3)-ra(3) +1
-  ! each process knows how much data it has and where to store it.
-  ! now, define the dataset chunking. Chunking is largest dimension in
-  ! each direction
-  do i = 1, 3
-     call MPI_REDUCE(dimensions_local(i),chunking_dims(i),1, &
-          MPI_INTEGER8,MPI_MAX,0,&
-          MPI_COMM_WORLD,mpierror)
-     call MPI_BCAST(chunking_dims(i),1,MPI_INTEGER8,0, &
-          MPI_COMM_WORLD,mpierror )
-  enddo
-
-  !!! Set up the HDF data structures:
-
-  ! Initialize HDF5 library and Fortran interfaces.
-  call h5open_f(error)
-  ! Setup file access property list with parallel I/O access.
-  ! this sets up a property list (plist_id) with standard values for
-  ! FILE_ACCESS
-  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
-  ! Modify the property list and store the MPI IO comminucator
-  ! information in the file access property list
-  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
-
-  ! Create the file collectively. (existing files are overwritten)
-#ifdef TURING
-  if ( index(filename,'.h5')==0 ) then
-    ! file does not contain *.h5 ending -> add suffix
-  call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
-  else
-    ! field DOES contain .h5 ending -> just write
-    call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  endif
-#else
-  if ( index(filename,'.h5')==0 ) then
-    ! file does not contain *.h5 ending -> add suffix
-  call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
-  else
-    ! field DOES contain .h5 ending -> just write
-    call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  endif
-#endif
-  ! this closes the property list plist_id (we'll re-use it)
-  call h5pclose_f(plist_id, error)
-
-  ! Create the data space for the  dataset.
-  ! Dataspace in the file: contains all data from all procs
-  call h5screate_simple_f(rank, dimensions_file, filespace, error)
-  ! dataspace in memory: contains only local data
-  call h5screate_simple_f(rank, dimensions_local, memspace, error)
-
-  ! Create chunked dataset.
-  ! NB: chunking and hyperslab are unrelated
-  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
-  if (field_precision=="double") then
-    ! Output files in double precision
-    call h5dcreate_f(file_id, trim(adjustl(dsetname)), H5T_NATIVE_DOUBLE, filespace, &
-       dset_id, error, plist_id)
-  else
-    ! Output files in single precision
-    call h5dcreate_f(file_id, trim(adjustl(dsetname)), H5T_NATIVE_REAL, filespace, &
-       dset_id, error, plist_id)
-  endif
-  call h5sclose_f(filespace, error)
-
-  ! Select hyperslab in the file.
-  call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
-       error, stride, dimensions_local)
-
-  ! Create property list for collective dataset write
-  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
-
-  ! Write the dataset collectively, double precision in memory
-  call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, &
-       error, file_space_id = filespace, mem_space_id = memspace,&
-       xfer_prp = plist_id)
-
-  !!! Write the attributes to the HDF files.
-  ! The attributes written are time, penalisation parameter,
-  ! computational resolution, and physical domain size.
-  adims = (/1/)
-  call write_attribute_dble(adims,"time",(/time/),1,dset_id)
-  call write_attribute_dble(adims,"viscosity",(/nu/),1,dset_id)
-  call write_attribute_dble(adims,"epsi",(/eps/),1,dset_id)
-  adims = (/3/)
-  call write_attribute_dble(adims,"domain_size",(/xl,yl,zl/),3,dset_id)
-  call write_attribute_int(adims,"nxyz",(/nnx,ny,nz/),3,dset_id)
-
-  !!! Close dataspaces:
-  call h5sclose_f(filespace, error)
-  call h5sclose_f(memspace, error)
-  call h5dclose_f(dset_id, error) ! Close the dataset.
-  call h5pclose_f(plist_id, error) ! Close the property list.
-  call h5fclose_f(file_id, error) ! Close the file.
-  call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
-
-
-  time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
+  call flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
 end subroutine save_field_hdf5_xvar
 
 
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
 subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
-           work,Insect,beams)
+  work,Insect,beams)
   use mpi
   use vars
   use fsi_vars
@@ -401,8 +281,8 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   t1=MPI_wtime() ! performance diagnostic
 
   if(mpirank == 0) then
-     write(*,'("Dumping runtime_backup",i1,".h5 (time=",es12.4,") to disk....")',&
-     advance='no') nbackup, time
+    write(*,'("Dumping runtime_backup",i1,".h5 (time=",es12.4,") to disk....")',&
+    advance='no') nbackup, time
   endif
 
   ! Create current filename:
@@ -421,7 +301,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
 
   ! Create the file collectively. (existing files are overwritten)
   call h5fcreate_f(filename, H5F_ACC_TRUNC_F, file_id, error, &
-       access_prp = plist_id)
+  access_prp = plist_id)
   ! Close the property list (we'll re-use it)
   call h5pclose_f(plist_id, error)
 
@@ -439,13 +319,13 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   endif
 
   if(method == "mhd") then
-     ! Write the MHD backup field:
-     call ifft(work,ub(:,:,:,4))
-     call dump_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,ub(:,:,:,5))
-     call dump_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,ub(:,:,:,6))
-     call dump_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
+    ! Write the MHD backup field:
+    call ifft(work,ub(:,:,:,4))
+    call dump_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
+    call ifft(work,ub(:,:,:,5))
+    call dump_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
+    call ifft(work,ub(:,:,:,6))
+    call dump_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
   endif
 
   ! Write the fluid nonlinear term backup:
@@ -471,19 +351,19 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   endif
 
   if(method == "mhd") then
-     ! Write the MHD backup field:
-     call ifft(work,nlk(:,:,:,4,0))
-     call dump_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,nlk(:,:,:,5,0))
-     call dump_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,nlk(:,:,:,6,0))
-     call dump_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,nlk(:,:,:,4,1))
-     call dump_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,nlk(:,:,:,5,1))
-     call dump_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
-     call ifft(work,nlk(:,:,:,6,1))
-     call dump_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
+    ! Write the MHD backup field:
+    call ifft(work,nlk(:,:,:,4,0))
+    call dump_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
+    call ifft(work,nlk(:,:,:,5,0))
+    call dump_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
+    call ifft(work,nlk(:,:,:,6,0))
+    call dump_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
+    call ifft(work,nlk(:,:,:,4,1))
+    call dump_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
+    call ifft(work,nlk(:,:,:,5,1))
+    call dump_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
+    call ifft(work,nlk(:,:,:,6,1))
+    call dump_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
   endif
 
   !-- initialize runnning avg from file
@@ -513,12 +393,12 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   ! backup for the rigid body solver (free-flight insect)
   !-------------------------------------------------------------------------
   if ((method=="fsi").and.(mpirank==0)) then
-  if ((iMask=="Insect").and.(Insect%BodyMotion=="free_flight")) then
-    write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
-    open(10, file=filename//".rigidsolver", form='formatted', status='replace')
-    write(10, *) time, Insect%STATE, Insect%RHS_old, Insect%RHS_this, Insect%M_body_quaternion
-    close(10)
-  endif
+    if ((iMask=="Insect").and.(Insect%BodyMotion=="free_flight")) then
+      write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
+      open(10, file=filename//".rigidsolver", form='formatted', status='replace')
+      write(10, *) time, Insect%STATE, Insect%RHS_old, Insect%RHS_this, Insect%M_body_quaternion
+      close(10)
+    endif
   endif
 
   !-------------------------------------------------------------------------
@@ -587,10 +467,10 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
   do i = 1, 3
-     call MPI_REDUCE(dimensions_local(i), chunking_dims(i),1, &
-          MPI_INTEGER8, MPI_MAX,0,MPI_COMM_WORLD,mpierror)
-     call MPI_BCAST(chunking_dims(i), 1, MPI_INTEGER8, 0, &
-          MPI_COMM_WORLD, mpierror)
+    call MPI_REDUCE(dimensions_local(i), chunking_dims(i),1, &
+    MPI_INTEGER8, MPI_MAX,0,MPI_COMM_WORLD,mpierror)
+    call MPI_BCAST(chunking_dims(i), 1, MPI_INTEGER8, 0, &
+    MPI_COMM_WORLD, mpierror)
   enddo
 
   ! -----------------------------------
@@ -604,13 +484,13 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
   call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
   call h5dcreate_f(file_id, dsetname, H5T_NATIVE_DOUBLE, filespace, &
-       dset_id, error, plist_id)
+  dset_id, error, plist_id)
   call h5sclose_f(filespace, error)
 
   ! Select hyperslab in the file.
   call h5dget_space_f(dset_id, filespace, error)
   call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
-       error , stride, dimensions_local)
+  error , stride, dimensions_local)
 
   ! Create property list for collective dataset write
   call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
@@ -618,7 +498,7 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
 
   ! Write the dataset collectively.
   call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field, dimensions_file, error, &
-       file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
+  file_space_id = filespace, mem_space_id = memspace, xfer_prp = plist_id)
 
   ! ------
   ! Attributes (we save everything in one, all double. to be converted
@@ -737,14 +617,14 @@ subroutine read_single_file_serial(filename,field)
   ! Select hyperslab in the file.
   call h5dget_space_f(dset_id, filespace, error)
   call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
-       error , stride, dimensions_local)
+  error , stride, dimensions_local)
 
   ! Create property list for collective dataset read
   call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
   call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
   call h5dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
-       mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
+  mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
 
   call h5sclose_f(filespace, error)
   call h5sclose_f(memspace, error)
@@ -814,27 +694,27 @@ subroutine Read_Single_File ( filename, field )
 
   ! fetch attributes from file to see if it is a good idea to load it
   call Fetch_attributes( filename, dsetname,nx_file,ny_file,nz_file,&
-                         xl_file,yl_file ,zl_file,time )
+  xl_file,yl_file ,zl_file,time )
 
   ! if the resolutions do not match, yell and hang yourself
   if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then
     if (mpirank == 0) then
-    write (*,'(A)') "read_single_file: ERROR " // trim(filename)
-    write (*,'("nx=",i4,"ny=",i4,"nz=",i4)') nx,ny,nz
-    write (*,'("but in file: nx=",i4,"ny=",i4,"nz=",i4)') nx_file,ny_file,nz_file
-    call abort()
+      write (*,'(A)') "read_single_file: ERROR " // trim(filename)
+      write (*,'("nx=",i4,"ny=",i4,"nz=",i4)') nx,ny,nz
+      write (*,'("but in file: nx=",i4,"ny=",i4,"nz=",i4)') nx_file,ny_file,nz_file
+      call abort()
     endif
   endif
 
   ! if the domain size doesn't match, proceed, but yell.
   if ((xl.ne.xl_file).or.(yl.ne.yl_file).or.(zl.ne.zl_file)) then
     if (mpirank == 0) then
-    write (*,'(A)') "read_single_file: WARNING " // trim(filename)
-    write (*,'("xl=",es12.4,"yl=",es12.4,"zl=",es12.4)')&
+      write (*,'(A)') "read_single_file: WARNING " // trim(filename)
+      write (*,'("xl=",es12.4,"yl=",es12.4,"zl=",es12.4)')&
       xl,yl,zl
-    write (*,'("but in file: xl=",es12.4,"yl=",es12.4,"zl=",es12.4)') &
+      write (*,'("but in file: xl=",es12.4,"yl=",es12.4,"zl=",es12.4)') &
       xl_file,yl_file,zl_file
-    write (*,'(A)') "proceed, with fingers crossed."
+      write (*,'(A)') "proceed, with fingers crossed."
     endif
   endif
 
@@ -870,10 +750,10 @@ subroutine Read_Single_File ( filename, field )
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
   do i = 1, 3
-     call MPI_REDUCE ( dimensions_local(i), chunking_dims(i),1, &
-          MPI_INTEGER8, MPI_MAX,0,MPI_COMM_WORLD,mpierror)
-     call MPI_BCAST  ( chunking_dims(i), 1, MPI_INTEGER8, 0, &
-          MPI_COMM_WORLD, mpierror )
+    call MPI_REDUCE ( dimensions_local(i), chunking_dims(i),1, &
+    MPI_INTEGER8, MPI_MAX,0,MPI_COMM_WORLD,mpierror)
+    call MPI_BCAST  ( chunking_dims(i), 1, MPI_INTEGER8, 0, &
+    MPI_COMM_WORLD, mpierror )
   enddo
 
   !----------------------------------------------------------------------------
@@ -894,14 +774,14 @@ subroutine Read_Single_File ( filename, field )
   ! Select hyperslab in the file.
   call h5dget_space_f(dset_id, filespace, error)
   call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
-       error , stride, dimensions_local)
+  error , stride, dimensions_local)
 
   ! Create property list for collective dataset read
   call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
   call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
   call h5dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
-       mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
+  mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
 
   call h5sclose_f(filespace, error)
   call h5sclose_f(memspace, error)
@@ -935,7 +815,7 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   integer,intent(out) :: n1,it
   complex(kind=pr), intent(out) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(out)::&
-       nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
+  nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
   real(kind=pr),intent(out) :: explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
@@ -944,8 +824,8 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   integer(hid_t) :: plist_id      ! Property list identifier
 
   if(mpirank == 0) then
-     write(*,'("---------")')
-     write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
+    write(*,'("---------")')
+    write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename
   endif
 
   call check_file_exists ( filename )
@@ -979,13 +859,13 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   endif
 
   if(method == "mhd") then
-     ! Read MHD backup field:
-     call read_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
-     call fft(uk(:,:,:,4),work)
-     call read_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
-     call fft(uk(:,:,:,5),work)
-     call read_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
-     call fft(uk(:,:,:,6),work)
+    ! Read MHD backup field:
+    call read_field_backup(work,"bx",time,dt0,dt1,n1,it,file_id)
+    call fft(uk(:,:,:,4),work)
+    call read_field_backup(work,"by",time,dt0,dt1,n1,it,file_id)
+    call fft(uk(:,:,:,5),work)
+    call read_field_backup(work,"bz",time,dt0,dt1,n1,it,file_id)
+    call fft(uk(:,:,:,6),work)
   endif
 
   ! Read fluid nonlinear source term backup:
@@ -1028,19 +908,19 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   endif
 
   if(method == "mhd") then
-     ! Read MHD nonlinear source term backup too:
-     call read_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
-     call fft(nlk(:,:,:,4,0),work)
-     call read_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
-     call fft(nlk(:,:,:,5,0),work)
-     call read_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
-     call fft(nlk(:,:,:,6,0),work)
-     call read_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
-     call fft(nlk(:,:,:,4,1),work)
-     call read_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
-     call fft(nlk(:,:,:,5,1),work)
-     call read_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
-     call fft(nlk(:,:,:,6,1),work)
+    ! Read MHD nonlinear source term backup too:
+    call read_field_backup(work,"bnlkx0",time,dt0,dt1,n1,it,file_id)
+    call fft(nlk(:,:,:,4,0),work)
+    call read_field_backup(work,"bnlky0",time,dt0,dt1,n1,it,file_id)
+    call fft(nlk(:,:,:,5,0),work)
+    call read_field_backup(work,"bnlkz0",time,dt0,dt1,n1,it,file_id)
+    call fft(nlk(:,:,:,6,0),work)
+    call read_field_backup(work,"bnlkx1",time,dt0,dt1,n1,it,file_id)
+    call fft(nlk(:,:,:,4,1),work)
+    call read_field_backup(work,"bnlky1",time,dt0,dt1,n1,it,file_id)
+    call fft(nlk(:,:,:,5,1),work)
+    call read_field_backup(work,"bnlkz1",time,dt0,dt1,n1,it,file_id)
+    call fft(nlk(:,:,:,6,1),work)
   endif
 
   call h5fclose_f(file_id,error)
@@ -1055,9 +935,9 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   ! note when we started this run
   tstart = time
   if(mpirank == 0) then
-     write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
-     write(*,'("!!! DONE READING BACKUP (thats good news!)")')
-     write(*,'("---------")')
+    write(*,'("time=",es15.8," dt0=",es15.8)') time, dt0
+    write(*,'("!!! DONE READING BACKUP (thats good news!)")')
+    write(*,'("---------")')
   endif
 
 end subroutine read_runtime_backup
@@ -1073,7 +953,7 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use basic_operators
   implicit none
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), &
-       intent(out) :: field
+  intent(out) :: field
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr), intent (out)  :: time,dt1,dt0
   character(len=*), intent (in) :: dsetname
@@ -1119,9 +999,9 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   ! now, define the dataset chunking. Chunking is largest dimension in
   ! each direction
   do i = 1, 3
-     call MPI_REDUCE(dimensions_local(i),chunking_dims(i),1,MPI_INTEGER8,&
-          MPI_MAX,0,MPI_COMM_WORLD,mpierror)
-     call MPI_BCAST(chunking_dims(i),1,MPI_INTEGER8,0,MPI_COMM_WORLD,mpierror)
+    call MPI_REDUCE(dimensions_local(i),chunking_dims(i),1,MPI_INTEGER8,&
+    MPI_MAX,0,MPI_COMM_WORLD,mpierror)
+    call MPI_BCAST(chunking_dims(i),1,MPI_INTEGER8,0,MPI_COMM_WORLD,mpierror)
   enddo
 
   if (mpirank==0) then
@@ -1145,14 +1025,14 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   ! Select hyperslab in the file.
   call h5dget_space_f(dset_id, filespace, error)
   call h5sselect_hyperslab_f(filespace, H5S_SELECT_SET_F, offset, count, &
-       error , stride, dimensions_local)
+  error , stride, dimensions_local)
 
   ! Create property list for collective dataset read
   call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
   call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
   call h5dread_f(dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
-       mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
+  mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
 
   call h5sclose_f(filespace, error)
   call h5sclose_f(memspace, error)
@@ -1181,9 +1061,9 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   nz_file = int(attributes(8))
 
   if ( (nx_file.ne.nx).or.(nx_file.ne.nx).or.(nx_file.ne.nx)) then
-     write (*,'(A)') "!!! Thats odd...the backup you're trying to resume doesn't have the same nx,ny,nz"
-     write (*,'(A)') "I'll leave you crying and commit suicide here."
-     call abort()
+    write (*,'(A)') "!!! Thats odd...the backup you're trying to resume doesn't have the same nx,ny,nz"
+    write (*,'(A)') "I'll leave you crying and commit suicide here."
+    call abort()
   endif
 
   deallocate (attributes)
@@ -1286,64 +1166,64 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
 
   ! We need the velocity for saving the velocity and/or vorticity
   if(isaveVelocity == 1 .or. isaveVorticity == 1) then
-     do i=1,3
-        call ifft(ub(:,:,:,i),ubk(:,:,:,i))
-     enddo
+    do i=1,3
+      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+    enddo
   endif
 
   ! We need the magnetic fields velocity for saving the magnetic field
   ! and/or current density
   if(isaveMagneticfield == 1  .or. isaveCurrent == 1) then
-     do i=4,6
-        call ifft(ub(:,:,:,i),ubk(:,:,:,i))
-     enddo
+    do i=4,6
+      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+    enddo
   endif
 
   ! save the velocity
   if(isaveVelocity == 1) then
-     call save_field_hdf5(time,'./ux_'//name,ub(:,:,:,1),"ux")
-     call save_field_hdf5(time,'./uy_'//name,ub(:,:,:,2),"uy")
-     call save_field_hdf5(time,'./uz_'//name,ub(:,:,:,3),"uz")
+    call save_field_hdf5(time,'./ux_'//name,ub(:,:,:,1))
+    call save_field_hdf5(time,'./uy_'//name,ub(:,:,:,2))
+    call save_field_hdf5(time,'./uz_'//name,ub(:,:,:,3))
   endif
 
   ! save the vorticity
   if(isaveVorticity == 1) then
-     ! compute vorticity
-     call curl(&
-          nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
-          ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
-     do i=1,3
-        call ifft(wj(:,:,:,i),nlk(:,:,:,i))
-     enddo
-     call save_field_hdf5(time,'./vorx_'//name,wj(:,:,:,1),"vorx")
-     call save_field_hdf5(time,'./vory_'//name,wj(:,:,:,2),"vory")
-     call save_field_hdf5(time,'./vorz_'//name,wj(:,:,:,3),"vorz")
+    ! compute vorticity
+    call curl(&
+    nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
+    ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
+    do i=1,3
+      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+    enddo
+    call save_field_hdf5(time,'./vorx_'//name,wj(:,:,:,1))
+    call save_field_hdf5(time,'./vory_'//name,wj(:,:,:,2))
+    call save_field_hdf5(time,'./vorz_'//name,wj(:,:,:,3))
   endif
 
   ! save the magnetic field
   if(isaveMagneticfield == 1) then
-     call save_field_hdf5(time,'./bx_'//name,ub(:,:,:,4),"bx")
-     call save_field_hdf5(time,'./by_'//name,ub(:,:,:,5),"by")
-     call save_field_hdf5(time,'./bz_'//name,ub(:,:,:,6),"bz")
+    call save_field_hdf5(time,'./bx_'//name,ub(:,:,:,4))
+    call save_field_hdf5(time,'./by_'//name,ub(:,:,:,5))
+    call save_field_hdf5(time,'./bz_'//name,ub(:,:,:,6))
   endif
 
   ! save the current density
   if(isaveCurrent == 1) then
-     call curl(&
-          nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
-          ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
-     do i=4,6
-        call ifft(wj(:,:,:,i),nlk(:,:,:,i))
-     enddo
-     call save_field_hdf5(time,'./jx_'//name,wj(:,:,:,4),"jx")
-     call save_field_hdf5(time,'./jy_'//name,wj(:,:,:,5),"jy")
-     call save_field_hdf5(time,'./jz_'//name,wj(:,:,:,6),"jz")
+    call curl(&
+    nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
+    ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
+    do i=4,6
+      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+    enddo
+    call save_field_hdf5(time,'./jx_'//name,wj(:,:,:,4))
+    call save_field_hdf5(time,'./jy_'//name,wj(:,:,:,5))
+    call save_field_hdf5(time,'./jz_'//name,wj(:,:,:,6))
   endif
 
   ! save Mask
   ! FIXME: for stationary masks, this should be done only once
   if((isaveMask == 1).and.(iPenalization == 1)) then
-     call save_field_hdf5(time,'./mask_'//name,mask,"mask")
+    call save_field_hdf5(time,'./mask_'//name,mask)
   endif
 
   if(mpirank == 0 ) write(*,*) "   ...finished saving output fields."
@@ -1511,3 +1391,281 @@ subroutine init_empty_file( fname )
   open (15, file=fname,status='replace')
   close(15)
 end subroutine
+
+
+
+
+
+!-------------------------------------------------------------------------------
+! save a strided field to HDF5. this is certainly not the most elegant way to do
+! it, nor the most general, but it works.
+!-------------------------------------------------------------------------------
+! we figure out what the array bounds of the downsampled array on the local CPU
+! are, then copy the data to the smaller field, and then pass both to the HDF5
+! wrapper and write it to disk
+!-------------------------------------------------------------------------------
+subroutine save_field_hdf5_strided(time,filename,field_out)
+  use mpi
+  use vars
+  use hdf5
+  implicit none
+
+  ! The field to be written to disk:
+  real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real (kind=pr), intent (in) :: time
+  character(len=*), intent (in) :: filename
+  real(kind=pr),dimension(:,:,:), allocatable :: field_red
+
+  integer :: ix,iy,iz,ixred,iyred,izred
+  integer,dimension(1:3) :: rared, rbred
+  integer :: ixmin,ixmax,ixstride,iystride,izstride,iymin,izmin,iymax,izmax
+
+  ! do not touch lower/upper bounds, code does NOT work on arbitrary subsets.
+  ! ONLY striding of the FULL field is possible.
+  ixmin=0; ixmax=nx-1; ixstride=striding;
+  iymin=0; iymax=ny-1; iystride=striding;
+  izmin=0; izmax=nz-1; izstride=striding;
+
+  ixred=0; rared(1) = nx*99; rbred(1) = -99
+  iyred=0; rared(2) = ny*99; rbred(2) = -99
+  izred=0; rared(3) = nz*99; rbred(3) = -99
+
+  do ix = ixmin,ixmax,ixstride
+    ! check if this x-coordinate is on my local memory
+    if ( on_proc((/ix,ra(2),ra(3)/)) ) then
+      rared(1) = min(rared(1),ixred)
+      rbred(1) = max(rbred(1),ixred)
+    endif
+    ixred=ixred+1
+  enddo
+
+  do iy = iymin,iymax,iystride
+    ! check if this y-coordinate is on my local memory
+    if ( on_proc((/ra(1),iy,ra(3)/)) ) then
+      rared(2) = min(rared(2),iyred)
+      rbred(2) = max(rbred(2),iyred)
+    endif
+    iyred=iyred+1
+  enddo
+
+  do iz = izmin,izmax,izstride
+    ! check if this z-coordinate is on my local memory
+    if ( on_proc((/ra(1),ra(2),iz/)) ) then
+      rared(3) = min(rared(3),izred)
+      rbred(3) = max(rbred(3),izred)
+    endif
+    izred=izred+1
+  enddo
+
+  allocate( field_red(rared(1):rbred(1),rared(2):rbred(2),rared(3):rbred(3)) )
+
+  ! copy
+  do ixred = rared(1),rbred(1)
+    do iyred = rared(2),rbred(2)
+      do izred = rared(3),rbred(3)
+        field_red(ixred,iyred,izred) = field_out(ixstride*ixred,iystride*iyred,izstride*izred)
+      enddo
+    enddo
+  enddo
+
+  call flusi_hdf5_wrapper( time, filename, rared, rbred, field_red)
+end subroutine save_field_hdf5_strided
+
+
+!-------------------------------------------------------------------------------
+! this subroutine writes an array (and just one) to a HDF5 file according to FLUSI
+! conventions. Thus, e.g., mask_0000000.h5 is an array at time t=000.000 and con-
+! tains a datset "mask" with attributes "nxyz", "domain_size", "epsi", "time" and
+! "viscosity"
+!-------------------------------------------------------------------------------
+! It is a generalization of older routines in the sense that it can save arrays
+! of different sizes, which is why the local domain decomposition, i.e. the indices
+! of the local CPU's memory, are passed in rared and rbred (opposed to the globals
+! ra and rb). This routine does however not work if some CPU have empty arrays,
+! so we can only stride and cut the x-direction (since it is contiguous, always!)
+!-------------------------------------------------------------------------------
+subroutine flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
+  use mpi
+  use vars
+  use helpers
+  use hdf5
+  implicit none
+
+  ! The field to be written to disk:
+  integer,dimension(1:3), intent(in) :: rared,rbred
+  real(kind=pr),intent(in) :: field_out(rared(1):rbred(1),&
+                              rared(2):rbred(2),rared(3):rbred(3))
+  real (kind=pr), intent (in) :: time
+  character(len=*), intent (in) :: filename
+
+  integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
+  integer(hid_t) :: file_id   ! file identifier
+  integer(hid_t) :: dset_id   ! dataset identifier
+  integer(hid_t) :: filespace ! dataspace identifier in file
+  integer(hid_t) :: memspace  ! dataspace identifier in memory
+  integer(hid_t) :: plist_id  ! property list identifier
+
+  ! dataset dimensions in the file.
+  integer(hsize_t), dimension(rank) :: dimensions_file
+  ! hyperslab dimensions
+  integer(hsize_t), dimension(rank) :: dimensions_local
+  ! chunk dimensions
+  integer(hsize_t), dimension(rank) :: chunking_dims
+  ! how many blocks to select from dataspace
+  integer(hsize_t),  dimension(rank) :: count  = 1
+  integer(hssize_t), dimension(rank) :: offset
+  ! stride is spacing between elements, this is one here. striding is done in the
+  ! caller; here, we just write the entire (possibly downsampled) field to disk.
+  integer(hsize_t),  dimension(rank) :: stride = 1
+  integer :: error  ! error flags
+
+  ! HDF attribute variables
+  integer, parameter :: arank = 1
+  integer(hsize_t), DIMENSION(1) :: adims  ! Attribute dimension
+
+  integer :: mpierror, i, mindim, maxdim, nxred_file, nyred_file, nzred_file, mpicode
+  real(kind=pr) :: t1 ! diagnostic used for performance analysis.
+  t1 = MPI_wtime()
+
+  ! ----------------------------------------------------------------------------
+  ! Compute the dimension of the complete field (i.e. the union of all CPU's)
+  ! which we will write to file.
+  ! ----------------------------------------------------------------------------
+  call MPI_ALLREDUCE ( rared(1), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( rbred(1), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  nxred_file = maxdim-mindim+1
+
+  call MPI_ALLREDUCE ( rared(2), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( rbred(2), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  nyred_file = maxdim-mindim+1
+
+  call MPI_ALLREDUCE ( rared(3), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( rbred(3), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  nzred_file = maxdim-mindim+1
+
+  ! Tell HDF5 how our  data is organized:
+  dimensions_file = (/nxred_file, nyred_file, nzred_file/)
+  offset(1) = rared(1)
+  offset(2) = rared(2)
+  offset(3) = rared(3)
+  dimensions_local(1) = rbred(1)-rared(1) + 1
+  dimensions_local(2) = rbred(2)-rared(2) + 1
+  dimensions_local(3) = rbred(3)-rared(3) + 1
+
+  ! each process knows how much data it has and where to store it.
+  ! now, define the dataset chunking. Chunking is largest dimension in
+  ! each direction
+  do i = 1, 3
+    call MPI_REDUCE(dimensions_local(i),chunking_dims(i),1, &
+    MPI_INTEGER8,MPI_MIN,0,MPI_COMM_WORLD,mpierror)
+    call MPI_BCAST(chunking_dims(i),1,MPI_INTEGER8,0,MPI_COMM_WORLD,mpierror )
+  enddo
+
+  !!! Set up the HDF data structures:
+
+  ! Initialize HDF5 library and Fortran interfaces.
+  call h5open_f(error)
+  ! Setup file access property list with parallel I/O access.
+  ! this sets up a property list (plist_id) with standard values for
+  ! FILE_ACCESS
+  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
+  ! Modify the property list and store the MPI IO comminucator
+  ! information in the file access property list
+  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
+
+
+  ! Create the file collectively. (existing files are overwritten)
+#ifdef TURING
+  if ( index(filename,'.h5')==0 ) then
+    ! file does not contain *.h5 ending -> add suffix
+    call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  else
+    ! field DOES contain .h5 ending -> just write
+    call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  endif
+#else
+  if ( index(filename,'.h5')==0 ) then
+    ! file does not contain *.h5 ending -> add suffix
+    call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  else
+    ! field DOES contain .h5 ending -> just write
+    call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  endif
+#endif
+
+  ! this closes the property list plist_id (we'll re-use it)
+  call h5pclose_f(plist_id, error)
+
+  !-----------------------------------------------------------------------------
+  ! create dataspace "filespace" to write to
+  !-----------------------------------------------------------------------------
+  ! Create the data space for the  dataset.
+  ! Dataspace in the file: contains all data from all procs
+  call h5screate_simple_f(rank, dimensions_file, filespace, error)
+
+  ! Create chunked dataset.
+  ! NB: chunking and hyperslab are unrelated
+  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
+  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
+  if (field_precision=="double") then
+    ! Output files in double precision
+    call h5dcreate_f(file_id, get_dsetname(filename), H5T_NATIVE_DOUBLE, filespace, &
+    dset_id, error, plist_id)
+  else
+    ! Output files in single precision
+    call h5dcreate_f(file_id, get_dsetname(filename), H5T_NATIVE_REAL, filespace, &
+    dset_id, error, plist_id)
+  endif
+  call h5sclose_f(filespace, error)
+
+  ! Select hyperslab in the file.
+  call h5dget_space_f(dset_id, filespace, error)
+  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
+  error, stride, dimensions_local)
+
+  ! Create property list for collective dataset write
+  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
+  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
+
+  !-----------------------------------------------------------------------------
+  ! create dataspace "memspace" to be written
+  !-----------------------------------------------------------------------------
+  ! dataspace in memory: contains only local data
+  call h5screate_simple_f(rank, dimensions_local, memspace, error)
+
+
+
+  !-----------------------------------------------------------------------------
+  ! actual writing of heavy data
+  !-----------------------------------------------------------------------------
+  ! Write the dataset collectively, double precision in memory
+  call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, &
+  error, file_space_id = filespace, mem_space_id = memspace,&
+  xfer_prp = plist_id)
+
+  !!! Write the attributes to the HDF files.
+  ! The attributes written are time, penalisation parameter,
+  ! computational resolution, and physical domain size.
+  adims = (/1/)
+  call write_attribute_dble(adims,"time",(/time/),1,dset_id)
+  call write_attribute_dble(adims,"viscosity",(/nu/),1,dset_id)
+  call write_attribute_dble(adims,"epsi",(/eps/),1,dset_id)
+  adims = (/3/)
+  call write_attribute_dble(adims,"domain_size",(/xl,yl,zl/),3,dset_id)
+  call write_attribute_int(adims,"nxyz",(/nxred_file, nyred_file, nzred_file/),3,dset_id)
+
+  !!! Close dataspaces:
+  call h5sclose_f(filespace, error)
+  call h5sclose_f(memspace, error)
+  call h5dclose_f(dset_id, error) ! Close the dataset.
+  call h5pclose_f(plist_id, error) ! Close the property list.
+  call h5fclose_f(file_id, error) ! Close the file.
+  call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
+
+
+  time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
+end subroutine flusi_hdf5_wrapper
