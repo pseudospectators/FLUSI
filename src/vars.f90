@@ -15,6 +15,7 @@ end module penalization
 ! Variables for pseudospectral simnulations
 module vars
   use mpi
+  use iso_fortran_env
   implicit none
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
@@ -23,7 +24,8 @@ module vars
   integer,parameter :: strlen=80   ! standard string length
 
   ! Precision of doubles
-  integer,parameter :: pr = 8
+  integer,parameter :: pr = real64
+  integer,parameter :: i8 = int64
 
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi

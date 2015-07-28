@@ -21,9 +21,47 @@ subroutine FFT_unit_test ( u, uk )
   ! input: complex work array
   complex(kind=pr), intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   integer :: iz,ix,iy
-  real (kind=pr) :: kx, err, ky, kz
+  logical :: fail
+  real (kind=pr) :: kx, err, ky, kz, x, y, z
   if (mpirank==0) write(*,*) "----------------------"
   if (mpirank==0) write(*,*) "starting FFT unit test"
+  fail = .false.
+
+  !-----------------------------------------------------------------------------
+  ! identity test
+  !-----------------------------------------------------------------------------
+  if (mpirank==0) write(*,*) "Testing if ifft(fft(u))=u ..."
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        x = dble(ix)*dx
+        y = dble(iy)*dy
+        z = dble(iz)*dz
+        u(ix,iy,iz) = dsin( y ) * dcos( z ) * dsin( x )
+      enddo
+    enddo
+  enddo
+  call fft ( inx=u, outk=uk )
+  call ifft( ink=uk, outx=u )
+
+  err = 0.d0
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        x = dble(ix)*dx
+        y = dble(iy)*dy
+        z = dble(iz)*dz
+        err = err + (u(ix,iy,iz) - dsin( y ) * dcos( z ) * dsin( x ))**2
+      enddo
+    enddo
+  enddo
+  if (mpirank==0) then
+    write(*,*) "FFT identity test done. error=", err
+    if ( err > 1.0d-13 ) then
+      write (*,*) "Very bad: FFT identity test failed."
+      fail = .true.
+    endif
+  endif
   !-----------------------------------------------------------------------------
   ! derivative in X direction
   !-----------------------------------------------------------------------------
@@ -49,7 +87,7 @@ subroutine FFT_unit_test ( u, uk )
     err = 0.d0
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-    do ix=ra(1),rb(1)
+        do ix=ra(1),rb(1)
           err = err + (u(ix,iy,iz)-dcos( dble(ix)*dx*2.d0*pi/xl )*2.d0*pi/xl)**2
         enddo
       enddo
@@ -60,7 +98,7 @@ subroutine FFT_unit_test ( u, uk )
       write(*,*) "FFT unit (x) test done. error=", err
       if ( err > 1.0d-13 ) then
         write (*,*) "Very bad: FFT unit test failed."
-        call abort()
+        fail = .true.
       endif
     endif
   endif
@@ -89,7 +127,7 @@ subroutine FFT_unit_test ( u, uk )
     err = 0.d0
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-    do ix=ra(1),rb(1)
+        do ix=ra(1),rb(1)
           err = err + (u(ix,iy,iz)-dcos( dble(iy)*dy*2.d0*pi/yl )*2.d0*pi/yl)**2
         enddo
       enddo
@@ -100,7 +138,7 @@ subroutine FFT_unit_test ( u, uk )
       write(*,*) "FFT unit (y) test done. error=", err
       if ( err > 1.0d-13 ) then
         write (*,*) "Very bad: FFT unit test failed."
-        call abort()
+        fail = .true.
       endif
     endif
   endif
@@ -129,7 +167,7 @@ subroutine FFT_unit_test ( u, uk )
     err = 0.d0
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-    do ix=ra(1),rb(1)
+        do ix=ra(1),rb(1)
           err = err + (u(ix,iy,iz)-dcos( dble(iz)*dz*2.d0*pi/zl )*2.d0*pi/zl)**2
         enddo
       enddo
@@ -140,9 +178,10 @@ subroutine FFT_unit_test ( u, uk )
       write(*,*) "FFT unit (z) test done. error=", err
       if ( err > 1.0d-13 ) then
         write (*,*) "Very bad: FFT unit test failed."
-        call abort()
+        fail = .true.
       endif
     endif
   endif
+  if (fail) call abort("At least one FFT test failed!")
   if (mpirank==0) write(*,*) "----------------------"
 end subroutine FFT_unit_test
