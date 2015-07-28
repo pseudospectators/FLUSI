@@ -107,7 +107,7 @@ subroutine fft_initialize
     write(*,'(A)') "-----------------------------------p3dfft init---------------------------"
     write(*,'("Initializing P3DFFT, n=(",3(i4,1x),")")') nx,ny,nz
     write(*,'("P3DFFT reserves about ",i8,"MB (",i4,"GB) for internal work arrays")') &
-    nint(1.6d-5*dble(nx*ny*nz)), nint(1.6d-5*dble(nx*ny*nz)/1000.d0)
+    nint(1.6d-5*dble(nx)*dble(ny)*dble(nz)), nint(1.6d-5*dble(nx)*dble(ny)*dble(nz)/1000.d0)
   endif
 
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
@@ -295,13 +295,15 @@ subroutine coftxyz(f,fk)
   complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real(kind=pr),save :: t1
   real(kind=pr) :: norm
+  integer(kind=int64) :: npoints
 
   t1 = MPI_wtime()
   ! Compute forward FFT
   call p3dfft_ftran_r2c(f,fk,'fff')
 
   ! Normalize
-  norm = 1.d0 / dble(nx*ny*nz)
+  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
+  norm = 1.d0 / dble(npoints)
   fk(:,:,:) = fk(:,:,:) * norm
 
   time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS

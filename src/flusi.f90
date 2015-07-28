@@ -101,6 +101,7 @@ program FLUSI
     type(diptera) :: Insect
     ! this is the solid model beams:
     type(solid), dimension(1:nBeams) :: beams
+    integer(kind=int64) :: npoints
 
     ! Set method information in vars module.
     method="fsi" ! We are doing fluid-structure interactions
@@ -190,7 +191,7 @@ program FLUSI
     ! size (in bytes) of one field
     mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
     ! memory reserved by p3dffft:
-    memory = dble(nx*ny*nz)*1.6d-5*1000.d0*1000.d0
+    memory = dble(nx)*dble(ny)*dble(nz)*1.6d-5*1000.d0*1000.d0
 
     ! integrating factors
     allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))

@@ -622,7 +622,7 @@ subroutine keyvalues(filename)
   implicit none
   character(len=*), intent(in) :: filename
   character(len=strlen) :: dsetname
-  real(kind=pr) :: time
+  real(kind=pr) :: time, npoints
   real(kind=pr), dimension(:,:,:), allocatable :: field
 
   if (mpisize>1) then
@@ -646,10 +646,10 @@ subroutine keyvalues(filename)
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
 
   call read_single_file_serial (filename, field)
-
+  npoints=dble(nx)*dble(ny)*dble(nz)
   open  (14, file = filename(1:index(filename,'.'))//'key', status = 'replace')
-  write (14,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/(nx*ny*nz), sum(field**2)/(nx*ny*nz)
-  write (*,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/(nx*ny*nz), sum(field**2)/(nx*ny*nz)
+  write (14,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/npoints, sum(field**2)/npoints
+  write (*,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/npoints, sum(field**2)/npoints
   close (14)
 
   deallocate (field)
@@ -1641,7 +1641,7 @@ subroutine turbulence_analysis()
   MPI_COMM_WORLD,mpicode)
 
   if (mpirank==0) then
-    write(17,'(g15.8,5x,A)') epsilon/dble(nx*ny*nz), "Dissipation rate from vorticity"
+    write(17,'(g15.8,5x,A)') epsilon/(dble(nx)*dble(ny)*dble(nz)), "Dissipation rate from vorticity"
   endif
 
   !-----------------------------------------------------------------------------
@@ -1665,7 +1665,7 @@ subroutine turbulence_analysis()
   MPI_COMM_WORLD,mpicode)
 
   if (mpirank==0) then
-    write(17,'(g15.8,5x,A)') E/dble(nx*ny*nz), "energy from velocity"
+    write(17,'(g15.8,5x,A)') E/(dble(nx)*dble(ny)*dble(nz)), "energy from velocity"
   endif
 
   !-----------------------------------------------------------------------------
@@ -2390,8 +2390,8 @@ subroutine check_params_file()
 
   write(*,'("This simulation will produce ",f5.1,"GB HDD output, if it runs until the end")') &
   dble(iSaveVelocity*3+iSavePress+iSaveVorticity*3+iSaveMask+iSaveSolidVelocity*3) &
-  *(nx*ny*nz*4.d0/1000.d0**3)*tmax/tsave &
-  +dble(iDoBackup*2)*18.d0*(nx*ny*nz*4.d0/1000.d0**3)*2.d0 !two backup files à 18 fields double precision each.
+  *((dble(nx)*dble(ny)*dble(nz))*4.d0/1000.d0**3)*tmax/tsave &
+  +dble(iDoBackup*2)*18.d0*((dble(nx)*dble(ny)*dble(nz))*4.d0/1000.d0**3)*2.d0 !two backup files à 18 fields double precision each.
 
 
 end subroutine
