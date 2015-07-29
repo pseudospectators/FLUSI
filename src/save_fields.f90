@@ -660,7 +660,7 @@ subroutine Read_Single_File ( filename, field )
   intent (out) :: field
 
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
-  real (kind=pr)                :: time, xl_file, yl_file, zl_file
+  real (kind=pr)                :: time, xl_file, yl_file, zl_file, fmax,fmin
   character(len=80)             :: dsetname
   integer                       :: nx_file, ny_file, nz_file, mpierror, i
 
@@ -794,7 +794,15 @@ subroutine Read_Single_File ( filename, field )
   call h5fclose_f(file_id,error)
   call H5close_f(error)
 
+  fmax=fieldmax(field)
+  fmin=fieldmin(field)
+
+  if (mpirank==0) then
+    write (*,'("max=",es12.4," min=",es12.4," ")',advance='no'), fmax,fmin
+  endif
+
   call checknan(field,"recently loaded field")
+
   if (mpirank==0) then
     write (*,'("...DONE! ")',advance='yes')
   endif

@@ -11,6 +11,7 @@ subroutine postprocessing()
   t1=MPI_wtime()
 
   if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
+  call postprocessing_ascii_header( 6 )
 
   ! the second argument tells us what to do with the file
   call get_command_argument(2,postprocessing_mode)
@@ -441,14 +442,17 @@ end subroutine convert_abs_vorticity
 subroutine convert_vorticity()
   use vars
   use p3dfft_wrapper
+  use helpers
   use basic_operators
   use mpi
   implicit none
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, order
   character(len=strlen) :: prefix, fname_outx, fname_outy, fname_outz
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  complex(kind=pr),dimension(:,:,:),allocatable :: workc
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
-  real(kind=pr) :: time
+  real(kind=pr),dimension(:,:,:),allocatable :: workr
+  real(kind=pr) :: time, divu_max
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -518,11 +522,28 @@ subroutine convert_vorticity()
   call read_single_file ( fname_uy, u(:,:,:,2) )
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
+  ! to Fourier space
   call fft3 (inx=u, outk=uk)
 
+  !-----------------------------------------------------------------------------
+  ! compute divergence of input fields and show the maximum value
+  !-----------------------------------------------------------------------------
+  allocate( workr(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  allocate( workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) )
+  call divergence( uk, workc)
+  call ifft( ink=workc, outx=workr )
+  divu_max = fieldmax(workr)
+  if(mpirank==0) write(*,'("maximum divergence in input field=",es12.4)') divu_max
+  deallocate(workr,workc)
+
+  !-----------------------------------------------------------------------------
+  ! compute curl, possibly with second order filter
+  !-----------------------------------------------------------------------------
   if (order=="--second-order") then
+    if (mpirank==0) write(*,*) "using SECOND ORDER accuracy"
     call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   else
+    if (mpirank==0) write(*,*) "using SPECTRAL accuracy"
     call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   endif
 
@@ -570,6 +591,9 @@ subroutine convert_velocity()
   real(kind=pr) :: time, divu_max, errx, erry, errz
   integer :: ix,iy,iz, mpicode
 
+  !-----------------------------------------------------------------------------
+  ! Initializations
+  !-----------------------------------------------------------------------------
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
@@ -642,11 +666,25 @@ subroutine convert_velocity()
   call read_single_file ( fname_uy, u(:,:,:,2) )
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
+  ! compute divergence of input fields and show the maximum value, this is interesting
+  ! to know since actually, div(curl(u)) should be identically zero. however, in
+  ! a discrete setting, this may not strictly be the case
+  call fft3( inx=u,outk=uk ) ! uk is now vork
+  call divergence( uk, workc(:,:,:,1) )
+  call ifft( ink=workc(:,:,:,1), outx=workr(:,:,:,1) )
+  divu_max = fieldmax(workr(:,:,:,1))
+  if(mpirank==0) write(*,'("maximum divergence in input field=",es12.4)') divu_max
+
   ! copy original vorticity to workr (for comparison later, error checks)
   workr = u
 
-  call Vorticity2Velocity(uk,workc,u)
-  call ifft3 (ink=uk, outx=u)
+  !-----------------------------------------------------------------------------
+  ! compute velocity from vorticity
+  !-----------------------------------------------------------------------------
+  ! uk: vorticity; workc: velocity
+  call Vorticity2Velocity(uk,workc)
+  call ifft3 (ink=workc, outx=u)
+  uk = workc ! uk: velocity in F-space
 
   ! now u contains the velocity in physical space
   call save_field_hdf5 ( time,fname_outx,u(:,:,:,1) )
@@ -658,6 +696,7 @@ subroutine convert_velocity()
     write(*,'(80("-"))')
     write(*,*) "Done computing, performing some analysis of the result..."
   endif
+
   !-----------------------------------------------------------------------------
   ! check divergence of new field
   !-----------------------------------------------------------------------------
@@ -714,7 +753,6 @@ subroutine convert_velocity()
   call fft_free()
 
 end subroutine convert_velocity
-
 
 
 

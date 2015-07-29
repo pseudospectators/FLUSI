@@ -274,7 +274,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
       end do
     end do
 
-    call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
+    call Vorticity2Velocity_old (uk, nlk(:,:,:,:,0), vort)
   case("VortexRing")
      !--------------------------------------------------
      ! Vortex ring
@@ -308,7 +308,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
            end do
         end do
      end do
-     call Vorticity2Velocity(uk, nlk(:,:,:,:,0), vort)
+     call Vorticity2Velocity_old(uk, nlk(:,:,:,:,0), vort)
 
      call set_mean_flow(uk,time)
 
@@ -337,7 +337,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
         enddo
      enddo
 
-     call Vorticity2Velocity(uk, nlk(:,:,:,:,0), vort)
+     call Vorticity2Velocity_old(uk, nlk(:,:,:,:,0), vort)
 
      call set_mean_flow(uk,time)
   case("turbulence")
@@ -365,7 +365,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
      nlk(:,:,:,2,0)=nlk(:,:,:,2,0)*explin(:,:,:,1)
      nlk(:,:,:,3,0)=nlk(:,:,:,3,0)*explin(:,:,:,1)
      call ifft3( ink=nlk(:,:,:,:,0), outx=vort )
-     call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
+     call Vorticity2Velocity_old (uk, nlk(:,:,:,:,0), vort)
   case("half_HIT")
     ! this is a very specialized case. it reads a field from files, but the field
     ! is only half as long in the x-direction. it is then padded by itself (we
@@ -421,7 +421,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
       end do
     end do
 
-    call Vorticity2Velocity (uk, nlk(:,:,:,:,0), vort)
+    call Vorticity2Velocity_old (uk, nlk(:,:,:,:,0), vort)
 
   case("MeanFlow")
      !--------------------------------------------------
@@ -497,7 +497,7 @@ end subroutine init_fields_fsi
 
 ! Computes the divergence-free velocity in Fourier space u given vort
 ! in physical space.  work is a work array
-subroutine Vorticity2Velocity(uk,work,vort)
+subroutine Vorticity2Velocity_old(uk,work,vort)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -564,4 +564,4 @@ subroutine Vorticity2Velocity(uk,work,vort)
       enddo
     enddo
   enddo
-end subroutine Vorticity2Velocity
+end subroutine Vorticity2Velocity_old
