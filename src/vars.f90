@@ -85,8 +85,8 @@ module vars
 
   ! Parameters to set which files are saved and how often:
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveMagVorticity
-  integer,save :: idobackup
-  integer,save :: striding
+  integer,save :: idobackup = 1
+  integer,save :: striding = 1
   integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.

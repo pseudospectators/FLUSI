@@ -114,7 +114,9 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   !-----------------------------------------------------------------------------
   if ((isaveVorticity==1).or.(iSaveMagVorticity==1)) then
     !-- compute vorticity:
-    call curl( ink=uk, outk=nlk)
+    !call curl( ink=uk, outk=nlk)
+    nlk=uk
+    call curl_2nd(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
     call ifft3( ink=nlk, outx=vort )
   endif
 
@@ -1493,8 +1495,7 @@ subroutine flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
 
   ! The field to be written to disk:
   integer,dimension(1:3), intent(in) :: rared,rbred
-  real(kind=pr),intent(in) :: field_out(rared(1):rbred(1),&
-                              rared(2):rbred(2),rared(3):rbred(3))
+  real(kind=pr),intent(in) :: field_out(rared(1):rbred(1),rared(2):rbred(2),rared(3):rbred(3))
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename
 

@@ -234,7 +234,7 @@ subroutine time_avg_HDF5()
 
   field_avg = field_avg / dble(i)
 
-  call save_field_hdf5(0.d0, fname_avg, field_avg, get_dsetname(fname_avg))
+  call save_field_hdf5(0.d0, fname_avg, field_avg)
 
   deallocate(field_avg)
   deallocate(field)
@@ -315,7 +315,7 @@ subroutine convert_bin2hdf()
   ra=(/0, 0, 0/)
   rb=(/nx-1, ny-1, nz-1/)
 
-  call save_field_hdf5(time,trim(adjustl(fname_hdf)),dble(field),get_dsetname(fname_hdf))
+  call save_field_hdf5(time,fname_hdf,dble(field))
 
   deallocate (field)
 end subroutine convert_bin2hdf
@@ -413,7 +413,7 @@ subroutine convert_abs_vorticity()
   ! compute absolute vorticity:
   u(:,:,:,1) = dsqrt(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vorabs")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1))
 
   deallocate (u)
   deallocate (uk)
@@ -494,11 +494,11 @@ subroutine convert_vorticity()
   fname_uz='vorz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
 
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vorx")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1))
   if (mpirank==0) write(*,*) "Wrote vorx to "//trim(fname_ux)
-  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2),"vory")
+  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2))
   if (mpirank==0) write(*,*) "Wrote vory to "//trim(fname_uy)
-  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"vorz")
+  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3))
   if (mpirank==0) write(*,*) "Wrote vorz to "//trim(fname_uz)
 
 
@@ -576,16 +576,16 @@ subroutine convert_velocity()
   fname_uy='uy'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
   fname_uz='uz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"ux")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1))
   if (mpirank==0) write(*,*) "Wrote ux to "//trim(fname_ux)
-  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2),"uy")
+  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2))
   if (mpirank==0) write(*,*) "Wrote uy to "//trim(fname_uy)
-  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"uz")
+  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3))
   if (mpirank==0) write(*,*) "Wrote uz to "//trim(fname_uz)
 
   call divergence(uk,workc(:,:,:,1))
   call ifft(ink=workc(:,:,:,1),outx=u(:,:,:,1))
-  !call save_field_hdf5 ( time,"divu_0000",u(:,:,:,1),"divu")
+  !call save_field_hdf5 ( time,"divu_0000",u(:,:,:,1))
   write(*,*) "maximum divergence=", fieldmax(u(:,:,:,1)), fieldmin(u(:,:,:,1))
 
   call curl3_inplace(uk)
@@ -880,7 +880,7 @@ subroutine pressure_to_Qcriterion()
   call ifft(ink=pk, outx=p)
   p=0.5d0*p
 
-  call save_field_hdf5(time, trim(fname_Q(1:index(fname_Q,'.h5')-1)), p, "Q")
+  call save_field_hdf5(time, fname_Q, p)
 
   maxi = fieldmax(P)
   mini = fieldmin(P)
@@ -1110,7 +1110,7 @@ subroutine extract_subset()
   zl = dz + dble(nz1+(nz_red-1)*nzs)*dz - dble(nz1)*dz
 
   ! Done! Write extracted subset to disk and be happy with the result
-  call save_field_hdf5 ( time, fname_out, field, dsetname_out )
+  call save_field_hdf5 ( time, fname_out, field )
 
 end subroutine extract_subset
 
@@ -1164,7 +1164,7 @@ subroutine copy_hdf_file()
   allocate ( field_in(0:nx-1,0:ny-1,0:nz-1) )
   call read_single_file_serial(fname_in,field_in)
 
-  call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field_in, dsetname_out )
+  call save_field_hdf5 ( time, fname_out, field_in )
 
   deallocate (field_in)
 end subroutine copy_hdf_file
@@ -1406,7 +1406,7 @@ subroutine upsample()
 
   ! save the final result to the specified file
   write(*,*) "Saving upsampled field to " // trim(adjustl(fname_out))
-  call save_field_hdf5(time,fname_out,u_new,dsetname_out)
+  call save_field_hdf5(time,fname_out,u_new)
 
   deallocate( u_new )
 end subroutine upsample
@@ -1777,7 +1777,7 @@ subroutine TKE_mean()
 
   dsetname = outfile ( 1:index( outfile, '_' )-1 )
   if (mpirank==0) write(*,*) "Wrote to "//trim(adjustl(outfile))//" "//trim(adjustl(dsetname))
-  call save_field_hdf5 ( time,outfile,ekin,dsetname)
+  call save_field_hdf5 ( time,outfile,ekin)
 
 
   deallocate (u,ekin)
@@ -2207,7 +2207,7 @@ subroutine ux_from_uyuz()
   ! call fft (inx=u(:,:,:,1),outk=uk(:,:,:,1))
   ! call ifft (u(:,:,:,1),uk(:,:,:,1))
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"ux")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1))
   if (mpirank==0) write(*,*) "Wrote vorx to "//trim(fname_ux)
 
   deallocate (u)
@@ -2271,7 +2271,7 @@ subroutine magnitude_post()
 
   work = dsqrt( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
 
-  call save_field_hdf5 ( time, outfile, work, get_dsetname(outfile) )
+  call save_field_hdf5 ( time, outfile, work )
   if (mpirank==0) write(*,*) "Wrote magnitude to "//trim(outfile)
 
   deallocate (u,work)
@@ -2332,7 +2332,7 @@ subroutine energy_post()
 
   work = 0.5d0 * ( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
 
-  call save_field_hdf5 ( time, outfile, work, get_dsetname(outfile) )
+  call save_field_hdf5 ( time, outfile, work )
   if (mpirank==0) write(*,*) "Wrote energy to "//trim(outfile)
 
   deallocate (u,work)
