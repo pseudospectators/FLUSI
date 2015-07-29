@@ -2270,11 +2270,12 @@ subroutine magnitude_post()
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
   work = dsqrt( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+  deallocate( u )
 
   call save_field_hdf5 ( time, outfile, work )
   if (mpirank==0) write(*,*) "Wrote magnitude to "//trim(outfile)
 
-  deallocate (u,work)
+  deallocate (work)
   call fft_free()
 
 end subroutine magnitude_post

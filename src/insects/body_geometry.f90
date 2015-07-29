@@ -904,7 +904,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     enddo
   enddo
 
-  ! call save_field_hdf5(0.d0,'./mask_00',mask,"mask")
+  ! call save_field_hdf5(0.d0,'./mask_00',mask)
   ! stop
 
   !-----------------------------------------------------------------------------
