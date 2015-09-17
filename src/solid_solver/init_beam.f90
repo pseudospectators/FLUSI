@@ -107,7 +107,22 @@ subroutine init_beams ( beams )
       beams(i)%vy(n)= 0.d0
       beams(i)%ax(n)= 0.d0
       beams(i)%ay(n)= 0.d0
+      beams(i)%s(n) = dble(n)*ds
     enddo
+
+    !---------------------------------------------------------------------------
+    ! set up material and derivatives
+    !---------------------------------------------------------------------------
+    beams(i)%zeta = 0.0047d0*(1.0d0+beams(i)%s**2)
+    beams(i)%mu   = 0.0096d0*(1.0d0+beams(i)%s**2)
+    call Differentiate1D (beams(i)%zeta, beams(i)%zeta_s, ns, ds, 1)
+    call Differentiate1D (beams(i)%zeta, beams(i)%zeta_ss, ns, ds, 2)
+    call Differentiate1D (beams(i)%zeta, beams(i)%zeta_sss, ns, ds, 3)
+    call Differentiate1D (beams(i)%mu, beams(i)%mu_s, ns, ds, 1)
+    beams(i)%mu_star = beams(i)%mu_s / beams(i)%mu
+    write(*,*) "!!!!!!!!!!!warning new mu and zeta are hard coded!!!"
+
+
 
     if (TimeMethodSolid=="prescribed") then
       if(mpirank==0) write(*,*) "prescribed deformation: initializing..."
