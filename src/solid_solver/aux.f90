@@ -284,12 +284,6 @@ subroutine show_beam( beam )
     write(*,str) "beam%pressure_old", beam%pressure_old(0:ns-1)
     write(*,str) "beam%tau_new", beam%tau_new(0:ns-1)
     write(*,str) "beam%tau_old", beam%tau_old(0:ns-1)
-    write(*,str) "beam%beam_oldold(:,1)", beam%beam_oldold(0:ns-1,1)
-    write(*,str) "beam%beam_oldold(:,2)", beam%beam_oldold(0:ns-1,2)
-    write(*,str) "beam%beam_oldold(:,3)", beam%beam_oldold(0:ns-1,3)
-    write(*,str) "beam%beam_oldold(:,4)", beam%beam_oldold(0:ns-1,4)
-    write(*,str) "beam%beam_oldold(:,5)", beam%beam_oldold(0:ns-1,5)
-    write(*,str) "beam%beam_oldold(:,6)", beam%beam_oldold(0:ns-1,6)
     write(*,*) "-->end beam<--"
   endif
 end subroutine show_beam
@@ -311,13 +305,7 @@ subroutine show_beam_on_error( beam )
        Vector_isNAN(beam%pressure_new).or.&
        Vector_isNAN(beam%pressure_old).or.&
        Vector_isNAN(beam%tau_new).or.&
-       Vector_isNAN(beam%tau_old).or.&
-       Vector_isNAN(beam%beam_oldold(:,1)).or.&
-       Vector_isNAN(beam%beam_oldold(:,2)).or.&
-       Vector_isNAN(beam%beam_oldold(:,3)).or.&
-       Vector_isNAN(beam%beam_oldold(:,4)).or.&
-       Vector_isNAN(beam%beam_oldold(:,5)).or.&
-       Vector_isNAN(beam%beam_oldold(:,6)) &
+       Vector_isNAN(beam%tau_old) &
      ) then
 
      call show_beam( beam )
@@ -411,7 +399,6 @@ subroutine dump_solid_backup( time, beams, nbackup )
       write(14,*) beams(i)%theta, beams(i)%theta_dot, beams(i)%ax, beams(i)%ay
       write(14,*) beams(i)%pressure_old, beams(i)%pressure_new
       write(14,*) beams(i)%tau_old, beams(i)%tau_new
-      write(14,*) beams(i)%beam_oldold
       write(14,*) beams(i)%Force, beams(i)%Force_unst, beams(i)%Force_press
       write(14,*) beams(i)%Inertial_Force, beams(i)%x0, beams(i)%y0, beams(i)%AngleBeam
       write(14,*) beams(i)%phase, beams(i)%dt_old, beams(i)%drag_unst_new
@@ -457,7 +444,6 @@ subroutine read_solid_backup( beams, filename )
     read(14,*) beams(i)%theta, beams(i)%theta_dot, beams(i)%ax, beams(i)%ay
     read(14,*) beams(i)%pressure_old, beams(i)%pressure_new
     read(14,*) beams(i)%tau_old, beams(i)%tau_new
-    read(14,*) beams(i)%beam_oldold
     read(14,*) beams(i)%Force, beams(i)%Force_unst, beams(i)%Force_press
     read(14,*) beams(i)%Inertial_Force, beams(i)%x0, beams(i)%y0, beams(i)%AngleBeam
     read(14,*) beams(i)%phase, beams(i)%dt_old, beams(i)%drag_unst_new
@@ -503,7 +489,6 @@ subroutine read_solid_backup_binary( beams, filename )
     read(14) beams(i)%theta, beams(i)%theta_dot, beams(i)%ax, beams(i)%ay
     read(14) beams(i)%pressure_old, beams(i)%pressure_new
     read(14) beams(i)%tau_old, beams(i)%tau_new
-    read(14) beams(i)%beam_oldold
     read(14) beams(i)%Force, beams(i)%Force_unst, beams(i)%Force_press
     read(14) beams(i)%Inertial_Force, beams(i)%x0, beams(i)%y0, beams(i)%AngleBeam
     read(14) beams(i)%phase, beams(i)%dt_old, beams(i)%drag_unst_new

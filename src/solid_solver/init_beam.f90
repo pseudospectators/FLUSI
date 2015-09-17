@@ -77,11 +77,14 @@ subroutine init_beams ( beams )
     beams(i)%ay = 0.d0
     beams(i)%theta = 0.d0
     beams(i)%theta_dot = 0.d0
+    beams(i)%theta_old = 0.d0
+    beams(i)%theta_dot_old = 0.d0
+    beams(i)%theta_oldold = 0.d0
+    beams(i)%theta_dot_oldold = 0.d0
     beams(i)%pressure_old = 0.d0
     beams(i)%pressure_new = 0.d0
     beams(i)%tau_old = 0.d0
     beams(i)%tau_new = 0.d0
-    beams(i)%beam_oldold = 0.d0
     beams(i)%Inertial_Force = 0.d0
     ! this is used for unst correction computation:
     beams(i)%drag_unst_new = 0.d0
