@@ -203,8 +203,6 @@ subroutine InitializeSolidSolver( beams )
   do i=1,nBeams
     beams(i)%StartupStep = .true.
   enddo
-
-
 end subroutine InitializeSolidSolver
 
 
