@@ -254,7 +254,7 @@ subroutine show_solid_model_information
   write(*,*) "*****************************************"
   write(*,'("mpirank=",i5)') mpirank
   write(*,'("ns=",i3)') ns
-  write(*,'("mue=",es12.4," eta=",es12.4," grav=",es12.4)') mue,eta,grav
+  write(*,'("mue0=",es12.4," eta0=",es12.4," grav=",es12.4)') mue0,eta0,grav
   write(*,'("sigma=",es12.4," t_beam=",es12.4," ds=",es12.4)') sigma, t_beam, ds
   write(*,'("T_release=",es12.4," TimeMethodSolid=",A," tau=",es12.4)') &
   T_release, trim(TimeMethodSolid), tau

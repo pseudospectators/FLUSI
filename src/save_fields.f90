@@ -114,9 +114,11 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   !-----------------------------------------------------------------------------
   if ((isaveVorticity==1).or.(iSaveMagVorticity==1)) then
     !-- compute vorticity:
-    !call curl( ink=uk, outk=nlk)
-    nlk=uk
-    call curl_2nd(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+    call curl( ink=uk, outk=nlk)
+
+    ! nlk=uk
+    ! call curl_2nd(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+
     call ifft3( ink=nlk, outx=vort )
   endif
 

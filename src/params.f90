@@ -495,8 +495,8 @@ subroutine get_params_solid(PARAMS,i)
     !-- interpolation method
     call param_str(PARAMS,i,"SolidModel","interp",interp,"delta")
     !-- density / stiffness / gravity
-    call param_dbl(PARAMS,i,"SolidModel","mue",mue,1.0d0)
-    call param_dbl(PARAMS,i,"SolidModel","eta",eta,1.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","mue",mue0,1.0d0)
+    call param_dbl(PARAMS,i,"SolidModel","eta",eta0,1.0d0)
     call param_dbl(PARAMS,i,"SolidModel","f",frequ,1.0d0)
     call param_dbl(PARAMS,i,"SolidModel","angle",AngleBeam,1.0d0)
     call param_dbl(PARAMS,i,"SolidModel","gravity",grav,0.0d0)
@@ -526,6 +526,8 @@ subroutine get_params_solid(PARAMS,i)
          imposed_motion_leadingedge,"fixed_middle")
     call param_str(PARAMS,i,"SolidModel","infinite",infinite,"no")
     call param_str(PARAMS,i,"SolidModel","plate_shape",plate_shape,"rectangular")
+    call param_int(PARAMS,i,"SolidModel","debug_pressure",debug_pressure,0)
+
     !-- grid spacing
     ds = 1.d0/dble(ns-1)
   endif

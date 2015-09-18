@@ -10,12 +10,12 @@ module solid_model
   ! module global variables
   !----------------------------------------------
   integer,parameter :: nBeams = 1
-  integer,save :: ns
+  integer,save :: ns, debug_pressure
   ! see "type solid" about nsmax 06 Aug 2014
   integer,parameter :: nsmax = 200
   ! TODO: move these into the solid model datastructure
-  real(kind=pr),save :: mue
-  real(kind=pr),save :: eta
+  real(kind=pr),save :: mue0
+  real(kind=pr),save :: eta0
   real(kind=pr),save :: grav
   real(kind=pr),save :: sigma
   real(kind=pr),save :: t_beam, L_span, N_smooth
@@ -54,8 +54,8 @@ module solid_model
     ! material properties and their derivatives:
     real(kind=pr),dimension(0:nsmax) :: mu, mu_s, mu_star
     real(kind=pr),dimension(0:nsmax) :: zeta, zeta_s, zeta_ss, zeta_sss
-    ! grid:
-    real(kind=pr),dimension(0:nsmax) :: s
+    ! grid and width in rigid direction:
+    real(kind=pr),dimension(0:nsmax) :: s, L_rigid
     ! values of theta and theta_dot at times t^(n) and t^(n-1)
     real(kind=pr),dimension(0:nsmax) :: theta_old, theta_oldold
     real(kind=pr),dimension(0:nsmax) :: theta_dot_old, theta_dot_oldold
@@ -87,106 +87,6 @@ module solid_model
  include "prescribed_beam.f90"
  include "solid_solver_wrapper.f90"
 
-!-------------------------------------------------------------------------------
-!   solid solver main entry point
-!-------------------------------------------------------------------------------
-subroutine OnlySolidSimulation()
-  use fsi_vars
-  implicit none
-  type(solid), dimension(1:nBeams) :: beams
-  real (kind=pr) :: time
-  integer :: it,nsave
-
-  ! in case you forgot to set it
-  if (itdrag==0) itdrag=10
-  if (dt_fixed<=1.0d-10) dt_fixed=1.d-3
-
-  write (*,*) "*** information: starting OnlySolidSimulation"
-  time = 0.0
-  it = 0
-
-  call show_solid_model_information
-
-  !-- initialization
-  call init_beams( beams )
-
-  !--loop over time steps
-  do while ((time<=tmax))
-    !-- time stepping
-    call SolidSolverWrapper( time, dt_fixed , beams )
-
-    it   = it+1
-    time = dble(it)*dt_fixed
-
-    call SaveBeamData( time, beams )
-  enddo
-
-end subroutine
-
-
-!-------------------------------------------------------------------------------
-!   solid solver convergence test
-!-------------------------------------------------------------------------------
-subroutine SolidModelConvergenceTest()
-  use fsi_vars
-  implicit none
-  type(solid), dimension(1:nBeams) :: beams
-  type(solid), dimension(1:6) :: solutions
-  real(kind=pr) :: time, t1
-  real(kind=pr), dimension(1:6) :: dts, errors_y, errors_vy, errors_th
-  integer :: it,nsave,i
-
-  ! in case you forgot to set it
-  if (itdrag==0) itdrag=10
-  if (dt_fixed<=1.0d-10) dt_fixed=1.d-3
-
-  write(*,*) "*** information: starting SolidModelConvergenceTest"
-  dts = (/2.0d-3, 1.0d-3, 5.0d-4, 2.5d-4, 1.0d-4, 5.0d-5/)
-  write(*,*) "We use the folling time steps: ", dts
-
-  !-----------------------------------------------------------------------------
-  ! loop over the different time steps and perform one simulation for each value of dt
-  !-----------------------------------------------------------------------------
-  do i = 1, 6
-    t1 = MPI_wtime()
-    dt_fixed = dts(i)
-    time = 0.0d0
-    it = 0
-    call show_solid_model_information
-    !-- initialization
-    call init_beams( beams )
-    !--loop over time steps
-    do while (time<tmax)
-      !-- time stepping
-      call SolidSolverWrapper( time, dt_fixed , beams )
-      it   = it+1
-      time = dble(it)*dt_fixed
-    enddo
-
-    !-- run is done, copy the result
-    solutions(i) = beams(1)
-    write(*,'(80("-"))')
-    write(*,*) "run dt=",dts(i)," is done time=", time, "it took t=", MPI_wtime()-t1
-    write(*,'(80("-"))')
-  enddo
-
-  !-----------------------------------------------------------------------------
-  ! compute errors, save them in a txt file and show them on screen
-  !-----------------------------------------------------------------------------
-  call init_empty_file('time_convergence_result')
-  open (14, file = 'time_convergence_result', status = 'unknown',position='append')
-  write(14,'("% dt   error_y    error_vy  error_theta")')
-  do i=5,1,-1
-    errors_y(i) = dsqrt(sum(solutions(i)%y - solutions(6)%y)**2) / dsqrt(sum((solutions(6)%y)**2))
-    errors_th(i) = dsqrt(sum(solutions(i)%theta - solutions(6)%theta)**2) / dsqrt(sum((solutions(6)%theta)**2))
-    errors_vy(i) = dsqrt(sum(solutions(i)%vy - solutions(6)%vy)**2) / dsqrt(sum((solutions(6)%vy)**2))
-
-    write(*,'(4(es15.8))')  dts(i), errors_y(i), errors_vy(i), errors_th(i)
-    write(14,'(4(es15.8))') dts(i), errors_y(i), errors_vy(i), errors_th(i)
-  enddo
-  close(14)
-
-end subroutine
 
 
 !-------------------------------------------------------------------------------
@@ -249,9 +149,10 @@ subroutine IBES_solver ( time, dt, beam )! note this is actuall only ONE beam!!
   beam%theta_old(0:ns-1) = beam%theta(0:ns-1)
   beam%theta_dot_old(0:ns-1) = beam%theta_dot(0:ns-1)
 
-  !--------------------------------------------------------------------
-  !   Startup time step: use EE1 as first step of BDF2 (pay attention to call InitializeSolidSolver() before the run)
-  !--------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! Startup time step: use EE1 as first step of BDF2
+  ! (pay attention to call InitializeSolidSolver() before the run)
+  !-----------------------------------------------------------------------------
   if (beam%StartupStep) then  ! this is the first time step
     beam%StartupStep = .false.  ! we're about to do the first step
     if (TimeMethodSolid=="BDF2") then  ! if we deal with BDF2
@@ -261,21 +162,22 @@ subroutine IBES_solver ( time, dt, beam )! note this is actuall only ONE beam!!
   endif
 
 
-  !--------------------------------------------------------------------
-  !   Initial guess for the beam at the new time level.
-  !   An euler-explicit step is made, ghostpoints are added
-  !--------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! Initial guess for the beam at the new time level.
+  ! An euler-explicit step is made, ghostpoints are added
+  !-----------------------------------------------------------------------------
   call initial_guess( time, dt, beam, x )
 
 
-  !--------------------------------------------------------------------
-  !   Newton iteration
-  !--------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! Newton iteration
+  !-----------------------------------------------------------------------------
   ! this iterative process finds the solution "x" at the new time level
   ! note: during the iteration, only x is altered. the "beam" remains constant!
   !
-  ! The iteration now uses both relative and absolute error. If x is large, we can have trouble
-  ! reaching a very small increment, and iterate forever. If x is small, then the relative criterion tries to go much below
+  ! The iteration now uses both relative and absolute error. If x is large,
+  ! we can have trouble reaching a very small increment, and iterate forever.
+  ! If x is small, then the relative criterion tries to go much below
   ! machine precision. So we use both, either with the same precision.
   iterate = .true.
   err     = 1.0d0
@@ -297,8 +199,8 @@ subroutine IBES_solver ( time, dt, beam )! note this is actuall only ONE beam!!
     ! iterate
     iter    = iter + 1
     x       = x + x_delta
-    err     = sqrt(sum(x_delta**2))
-    err_rel = abs(sqrt(sum(x_delta**2)) / sqrt(sum(x**2)))
+    err     = dsqrt(sum(x_delta**2))
+    err_rel = abs(dsqrt(sum(x_delta**2)) / dsqrt(sum(x**2)))
 
     ! convergence test
     if ( (((err<error_stop) .or. (err_rel<error_stop)).and.(iter>2))) then
@@ -309,10 +211,11 @@ subroutine IBES_solver ( time, dt, beam )! note this is actuall only ONE beam!!
     if (iter>1000) then
       call abort("!!! ERROR: IBES performed like 1000 iterations. this is not normal")
     endif
-
   enddo
+
+
   !--------------------------------------------------------------------
-  !    update solid struct with new solution
+  ! update solid struct with new solution
   !--------------------------------------------------------------------
   ! we now have the solution vector x. note beam is completely untouched
   beam%theta(-1:ns+1) = x(1:ns+3) ! note we keep ghost nodes for fun
@@ -325,20 +228,20 @@ subroutine IBES_solver ( time, dt, beam )! note this is actuall only ONE beam!!
                          - C2*beam%theta_dot_old(0:ns-1)
 
   !-----------------------------------------------------------------------------
-  !     get deflection line (integrate_position)
+  ! get deflection line (integrate_position)
   !-----------------------------------------------------------------------------
   ! this beam is the new one, so its time+dt ( to get mouvement at the right instant)
   call integrate_position ( time+dt, beam )
 
   !-----------------------------------------------------------------------------
-  !  accelerations
+  ! accelerations
   !-----------------------------------------------------------------------------
   ! we have the old velocity (t_n) and the new one
   beam%ax(0:ns-1) = (beam%vx(0:ns-1) - beam_old%vx(0:ns-1)) / dt
   beam%ay(0:ns-1) = (beam%vy(0:ns-1) - beam_old%vy(0:ns-1)) / dt
 
   !-----------------------------------------------------------------------------
-  !       emergency brake
+  ! emergency brake
   !-----------------------------------------------------------------------------
   ! if ((maxval(abs(beam(:,6)-beam_old(:,6) ))>100.d0 ).and.(root)) then
   if ((maxval(abs(beam%theta_dot(0:ns-1)-beam%theta_dot_old(0:ns-1) ))>100.d0 ).and.(root)) then
@@ -348,7 +251,7 @@ subroutine IBES_solver ( time, dt, beam )! note this is actuall only ONE beam!!
   endif
 
   !-----------------------------------------------------------------------------
-  !     save number of iterations
+  ! save number of iterations
   !-----------------------------------------------------------------------------
   if (root) then
     open (14, file = 'IBES_iter.t', status = 'unknown', position='append')
@@ -357,7 +260,7 @@ subroutine IBES_solver ( time, dt, beam )! note this is actuall only ONE beam!!
   endif
 
   !-----------------------------------------------------------------------------
-  !     change marching scheme, if necessary
+  ! change marching scheme, if necessary
   !-----------------------------------------------------------------------------
   if (ActuallyBDF2 .eqv. .true.) then   ! Remember to switch back to BDF2
     TimeMethodSolid = "BDF2"
@@ -438,7 +341,7 @@ subroutine F_nonlinear (time, dt, F, x, beam_solid)
 
   !---------new extended boundarys (constants)
   K1 = mu(0)*( LeadingEdge(5)*dcos(alpha)+LeadingEdge(6)*dsin(alpha)+grav*dsin(alpha)) - tau_beam(0)
-  K2 = mu(0)*(-LeadingEdge(5)*dsin(alpha)+LeadingEdge(6)*dcos(alpha)+grav*dcos(alpha)) - p(0)
+  K2 = mu(0)*(-LeadingEdge(5)*dsin(alpha)+LeadingEdge(6)*dcos(alpha)+grav*dcos(alpha)) + p(0)
   K3 = C3*theta_dot_old + C4*theta_dot_oldold + (dt/C1)*C2*old_rhs
   K4 = K3 + C2*theta_dot_old + (C1/dt)*(C3*theta_old+C4*theta_oldold)
 
@@ -467,7 +370,7 @@ subroutine F_nonlinear (time, dt, F, x, beam_solid)
        - theta(i+1)/2)*(theta(i-1) - 2*theta(i) + theta(i+1)))/ds**3
 
   i = ns-1
-  F(8) = K4(i) - (C1*theta(i))/dt - (dt*(alpha_tt*mu(i) + p_s(i) - mu_star(i)*(p(i) &
+  F(8) = K4(i) - (C1*theta(i))/dt - (dt*(alpha_tt*mu(i)**2 + p_s(i) - mu_star(i)*(p(i) &
       + (T(i)*(theta(i-1)/2 - theta(i+1)/2))/ds - (zeta_ss(i)*(theta(i-1)/2 - theta(i+1)/2))/ds &
       + (2*zeta_s(i)*(theta(i-1) - 2*theta(i) + theta(i+1)))/ds**2 + (zeta(i)*(theta(i-1) &
       - theta(i-2)/2 - theta(i+1) + theta(i+2)/2))/ds**3) + (zeta(i)*(6*theta(i) &
@@ -482,7 +385,7 @@ subroutine F_nonlinear (time, dt, F, x, beam_solid)
 
   do i=1, ns-2
     ! first block: eqn for theta (ns+2 eqn's) [F]
-    F( 8+i ) = K4(i) - (C1*theta(i))/dt - (dt*(alpha_tt*mu(i) + p_s(i) - mu_star(i)*(p(i) &
+    F( 8+i ) = K4(i) - (C1*theta(i))/dt - (dt*(alpha_tt*mu(i)**2 + p_s(i) - mu_star(i)*(p(i) &
     + (T(i)*(theta(i-1)/2 - theta(i+1)/2))/ds - (zeta_ss(i)*(theta(i-1)/2 - theta(i+1)/2))/ds &
     + (2*zeta_s(i)*(theta(i-1) - 2*theta(i) + theta(i+1)))/ds**2 + (zeta(i)*(theta(i-1) &
     - theta(i-2)/2 - theta(i+1) + theta(i+2)/2))/ds**3) + (zeta(i)*(6*theta(i) - 4*theta(i-1) &
@@ -569,7 +472,7 @@ subroutine Jacobi(time, dt, J, x, beam_solid)
 
   !---------new extended boundarys (constants)
   K1 = mu(0)*( LeadingEdge(5)*dcos(alpha)+LeadingEdge(6)*dsin(alpha)+grav*dsin(alpha)) - tau_beam(0)
-  K2 = mu(0)*(-LeadingEdge(5)*dsin(alpha)+LeadingEdge(6)*dcos(alpha)+grav*dcos(alpha)) - p(0)
+  K2 = mu(0)*(-LeadingEdge(5)*dsin(alpha)+LeadingEdge(6)*dcos(alpha)+grav*dcos(alpha)) + p(0)
   K3 = C3*theta_dot_old + C4*theta_dot_oldold
   K4 = K3 + C2*theta_dot_old + (C1/dt)*(C3*theta_old+C4*theta_oldold)
 
@@ -798,7 +701,7 @@ subroutine Jacobi(time, dt, J, x, beam_solid)
   !-------------------------------------------------------------------------
   !  self-test. occasionally, check if Jacobian is okay
   !-------------------------------------------------------------------------
-  if (mod(iCalls,1271)==0) then
+  if (mod(iCalls,1967)==0) then
     call Jacobi_num(time, dt, J2, x, beam_solid)
     J2_norm = J2
     where (abs(J2_norm)<1.0d-7) J2_norm=1.0d0
@@ -899,7 +802,7 @@ subroutine Tension ( time, T, T_s, theta, theta_dot, pressure, tau_beam, beam_so
 
   ! constants from the boundary conditions
   K1 = mu(0)*( LeadingEdge(5)*dcos(alpha)+LeadingEdge(6)*dsin(alpha)+grav*dsin(alpha)) - tau_beam(0)
-  K2 = mu(0)*(-LeadingEdge(5)*dsin(alpha)+LeadingEdge(6)*dcos(alpha)+grav*dcos(alpha)) - pressure(0)
+  K2 = mu(0)*(-LeadingEdge(5)*dsin(alpha)+LeadingEdge(6)*dcos(alpha)+grav*dcos(alpha)) + pressure(0)
 
   !----------------------------------------------------------------
   ! first step: construct the opertator matrix A
@@ -1164,7 +1067,7 @@ subroutine initial_guess( time, dt, beam, x_guess )
 
   ! constants from the boundary conditions
   K1 = beam%mu(0)*( LeadingEdge(5)*dcos(alpha)+LeadingEdge(6)*dsin(alpha)+grav*dsin(alpha)) - beam%tau_old(0)
-  K2 = beam%mu(0)*(-LeadingEdge(5)*dsin(alpha)+LeadingEdge(6)*dcos(alpha)+grav*dcos(alpha)) - beam%pressure_old(0)
+  K2 = beam%mu(0)*(-LeadingEdge(5)*dsin(alpha)+LeadingEdge(6)*dcos(alpha)+grav*dcos(alpha)) + beam%pressure_old(0)
 
 
   ! get tension including ghost node T(-1)

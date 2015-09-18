@@ -138,9 +138,15 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
         beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
       endif
 
-      ! average:
-      beam%pressure_old(is) = beam%pressure_old(is) / sum(active_points(is,:))
-      beam%pressure_new(is) = beam%pressure_new(is) / sum(active_points(is,:))
+      ! integrate. note: in earlier versions, we used the average here. this
+      ! is fine for rectangular plates, as the width L then drops out of th eqn
+      ! which is why we had the same mue and eta for different plates. now
+      ! for complicated shapes, we integrate properly; this is much cleaner.
+      ! beam%pressure_old(is) = beam%pressure_old(is) / sum(active_points(is,:))
+      ! beam%pressure_new(is) = beam%pressure_new(is) / sum(active_points(is,:))
+
+      beam%pressure_old(is) = beam%L_rigid(is)*beam%pressure_old(is) / sum(active_points(is,:))
+      beam%pressure_new(is) = beam%L_rigid(is)*beam%pressure_new(is) / sum(active_points(is,:))
 
       if (sum(active_points(is,:))<1.0d-10) then
         beam%pressure_old(is) = 0.d0
