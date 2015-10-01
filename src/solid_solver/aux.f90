@@ -59,7 +59,7 @@ subroutine time_marching_coefs(dt,dt_old,C1,C2,C3,C4)
   endif
 
   if (C2.ne.0.0) call abort("to use c2/=0 you have to implement the rhs first")
-end
+end subroutine
 
 ! ------------------------------------------------------------------------------
 

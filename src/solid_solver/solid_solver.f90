@@ -742,7 +742,7 @@ subroutine RHS_beameqn (time, theta, theta_dot, pressure_beam, T, tau_beam, beam
     real(kind=pr), intent (in) ::         time
     real(kind=pr) ::              A1, A2, K2,C2
     real(kind=pr),dimension(0:ns-1), intent (in) :: pressure_beam, tau_beam
-    real(kind=pr),dimension(0:ns-1), intent (out) :: T
+    real(kind=pr),dimension(0:ns-1), intent (inout) :: T
     type(solid) :: beam_solid
     real(kind=pr),dimension(0:ns-1), intent (inout) ::   theta, theta_dot
     real(kind=pr),dimension(0:ns+2) :: theta_extended, theta_extended_s, theta_extended_ss
