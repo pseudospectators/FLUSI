@@ -14,8 +14,8 @@ module basic_operators
   end interface
 
   !-- interface for maxima of fields
-  interface fieldmaxabs
-    module procedure fieldmaxabs, fieldmaxabs3
+  interface field_max_magnitude
+    module procedure field_max_magnitude, field_max_magnitude3
   end interface
 
   !-- check fields for NaN
@@ -356,9 +356,29 @@ real(kind=pr) function fieldmin( inx )
 end function fieldmin
 
 
+! returns the mean value of a given field
+real(kind=pr) function fieldmean( inx )
+  use mpi
+  use vars
+  implicit none
+  real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr) :: mean_local, mean_global
+  integer :: mpicode, npoints
+
+  ! number of points on local CPU
+  npoints = (rb(1)-ra(1)+1)*(rb(2)-ra(2)+1)*(rb(3)-ra(3)+1)
+
+  mean_local = sum(inx) / dble(npoints)
+  call MPI_ALLREDUCE (mean_local,mean_global,1,&
+       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  ! return the value
+  fieldmean = mean_global
+end function fieldmean
+
+
 ! returns the globally largest entry of a given vector field
 ! (L2-norm)
-real(kind=pr) function fieldmaxabs3( inx )
+real(kind=pr) function field_max_magnitude3( inx )
   use mpi
   use vars
   implicit none
@@ -382,13 +402,13 @@ real(kind=pr) function fieldmaxabs3( inx )
   call MPI_ALLREDUCE (max_local,max_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
   ! return the value
-  fieldmaxabs3 = max_global
-end function fieldmaxabs3
+  field_max_magnitude3 = max_global
+end function field_max_magnitude3
 
 
 ! returns the globally largest entry of a given vector field
 ! (L2-norm)
-real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
+real(kind=pr) function field_max_magnitude( inx1, inx2, inx3 )
   use mpi
   use vars
   implicit none
@@ -404,8 +424,8 @@ real(kind=pr) function fieldmaxabs( inx1, inx2, inx3 )
   call MPI_ALLREDUCE (max_local,max_global,1,&
        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
   ! return the value
-  fieldmaxabs = max_global
-end function fieldmaxabs
+  field_max_magnitude = max_global
+end function field_max_magnitude
 
 
 !-------------------------------------------------------------------------------
@@ -584,7 +604,7 @@ end subroutine dealias3
 ! OUTPUT:
 !   uk: velocity field in Fourier space
 ! NOTES:
-!   The inverse of the curl is defined up to and irrotational part (eg constant flow)
+!   The inverse of the curl is defined up to an irrotational part (eg constant flow)
 !   and we thus set the zeroth Fourier mode of uk to zero
 !   In older versions, still (07/2015) present in inicond/fsi/init_fields_fsi.f90
 !   we include the FFT in the routine. that is not very nice.

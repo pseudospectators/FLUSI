@@ -660,7 +660,7 @@ subroutine Read_Single_File ( filename, field )
   intent (out) :: field
 
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
-  real (kind=pr)                :: time, xl_file, yl_file, zl_file, fmax,fmin
+  real (kind=pr)                :: time, xl_file, yl_file, zl_file, fmax,fmin,fmean
   character(len=80)             :: dsetname
   integer                       :: nx_file, ny_file, nz_file, mpierror, i
 
@@ -796,9 +796,10 @@ subroutine Read_Single_File ( filename, field )
 
   fmax=fieldmax(field)
   fmin=fieldmin(field)
+  fmean=fieldmean(field)
 
   if (mpirank==0) then
-    write (*,'("max=",es12.4," min=",es12.4," ")',advance='no'), fmax,fmin
+    write (*,'("max=",es12.4," min=",es12.4," mean=",es12.4)',advance='no') fmax,fmin, fmean
   endif
 
   call checknan(field,"recently loaded field")

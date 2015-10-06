@@ -666,41 +666,6 @@ subroutine IBES_solver ( time, dt, beam_solid )! note this is actuall only ONE b
 end subroutine IBES_solver
 
 
-
-
-
-
-subroutine Solve_LGS ( J, F, x)
-  !--------------------------------------------
-  ! solves the linear system J*x = F
-  !--------------------------------------------
-  implicit none
-  real(kind=pr),dimension(1:2*ns+4,1:2*ns+4), intent(in) :: J
-  real(kind=pr),dimension(1:2*ns+4), intent(out) :: x
-  real(kind=pr),dimension(1:2*ns+4), intent(in) :: F
-  real(kind=pr),dimension(1:2*ns+4,1:2*ns+4) :: J2
-  real(kind=pr) :: t0
-  integer :: error, ipiv(1:2*ns+4)
-  t0 = MPI_wtime()
-
-  J2 = transpose(J)
-  call dgetrf( 2*ns+4, 2*ns+4, J2 , 2*ns+4, ipiv, error )
-  if (error .ne. 0) then
-    write(*,*) "!!! Crutial: dgetrf error.", error
-    call abort()
-  endif
-
-  x = F
-  call dgetrs( 'N', 2*ns+4, 1, J2, 2*ns+4, ipiv, x, 2*ns+4, error )
-  if (error .ne. 0) then
-    write(*,*) "!!! Crutial: dgetrs error.", error
-    call abort()
-  endif
-
-  time_LAPACK = time_LAPACK + MPI_wtime() - t0
-end subroutine
-
-
 !-------------------------------------------------------------------------------
 
 subroutine F_nonlinear (time, dt, dt_old,  F, theta_old, theta_dot_old, theta, T, p,&

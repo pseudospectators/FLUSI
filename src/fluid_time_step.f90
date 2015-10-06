@@ -831,10 +831,10 @@ subroutine adjust_dt(time,u,dt1)
     !-- Determine the maximum velocity/magnetic field value
     if (method=="mhd") then
       !-- MHD needs to respect CFL for magnetic field as well
-      umax = max( fieldmaxabs(u(:,:,:,1:3)), fieldmaxabs(u(:,:,:,4:6)) )
+      umax = max( field_max_magnitude(u(:,:,:,1:3)), field_max_magnitude(u(:,:,:,4:6)) )
     else
       !-- FSI runs just need to respect CFL for velocity
-      umax = fieldmaxabs(u(:,:,:,1:3))
+      umax = field_max_magnitude(u(:,:,:,1:3))
     endif
 
     !-- Adjust time step at 0th process

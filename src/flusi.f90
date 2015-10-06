@@ -101,7 +101,6 @@ program FLUSI
     type(diptera) :: Insect
     ! this is the solid model beams:
     type(solid), dimension(1:nBeams) :: beams
-    integer(kind=int64) :: npoints
 
     ! Set method information in vars module.
     method="fsi" ! We are doing fluid-structure interactions
@@ -380,7 +379,7 @@ program FLUSI
   subroutine show_timings(t2)
     use fsi_vars
     implicit none
-    real (kind=pr) :: t2,tmp
+    real (kind=pr) :: t2
 
     3 format(80("-"))
     8 format(es12.4," (",f5.1,"%) :: ",A)

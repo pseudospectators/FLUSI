@@ -397,6 +397,7 @@ subroutine convert_abs_vorticity()
     if (mpirank==0) write(*,*) "using second order!"
     call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   else
+    if (mpirank==0) write(*,*) "using spectral accuracy!"
     call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   endif
 
