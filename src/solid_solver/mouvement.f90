@@ -181,7 +181,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
     gamma_dt = 0.d0
 
   case ("swimmer_simplified","swimmer_simplified_impulsive")
-    x0_plate = (/ x0,y0,z0 /) +1.0d-8
+    x0_plate = (/ x0,y0,z0 /)
     v0_plate = 0.d0
 
     psi = 0.d0

@@ -18,7 +18,7 @@ program FLUSI
 
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
-
+ 
   if ( index(infile,'.ini') .ne. 0) then
     !-------------------------------------------------------------------------
     ! the file is an *.ini file -> we run a normal simulation

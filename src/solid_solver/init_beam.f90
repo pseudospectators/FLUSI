@@ -11,6 +11,7 @@ subroutine init_beams ( beams )
   real (kind=pr), dimension(1:6) :: LeadingEdge
   character(len=strlen) :: fname
   character(len=1)  :: beamstr
+  character(len=16) :: frmt
 
   if (mpirank==0) then
     write (*,'("Initializing ",i1," beams")')  nBeams
@@ -77,11 +78,14 @@ subroutine init_beams ( beams )
     beams(i)%ay = 0.d0
     beams(i)%theta = 0.d0
     beams(i)%theta_dot = 0.d0
+    beams(i)%theta_old = 0.d0
+    beams(i)%theta_dot_old = 0.d0
+    beams(i)%theta_oldold = 0.d0
+    beams(i)%theta_dot_oldold = 0.d0
     beams(i)%pressure_old = 0.d0
     beams(i)%pressure_new = 0.d0
     beams(i)%tau_old = 0.d0
     beams(i)%tau_new = 0.d0
-    beams(i)%beam_oldold = 0.d0
     beams(i)%Inertial_Force = 0.d0
     ! this is used for unst correction computation:
     beams(i)%drag_unst_new = 0.d0
@@ -107,7 +111,37 @@ subroutine init_beams ( beams )
       beams(i)%vy(n)= 0.d0
       beams(i)%ax(n)= 0.d0
       beams(i)%ay(n)= 0.d0
+      ! the grid:
+      beams(i)%s(n) = dble(n)*ds
+      ! width in rigid (usually span) direction:
+      beams(i)%L_rigid(n) = z_top(beams(i)%s(n)) + z_bottom(beams(i)%s(n))
     enddo
+
+    !---------------------------------------------------------------------------
+    ! set up material and derivatives
+    !---------------------------------------------------------------------------
+    beams(i)%zeta = eta0 * beams(i)%L_rigid
+    beams(i)%mu   = mue0 * beams(i)%L_rigid
+    call Differentiate1D (beams(i)%zeta, beams(i)%zeta_s, ns, ds, 1)
+    call Differentiate1D (beams(i)%zeta, beams(i)%zeta_ss, ns, ds, 2)
+    call Differentiate1D (beams(i)%zeta, beams(i)%zeta_sss, ns, ds, 3)
+    call Differentiate1D (beams(i)%mu, beams(i)%mu_s, ns, ds, 1)
+    beams(i)%mu_star = beams(i)%mu_s / beams(i)%mu
+
+
+    if (mpirank ==0) then
+      write(*,'(80("-"))')
+      write(*,'("setting up solid material with mu=",es12.4," and eta=",es12.4)') mue0, eta0
+      write(frmt,'("(",i3.3,"(es12.4,1x))")') ns
+      write(*,*) "Length in rigid direction:"
+      write(*,frmt) beams(i)%L_rigid(0:ns-1)
+      write(*,*) "density coefficient mu:"
+      write(*,frmt) beams(i)%mu(0:ns-1)
+      write(*,*) "stiffness coefficient eta:"
+      write(*,frmt) beams(i)%zeta(0:ns-1)
+      write(*,'(80("-"))')
+    endif
+
 
     if (TimeMethodSolid=="prescribed") then
       if(mpirank==0) write(*,*) "prescribed deformation: initializing..."

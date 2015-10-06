@@ -114,9 +114,10 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   !-----------------------------------------------------------------------------
   if ((isaveVorticity==1).or.(iSaveMagVorticity==1)) then
     !-- compute vorticity:
-    !call curl( ink=uk, outk=nlk)
-    nlk=uk
-    call curl_2nd(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+    call curl( ink=uk, outk=nlk)
+
+    ! nlk=uk
+    ! call curl_2nd(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
     call ifft3( ink=nlk, outx=vort )
   endif
 
@@ -660,7 +661,7 @@ subroutine Read_Single_File ( filename, field )
   intent (out) :: field
 
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
-  real (kind=pr)                :: time, xl_file, yl_file, zl_file, fmax,fmin,fmean
+  real (kind=pr)                :: time, xl_file, yl_file, zl_file, fmax,fmin
   character(len=80)             :: dsetname
   integer                       :: nx_file, ny_file, nz_file, mpierror, i
 
@@ -796,10 +797,9 @@ subroutine Read_Single_File ( filename, field )
 
   fmax=fieldmax(field)
   fmin=fieldmin(field)
-  fmean=fieldmean(field)
 
   if (mpirank==0) then
-    write (*,'("max=",es12.4," min=",es12.4," mean=",es12.4)',advance='no') fmax,fmin, fmean
+    write (*,'("max=",es12.4," min=",es12.4," ")',advance='no'), fmax,fmin
   endif
 
   call checknan(field,"recently loaded field")
