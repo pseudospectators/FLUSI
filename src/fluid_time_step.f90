@@ -630,7 +630,8 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,&
+               scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
   call adjust_dt(time,u,dt1)
 
   !-- Compute integrating factor, if necesssary
@@ -705,7 +706,8 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,&
+               scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
   call adjust_dt(time,u,dt1)
   if (dt1>tmax-time) dt1=tmax-time
 

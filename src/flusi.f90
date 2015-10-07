@@ -155,7 +155,7 @@ program FLUSI
     endif
     ! for new passive scalars (with FD discretization) we do also need ghosts
     if (use_passive_scalar==1) then
-      ! no less than 2 ghost points:
+      ! no less than 3 ghost points:
       ng = maxval( (/ng,3/) )
     endif
 

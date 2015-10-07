@@ -143,9 +143,9 @@ contains
 
     real(kind=pr), intent(in) :: time
     type(diptera),intent(inout) :: Insect
-    real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-    real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-    integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+    real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+    integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
     real(kind=pr),dimension(1:3) :: x, x_body, x_wing_l, x_wing_r, x_eye_r,&
     x_eye_l,x_head, v_tmp, rot_b_psi,rot_b_beta,rot_b_gamma

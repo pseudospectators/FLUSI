@@ -3,9 +3,9 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
@@ -50,9 +50,9 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout) :: mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout) :: us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout) :: mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout) :: mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout) :: mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
@@ -290,9 +290,9 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
@@ -441,9 +441,9 @@ subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_bod
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
@@ -510,9 +510,9 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
@@ -592,9 +592,9 @@ subroutine draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
@@ -621,9 +621,9 @@ subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
 
   real(kind=pr),intent(inout)::xc(1:3)
   real(kind=pr),intent(in)::R0
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: icolor
   type(diptera),intent(inout) :: Insect
 
@@ -742,9 +742,9 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
@@ -934,9 +934,9 @@ subroutine draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
@@ -998,9 +998,9 @@ subroutine draw_body_coin( mask, mask_color, us, Insect, color_body, M_body)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 

@@ -4,9 +4,9 @@ subroutine draw_wing(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot(1:3),rot(1:3)
 
@@ -50,9 +50,9 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot(1:3),rot(1:3)
 
@@ -219,9 +219,9 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot(1:3),rot(1:3)
 
@@ -310,9 +310,9 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot(1:3),rot(1:3)
 
