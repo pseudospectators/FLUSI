@@ -437,7 +437,8 @@ program FLUSI
     write(*,'("Fluid right hand side:")')
     write(*,8) time_nlk2,100.d0*time_nlk2/t2,"cal_nlk_fsi"
     write(*,8) time_p,100.d0*time_p/t2,"pressure"
-    write(*,8) time_scalar,100.d0*time_scalar/t2,"cal_nlk_scalar"
+    write(*,8) time_nlk_scalar,100.d0*time_nlk_scalar/t2,"sclar rhs"
+    write(*,8) time_scalar,100.d0*time_scalar/t2,"passive scalar"
     write(*,3)
 
     write(*,'("cal_nlk_fsi:")')

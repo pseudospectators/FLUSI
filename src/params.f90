@@ -363,14 +363,14 @@ subroutine get_params_insect( PARAMS,i,Insect )
   call param_dbl(PARAMS,i,"Insects","gravity",Insect%gravity, 1.d0)
   call param_dbl(PARAMS,i,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx)
 
-  call param_vct(PARAMS,i,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/))
+  call param_vct(PARAMS,i,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/),3)
   Insect%Jroll_body  = defaultvec(3)
   Insect%Jyaw_body   = defaultvec(1)
   Insect%Jpitch_body = defaultvec(2)
-  call param_vct(PARAMS,i,"Insects","x0",Insect%x0, (/0.5d0*xl,0.5d0*yl,0.5d0*zl/))
-  call param_vct(PARAMS,i,"Insects","v0",Insect%v0, (/0.d0, 0.d0, 0.d0/))
+  call param_vct(PARAMS,i,"Insects","x0",Insect%x0, (/0.5d0*xl,0.5d0*yl,0.5d0*zl/),3)
+  call param_vct(PARAMS,i,"Insects","v0",Insect%v0, (/0.d0, 0.d0, 0.d0/),3)
   call param_vct(PARAMS,i,"Insects","yawpitchroll_0",Insect%yawpitchroll_0,&
-       (/0.d0, 0.d0, 0.d0/))
+       (/0.d0, 0.d0, 0.d0/),3)
   ! convert yawpitchroll to radiants
   Insect%yawpitchroll_0 = Insect%yawpitchroll_0 * (pi/180.d0)
   call param_dbl(PARAMS,i,"Insects","eta0",Insect%eta0, 0.0d0)
@@ -398,21 +398,21 @@ subroutine get_params_insect( PARAMS,i,Insect )
 
   ! position vector of the head
   call param_vct(PARAMS,i,"Insects","x_head",&
-       Insect%x_head, (/0.5d0*Insect%L_body,0.d0,0.d0 /) )
+       Insect%x_head, (/0.5d0*Insect%L_body,0.d0,0.d0 /),3 )
 
   ! eyes
   defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,+1.0d0,1.0d0/)
-  call param_vct(PARAMS,i,"Insects","x_eye_r",Insect%x_eye_r, defaultvec)
+  call param_vct(PARAMS,i,"Insects","x_eye_r",Insect%x_eye_r, defaultvec,3)
 
   defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,-1.0d0,1.0d0/)
-  call param_vct(PARAMS,i,"Insects","x_eye_l",Insect%x_eye_l, defaultvec)
+  call param_vct(PARAMS,i,"Insects","x_eye_l",Insect%x_eye_l, defaultvec,3)
 
   ! wing hinges (root points)
   defaultvec=(/0.d0, +Insect%b_body, 0.d0 /)
-  call param_vct(PARAMS,i,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec)
+  call param_vct(PARAMS,i,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec,3)
 
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
-  call param_vct(PARAMS,i,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)
+  call param_vct(PARAMS,i,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec,3)
 
   Insect%smooth = 2.0d0*dz
 
@@ -531,8 +531,6 @@ subroutine get_params_scalars(PARAMS,i)
   character(len=7) :: name
   integer :: j
 
-
-
   call param_int(PARAMS,i,"PassiveScalar","use_passive_scalar",use_passive_scalar,0)
   call param_int(PARAMS,i,"PassiveScalar","n_scalars",n_scalars,0)
   call param_str(PARAMS,i,"PassiveScalar","stop_on_fail",stop_on_fail,"no")
@@ -550,15 +548,8 @@ subroutine get_params_scalars(PARAMS,i)
       ! defalut is same penalization as fluid
       call param_dbl(PARAMS,i,name,"eps",scalar_props(j)%eps, eps)
       call param_str(PARAMS,i,name,"inicond",scalar_props(j)%inicond,"right_left_discontinuous")
-      call param_str(PARAMS,i,name,"sourceterm",scalar_props(j)%sourceterm,"no")
-
-      ! call param_dbl(PARAMS,i,name,"source_xmin",source_xmin,0.d0)
-      ! call param_dbl(PARAMS,i,name,"source_xmax",source_xmax,0.d0)
-      ! call param_dbl(PARAMS,i,name,"source_ymin",source_ymin,0.d0)
-      ! call param_dbl(PARAMS,i,name,"source_ymax",source_ymax,0.d0)
-      ! call param_dbl(PARAMS,i,name,"source_zmin",source_zmin,0.d0)
-      ! call param_dbl(PARAMS,i,name,"source_zmax",source_zmax,0.d0)
-
+      call param_str(PARAMS,i,name,"sourceterm",scalar_props(j)%sourceterm,"none")
+      call param_vct(PARAMS,i,name,"sourceterm_x0",scalar_props(j)%source_x0,(/0.d0,0.d0,0.d0,0.d0/),4)
     enddo
   endif
 
@@ -722,11 +713,12 @@ end subroutine param_str
 !       section: the section we're looking for
 !       keyword: the keyword we're looking for
 !       defaultvalue: if the we can't find a vector, we return this and warn
+!       n: length of vector
 ! Output:
 !       params_vector: this is the parameter you were looking for
 !-------------------------------------------------------------------------------
 subroutine param_vct (PARAMS, actual_lines, section, keyword, params_vector, &
-     defaultvalue)
+     defaultvalue, n)
   use vars
   use mpi
   implicit none
@@ -735,8 +727,8 @@ subroutine param_vct (PARAMS, actual_lines, section, keyword, params_vector, &
   character(len=strlen)  value    ! returns the value
   ! Contains the ascii-params file
   character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
-  real (kind=pr) :: params_vector(1:3), defaultvalue(1:3)
-  integer, intent(in) :: actual_lines
+  real (kind=pr) :: params_vector(1:n), defaultvalue(1:n)
+  integer, intent(in) :: actual_lines, n
   integer :: mpicode
 
   ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
@@ -745,10 +737,10 @@ subroutine param_vct (PARAMS, actual_lines, section, keyword, params_vector, &
      if (value .ne. '') then
         ! read the three values from the vector string
         read (value, *) params_vector
-        write (value,'(3(g10.3,1x))') params_vector
+        write (value,'(6(g10.3,1x))') params_vector
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
      else
-        write (value,'(3(g10.3,1x))') defaultvalue
+        write (value,'(6(g10.3,1x))') defaultvalue
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
              " (THIS IS THE DEFAULT VALUE!)"
         params_vector = defaultvalue
@@ -756,7 +748,7 @@ subroutine param_vct (PARAMS, actual_lines, section, keyword, params_vector, &
   endif
 
   ! And then broadcast
-  call MPI_BCAST( params_vector, 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( params_vector, n, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
 end subroutine param_vct
 
 

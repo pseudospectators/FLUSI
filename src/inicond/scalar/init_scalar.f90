@@ -5,7 +5,7 @@
 !
 ! INPUT/OUTPUT
 !   scalars: the actual passive scalar (odor) fields
-!   scalars_rhs: their right hand sides
+!   scalars_rhs: their right hand sides (set to zero here)
 !-------------------------------------------------------------------------------
 subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
   use mpi
@@ -35,8 +35,6 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
 
     select case(scalar_props(j)%inicond)
     case("cosine")
-      !-- initialize scalar zero everywhere
-      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = 0.d0
       !-- set half the domain to one
       do iz=ra(3), rb(3)
         z = dble(iz)*dz
@@ -57,8 +55,6 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
       !---------------------------------------------------------------------------
       call create_mask( 0.d0, Insect,beams )
 
-      !-- initialize scalar zero everywhere
-      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = 0.d0
       !-- set half the domain to one
       do iz=ra(3), rb(3)
         z = dble(iz)*dz
@@ -83,8 +79,6 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
       !---------------------------------------------------------------------------
       call create_mask( 0.d0, Insect,beams )
 
-      !-- initialize scalar zero everywhere
-      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = 0.d0
       !-- set half the domain to one
       do iz=ra(3), rb(3)
         z = dble(iz)*dz
@@ -106,8 +100,6 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
       !---------------------------------------------------------------------------
       call create_mask( 0.d0, Insect,beams )
 
-      !-- initialize scalar zero everywhere
-      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = 0.d0
       !-- set half the domain to one
       do iz=ra(3), rb(3)
         z = dble(iz)*dz
