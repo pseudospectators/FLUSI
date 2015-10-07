@@ -2,6 +2,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   use mpi
   use fsi_vars
   use interpolation
+  use ghosts
   implicit none
   real(kind=pr),intent (in) :: time
   type(solid),intent (inout) :: beam

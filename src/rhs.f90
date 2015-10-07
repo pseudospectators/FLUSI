@@ -1,9 +1,10 @@
 ! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
-subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,Insect,beams)
+subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
   use fsi_vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
+  use passive_scalar_module
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -13,6 +14,8 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,Insect,beams)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(in) :: time
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
@@ -59,7 +62,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,Insect,beams)
     !---------------------------------------------------------------------------
     t1 = MPI_wtime()
     if ((use_passive_scalar==1).and.(compute_scalar)) then
-      call cal_nlk_scalar(time,it,u,uk(:,:,:,4),nlk(:,:,:,4),workc(:,:,:,1),vort)
+      call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
     endif
     time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
 

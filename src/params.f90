@@ -250,9 +250,9 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   ! ---------------------------------------------------
   ! Geometry section
   ! ---------------------------------------------------
-  call param_dbl(PARAMS,i,"Geometry","x0",x0, 0.d0)
-  call param_dbl(PARAMS,i,"Geometry","y0",y0, 0.d0)
-  call param_dbl(PARAMS,i,"Geometry","z0",z0, 0.d0)
+  call param_dbl(PARAMS,i,"Geometry","x0",x0, xl/2.d0)
+  call param_dbl(PARAMS,i,"Geometry","y0",y0, yl/2.d0)
+  call param_dbl(PARAMS,i,"Geometry","z0",z0, zl/2.d0)
 
   ! ---------------------------------------------------
   ! Saving section
@@ -287,39 +287,18 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   ! Insects section
   ! ---------------------------------------------------
   if (iMask=="Insect") then
-    call read_insect_parameters( PARAMS,i,Insect )
+    call get_params_insect( PARAMS,i,Insect )
   endif
 
   ! ---------------------------------------------------
   ! solid model (TODO: SAME LEVEL OF OBJECT ORIENTATION AS INSECT)
   ! ---------------------------------------------------
   call get_params_solid( PARAMS, i )
+  call get_params_scalars(PARAMS,i)
 
-  ! ---------------------------------------------------
-  ! passive scalar section
-  ! ---------------------------------------------------
-  call param_int(PARAMS,i,"PassiveScalar","use_passive_scalar",&
-       use_passive_scalar,0)
-  call param_int(PARAMS,i,"PassiveScalar","n_scalars",&
-       n_scalars,0)
-  call param_dbl(PARAMS,i,"PassiveScalar","kappa",&
-       kappa, 0.1d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","eps_scalar",&
-       eps_scalar, eps)
-  call param_str(PARAMS,i,"PassiveScalar","inicond_scalar",&
-       inicond_scalar,"right_left_discontinuous")
-  call param_str(PARAMS,i,"PassiveScalar","stop_on_fail",&
-       stop_on_fail,"no")
-  call param_str(PARAMS,i,"PassiveScalar","source_term",&
-       source_term,"no")
-  call param_dbl(PARAMS,i,"PassiveScalar","source_xmin",source_xmin,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_xmax",source_xmax,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_ymin",source_ymin,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_ymax",source_ymax,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_zmin",source_zmin,0.d0)
-  call param_dbl(PARAMS,i,"PassiveScalar","source_zmax",source_zmax,0.d0)
-
+  ! ----------------------------------------------------
   ! slice extraction
+  ! ----------------------------------------------------
   ! the first one is for compatibility; it is overwritten if the 2nd is found
   call param_str(PARAMS,i,"SaveSlices","use_slicing",use_slicing,"xxx")
   if (use_slicing=="xxx") then
@@ -351,7 +330,7 @@ end subroutine get_params_fsi
 ! This routine reads in the parameters that describe the inscet from the
 ! parameter.ini file. it is outsourced from params.f90
 !-------------------------------------------------------------------------------
-subroutine read_insect_parameters( PARAMS,i,Insect )
+subroutine get_params_insect( PARAMS,i,Insect )
   use fsi_vars
   use insect_module
   implicit none
@@ -470,7 +449,9 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
   call param_dbl(PARAMS,i,"Insects","tlinlegs",&
        Insect%tlinlegs,0.3547216867289067d0)
 
-end subroutine read_insect_parameters
+end subroutine get_params_insect
+
+
 
 
 !-------------------------------------------------------------------------------
@@ -535,6 +516,53 @@ subroutine get_params_solid(PARAMS,i)
 end subroutine get_params_solid
 
 
+!-------------------------------------------------------------------------------
+! Read individual parameter values that are specific to passive scalars
+!-------------------------------------------------------------------------------
+subroutine get_params_scalars(PARAMS,i)
+  use mpi
+  use solid_model
+  use passive_scalar_module
+  implicit none
+
+  integer,intent(in) :: i
+  ! Contains the ascii-params file
+  character(len=strlen), dimension(1:nlines), intent(in) :: PARAMS
+  character(len=7) :: name
+  integer :: j
+
+
+
+  call param_int(PARAMS,i,"PassiveScalar","use_passive_scalar",use_passive_scalar,0)
+  call param_int(PARAMS,i,"PassiveScalar","n_scalars",n_scalars,0)
+  call param_str(PARAMS,i,"PassiveScalar","stop_on_fail",stop_on_fail,"no")
+
+  !-- if using passive scalars, read their individual parameters
+  if (use_passive_scalar==1) then
+    allocate(scalar_props(1:n_scalars))
+    ! loop over scalars
+    do j=1,n_scalars
+      ! we now read sections "Scalar1" "Scalar2" and so on
+      write (name,'("Scalar",i1)') j
+      if (mpirank==0) write(*,*) "reading scalar "//name
+
+      call param_dbl(PARAMS,i,name,"kappa",scalar_props(j)%kappa,0.1d0)
+      ! defalut is same penalization as fluid
+      call param_dbl(PARAMS,i,name,"eps",scalar_props(j)%eps, eps)
+      call param_str(PARAMS,i,name,"inicond",scalar_props(j)%inicond,"right_left_discontinuous")
+      call param_str(PARAMS,i,name,"sourceterm",scalar_props(j)%sourceterm,"no")
+
+      ! call param_dbl(PARAMS,i,name,"source_xmin",source_xmin,0.d0)
+      ! call param_dbl(PARAMS,i,name,"source_xmax",source_xmax,0.d0)
+      ! call param_dbl(PARAMS,i,name,"source_ymin",source_ymin,0.d0)
+      ! call param_dbl(PARAMS,i,name,"source_ymax",source_ymax,0.d0)
+      ! call param_dbl(PARAMS,i,name,"source_zmin",source_zmin,0.d0)
+      ! call param_dbl(PARAMS,i,name,"source_zmax",source_zmax,0.d0)
+
+    enddo
+  endif
+
+end subroutine get_params_scalars
 
 
 

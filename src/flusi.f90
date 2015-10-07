@@ -18,7 +18,7 @@ program FLUSI
 
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
- 
+
   if ( index(infile,'.ini') .ne. 0) then
     !-------------------------------------------------------------------------
     ! the file is an *.ini file -> we run a normal simulation
@@ -97,6 +97,8 @@ program FLUSI
     complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
     ! pressure array, with ghost points
     real(kind=pr),dimension(:,:,:),allocatable :: press
+    real(kind=pr),dimension(:,:,:,:),allocatable :: scalars
+    real(kind=pr),dimension(:,:,:,:,:),allocatable :: scalars_rhs
     ! this is the insect we're using (object oriented)
     type(diptera) :: Insect
     ! this is the solid model beams:
@@ -151,6 +153,11 @@ program FLUSI
       ! we dont need ghosts when not solving the solid model
       ng=0 ! zero ghost points
     endif
+    ! for new passive scalars (with FD discretization) we do also need ghosts
+    if (use_passive_scalar==1) then
+      ! no less than 2 ghost points:
+      ng = maxval( (/ng,3/) )
+    endif
 
     if (root) write(*,'("Set up ng=",i1," ghost points")') ng
 
@@ -160,7 +167,10 @@ program FLUSI
     !-----------------------------------------------------------------------------
     ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
     !-----------------------------------------------------------------------------
+    ! Initialize p3dfft
     call fft_initialize
+    ! Setup communicators used for ghost point update
+    call setup_cart_groups
 
     !-----------------------------------------------------------------------------
     ! Initialize time series output files, if not resuming a backup
@@ -178,15 +188,6 @@ program FLUSI
     !-----------------------------------------------------------------------------
     ! Allocate memory:
     !-----------------------------------------------------------------------------
-    ! reserve additional space for scalars?
-    if (use_passive_scalar==1) then
-      ! add n_scalars to number of equations. Note the difference between neq and nd
-      neq = neq + n_scalars
-      ! this logical "activates" the scalar. if, for example, a NaN in the scalar occurs,
-      ! it is set to false and the scalar is skipped, since the fluid can still be okay
-      compute_scalar = .true.
-    endif
-
     ! size (in bytes) of one field
     mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
     ! memory reserved by p3dffft:
@@ -196,15 +197,15 @@ program FLUSI
     allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
     memory = memory + dble(nf)*mem_field
 
-    ! velocity in Fourier space (possibly with passive scalar)
+    ! velocity in Fourier space
     allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
     memory = memory + dble(neq)*mem_field
 
-    ! right hand side of navier-stokes (possibly with passive scalar)
+    ! right hand side of navier-stokes
     allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1))
     memory = memory + dble(nrhs)*dble(neq)*mem_field
 
-    ! velocity in physical space (WITHOUT passive scalar)
+    ! velocity in physical space
     allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
     memory = memory + dble(nd)*mem_field
 
@@ -251,6 +252,18 @@ program FLUSI
       if (use_passive_scalar==1) ncw = 1
     endif
     allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
+
+    ! reserve additional space for scalars?
+    if (use_passive_scalar==1) then
+      if(mpirank==0) write(*,*) "scalar module is in use: allocate additional memory"
+      allocate(scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars))
+      allocate(scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1))
+      memory = memory + dble((1+nrhs)*n_scalars)*mem_field
+
+      ! this logical "activates" the scalar. if, for example, a NaN in the scalar occurs,
+      ! it is set to false and the scalar is skipped, since the fluid can still be okay
+      compute_scalar = .true.
+    endif
 
     ! for time averaging
     if (time_avg=="yes") then
@@ -311,7 +324,8 @@ program FLUSI
     !-----------------------------------------------------------------------------
     ! Initial condition
     !-----------------------------------------------------------------------------
-    call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
+    call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
+         press,scalars,scalars_rhs,Insect,beams)
 
 
 
@@ -330,7 +344,7 @@ program FLUSI
 
     t1 = MPI_wtime()
     call time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
-    press,infile,Insect,beams )
+    press,scalars,scalars_rhs,infile,Insect,beams )
     t2 = MPI_wtime() - t1
 
     !-----------------------------------------------------------------------------
@@ -350,6 +364,8 @@ program FLUSI
 
     if (allocated(uk_avg))  deallocate(uk_avg)
     if (allocated(e_avg)) deallocate(e_avg)
+    if (allocated(scalars)) deallocate(scalars)
+    if (allocated(scalars_rhs)) deallocate(scalars_rhs)
 
     if (iMask=="Insect") then
       ! Clean kinematics (Dmitry, 14 Nov 2013)
@@ -531,7 +547,7 @@ program FLUSI
     close (14)
 
 
-    if (use_passive_scalar==1) call init_empty_file('scalar.t')
+    if (use_passive_scalar==1) call init_empty_file('scalar1.t')
   end subroutine
 
 

@@ -31,8 +31,7 @@ module vars
   character(len=strlen),save :: method ! mhd  or fsi
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
-  integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD, 4 for
-                      ! passive scalar (ux,uy,uz,theta)
+  integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD)
   integer,save :: nrw ! number of real work arrays in work
   integer,save :: ncw ! number of complex work arrays in workc
   integer,save :: ng  ! number of ghostpoints (if used)
@@ -49,8 +48,8 @@ module vars
   ! for simplicity, store what decomposition we use
   character(len=strlen), save :: decomposition
 
-  ! p3dfft only parameters (move to appropraite .f90 file?)
-  integer,save :: mpicommcart
+  ! p3dfft domain decomposition parameters and communicators
+  integer,save :: mpicommcart,mpicommy,mpicommz,mpitaskid,mpitasks
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
   ! only root rank has this true:
   logical, save :: root=.false.
@@ -347,19 +346,15 @@ module fsi_vars
   character(len=strlen),save :: iMeanFlowStartupConditioner
   real(kind=pr) :: tau_meanflow, T_release_meanflow
 
-  ! parameters for passive scalar advection
+  ! parameters for passive scalar advection. NOTE: other parameters (such as
+  ! diffusivity) are set for each (of up to 9) passive scalar in a derived datatype
   integer, save :: use_passive_scalar
   integer, save :: n_scalars
-  real(kind=pr),save :: kappa
-  character(len=strlen),save :: inicond_scalar, stop_on_fail
-  character(len=strlen),save :: source_term
-  real(kind=pr), save :: eps_scalar
   logical, save :: compute_scalar
-  real(kind=pr),save :: source_xmin,source_xmax,source_ymin,source_ymax,&
-    source_zmin,source_zmax
+  character(len=strlen),save :: stop_on_fail
 
   ! solid model main switch
-    character(len=strlen),save :: use_solid_model
+  character(len=strlen),save :: use_solid_model
   !-----------------------------------------------------------------------------
   ! The derived integral quantities for fluid-structure interactions.
   type Integrals

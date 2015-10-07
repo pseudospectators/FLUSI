@@ -118,8 +118,7 @@ end subroutine flush_slices
 ! initialize the slicing module.
 subroutine slice_init(time)
   implicit none
-  real(kind=pr),intent(inout)::time
-  character(len=4)::f
+  real(kind=pr),intent(inout)::time  
   integer :: i
 
   if (mpirank==0) write(*,'(A)',advance='no') "Initializing slicing module.."

@@ -1,5 +1,6 @@
 ! Wrapper for init_fields
-subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
+subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
+           press,scalars,scalars_rhs,Insect,beams)
   use mpi
   use vars
   use p3dfft_wrapper
@@ -17,6 +18,8 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nBeams), intent(out) :: beams
   type(diptera),intent(inout)::Insect
 
@@ -29,7 +32,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   select case(method)
   case("fsi")
     call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
-    workc,press,Insect,beams)
+    workc,press,scalars,scalars_rhs,Insect,beams)
   case("mhd")
     call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
@@ -50,7 +53,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   !-----------------------------------------------------------------------------
   if (index(inicond,'backup::')==0 .and. (time>=tsave_first)) then
     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
-    call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)
+    call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams)
   endif
 end subroutine init_fields
 

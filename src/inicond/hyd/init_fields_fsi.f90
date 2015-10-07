@@ -1,5 +1,6 @@
 ! Set initial conditions for fsi code.
-subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,Insect,beams)
+subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
+           press,scalars,scalars_rhs,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -17,6 +18,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+
   real(kind=pr),dimension(:,:,:),allocatable::tmp
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
@@ -36,6 +40,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   nlk = dcmplx(0.0d0,0.0d0)
   explin = 0.0d0
   vort = 0.0d0
+  scalars = 0.0d0
+  scalars_rhs = 0.0d0
 
   select case(inicond)
   case ("couette")
@@ -454,7 +460,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
         if (mpirank==0) write (*,*) "*** inicond: retaking backup " // &
              inicond(9:len(inicond))
         call Read_Runtime_Backup(inicond(9:len(inicond)),time,dt0,dt1,n1,it,uk,&
-             nlk,explin,vort(:,:,:,1))
+             nlk,explin,vort(:,:,:,1),scalars,scalars_rhs)
      else
         !--------------------------------------------------
         ! unknown inicond : error
@@ -481,7 +487,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,press,
   !-----------------------------------------------------------------------------
   if ((use_passive_scalar==1).and.(index(inicond,"backup::")==0)) then
     ! only if not resuming a backup
-    call init_passive_scalar(uk(:,:,:,4),vort,workc(:,:,:,1),Insect,beams)
+    call init_passive_scalar(scalars,scalars_rhs,Insect,beams)
   endif
 
   !-----------------------------------------------------------------------------

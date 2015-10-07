@@ -1,5 +1,5 @@
 ! Wrapper for saving fields routine
-subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
+subroutine save_fields(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
   use vars
   use solid_model
   use insect_module
@@ -12,6 +12,8 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
@@ -20,7 +22,7 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,Insect,beams)
 
   select case(method)
   case("fsi")
-    call save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
+    call save_fields_fsi(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
   case("mhd")
     call save_fields_mhd(time,uk,u,vort,nlk)
   case default
@@ -38,7 +40,7 @@ end subroutine save_fields
 ! files.
 ! The latest version calls cal_nlk_fsi to avoid redudant code.
 !-------------------------------------------------------------------------------
-subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
+subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
   use fsi_vars
   use p3dfft_wrapper
   use basic_operators
@@ -54,8 +56,12 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   real(kind=pr):: volume
   character(len=6) :: name
+  character(len=7) :: scalar_name
+  integer :: j
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
@@ -83,9 +89,9 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-  !-------------
+  !-----------------------------------------------------------------------------
   ! Velocity (returned in x-space by cal_nlk_fsi)
-  !-------------
+  !-----------------------------------------------------------------------------
   if (isaveVelocity == 1) then
     if (iSavePress==0) then
       ! the cal_nlk has not been called, and we need to do the IFFT
@@ -160,8 +166,11 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,Insect,beams)
   ! passive scalar
   !-----------------------------------------------------------------------------
   if (use_passive_scalar==1) then
-    call ifft ( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
-    call save_field_hdf5(time,'./scalar_'//name,work(:,:,:,1))
+    do j=1,n_scalars
+      write(scalar_name,'("scalar",i1)') j
+      call save_field_hdf5(time,scalar_name//'_'//name,&
+           scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j))
+    enddo
   endif
 
   !-----------------------------------------------------------------------------
@@ -256,7 +265,7 @@ end subroutine save_field_hdf5_xvar
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
 subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
-  work,Insect,beams)
+  work,scalars,scalars_rhs,Insect,beams)
   use mpi
   use vars
   use fsi_vars
@@ -271,13 +280,16 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   complex(kind=pr),intent(in) :: ub(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   complex(kind=pr),intent(in)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid), dimension(1), intent(in) :: beams
   type(diptera), intent(in) :: Insect
 
   character(len=18) :: filename
+  character(len=1) :: scalar_id
 
   real(kind=pr) :: t1
-  integer :: error  ! error flags
+  integer :: error,j  ! error flags
   integer(hid_t) :: file_id       ! file identifier
   integer(hid_t) :: plist_id      ! property list identifier
 
@@ -316,10 +328,6 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   call ifft(work,ub(:,:,:,3))
   call dump_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
 
-  if((method=="fsi").and.(use_passive_scalar==1)) then
-    call ifft(work,ub(:,:,:,4))
-    call dump_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)
-  endif
 
   if(method == "mhd") then
     ! Write the MHD backup field:
@@ -347,10 +355,15 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
 
 
   if((method=="fsi").and.(use_passive_scalar==1)) then
-    call ifft(work,nlk(:,:,:,4,0))
-    call dump_field_backup(work,"nlkscalar0",time,dt0,dt1,n1,it,file_id)
-    call ifft(work,nlk(:,:,:,4,1))
-    call dump_field_backup(work,"nlkscalar1",time,dt0,dt1,n1,it,file_id)
+    do j = 1, n_scalars
+      write (scalar_id,'(i1)') j
+      call dump_field_backup(scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j),&
+           "scalar"//scalar_id,time,dt0,dt1,n1,it,file_id)
+      call dump_field_backup(scalars_rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j,0),&
+           "scalar"//scalar_id//"_nlk0",time,dt0,dt1,n1,it,file_id)
+      call dump_field_backup(scalars_rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j,1),&
+           "scalar"//scalar_id//"_nlk1",time,dt0,dt1,n1,it,file_id)
+    enddo
   endif
 
   if(method == "mhd") then
@@ -814,7 +827,7 @@ end subroutine Read_Single_File
 
 
 ! Load backup data from disk to initialize run for restart
-subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
+subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work,scalars,scalars_rhs)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -829,8 +842,12 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
   real(kind=pr),intent(out) :: explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
 
   integer :: error  ! Error flag
+  integer :: j
+  character(len=1) :: scalar_id
   integer(hid_t) :: file_id       ! File identifier
   integer(hid_t) :: plist_id      ! Property list identifier
 
@@ -864,10 +881,6 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   call read_field_backup(work,"uz",time,dt0,dt1,n1,it,file_id)
   call fft(uk(:,:,:,3),work)
 
-  if((method=="fsi").and.(use_passive_scalar==1)) then
-    call read_field_backup(work,"scalar",time,dt0,dt1,n1,it,file_id)
-    call fft(uk(:,:,:,4),work)
-  endif
 
   if(method == "mhd") then
     ! Read MHD backup field:
@@ -894,10 +907,15 @@ subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work)
   call fft(nlk(:,:,:,3,1),work)
 
   if((method=="fsi").and.(use_passive_scalar==1)) then
-    call read_field_backup(work,"nlkscalar0",time,dt0,dt1,n1,it,file_id)
-    call fft(nlk(:,:,:,4,0),work)
-    call read_field_backup(work,"nlkscalar1",time,dt0,dt1,n1,it,file_id)
-    call fft(nlk(:,:,:,4,1),work)
+    do j = 1, n_scalars
+      write (scalar_id,'(i1)') j
+      call read_field_backup(scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j),&
+           "scalar"//scalar_id,time,dt0,dt1,n1,it,file_id)
+      call read_field_backup(scalars_rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j,0),&
+           "scalar"//scalar_id//"_nlk0",time,dt0,dt1,n1,it,file_id)
+      call read_field_backup(scalars_rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j,1),&
+           "scalar"//scalar_id//"_nlk1",time,dt0,dt1,n1,it,file_id)
+    enddo
   endif
 
   !-- initialize runnning avg from file
@@ -1586,25 +1604,25 @@ subroutine flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
 
   ! Create the file collectively. (existing files are overwritten)
 #ifdef TURING
-  if ( index(filename,'.h5')==0 ) then
-    ! file does not contain *.h5 ending -> add suffix
-    call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  else
-    ! field DOES contain .h5 ending -> just write
-    call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  endif
+if ( index(filename,'.h5')==0 ) then
+  ! file does not contain *.h5 ending -> add suffix
+  call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+  file_id, error, access_prp = plist_id)
+else
+  ! field DOES contain .h5 ending -> just write
+  call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+  file_id, error, access_prp = plist_id)
+endif
 #else
-  if ( index(filename,'.h5')==0 ) then
-    ! file does not contain *.h5 ending -> add suffix
-    call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  else
-    ! field DOES contain .h5 ending -> just write
-    call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-    file_id, error, access_prp = plist_id)
-  endif
+if ( index(filename,'.h5')==0 ) then
+  ! file does not contain *.h5 ending -> add suffix
+  call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+  file_id, error, access_prp = plist_id)
+else
+  ! field DOES contain .h5 ending -> just write
+  call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+  file_id, error, access_prp = plist_id)
+endif
 #endif
 
   ! this closes the property list plist_id (we'll re-use it)

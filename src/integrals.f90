@@ -8,7 +8,7 @@
 ! Output:
 !       all output is done directly to hard disk in the *.t files
 !-------------------------------------------------------------------------------
-subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
+subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
   use mpi
   use vars
   use solid_model
@@ -20,6 +20,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(in):: time
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
@@ -29,7 +30,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
 
   select case(method)
   case("fsi")
-    call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),Insect,beams)
+    call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),scalars,Insect,beams)
   case("mhd")
     call write_integrals_mhd(time,uk,u,vort,nlk,work(:,:,:,1))
   case default
@@ -42,7 +43,7 @@ end subroutine write_integrals
 
 
 ! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
+subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -56,18 +57,21 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::work3r(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
+
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
-  real(kind=pr) :: concentration, conc
+  real(kind=pr) :: concentration, conc, maxi
   real(kind=pr) :: ekinf, ekinxf, ekinyf, ekinzf
   real(kind=pr) :: ekin, ekinx, ekiny, ekinz
   real(kind=pr) :: diss, dissx, dissy, dissz
   real(kind=pr) :: dissf, dissxf, dissyf, disszf
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
-  integer :: ix,iy,iz,mpicode
+  integer :: ix,iy,iz,mpicode,j
+  character(len=9) scalarfile
 
   ! fetch u in x-space at time t. note the output u of fluidtimestep is not
   ! nessesarily what we need, so we must ensure u=ifft(uk) here
@@ -163,17 +167,21 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   ! integral of scalar concentration
   !-----------------------------------------------------------------------------
   if ((use_passive_scalar==1).and.(compute_scalar)) then
-    call ifft( ink=uk(:,:,:,4), outx=work1)
-    work1 = work1*(1.d0-mask*eps)
-    conc = sum(work1)*dx*dy*dz
-    call MPI_REDUCE(conc,concentration,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
-    MPI_COMM_WORLD,mpicode)
+    do j=1,n_scalars
+      ! exclude solid regions
+      work1 = scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j)*(1.d0-mask*eps)
+      conc = sum(work1)*dx*dy*dz
+      call MPI_REDUCE(conc,concentration,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+      MPI_COMM_WORLD,mpicode)
 
-    if (mpirank == 0) then
-      open  (14,file='scalar.t',status='unknown',position='append')
-      write (14,'(2(es15.8,1x))') time, concentration
-      close (14)
-    endif
+      maxi = fieldmax(scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j))
+      write(scalarfile,'("scalar",i1,".t")') j
+      if (mpirank == 0) then
+        open  (14,file=scalarfile,status='unknown',position='append')
+        write (14,'(3(es15.8,1x))') time, concentration, maxi
+        close (14)
+      endif
+    enddo
   endif
 
   !-----------------------------------------------------------------------------

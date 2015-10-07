@@ -9,7 +9,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
         kineloader.f90 rotation_matrices.f90 \
         add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
-        passive_scalar.f90 noncircular_cylinder.f90 ghostpoints.f90 draw_flexible_plate.f90
+        noncircular_cylinder.f90 draw_flexible_plate.f90
 
 # Object and module directory:
 OBJDIR=obj
@@ -18,7 +18,7 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 # Files that create modules:
 MFILES = vars.f90 helpers.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
-	slicing.f90
+	slicing.f90 ghostpoints.f90 passive_scalar.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -111,6 +111,8 @@ $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpola
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
 	prescribed_beam.f90 solid_solver_wrapper.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o
@@ -120,6 +122,8 @@ $(OBJDIR)/turbulent_inlet.o: turbulent_inlet.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_
 $(OBJDIR)/slicing.o: slicing.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

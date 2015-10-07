@@ -17,6 +17,8 @@
 ! press         pressure field in x-space, WITH GHOST POINTS
 ! beams         the solid model datatype, which is advanced in the FSI time
 !               steppers.
+! scalars       passive scalars at old time level
+! scalars_rhs
 !-------------------------------------------------------------------------------
 ! OUTPUT
 ! u             velocity in phys space at time level (n) (the OLD level)
@@ -27,9 +29,10 @@
 ! expvis        the integrating factor(s) which are updated if the dt changes
 ! vort          the vorticity at time level (n) in phys space
 ! beams         the solid model at the new time level
+! scalars       passive scalars at new time level
 !-------------------------------------------------------------------------------
 subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-  expvis,press,Insect,beams)
+  expvis,press,scalars,scalars_rhs,Insect,beams)
   use mpi
   use p3dfft_wrapper
   use vars
@@ -44,6 +47,9 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+
   ! pressure array. this is with ghost points for interpolation
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -58,30 +64,30 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   select case(iTimeMethodFluid)
   case("RK2")
     call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-    workc,expvis,press,Insect,beams)
+    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("RK4")
     call RungeKutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-    workc,expvis,press,Insect,beams)
+    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("AB2")
     if(it == 0) then
       call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,&
-      workc,expvis,press,0,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
     else
       call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-      workc,expvis,press,0,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
     endif
   case ("AB2_rigid_solid")
     call AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-    workc,expvis,press,Insect,beams)
+    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("FSI_AB2_iteration")
     call FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-    workc,expvis,press,Insect,beams)
+    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("FSI_AB2_staggered")
     call FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-    workc,expvis,press,Insect,beams)
+    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("FSI_AB2_semiimplicit")
     call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-    workc,expvis,press,Insect,beams)
+    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case default
     if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
     call abort()
@@ -125,7 +131,7 @@ end subroutine FluidTimestep
 ! adapted from the 2D codes (V12), based on the PhD thesis of von Scheven
 !-------------------------------------------------------------------------------
 subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-  workc,expvis,press,Insect,beams)
+  workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -143,6 +149,8 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera),intent(inout)::Insect
 
@@ -209,10 +217,10 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
 
     if(it == 0) then
       call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-      work,workc,expvis,press,inter,Insect,beams)
+      work,workc,expvis,press,scalars,scalars_rhs,inter,Insect,beams)
     else
       call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-      work,workc,expvis,press,inter,Insect,beams)
+      work,workc,expvis,press,scalars,scalars_rhs,inter,Insect,beams)
     endif
 
     !---------------------------------------------------------------------------
@@ -298,7 +306,7 @@ end subroutine FSI_AB2_iteration
 ! or stable.
 !-------------------------------------------------------------------------------
 subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-  workc,expvis,press,Insect,beams)
+  workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   use mpi
   use vars
   use p3dfft_wrapper
@@ -313,6 +321,8 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
@@ -335,10 +345,10 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   !---------------------------------------------------------------------------
   if(it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-    work,workc,expvis,press,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   else
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-    work,workc,expvis,press,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   endif
 
   !---------------------------------------------------------------------------
@@ -363,7 +373,7 @@ end subroutine FSI_AB2_staggered
 ! FSI_AB2_staggered.
 !-------------------------------------------------------------------------------
 subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
-  work,workc,expvis,press,Insect,beams)
+  work,workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   use mpi
   use vars
   use p3dfft_wrapper
@@ -381,6 +391,8 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   type(diptera)::Insect_dummy
@@ -401,10 +413,10 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   !---------------------------------------------------------------------------
   if(it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-    work,workc,expvis,press,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   else
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-    work,workc,expvis,press,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   endif
 
   !---------------------------------------------------------------------------
@@ -429,7 +441,8 @@ end subroutine FSI_AB2_semiimplicit
 
 !-------------------------------------------------------------------------------
 ! FIXME: add documentation: which arguments are used for what?
-subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Insect,beams)
+subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
+           scalars,scalars_rhs,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -448,6 +461,8 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   ! pressure array. this is with ghost points for interpolation
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   integer::i
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
@@ -458,7 +473,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
   endif
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
   call adjust_dt(time,u,dt1)
 
   !-- multiply the RHS with the viscosity, first the velocity
@@ -493,7 +508,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
   endif
 
   !-- RHS using the euler velocity
-  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
 
   ! do the actual time step. note the minus sign.in the original formulation, it
   ! reads: u^n+1=u^n + dt/2*( N(u^n)*vis + N(u_euler) )
@@ -510,7 +525,8 @@ end subroutine rungekutta2
 
 
 ! RK4 scheme with EXPLICIT diffusion
-subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Insect,beams)
+subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
+           scalars,scalars_rhs,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -530,6 +546,8 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   ! pressure array. this is with ghost points for interpolation
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
   integer::i
@@ -552,24 +570,24 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,Ins
   nlk(:,:,:,:,4) = uk
 
   !-- FIRST runge kutta step
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
   call dealias(nlk(:,:,:,:,0))
   call adjust_dt(time,u,dt1)
 
 
   !-- SECOND runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,0)
-  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
   call dealias(nlk(:,:,:,:,1))
 
   !--THIRD runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,1)
-  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
   call dealias(nlk(:,:,:,:,2))
 
   !-- FOURTH runge kutta step
   uk = nlk(:,:,:,:,4) + dt1*nlk(:,:,:,:,2)
-  call cal_nlk(time+dt1,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time+dt1,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
   call dealias(nlk(:,:,:,:,3))
 
   !-- FINAL step
@@ -583,7 +601,7 @@ end subroutine rungekutta4
 
 ! Note this is not an optimized Euler. It only does things we need for AB2.
 subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
-  expvis,press,iter,Insect,beams)
+  expvis,press,scalars,scalars_rhs,iter,Insect,beams)
   use mpi
   use p3dfft_wrapper
   use fsi_vars
@@ -604,13 +622,15 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   ! pressure array. this is with ghost points for interpolation
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
   real(kind=pr)::t1
   integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
   call adjust_dt(time,u,dt1)
 
   !-- Compute integrating factor, if necesssary
@@ -625,7 +645,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
     ! multiply RHS with integrating factor
     if (iter==0) then
       ! if this routine is called several times in one time step (iterations), do
-      ! multiply the old rhs only once with expvis
+      ! multiply the old rhs only once with expvis (hence skip if iter=1)
       nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
     endif
   enddo
@@ -646,7 +666,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
     !-- advance passive scalar (no integrating factor here!!)
     t1 = MPI_wtime()
-    uk(:,:,:,4)=uk(:,:,:,4) + dt1*nlk(:,:,:,4,n0)
+    scalars = scalars + dt1*scalars_rhs(:,:,:,:,n0)
     time_scalar = time_scalar + MPI_wtime() - t1
   endif
 
@@ -656,7 +676,7 @@ end subroutine euler_startup
 
 ! FIXME: add documentation: which arguments are used for what?
 subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-  expvis,press,iter,Insect,beams)
+  expvis,press,scalars,scalars_rhs,iter,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -677,13 +697,15 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   ! pressure array. this is with ghost points for interpolation
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
   real(kind=pr)::b10,b11,t1
   integer::i
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
-  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
   call adjust_dt(time,u,dt1)
   if (dt1>tmax-time) dt1=tmax-time
 
@@ -704,7 +726,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     ! multiply RHS with integrating factor
     if (iter==0) then
       ! if this routine is called several times in one time step (iterations), do
-      ! multiply the old rhs only once with expvis
+      ! multiply the old rhs only once with expvis (hence skip if iter=1)
       nlk(:,:,:,i,n0)=nlk(:,:,:,i,n0)*expvis(:,:,:,1)
     endif
   enddo
@@ -727,7 +749,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
     !-- advance passive scalar (no integrating factor here!!)
     t1 = MPI_wtime()
-    uk(:,:,:,4)=uk(:,:,:,4)+b10*nlk(:,:,:,4,n0)+b11*nlk(:,:,:,4,n1)
+    scalars = scalars + b10*scalars_rhs(:,:,:,:,n0) + b11*scalars_rhs(:,:,:,:,n1)
     time_scalar = time_scalar + MPI_wtime() - t1
   endif
 end subroutine adamsbashforth
@@ -735,7 +757,7 @@ end subroutine adamsbashforth
 
 ! time stepper for rigid soldi FSI, for example insect takeoff or falling sphere
 subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-  expvis,press,Insect,beams)
+  expvis,press,scalars,scalars_rhs,Insect,beams)
   use mpi
   use fsi_vars
   use p3dfft_wrapper
@@ -756,6 +778,8 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   ! pressure array. this is with ghost points for interpolation
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   real(kind=pr)::b10,b11,t1
   integer::i
   type(solid),dimension(1:nbeams),intent(inout)::beams
@@ -777,10 +801,10 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   !---------------------------------------------------------------------------
   if(it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-    work,workc,expvis,press,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   else
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-    work,workc,expvis,press,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   endif
 
   !---------------------------------------------------------------------------
