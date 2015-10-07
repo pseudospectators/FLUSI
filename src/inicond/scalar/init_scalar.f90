@@ -31,7 +31,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
   ! loop over passive scalars (we have up to nine different ones)
   do j=1, n_scalars
 
-    if (mpirank==0) write(*,'("Initializing scalar #",i1)'), j
+    if (mpirank==0) write(*,'("Initializing scalar #",i1)') j
 
     select case(scalar_props(j)%inicond)
     case("cosine")

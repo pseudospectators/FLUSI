@@ -812,7 +812,7 @@ subroutine Read_Single_File ( filename, field )
   fmin=fieldmin(field)
 
   if (mpirank==0) then
-    write (*,'("max=",es12.4," min=",es12.4," ")',advance='no'), fmax,fmin
+    write (*,'("max=",es12.4," min=",es12.4," ")',advance='no') fmax,fmin
   endif
 
   call checknan(field,"recently loaded field")
