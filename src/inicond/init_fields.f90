@@ -53,7 +53,8 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   !-----------------------------------------------------------------------------
   if (index(inicond,'backup::')==0 .and. (time>=tsave_first)) then
     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
-    call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams)
+    call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,&
+         scalars_rhs,Insect,beams)
   endif
 end subroutine init_fields
 

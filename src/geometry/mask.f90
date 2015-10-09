@@ -29,7 +29,7 @@ subroutine create_mask(time,Insect,beams)
 
 
 
-  ! -- for global timing.
+  ! for global timing.
   time_mask = time_mask + MPI_wtime() - t1
 end subroutine create_mask
 

@@ -31,7 +31,7 @@ subroutine create_mask_fsi (time, Insect, beams )
       call Flapper (time)
     case ("turek_wan")
       call turek_wan (time)
-    case ("Insect")
+    case ("Insect","insect")
       call Draw_Insect ( time, Insect, mask, mask_color, us)
     case("Flexibility")
       call Draw_flexible_plate(time, beams(1))
@@ -41,7 +41,7 @@ subroutine create_mask_fsi (time, Insect, beams )
       call noncircular_cylinder()
     case ("couette")
       call taylor_couette()
-    case("none")
+    case("none","empty","no")
       ! in this case, no extra mask is set, but you might have e.g. the turbulent
       ! inlet or channel walls.
     case default

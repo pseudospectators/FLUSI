@@ -52,7 +52,8 @@ contains
     !-- initialization
     scalars_rhs = 0.0d0
 
-
+    ! this is a fnite differences code with explicit discretization; therefore
+    ! a redundant layer of ghost nodes has to be synchronzied between processes
     call synchronize_ghosts(scalars,n_scalars)
 
     ! we need to derive the mask function, but it has no ghost nodes. therefore,
@@ -230,6 +231,7 @@ contains
     do j=1, n_scalars
       select case (scalar_props(j)%sourceterm)
       case ("gauss_blob")
+        ! gaussian blob source
         do iz=ra(3),rb(3)
           do iy=ra(2),rb(2)
             do ix=ra(1),rb(1)
@@ -250,6 +252,11 @@ contains
             enddo
           enddo
         enddo
+      case ("upstream_random")
+        ! in this case, we inject in a layer upstream x<x0 a randomized scalar
+        ! with mean 0.5
+
+        
       case ("none","empty","no","without")
         ! simply do not do anything
       case default
