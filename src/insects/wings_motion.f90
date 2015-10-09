@@ -70,7 +70,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
   real(kind=pr) :: phicdeg
   real(kind=pr) :: alphacdeg
   integer :: i,mpicode
-  character(len=strlen) :: dummy
+  character(len=strlen) :: dummy, type
   type(inifile) :: kinefile
 
   select case ( protocoll )
@@ -90,31 +90,33 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
     ! this block is excecuted only once
     if (.not.allocated(ai_phi)) then
-      ! parse ini file
-      if (mpirank==0) call read_ini_file(kinefile, Insect%infile, .true.)
+        ! parse ini file
+        if (mpirank==0) call read_ini_file(kinefile, Insect%infile, .true.)
+        call read_param(kinefile,"kinematics","type",type,"none")
+        if (type/="fourier") call abort("KINEMATICS: this is not a Fourier coefficients file")
 
-      call read_param(kinefile,"kinematics","nfft_phi",Insect%nfft_phi,0)
-      call read_param(kinefile,"kinematics","nfft_alpha",Insect%nfft_alpha,0)
-      call read_param(kinefile,"kinematics","nfft_theta",Insect%nfft_theta,0)
+        call read_param(kinefile,"kinematics","nfft_phi",Insect%nfft_phi,0)
+        call read_param(kinefile,"kinematics","nfft_alpha",Insect%nfft_alpha,0)
+        call read_param(kinefile,"kinematics","nfft_theta",Insect%nfft_theta,0)
 
-      ! allocate fourier coefficent arrays
-      allocate ( ai_phi(1:Insect%nfft_phi) )
-      allocate ( bi_phi(1:Insect%nfft_phi) )
-      allocate ( ai_alpha(1:Insect%nfft_alpha) )
-      allocate ( bi_alpha(1:Insect%nfft_alpha) )
-      allocate ( ai_theta(1:Insect%nfft_theta) )
-      allocate ( bi_theta(1:Insect%nfft_theta) )
+        ! allocate fourier coefficent arrays
+        allocate ( ai_phi(1:Insect%nfft_phi) )
+        allocate ( bi_phi(1:Insect%nfft_phi) )
+        allocate ( ai_alpha(1:Insect%nfft_alpha) )
+        allocate ( bi_alpha(1:Insect%nfft_alpha) )
+        allocate ( ai_theta(1:Insect%nfft_theta) )
+        allocate ( bi_theta(1:Insect%nfft_theta) )
 
-      ! read coefficients
-      call read_param(kinefile,"kinematics","a0_phi",Insect%a0_phi,0.d0)
-      call read_param(kinefile,"kinematics","a0_alpha",Insect%a0_phi,0.d0)
-      call read_param(kinefile,"kinematics","a0_theta",Insect%a0_phi,0.d0)
-      call read_param(kinefile,"kinematics","ai_phi",ai_phi,Insect%nfft_phi)
-      call read_param(kinefile,"kinematics","bi_phi",bi_phi,Insect%nfft_phi)
-      call read_param(kinefile,"kinematics","ai_alpha",ai_alpha,Insect%nfft_alpha)
-      call read_param(kinefile,"kinematics","bi_alpha",bi_alpha,Insect%nfft_alpha)
-      call read_param(kinefile,"kinematics","ai_theta",ai_theta,Insect%nfft_theta)
-      call read_param(kinefile,"kinematics","bi_theta",bi_theta,Insect%nfft_theta)
+        ! read coefficients
+        call read_param(kinefile,"kinematics","a0_phi",Insect%a0_phi,0.d0)
+        call read_param(kinefile,"kinematics","a0_alpha",Insect%a0_phi,0.d0)
+        call read_param(kinefile,"kinematics","a0_theta",Insect%a0_phi,0.d0)
+        call read_param(kinefile,"kinematics","ai_phi",ai_phi,Insect%nfft_phi)
+        call read_param(kinefile,"kinematics","bi_phi",bi_phi,Insect%nfft_phi)
+        call read_param(kinefile,"kinematics","ai_alpha",ai_alpha,Insect%nfft_alpha)
+        call read_param(kinefile,"kinematics","bi_alpha",bi_alpha,Insect%nfft_alpha)
+        call read_param(kinefile,"kinematics","ai_theta",ai_theta,Insect%nfft_theta)
+        call read_param(kinefile,"kinematics","bi_theta",bi_theta,Insect%nfft_theta)
     endif
 
     ! this block is executed every time
@@ -139,66 +141,36 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     ! IN RADIANTS! An example file (kinematics_hermite_example.in) is in the
     ! git-repository
     !---------------------------------------------------------------------------
+
+    ! this block is excecuted only once
     if (.not.allocated(ai_phi)) then
-      ! this block is excecuted only once
-      call check_file_exists( Insect%infile )
-      ! learn how many Fourier coefficients to expect
-      if (mpirank==0) then
-        open(37, file=Insect%infile, form='formatted', status='old')
-        read(37,*) dummy ! skip lines added for documentation
-        read(37,*) Insect%nfft_phi
-        read(37,*) Insect%nfft_alpha
-        read(37,*) Insect%nfft_theta
-        write(*,'("Reading kinematics: n_phi=",i2," n_alpha=",i2," n_theta=",i2)')&
-          Insect%nfft_phi, Insect%nfft_alpha, Insect%nfft_theta
-        write(*,*) "Using Hermite interpolation...."
-      endif
-      ! BCAST nfft to all procs
-      call MPI_BCAST( Insect%nfft_phi,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( Insect%nfft_alpha,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( Insect%nfft_theta,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
+        ! parse ini file
+        if (mpirank==0) call read_ini_file(kinefile, Insect%infile, .true.)
+        call read_param(kinefile,"kinematics","type",type,"none")
+        if (type/="hermite") call abort("KINEMATICS: this is not a hermite coefficients file")
 
-      ! allocate fourier coefficent arrays
-      allocate ( ai_phi(1:Insect%nfft_phi) )
-      allocate ( bi_phi(1:Insect%nfft_phi) )
-      allocate ( ai_alpha(1:Insect%nfft_alpha) )
-      allocate ( bi_alpha(1:Insect%nfft_alpha) )
-      allocate ( ai_theta(1:Insect%nfft_theta) )
-      allocate ( bi_theta(1:Insect%nfft_theta) )
+        call read_param(kinefile,"kinematics","nfft_phi",Insect%nfft_phi,0)
+        call read_param(kinefile,"kinematics","nfft_alpha",Insect%nfft_alpha,0)
+        call read_param(kinefile,"kinematics","nfft_theta",Insect%nfft_theta,0)
 
-      ! read coefficients
-      if (mpirank==0) then
-        read(37,*) dummy ! skip lines added for documentation
-        read(37,*) dummy
-        read(37,*) ai_phi
-        read(37,*) dummy
-        read(37,*) bi_phi
-        read(37,*) dummy
-        read(37,*) dummy
-        read(37,*) ai_alpha
-        read(37,*) dummy
-        read(37,*) bi_alpha
-        read(37,*) dummy
-        read(37,*) dummy
-        read(37,*) ai_theta
-        read(37,*) dummy
-        read(37,*) bi_theta
+        ! allocate Hermite coefficent arrays
+        allocate ( ai_phi(1:Insect%nfft_phi) )
+        allocate ( bi_phi(1:Insect%nfft_phi) )
+        allocate ( ai_alpha(1:Insect%nfft_alpha) )
+        allocate ( bi_alpha(1:Insect%nfft_alpha) )
+        allocate ( ai_theta(1:Insect%nfft_theta) )
+        allocate ( bi_theta(1:Insect%nfft_theta) )
 
-        close(37)
-      endif
-
-      call MPI_BCAST( ai_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
-           MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( bi_phi,Insect%nfft_phi,MPI_DOUBLE_PRECISION,0,&
-           MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( ai_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,&
-           MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( bi_alpha,Insect%nfft_alpha,MPI_DOUBLE_PRECISION,0,&
-           MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( ai_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,&
-           MPI_COMM_WORLD,mpicode )
-      call MPI_BCAST( bi_theta,Insect%nfft_theta,MPI_DOUBLE_PRECISION,0,&
-           MPI_COMM_WORLD,mpicode )
+        ! read coefficients
+        call read_param(kinefile,"kinematics","a0_phi",Insect%a0_phi,0.d0)
+        call read_param(kinefile,"kinematics","a0_alpha",Insect%a0_phi,0.d0)
+        call read_param(kinefile,"kinematics","a0_theta",Insect%a0_phi,0.d0)
+        call read_param(kinefile,"kinematics","ai_phi",ai_phi,Insect%nfft_phi)
+        call read_param(kinefile,"kinematics","bi_phi",bi_phi,Insect%nfft_phi)
+        call read_param(kinefile,"kinematics","ai_alpha",ai_alpha,Insect%nfft_alpha)
+        call read_param(kinefile,"kinematics","bi_alpha",bi_alpha,Insect%nfft_alpha)
+        call read_param(kinefile,"kinematics","ai_theta",ai_theta,Insect%nfft_theta)
+        call read_param(kinefile,"kinematics","bi_theta",bi_theta,Insect%nfft_theta)
     endif
 
     ! this block is executed every time

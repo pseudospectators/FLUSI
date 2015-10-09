@@ -1,12 +1,16 @@
 module ini_files_parser
   use vars
 
+  integer, parameter :: maxcolumns=1024
+
   type inifile
     ! string array that contains the text file:
-    character(len=strlen),allocatable,dimension(:) :: PARAMS
+    character(len=maxcolumns),allocatable,dimension(:) :: PARAMS
     ! number of lines in file:
     integer :: nlines
   end type
+
+
 
 
   interface read_param
@@ -30,7 +34,7 @@ contains
 
     type(inifile), intent(inout) :: PARAMS
     character(len=strlen) :: file ! this is the file we read the PARAMS from
-    character(len=strlen) :: dummy, line
+    character(len=maxcolumns) :: dummy, line
     logical, intent(in) :: verbose
     integer :: io_error, i
 
@@ -98,7 +102,7 @@ contains
     type(inifile), intent(inout) :: PARAMS
     character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    character(len=strlen) :: value    ! returns the value
+    character(len=maxcolumns) :: value    ! returns the value
     real (kind=pr) :: params_real, defaultvalue
     integer :: mpicode
 
@@ -155,7 +159,7 @@ contains
     type(inifile), intent(inout) :: PARAMS
     character(len=*), intent(in) :: section ! what section do you look for? for example [Resolution]
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    character(len=strlen)  value    ! returns the value
+    character(len=maxcolumns)  value    ! returns the value
     character(len=strlen), intent (inout) :: params_string
     character(len=*), intent (in) :: defaultvalue
     integer :: mpicode
@@ -210,8 +214,12 @@ contains
     real(kind=pr) :: defaultvalue(1:n)
     integer, intent(in) :: n
 
-    character(len=strlen) :: value
+    character(len=maxcolumns) :: value
+    character(len=14)::formatstring
     integer :: mpicode
+
+    if(n==0) return
+    write(formatstring,'("(",i2.2,"(g10.3,1x))")') n
 
     ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
     if (mpirank==0) then
@@ -219,10 +227,10 @@ contains
       if (value .ne. '') then
         ! read the three values from the vector string
         read (value, *) params_vector
-        write (value,'(6(g10.3,1x))') params_vector
+        write (value,formatstring) params_vector
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
       else
-        write (value,'(6(g10.3,1x))') defaultvalue
+        write (value,formatstring) defaultvalue
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
         " (THIS IS THE DEFAULT VALUE!)"
         params_vector = defaultvalue
@@ -258,9 +266,14 @@ contains
     real(kind=pr) :: defaultvalue(1:n)
     integer, intent(in) :: n
 
-    character(len=strlen) :: value
+    character(len=maxcolumns) :: value
+    character(len=14)::formatstring
+
     integer :: mpicode
     defaultvalue=0.0;
+
+    if(n==0) return
+    write(formatstring,'("(",i2.2,"(g10.3,1x))")') n
 
     ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
     if (mpirank==0) then
@@ -268,10 +281,10 @@ contains
       if (value .ne. '') then
         ! read the three values from the vector string
         read (value, *) params_vector
-        write (value,'(6(g10.3,1x))') params_vector
+        write (value,formatstring) params_vector
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
       else
-        write (value,'(6(g10.3,1x))') defaultvalue
+        write (value,formatstring) defaultvalue
         write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
         " (THIS IS THE DEFAULT VALUE!)"
         params_vector = defaultvalue
@@ -303,7 +316,7 @@ contains
     type(inifile), intent(inout) :: PARAMS
     character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    character(len=strlen) ::  value    ! returns the value
+    character(len=maxcolumns) ::  value    ! returns the value
     integer :: params_int, defaultvalue
     integer :: mpicode
 
