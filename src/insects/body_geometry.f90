@@ -16,6 +16,8 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
   select case (Insect%BodyType)
   case ("nobody")
     return
+  case ("suzuki_thin_rod")
+    call draw_suzuki_thin_rod( mask, mask_color, us, Insect, color_body, M_body)
   case ("jerry","Jerry")
     call draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   case ("particle")
@@ -1049,3 +1051,52 @@ subroutine draw_body_coin( mask, mask_color, us, Insect, color_body, M_body)
   enddo
 
 end subroutine draw_body_coin
+
+
+
+!-------------------------------------------------------------------------------
+! Thin rod-like body used in Suzuki et al. JFM 2015 to model a butterfly
+!-------------------------------------------------------------------------------
+subroutine draw_suzuki_thin_rod( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: R0,R,a,RR0
+  real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
+  integer :: ix,iy,iz
+
+  R0 = ( 0.5d0*Insect%WingThickness + Insect%Safety )**2
+  RR0 = 0.5d0*Insect%WingThickness
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_body = matmul( M_body, x_glob)
+
+        if ( dabs(x_body(1))<=0.5d0+Insect%safety) then
+          R = x_body(2)**2 + x_body(3)**2
+          if ( R < R0) then
+            a = steps(dsqrt(R),RR0)
+            if (mask(ix,iy,iz)<=a) then
+              mask(ix,iy,iz) = a
+              mask_color(ix,iy,iz) = color_body
+            endif
+           endif
+         endif
+
+      enddo
+    enddo
+  enddo
+
+end subroutine draw_suzuki_thin_rod
