@@ -35,6 +35,39 @@ subroutine BodyMotion(time, Insect)
 
 
   select case (Insect%BodyMotion)
+  case ("roll")
+    psi      = 30.d0*sin(2.d0*pi*time)
+    beta     = 0.d0 ! pitch
+    gamma    = 0.d0 ! yaw
+    psi_dt   = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+    beta_dt  = 0.d0
+    gamma_dt = 0.d0
+    xc = Insect%x0
+    vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
+    body_moves = "yes" 
+
+  case ("pitch")
+      psi      = 0.d0
+      beta     = 30.d0*sin(2.d0*pi*time)
+      gamma    = 0.d0 ! yaw
+      psi_dt   = 0.d0
+      beta_dt  = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+      gamma_dt = 0.d0
+      xc = Insect%x0
+      vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
+      body_moves = "yes" 
+
+  case ("yaw")
+    psi      = 0.d0
+    beta     = 0.d0 
+    gamma    = 30.d0*sin(2.d0*pi*time)
+    psi_dt   = 0.d0
+    beta_dt  = 0.d0
+    gamma_dt = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+    xc = Insect%x0
+    vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
+    body_moves = "yes" 
+
   case ("tethered")
     psi      = Insect%yawpitchroll_0(3) ! roll
     beta     = Insect%yawpitchroll_0(2) ! pitch

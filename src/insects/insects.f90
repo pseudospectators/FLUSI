@@ -693,7 +693,8 @@ contains
 
     dt =1.0d-7
 
-    if (time >0.d0) then
+    ! note we cannot go to negative times
+    if (time > 1.0d-7) then
       Insect1 = Insect
       Insect2 = Insect
 

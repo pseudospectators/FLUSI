@@ -29,6 +29,11 @@ subroutine get_params(paramsfile,Insect)
   case default
     if(mpirank==0) call abort("Error! Unkonwn method in get_params; stopping.")
   end select
+
+  ! clean file
+  if (mpirank==0) then
+    call clean_ini_file(PARAMS)
+  endif
 end subroutine get_params
 
 

@@ -20,7 +20,13 @@ module ini_files_parser
 contains
 
 
+  subroutine clean_ini_file(PARAMS)
+    implicit none
+    type(inifile), intent(inout) :: PARAMS
 
+    if (allocated(PARAMS%PARAMS)) deallocate(PARAMS%PARAMS)
+
+  end subroutine clean_ini_file
 
 
 
