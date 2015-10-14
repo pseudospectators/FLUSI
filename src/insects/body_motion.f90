@@ -44,7 +44,7 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 0.d0
     xc = Insect%x0
     vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
-    body_moves = "yes" 
+    body_moves = "yes"
 
   case ("pitch")
       psi      = 0.d0
@@ -55,18 +55,18 @@ subroutine BodyMotion(time, Insect)
       gamma_dt = 0.d0
       xc = Insect%x0
       vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
-      body_moves = "yes" 
+      body_moves = "yes"
 
   case ("yaw")
     psi      = 0.d0
-    beta     = 0.d0 
+    beta     = 0.d0
     gamma    = 30.d0*sin(2.d0*pi*time)
     psi_dt   = 0.d0
     beta_dt  = 0.d0
     gamma_dt = 30.d0*cos(2.d0*pi*time)*2.d0*pi
     xc = Insect%x0
     vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
-    body_moves = "yes" 
+    body_moves = "yes"
 
   case ("tethered")
     psi      = Insect%yawpitchroll_0(3) ! roll
@@ -79,6 +79,9 @@ subroutine BodyMotion(time, Insect)
     vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
     body_moves = "no" ! tethered: body does not move
 
+    if (Insect%BodyType=="suzuki_thin_rod") then
+      body_moves = "yes"
+    endif
 
   case ("free_flight")
     ! The case "free_flight" is different from the others. The free flight solver

@@ -109,8 +109,9 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
         ! read coefficients
         call read_param(kinefile,"kinematics","a0_phi",Insect%a0_phi,0.d0)
-        call read_param(kinefile,"kinematics","a0_alpha",Insect%a0_phi,0.d0)
-        call read_param(kinefile,"kinematics","a0_theta",Insect%a0_phi,0.d0)
+        call read_param(kinefile,"kinematics","a0_alpha",Insect%a0_alpha,0.d0)
+        call read_param(kinefile,"kinematics","a0_theta",Insect%a0_theta,0.d0)
+
         call read_param(kinefile,"kinematics","ai_phi",ai_phi,Insect%nfft_phi)
         call read_param(kinefile,"kinematics","bi_phi",bi_phi,Insect%nfft_phi)
         call read_param(kinefile,"kinematics","ai_alpha",ai_alpha,Insect%nfft_alpha)
@@ -163,8 +164,8 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
 
         ! read coefficients
         call read_param(kinefile,"kinematics","a0_phi",Insect%a0_phi,0.d0)
-        call read_param(kinefile,"kinematics","a0_alpha",Insect%a0_phi,0.d0)
-        call read_param(kinefile,"kinematics","a0_theta",Insect%a0_phi,0.d0)
+        call read_param(kinefile,"kinematics","a0_alpha",Insect%a0_alpha,0.d0)
+        call read_param(kinefile,"kinematics","a0_theta",Insect%a0_theta,0.d0)
         call read_param(kinefile,"kinematics","ai_phi",ai_phi,Insect%nfft_phi)
         call read_param(kinefile,"kinematics","bi_phi",bi_phi,Insect%nfft_phi)
         call read_param(kinefile,"kinematics","ai_alpha",ai_alpha,Insect%nfft_alpha)

@@ -40,8 +40,6 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
   nlk = dcmplx(0.0d0,0.0d0)
   explin = 0.0d0
   vort = 0.0d0
-  scalars = 0.0d0
-  scalars_rhs = 0.0d0
 
   select case(inicond)
   case ("couette")
