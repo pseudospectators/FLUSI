@@ -92,6 +92,8 @@ module insect_module
     character(len=strlen) :: WingShape, BodyType, BodyMotion, HasDetails
     character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
     character(len=strlen) :: KineFromFile, infile, LeftWing, RightWing
+    character(len=strlen) :: infile_right, infile_left, infile_type, infile_units
+    character(len=strlen) :: infile_convention
     ! parameters for body:
     real(kind=pr) :: L_body, b_body, R_head, R_eye
     ! parameters for wing shape:
