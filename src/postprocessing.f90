@@ -21,6 +21,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--simple-field-operation")
+    call simple_field_operation()
   case ("--cp")
     call copy_hdf_file()
   case ("--keyvalues")
@@ -2496,7 +2498,7 @@ end subroutine energy_post
 !-------------------------------------------------------------------------------
 ! ./flusi -p --simple-field-operation field1.h5 OP field2.h5 output.h5
 !-------------------------------------------------------------------------------
-! load two fields and perform a simple operation (+-/*)
+! load two fields and perform a simple operation ( + - / * )
 ! example: ./flusi -p --simple-field-operation vorabs_0000.h5 * mask_0000.h5 vor2_0000.h5
 ! this gives just the product vor*mask
 subroutine simple_field_operation()
@@ -2505,26 +2507,26 @@ subroutine simple_field_operation()
   use p3dfft_wrapper
   use helpers
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, outfile
+  character(len=strlen) :: file1, file2, file_out, dsetname, operation
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
 
-  call get_command_argument(3,fname_ux)
-  call get_command_argument(4,outfile)
-  call get_command_argument(5,fname_uy)
-  call get_command_argument(6,fname_uz)
+  call get_command_argument(3,file1)
+  call get_command_argument(4,operation)
+  call get_command_argument(5,file2)
+  call get_command_argument(6,file_out)
 
 
-  call check_file_exists( fname_ux )
-  call check_file_exists( fname_uy )
-  call check_file_exists( fname_uz )
+  call check_file_exists( file1 )
+  call check_file_exists( file2 )
 
   if (mpirank==0) write(*,*) "Computing energy of vector from these files: "
-  if (mpirank==0) write(*,*) trim(adjustl(fname_ux)), trim(adjustl(fname_uy)), trim(adjustl(fname_uz))
-  if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(outfile))
+  if (mpirank==0) write(*,*) trim(adjustl(file1))//" "//trim(adjustl(file2))
+  if (mpirank==0) write(*,*) "Operation="//trim(adjustl(operation))
+  if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(file_out))
 
-  dsetname = get_dsetname( fname_ux )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  dsetname = get_dsetname( file1 )
+  call fetch_attributes( file1, dsetname, nx, ny, nz, xl, yl, zl, time )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -2538,10 +2540,10 @@ subroutine simple_field_operation()
 
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
 
-  call read_single_file ( fname_ux, u(:,:,:,1) )
-  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( file1, u(:,:,:,1) )
+  call read_single_file ( file2, u(:,:,:,2) )
 
-  select case (outfile)
+  select case (operation)
   case ("*")
     if(mpirank==0) write(*,*) "multiplication"
     u(:,:,:,3) = u(:,:,:,1) * u(:,:,:,2)
@@ -2555,12 +2557,12 @@ subroutine simple_field_operation()
     if(mpirank==0) write(*,*) "substraction"
     u(:,:,:,3) = u(:,:,:,1) - u(:,:,:,2)
   case default
-    write(*,*) "error operation not supported::"//outfile
+    write(*,*) "error operation not supported::"//operation
   end select
 
-  call save_field_hdf5 ( time, fname_uz, u(:,:,:,3) )
+  call save_field_hdf5 ( time, file_out, u(:,:,:,3) )
 
-  if (mpirank==0) write(*,*) "Wrote energy to "//trim(outfile)
+  if (mpirank==0) write(*,*) "Wrote result to "//trim(file_out)
 
   deallocate (u)
   call fft_free()
