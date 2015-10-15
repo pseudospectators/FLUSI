@@ -15,7 +15,7 @@ contains
     implicit none
     character(len=*), intent(in) :: fname
     ! extract dsetname (from "/" until "_", excluding both)
-    get_dsetname  = fname  ( index(fname,'/',.true.)+1:index( fname, '_' )-1 )
+    get_dsetname  = fname  ( index(fname,'/',.true.)+1:index( fname, '_',.true. )-1 )
     return
   end function get_dsetname
 

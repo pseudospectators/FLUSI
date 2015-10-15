@@ -2520,7 +2520,7 @@ subroutine simple_field_operation()
   call check_file_exists( file1 )
   call check_file_exists( file2 )
 
-  if (mpirank==0) write(*,*) "Computing energy of vector from these files: "
+  if (mpirank==0) write(*,*) "Performing simple operation using the fields"
   if (mpirank==0) write(*,*) trim(adjustl(file1))//" "//trim(adjustl(file2))
   if (mpirank==0) write(*,*) "Operation="//trim(adjustl(operation))
   if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(file_out))
