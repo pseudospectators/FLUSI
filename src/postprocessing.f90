@@ -2493,6 +2493,81 @@ subroutine energy_post()
 end subroutine energy_post
 
 
+!-------------------------------------------------------------------------------
+! ./flusi -p --simple-field-operation field1.h5 OP field2.h5 output.h5
+!-------------------------------------------------------------------------------
+! load two fields and perform a simple operation (+-/*)
+! example: ./flusi -p --simple-field-operation vorabs_0000.h5 * mask_0000.h5 vor2_0000.h5
+! this gives just the product vor*mask
+subroutine simple_field_operation()
+  use vars
+  use basic_operators
+  use p3dfft_wrapper
+  use helpers
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, outfile
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr) :: time
+
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,outfile)
+  call get_command_argument(5,fname_uy)
+  call get_command_argument(6,fname_uz)
+
+
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if (mpirank==0) write(*,*) "Computing energy of vector from these files: "
+  if (mpirank==0) write(*,*) trim(adjustl(fname_ux)), trim(adjustl(fname_uy)), trim(adjustl(fname_uz))
+  if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(outfile))
+
+  dsetname = get_dsetname( fname_ux )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+
+  select case (outfile)
+  case ("*")
+    if(mpirank==0) write(*,*) "multiplication"
+    u(:,:,:,3) = u(:,:,:,1) * u(:,:,:,2)
+  case ("/")
+    if(mpirank==0) write(*,*) "division"
+    u(:,:,:,3) = u(:,:,:,1) / u(:,:,:,2)
+  case ("+")
+    if(mpirank==0) write(*,*) "addition"
+    u(:,:,:,3) = u(:,:,:,1) + u(:,:,:,2)
+  case ("-")
+    if(mpirank==0) write(*,*) "substraction"
+    u(:,:,:,3) = u(:,:,:,1) - u(:,:,:,2)
+  case default
+    write(*,*) "error operation not supported::"//outfile
+  end select
+
+  call save_field_hdf5 ( time, fname_uz, u(:,:,:,3) )
+
+  if (mpirank==0) write(*,*) "Wrote energy to "//trim(outfile)
+
+  deallocate (u)
+  call fft_free()
+
+end subroutine simple_field_operation
+
+
 
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocess --check-params-file PARAMS.ini
