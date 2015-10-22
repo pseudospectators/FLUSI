@@ -44,6 +44,7 @@ FFLAGS += -J$(OBJDIR) # specify directory for modules.
 FFLAGS += -Wall # warn for unused and uninitialzied variables
 #FFLAGS += -Werror # warnings are errors
 FFLAGS += -pedantic
+FFLAGS += -O3
 PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
 #FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
