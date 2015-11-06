@@ -36,6 +36,9 @@ numtests=0
 numsuccess=0
 numfail=0
 
+echo "employed command for parallel exec: " $mpi_command
+echo "employed command for serial exec: " $mpi_serial
+
 # Get time as a UNIX timestamp (seconds elapsed since Jan 1, 1970 0:00 UTC)
 T="$(date +%s)"
 
@@ -67,8 +70,6 @@ do
     rm -f runtime*.ini
     rm -f success
     rm -f deco*
-
-
 done
 
 echo

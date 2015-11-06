@@ -30,7 +30,10 @@ program mhd
   real(kind=pr),dimension(:,:,:,:),allocatable :: wj
 
   real(kind=pr),dimension(:,:,:,:),allocatable :: work
+  ! the following arrays are dummies and never allocated:
   real(kind=pr),dimension(:,:,:),allocatable :: press
+  real(kind=pr),dimension(:,:,:,:),allocatable :: scalars
+  real(kind=pr),dimension(:,:,:,:,:),allocatable :: scalars_rhs
 
   ! complex work array, currently unused in the MHD case (not allocated)
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
@@ -47,6 +50,8 @@ program mhd
 
   ! MHD does not use ghost points
   ng=0
+  ! MHD does not use scalars
+  n_scalars=0
 
   ! Set method information in vars module:
   method="mhd" ! We are doing fluid-structure intergrep actions
@@ -140,7 +145,7 @@ program mhd
   ! Initialize vorticity or read values from a backup file
   if (mpirank == 0) write(*,*) "Set up initial conditions:"
   call init_fields(time,it,dt0,dt1,n0,n1,ub,ubk,nlk,wj,explin,work,workc,press,&
-       dummy_insect,dummy_beams)
+       scalars,scalars_rhs,dummy_insect,dummy_beams)
 
   if (mpirank == 0) write(*,*) "Create mask variables:"
   call create_mask_mhd
@@ -149,7 +154,7 @@ program mhd
 
   if (mpirank == 0) write(*,*) "Start time-stepping:"
   call time_step(time,dt0,dt1,n0,n1,it,ub,ubk,nlk,wj,work,workc,explin,&
-       press,infile,dummy_insect,dummy_beams)
+       press,scalars,scalars_rhs,infile,dummy_insect,dummy_beams)
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
 
   deallocate(ubk)
