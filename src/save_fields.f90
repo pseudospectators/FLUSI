@@ -178,15 +178,19 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Ins
   !-----------------------------------------------------------------------------
   if ((time_avg=="yes").and.(time>=tstart_avg)) then
     if (vel_avg=="yes") then
-      call ifft3( ink=uk_avg(:,:,:,1:3), outx=u(:,:,:,1:3) )
+      ! time averaged velocity is computed in fourier space. therefore, before
+      ! saving it here, we have to transform back to x-space
+      call ifft3( ink=uk_avg(:,:,:,1:3), outx=vort(:,:,:,1:3) )
       if (save_one_only=="yes") then
-        call save_field_hdf5(time,"./uavgx_000",u(:,:,:,1))
-        call save_field_hdf5(time,"./uavgy_000",u(:,:,:,2))
-        call save_field_hdf5(time,"./uavgz_000",u(:,:,:,3))
+        ! we always write into the same file (this would be the usual case)
+        call save_field_hdf5(time,"./uavgx_000",vort(:,:,:,1))
+        call save_field_hdf5(time,"./uavgy_000",vort(:,:,:,2))
+        call save_field_hdf5(time,"./uavgz_000",vort(:,:,:,3))
       else
-        call save_field_hdf5(time,"./uavgx_"//name,u(:,:,:,1))
-        call save_field_hdf5(time,"./uavgy_"//name,u(:,:,:,2))
-        call save_field_hdf5(time,"./uavgz_"//name,u(:,:,:,3))
+        ! everytime we save to a new file with the time-code in the name
+        call save_field_hdf5(time,"./uavgx_"//name,vort(:,:,:,1))
+        call save_field_hdf5(time,"./uavgy_"//name,vort(:,:,:,2))
+        call save_field_hdf5(time,"./uavgz_"//name,vort(:,:,:,3))
       endif
     endif
     if (ekin_avg=="yes") then
