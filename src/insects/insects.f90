@@ -67,6 +67,7 @@ module insect_module
     real(kind=pr), dimension(1:3,1:3) :: M_body_quaternion
     real(kind=pr), dimension(1:13) :: RHS_old, RHS_this, STATE
     real(kind=pr), dimension(1:6) :: DoF_on_off
+    character(len=strlen) :: startup_conditioner
 
     !-------------------------------------------------------------
     ! wing shape parameters

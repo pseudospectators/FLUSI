@@ -95,6 +95,8 @@ subroutine dry_run()
     ! If required, initialize rigid solid dynamics solver
     if (Insect%BodyMotion=="free_flight") then
       call rigid_solid_init(0.d0,Insect)
+      GlobalIntegrals%force = 0.d0
+      GlobalIntegrals%force_unst = 0.d0
     endif
   endif
 
@@ -109,10 +111,18 @@ subroutine dry_run()
   !*****************************************************************************
   time = 0.d0
   it = 0
-  do while (time<=tmax)
 
+
+
+  do while (time<=tmax)
+    ! create the mask
     call create_mask( time,Insect,beams )
 
+    if (Insect%BodyMotion=="free_flight") then
+      call rigid_solid_time_step(time,tsave,tsave,it,Insect)
+    endif
+
+    ! Save data
     write(name,'(i6.6)') floor(time*1000.d0)
 
     if(mpirank==0) then

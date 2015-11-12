@@ -75,8 +75,9 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
         ! x_body is in the body coordinate system
-        x_body = matmul(M_body,x_glob-Insect%xc_body)
+        x_body = matmul(M_body,x_glob)
 
         ! ------------------------------------
         ! approximation to mesh from Maeda
@@ -157,7 +158,8 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
       do ix = ra(1), rb(1)
         !-- define the head coordinate systems we are going to use
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_body   = matmul(M_body,x_glob-Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        x_body   = matmul(M_body,x_glob)
         x_head   = x_body - Insect%x_head
 
         ! check if inside the surrounding box (save comput. time)
@@ -225,7 +227,8 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
       do ix = ra(1), rb(1)
         !-- define the head coordinate systems we are going to use
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_body   = matmul(M_body,x_glob-Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        x_body   = matmul(M_body,x_glob)
 
         !-- check bounds
         if ((x_body(1)>=xmin_bbox).and.(x_body(1)<=xmax_bbox)&
@@ -313,8 +316,9 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
         ! x_body is in the body coordinate system
-        x_body = matmul(M_body,x_glob-Insect%xc_body)
+        x_body = matmul(M_body,x_glob)
 
         ! ------------------------------------
         ! approximation to mesh from Maeda
@@ -405,7 +409,9 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
       do ix = ra(1), rb(1)
         !-- define the head coordinate systems we are going to use
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_body   = matmul(M_body,x_glob-Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        ! x_body is in the body coordinate system
+        x_body = matmul(M_body,x_glob)
         x_head   = x_body - Insect%x_head
 
         ! check if inside the surrounding box (save comput. time)
@@ -459,8 +465,9 @@ subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_bod
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
         ! x_body is in the body coordinate system
-        x_body = matmul(M_body,x_glob-Insect%xc_body)
+        x_body = matmul(M_body,x_glob)
 
         ! ------------------------------------
         ! two b-splines body (abdomen+thorax)

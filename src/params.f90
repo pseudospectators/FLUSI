@@ -361,6 +361,7 @@ subroutine get_params_insect( PARAMS,Insect )
   call read_param(PARAMS,"Insects","Jzz",Insect%Jzz,0.d0)
   call read_param(PARAMS,"Insects","Jxy",Insect%Jxy,0.d0)
   call read_param(PARAMS,"Insects","infile",Insect%infile,"none.in")
+  call read_param(PARAMS,"Insects","startup_conditioner",Insect%startup_conditioner,"no")
 
   ! position vector of the head
   call read_param(PARAMS,"Insects","x_head",&

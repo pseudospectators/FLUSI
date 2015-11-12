@@ -71,7 +71,7 @@ subroutine rigid_solid_rhs(time,it,Insect)
   integer, intent(in) :: it
   real (kind=pr), intent (in) :: time
   type(diptera),intent(inout)::Insect
-  real (kind=pr) :: m,g, Jx, Jy,Jz
+  real (kind=pr) :: m,g, Jx, Jy,Jz, s
   real (kind=pr), dimension(0:3) :: ep
   real (kind=pr), dimension(1:3) :: ROT, torque_body
   real (kind=pr), dimension(1:3,1:3) :: C_mat
@@ -101,6 +101,13 @@ subroutine rigid_solid_rhs(time,it,Insect)
   ! extract angular velocity vector from state vector
   ROT = Insect%STATE(11:13)
 
+  ! startup conditioner (to avoid problems with impulsively started motion)
+  if (Insect%startup_conditioner=="yes") then
+    s = startup_conditioner(time, 0.1d0, 0.5d0)
+  else
+    s = 1.d0
+  endif
+
   !-----------------------------------------------------------------------------
   ! Integrate the 13 equations of motion (written in quaternion formulation)
   ! The underlying eqns can be found in
@@ -129,18 +136,18 @@ subroutine rigid_solid_rhs(time,it,Insect)
   Insect%RHS_this(2) = Insect%STATE(5)
   Insect%RHS_this(3) = Insect%STATE(6)
   ! integrate velocities (dvx/dt = F) Note: this is in global reference frame
-  Insect%RHS_this(4) = (GlobalIntegrals%force(1)+GlobalIntegrals%force_unst(1))/m
-  Insect%RHS_this(5) = (GlobalIntegrals%force(2)+GlobalIntegrals%force_unst(2))/m
-  Insect%RHS_this(6) = (GlobalIntegrals%force(3)+GlobalIntegrals%force_unst(3))/m + g
+  Insect%RHS_this(4) = s*(GlobalIntegrals%force(1)+GlobalIntegrals%force_unst(1))/m
+  Insect%RHS_this(5) = s*(GlobalIntegrals%force(2)+GlobalIntegrals%force_unst(2))/m
+  Insect%RHS_this(6) = s*(GlobalIntegrals%force(3)+GlobalIntegrals%force_unst(3))/m + g
   ! integrate quaternion attitudes
   Insect%RHS_this(7)  = 0.5d0*(-ep(1)*ROT(1)-ep(2)*ROT(2)-ep(3)*ROT(3))
   Insect%RHS_this(8)  = 0.5d0*(+ep(0)*ROT(1)-ep(3)*ROT(2)+ep(2)*ROT(3))
   Insect%RHS_this(9)  = 0.5d0*(+ep(3)*ROT(1)+ep(0)*ROT(2)-ep(1)*ROT(3))
   Insect%RHS_this(10) = 0.5d0*(-ep(2)*ROT(1)+ep(1)*ROT(2)+ep(0)*ROT(3))
   ! integrate angular velocities
-  Insect%RHS_this(11) = ( (Jy-Jz)*ROT(2)*ROT(3)+torque_body(1) )/Jx
-  Insect%RHS_this(12) = ( (Jz-Jx)*ROT(3)*ROT(1)+torque_body(2) )/Jy
-  Insect%RHS_this(13) = ( (Jx-Jy)*ROT(1)*ROT(2)+torque_body(3) )/Jz
+  Insect%RHS_this(11) = ( (Jy-Jz)*ROT(2)*ROT(3)+s*torque_body(1) )/Jx
+  Insect%RHS_this(12) = ( (Jz-Jx)*ROT(3)*ROT(1)+s*torque_body(2) )/Jy
+  Insect%RHS_this(13) = ( (Jx-Jy)*ROT(1)*ROT(2)+s*torque_body(3) )/Jz
 
   ! turn on or off degrees of freedom for free flight solver. The string from
   ! ini file contains 6 characters 1 or 0 that turn on/off x,y,z,yaw,pitch,roll
