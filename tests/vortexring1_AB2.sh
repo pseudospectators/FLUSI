@@ -19,7 +19,7 @@ echo "vortex ring unit test"
 # list of prefixes the test generates
 prefixes=(ux uy uz p vorx vory vorz)
 # list of possible times (no need to actually have them)
-times=(00000 00010 00020 00030 00040 00050)
+times=(000000 000300 000500)
 # run actual test
 ${mpi_command} ./flusi ${params}
 

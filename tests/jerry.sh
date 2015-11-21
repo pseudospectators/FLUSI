@@ -18,7 +18,7 @@ echo "jerry mask test"
 # list of prefixes the test generates
 prefixes=(mask usx usy usz)
 # list of possible times (no need to actually have them)
-times=(00000 00015 00020 00025 00030 00035 00040 00044 00049 00054 00060 00065 00070 00075 00080 00085 00090 00095 00100)
+times=(000000 000500 001000)
 # run actual test
 ${mpi_command} ./flusi ${params}
 echo "============================"

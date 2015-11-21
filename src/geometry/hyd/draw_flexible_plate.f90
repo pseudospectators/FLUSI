@@ -35,7 +35,9 @@ subroutine Draw_flexible_plate (time, beam)
   ! angular velocity of moving relative frame
   rot_body = (/psi_dt, beta_dt, gamma_dt/)
 
+  ! reset everything
   mask = 0.d0
+  mask_color = 0
   us = 0.d0
   
   ! largest admissible sides (a,b) for triangles

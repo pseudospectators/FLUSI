@@ -49,7 +49,7 @@ subroutine FFT_unit_test ( u, uk )
     err = 0.d0  
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do ix=ra(1),rb(1)
           err = err + (u(ix,iy,iz)-dcos( dble(ix)*dx*2.d0*pi/xl )*2.d0*pi/xl)**2
         enddo
       enddo
@@ -89,7 +89,7 @@ subroutine FFT_unit_test ( u, uk )
     err = 0.d0  
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do ix=ra(1),rb(1)
           err = err + (u(ix,iy,iz)-dcos( dble(iy)*dy*2.d0*pi/yl )*2.d0*pi/yl)**2
         enddo
       enddo
@@ -129,7 +129,7 @@ subroutine FFT_unit_test ( u, uk )
     err = 0.d0  
     do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do ix=ra(1),rb(1)
           err = err + (u(ix,iy,iz)-dcos( dble(iz)*dz*2.d0*pi/zl )*2.d0*pi/zl)**2
         enddo
       enddo

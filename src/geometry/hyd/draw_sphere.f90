@@ -8,11 +8,16 @@ subroutine draw_sphere
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+
   N_smooth = 1.5d0
 
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)
+      do ix=ra(1),rb(1) 
         x=dble(ix)*dx
         y=dble(iy)*dy
         z=dble(iz)*dz
@@ -41,11 +46,16 @@ subroutine draw_cylinder_x
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth
 
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+
   N_smooth = 1.5d0
 
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)
+      do ix=ra(1),rb(1) 
         y=dble(iy)*dy
         z=dble(iz)*dz
         R = dsqrt( (y-y0)**2 + (z-z0)**2 )
@@ -63,7 +73,6 @@ subroutine draw_cylinder_x
     enddo
   enddo
 end subroutine draw_cylinder_x
-
 
 ! draws a moving circular cylinder, the axis is the x-axis (then it can be used for 2D
 ! runs as well)
@@ -103,7 +112,5 @@ subroutine draw_moving_cylinder_x (time)
     enddo
   enddo
 end subroutine draw_moving_cylinder_x
-
-
 
 

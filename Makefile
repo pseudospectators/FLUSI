@@ -15,8 +15,9 @@ OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = vars.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 \
-	interpolation.f90 basic_operators.f90 insects.f90
+MFILES = vars.f90 helpers.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 \
+	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
+	slicing.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -39,9 +40,10 @@ endif
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
 FFLAGS += -J$(OBJDIR) # specify directory for modules.
-FFLAGS += -Wall # warn for unused and uninitialzied variables 
+FFLAGS += -Wall # warn for unused and uninitialzied variables
 #FFLAGS += -Werror # warnings are errors
-FFLAGS += -pedantic 
+FFLAGS += -pedantic
+FFLAGS += -O3
 PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
 #FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
@@ -51,7 +53,7 @@ endif
 ifort:=$(shell $(FC) --version | head -c 5)
 ifeq ($(ifort),ifort)
 PPFLAG= -fpp #preprocessor flag
-DIFORT= -DIFORT # define the IFORT variable 
+DIFORT= -DIFORT # define the IFORT variable
 FFLAGS += -module $(OBJDIR) # specify directory for modules.
 FFLAGS += -vec_report0
 endif
@@ -85,7 +87,7 @@ FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
 
 # Both programs are compiled by default.
-all: directories $(PROGRAMS) 
+all: directories $(PROGRAMS)
 
 # Compile main programs, with dependencies.
 flusi: flusi.f90 $(MOBJS) $(OBJS)
@@ -103,13 +105,19 @@ $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o $(OBJDIR)/kine.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 wings_motion.f90 stroke_plane.f90
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o \
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)	
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/turbulent_inlet.o: turbulent_inlet.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/basic_operators.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/slicing.o: slicing.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.

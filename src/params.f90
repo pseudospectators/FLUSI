@@ -88,9 +88,9 @@ subroutine get_params_common(PARAMS,i)
   call param_int(PARAMS,i,"Resolution","nz",nz, 4)
     
   ! Geometry section
-  call param_dbl(PARAMS,i,"Geometry","xl",xl, 1.d0)
-  call param_dbl(PARAMS,i,"Geometry","yl",yl, 1.d0)
-  call param_dbl(PARAMS,i,"Geometry","zl",zl, 1.d0)
+  call param_dbl(PARAMS,i,"Geometry","xl",xl, 6.283185307179586d0)
+  call param_dbl(PARAMS,i,"Geometry","yl",yl, 6.283185307179586d0)
+  call param_dbl(PARAMS,i,"Geometry","zl",zl, 6.283185307179586d0)
       
   ! lattice spacing is global (since we allow to specify reals in multiples of
   ! grid points, we nedd that value now.)
@@ -100,8 +100,8 @@ subroutine get_params_common(PARAMS,i)
   
   if (nx==1) then
     if (root) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"    
-    dx = 1.d0
-    xl = 1.d0
+    dx = max(dz,dy)
+    xl = dx
     if (root) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
   endif
     
@@ -114,6 +114,7 @@ subroutine get_params_common(PARAMS,i)
   ! Time section
   call param_int(PARAMS,i,"Time","nt",nt, 9999999)
   call param_str(PARAMS,i,"Time","iTimeMethodFluid",iTimeMethodFluid,"AB2")  
+  call param_str(PARAMS,i,"Time","intelligent_dt",intelligent_dt,"no")
   call param_dbl(PARAMS,i,"Time","Tmax",Tmax,1.d9)
   call param_dbl(PARAMS,i,"Time","CFL",cfl,0.1d0)
   call param_dbl(PARAMS,i,"Time","dt_max",dt_max,0.d0)
@@ -125,18 +126,15 @@ subroutine get_params_common(PARAMS,i)
   ! Initial conditions section
   call param_str(PARAMS,i,"InitialCondition","inicond",inicond, "none")
   call param_dbl(PARAMS,i,"InitialCondition","omega1",omega1,0.d0) 
+  call param_dbl(PARAMS,i,"InitialCondition","nu_smoothing",nu_smoothing,1.0d-13)
   ! if reading from file, which files?
-  if (inicond=="infile") then 
     call param_str(PARAMS,i,"InitialCondition","file_ux",file_ux, "none")
     call param_str(PARAMS,i,"InitialCondition","file_uy",file_uy, "none")
     call param_str(PARAMS,i,"InitialCondition","file_uz",file_uz, "none")
     ! if running in MHD mode, we also need the B-field initialized
-    if (method=="mhd") then
       call param_str(PARAMS,i,"InitialCondition","file_bx",file_bx, "none")
       call param_str(PARAMS,i,"InitialCondition","file_by",file_by, "none")
       call param_str(PARAMS,i,"InitialCondition","file_bz",file_bz, "none")
-    endif
-  endif
 
   ! Dealasing section
   call param_int(PARAMS,i,"Dealiasing","iDealias",iDealias, 1)
@@ -145,13 +143,28 @@ subroutine get_params_common(PARAMS,i)
   call param_int(PARAMS,i,"Penalization","iPenalization",iPenalization, 0)
   call param_int(PARAMS,i,"Penalization","iMoving",iMoving, 0)
   call param_str(PARAMS,i,"Penalization","iMask",iMask, "none")
-  call param_str(PARAMS,i,"Penalization","iSmoothing",iSmoothing,"erf")
   call param_dbl(PARAMS,i,"Penalization","eps",eps, 1.d-2)
   call param_dbl(PARAMS,i,"Penalization","pseudoeps",pseudoeps, 1.d-2)
   call param_dbl(PARAMS,i,"Penalization","pseudodt",pseudodt, 1.d-2)
   call param_dbl(PARAMS,i,"Penalization","pseuderrmin",pseudoerrmin,3d-4)
   call param_dbl(PARAMS,i,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
 
+  ! turbulent inlet
+  call param_str(PARAMS,i,"TurbulentInlet","use_turbulent_inlet",use_turbulent_inlet, "no")
+  call param_dbl(PARAMS,i,"TurbulentInlet","rescale",rescale, 1.d0)
+
+  ! averaging in time
+  call param_str(PARAMS,i,"Averaging","time_avg",time_avg, "no")
+  call param_str(PARAMS,i,"Averaging","vel_avg",vel_avg, "yes")
+  call param_str(PARAMS,i,"Averaging","ekin_avg",ekin_avg, "no")
+  call param_str(PARAMS,i,"Averaging","enstrophy_avg",enstrophy_avg, "no")
+  call param_str(PARAMS,i,"Averaging","save_one_only",save_one_only, "yes")
+  call param_dbl(PARAMS,i,"Averaging","tstart_avg",tstart_avg,0.d0)
+  if (vel_avg/="yes" .and. ekin_avg/="yes") then
+    if (mpirank==0) write(*,*) "You specified to avg, but you want neither u_avg nor ekin_avg"
+    if (mpirank==0) write(*,*) "Thus no averaging is done"
+    time_avg="no"
+  endif
   ! Saving section
   call param_int(PARAMS,i,"Saving","iDoBackup",iDoBackup, 1)
   call param_int(PARAMS,i,"Saving","iSaveVelocity",iSaveVelocity, 0) 
@@ -167,8 +180,16 @@ subroutine get_params_common(PARAMS,i)
   call param_dbl(PARAMS,i,"Saving","tsave_period",tsave_period,1.0d0)
   call param_str(PARAMS,i,"Saving","save_only_one_period",&
        save_only_one_period,"no")  
+  call param_str(PARAMS,i,"Saving","field_precision",&
+       field_precision,"single")
   call param_int(PARAMS,i,"Saving","itdrag",itdrag,99999)
   call param_int(PARAMS,i,"Saving","itbeam",itbeam,99999)
+  call param_str(PARAMS,i,"Saving","iSaveSpectrae",iSaveSpectrae,"no")
+
+  ! Forcing section (for isotropic turbulence)
+  call param_str(PARAMS,i,"Forcing","forcing_type",forcing_type, "none")
+  call param_dbl(PARAMS,i,"Forcing","kf",kf, 0.d0)
+  call param_dbl(PARAMS,i,"Forcing","eps_forcing",eps_forcing, 0.d0)
   
   !-- dry run, just the mask function
   call param_str(PARAMS,i,"DryRun","dry_run_without_fluid",dry_run_without_fluid,"no")
@@ -298,6 +319,20 @@ subroutine get_params_fsi(PARAMS,i,Insect)
   call param_dbl(PARAMS,i,"PassiveScalar","source_zmin",source_zmin,0.d0)
   call param_dbl(PARAMS,i,"PassiveScalar","source_zmax",source_zmax,0.d0)
 
+  ! slice extraction
+  ! the first one is for compatibility; it is overwritten if the 2nd is found
+  call param_str(PARAMS,i,"SaveSlices","use_slicing",use_slicing,"xxx")
+  if (use_slicing=="xxx") then
+    call param_str(PARAMS,i,"SaveSlices","save_slices",use_slicing,"no")
+  endif
+  call param_int(PARAMS,i,"SaveSlices","slice1",slices_to_save(1),-2)
+  call param_int(PARAMS,i,"SaveSlices","slice2",slices_to_save(2),-2)
+  call param_int(PARAMS,i,"SaveSlices","slice3",slices_to_save(3),-2)
+  call param_int(PARAMS,i,"SaveSlices","slice4",slices_to_save(4),-2)
+  call param_int(PARAMS,i,"SaveSlices","itslice",itslice,9999900)
+  call param_int(PARAMS,i,"SaveSlices","ncache_slices",ncache_slices,nx)
+  call param_dbl(PARAMS,i,"SaveSlices","tslice",tslice,99999.9d0)
+  call param_dbl(PARAMS,i,"SaveSlices","tslice_first",tslice_first,0.0d0)
   ! ---------------------------------------------------
   ! DONE..
   ! ---------------------------------------------------
@@ -335,8 +370,7 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
   call param_str(PARAMS,i,"Insects","FlappingMotion_right",Insect%FlappingMotion_right,"none")
   call param_str(PARAMS,i,"Insects","FlappingMotion_left",Insect%FlappingMotion_left,"none")
   call param_str(PARAMS,i,"Insects","BodyType",Insect%BodyType,"ellipsoid")  
-  call param_str(PARAMS,i,"Insects","HasEye",Insect%HasEye,"yes")
-  call param_str(PARAMS,i,"Insects","HasHead",Insect%HasHead,"yes")    
+  call param_str(PARAMS,i,"Insects","HasDetails",Insect%HasDetails,"all")
   call param_str(PARAMS,i,"Insects","BodyMotion",Insect%BodyMotion,"yes")
   call param_str(PARAMS,i,"Insects","LeftWing",Insect%LeftWing,"yes")
   call param_str(PARAMS,i,"Insects","RightWing",Insect%RightWing,"yes") 
@@ -377,6 +411,13 @@ subroutine read_insect_parameters( PARAMS,i,Insect )
   ! flag: read kinematics from file (Dmitry, 14 Nov 2013)
   call param_str(PARAMS,i,"Insects","KineFromFile",Insect%KineFromFile,"no")     
   
+  ! Body pitch angle used for hovering and forward flight
+  select case (Insect%BodyMotion)
+  case ("forward")
+    call param_dbl(PARAMS,i,"Insects","body_pitch_const",Insect%body_pitch_const, 15.0d0)
+  case ("hovering")
+    call param_dbl(PARAMS,i,"Insects","body_pitch_const",Insect%body_pitch_const, 45.0d0)
+  end select
  
   ! Takeoff 
   call param_dbl(PARAMS,i,"Insects","x_takeoff",Insect%x_takeoff, 2.0d0)

@@ -23,6 +23,9 @@ module basic_operators
     module procedure checknan_cmplx, checknan_real
   end interface
  
+  interface dealias
+    module procedure dealias, dealias1, dealias3
+  end interface
  
 !!!!!!!!!!! 
  contains
@@ -127,15 +130,15 @@ subroutine curl3_inplace(fk)
   complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
 
   imag = dcmplx(0.d0,1.d0)
-  
+
   ! Compute curl of given field in Fourier space:
-  do ix=ca(3),cb(3)
+   do ix=ca(3),cb(3)
      kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
         do iz=ca(1),cb(1)
            kz=wave_z(iz)
-           
+
            t1=fk(iz,iy,ix,1)
            t2=fk(iz,iy,ix,2)
            t3=fk(iz,iy,ix,3)
@@ -146,7 +149,7 @@ subroutine curl3_inplace(fk)
         enddo
      enddo
   enddo
-end subroutine curl3_inplace 
+end subroutine curl3_inplace
 
 
 ! Given three components of an input fields in Fourier space, compute
@@ -210,14 +213,14 @@ subroutine curl3(ink,outk)
 
   imag = dcmplx(0.d0,1.d0)
   
-  ! Compute curl of given field in Fourier space:
+   ! Compute curl of given field in Fourier space:
   do ix=ca(3),cb(3)
      kx=wave_x(ix)
      do iy=ca(2),cb(2)
         ky=wave_y(iy)
         do iz=ca(1),cb(1)
            kz=wave_z(iz)
-           
+
            outk(iz,iy,ix,1)=imag*(ky*ink(iz,iy,ix,3) -kz*ink(iz,iy,ix,2))
            outk(iz,iy,ix,2)=imag*(kz*ink(iz,iy,ix,1) -kx*ink(iz,iy,ix,3))
            outk(iz,iy,ix,3)=imag*(kx*ink(iz,iy,ix,2) -ky*ink(iz,iy,ix,1))
@@ -422,7 +425,7 @@ subroutine checknan_real( field, msg )
         if (is_nan(field(ix,iy,iz))) foundnan = 1
       enddo
     enddo
-  enddo  
+  enddo   
   
   call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,&
        MPI_COMM_WORLD,mpicode)  
@@ -450,11 +453,127 @@ subroutine checknan_cmplx( field, msg )
       enddo
     enddo
   enddo  
-  
+
   call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,&
        MPI_COMM_WORLD,mpicode)  
 
   if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans
 end subroutine checknan_cmplx  
+!-------------------------------------------------------------------------------
+subroutine dealias(fk1,fk2,fk3)
+  use vars
+  use penalization ! mask array etc
+  use p3dfft_wrapper
+  implicit none
+
+  integer :: ix,iy,iz
+  complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout) :: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout) :: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real(kind=pr) :: kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
+
+  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
+  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
+  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)
+
+  do iz=ca(1),cb(1)
+    kzt2=(wave_z(iz)/scalez) / kz_trunc
+    kzt2=kzt2*kzt2
+
+    do iy=ca(2),cb(2)
+      kyt2=(wave_y(iy)/scaley) / ky_trunc
+      kyt2=kyt2*kyt2
+
+      do ix=ca(3),cb(3)
+        kxt2=(wave_x(ix)/scalex) / kx_trunc
+        kxt2=kxt2*kxt2
+
+        if (kxt2 + kyt2 + kzt2  >= 1.d0) then
+          fk1(iz,iy,ix)=0.d0
+          fk2(iz,iy,ix)=0.d0
+          fk3(iz,iy,ix)=0.d0
+        endif
+
+      enddo
+    enddo
+  enddo
+
+end subroutine dealias
+
+
+!-------------------------------------------------------------------------------
+subroutine dealias1(fk1)
+  use vars
+  use penalization ! mask array etc
+  use p3dfft_wrapper
+  implicit none
+
+  integer :: ix,iy,iz
+  complex(kind=pr),intent(inout) :: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  real(kind=pr) :: kxt2,kyt2,kzt2,kx_trunc,ky_trunc,kz_trunc
+
+  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
+  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
+  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)
+
+  do iz=ca(1),cb(1)
+    kzt2=(wave_z(iz)/scalez) / kz_trunc
+    kzt2=kzt2*kzt2
+
+    do iy=ca(2),cb(2)
+      kyt2=(wave_y(iy)/scaley) / ky_trunc
+      kyt2=kyt2*kyt2
+
+      do ix=ca(3),cb(3)
+        kxt2=(wave_x(ix)/scalex) / kx_trunc
+        kxt2=kxt2*kxt2
+
+        if (kxt2 + kyt2 + kzt2  >= 1.d0) then
+          fk1(iz,iy,ix)=0.d0
+        endif
+
+      enddo
+    enddo
+  enddo
+
+end subroutine dealias1
+
+
+!-------------------------------------------------------------------------------
+subroutine dealias3(fk)
+  use vars
+  use penalization ! mask array etc
+  use p3dfft_wrapper
+  implicit none
+
+  integer :: ix,iy,iz
+  complex(kind=pr),intent(inout) :: fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  real(kind=pr) :: kxt2,kyt2,kzt2
+  real(kind=pr) :: kx_trunc,ky_trunc,kz_trunc
+
+  kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
+  ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
+  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)
+
+  do iz=ca(1),cb(1)
+    kzt2=(wave_z(iz)/scalez) / kz_trunc
+    kzt2=kzt2*kzt2
+
+    do iy=ca(2),cb(2)
+      kyt2=(wave_y(iy)/scaley) / ky_trunc
+      kyt2=kyt2*kyt2
+
+      do ix=ca(3),cb(3)
+        kxt2=(wave_x(ix)/scalex) / kx_trunc
+        kxt2=kxt2*kxt2
+
+        if (kxt2 + kyt2 + kzt2  >= 1.d0) then
+          fk(iz,iy,ix,1:3)=0.d0
+        endif
+      enddo
+    enddo
+  enddo
+
+end subroutine dealias3
   
 end module basic_operators

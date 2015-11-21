@@ -13,6 +13,10 @@ subroutine add_cavity()
   integer :: ix,iy,iz
   real(kind=pr) :: ux,uy,uz
   
+  ux = 0.d0
+  uy = 0.d0
+  uz = 0.d0
+
   if (iCavity=="yes") then
     ! this is the normal cavity forcing homogeneous dirichlet BC
     ux = 0.d0
@@ -28,6 +32,7 @@ subroutine add_cavity()
   do iz = ra(3), rb(3)
      do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
+       
           if ((ix<=cavity_size-1).or.(ix>=nx-1-cavity_size+1)) then            
             mask(ix,iy,iz) = 1.d0
             us(ix,iy,iz,:) = (/ux,uy,uz/)
@@ -48,8 +53,8 @@ subroutine add_cavity()
             ! external boxes have color 0 (important for forces)
             mask_color(ix,iy,iz) = 0
           endif
-        enddo
-     enddo
+       enddo
+    enddo
   enddo
  
 end subroutine Add_Cavity

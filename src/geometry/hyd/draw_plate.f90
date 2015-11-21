@@ -14,6 +14,12 @@ subroutine Draw_Plate (time)
   real (kind=pr) :: x, y, xref, yref, xlev, ylev, tmp, N, rref, rmax, hsmth, Am, alpham
   real (kind=pr) :: Af, Sxf, Syf, Jf, forcex, forcey, torquez
 
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+  
+  
   N = 3.0d0 ! smoothing coefficient
   hsmth = N*dx ! smoothing layer thickness
   rmax = 0.5d0

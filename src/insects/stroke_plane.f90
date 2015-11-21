@@ -5,8 +5,7 @@
 ! Output:
 !       eta_stroke: stroke plane angle 
 subroutine StrokePlane ( time, Insect )
-  use fsi_vars
-  use mpi
+  use vars
   implicit none
   
   real(kind=pr), intent(in) :: time
@@ -15,7 +14,7 @@ subroutine StrokePlane ( time, Insect )
 
   select case (Insect%BodyMotion)
   case ("forward")
-    eta_stroke = Insect%eta_stroke ! read from file
+    eta_stroke = Insect%eta_stroke
   case ("fixed")
     eta_stroke = deg2rad(0.d0)   
   case ("fixed45")

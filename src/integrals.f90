@@ -15,7 +15,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
   use insect_module
   implicit none
 
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -24,8 +24,10 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1
-  
+
   t1=MPI_wtime()
+
+  if (dry_run_without_fluid=="yes") return
 
   select case(method)
   case("fsi")
@@ -36,7 +38,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,Insect,beams)
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
      call abort()
   end select
-  
+
   time_integrals = time_integrals + MPI_wtime()-t1
 end subroutine write_integrals
 
@@ -56,8 +58,8 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::work3r(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)  
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: kx, ky, kz, maxdiv,maxdiv_fluid, maxdiv_loc,volume, t3
@@ -66,18 +68,20 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   real(kind=pr) :: ekin, ekinx, ekiny, ekinz
   real(kind=pr) :: diss, dissx, dissy, dissz
   real(kind=pr) :: dissf, dissxf, dissyf, disszf
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
   integer :: ix,iy,iz,mpicode
-  
+
+  ! fetch u in x-space at time t. note the output u of fluidtimestep is not
+  ! nessesarily what we need, so we must ensure u=ifft(uk) here
+  call ifft3 (ink=uk, outx=u)
+
   !-----------------------------------------------------------------------------
   ! hydrodynamic forces (except for AB2_rigid_solid time stepper)
   !-----------------------------------------------------------------------------
   ! the stepper AB2_rigid_solid has to compute the drag at every time step, so
   ! we can skip the separate computation in INTEGRALS
   if (compute_forces==1 .and. iTimeMethodFluid/="AB2_rigid_solid" ) then
-    t3 = MPI_wtime()    
-    ! fetch u in x-space at time t. note the output u of fluidtimestep is not
-    ! nessesarily what we need, so we must ensure u=ifft(uk) here
-    call ifft3 (ink=uk, outx=u)
+    t3 = MPI_wtime()
     ! to compute the forces, we need the mask at time t. not we cannot suppose
     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
     ! have to reconstruct the mask now. solids are also at time t
@@ -85,7 +89,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
     call cal_drag (time, u, Insect)
     time_drag = time_drag + MPI_wtime() - t3
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! divergence of velocity field (in the entire domain and in the fluid domain)
   !-----------------------------------------------------------------------------
@@ -99,7 +103,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
      write (14,'(4(es15.8,1x))') time,maxdiv,maxdiv_fluid
      close(14)
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! fluid energy and dissipation
   !-----------------------------------------------------------------------------
@@ -121,7 +125,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   work3r(:,:,:,2)=work3r(:,:,:,2)*(1.d0-mask*eps)
   work3r(:,:,:,3)=work3r(:,:,:,3)*(1.d0-mask*eps)
   call compute_energies(work3r(:,:,:,1:3),dissf,dissxf,dissyf,disszf)
-       
+
   ! add missing factor (from enstrophy to dissipation rate)
   diss  = 2.d0*nu*diss  ! note hidden factor of 2 in compute_energies
   dissx = 2.d0*nu*dissx
@@ -131,8 +135,8 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
   dissxf = 2.d0*nu*dissxf
   dissyf = 2.d0*nu*dissyf
   disszf = 2.d0*nu*disszf
-   
-  ! dump to disk     
+
+  ! dump to disk
   if(mpirank == 0) then
      open(14,file='energy.t',status='unknown',position='append')
      write (14,'(21(es15.8,1x))') time,&
@@ -146,7 +150,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
        GlobalIntegrals%penalization_power_z
      close(14)
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! Save mean flow values
   !-----------------------------------------------------------------------------
@@ -156,7 +160,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
      write (14,'(4(es15.8,1x))') time, dreal(uk(0,0,0,1:3))
      close (14)
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! integral of scalar concentration
   !-----------------------------------------------------------------------------
@@ -166,14 +170,14 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
     conc = sum(work1)*dx*dy*dz
     call MPI_REDUCE(conc,concentration,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
          MPI_COMM_WORLD,mpicode)
-         
+
     if (mpirank == 0) then
       open  (14,file='scalar.t',status='unknown',position='append')
       write (14,'(2(es15.8,1x))') time, concentration
       close (14)
     endif
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! mask volume
   !-----------------------------------------------------------------------------
@@ -185,7 +189,27 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,Insect,beams)
     write (14,'(2(es15.8,1x))') time,volume
     close(14)
   endif
-  
+
+  !-----------------------------------------------------------------------------
+  ! Spectrum
+  !-----------------------------------------------------------------------------
+  if (iSaveSpectrae=="yes") then
+    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    if(mpirank == 0) then
+      open(14,file='spectrum_tot.t',status='unknown',position='append')
+      write (14,'(1024(es15.8,1x))') time,S_Ekin
+      close(14)
+      open(14,file='spectrum_x.t',status='unknown',position='append')
+      write (14,'(1024(es15.8,1x))') time,S_Ekinx
+      close(14)
+      open(14,file='spectrum_y.t',status='unknown',position='append')
+      write (14,'(1024(es15.8,1x))') time,S_Ekiny
+      close(14)
+      open(14,file='spectrum_z.t',status='unknown',position='append')
+      write (14,'(1024(es15.8,1x))') time,S_Ekinz
+      close(14)
+    endif
+  endif
 end subroutine write_integrals_fsi
 
 
@@ -224,7 +248,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   do i=1,nd
      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
   enddo
-  
+
   ! Compute the vorticity and store the result in the first three 3D
   ! arrays of nlk.
   call curl(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
@@ -281,7 +305,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
           jymax,tab,jzmax
      close(14)
   endif
-  
+
   ! Compute kinetic and magnetic energy dissipation
   ! Kinetic energy dissipation is nu*< |vorticity| >
   call compute_mean_norm(dissu,wj(:,:,:,1),wj(:,:,:,2),wj(:,:,:,3))
@@ -322,7 +346,7 @@ subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3)
   use vars
   use penalization ! mask array etc
   implicit none
-  
+
   real(kind=pr),intent(out) :: E,Ex,Ey,Ez
   real(kind=pr),intent(in):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -339,14 +363,14 @@ subroutine compute_energies_f(E,Ex,Ey,Ez,f1,f2,f3)
 
   ! Add contributions in physical space
   do iz=ra(3),rb(3)
-     do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
-              
+
               v1=f1(ix,iy,iz)
               v2=f2(ix,iy,iz)
               v3=f3(ix,iy,iz)
-              
+
               LE=Le + v1*v1 + v2*v2 + v3*v3
               LEx=LEx + v1*v1
               LEy=LEy + v2*v2
@@ -386,7 +410,7 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
   use mpi
   use vars
   implicit none
-  
+
   real(kind=pr),intent(in):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
   real(kind=pr),intent(out) :: E,Ex,Ey,Ez
   real(kind=pr) :: LE,LEx,LEy,LEz ! local quantities
@@ -401,12 +425,12 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
 
   ! Add contributions in physical space
   do iz=ra(3),rb(3)
-     do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
           ux=u(ix,iy,iz,1)
           uy=u(ix,iy,iz,2)
           uz=u(ix,iy,iz,3)
-          
+
           LEx=LEx + ux*ux
           LEy=LEy + uy*uy
           LEz=LEz + uz*uz
@@ -439,7 +463,7 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
   use vars
   use penalization ! mask array etc
   implicit none
-  
+
   real(kind=pr),intent(out) :: Cx,Cy,Cz
   real(kind=pr),intent(inout):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -455,13 +479,13 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
 
   ! Add contributions in physical space
   do iz=ra(3),rb(3)
-     do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
               v1=f1(ix,iy,iz)
               v2=f2(ix,iy,iz)
               v3=f3(ix,iy,iz)
-              
+
               LCx=LCx + v1
               LCy=LCy + v2
               LCz=LCz + v3
@@ -473,7 +497,7 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
   LCx=LCx*dx*dy*dz
   LCy=LCy*dx*dy*dz
   LCz=LCz*dx*dy*dz
-  
+
   ! Sum over all MPI processes
   call MPI_REDUCE(LCx,Cx,&
        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
@@ -488,7 +512,7 @@ end subroutine compute_components
 
 
 ! Compute the maximum non-normalized divergence of the given 3D field
-! fk1, fk2, fk3, 
+! fk1, fk2, fk3,
 subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   use mpi
   use vars
@@ -496,7 +520,7 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   use penalization ! mask array etc
   implicit none
 
-  real(kind=pr),intent(out) :: maxdiv  
+  real(kind=pr),intent(out) :: maxdiv
   real(kind=pr),intent(in):: f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in):: f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(in):: f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
@@ -513,15 +537,15 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   imag = dcmplx(0.d0,1.d0)
 
   ! Compute the divergence in Fourier space, store in divk
-  do ix=ca(3),cb(3)
-    !-- wavenumber in x-direction
-    kx = wave_x(ix)
-    do iy=ca(2),cb(2)
+  do iz=ca(1),cb(1)
+    !-- wavenumber in z-direction
+    kz = wave_z(iz)
+    do iy=ca(2), cb(2)
       !-- wavenumber in y-direction
       ky = wave_y(iy)
-      do iz=ca(1),cb(1)
-        !-- wavenumber in z-direction
-        kz = wave_z(iz)
+      do ix=ca(3), cb(3)
+        !-- wavenumber in x-direction
+        kx = wave_x(ix)
 
         divk(iz,iy,ix)=imag*&
             (kx*fk1(iz,iy,ix)&
@@ -532,30 +556,30 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   enddo
 
   call ifft(div,divk)
-  
+
   ! Find the local max
-  
+
   ! FIXME: at least in the present version, this can be simplified to
   ! locmax = maxval(abs(div))
   ! without loss of functionality or performance.
-  
+
   locmax=0.d0
   do iz=ra(3),rb(3)
-     do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
-              
+
               v1=f1(ix,iy,iz)
               v2=f2(ix,iy,iz)
               v3=f3(ix,iy,iz)
-              
+
               ! Normalized version:
               ! fnorm=v1*v2 + v2*v2 + v3*v3 + 1d-8 ! avoid division by zero
               ! d=abs(div(ix,iy,iz))/fnorm
-              
+
               ! Non-normalized version:
               d=abs(div(ix,iy,iz))
-              
+
               if(d > locmax) then
                  locmax=d
               endif
@@ -595,7 +619,7 @@ subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
   ! Find the (per-process) max norm and max components in physical
   ! space
   do iz=ra(3),rb(3)
-     do iy=ra(2),rb(2)
+      do iy=ra(2),rb(2)
         do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
               v1=f1(ix,iy,iz)
@@ -642,23 +666,23 @@ subroutine compute_mean_norm(mean,f1,f2,f3)
   real(kind=pr) :: Lmean ! Process-local mean
 
   Lmean=0.d0
-  
+
   do iz=ra(3),rb(3)
-     do iy=ra(2),rb(2)
+      do iy=ra(2),rb(2)
         do ix=ra(1),rb(1)
            if(mask(ix,iy,iz) == 0.d0) then
               v1=f1(ix,iy,iz)
               v2=f2(ix,iy,iz)
               v3=f3(ix,iy,iz)
-              
+
               Lmean=Lmean + v1*v1 + v2*v2 + v3*v3
            endif
         enddo
      enddo
   enddo
-  
+
   Lmean=Lmean*dx*dy*dz
-  
+
   call MPI_REDUCE(Lmean,mean,&
        1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
        MPI_COMM_WORLD,mpicode)
@@ -685,15 +709,15 @@ subroutine compute_fluid_volume(volume)
      dxyz=dx*dy*dz
 
      do iz=ra(3),rb(3)
-        do iy=ra(2),rb(2)
-           do ix=ra(1),rb(1)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
               if(mask(ix,iy,iz) == 0.d0) then
                  Lvolume=Lvolume +dxyz
               endif
            enddo
         enddo
      enddo
-     
+
      call MPI_REDUCE(Lvolume,volume,&
           1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
           MPI_COMM_WORLD,mpicode)
@@ -715,8 +739,98 @@ subroutine compute_mask_volume(volume)
   real(kind=pr) :: Lvolume ! Process-local volume
 
   Lvolume=sum(mask)*dx*dy*dz
-     
+
   call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
           MPI_COMM_WORLD,mpicode)
-          
+
 end subroutine compute_mask_volume
+
+
+! ----------------------------------------------------------------------------
+! Compute the energy spectrum of a velocity field in in Fourier space
+! It is assumed that the x-direction is not split among processes, i.e. we
+! deal with a 2D data decomposition.
+! This code also works for non-cubic data (with more points in the x-direction)
+! The domain size is assumed to be (2*pi)^3 (or, if nx=2*ny, then it is 4*pi)
+! The wavenumber ordering is given by the wrapper is p3dfft_wrapper
+! Assumes using STRIDE-1 ordering: (ix,iy,iz) but (kz,ky,kx) and NOT (kz,kx,ky)
+! ----------------------------------------------------------------------------
+subroutine compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  real(kind=pr), intent(in) :: time
+  complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+
+  real(kind=pr) :: kx, ky, kz, kreal
+  integer :: ix, iy, iz, k, mpicode
+  ! NOTE: we assume the x-direction to be contiguous (i.e. it is NOT split among CPU)
+  real(kind=pr), dimension(0:nx-1), intent(inout) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx_loc,S_Ekiny_loc,S_Ekinz_loc,S_Ekin_loc
+  real(kind=pr) :: sum_ux, sum_uy, sum_uz, sum_u
+
+  ! NOTE: I actually did not figure out what happens if xl=yl=zl/=2*pi
+  ! which is a rare case in all isotropic turbulence situtations, and neither
+  ! of the corresponding routines have been tested for that case.
+  if ((abs(xl-2.d0*pi)>1.d-10).or.(abs(xl-2.d0*pi)>1.d-10).or.(abs(xl-2.d0*pi)>1.d-10)) then
+    if (mpirank==0) write(*,*) "compute_spectrum requires xl=yl=zl=2*pi which is not the case; return"
+    return
+  endif
+
+  ! initalize local and global arrays. note all CPU hold an (0:nx-1) array (since
+  ! in flusi, the x-direction is always local)
+  S_Ekinx=0.0d0
+  S_Ekiny=0.0d0
+  S_Ekinz=0.0d0
+  S_Ekin =0.0d0
+
+  S_Ekinx_loc=0.0d0
+  S_Ekiny_loc=0.0d0
+  S_Ekinz_loc=0.0d0
+  S_Ekin_loc =0.0d0
+
+  do iz=ca(1),cb(1)
+    kz=wave_z(iz)
+    do iy=ca(2),cb(2)
+      ky=wave_y(iy)
+      do ix=ca(3),cb(3)
+        kx=wave_x(ix)
+        ! compute 2-norm of wavenumber
+        kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz))
+        ! then round it so that we can fit it in the corresponding bin, i.e.
+        ! for example 0.5 <= k <= 1.5 is K=1 (this is a spherical wavenumber
+        ! shell in k-space). this operation can easily be achieved by rounding
+        ! kabs to the nearest integer
+        k = nint(kreal)
+
+        if ( ix==0 .or. ix==nx/2 ) then
+          sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2.
+          sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2.
+          sum_uz=dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+        else
+          sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)
+          sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)
+          sum_uz=dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+        endif
+
+        sum_u = sum_ux + sum_uy + sum_uz
+        S_Ekinx_loc(k) = S_Ekinx_loc(k) + sum_ux
+        S_Ekiny_loc(k) = S_Ekiny_loc(k) + sum_uy
+        S_Ekinz_loc(k) = S_Ekinz_loc(k) + sum_uz
+        S_Ekin_loc(k)  = S_Ekin_loc(k)  + sum_u
+      enddo
+    enddo
+  enddo
+
+  call MPI_ALLREDUCE(S_Ekinx_loc,S_Ekinx,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(S_Ekiny_loc,S_Ekiny,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(S_Ekinz_loc,S_Ekinz,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE(S_Ekin_loc ,S_Ekin ,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+
+end subroutine compute_spectrum

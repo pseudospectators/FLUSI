@@ -16,6 +16,11 @@ subroutine noncircular_cylinder
   real(kind=pr) :: y,z,tmp, R, N_smooth, a0, theta, R0, safety
   real(kind=pr),dimension(:),allocatable :: ai,bi
 
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+
   !-----------------------------------------------------------------------------
   ! Phase 1: read in shape information from file
   !-----------------------------------------------------------------------------

@@ -173,6 +173,7 @@ subroutine surface_interpolation_testing( time, beams, work )
   use interpolation
   use penalization
   use insect_module
+  use penalization
   implicit none
   real(kind=pr),intent (in) :: time
   type(solid),dimension(1:nbeams),intent (inout) :: beams
