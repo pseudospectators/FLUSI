@@ -1,6 +1,6 @@
 module interpolation
   use vars
-  use mpi 
+  use mpi
   !-----------------------------------------------------------------------------
   !-----------------------------------------------------------------------------
   contains
@@ -18,12 +18,12 @@ subroutine trilinear_interp_ghosts(x,field,value)
   use mpi
   implicit none
   real(kind=pr),dimension(1:3),intent (in) :: x
-  real(kind=pr),intent(out) :: value  
+  real(kind=pr),intent(out) :: value
   real(kind=pr),intent(in) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr)::xd,yd,zd
   real(kind=pr)::c00,c10,c01,c11,c0,c1
   integer :: ix,iy,iz
-  
+
   ix = floor(x(1)/dx)
   iy = floor(x(2)/dy)
   iz = floor(x(3)/dz)
@@ -31,26 +31,26 @@ subroutine trilinear_interp_ghosts(x,field,value)
   xd = (x(1)-dble(ix)*dx)/dx
   yd = (x(2)-dble(iy)*dy)/dy
   zd = (x(3)-dble(iz)*dz)/dz
-  
+
   !-- note border are ra/rb and not ga/gb
   if ((((ix>=ra(1)).and.(ix<=rb(1))).or.(nx==1)).and.&
         (iy>=ra(2)).and.(iy<=rb(2)).and.&
         (iz>=ra(3)).and.(iz<=rb(3))) then
-  
+
       c00 = field(per(ix,nx),iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
       c10 = field(per(ix,nx),iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
       c01 = field(per(ix,nx),iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
       c11 = field(per(ix,nx),iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
-      
+
       c0 = c00*(1.d0-yd) + c10*yd
       c1 = c01*(1.d0-yd) + c11*yd
-      
+
       value = c0*(1.d0-zd)+c1*zd
-  else  
-      !-- point is not on the local grid, return a very small value 
+  else
+      !-- point is not on the local grid, return a very small value
       !-- (afterwards we take the max)
       value = -9.9d10
-  endif     
+  endif
 end subroutine trilinear_interp_ghosts
 
 
@@ -62,30 +62,30 @@ subroutine delta_interpolation(x,field,value)
   use mpi
   implicit none
   real(kind=pr),dimension(1:3),intent (in) :: x
-  real(kind=pr),intent(out) :: value  
+  real(kind=pr),intent(out) :: value
   real(kind=pr),intent(in) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer :: ix,iy,iz, N_support,ix0,iy0,iz0
   real(kind=pr) :: xx,yy,zz, delx,dely,delz
-  
+
   ix0 = nint(x(1)/dx)
   iy0 = nint(x(2)/dy)
   iz0 = nint(x(3)/dz)
 
   N_support = 3
-  
+
   if ( ng/=N_support ) then
     write(*,*) "Error: number of ghostpoints not suitable for delta interp"
     call abort()
   endif
-  
-  
+
+
   !-- note border are ra/rb and not ga/gb
   if ((((ix0>=ra(1)).and.(ix0<=rb(1))).or.(nx==1)).and.&
         (iy0>=ra(2)).and.(iy0<=rb(2)).and.&
         (iz0>=ra(3)).and.(iz0<=rb(3))) then
-      
+
       value = 0.d0
-      
+
       do iz=iz0-N_support,iz0+N_support ! the box size around the point
         zz = dble(iz)*dz
         delz = delta(abs(zz - x(3)),dz)
@@ -99,11 +99,11 @@ subroutine delta_interpolation(x,field,value)
           enddo
         enddo
       enddo
-  else  
-      !-- point is not on the local grid, return a very small value 
+  else
+      !-- point is not on the local grid, return a very small value
       !-- (afterwards we take the max)
       value = -9.9d10
-  endif     
+  endif
 end subroutine delta_interpolation
 
 
@@ -116,19 +116,20 @@ real (kind=pr) function delta(x,dx1)
   !----------------------------------
   ! This function returns a delta kernel
   ! see Yang, Zhang, Li: A smoothing technique for discrete delta functions [...] JCP 228 (2009)
-  !----------------------------------  
-  r=abs(x/dx1)  
-  
-  if (r<0.5) then
-    delta = (3./8.)+(pi/32.)-0.25*r**2
-  elseif ( (r>=0.5) .and. (r<=1.5)   ) then
-    delta = 0.25 + (1-r)/8.  *sqrt(-2.+8.*r-4.*r**2) -asin(sqrt(2.)*(r-1.))/8.
-  elseif ( (r>=1.5) .and. (r<=2.5)   ) then
-    delta = (17./16.) - (pi/64.) - (3.*r/4.) + ((r**2)/8.) + (r-2.)*sqrt(-14.+16.*r-4.*r**2)/16. +asin(sqrt(2.)*(r-2.))/16.
-  elseif ( (r>=2.5)    ) then
-    delta = 0.0
-  endif  
-  
+  !----------------------------------
+  r=abs(x/dx1)
+
+  if (r<0.5d0) then
+    delta = (3.0d0/8.0d0)+(pi/32.0d0)-0.250d0*r**2
+  elseif ( (r>=0.50d0) .and. (r<=1.50d0)   ) then
+    delta = 0.25d0 + (1.0d0-r)/8.0d0  *sqrt(-2.0d0 + 8.0d0*r - 4.0d0*r**2) -asin(sqrt(2.0d0)*(r-1.0d0))/8.0d0
+  elseif ( (r>=1.5d0) .and. (r<=2.5d0)   ) then
+    delta = (17.0d0/16.0d0) - (pi/64.0d0) - (3.0d0*r/4.0d0) + ((r**2)/8.0d0) + &
+            (r-2.0d0)*sqrt(-14.0d0 + 16.0d0*r - 4.0d0*r**2)/16.0d0 +asin(sqrt(2.0d0)*(r-2.0d0))/16.0d0
+  elseif ( (r>=2.5d0)    ) then
+    delta = 0.0d0
+  endif
+
 end function
 
 end module interpolation

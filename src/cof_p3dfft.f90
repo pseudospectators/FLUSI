@@ -107,7 +107,7 @@ subroutine fft_initialize
     write(*,'(A)') "-----------------------------------p3dfft init---------------------------"
     write(*,'("Initializing P3DFFT, n=(",3(i4,1x),")")') nx,ny,nz
     write(*,'("P3DFFT reserves about ",i8,"MB (",i4,"GB) for internal work arrays")') &
-    nint(1.6d-5*dble(nx*ny*nz)), nint(1.6d-5*dble(nx*ny*nz)/1000.d0)
+    nint(1.6d-5*dble(nx)*dble(ny)*dble(nz)), nint(1.6d-5*dble(nx)*dble(ny)*dble(nz)/1000.d0)
   endif
 
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
@@ -140,6 +140,9 @@ subroutine fft_initialize
   !-- Initialize P3DFFT
   call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
 
+  !-- Get Cartesian topology info
+  call p3dfft_get_mpi_info(mpitaskid,mpitasks,mpicommcart)
+
   !-- Get local sizes
   call p3dfft_get_dims(ra,rb,rs,1)  ! real blocks
   call p3dfft_get_dims(ca,cb,cs,2)  ! complex blocks
@@ -148,19 +151,21 @@ subroutine fft_initialize
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
 
-  !-- extends of real arrays that have ghost points
-  ga=ra
-  gb=rb
-  if (decomposition=="1D") then
-    ga(3) = ga(3)-ng
-    gb(3) = gb(3)+ng
-  elseif (decomposition=="2D") then
-    ga(2) = ga(2)-ng
-    gb(2) = gb(2)+ng
-    ga(3) = ga(3)-ng
-    gb(3) = gb(3)+ng
+  !-- extends of real arrays that have ghost points. We add ghosts in all
+  !-- directions, including the periodic ones.
+  ga=ra-ng
+  gb=rb+ng
+
+  if (nx==1) then
+    ga(1)=0
+    gb(1)=0
   endif
 
+  if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
+    if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
+    if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
+    call abort()
+  endif
 
   !-- Allocate domain partitioning tables and gather sizes from all processes
   !-- (only for real arrays)
@@ -250,6 +255,45 @@ if (mpirank==0) write(*,'(A)') "------------------------------p3dfft init DONE--
 end subroutine fft_initialize
 
 
+!-------------------------------------------------------------------------------
+
+subroutine setup_cart_groups
+  ! Setup 1d communicators
+  use mpi
+  use vars
+  use p3dfft
+
+  implicit none
+  integer :: mpicolor,mpikey,mpicode
+  integer :: mpicommtmp1,mpicommtmp2
+  logical :: mpiperiods(2),periods(1),reorder
+  integer :: one=1,two=2,dims(1) ! Required for MPI_CART_GET, MPI_CART_CREATE in openmpi
+
+  if (mpirank==0) write(*,*) " setting up cart_groups..."
+
+  ! Set parameters
+  periods(1)=.true. ! This should be an array - if not, openmpi fails
+  reorder=.false.
+  ! Get Cartesian topology information
+  call MPI_CART_GET(mpicommcart,two,mpidims,mpiperiods,mpicoords,mpicode)
+  ! Communicator for line in y direction
+  mpicolor = mpicoords(2)
+  mpikey = mpicoords(1)
+  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp1,mpicode)
+  dims(1) = mpidims(1)
+  call MPI_CART_CREATE(mpicommtmp1,one,dims,periods,reorder,mpicommz,mpicode)
+  ! Communicator for line in z direction
+  mpicolor = mpicoords(1)
+  mpikey = mpicoords(2)
+  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp2,mpicode)
+  dims(1) = mpidims(2)
+  call MPI_CART_CREATE(mpicommtmp2,one,dims,periods,reorder,mpicommy,mpicode)
+
+  if (mpirank==0) write(*,*) " done setting up cart_groups!"
+end subroutine setup_cart_groups
+
+
+
 subroutine fft_free
   !====================================================================
   !     Free memory allocated for FFT
@@ -295,13 +339,15 @@ subroutine coftxyz(f,fk)
   complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real(kind=pr),save :: t1
   real(kind=pr) :: norm
+  integer(kind=int64) :: npoints
 
   t1 = MPI_wtime()
   ! Compute forward FFT
   call p3dfft_ftran_r2c(f,fk,'fff')
 
   ! Normalize
-  norm = 1.d0 / dble(nx*ny*nz)
+  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
+  norm = 1.d0 / dble(npoints)
   fk(:,:,:) = fk(:,:,:) * norm
 
   time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
@@ -357,7 +403,7 @@ subroutine cofts(iplan,f,fk,L,n)
   call dfftw_execute_dft_r2c(Desc_Handle_1D_f(iplan),f,ft)
 
   ! Output
-  norm = 1.0 / real(L)
+  norm = 1.0d0 / real(L)
   do j=0,n-1
      fk(:,j) = ft(0:L-1,j) * norm
   end do
@@ -392,7 +438,7 @@ subroutine cofits(iplan,fk,f,L,n)
   ! Input
   do j=0,n-1
      ft(0:L-1,j) = fk(:,j)
-     ft(L:L+1,j) = 0.0
+     ft(L:L+1,j) = 0.0d0
   end do
 
   call dfftw_execute_dft_c2r(Desc_Handle_1D_b(iplan),ft,f)

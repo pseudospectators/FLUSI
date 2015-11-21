@@ -12,8 +12,8 @@ subroutine create_mask(time,Insect,beams)
   type(solid), dimension(1:nbeams), intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1
-  t1 = MPI_wtime() 
-  
+  t1 = MPI_wtime()
+
   ! Actual mask functions:
   select case(method)
   case("fsi")
@@ -22,11 +22,14 @@ subroutine create_mask(time,Insect,beams)
     call create_mask_mhd()
   end select
 
+
   ! Attention: division by eps is done here, not in subroutines.
   eps_inv = 1.d0/eps
-  mask = mask*eps_inv  
+  mask = mask*eps_inv
 
-  ! -- for global timing.
+
+
+  ! for global timing.
   time_mask = time_mask + MPI_wtime() - t1
 end subroutine create_mask
 
@@ -40,20 +43,20 @@ subroutine update_us(ub)
   implicit none
 
   real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  
+
   ! do not create any mask when not using penalization
-  if (iPenalization==1) then  
+  if (iPenalization==1) then
     select case(method)
     case("fsi")
         call update_us_fsi(ub)
     case("mhd")
         call update_us_mhd()
-    case default    
+    case default
         if(mpirank == 0) then
           write (*,*) "Error: unkown method in update_us; stopping."
           call abort()
         endif
-    end select  
+    end select
   endif
 end subroutine update_us
 
@@ -84,7 +87,7 @@ subroutine smoothstep(f,x,t,h)
   else
     f = 0.d0
   endif
-  
+
 end subroutine smoothstep
 
 
@@ -94,13 +97,13 @@ subroutine taylor_couette_u_us(f1,f2,f3)
   use mpi
   use vars
   implicit none
-  
+
   real(kind=pr),intent(inout)::f1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::f2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::f3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr) :: r, x, y
   integer :: ix, iy, iz
-  
+
   if(mpirank == 0) then
      if(r1 >= r2) then
         write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
@@ -111,7 +114,7 @@ subroutine taylor_couette_u_us(f1,f2,f3)
   f1=0.d0
   f2=0.d0
   f3=0.d0
- 
+
   do iz=ra(3),rb(3)
      do iy=ra(2),rb(2)
         y=yl*(dble(iy)/dble(ny) -0.5d0)
@@ -119,7 +122,7 @@ subroutine taylor_couette_u_us(f1,f2,f3)
            x=xl*(dble(ix)/dble(nx) -0.5d0)
 
            r=dsqrt(x*x + y*y)
-        
+
            if(r <= R1) then
               ! Velocity field:
               f1(ix,iy,iz)=-omega1*y
@@ -138,5 +141,3 @@ subroutine taylor_couette_u_us(f1,f2,f3)
   enddo
 
 end subroutine taylor_couette_u_us
-
-

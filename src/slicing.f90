@@ -84,7 +84,7 @@ subroutine flush_slices
             write(fname, '(A14,"_",i6.6,".h5")') dsetname, iflush
 
             tmp = slice_cache(0:icache-1,:,:,idir,slice_slot)
-            call save_field_hdf5_xvar(9.9e9,fname,tmp,dsetname,icache)
+            call save_field_hdf5_xvar(9.9d9,fname,tmp,icache)
           enddo
         endif
       enddo
@@ -118,8 +118,7 @@ end subroutine flush_slices
 ! initialize the slicing module.
 subroutine slice_init(time)
   implicit none
-  real(kind=pr),intent(inout)::time
-  character(len=4)::f
+  real(kind=pr),intent(inout)::time  
   integer :: i
 
   if (mpirank==0) write(*,'(A)',advance='no') "Initializing slicing module.."

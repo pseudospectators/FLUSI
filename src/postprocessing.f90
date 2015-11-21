@@ -11,6 +11,7 @@ subroutine postprocessing()
   t1=MPI_wtime()
 
   if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
+  call postprocessing_ascii_header( 6 )
 
   ! the second argument tells us what to do with the file
   call get_command_argument(2,postprocessing_mode)
@@ -20,6 +21,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--simple-field-operation")
+    call simple_field_operation()
   case ("--cp")
     call copy_hdf_file()
   case ("--keyvalues")
@@ -59,10 +62,18 @@ subroutine postprocessing()
     call max_over_x()
   case ("--mean-over-x-subdomain")
     call mean_over_x_subdomain()
+  case ("--mean-2D")
+    call mean_2D()
   case ("--set-hdf5-attribute")
     call set_hdf5_attribute()
   case ("-ux-from-uyuz")
     call ux_from_uyuz()
+  case ("--check-params-file")
+    call check_params_file()
+  case ("--magnitude")
+    call magnitude_post()
+  case ("--energy")
+    call energy_post()
   case default
     if(mpirank==0) write(*,*) "Postprocessing option is "// postprocessing_mode
     if(mpirank==0) write(*,*) "But I don't know what to do with that"
@@ -71,6 +82,37 @@ subroutine postprocessing()
   if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1
 end subroutine postprocessing
 
+
+
+
+!-------------------------------------------------------------------------------
+! write the call to flusi (i.e. the command line arguments) to an ascii file
+! use this in conjunction with small ascii output files to document a little
+! bit what you have been doing.
+!-------------------------------------------------------------------------------
+subroutine postprocessing_ascii_header( io_stream )
+  use vars
+  implicit none
+  integer, intent(in) :: io_stream
+  integer :: i
+  character(len=strlen) :: arg
+
+  if (mpirank /= 0) return
+
+  ! MATLAB comment character:
+  write(io_stream,'(A,1x)',advance='no') "% CALL: ./flusi "
+
+  arg = "-p"
+  i=1
+  ! loop over command line arguments and dump them to the file:
+  do while ( arg /= "" )
+    call get_command_argument(i,arg)
+    write(io_stream,'(A,1x)',advance='no') trim(adjustl(arg))
+    i=i+1
+  end do
+
+  write(io_stream,'(A,1x)',advance='yes') "%"
+end subroutine postprocessing_ascii_header
 
 
 
@@ -195,7 +237,7 @@ subroutine time_avg_HDF5()
 
   field_avg = field_avg / dble(i)
 
-  call save_field_hdf5(0.d0, fname_avg, field_avg, get_dsetname(fname_avg))
+  call save_field_hdf5(0.d0, fname_avg, field_avg)
 
   deallocate(field_avg)
   deallocate(field)
@@ -276,7 +318,7 @@ subroutine convert_bin2hdf()
   ra=(/0, 0, 0/)
   rb=(/nx-1, ny-1, nz-1/)
 
-  call save_field_hdf5(time,trim(adjustl(fname_hdf)),dble(field),get_dsetname(fname_hdf))
+  call save_field_hdf5(time,fname_hdf,dble(field))
 
   deallocate (field)
 end subroutine convert_bin2hdf
@@ -285,7 +327,7 @@ end subroutine convert_bin2hdf
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocess --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5
+! ./flusi --postprocess --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5 --second-order
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! directly compute the absolute value of vorticity, do not save components
@@ -297,7 +339,7 @@ subroutine convert_abs_vorticity()
   use helpers
   use basic_operators
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, order
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
@@ -305,13 +347,18 @@ subroutine convert_abs_vorticity()
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
+  call get_command_argument(6,order)
 
   call check_file_exists(fname_ux)
   call check_file_exists(fname_uy)
   call check_file_exists(fname_uz)
 
   if (mpirank == 0) then
-    write (*,'(3(A,","))') trim(fname_ux), trim(fname_uy), trim(fname_uz)
+    write(*,*) "Compute magnitude(vorticity) from velocity files:"
+    write(*,*) "ux="//trim(adjustl(fname_ux))
+    write(*,*) "uy="//trim(adjustl(fname_uy))
+    write(*,*) "uz="//trim(adjustl(fname_uz))
+    write(*,*) "order flag is: "//trim(adjustl(order))
   endif
 
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
@@ -348,23 +395,29 @@ subroutine convert_abs_vorticity()
   call fft (uk(:,:,:,2),u(:,:,:,2))
   call fft (uk(:,:,:,3),u(:,:,:,3))
 
-  call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  if (order=="--second-order") then
+    if (mpirank==0) write(*,*) "using second order!"
+    call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  else
+    if (mpirank==0) write(*,*) "using spectral accuracy!"
+    call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
+  endif
 
   call ifft (u(:,:,:,1),uk(:,:,:,1))
   call ifft (u(:,:,:,2),uk(:,:,:,2))
   call ifft (u(:,:,:,3),uk(:,:,:,3))
 
-  ! now u contains the vorticity in physical space
-  fname_ux='vor_abs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
+  ! now u contains the mag(vorticity) in physical space
+  fname_ux='vorabs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
 
   if (mpirank == 0) then
-    write (*,'("Writing to file",A)') trim(fname_ux)
+    write (*,'("Writing mag(vor) to file: ",A)') trim(fname_ux)
   endif
 
   ! compute absolute vorticity:
   u(:,:,:,1) = dsqrt(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vor_abs")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1))
 
   deallocate (u)
   deallocate (uk)
@@ -375,38 +428,85 @@ end subroutine convert_abs_vorticity
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocess --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --second-order
+! Read velocity components from file and compute their curl. Optionally second order
+!
+! You can write to standard output: (vorx_0000.h5 in the example:)
+! ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 [--second-order]
+!
+! Or specify a prefix for the output files: (writes to curl_0000.h5 in example:)
+! ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --outputprefix curl [--second-order]
+!
+! Or specifiy the ouput files directly:
+! ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --outfiles vx_00.h5 vy_00.h5 vz_00.h5 [--second-order]
+!
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! can be done in parallel. the flag --second order can be used for filtering
 subroutine convert_vorticity()
   use vars
   use p3dfft_wrapper
+  use helpers
   use basic_operators
   use mpi
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, order
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, order
+  character(len=strlen) :: prefix, fname_outx, fname_outy, fname_outz
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  complex(kind=pr),dimension(:,:,:),allocatable :: workc
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
-  real(kind=pr) :: time
+  real(kind=pr),dimension(:,:,:),allocatable :: workr
+  real(kind=pr) :: time, divu_max
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
   call get_command_argument(6,order)
 
+  if (order == "--outputprefix") then
+    call get_command_argument(7,prefix)
+    call get_command_argument(8,order)
+    fname_outx=trim(adjustl(prefix))//"x"//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
+    fname_outy=trim(adjustl(prefix))//"y"//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
+    fname_outz=trim(adjustl(prefix))//"z"//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
+
+  elseif (order == "--outfiles") then
+    call get_command_argument(7,fname_outx)
+    call get_command_argument(8,fname_outy)
+    call get_command_argument(9,fname_outz)
+    call get_command_argument(10,order)
+
+  else
+    fname_outx='vorx'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
+    fname_outy='vory'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
+    fname_outz='vorz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
+  endif
+
+  ! header and information
+  if (mpirank==0) then
+    write(*,'(80("-"))')
+    write(*,*) "vor2u (Biot-Savart)"
+    write(*,*) "Computing vorticity from velocity given in these files: "
+    write(*,'(80("-"))')
+    write(*,*) trim(adjustl(fname_ux))
+    write(*,*) trim(adjustl(fname_uy))
+    write(*,*) trim(adjustl(fname_uz))
+    write(*,*) "Writing to:"
+    write(*,*) trim(adjustl(fname_outx))
+    write(*,*) trim(adjustl(fname_outy))
+    write(*,*) trim(adjustl(fname_outz))
+    write(*,*) "Using order flag: "//trim(adjustl(order))
+    write(*,'(80("-"))')
+    if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
+      write (*,*) "WARNING! in arguments, files do not start with ux uy and uz"
+      write (*,*) "note files have to be in the right order"
+    endif
+  endif
+
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-    write (*,*) "Error in arguments, files do not start with ux uy and uz"
-    write (*,*) "note files have to be in the right order"
-    call abort()
-  endif
-
-  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, get_dsetname(fname_ux), nx, ny, nz, xl, yl, zl, time )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -425,34 +525,37 @@ subroutine convert_vorticity()
   call read_single_file ( fname_uy, u(:,:,:,2) )
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
-  call fft (uk(:,:,:,1),u(:,:,:,1))
-  call fft (uk(:,:,:,2),u(:,:,:,2))
-  call fft (uk(:,:,:,3),u(:,:,:,3))
+  ! to Fourier space
+  call fft3 (inx=u, outk=uk)
 
+  !-----------------------------------------------------------------------------
+  ! compute divergence of input fields and show the maximum value
+  !-----------------------------------------------------------------------------
+  allocate( workr(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  allocate( workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)) )
+  call divergence( uk, workc)
+  call ifft( ink=workc, outx=workr )
+  divu_max = fieldmax(workr)
+  if(mpirank==0) write(*,'("maximum divergence in input field=",es12.4)') divu_max
+  deallocate(workr,workc)
+
+  !-----------------------------------------------------------------------------
+  ! compute curl, possibly with second order filter
+  !-----------------------------------------------------------------------------
   if (order=="--second-order") then
+    if (mpirank==0) write(*,*) "using SECOND ORDER accuracy"
     call curl_2nd(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   else
+    if (mpirank==0) write(*,*) "using SPECTRAL accuracy"
     call curl(uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3))
   endif
 
-  call ifft (u(:,:,:,1),uk(:,:,:,1))
-  call ifft (u(:,:,:,2),uk(:,:,:,2))
-  call ifft (u(:,:,:,3),uk(:,:,:,3))
+  call ifft3 (ink=uk, outx=u)
 
   ! now u contains the vorticity in physical space
-  fname_ux='vorx'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
-  fname_uy='vory'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
-  fname_uz='vorz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
-
-
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"vorx")
-  if (mpirank==0) write(*,*) "Wrote vorx to "//trim(fname_ux)
-  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2),"vory")
-  if (mpirank==0) write(*,*) "Wrote vory to "//trim(fname_uy)
-  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"vorz")
-  if (mpirank==0) write(*,*) "Wrote vorz to "//trim(fname_uz)
-
-
+  call save_field_hdf5 ( time,fname_outx,u(:,:,:,1) )
+  call save_field_hdf5 ( time,fname_outy,u(:,:,:,2) )
+  call save_field_hdf5 ( time,fname_outz,u(:,:,:,3) )
 
   deallocate (u)
   deallocate (uk)
@@ -463,35 +566,84 @@ end subroutine convert_vorticity
 
 
 !-------------------------------------------------------------------------------
-! ./flusi --postprocess --vor2u vorx_00000.h5 vory_00000.h5 vorz_00000.h5
+! Read in vorticity fields and compute the corresponding velocity (Biot-Savart Law)
+! Some checks are performed on the result, namely divergence(u) and we see
+! if the curl(result) is the same as the input values.
+!
+! you can optionally specify the list of outfiles:
+! ./flusi -p --vor2u vorx_00.h5 vory_00.h5 vorz_00.h5 --outfiles outx_00.h5 outy_00.h5 outz_00.h5
+!
+! or write to the default file names: (ux_00.h5 in the example)
+! ./flusi -p --vor2u vorx_00.h5 vory_00.h5 vorz_00.h5
+!
+! or specify the basename prefix: (writes to outx_00.h5 in the example:)
+! ./flusi -p --vor2u vorx_00.h5 vory_00.h5 vorz_00.h5 --outputprefix out
+!
 !-------------------------------------------------------------------------------
 subroutine convert_velocity()
   use vars
   use p3dfft_wrapper
   use basic_operators
+  use helpers
   use mpi
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, order
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, outfiles_given
+  character(len=strlen) :: fname_outx, fname_outy, fname_outz, prefix
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk, workc
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,workr
-  real(kind=pr) :: time
+  real(kind=pr) :: time, divu_max, errx, erry, errz
+  integer :: ix,iy,iz, mpicode
 
+  !-----------------------------------------------------------------------------
+  ! Initializations
+  !-----------------------------------------------------------------------------
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
+  call get_command_argument(6,outfiles_given)
+
+  if ( outfiles_given == "--outfiles" ) then
+    call get_command_argument(7,fname_outx)
+    call get_command_argument(8,fname_outy)
+    call get_command_argument(9,fname_outz)
+  elseif ( outfiles_given == "--outputprefix" ) then
+    ! if not specified, use standard output names:
+    call get_command_argument(7,prefix)
+    fname_outx=trim(adjustl(prefix))//"x"//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
+    fname_outy=trim(adjustl(prefix))//"y"//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
+    fname_outz=trim(adjustl(prefix))//"z"//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
+  else
+    ! if not specified, use standard output names:
+    fname_outx='ux'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
+    fname_outy='uy'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
+    fname_outz='uz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
+  endif
+
+  ! header and information
+  if (mpirank==0) then
+    write(*,'(80("-"))')
+    write(*,*) "vor2u (Biot-Savart)"
+    write(*,*) "Computing velocity from vorticity given in these files: "
+    write(*,'(80("-"))')
+    write(*,*) trim(adjustl(fname_ux))
+    write(*,*) trim(adjustl(fname_uy))
+    write(*,*) trim(adjustl(fname_uz))
+    write(*,*) "Writing to:"
+    write(*,*) trim(adjustl(fname_outx))
+    write(*,*) trim(adjustl(fname_outy))
+    write(*,*) trim(adjustl(fname_outz))
+    write(*,'(80("-"))')
+    if ((fname_ux(1:4).ne."vorx").or.(fname_uy(1:4).ne."vory").or.(fname_uz(1:4).ne."vorz")) then
+      write (*,*) "WARNING in arguments, files do not start with vorx vory and vorz"
+      write (*,*) "note files have to be in the right order"
+    endif
+  endif
 
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  if ((fname_ux(1:4).ne."vorx").or.(fname_uy(1:4).ne."vory").or.(fname_uz(1:4).ne."vorz")) then
-    write (*,*) "Error in arguments, files do not start with vorx vory and vorz"
-    write (*,*) "note files have to be in the right order"
-    call abort()
-  endif
-
-  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, get_dsetname(fname_ux), nx, ny, nz, xl, yl, zl, time )
 
   pi = 4.d0 *datan(1.d0)
   scalex = 2.d0*pi/xl
@@ -512,33 +664,57 @@ subroutine convert_velocity()
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
   allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
 
-  ! read vorticity to u
+  ! read vorticity from files to u
   call read_single_file ( fname_ux, u(:,:,:,1) )
   call read_single_file ( fname_uy, u(:,:,:,2) )
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
-  workr = u ! workr is original vorticity
+  ! compute divergence of input fields and show the maximum value, this is interesting
+  ! to know since actually, div(curl(u)) should be identically zero. however, in
+  ! a discrete setting, this may not strictly be the case
+  call fft3( inx=u,outk=uk ) ! uk is now vork
+  call divergence( uk, workc(:,:,:,1) )
+  call ifft( ink=workc(:,:,:,1), outx=workr(:,:,:,1) )
+  divu_max = fieldmax(workr(:,:,:,1))
+  if(mpirank==0) write(*,'("maximum divergence in input field=",es12.4)') divu_max
 
-  call Vorticity2Velocity(uk,workc,u)
-  call ifft3 (ink=uk, outx=u)   ! u is velocity in phys space
+  ! copy original vorticity to workr (for comparison later, error checks)
+  workr = u
 
-  ! now u contains the vorticity in physical space
-  fname_ux='ux'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
-  fname_uy='uy'//fname_uy(index(fname_uy,'_'):index(fname_uy,'.')-1)
-  fname_uz='uz'//fname_uz(index(fname_uz,'_'):index(fname_uz,'.')-1)
+  !-----------------------------------------------------------------------------
+  ! compute velocity from vorticity
+  !-----------------------------------------------------------------------------
+  ! uk: vorticity; workc: velocity
+  call Vorticity2Velocity(uk,workc)
+  call ifft3 (ink=workc, outx=u)
+  uk = workc ! uk: velocity in F-space
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"ux")
-  if (mpirank==0) write(*,*) "Wrote ux to "//trim(fname_ux)
-  call save_field_hdf5 ( time,fname_uy,u(:,:,:,2),"uy")
-  if (mpirank==0) write(*,*) "Wrote uy to "//trim(fname_uy)
-  call save_field_hdf5 ( time,fname_uz,u(:,:,:,3),"uz")
-  if (mpirank==0) write(*,*) "Wrote uz to "//trim(fname_uz)
+  ! now u contains the velocity in physical space
+  call save_field_hdf5 ( time,fname_outx,u(:,:,:,1) )
+  call save_field_hdf5 ( time,fname_outy,u(:,:,:,2) )
+  call save_field_hdf5 ( time,fname_outz,u(:,:,:,3) )
 
+  if (mpirank==0) then
+    write(*,*) "Done writing output!"
+    write(*,'(80("-"))')
+    write(*,*) "Done computing, performing some analysis of the result..."
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! check divergence of new field
+  !-----------------------------------------------------------------------------
   call divergence(uk,workc(:,:,:,1))
   call ifft(ink=workc(:,:,:,1),outx=u(:,:,:,1))
-  !call save_field_hdf5 ( time,"divu_0000",u(:,:,:,1),"divu")
-  write(*,*) "maximum divergence=", fieldmax(u(:,:,:,1)), fieldmin(u(:,:,:,1))
+  divu_max = fieldmax(u(:,:,:,1))
+  if (mpirank==0) write(*,*) "max(div(u))", divu_max
+  divu_max = fieldmin(u(:,:,:,1))
+  if (mpirank==0) write(*,*) "min(div(u))", divu_max
 
+  deallocate(workc)
+
+  !-----------------------------------------------------------------------------
+  ! check if the curl of computed velocity is the same as input values
+  !-----------------------------------------------------------------------------
   call curl3_inplace(uk)
   call ifft3(ink=uk, outx=u)
 
@@ -547,17 +723,39 @@ subroutine convert_velocity()
   u(:,:,:,2)=u(:,:,:,2)-workr(:,:,:,2)
   u(:,:,:,3)=u(:,:,:,3)-workr(:,:,:,3)
 
-  write(*,*) "max diff vor_original-curl(result)", fieldmax(u(:,:,:,1))
-  write(*,*) "max diff vor_original-curl(result)", fieldmax(u(:,:,:,2))
-  write(*,*) "max diff vor_original-curl(result)", fieldmax(u(:,:,:,3))
+  errx = fieldmax(u(:,:,:,1))
+  erry = fieldmax(u(:,:,:,2))
+  errz = fieldmax(u(:,:,:,3))
+
+  if (mpirank==0) then
+    write(*,*) "max diff vor_original-curl(result)", errx
+    write(*,*) "max diff vor_original-curl(result)", erry
+    write(*,*) "max diff vor_original-curl(result)", errz
+  endif
+
+  ! check relative difference in mag(vor):
+  errx=0.d0
+  erry=0.d0
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        errx = errx + sqrt(u(ix,iy,iz,1)**2 + u(ix,iy,iz,2)**2 + u(ix,iy,iz,3)**2)
+        erry = erry + sqrt(workr(ix,iy,iz,1)**2 + workr(ix,iy,iz,2)**2 + workr(ix,iy,iz,3)**2)
+      enddo
+    enddo
+  enddo
+
+  call MPI_ALLREDUCE (errx,errz,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (erry,divu_max,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  ! relative error:
+  if (mpirank==0) write(*,*) "relative error in magnitude:", errz/divu_max
 
   deallocate (u)
   deallocate (uk)
-  deallocate (workc,workr)
+  deallocate (workr)
   call fft_free()
 
 end subroutine convert_velocity
-
 
 
 
@@ -573,8 +771,9 @@ subroutine keyvalues(filename)
   implicit none
   character(len=*), intent(in) :: filename
   character(len=strlen) :: dsetname
-  real(kind=pr) :: time
+  real(kind=pr) :: time, npoints, q, x,y,z
   real(kind=pr), dimension(:,:,:), allocatable :: field
+  integer :: ix,iy,iz
 
   if (mpisize>1) then
     write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"
@@ -598,9 +797,28 @@ subroutine keyvalues(filename)
 
   call read_single_file_serial (filename, field)
 
+  npoints = dble(nx)*dble(ny)*dble(nz)
+
+  ! compute an additional quantity that depends also on the position
+  ! (the others are translation invariant)
+  q=0.d0
+  do iz = 0, nz-1
+   do iy = 0, ny-1
+    do ix = 0, nx-1
+      x = dble(ix)*xl/dble(nx)
+      y = dble(iy)*yl/dble(ny)
+      z = dble(iz)*zl/dble(nz)
+
+      q = q + x*field(ix,iy,iz) + y*field(ix,iy,iz) + z*field(ix,iy,iz)
+      enddo
+    enddo
+  enddo
+
   open  (14, file = filename(1:index(filename,'.'))//'key', status = 'replace')
-  write (14,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/(nx*ny*nz), sum(field**2)/(nx*ny*nz)
-  write (*,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/(nx*ny*nz), sum(field**2)/(nx*ny*nz)
+  write (14,'(6(es15.8,1x))') time, maxval(field), minval(field),&
+   sum(field)/npoints, sum(field**2)/npoints, q/npoints
+  write (*,'(6(es15.8,1x))') time, maxval(field), minval(field),&
+   sum(field)/npoints, sum(field**2)/npoints, q/npoints
   close (14)
 
   deallocate (field)
@@ -708,27 +926,33 @@ subroutine compare_key(key1,key2)
   use mpi
   implicit none
   character(len=*), intent(in) :: key1,key2
-  real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2
-  real(kind=pr) :: e1,e2,e3,e4
+  real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2,t1,t2,q1,q2
+  real(kind=pr) :: e1,e2,e3,e4,e0,e5
 
   call check_file_exists(key1)
   call check_file_exists(key2)
 
   open  (14, file = key1, status = 'unknown', action='read')
-  read (14,'(4(es17.10,1x))') a1,b1,c1,d1
+  read (14,'(6(es15.8,1x))') t1,a1,b1,c1,d1,q1
   close (14)
 
   open  (14, file = key2, status = 'unknown', action='read')
-  read (14,'(4(es17.10,1x))') a2,b2,c2,d2
+  read (14,'(6(es15.8,1x))') t2,a2,b2,c2,d2,q2
   close (14)
 
-  write (*,'("present  : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-  a1,b1,c1,d1
+  write (*,'("present  : time=",es15.8," max=",es15.8," min=",es15.8," sum=",es15.8," sum**2=",es15.8," q=",es15.8)') &
+  t1,a1,b1,c1,d1,q1
 
-  write (*,'("reference: max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-  a2,b2,c2,d2
+  write (*,'("reference: time=",es15.8," max=",es15.8," min=",es15.8," sum=",es15.8," sum**2=",es15.8," q=",es15.8)') &
+  t2,a2,b2,c2,d2,q2
 
   ! errors:
+  if (dabs(t2)>=1.0d-7) then
+    e0 = dabs( (t2-t1) / t2 )
+  else
+    e0 = dabs( (t2-t1) )
+  endif
+
   if (dabs(a2)>=1.0d-7) then
     e1 = dabs( (a2-a1) / a2 )
   else
@@ -753,10 +977,16 @@ subroutine compare_key(key1,key2)
     e4 = dabs( (d2-d1) )
   endif
 
-  write (*,'("err(rel) : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-  e1,e2,e3,e4
+  if (dabs(q2)>=1.0d-7) then
+    e5 = dabs( (q2-q1) / q2 )
+  else
+    e5 = dabs( (q2-q1) )
+  endif
 
-  if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4)) then
+  write (*,'("err(rel) : time=",es15.8," max=",es15.8," min=",es15.8," sum=",es15.8," sum**2=",es15.8," q=",es15.8)') &
+  e0,e1,e2,e3,e4,e5
+
+  if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4) .and. (e0<1.d-4) .and. (e5<1.d-4)) then
     ! all cool
     write (*,*) "OKAY..."
     call exit(0)
@@ -831,7 +1061,7 @@ subroutine pressure_to_Qcriterion()
   call ifft(ink=pk, outx=p)
   p=0.5d0*p
 
-  call save_field_hdf5(time, trim(fname_Q(1:index(fname_Q,'.h5')-1)), p, "Q")
+  call save_field_hdf5(time, fname_Q, p)
 
   maxi = fieldmax(P)
   mini = fieldmin(P)
@@ -1061,7 +1291,7 @@ subroutine extract_subset()
   zl = dz + dble(nz1+(nz_red-1)*nzs)*dz - dble(nz1)*dz
 
   ! Done! Write extracted subset to disk and be happy with the result
-  call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field, dsetname_out )
+  call save_field_hdf5 ( time, fname_out, field )
 
 end subroutine extract_subset
 
@@ -1115,7 +1345,7 @@ subroutine copy_hdf_file()
   allocate ( field_in(0:nx-1,0:ny-1,0:nz-1) )
   call read_single_file_serial(fname_in,field_in)
 
-  call save_field_hdf5 ( time, fname_out(1:index(fname_out,'.h5')-1), field_in, dsetname_out )
+  call save_field_hdf5 ( time, fname_out, field_in )
 
   deallocate (field_in)
 end subroutine copy_hdf_file
@@ -1357,7 +1587,7 @@ subroutine upsample()
 
   ! save the final result to the specified file
   write(*,*) "Saving upsampled field to " // trim(adjustl(fname_out))
-  call save_field_hdf5(time,fname_out,u_new,dsetname_out)
+  call save_field_hdf5(time,fname_out,u_new)
 
   deallocate( u_new )
 end subroutine upsample
@@ -1507,6 +1737,7 @@ subroutine turbulence_analysis()
   if(mpirank==0) then
     write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
     open(17,file=trim(adjustl(outfile)),status='replace')
+    call postprocessing_ascii_header(17)
     write(17,'(A)') "-----------------------------------"
     write(17,'(A)') "FLUSI turbulence analysis"
     write(17,'("call: ./flusi -p --turbulence-analysis ",5(A,1x))') trim(adjustl(fname_ux)),&
@@ -1591,7 +1822,7 @@ subroutine turbulence_analysis()
   MPI_COMM_WORLD,mpicode)
 
   if (mpirank==0) then
-    write(17,'(g15.8,5x,A)') epsilon/dble(nx*ny*nz), "Dissipation rate from vorticity"
+    write(17,'(g15.8,5x,A)') epsilon/(dble(nx)*dble(ny)*dble(nz)), "Dissipation rate from vorticity"
   endif
 
   !-----------------------------------------------------------------------------
@@ -1615,7 +1846,7 @@ subroutine turbulence_analysis()
   MPI_COMM_WORLD,mpicode)
 
   if (mpirank==0) then
-    write(17,'(g15.8,5x,A)') E/dble(nx*ny*nz), "energy from velocity"
+    write(17,'(g15.8,5x,A)') E/(dble(nx)*dble(ny)*dble(nz)), "energy from velocity"
   endif
 
   !-----------------------------------------------------------------------------
@@ -1671,7 +1902,7 @@ end subroutine turbulence_analysis
 !-------------------------------------------------------------------------------
 ! ./flusi -p --TKE-mean ekinavg_00.h5 uavgx_00.h5 uavgy_00.h5 uavgz_00.h5 tkeavg_000.h5
 ! From the time-avg kinetic energy field and the components of the time avg
-! velocity field, compute the mean turbulent kinetic energy.
+! velocity field, compute the time averaged turbulent kinetic energy.
 ! See TKE note 18 feb 2015 (Thomas) and 13 feb 2015 (Dmitry)
 ! Can be done in parallel
 !-------------------------------------------------------------------------------
@@ -1727,7 +1958,7 @@ subroutine TKE_mean()
 
   dsetname = outfile ( 1:index( outfile, '_' )-1 )
   if (mpirank==0) write(*,*) "Wrote to "//trim(adjustl(outfile))//" "//trim(adjustl(dsetname))
-  call save_field_hdf5 ( time,outfile,ekin,dsetname)
+  call save_field_hdf5 ( time,outfile,ekin)
 
 
   deallocate (u,ekin)
@@ -1804,6 +2035,158 @@ subroutine max_over_x()
   call fft_free()
 
 end subroutine max_over_x
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --mean-2D [x,y,z] infile_000.h5 outfile.dat
+! This function reads in the specified *.h5 file and outputs the average over two
+! directions as a function of the remaining direction.
+! e.g., ./flusi -p --mean-2D z infile_000.h5 outfile.dat
+! averages over the x and y direction
+! e.g., ./flusi -p --mean-2D all infile_000.h5 outfile.dat
+! will loop over x,y,z and output all three to different files
+!-------------------------------------------------------------------------------
+subroutine mean_2d()
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use helpers
+  use mpi
+  implicit none
+  character(len=strlen) :: dsetname, infile, outfile, direction
+  real(kind=pr),dimension(:,:,:),allocatable :: u
+  real(kind=pr) :: time
+  integer :: ix,iy,iz
+
+  if (mpisize/=1) then
+    ! the reason for this is simplicity. if the y-z direction is nonlocal in memory
+    ! the avg is more complicated. only the x direction is always contiguous.
+    ! Plus: this acts on one field only, and it usually fits in the memory.
+    call abort("./flusi --postprocess --mean-2D is a SERIAL routine, use 1CPU only")
+  endif
+
+  call get_command_argument(3,direction)
+  call get_command_argument(4,infile)
+  call get_command_argument(5,outfile)
+  call check_file_exists( infile )
+
+  write(*,*) "computing average in a 2D plane"
+  write(*,*) "infile="//trim(adjustl(infile))
+  write(*,*) "outfile="//trim(adjustl(outfile))
+
+  dsetname = get_dsetname( infile )
+  call fetch_attributes( infile, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  ! allocate memory and read file
+  allocate( u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  call read_single_file ( infile, u )
+
+
+  !-----------------------------------------------------------------------------
+  ! the rest of the code depends on the direction
+  !-----------------------------------------------------------------------------
+  select case (direction)
+  case ("x")
+      open(17,file=trim(adjustl(outfile)),status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      write(*,*) "using X direction, thus averaging over y-z"
+      ! compute actual mean value in the y-z plane, directly write to file
+      do ix=0,nx-1
+        write(17,'(es15.8)') sum( u(ix,:,:) ) / dble(ny*nz)
+      enddo
+      close(17)
+  case ("y")
+      open(17,file=trim(adjustl(outfile)),status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      write(*,*) "using Y direction, thus averaging over x-z"
+      ! compute actual mean value in the x-z plane, directly write to file
+      do iy=0,ny-1
+        write(17,'(es15.8)') sum( u(:,iy,:) ) / dble(nx*nz)
+      enddo
+      close(17)
+  case ("z")
+      open(17,file=trim(adjustl(outfile)),status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      write(*,*) "using Z direction, thus averaging over x-y"
+      ! compute actual mean value in the y-z plane, directly write to file
+      do iz=0,nz-1
+        write(17,'(es15.8)') sum( u(:,:,iz) ) / dble(ny*nx)
+      enddo
+      close(17)
+  case ("all")
+      write(*,*) "we compute all three possible averages"
+      write(*,*) "--------------------------------------"
+      write(*,*) "using X direction, thus averaging over y-z"
+      ! compute actual mean value in the y-z planes, directly write to file
+      open(17,file=trim(adjustl(outfile))//"_x",status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      do ix=0,nx-1
+        write(17,'(es15.8)') sum( u(ix,:,:) ) / dble(ny*nz)
+      enddo
+      close(17)
+
+      write(*,*) "using Y direction, thus averaging over x-z"
+      ! compute actual mean value in the x-z plane, directly write to file
+      open(17,file=trim(adjustl(outfile))//"_y",status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      do iy=0,ny-1
+        write(17,'(es15.8)') sum( u(:,iy,:) ) / dble(nx*nz)
+      enddo
+      close(17)
+
+      write(*,*) "using Z direction, thus averaging over x-y"
+      ! compute actual mean value in the y-z plane, directly write to file
+      open(17,file=trim(adjustl(outfile))//"_z",status='replace')
+      call postprocessing_ascii_header(17)
+      write(17,'(A)') "%-----------------------------------"
+      write(17,'(A)') "% FLUSI --mean-2D file="//trim(adjustl(infile))
+      write(17,'(A)') "% direction="//trim(adjustl(direction))
+      write(17,'(A)') "%-----------------------------------"
+      do iz=0,nz-1
+        write(17,'(es15.8)') sum( u(:,:,iz) ) / dble(ny*nx)
+      enddo
+      close(17)
+  case default
+      call abort("Bad choice for direction "//trim(adjustl(direction)) )
+  end select
+
+  deallocate (u)
+  call fft_free()
+
+end subroutine mean_2d
+
+
 
 
 !-------------------------------------------------------------------------------
@@ -2005,11 +2388,271 @@ subroutine ux_from_uyuz()
   ! call fft (inx=u(:,:,:,1),outk=uk(:,:,:,1))
   ! call ifft (u(:,:,:,1),uk(:,:,:,1))
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1),"ux")
+  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1))
   if (mpirank==0) write(*,*) "Wrote vorx to "//trim(fname_ux)
 
   deallocate (u)
   deallocate (uk)
   call fft_free()
+
+end subroutine
+
+
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --magnitude ux_00.h5 uy_00.h5 uz_00.h5 outfile_00.h5
+!-------------------------------------------------------------------------------
+! load the vector components from file and compute & save the magnitude to
+! another HDF5 file.
+subroutine magnitude_post()
+  use vars
+  use basic_operators
+  use p3dfft_wrapper
+  use helpers
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, outfile
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time
+
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+  call get_command_argument(6,outfile)
+
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if (mpirank==0) then
+    write(*,*) "Computing magnitude of vector from these files: "
+    write(*,*) trim(adjustl(fname_ux))
+    write(*,*) trim(adjustl(fname_uy))
+    write(*,*) trim(adjustl(fname_uz))
+    write(*,*) "Outfile="//trim(adjustl(outfile))
+  endif
+
+  dsetname = get_dsetname( fname_ux )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+
+  work = dsqrt( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+  deallocate( u )
+
+  call save_field_hdf5 ( time, outfile, work )
+  if (mpirank==0) write(*,*) "Wrote magnitude to "//trim(outfile)
+
+  deallocate (work)
+  call fft_free()
+
+end subroutine magnitude_post
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --energy ux_00.h5 uy_00.h5 uz_00.h5 outfile_00.h5
+!-------------------------------------------------------------------------------
+! load the vector components from file and compute & save the energy to
+! another HDF5 file. (energy = (ux^2+uy^2+uz^2)/2)
+subroutine energy_post()
+  use vars
+  use basic_operators
+  use p3dfft_wrapper
+  use helpers
+  implicit none
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, outfile
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time
+
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+  call get_command_argument(6,outfile)
+
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if (mpirank==0) write(*,*) "Computing energy of vector from these files: "
+  if (mpirank==0) write(*,*) trim(adjustl(fname_ux)), trim(adjustl(fname_uy)), trim(adjustl(fname_uz))
+  if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(outfile))
+
+  dsetname = get_dsetname( fname_ux )
+  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+
+  work = 0.5d0 * ( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+
+  call save_field_hdf5 ( time, outfile, work )
+  if (mpirank==0) write(*,*) "Wrote energy to "//trim(outfile)
+
+  deallocate (u,work)
+  call fft_free()
+
+end subroutine energy_post
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --simple-field-operation field1.h5 OP field2.h5 output.h5
+!-------------------------------------------------------------------------------
+! load two fields and perform a simple operation ( + - / * )
+! example: ./flusi -p --simple-field-operation vorabs_0000.h5 * mask_0000.h5 vor2_0000.h5
+! this gives just the product vor*mask
+subroutine simple_field_operation()
+  use vars
+  use basic_operators
+  use p3dfft_wrapper
+  use helpers
+  implicit none
+  character(len=strlen) :: file1, file2, file_out, dsetname, operation
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr) :: time
+
+  call get_command_argument(3,file1)
+  call get_command_argument(4,operation)
+  call get_command_argument(5,file2)
+  call get_command_argument(6,file_out)
+
+
+  call check_file_exists( file1 )
+  call check_file_exists( file2 )
+
+  if (mpirank==0) write(*,*) "Performing simple operation using the fields"
+  if (mpirank==0) write(*,*) trim(adjustl(file1))//" "//trim(adjustl(file2))
+  if (mpirank==0) write(*,*) "Operation="//trim(adjustl(operation))
+  if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(file_out))
+
+  dsetname = get_dsetname( file1 )
+  call fetch_attributes( file1, dsetname, nx, ny, nz, xl, yl, zl, time )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+
+  call read_single_file ( file1, u(:,:,:,1) )
+  call read_single_file ( file2, u(:,:,:,2) )
+
+  select case (operation)
+  case ("*")
+    if(mpirank==0) write(*,*) "multiplication"
+    u(:,:,:,3) = u(:,:,:,1) * u(:,:,:,2)
+  case ("/")
+    if(mpirank==0) write(*,*) "division"
+    u(:,:,:,3) = u(:,:,:,1) / u(:,:,:,2)
+  case ("+")
+    if(mpirank==0) write(*,*) "addition"
+    u(:,:,:,3) = u(:,:,:,1) + u(:,:,:,2)
+  case ("-")
+    if(mpirank==0) write(*,*) "substraction"
+    u(:,:,:,3) = u(:,:,:,1) - u(:,:,:,2)
+  case default
+    write(*,*) "error operation not supported::"//operation
+  end select
+
+  call save_field_hdf5 ( time, file_out, u(:,:,:,3) )
+
+  if (mpirank==0) write(*,*) "Wrote result to "//trim(file_out)
+
+  deallocate (u)
+  call fft_free()
+
+end subroutine simple_field_operation
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi --postprocess --check-params-file PARAMS.ini
+!-------------------------------------------------------------------------------
+! load a parameter file and check for a bunch of common mistakes/typos
+! you tend to make, in order to help preventing stupid mistakes
+subroutine check_params_file()
+  use fsi_vars
+  use solid_model
+  use insect_module
+  use helpers
+  implicit none
+  character(len=strlen) :: infile
+  type(diptera) :: Insect
+  method="fsi"
+  nf = 1
+  nd = 3
+  allocate(lin(1))
+
+  call get_command_argument(3,infile)
+  call check_file_exists(infile)
+  call get_params(infile,Insect)
+
+  ! now we have the parameters and perform the tests
+  if ((dx /= dy).or.(dx /= dz).or.(dz /=dy)) then
+    write(*,*) "The resolution is NOT equidistant ", dx,dy,dz
+  endif
+
+  if (iMask=="insect") then
+    if ((Insect%BodyMotion=="free_flight").and.(iTimeMethodFluid/="AB2_rigid_solid")) then
+      write(*,*) "Insect%BodyMotion==free_flight but iTimeMethodFluid="//trim(adjustl(iTimeMethodFluid))
+    endif
+  endif
+
+  if ((method=="fsi").and.(use_slicing=="yes")) then
+    if (maxval(slices_to_save)>nx-1) then
+      write(*,*) "Slicing is ON but at least one index is out of bounds: ", slices_to_save
+    endif
+  endif
+
+  if ((use_solid_model=="yes").and.(iMask /= "Flexibility")) then
+    write(*,*) "we use the solid model but the mask is wrongly set"
+  endif
+
+  write(*,'("Penalization parameter C_eta=",es12.4," and K_eta=",es12.4)') eps, &
+  sqrt(nu*eps)/dx
+
+  write(*,'("This simulation will produce ",f5.1,"GB HDD output, if it runs until the end")') &
+  dble(iSaveVelocity*3+iSavePress+iSaveVorticity*3+iSaveMask+iSaveSolidVelocity*3) &
+  *((dble(nx)*dble(ny)*dble(nz))*4.d0/1000.d0**3)*tmax/tsave &
+  +dble(iDoBackup*2)*18.d0*((dble(nx)*dble(ny)*dble(nz))*4.d0/1000.d0**3)*2.d0 !two backup files à 18 fields double precision each.
+
 
 end subroutine

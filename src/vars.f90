@@ -15,6 +15,7 @@ end module penalization
 ! Variables for pseudospectral simnulations
 module vars
   use mpi
+  use iso_fortran_env
   implicit none
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
@@ -23,15 +24,14 @@ module vars
   integer,parameter :: strlen=80   ! standard string length
 
   ! Precision of doubles
-  integer,parameter :: pr = 8
+  integer,parameter :: pr = real64
+  integer,parameter :: i8 = int64
 
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
-  character(len=strlen),save :: dry_run_without_fluid ! just save mask function
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
-  integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD, 4 for
-                      ! passive scalar (ux,uy,uz,theta)
+  integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD)
   integer,save :: nrw ! number of real work arrays in work
   integer,save :: ncw ! number of complex work arrays in workc
   integer,save :: ng  ! number of ghostpoints (if used)
@@ -48,8 +48,8 @@ module vars
   ! for simplicity, store what decomposition we use
   character(len=strlen), save :: decomposition
 
-  ! p3dfft only parameters (move to appropraite .f90 file?)
-  integer,save :: mpicommcart
+  ! p3dfft domain decomposition parameters and communicators
+  integer,save :: mpicommcart,mpicommy,mpicommz,mpitaskid,mpitasks
   integer,dimension(2),save :: mpidims,mpicoords,mpicommslab
   ! only root rank has this true:
   logical, save :: root=.false.
@@ -68,7 +68,7 @@ module vars
   real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar,tstart
 
   ! Variables set via the parameters file
-  real(kind=pr),save :: length
+  real(kind=pr),save :: length, alpha_generic
 
   ! Domain size variables:
   integer,save :: nx,ny,nz
@@ -83,8 +83,9 @@ module vars
 
 
   ! Parameters to set which files are saved and how often:
-  integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask
-  integer,save :: idobackup
+  integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveMagVorticity
+  integer,save :: idobackup = 1
+  integer,save :: striding = 1
   integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
@@ -148,6 +149,18 @@ module vars
   real(kind=pr) :: tslice,tslice_first
 
 
+  interface abort
+    module procedure abort1, abort2
+  end interface
+
+  interface in_domain
+    module procedure in_domain1, in_domain2
+  end interface
+
+  interface on_proc
+    module procedure on_proc1, on_proc2
+  end interface
+
   contains
 
     ! Routines to allocate real and complex arrays using the standard
@@ -193,22 +206,24 @@ module vars
       integer :: tmp
       tmp=ix
       if (tmp<0) tmp = tmp+nx
+      if (tmp<0) tmp = tmp+nx
+      if (tmp>nx-1) tmp = tmp-nx
       if (tmp>nx-1) tmp = tmp-nx
       if (nx==1) tmp=0
       per=tmp
       return
     end function per
     !---------------------------------------------------------------------------
-    subroutine suicide1
+    subroutine abort1
       use mpi
       implicit none
       integer :: mpicode
 
       if (mpirank==0) write(*,*) "Killing run..."
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine suicide1
+      if (mpirank==0) call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+    end subroutine abort1
     !---------------------------------------------------------------------------
-    subroutine suicide2(msg)
+    subroutine abort2(msg)
       use mpi
       implicit none
       integer :: mpicode
@@ -216,8 +231,8 @@ module vars
 
       if (mpirank==0) write(*,*) "Killing run..."
       if (mpirank==0) write(*,*) msg
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine suicide2
+      if (mpirank==0) call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+    end subroutine abort2
     !---------------------------------------------------------------------------
     ! wrapper for NaN checking (this may be compiler dependent)
     logical function is_nan( x )
@@ -225,6 +240,46 @@ module vars
       real(kind=pr)::x
       is_nan = .false.
       if (.not.(x.eq.x)) is_nan=.true.
+    end function
+    !---------------------------------------------------------------------------
+    ! check wether real coordinates x are in the domain
+    logical function in_domain1( x )
+      implicit none
+      real(kind=pr),intent(in)::x(1:3)
+      in_domain1 = .false.
+      if ( ((x(1)>=0.d0).and.(x(1)<xl)).and.&
+           ((x(2)>=0.d0).and.(x(2)<yl)).and.&
+           ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain1=.true.
+    end function
+    !---------------------------------------------------------------------------
+    ! check wether integer coordinates x are in the domain
+    logical function in_domain2( x )
+      implicit none
+      integer,intent(in)::x(1:3)
+      in_domain2 = .false.
+      if (  ((x(1)>=0).and.(x(1)<nx-1)).and.&
+            ((x(2)>=0).and.(x(2)<ny-1)).and.&
+            ((x(3)>=0).and.(x(3)<nz-1)) ) in_domain2=.true.
+    end function
+    !---------------------------------------------------------------------------
+    ! check wether real coordinates x are on this mpi-process
+    logical function on_proc1( x )
+      implicit none
+      real(kind=pr),intent(in)::x(1:3)
+      on_proc1 = .false.
+      if (  ((x(1)>=ra(1)*dx).and.(x(1)<=rb(1)*dx)).and.&
+            ((x(2)>=ra(2)*dy).and.(x(2)<=rb(2)*dy)).and.&
+            ((x(3)>=ra(3)*dz).and.(x(3)<=rb(3)*dz)) ) on_proc1=.true.
+    end function
+    !---------------------------------------------------------------------------
+    ! check wether integer coordinates x are on this mpi-process
+    logical function on_proc2( x )
+      implicit none
+      integer,intent(in)::x(1:3)
+      on_proc2 = .false.
+      if ( ((x(1)>=ra(1)).and.(x(1)<=rb(1))).and.&
+           ((x(2)>=ra(2)).and.(x(2)<=rb(2))).and.&
+           ((x(3)>=ra(3)).and.(x(3)<=rb(3))) ) on_proc2=.true.
     end function
     !---------------------------------------------------------------------------
     ! wrapper for random number generator (this may be compiler dependent)
@@ -291,19 +346,15 @@ module fsi_vars
   character(len=strlen),save :: iMeanFlowStartupConditioner
   real(kind=pr) :: tau_meanflow, T_release_meanflow
 
-  ! parameters for passive scalar advection
+  ! parameters for passive scalar advection. NOTE: other parameters (such as
+  ! diffusivity) are set for each (of up to 9) passive scalar in a derived datatype
   integer, save :: use_passive_scalar
   integer, save :: n_scalars
-  real(kind=pr),save :: kappa
-  character(len=strlen),save :: inicond_scalar, stop_on_fail
-  character(len=strlen),save :: source_term
-  real(kind=pr), save :: eps_scalar
   logical, save :: compute_scalar
-  real(kind=pr),save :: source_xmin,source_xmax,source_ymin,source_ymax,&
-    source_zmin,source_zmax
+  character(len=strlen),save :: stop_on_fail
 
   ! solid model main switch
-    character(len=strlen),save :: use_solid_model
+  character(len=strlen),save :: use_solid_model
   !-----------------------------------------------------------------------------
   ! The derived integral quantities for fluid-structure interactions.
   type Integrals
@@ -323,21 +374,6 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Torque
      real(kind=pr),dimension(1:3) :: Torque_unst
   end type Integrals
-
-  !-----------------------------------------------------------------------------
-  ! derived datatype for rigid solid dynamics solver
-  type SolidDynType
-    ! solid dynamics solver flag (0=off, 1=on)
-    integer :: idynamics
-    ! vector of unknowns at new time step
-    real(kind=pr), dimension(1:4) :: var_new
-    ! vector of unknowns at current time step
-    real(kind=pr), dimension(1:4) :: var_this
-    ! rhs at current time step
-    real(kind=pr), dimension(1:4) :: rhs_this
-    ! rhs at previous time step
-    real(kind=pr), dimension(1:4) :: rhs_old
-  end type SolidDynType
   !-----------------------------------------------------------------------------
   ! derived datatype for time
   type timetype
@@ -351,7 +387,6 @@ module fsi_vars
   !-----------------------------------------------------------------------------
 
   type(Integrals),save :: GlobalIntegrals
-  type(SolidDynType), save :: SolidDyn
 
   contains
   !-----------------------------------------------------------------------------

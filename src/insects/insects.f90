@@ -7,6 +7,7 @@
 
 module insect_module
   use fsi_vars
+  use helpers
   implicit none
 
   ! Fourier coefficients for wings
@@ -16,10 +17,14 @@ module insect_module
   ! wing kinematics Fourier coefficients
   real(kind=pr), allocatable, dimension(:) :: ai_phi, bi_phi, ai_theta,&
   bi_theta, ai_alpha, bi_alpha
+  ! this will hold the surface markers and their normals used for particles:
+  real(kind=pr), allocatable, dimension(:,:) :: particle_points
 
   ! variables to decide whether to draw the body or not.
   logical :: body_already_drawn = .false.
   character(len=strlen) :: body_moves="yes"
+  ! do we use periodicity?
+  logical :: periodic = .true.
 
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
@@ -29,8 +34,10 @@ module insect_module
     !-------------------------------------------------------------
     ! position of logical center, and translational velocity
     real(kind=pr), dimension(1:3) :: xc_body, vc_body
+    ! initial or tethered position, velocity and yawpitchroll angles:
+    real(kind=pr), dimension(1:3) :: x0, v0, yawpitchroll_0
     ! roll pitch yaw angles and their time derivatives
-    real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+    real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt, eta0
     ! body pitch angle, if it is constant (used in forward flight and hovering)
     real(kind=pr) :: body_pitch_const
     ! angles of the wings (left and right)
@@ -49,6 +56,18 @@ module insect_module
     ! vectors desribing the positoions of insect's key elements
     ! in the body coordinate system
     real(kind=pr), dimension(1:3) :: x_head,x_eye_r,x_eye_l,x_pivot_l,x_pivot_r
+    ! moments of inertia in the body reference frame
+    real(kind=pr) :: Jroll_body, Jyaw_body, Jpitch_body
+    ! total mass of insect:
+    real(kind=pr) :: mass
+    !-------------------------------------------------------------
+    ! for free flight solver
+    !-------------------------------------------------------------
+    real(kind=pr) :: time
+    real(kind=pr), dimension(1:3,1:3) :: M_body_quaternion
+    real(kind=pr), dimension(1:13) :: RHS_old, RHS_this, STATE
+    real(kind=pr), dimension(1:6) :: DoF_on_off
+    character(len=strlen) :: startup_conditioner
 
     !-------------------------------------------------------------
     ! wing shape parameters
@@ -74,6 +93,8 @@ module insect_module
     character(len=strlen) :: WingShape, BodyType, BodyMotion, HasDetails
     character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
     character(len=strlen) :: KineFromFile, infile, LeftWing, RightWing
+    character(len=strlen) :: infile_right, infile_left, infile_type, infile_units
+    character(len=strlen) :: infile_convention
     ! parameters for body:
     real(kind=pr) :: L_body, b_body, R_head, R_eye
     ! parameters for wing shape:
@@ -103,6 +124,7 @@ contains
 
 
   !---------------------------------------
+  include "periodization.f90"
   include "body_geometry.f90"
   include "body_motion.f90"
   include "rigid_solid_time_stepper.f90"
@@ -124,9 +146,9 @@ contains
 
     real(kind=pr), intent(in) :: time
     type(diptera),intent(inout) :: Insect
-    real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-    real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-    integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+    real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+    integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
     real(kind=pr),dimension(1:3) :: x, x_body, x_wing_l, x_wing_r, x_eye_r,&
     x_eye_l,x_head, v_tmp, rot_b_psi,rot_b_beta,rot_b_gamma
@@ -137,8 +159,6 @@ contains
     integer :: ix, iy, iz
     integer, save :: counter = 0
     integer(kind=2) :: color_body, color_l, color_r
-    ! what type of subroutine to call for the wings: fourier or simple
-    logical :: fourier_wing = .true. ! almost always we have this
 
     !-----------------------------------------------------------------------------
     ! colors for Diptera (one body, two wings)
@@ -146,6 +166,10 @@ contains
     color_body = 1
     color_l = 2
     color_r = 3
+
+    if ((dabs(Insect%time-time)>1.0d-10).and.(mpirank==0).and.(Insect%BodyMotion=="free_flight")) then
+      write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
+    endif
 
     !-----------------------------------------------------------------------------
     ! delete old mask
@@ -175,18 +199,13 @@ contains
       us = 0.d0
     endif
 
-
-    !-- decide what wing routine to call (call simplified wing
-    ! routines that don't use fourier)
-    if (Insect%WingShape=='TwoEllipses') fourier_wing = .false.
-    if (Insect%WingShape=='rectangular') fourier_wing = .false.
-    if (Insect%WingShape=='suzuki') fourier_wing = .false.
-
-    !-- define the wings fourier coeffients, but only once
-    if (fourier_wing) call Setup_Wing_Fourier_coefficients(Insect)
-
-    Insect%safety = 2.0d0*max(dz,dy,dx)
-    Insect%smooth = 1.0d0*max(dz,dy,dx)
+    if (nx/=1) then
+      Insect%safety = 2.5d0*max(dz,dy,dx)
+      Insect%smooth = 1.0d0*max(dz,dy,dx)
+    else
+      Insect%safety = 2.5d0*max(dz,dy)
+      Insect%smooth = 1.0d0*max(dz,dy)
+    endif
     smoothing = Insect%smooth
 
     ! some checks
@@ -207,8 +226,27 @@ contains
     ! define the rotation matrices to change between coordinate systems
     !-----------------------------------------------------------------------------
     if (Insect%BodyMotion=="free_flight") then
-      ! QUATERNIONS
-      M_body = 0.0d0
+    !   call Rx(M1_b,Insect%psi)
+    !   call Ry(M2_b,Insect%beta)
+    !   call Rz(M3_b,Insect%gamma)
+    !   M_body = matmul(M1_b,matmul(M2_b,M3_b))
+    !   if(root) then
+    !   write(*,*) "--rotmat-"
+    !   write(*,'(3(es12.4,1x))') M_body(1,:)
+    !   write(*,'(3(es12.4,1x))') M_body(2,:)
+    !   write(*,'(3(es12.4,1x))') M_body(3,:)
+    !   write(*,*) "--quat-"
+    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(1,:)
+    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(2,:)
+    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(3,:)
+    !   write(*,*) "---"
+    ! endif
+      !
+      ! ! QUATERNIONS
+      M_body = Insect%M_body_quaternion
+      !
+      ! if(maxval(M_body)==0.d0) call abort()
+
     else
       ! conventional yaw, pitch, roll. Note the order of matrices is important.
       ! first we yaw, then we pitch, then we roll the insect. Note that when the
@@ -242,6 +280,11 @@ contains
     !-----------------------------------------------------------------------------
     ! angular velocity vectors
     !-----------------------------------------------------------------------------
+    ! If Insect%BodyMotion=="free_flight", then
+    ! the angular velocity is a state variable of the insect free flight
+    ! solver, and the value is copied in body-motion to the insect variable
+    ! in line 61 of body_motion.f90.
+    ! Otherwise, the following block is active:
     if (Insect%BodyMotion/="free_flight") then
       ! NOTE: when using the quaternion based free-flight solver, the angular
       ! velocity of the body is computed dynamically, and the rotation matrix that
@@ -264,6 +307,7 @@ contains
     call angular_accel( time, Insect )
 
     !-----------------------------------------------------------------------------
+
     ! inverse of the rotation matrices
     !-----------------------------------------------------------------------------
     M_body_inv = transpose(M_body)
@@ -347,7 +391,8 @@ contains
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-          x_body = matmul(M_body,x-Insect%xc_body)
+          x = periodize_coordinate(x - Insect%xc_body)
+          x_body = matmul(M_body,x)
           ! add solid body rotation in the body-reference frame, if color
           ! indicates that this part of the mask belongs to the insect
           if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
@@ -372,7 +417,6 @@ contains
       enddo
     enddo
     time_insect_vel = time_insect_vel + MPI_wtime() - t1
-
   end subroutine Draw_Insect
 
 
@@ -432,158 +476,6 @@ contains
     return
   end subroutine get_dangle
 
-
-
-  ! Insect free flight dynamics.
-  ! RHS of the ODE system.
-  subroutine dynamics_insect(time,it,Insect)
-    use mpi
-    use vars
-    implicit none
-
-    integer, intent(in) :: it
-    real (kind=pr), intent (in) :: time
-    type(diptera),intent(inout)::Insect
-    real (kind=pr) :: accx,accz,mass_solid,mass_fluid,gravity
-    real (kind=pr) :: anglegs,kzlegsmax,dzlegsmax,t0,tmaxlegs,kzlegs0,anglegsend
-    real (kind=pr) :: kxlegs,kzlegs,fxlegs,fzlegs,fxaero,fzaero,displacement_z
-
-    ! mass
-    mass_solid = Insect%mass_solid
-    mass_fluid = 0.0d0  ! TODO
-
-    ! gravity acceleration
-    gravity = Insect%gravity
-
-    select case (Insect%BodyMotion)
-    case ("free_flight")
-      ! we will implement the free-flight solver's RHS here
-
-    case ("takeoff")
-      if (Insect%KineFromFile=="simplified_dynamic") then
-
-        ! Current body center displacement
-        displacement_z = SolidDyn%var_new(2)
-
-        anglegsend = Insect%anglegsend
-        kzlegsmax = Insect%kzlegsmax
-        dzlegsmax = Insect%dzlegsmax
-        t0 = Insect%t0legs
-        tmaxlegs = t0 + Insect%tlinlegs
-        kzlegs0 = (mass_solid-mass_fluid)*(-gravity) / dzlegsmax
-
-        ! Legs force
-        fxlegs = 0.0d0
-        fzlegs = 0.0d0
-        if (Insect%ilegs>0) then
-          ! If legs touch the ground
-          if (displacement_z<dzlegsmax) then
-            ! Compute torsion spring stiffness and angle
-            if (time<t0) then
-              kzlegs = kzlegs0
-              anglegs = 0.5d0*pi
-            elseif (time<tmaxlegs) then
-              kzlegs = kzlegs0 + (kzlegsmax-kzlegs0) * (time-t0)/(tmaxlegs-t0)
-              anglegs = 0.5d0*pi + (anglegsend-0.5d0*pi) * (time-t0)/(tmaxlegs-t0)
-            else
-              kzlegs = kzlegsmax
-              anglegs = anglegsend
-            endif
-            if (tan(anglegs)<1.0d-8) then
-              kxlegs = 0.0d0
-            else
-              kxlegs = kzlegs/tan(anglegs)
-            endif
-            ! Compute legs forces
-            fxlegs = kxlegs*(dzlegsmax-displacement_z)
-            fzlegs = kzlegs*(dzlegsmax-displacement_z)
-          endif
-        endif
-
-        ! Fluid force. Unsteady correction treated implicitly
-        fxaero = GlobalIntegrals%Force(1)
-        fzaero = GlobalIntegrals%Force(3)
-
-        ! Accelerations
-        accx = (fxaero+fxlegs)/(mass_solid-mass_fluid)
-        accz = (fzaero+fzlegs)/(mass_solid-mass_fluid) + gravity
-
-        ! RHS of the solid ODEs
-        SolidDyn%rhs_this(1) = SolidDyn%var_this(3) ! horizontal velocity
-        SolidDyn%rhs_this(2) = SolidDyn%var_this(4) ! vertical velocity
-        SolidDyn%rhs_this(3) = accx ! horizontal acceleration
-        SolidDyn%rhs_this(4) = accz ! vertical acceleration
-
-        ! Write legs forces to file
-        if(mpirank == 0) then
-          open(14,file='legs.t',status='unknown',position='append')
-          write (14,'(3(e12.5,1x))') time,fxlegs,fzlegs
-          close(14)
-        endif
-
-      endif
-    case default
-      if (mpirank==0) then
-        write (*,*) "insects.f90::dynamics_insects case not defined"
-        call abort()
-      endif
-    end select
-
-  end subroutine dynamics_insect
-
-
-  ! Initialize insect free flight dynamics solver
-  subroutine dynamics_insect_init(idynamics,Insect)
-    use mpi
-    use vars
-    implicit none
-
-    integer, intent(out) :: idynamics
-    type(diptera),intent(inout)::Insect
-    integer :: mpicode
-
-    ! dynamics solver inactive by default
-    idynamics = 0
-
-
-    select case (Insect%BodyMotion)
-    case ("takeoff")
-      if (Insect%KineFromFile=="simplified_dynamic") then
-        if (inicond(1:8).ne."backup::") then
-          !--  we are not resuming a backup
-          idynamics = 1
-          SolidDyn%var_new(1) = 0.0d0
-          SolidDyn%var_new(2) = 0.0d0
-          SolidDyn%var_new(3) = 0.0d0
-          SolidDyn%var_new(4) = 0.0d0
-        else
-          !-- we are resuming a backup
-          idynamics = 1
-          !-- root rank reads in backup file
-          if (mpirank==0) then
-            !-- backup files are called "runtime_backup0.h5.rigidsolver"
-            write (*,*) "------"
-            write (*,*) "Insect solver is resuming from file="//inicond(9:len_trim(inicond))//".rigidsolver"
-            !-- open file
-            open(10, file=inicond(9:len_trim(inicond))//".rigidsolver", form='formatted', status='old')
-            read(10, *) SolidDyn%var_new, SolidDyn%var_this, SolidDyn%rhs_this, SolidDyn%rhs_old
-            write (*,*) SolidDyn%var_new
-            write (*,*) SolidDyn%var_this
-            write (*,*) SolidDyn%rhs_this
-            write (*,*) SolidDyn%rhs_old
-            !-- close file
-            close(10)
-            write (*,*) "------"
-          endif
-          call MPI_BCAST( SolidDyn%var_new,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-          call MPI_BCAST( SolidDyn%var_this,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-          call MPI_BCAST( SolidDyn%rhs_this,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-          call MPI_BCAST( SolidDyn%rhs_old,4,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode )
-        endif
-      endif
-    end select
-
-  end subroutine dynamics_insect_init
 
 
   ! Compute aerodynamic power
@@ -706,7 +598,7 @@ contains
   !-------------------------------------------------------------------------------
   ! given the angles of each wing (and their time derivatives), compute
   ! the angular velocity vectors for both wings.
-  ! output rot_r, rot_l are understood in the WING coordinate system.
+  ! output Insect%rot_r, Insect%rot_l is understood in the WING coordinate system.
   !-------------------------------------------------------------------------------
   subroutine angular_velocities ( time, Insect )
     use vars
@@ -804,7 +696,8 @@ contains
 
     dt =1.0d-7
 
-    if (time >0.d0) then
+    ! note we cannot go to negative times
+    if (time > 1.0d-7) then
       Insect1 = Insect
       Insect2 = Insect
 
@@ -862,6 +755,8 @@ contains
     if (allocated(bi_phi)) deallocate ( bi_phi )
     if (allocated(bi_alpha)) deallocate ( bi_alpha )
     if (allocated(bi_theta)) deallocate ( bi_theta )
+    if (allocated(particle_points)) deallocate ( particle_points )
+
   end subroutine insect_clean
 
 

@@ -74,12 +74,12 @@ subroutine init_turbulent_inlet ( )
   call Read_Single_File ( "uz_turb.h5", u_turb(:,:,:,3) )
 
   ! determine the maximum velocity of the perturbation field
-  umax = fieldmaxabs(u_turb)
+  umax = field_max_magnitude(u_turb)
   if (mpirank==0) write (*,*) " turbulence intensity in infile", umax
 
   u_turb = u_turb * rescale
 
-  umax = fieldmaxabs(u_turb)
+  umax = field_max_magnitude(u_turb)
   if (mpirank==0) write (*,*) " turbulence intensity, in use", umax
 
   ! reset dimensions to old value (for the rest of the program)

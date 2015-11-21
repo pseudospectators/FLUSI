@@ -2,24 +2,24 @@
 subroutine draw_wing(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,rot)
   use vars
   implicit none
-  
+
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot(1:3),rot(1:3)
-  
+
   real(kind=pr) :: t1
   t1 = MPI_wtime()
-  
+
   select case(Insect%WingShape)
   case ("rectangular")
     call draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
          M_wing,x_pivot,rot)
   case ("suzuki")
     call draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
-         M_wing,x_pivot,rot)         
+         M_wing,x_pivot,rot)
   case ("TwoEllipses")
     call draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
          M_wing,x_pivot,rot)
@@ -33,14 +33,14 @@ subroutine draw_wing(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,
     if (mpirank==0) write(*,*) Insect%WingShape
     call abort()
   end select
-  
+
   time_insect_wings = time_insect_wings + MPI_wtime() - t1
 end subroutine draw_wing
 
 !-------------------------------------------------------------------------------
 
 ! Draws a wings that is given by a radius(theta), where the radius is given
-! by a Fourier series. The Fourier coefficients are stored in the insect 
+! by a Fourier series. The Fourier coefficients are stored in the insect
 ! datastructure, so the function Set_Wing_Fourier_coefficients must be called
 ! before calling this subroutine. Fourier series is evaluated in
 ! Radius_Fourier
@@ -48,60 +48,64 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
            M_wing,x_pivot,rot)
   use vars
   implicit none
-  
+
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot(1:3),rot(1:3)
-  
+
   integer :: ix,iy,iz
   real(kind=pr) :: x_body(1:3),x_wing(1:3),x(1:3)
   real(kind=pr) :: R, R0, R_tmp
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
 
-  
+  !-- define the wings fourier coeffients, but only once
+  call Setup_Wing_Fourier_coefficients(Insect)
+
+
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_body = matmul(M_body,x-Insect%xc_body)
+        x = periodize_coordinate(x - Insect%xc_body)
+        x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot)
-        
+
         !-- first, check if the point lies inside the rectangle L_span x L_span
         !-- here we assume that the chordlength is NOT greater than the span
         if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
         if ((x_wing(1)>=-(Insect%L_span+Insect%safety)).and.(x_wing(1)<=Insect%L_span+Insect%safety)) then
         if (abs(x_wing(3))<=0.5*Insect%WingThickness + Insect%safety) then
-        
+
           !-- get normalized angle (theta)
           theta = atan2 (x_wing(2)-Insect%yc,x_wing(1)-Insect%xc )
           theta = ( theta + pi ) / (2.d0*pi)
-          
+
           !-- construct R by evaluating the fourier series
           R0 = Radius_Fourier(theta,Insect)
-          
+
           !-- get smooth (radial) step function
           R = dsqrt ( (x_wing(1)-Insect%xc)**2 + (x_wing(2)-Insect%yc)**2 )
           R_tmp = steps(R,R0)
-          
+
           !-- smooth also the thicknes
           z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
-          mask_tmp = z_tmp*R_tmp      
-          
+          mask_tmp = z_tmp*R_tmp
+
           !-----------------------------------------
           ! set new value for mask and velocity us
           !-----------------------------------------
-          if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+          if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
             mask(ix,iy,iz) = mask_tmp
             mask_color(ix,iy,iz) = color_wing
             !------------------------------------------------
             ! solid body rotation
             ! Attention: the Matrix transpose(M) brings us back to the body
-            ! coordinate system, not to the inertial frame. this is done in 
+            ! coordinate system, not to the inertial frame. this is done in
             ! the main routine Draw_Insect
             !------------------------------------------------
             v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
@@ -109,15 +113,15 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
             v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
             ! note we set this only if it is a part of the wing
             us(ix,iy,iz,1:3) = matmul(transpose(M_wing), v_tmp)
-          endif          
+          endif
         endif
         endif
-        endif        
-        
+        endif
+
       enddo
     enddo
-  enddo  
-  
+  enddo
+
 end subroutine draw_wing_fourier
 
 !-------------------------------------------------------------------------------
@@ -127,7 +131,7 @@ subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
            M_wing,x_pivot,rot)
   use vars
   implicit none
-  
+
   type(diptera),intent(inout) :: Insect
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
@@ -145,26 +149,27 @@ subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
   ! these values depend on the spanwise direction (which is y)
   x_top = 0.0667d0
   x_bot = -0.35d0
-  
+
   y_right = 1.0d0
   y_left = 0.1667d0
-  
+
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_body = matmul(M_body,x-Insect%xc_body)
-        x_wing = matmul(M_wing,x_body-x_pivot)        
-        
+        x = periodize_coordinate(x - Insect%xc_body)
+        x_body = matmul(M_body,x)
+        x_wing = matmul(M_wing,x_body-x_pivot)
+
         ! spanwise length:
         if ((x_wing(2)>=y_left-Insect%safety).and.(x_wing(2)<=y_right+Insect%safety)) then
           ! thickness: (note left and right wing have a different orientation of the z-axis
           ! but this does not matter since this is the same.
           if (dabs(x_wing(3))<=0.5*Insect%WingThickness + Insect%safety) then
-            
-            ! in the x-direction, the actual wing shape plays.    
-            if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then        
+
+            ! in the x-direction, the actual wing shape plays.
+            if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then
               !-- smooth length
               if ((x_wing(2)-y_left)<0.d0) then ! xs is chordlength coordinate
                 y_tmp = steps(-(x_wing(2)-y_left),0.d0)
@@ -173,7 +178,7 @@ subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
               endif
 
               !-- smooth height
-              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness       
+              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
 
               !-- smooth shape
               if (x_wing(1)<0.d0) then
@@ -181,31 +186,31 @@ subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
               else
                 x_tmp = steps( x_wing(1), x_top)
               endif
-              
+
               mask_tmp = z_tmp*y_tmp*x_tmp
-              
-              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+
+              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
                 mask(ix,iy,iz) = mask_tmp
                 mask_color(ix,iy,iz) = color_wing
                 !------------------------------------------------
                 ! solid body rotation
                 ! Attention: the Matrix transpose(M) brings us back to the body
-                ! coordinate system, not to the inertial frame. this is done in 
+                ! coordinate system, not to the inertial frame. this is done in
                 ! the main routine Draw_Insect
                 !------------------------------------------------
                 v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
                 v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
                 v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
-                
+
                 ! note we set this only if it is a part of the wing
                 us(ix,iy,iz,1:3) = matmul(transpose(M_wing), v_tmp)
               endif
-            endif  
+            endif
           endif
         endif
       enddo
     enddo
-  enddo     
+  enddo
 end subroutine draw_wing_suzuki
 
 !-------------------------------------------------------------------------------
@@ -214,11 +219,11 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
            M_wing,x_pivot,rot)
   use vars
   implicit none
-  
+
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot(1:3),rot(1:3)
 
@@ -228,15 +233,16 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
 
-  
+
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_body = matmul(M_body,x-Insect%xc_body)
-        x_wing = matmul(M_wing,x_body-x_pivot)        
-        
+        x = periodize_coordinate(x - Insect%xc_body)
+        x_body = matmul(M_body,x)
+        x_wing = matmul(M_wing,x_body-x_pivot)
+
         ! spanwise length:
         if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
           ! thickness: (note left and right wing have a different orientation of the z-axis
@@ -246,8 +252,8 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
             ! these values depend on the spanwise direction (which is y)
             x_top = Insect%b_top
             x_bot =-Insect%b_bot
-            ! in the x-direction, the actual wing shape plays.    
-            if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then        
+            ! in the x-direction, the actual wing shape plays.
+            if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then
               !-- smooth length
               if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
                 y_tmp = steps(-x_wing(2),0.d0)
@@ -256,7 +262,7 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
               endif
 
               !-- smooth height
-              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness       
+              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
 
               !-- smooth shape
               if (x_wing(1)<0.d0) then
@@ -264,32 +270,32 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
               else
                 x_tmp = steps( x_wing(1), x_top)
               endif
-              
+
               mask_tmp = z_tmp*y_tmp*x_tmp
-              
-              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+
+              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
                 mask(ix,iy,iz) = mask_tmp
                 mask_color(ix,iy,iz) = color_wing
                 !------------------------------------------------
                 ! solid body rotation
                 ! Attention: the Matrix transpose(M) brings us back to the body
-                ! coordinate system, not to the inertial frame. this is done in 
+                ! coordinate system, not to the inertial frame. this is done in
                 ! the main routine Draw_Insect
                 !------------------------------------------------
                 v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
                 v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
                 v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
-                
+
                 ! note we set this only if it is a part of the wing
                 us(ix,iy,iz,1:3) = matmul(transpose(M_wing), v_tmp)
               endif
-            endif  
+            endif
           endif
         endif
       enddo
     enddo
-  enddo     
-end subroutine draw_wing_rectangular  
+  enddo
+end subroutine draw_wing_rectangular
 
 
 !-------------------------------------------------------------------------------
@@ -297,7 +303,7 @@ end subroutine draw_wing_rectangular
 ! Draws a wing
 ! here, a wing is a rigid plate of constant thickness that differs from
 ! a rectangular plate only in the x-direction
-! 
+!
 ! note to save a bit of computing time, we first check the easy
 ! conditions (thickness and spanwise length) and then the shape
 ! function since this saves many evaluations of the shape.
@@ -305,11 +311,11 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
            M_wing,x_pivot,rot)
   use vars
   implicit none
-  
+
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::us(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot(1:3),rot(1:3)
 
@@ -319,17 +325,18 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
   real(kind=pr) :: R, R0, R_tmp,a_body
   real(kind=pr) :: y_tmp, x_tmp, z_tmp
   real(kind=pr) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
-  
+
   a_body = 0.5d0 * Insect%L_span
-  
+
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_body = matmul(M_body,x-Insect%xc_body)
-        x_wing = matmul(M_wing,x_body-x_pivot)        
-        
+        x = periodize_coordinate(x-Insect%xc_body)
+        x_body = matmul(M_body,x)
+        x_wing = matmul(M_wing,x_body-x_pivot)
+
         ! spanwise length:
         if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
           ! thickness: (note left and right wing have a different orientation of the z-axis
@@ -344,9 +351,9 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
               x_top = 0.d0
               x_bot = 0.d0
             endif
-      
-            ! in the x-direction, the actual wing shape plays.    
-            if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then        
+
+            ! in the x-direction, the actual wing shape plays.
+            if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then
               !-- smooth length
               if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
                 y_tmp = steps(-x_wing(2),0.d0)
@@ -355,7 +362,7 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
               endif
 
               !-- smooth height
-              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness       
+              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
 
               !-- smooth shape
               if (x_wing(1)<0.d0) then
@@ -363,36 +370,36 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
               else
                 x_tmp = steps( x_wing(1), x_top)
               endif
-              
+
               mask_tmp = z_tmp*y_tmp*x_tmp
-              
-              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then 
+
+              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
                 mask(ix,iy,iz) = mask_tmp
                 mask_color(ix,iy,iz) = color_wing
                 !------------------------------------------------
                 ! solid body rotation
                 ! Attention: the Matrix transpose(M) brings us back to the body
-                ! coordinate system, not to the inertial frame. this is done in 
+                ! coordinate system, not to the inertial frame. this is done in
                 ! the main routine Draw_Insect
                 !------------------------------------------------
                 v_tmp(1) = rot(2)*x_wing(3)-rot(3)*x_wing(2)
                 v_tmp(2) = rot(3)*x_wing(1)-rot(1)*x_wing(3)
                 v_tmp(3) = rot(1)*x_wing(2)-rot(2)*x_wing(1)
-                
+
                 ! note we set this only if it is a part of the wing
                 us(ix,iy,iz,1:3) = matmul(transpose(M_wing), v_tmp)
               endif
-            endif  
+            endif
           endif
         endif
       enddo
     enddo
-  enddo     
-end subroutine draw_wing_twoellipses  
-  
+  enddo
+end subroutine draw_wing_twoellipses
+
 
 !-------------------------------------------------------------------------------
-! evaluates the fourier series given in the ai, bi 
+! evaluates the fourier series given in the ai, bi
 !-------------------------------------------------------------------------------
 real(kind=pr) function Radius_Fourier(theta,Insect)
   use vars
@@ -401,13 +408,13 @@ real(kind=pr) function Radius_Fourier(theta,Insect)
   real(kind=pr) :: R0, theta2, dphi
   type(diptera),intent(inout)::Insect
   real(kind=pr), intent(in) :: theta
-  
+
   n_radius = 25000
   dphi = (2.d0*pi) / (dble(n_radius-1))
-  
-  !-- evaluate the entire R(theta) once with very fine resolution, so when 
+
+  !-- evaluate the entire R(theta) once with very fine resolution, so when
   !-- calling it for the second time we only need linear interpolation.
-  if (.not.allocated(R0_table)) then    
+  if (.not.allocated(R0_table)) then
     allocate(R0_table(1:n_radius))
     !-- loop over all thetas
     do j = 1, n_radius
@@ -422,7 +429,7 @@ real(kind=pr) function Radius_Fourier(theta,Insect)
     enddo
   endif
 
-  
+
   !--  linear interpolation, if already stored the radius
   j = floor( theta / dphi ) + 1
   Radius_Fourier = R0_table(j) + ((theta-dble(j-1)*dphi) / dphi) * (R0_table(j+1)-R0_table(j))
@@ -430,25 +437,25 @@ end function
 
 !-------------------------------------------------------------------------------
 ! Here all hard-coded fourier series coefficients for different wings shapes are
-! collected. This routine is only called once per time step, and it doesn't do 
+! collected. This routine is only called once per time step, and it doesn't do
 ! anything when called for the second time.
 ! In the first call, the arrays ai and bi, that hold the Fourier
 ! coefficients, are allocated. Then they are filled with the values corresponding
-! to Insect%WingShape. If the routine is called with an unkown wing shape, it 
+! to Insect%WingShape. If the routine is called with an unkown wing shape, it
 ! stops the code. This prevents errors for wings that are NOT given by Fourier
-! series. 
+! series.
 !-------------------------------------------------------------------------------
 subroutine Setup_Wing_Fourier_coefficients(Insect)
   use vars
   implicit none
   real(kind=pr) :: xroot, yroot
   type(diptera),intent(inout)::Insect
-  
+
   if (allocated(ai)) then
     ! the second call is just a return statement
     return
   endif
-  
+
   !-----------------------------------------
   ! hard-coded Fourier coefficients for R(theta)
   !-----------------------------------------
@@ -466,8 +473,8 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
           0.0009738,0.0002508,-0.0003548,-0.0003668,-0.0002798,0.0000568,&
           0.0003358,0.0001408,-0.0002208,0.0000028,0.0004348,0.0001218,&
           -0.0006458,-0.0003498,0.0007168,0.0003288,-0.0007078,-0.0001368,&
-          0.0007828,0.0001458,-0.0007078,-0.0001358/) 
-          
+          0.0007828,0.0001458,-0.0007078,-0.0001358/)
+
     bi = (/-0.1072518,-0.0449318,0.0296558,0.0265668,-0.0043988,-0.0113218,&
           -0.0003278,0.0075028,0.0013598,-0.0057338,-0.0021228,0.0036178,&
           0.0013328,-0.0024128,-0.0007688,0.0011478,0.0003158,-0.0005528,&
@@ -475,17 +482,17 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
           0.0001718,0.0007758,0.0001328,-0.0005888,-0.0001088,0.0006298,&
           0.0000318,-0.0008668,-0.0000478,0.0009048,0.0001198,-0.0008248,&
           -0.0000788,0.0007028,-0.0000118,-0.0006608/)
-          
-    ! wing root point        
+
+    ! wing root point
     xroot =+0.1122
     yroot =-0.0157
     ! center of circle
     Insect%xc =-0.1206 + xroot
-    Insect%yc = 0.3619 + yroot      
+    Insect%yc = 0.3619 + yroot
   case ('drosophila_mutated')
     !********************************************
     ! mutated Drosophila wing from Jan Gruber's png file
-    !********************************************  
+    !********************************************
     Insect%n_fft = 70
     allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
     Insect%a0 = 0.4812548
@@ -500,8 +507,8 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
             0.0009478, -0.0004108, -0.0012248, -0.0000638, 0.0013148, 0.0004978,&
             -0.0010638, -0.0007148, 0.0006338, 0.0007438, -0.0003278, -0.0006078,&
             0.0001838, 0.0003768, -0.0001698, -0.0002148, 0.0001318, 0.0001628,&
-            -0.0000878, 0.0000068, 0.0001478, -0.0001128/) 
-          
+            -0.0000878, 0.0000068, 0.0001478, -0.0001128/)
+
     bi = (/-0.1132588, -0.0556428, 0.0272098, 0.0221478, -0.0063798, -0.0059078,&
               0.0043788, 0.0043208, -0.0003308, -0.0026598, -0.0013158, 0.0025178,&
               0.0022438, -0.0023798, -0.0037048, 0.0001528, 0.0031218, 0.0022248,&
@@ -514,20 +521,20 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
               -0.0001538, 0.0005418, 0.0003658, -0.0001988, -0.0003938, 0.0000048,&
               0.0003008, 0.0000538, -0.0002748, -0.0000598, 0.0002898, 0.0001398,&
               -0.0002108, -0.0001888, 0.0001838, 0.0001888 /)
-          
-    ! wing root point        
+
+    ! wing root point
     xroot =+0.1122
     yroot =-0.0157
     ! center of circle
     Insect%xc =-0.1206 + xroot
-    Insect%yc = 0.3619 + yroot        
+    Insect%yc = 0.3619 + yroot
   case ('drosophila_sandberg')
     !********************************************
     !  Drosophila wing from Ramamurti & Sandberg ( JEB 210, 881-896, 2007)
-    !********************************************        
-    Insect%n_fft = 24 
+    !********************************************
+    Insect%n_fft = 24
     allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
-    Insect%a0 = 0.4995578 
+    Insect%a0 = 0.4995578
     ai = (/0.0164168,-0.1621518,0.0030938,0.0601108,-0.0083988,-0.0199988,&
     0.0049048,0.0047878,-0.0005648,-0.0001108,-0.0008638,-0.0006928,&
     0.0006608,0.0001978,0.0001558,0.0006878,-0.0007498,-0.0008018,&
@@ -538,12 +545,12 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     0.0004118,0.0005638,-0.0001018,-0.0006918,-0.0002268,0.0005238,&
     0.0004008,-0.0001818,-0.0003038,-0.0000068,-0.0001218,0.0002008 &
     /)
-    Insect%xc =-0.0235498  
-    Insect%yc = 0.1531398 
+    Insect%xc =-0.0235498
+    Insect%yc = 0.1531398
   case ('drosophila_maeda')
     !********************************************
     !  Drosophila wing from Maeda and Liu, similar to Liu and Aono, BB2009
-    !********************************************        
+    !********************************************
     Insect%n_fft = 25
     allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
     !Insect%a0 = 0.591294836514357
@@ -585,7 +592,7 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     0.00114016779684690,-2.63209684213992e-05,-0.000753899380930065,&
     -0.000294894042986087/)
 
-    !Insect%xc = 0.0 ! original mesh 
+    !Insect%xc = 0.0 ! original mesh
     Insect%xc = 0.0473 ! shifted towards t.e. to 1/4 of the root chord ("+" sign here)
     !Insect%xc = -0.0728 ! shifted towards l.e., to 0.2cmean from the l.e. (Liu and Aono BB 2009)
     !Insect%yc = 0.7
@@ -594,7 +601,7 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
   case ('drosophila_sun')
     !********************************************
     !  Drosophila virilis wing from Chen and Sun, Acta Mech Sin 2014
-    !********************************************        
+    !********************************************
     Insect%n_fft = 25
     allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
     Insect%a0 = 0.5427789795180327
@@ -621,8 +628,8 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
   case ('bumblebee')
     !********************************************
     !  Bumblebee
-    !  http://www.entomology.umn.edu/museum/links/coursefiles/JPEG%20images/Hymenoptera%20web%20jpeg/Bombus-wings.jpg 
-    !********************************************        
+    !  http://www.entomology.umn.edu/museum/links/coursefiles/JPEG%20images/Hymenoptera%20web%20jpeg/Bombus-wings.jpg
+    !********************************************
     Insect%n_fft = 25
     allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
     Insect%a0 = 0.594557593733011d0
@@ -648,9 +655,9 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     Insect%yc = 0.501549263807117d0
   case ('flapper_sane')
     !********************************************
-    !  Mechanical model from Sane and Dickinson, JEB 205, 2002 
+    !  Mechanical model from Sane and Dickinson, JEB 205, 2002
     !  'The aerodynamic effects...'
-    !********************************************        
+    !********************************************
     Insect%n_fft = 25
     allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
     Insect%a0 = 0.5379588906565078
@@ -672,16 +679,16 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     -3.108879176661735E-4,2.2437540206568518E-4,-2.578427217327782E-4,&
     -2.5120263516966855E-4,4.1693453021778877E-4,3.9290173948150096E-4,&
     -1.9762601237675826E-4/)
-    Insect%xc = 0.0  
+    Insect%xc = 0.0
     Insect%yc = 0.6
   case ('flapper_dickinsonII')
     !********************************************
     ! Digitized from Dickinson et al 1999 Science, figure 1A, drawing
     ! of the mechanical robot
-    !********************************************        
-    Insect%n_fft = 20 
+    !********************************************
+    Insect%n_fft = 20
     allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
-    Insect%a0 = 0.6442788 
+    Insect%a0 = 0.6442788
     ai = (/0.0482978,-0.1208378,0.0061008,0.0356718,-0.0148328,-0.0109958,&
     0.0110268,0.0018538,-0.0061998,0.0015458,0.0025508,-0.0017538,&
     -0.0002578,0.0015018,-0.0003158,-0.0006048,0.0007168,-0.0001568,&
@@ -690,11 +697,11 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     0.0081378,-0.0036288,-0.0038168,0.0031348,0.0011858,-0.0023828,&
     -0.0001638,0.0016098,-0.0004768,-0.0007188,0.0007228,0.0002278,&
     -0.0005798,0.0001228/)
-    Insect%yc = 0.5282438 
-    Insect%xc = -0.1184548 
-    
-    ! overwrite this because otherwise the wing is not entirely in the 
-    ! bounding box. (I actually do not recall why the L_span and L_chord are 
+    Insect%yc = 0.5282438
+    Insect%xc = -0.1184548
+
+    ! overwrite this because otherwise the wing is not entirely in the
+    ! bounding box. (I actually do not recall why the L_span and L_chord are
     ! in the params file at all...)
     Insect%L_span = 1.2
   case ('robofly_dickinson')
@@ -702,10 +709,10 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     ! Digitized from the hand drawn figure M. Dickinson sent via email, which
     ! contained the exact location of the pivot point. He also sent a CAD drawing
     ! which looks slightly different, and had no pivot point marked.
-    !********************************************        
-    Insect%n_fft = 28 
+    !********************************************
+    Insect%n_fft = 28
     allocate ( ai(1:Insect%n_fft), bi(1:Insect%n_fft) )
-    Insect%a0 = 0.5313628 
+    Insect%a0 = 0.5313628
     ai = (/-0.0245658,-0.0842918,0.0218028,0.0105418,-0.0095288,0.0012928,&
     0.0021928,0.0000328,-0.0007648,-0.0015808,0.0013808,0.0013068,&
     -0.0010748,0.0002408,-0.0000378,-0.0010888,0.0008248,0.0004708,&
@@ -716,11 +723,11 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     0.0003198,-0.0004298,0.0006388,-0.0000648,-0.0002308,0.0002518,&
     -0.0003948,0.0000928,0.0004478,-0.0003078,-0.0000888,0.0001638,&
     -0.0002348,0.0001398,0.0001398,-0.0002358/)
-    Insect%yc = 0.4645238 
-    Insect%xc = -0.0716018 
-    
-    ! overwrite this because otherwise the wing is not entirely in the 
-    ! bounding box. (I actually do not recall why the L_span and L_chord are 
+    Insect%yc = 0.4645238
+    Insect%xc = -0.0716018
+
+    ! overwrite this because otherwise the wing is not entirely in the
+    ! bounding box. (I actually do not recall why the L_span and L_chord are
     ! in the params file at all...)
     Insect%L_span = 1.05
   case default
@@ -728,5 +735,5 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
                 & shape but the type Insect%WingShape is unknown! :: "// Insect%WingShape
     call abort()
   end select
-  
+
 end subroutine Setup_Wing_Fourier_coefficients
