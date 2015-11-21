@@ -771,8 +771,9 @@ subroutine keyvalues(filename)
   implicit none
   character(len=*), intent(in) :: filename
   character(len=strlen) :: dsetname
-  real(kind=pr) :: time, npoints
+  real(kind=pr) :: time, npoints, q, x,y,z
   real(kind=pr), dimension(:,:,:), allocatable :: field
+  integer :: ix,iy,iz
 
   if (mpisize>1) then
     write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"
@@ -795,10 +796,29 @@ subroutine keyvalues(filename)
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
 
   call read_single_file_serial (filename, field)
-  npoints=dble(nx)*dble(ny)*dble(nz)
+
+  npoints = dble(nx)*dble(ny)*dble(nz)
+
+  ! compute an additional quantity that depends also on the position
+  ! (the others are translation invariant)
+  q=0.d0
+  do iz = 0, nz-1
+   do iy = 0, ny-1
+    do ix = 0, nx-1
+      x = dble(ix)*xl/dble(nx)
+      y = dble(iy)*yl/dble(ny)
+      z = dble(iz)*zl/dble(nz)
+
+      q = q + x*field(ix,iy,iz) + y*field(ix,iy,iz) + z*field(ix,iy,iz)
+      enddo
+    enddo
+  enddo
+
   open  (14, file = filename(1:index(filename,'.'))//'key', status = 'replace')
-  write (14,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/npoints, sum(field**2)/npoints
-  write (*,'(4(es17.10,1x))') maxval(field), minval(field), sum(field)/npoints, sum(field**2)/npoints
+  write (14,'(6(es15.8,1x))') time, maxval(field), minval(field),&
+   sum(field)/npoints, sum(field**2)/npoints, q/npoints
+  write (*,'(6(es15.8,1x))') time, maxval(field), minval(field),&
+   sum(field)/npoints, sum(field**2)/npoints, q/npoints
   close (14)
 
   deallocate (field)
@@ -906,27 +926,33 @@ subroutine compare_key(key1,key2)
   use mpi
   implicit none
   character(len=*), intent(in) :: key1,key2
-  real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2
-  real(kind=pr) :: e1,e2,e3,e4
+  real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2,t1,t2,q1,q2
+  real(kind=pr) :: e1,e2,e3,e4,e0,e5
 
   call check_file_exists(key1)
   call check_file_exists(key2)
 
   open  (14, file = key1, status = 'unknown', action='read')
-  read (14,'(4(es17.10,1x))') a1,b1,c1,d1
+  read (14,'(6(es15.8,1x))') t1,a1,b1,c1,d1,q1
   close (14)
 
   open  (14, file = key2, status = 'unknown', action='read')
-  read (14,'(4(es17.10,1x))') a2,b2,c2,d2
+  read (14,'(6(es15.8,1x))') t2,a2,b2,c2,d2,q2
   close (14)
 
-  write (*,'("present  : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-  a1,b1,c1,d1
+  write (*,'("present  : time=",es15.8," max=",es15.8," min=",es15.8," sum=",es15.8," sum**2=",es15.8," q=",es15.8)') &
+  t1,a1,b1,c1,d1,q1
 
-  write (*,'("reference: max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-  a2,b2,c2,d2
+  write (*,'("reference: time=",es15.8," max=",es15.8," min=",es15.8," sum=",es15.8," sum**2=",es15.8," q=",es15.8)') &
+  t2,a2,b2,c2,d2,q2
 
   ! errors:
+  if (dabs(t2)>=1.0d-7) then
+    e0 = dabs( (t2-t1) / t2 )
+  else
+    e0 = dabs( (t2-t1) )
+  endif
+
   if (dabs(a2)>=1.0d-7) then
     e1 = dabs( (a2-a1) / a2 )
   else
@@ -951,10 +977,16 @@ subroutine compare_key(key1,key2)
     e4 = dabs( (d2-d1) )
   endif
 
-  write (*,'("err(rel) : max=",es17.10," min=",es17.10," sum=",es17.10," sum**2=",es17.10)') &
-  e1,e2,e3,e4
+  if (dabs(q2)>=1.0d-7) then
+    e5 = dabs( (q2-q1) / q2 )
+  else
+    e5 = dabs( (q2-q1) )
+  endif
 
-  if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4)) then
+  write (*,'("err(rel) : time=",es15.8," max=",es15.8," min=",es15.8," sum=",es15.8," sum**2=",es15.8," q=",es15.8)') &
+  e0,e1,e2,e3,e4,e5
+
+  if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4) .and. (e0<1.d-4) .and. (e5<1.d-4)) then
     ! all cool
     write (*,*) "OKAY..."
     call exit(0)

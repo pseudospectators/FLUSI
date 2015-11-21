@@ -10,7 +10,7 @@
 # what parameter file
 dir="fruitfly_mask/"
 params="fruitfly_mask/fruitfly_mask.ini"
-cp fruitfly_mask/kinematics_converted.ini ./
+cp fruitfly_mask/kinematics.ini ./
 happy=0
 sad=0
 
@@ -66,7 +66,7 @@ do
   done
 done
 
-rm kinematics_converted.ini
+rm kinematics.ini
 
 echo -e "\thappy tests: \t" $happy
 echo -e "\tsad tests: \t" $sad

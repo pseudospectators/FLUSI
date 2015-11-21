@@ -1,7 +1,8 @@
 #!/bin/bash
 
+echo "***************************************************"
 echo "Unit-testing script for flusi/mhd pseudospectators."
-echo
+echo "***************************************************"
 
 # this is to reduce the number of files in the repository
 #tar xzf tests_data.tar.gz
@@ -12,7 +13,7 @@ tests=(solid_model.sh solid_model2.sh solid_model3.sh solid_model4.sh jerry.sh f
        vortexring2_RK2.sh vortexring4_sponge.sh
        sphere_sponge_RK2.sh sphere.sh sphere_restart.sh mhdorszagtang.sh
        swimmer1_iteration.sh swimmer2_staggered.sh swimmer3_semiimplicit.sh
-       insect.sh insect_RK4.sh insect_takeoff.sh )
+       insect.sh insect_RK4.sh)
 
 # link flusi and mhd from .. to . if this isn't already done.
 if [ ! -f flusi ]; then
@@ -37,7 +38,8 @@ numsuccess=0
 numfail=0
 
 echo "employed command for parallel exec: " $mpi_command
-echo "employed command for serial exec: " $mpi_serial
+echo "employed command for serial   exec: " $mpi_serial
+echo "to modify these commands, set \$nprocs, \$mpi_command or \$mpi_serial in shell"
 
 # Get time as a UNIX timestamp (seconds elapsed since Jan 1, 1970 0:00 UTC)
 T="$(date +%s)"

@@ -13,7 +13,7 @@ sad=0
 
 
 # list of prefixes the test generates
-prefixes=(ux uy uz mask scalar)
+prefixes=(ux uy uz mask scalar1)
 # list of possible times (no need to actually have them)
 times=(000000 000250 000501 000750 001000)
 # run actual test
