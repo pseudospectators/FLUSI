@@ -15,9 +15,9 @@ module kine
   ! dx/dt = v_x
   ! dz/dt = v_z
   ! dv_x/dt = (f_x_external+f_x_aero_steadypart)/(m_solid-m_fluid)
-  ! dv_z/dt = (f_z_external+f_z_aero_steadypart)/(m_solid-m_fluid) 
+  ! dv_z/dt = (f_z_external+f_z_aero_steadypart)/(m_solid-m_fluid)
   ! The unsteady correction is thus treated implicitly
   real (kind=prk), dimension (4), save :: kine_now,kine_old
   ! All peremeters are normalized as everywhere else in the code
+  logical, save :: initialized = .false.
 end module kine
-

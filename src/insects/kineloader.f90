@@ -1,17 +1,20 @@
-subroutine load_kine_init(mpirank)
+subroutine load_kine_init(file, mpirank)
   use mpi
   use kine
+  use fsi_vars, only : strlen
   implicit none
 
   integer, intent(in) :: mpirank
   integer :: j, mpicode
-  real (kind=prk) :: t_period, r_wing 
+  real (kind=prk) :: t_period, r_wing
+  character(len=strlen), intent(in) :: file
 
   if (mpirank==0) then
-    open (10, file = 'data_kin.dat', form='formatted', status='old') 
+    open (10, file = file, form='formatted', status='old')
     read (10, *) t_period ! stroke period in s, for normalization
     read (10, *) r_wing   ! wing length in mm, for normalization
     read (10, *) nk
+    write(*,'("nk=",i5," t_period=",g12.4," r_wing=",g12.4)') nk, t_period, r_wing
   endif
 
   call MPI_BCAST(nk,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
@@ -28,16 +31,27 @@ subroutine load_kine_init(mpirank)
   allocate(vec_vert_dt(nk))
   allocate(vec_horz(nk))
   allocate(vec_horz_dt(nk))
-  
-  if (mpirank==0) then 
+
+  if (mpirank==0) then
     ! read from file
     do j = 1, nk
       read (10, *) vec_t(j), &
-        vec_phi(j),vec_alpha(j),vec_theta(j),vec_pitch(j),vec_vert(j),vec_horz(j),  &
-        vec_phi_dt(j),vec_alpha_dt(j),vec_theta_dt(j),vec_pitch_dt(j),vec_vert_dt(j),vec_horz_dt(j)
+        vec_phi(j),&
+        vec_alpha(j),&
+        vec_theta(j),&
+        vec_pitch(j),&
+        vec_vert(j),&
+        vec_horz(j),  &
+        vec_phi_dt(j),&
+        vec_alpha_dt(j),&
+        vec_theta_dt(j),&
+        vec_pitch_dt(j),&
+        vec_vert_dt(j),&
+        vec_horz_dt(j)
     enddo
     close (10)
     print *, "load_kine_init: data read from file, nk=", nk
+    print *, "non-dimensionalizing input data:"
     ! non-dimensionalize
     vec_t(:) = vec_t(:) / t_period
     vec_vert(:) = vec_vert(:) / r_wing
@@ -47,9 +61,9 @@ subroutine load_kine_init(mpirank)
     vec_theta_dt(:) = vec_theta_dt(:) * t_period
     vec_pitch_dt(:) = vec_pitch_dt(:) * t_period
     vec_vert_dt(:) = vec_vert_dt(:) * t_period / r_wing
-    vec_horz_dt(:) = vec_horz_dt(:) * t_period / r_wing 
+    vec_horz_dt(:) = vec_horz_dt(:) * t_period / r_wing
   endif
-  
+
   call MPI_BCAST( vec_t, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
   call MPI_BCAST( vec_phi, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
   call MPI_BCAST( vec_alpha, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
@@ -63,6 +77,8 @@ subroutine load_kine_init(mpirank)
   call MPI_BCAST( vec_pitch_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
   call MPI_BCAST( vec_vert_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
   call MPI_BCAST( vec_horz_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+
+  initialized = .true.
 end subroutine
 
 
@@ -88,10 +104,15 @@ end subroutine
 
 subroutine wing_kine_interp(t_i,phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i)
   use kine
+  use vars, only : abort
   implicit none
 
   real(kind=prk), intent(in) :: t_i
   real(kind=prk), intent(out) :: phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i
+
+  if (initialized .eqv. .false.) then
+    call abort("kinematics_loader is not initialized but wing_kine_interp is called")
+  endif
 
   call hermite1d(nk,vec_t,vec_phi,vec_phi_dt,t_i,phi_i,phi_dt_i)
   call hermite1d(nk,vec_t,vec_alpha,vec_alpha_dt,t_i,alpha_i,alpha_dt_i)
@@ -159,5 +180,3 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
   endif
 
 end subroutine
-
-

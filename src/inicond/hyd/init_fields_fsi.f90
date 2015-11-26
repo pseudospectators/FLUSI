@@ -25,11 +25,10 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   integer :: ix,iy,iz, nxs,nys,nzs, nxb,nyb,nzb
-  real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega
+  real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega,viscosity_dummy
   real (kind=pr) :: uu,Ek,E,Ex,Ey,Ez,kx,ky,kz,theta1,theta2,phi,kabs,kh,kp,maxdiv
   complex(kind=pr) :: alpha,beta
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
-  character(len=strlen) :: dsetname
 
   ! Assign zero values
   time = 0.0d0
@@ -219,8 +218,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_uy
     if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_uz
 
-    dsetname = file_ux ( 1:index( file_ux, '_' )-1 )
-    call fetch_attributes( file_ux, dsetname, nxs, nys, nzs, x, y, z, time )
+    call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy )
     time = 0.d0
     ra(1) = 0
     rb(1) = nxs-1

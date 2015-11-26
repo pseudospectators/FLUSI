@@ -539,129 +539,6 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   deallocate(attributes)
 end subroutine dump_field_backup
 
-
-
-
-
-! Read in a single file that follows the naming convention
-! this is a serial routine (parallel version below)
-! note you need to know what dimension the file has,
-! call fetch_attributes first
-subroutine read_single_file_serial(filename,field)
-  use mpi
-  use vars
-  use hdf5
-  use basic_operators
-  implicit none
-
-  character(len=*),intent(in) :: filename
-  real(kind=pr), intent (out) :: field(0:nx-1,0:ny-1,0:nz-1)
-
-  integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
-  character(len=80)             :: dsetname
-
-  integer(hid_t) :: file_id       ! file identifier
-  integer(hid_t) :: dset_id       ! dataset identifier
-  integer(hid_t) :: filespace     ! dataspace identifier in file
-  integer(hid_t) :: memspace      ! dataspace identifier in memory
-  integer(hid_t) :: plist_id      ! property list identifier
-
-  ! dataset dimensions in the file.
-  integer(hsize_t), dimension(rank) :: dimensions_file
-  integer(hsize_t), dimension(rank) :: dimensions_local  ! chunks dimensions
-  integer(hsize_t), dimension(rank) :: chunking_dims  ! chunks dimensions
-
-  integer(hsize_t),  dimension(rank) :: count  = 1
-  integer(hssize_t), dimension(rank) :: offset
-  integer(hsize_t),  dimension(rank) :: stride = 1
-  integer :: error  ! error flags
-
-  ! what follows is for the attribute "time"
-  integer, parameter :: arank = 1
-
-  ! the dataset is named the same way as the file: (this is convention)
-  dsetname = filename ( 1:index( filename, '_' )-1 )
-
-  if (mpisize>1) then
-    write (*,*) "this routine is currently serial only"
-    call abort()
-  endif
-
-  ! check if file exist
-  call check_file_exists( filename )
-
-  ! Initialize HDF5 library and Fortran interfaces.
-  call h5open_f(error)
-
-  ! Setup file access property list with parallel I/O access.  this
-  ! sets up a property list ("plist_id") with standard values for
-  ! FILE_ACCESS
-  call h5pcreate_f(H5P_FILE_ACCESS_F, plist_id, error)
-  ! this modifies the property list and stores MPI IO
-  ! comminucator information in the file access property list
-  call h5pset_fapl_mpio_f(plist_id, MPI_COMM_WORLD, MPI_INFO_NULL, error)
-  ! open the file in parallel
-  call h5fopen_f (filename, H5F_ACC_RDWR_F, file_id, error, plist_id)
-  ! this closes the property list (we'll re-use it)
-  call h5pclose_f(plist_id, error)
-
-  ! Definition of memory distribution
-  dimensions_file = (/nx,ny,nz/)
-  dimensions_local(1) = nx
-  dimensions_local(2) = ny
-  dimensions_local(3) = nz
-
-  offset(1) = 0
-  offset(2) = 0
-  offset(3) = 0
-
-  chunking_dims(1) = nx
-  chunking_dims(2) = ny
-  chunking_dims(3) = nz
-
-  !----------------------------------------------------------------------------
-  ! Read actual field from file (dataset)
-  !----------------------------------------------------------------------------
-  ! dataspace in the file: contains all data from all procs
-  call h5screate_simple_f(rank, dimensions_file, filespace, error)
-  ! dataspace in memory: contains only local data
-  call h5screate_simple_f(rank, dimensions_local, memspace, error)
-
-  ! Create chunked dataset
-  call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunking_dims, error)
-
-  ! Open an existing dataset.
-  call h5dopen_f(file_id, dsetname, dset_id, error)
-
-  ! Select hyperslab in the file.
-  call h5dget_space_f(dset_id, filespace, error)
-  call h5sselect_hyperslab_f (filespace, H5S_SELECT_SET_F, offset, count, &
-  error , stride, dimensions_local)
-
-  ! Create property list for collective dataset read
-  call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
-
-  call h5dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dimensions_local, error, &
-  mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
-
-  call h5sclose_f(filespace, error)
-  call h5sclose_f(memspace, error)
-  call h5pclose_f(plist_id, error) ! note the dataset remains opened
-
-  ! Close dataset
-  call h5dclose_f(dset_id, error)
-  call h5fclose_f(file_id,error)
-  call H5close_f(error)
-
-  call checknan(field,"recently loaded field")
-
-end subroutine read_single_file_serial
-
-
-
-
 ! Read in a single file that follows the naming convention
 ! note you need to know the dimensions and domain decomposition before
 ! calling it.
@@ -669,6 +546,7 @@ subroutine Read_Single_File ( filename, field )
   use mpi
   use vars
   use hdf5
+  use helpers
   use basic_operators
   implicit none
 
@@ -678,8 +556,9 @@ subroutine Read_Single_File ( filename, field )
   intent (out) :: field
 
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
-  real (kind=pr)                :: time, xl_file, yl_file, zl_file, fmax,fmin
-  character(len=80)             :: dsetname
+  real (kind=pr)                :: time, xl_file, yl_file, zl_file, t1
+  real (kind=pr)                :: fmax,fmin,favg,viscosity_dummy
+  character(len=strlen)             :: dsetname
   integer                       :: nx_file, ny_file, nz_file, mpierror, i
 
   integer(hid_t) :: file_id       ! file identifier
@@ -696,15 +575,17 @@ subroutine Read_Single_File ( filename, field )
   integer(hsize_t),  dimension(rank) :: count  = 1
   integer(hssize_t), dimension(rank) :: offset
   integer(hsize_t),  dimension(rank) :: stride = 1
-  integer :: error  ! error flags
+  integer :: error, mpicode  ! error flags
 
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
-
+  t1 = MPI_wtime()
   ! the dataset is named the same way as the file: (this is convention)
-  dsetname = filename ( 1:index( filename, '_' )-1 )
+  dsetname = get_dsetname(filename)
   if (mpirank==0) then
-    write (*,'("Reading file ",A,"  .....")',advance='no') trim(adjustl(filename))
+    write(*,'(40("~"))')
+    write(*,'("Reading from file ",A)') trim(adjustl(filename))
+    write(*,'("dsetname=",A)') trim(adjustl(dsetname))
   endif
 
   !-----------------------------------------------------------------------------
@@ -713,15 +594,21 @@ subroutine Read_Single_File ( filename, field )
   call check_file_exists ( filename )
 
   ! fetch attributes from file to see if it is a good idea to load it
-  call Fetch_attributes( filename, dsetname,nx_file,ny_file,nz_file,&
-  xl_file,yl_file ,zl_file,time )
+  call Fetch_attributes( filename,nx_file,ny_file,nz_file,&
+  xl_file,yl_file ,zl_file,time, viscosity_dummy )
+
+  if (mpirank==0) then
+    write(*,'("nx=",i4," ny=",i4," nz=",i4," time=",g12.4," viscosity=",g12.4)')&
+     nx_file,ny_file,nz_file,time,viscosity_dummy
+    write(*,'("xl=",g12.4," yl=",g12.4," zl=",g12.4)') xl_file,yl_file ,zl_file
+  endif
 
   ! if the resolutions do not match, yell and hang yourself
   if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then
     if (mpirank == 0) then
-      write (*,'(A)') "read_single_file: ERROR " // trim(filename)
-      write (*,'("nx=",i4,"ny=",i4,"nz=",i4)') nx,ny,nz
-      write (*,'("but in file: nx=",i4,"ny=",i4,"nz=",i4)') nx_file,ny_file,nz_file
+      write (*,'(A)') "ERROR! Resolution mismatch"
+      write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
+      write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nx_file,ny_file,nz_file
       call abort()
     endif
   endif
@@ -729,8 +616,8 @@ subroutine Read_Single_File ( filename, field )
   ! if the domain size doesn't match, proceed, but yell.
   if ((xl.ne.xl_file).or.(yl.ne.yl_file).or.(zl.ne.zl_file)) then
     if (mpirank == 0) then
-      write (*,'(A)') "read_single_file: WARNING " // trim(filename)
-      write (*,'("xl=",es12.4,"yl=",es12.4,"zl=",es12.4)')&
+      write (*,'(A)') " WARNING! Domain size mismatch."
+      write (*,'("in memory:   xl=",es12.4,"yl=",es12.4,"zl=",es12.4)')&
       xl,yl,zl
       write (*,'("but in file: xl=",es12.4,"yl=",es12.4,"zl=",es12.4)') &
       xl_file,yl_file,zl_file
@@ -761,6 +648,22 @@ subroutine Read_Single_File ( filename, field )
   dimensions_local(1) = rb(1)-ra(1) +1
   dimensions_local(2) = rb(2)-ra(2) +1
   dimensions_local(3) = rb(3)-ra(3) +1
+
+  call MPI_REDUCE (dimensions_local(1),nx_file,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
+  call MPI_REDUCE (dimensions_local(2),ny_file,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
+  call MPI_REDUCE (dimensions_local(3),nz_file,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
+
+  ! if the resolutions do not match, yell and hang yourself
+  if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then
+    if (mpirank == 0) then
+      write (*,'(A)') "ERROR! Resolution mismatch"
+      write (*,'(A)') "This happens if ra(:) and rb(:) are not properly initialized."
+      write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
+      write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nx_file,ny_file,nz_file
+      call abort()
+    endif
+  endif
+
 
   offset(1) = ra(1)
   offset(2) = ra(2)
@@ -814,15 +717,17 @@ subroutine Read_Single_File ( filename, field )
 
   fmax=fieldmax(field)
   fmin=fieldmin(field)
+  favg=fieldmean(field)
 
   if (mpirank==0) then
-    write (*,'("max=",es12.4," min=",es12.4," ")',advance='no') fmax,fmin
+    write (*,'("max=",g12.4," min=",g12.4," mean=",g12.4)') fmax,fmin,favg
   endif
 
   call checknan(field,"recently loaded field")
 
   if (mpirank==0) then
-    write (*,'("...DONE! ")',advance='yes')
+    write (*,'("Done reading file, Elapsed time=",g12.4,"s")') MPI_wtime() - t1
+    write(*,'(40("~"))')
   endif
 
 end subroutine Read_Single_File
@@ -1275,17 +1180,18 @@ end subroutine save_fields_mhd
 !           the file must contain the dataset
 !           but especially the attributes "nxyz", "time", "domain_size"
 !----------------------------------------------------
-subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
+subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
   use hdf5
+  use helpers, only : get_dsetname
   use mpi
   implicit none
 
   integer, parameter :: pr = 8
   integer, intent (out) :: nx, ny, nz
-  real (kind=pr), intent(out) :: xl,yl,zl, time
+  real (kind=pr), intent(out) :: xl,yl,zl, time, viscosity
 
   character(len=*) :: filename  ! file name
-  character(len=*) :: dsetname  ! dataset name
+  character(len=80) :: dsetname  ! dataset name
   character(len=4) :: aname     ! attribute name
   character(len=11) :: aname2
 
@@ -1305,6 +1211,8 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
 
   call check_file_exists ( filename )
+  ! get dataset name from file name
+  dsetname = get_dsetname( filename )
 
   ! Initialize FORTRAN interface.
   CALL h5open_f(error)
@@ -1351,21 +1259,21 @@ subroutine Fetch_attributes( filename, dsetname,  nx, ny, nz, xl, yl ,zl, time )
   !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (viscosity)
   !!!!!!!!!!!!!!!!!!!!!!!!!!
-  ! aname = "viscosity"
-  ! CALL h5aopen_f(dset_id, "viscosity", attr_id, error)
-  ! if (error == 0) then
-  !   ! Get dataspace and read
-  !   CALL h5aget_space_f(attr_id, aspace_id, error)
-  !   data_dims(1) = 1
-  !   CALL h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attr_data, data_dims, error)
-  !
-  !   ! nu = attr_data
-  !   write(*,*) "did read viscosity", attr_data
-  !   CALL h5aclose_f(attr_id, error) ! Close the attribute.
-  !   CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
-  ! else
-  !   if(mpirank==0) write (*,*) "the file did not contain this attribute!"
-  ! endif
+  aname = "viscosity"
+  CALL h5aopen_f(dset_id, "viscosity", attr_id, error)
+  if (error == 0) then
+    ! Get dataspace and read
+    CALL h5aget_space_f(attr_id, aspace_id, error)
+    data_dims(1) = 1
+    CALL h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attr_data, data_dims, error)
+
+    viscosity = attr_data
+    CALL h5aclose_f(attr_id, error) ! Close the attribute.
+    CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
+  else
+    if(mpirank==0) write (*,*) "the file did not contain this attribute!"
+    viscosity = 0.d0
+  endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (sizes)

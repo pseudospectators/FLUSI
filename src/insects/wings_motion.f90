@@ -705,24 +705,22 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     theta_dt = 0.0d0
 
 
-  case ("takeoff")
+  case ("kinematics_loader")
     !--------------------------------------------------
-    ! Fontaine et al.
+    ! kinematics loader for non-periodic kinematics
     !--------------------------------------------------
-    if (Insect%KineFromFile/="no") then
-      call wing_kine_interp(time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt)
-      ! position angle
-      phi = deg2rad(phi)
-      phi_dt = deg2rad(phi_dt)
-      ! feathering angle
-      alpha = deg2rad(alpha)
-      alpha_dt = deg2rad(alpha_dt)
-      ! elevation angle in flusi coordinates
-      theta = -theta
-      theta_dt = - theta_dt
-      theta = deg2rad(theta)
-      theta_dt = deg2rad(theta_dt)
-    endif
+    call wing_kine_interp(time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt)
+    ! position angle
+    phi = deg2rad(phi)
+    phi_dt = deg2rad(phi_dt)
+    ! feathering angle
+    alpha = deg2rad(alpha)
+    alpha_dt = deg2rad(alpha_dt)
+    ! elevation angle in flusi coordinates
+    theta = -theta
+    theta_dt = - theta_dt
+    theta = deg2rad(theta)
+    theta_dt = deg2rad(theta_dt)
 
   case ("simplified")
     !---------------------------------------------------------------------------

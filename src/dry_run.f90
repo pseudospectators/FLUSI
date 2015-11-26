@@ -88,9 +88,12 @@ subroutine dry_run()
   !-----------------------------------------------------------------------------
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
-    if (Insect%KineFromFile/="no") then
-      if (mpirank==0) write(*,*) "Initializing kinematics loader..."
-      call load_kine_init(mpirank)
+    if (Insect%FlappingMotion_right=="kinematics_loader".or.Insect%FlappingMotion_left=="kinematics_loader") then
+      if (mpirank==0) then
+        write(*,*) "Initializing kinematics loader for non-periodic kinematics.."
+        write(*,*) "File is "//trim(adjustl(Insect%Infile))
+      endif
+      call load_kine_init(Insect%Infile, mpirank)
     endif
     ! If required, initialize rigid solid dynamics solver
     if (Insect%BodyMotion=="free_flight") then

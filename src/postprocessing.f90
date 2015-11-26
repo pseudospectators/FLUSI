@@ -5,26 +5,42 @@ subroutine postprocessing()
   use vars
   use mpi
   implicit none
-  character(len=strlen)     :: postprocessing_mode, filename, key1,key2
+  character(len=strlen) :: postprocessing_mode, filename, key1,key2, mode
+  logical :: help
   real(kind=pr) :: t1
-
+  help = .false.
   t1=MPI_wtime()
 
-  if (mpirank==0) write (*,*) "*** FLUSI is running in postprocessing mode ***"
-  call postprocessing_ascii_header( 6 )
+  ! the first argument is either "-p" or "-h"
+  call get_command_argument(1,mode)
 
-  ! the second argument tells us what to do with the file
+  ! the second argument tells us what to do
   call get_command_argument(2,postprocessing_mode)
-  ! it then depends on the second argument what follows
+
+  ! if mode is help, then we'll call the routines with help=.true. and skip
+  ! all other output
+  if ((mode=="-h").or.(mode=="--help")) then
+    ! we'll just show the help for the routine (we even skip the header)
+    help=.true.
+  else
+    ! we'll actually do something, postprocessing
+    if (mpirank==0) then
+      write(*,'(80("~"))')
+      write(*,'(A)') "~~~ FLUSI is running in postprocessing mode"
+      write(*,'(80("~"))')
+    endif
+    ! show the call from the command line in output
+    call postprocessing_ascii_header( 6 )
+  endif
 
   !-----------------
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
   case ("--simple-field-operation")
-    call simple_field_operation()
+    call simple_field_operation(help)
   case ("--cp")
-    call copy_hdf_file()
+    call copy_hdf_file(help)
   case ("--keyvalues")
     call get_command_argument(3,filename)
     call keyvalues (filename)
@@ -33,53 +49,86 @@ subroutine postprocessing()
     call get_command_argument(4,key2)
     call compare_key (key1,key2)
   case ("--compare-timeseries")
-    call compare_timeseries()
-  case ("--vorticity")
-    call convert_vorticity()
+    call compare_timeseries(help)
+  case ("--vorticity","--vor")
+    call convert_vorticity(help)
   case ("--vor2u")
-    call convert_velocity()
-  case ("--vor_abs")
-    call convert_abs_vorticity()
+    call convert_velocity(help)
+  case ("--vor_abs","--vor-abs")
+    call convert_abs_vorticity(help)
   case ("--hdf2bin")
-    call convert_hdf2bin()
+    call convert_hdf2bin(help)
   case ("--bin2hdf")
-    call convert_bin2hdf()
+    call convert_bin2hdf(help)
   case ("--p2Q")
-    call pressure_to_Qcriterion()
+    call pressure_to_Qcriterion(help)
   case ("--extract-subset")
-    call extract_subset()
+    call extract_subset(help)
   case ("--time-avg")
-    call time_avg_HDF5()
+    call time_avg_HDF5(help)
   case ("--upsample")
-    call upsample()
+    call upsample(help)
   case ("--spectrum")
-    call post_spectrum()
+    call post_spectrum(help)
   case ("--turbulence-analysis")
-    call turbulence_analysis()
+    call turbulence_analysis(help)
+  case ("--field-analysis")
+    call field_analysis(help)
   case ("--TKE-mean")
-    call tke_mean()
+    call tke_mean(help)
   case ("--max-over-x")
-    call max_over_x()
+    call max_over_x(help)
   case ("--mean-over-x-subdomain")
-    call mean_over_x_subdomain()
+    call mean_over_x_subdomain(help)
   case ("--mean-2D")
-    call mean_2D()
+    call mean_2D(help)
   case ("--set-hdf5-attribute")
-    call set_hdf5_attribute()
+    call set_hdf5_attribute(help)
   case ("-ux-from-uyuz")
-    call ux_from_uyuz()
+    call ux_from_uyuz(help)
   case ("--check-params-file")
-    call check_params_file()
+    call check_params_file(help)
   case ("--magnitude")
-    call magnitude_post()
+    call magnitude_post(help)
   case ("--energy")
-    call energy_post()
+    call energy_post(help)
   case default
-    if(mpirank==0) write(*,*) "Postprocessing option is "// postprocessing_mode
-    if(mpirank==0) write(*,*) "But I don't know what to do with that"
+    if (root) then
+      write(*,*) "Available Postprocessing tools are:"
+      write(*,*) "--energy"
+      write(*,*) "--magnitude"
+      write(*,*) "--check-params-file"
+      write(*,*) "--ux-from-uyuz"
+      write(*,*) "--set-hdf5-attribute"
+      write(*,*) "--mean-2D"
+      write(*,*) "--mean-over-x-subdomain"
+      write(*,*) "--max-over-x"
+      write(*,*) "--TKE-mean"
+      write(*,*) "--field-analysis"
+      write(*,*) "--turbulence-analysis"
+      write(*,*) "--spectrum"
+      write(*,*) "--upsample"
+      write(*,*) "--time-avg"
+      write(*,*) "--extract-subset"
+      write(*,*) "--p2Q"
+      write(*,*) "--simple-field-operation"
+      write(*,*) "--cp"
+      write(*,*) "--keyvalues"
+      write(*,*) "--compare-keys"
+      write(*,*) "--compare-timeseries"
+      write(*,*) "--vorticity  --vor"
+      write(*,*) "--vor2u"
+      write(*,*) "--vor_abs --vor-abs"
+      write(*,*) "--hdf2bin"
+      write(*,*) "--bin2hdf"
+      write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))
+      write(*,*) "But I don't know what to do with that"
+  endif
   end select
 
-  if (mpirank==0) write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1
+  if ((mpirank==0).and.(help.eqv..false.)) then
+    write(*,'("Elapsed time=",es12.4)') MPI_wtime()-t1
+  endif
 end subroutine postprocessing
 
 
@@ -122,18 +171,35 @@ end subroutine postprocessing_ascii_header
 ! ./flusi --postprocess --hdf2bin ux_00000.h5 filename.bin
 !-------------------------------------------------------------------------------
 ! converts the *.h5 file to an ordinairy binary file
-subroutine convert_hdf2bin()
+subroutine convert_hdf2bin(help)
   use vars
   use mpi
   use basic_operators
   use helpers
   implicit none
+  logical, intent(in) :: help
   character(len=strlen) :: fname, fname_bin
   real(kind=pr), dimension(:,:,:), allocatable :: field
   integer, parameter :: pr_out = 4
   integer :: ix, iy ,iz
   real(kind=pr_out), dimension(:,:,:), allocatable :: field_out ! single precision
   real(kind=pr) :: time
+
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --hdf2bin ux_00000.h5 filename.bin"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "convert the given HDF5 file to a FORTRAN binary file"
+    write(*,*) "Ordering:"
+    write(*,*) "write (12) (((field_out (ix,iy,iz), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)"
+    write(*,*) "SINGLE PRECISION, LITTLE_ENDIAN"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: NO"
+    return
+  endif
+
+
   call get_command_argument(3,fname)
   call get_command_argument(4,fname_bin)
 
@@ -145,16 +211,20 @@ subroutine convert_hdf2bin()
     return
   endif
 
-  call fetch_attributes( fname, get_dsetname(fname), nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu )
 
   write (*,'("Converting ",A," to ",A," Resolution is",3(i4,1x))') &
   trim(fname), trim(fname_bin), nx,ny,nz
   write (*,'("time=",es12.4," xl=",es12.4," yl=",es12.4," zl=",es12.4)') &
   time, xl, yl, zl
 
+  ra=(/0,0,0/)
+  rb=(/nx-1,ny-1,nz-1/)
   allocate ( field(0:nx-1,0:ny-1,0:nz-1),field_out(0:nx-1,0:ny-1,0:nz-1) )
+
   ! read field from hdf file
-  call read_single_file_serial (fname, field)
+  call read_single_file (fname, field)
+
   ! convert to single precision
   field_out = real(field, kind=pr_out)
 
@@ -177,16 +247,30 @@ end subroutine convert_hdf2bin
 ! Reads in a list of files from a file, then loads one file after the other and
 ! computes the average field, which is then stored in the specified file.
 !-------------------------------------------------------------------------------
-subroutine time_avg_HDF5()
+subroutine time_avg_HDF5(help)
   use vars
   use mpi
   use basic_operators
   use helpers
   implicit none
+  logical, intent(in) :: help
   character(len=strlen) :: fname, fname_bin, fname_avg
   real(kind=pr), dimension(:,:,:), allocatable :: field_avg, field
   integer :: ix, iy ,iz, io_error=0, i=0
   real(kind=pr) :: time
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --time-avg file_list.txt avgx_0000.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) " Reads in a list of files from a file, then loads one file after the other and"
+    write(*,*) " computes the average field, which is then stored in the specified file."
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: NO"
+    return
+  endif
+
+
   call get_command_argument(3,fname)
   call get_command_argument(4,fname_avg)
 
@@ -213,8 +297,8 @@ subroutine time_avg_HDF5()
       write(*,*) "Processing file "//trim(adjustl(fname_bin))
 
       call check_file_exists ( fname_bin )
-      call fetch_attributes( fname_bin, get_dsetname(fname_bin), nx, ny, nz, &
-      xl, yl, zl, time )
+      call fetch_attributes( fname_bin, nx, ny, nz, &
+      xl, yl, zl, time, nu )
 
       ! first time? allocate then.
       if ( .not. allocated(field_avg) ) then
@@ -226,7 +310,7 @@ subroutine time_avg_HDF5()
       endif
 
       ! read the field from file
-      call read_single_file_serial( fname_bin, field )
+      call read_single_file( fname_bin, field )
 
       field_avg = field_avg + field
 
@@ -252,18 +336,30 @@ end subroutine time_avg_HDF5
 ! ./flusi --postprocess --bin2hdf ux_file.binary ux_00000.h5 128 128 384 3.5 2.5 10.0 0.0
 !-------------------------------------------------------------------------------
 ! converts the given binary file into an HDF5 file following flusi's conventions
-subroutine convert_bin2hdf()
+subroutine convert_bin2hdf(help)
   use vars
   use mpi
   use basic_operators
   use helpers
   implicit none
+  logical, intent(in) :: help
   character(len=strlen) :: fname_bin,fname_hdf,tmp
   real, dimension(:,:,:), allocatable :: field
   integer, parameter :: pr_out = 4
   integer :: ix, iy ,iz, i,j,k
   integer(kind=8) :: record_length
   real(kind=pr) :: time
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --bin2hdf [file_bin] [file_hdf5] [nx] [ny] [nz] [xl] [yl] [zl] [time]"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "converts the given binary file into an HDF5 file following flusi's conventions"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: Nope"
+    return
+  endif
+
 
   if ( mpisize>1 ) then
     write (*,*) "--hdf2bin is currently a serial version only, run it on 1CPU"
@@ -332,17 +428,30 @@ end subroutine convert_bin2hdf
 ! load the velocity components from file and compute & save the vorticity
 ! directly compute the absolute value of vorticity, do not save components
 ! can be done in parallel
-subroutine convert_abs_vorticity()
+subroutine convert_abs_vorticity(help)
   use vars
   use p3dfft_wrapper
   use mpi
   use helpers
   use basic_operators
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, order
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, order
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --vor-abs ux_00000.h5 uy_00000.h5 uz_00000.h5 [--second-order]"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) " load the velocity components from file and compute & save the vorticity"
+    write(*,*) " directly compute the absolute value of vorticity, do not save components"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -368,7 +477,7 @@ subroutine convert_abs_vorticity()
   endif
 
 
-  call fetch_attributes( fname_ux, get_dsetname(fname_ux), nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -442,13 +551,14 @@ end subroutine convert_abs_vorticity
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! can be done in parallel. the flag --second order can be used for filtering
-subroutine convert_vorticity()
+subroutine convert_vorticity(help)
   use vars
   use p3dfft_wrapper
   use helpers
   use basic_operators
   use mpi
   implicit none
+  logical, intent(in) :: help
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, order
   character(len=strlen) :: prefix, fname_outx, fname_outy, fname_outz
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
@@ -456,6 +566,26 @@ subroutine convert_vorticity()
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr),dimension(:,:,:),allocatable :: workr
   real(kind=pr) :: time, divu_max
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p "
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) " Read velocity components from file and compute their curl. Optionally second order"
+    write(*,*) " "
+    write(*,*) " You can write to standard output: (vorx_0000.h5 in the example:)"
+    write(*,*) " ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 [--second-order]"
+    write(*,*) " "
+    write(*,*) " Or specify a prefix for the output files: (writes to curl_0000.h5 in example:)"
+    write(*,*) " ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --outputprefix curl [--second-order]"
+    write(*,*) " "
+    write(*,*) " Or specifiy the ouput files directly:"
+    write(*,*) " ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --outfiles vx_00.h5 vy_00.h5 vz_00.h5 [--second-order]"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -506,7 +636,7 @@ subroutine convert_vorticity()
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  call fetch_attributes( fname_ux, get_dsetname(fname_ux), nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -580,19 +710,42 @@ end subroutine convert_vorticity
 ! ./flusi -p --vor2u vorx_00.h5 vory_00.h5 vorz_00.h5 --outputprefix out
 !
 !-------------------------------------------------------------------------------
-subroutine convert_velocity()
+subroutine convert_velocity(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use helpers
   use mpi
   implicit none
+  logical, intent(in) :: help
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, outfiles_given
   character(len=strlen) :: fname_outx, fname_outy, fname_outz, prefix
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk, workc
   real(kind=pr),dimension(:,:,:,:),allocatable :: u,workr
   real(kind=pr) :: time, divu_max, errx, erry, errz
   integer :: ix,iy,iz, mpicode
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --vor2u"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! Read in vorticity fields and compute the corresponding velocity (Biot-Savart Law)"
+    write(*,*) "! Some checks are performed on the result, namely divergence(u) and we see"
+    write(*,*) "! if the curl(result) is the same as the input values."
+    write(*,*) "!"
+    write(*,*) "! you can optionally specify the list of outfiles:"
+    write(*,*) "! ./flusi -p --vor2u vorx_00.h5 vory_00.h5 vorz_00.h5 --outfiles outx_00.h5 outy_00.h5 outz_00.h5"
+    write(*,*) "!"
+    write(*,*) "! or write to the default file names: (ux_00.h5 in the example)"
+    write(*,*) "! ./flusi -p --vor2u vorx_00.h5 vory_00.h5 vorz_00.h5"
+    write(*,*) "!"
+    write(*,*) "! or specify the basename prefix: (writes to outx_00.h5 in the example:)"
+    write(*,*) "! ./flusi -p --vor2u vorx_00.h5 vory_00.h5 vorz_00.h5 --outputprefix out"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
 
   !-----------------------------------------------------------------------------
   ! Initializations
@@ -643,7 +796,7 @@ subroutine convert_velocity()
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  call fetch_attributes( fname_ux, get_dsetname(fname_ux), nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi = 4.d0 *datan(1.d0)
   scalex = 2.d0*pi/xl
@@ -770,7 +923,6 @@ subroutine keyvalues(filename)
   use mpi
   implicit none
   character(len=*), intent(in) :: filename
-  character(len=strlen) :: dsetname
   real(kind=pr) :: time, npoints, q, x,y,z
   real(kind=pr), dimension(:,:,:), allocatable :: field
   integer :: ix,iy,iz
@@ -789,13 +941,13 @@ subroutine keyvalues(filename)
   ! namely the resolution is whats important
   ! this routine was created in the mpi2vis repo -> convert_hdf2xmf.f90
   !---------------------------------------------------------
-  ! the dataset is named the same way as the file:
-  dsetname = filename ( 1:index( filename, '_' )-1 )
-  call fetch_attributes( filename, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( filename, nx, ny, nz, xl, yl, zl, time , nu )
   write(*,'("File is at time=",es12.4)') time
   allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
 
-  call read_single_file_serial (filename, field)
+  ra=(/0,0,0/)
+  rb=(/nx-1,ny-1,nz-1/)
+  call read_single_file (filename, field)
 
   npoints = dble(nx)*dble(ny)*dble(nz)
 
@@ -831,7 +983,7 @@ end subroutine keyvalues
 !-------------------------------------------------------------------------------
 ! ./flusi --postprocess --compare-timeseries forces.t ref/forces.t
 !-------------------------------------------------------------------------------
-subroutine compare_timeseries()
+subroutine compare_timeseries(help)
   use fsi_vars
   implicit none
   character(len=strlen) :: file1,file2
@@ -840,6 +992,18 @@ subroutine compare_timeseries()
   real(kind=pr),dimension(:),allocatable :: values1, values2, error
   real(kind=pr)::diff
   integer :: i,columns,io_error,columns2
+  logical, intent(in) :: help
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p "
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) ""
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
 
   call get_command_argument(3,file1)
   call get_command_argument(4,file2)
@@ -1012,7 +1176,7 @@ end subroutine compare_key
 ! call:
 ! ./flusi --postprocess --p2Q p_00000.h5 Q_00000.h5
 !-------------------------------------------------------------------------------
-subroutine pressure_to_Qcriterion()
+subroutine pressure_to_Qcriterion(help)
   use mpi
   use vars
   use basic_operators
@@ -1022,6 +1186,18 @@ subroutine pressure_to_Qcriterion()
   complex(kind=pr),dimension(:,:,:),allocatable :: pk
   real(kind=pr),dimension(:,:,:),allocatable :: p
   real(kind=pr)::time,maxi,mini
+  logical, intent(in) :: help
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p "
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) ""
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
 
   ! get file to read pressure from and check if this is present
   call get_command_argument(3,fname_p)
@@ -1030,7 +1206,7 @@ subroutine pressure_to_Qcriterion()
   call get_command_argument(4,fname_Q)
 
   ! read in information from the file
-  call fetch_attributes( fname_p, "p", nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_p, "p", nx, ny, nz, xl, yl, zl, time, nu )
 
   if (mpirank==0) then
     write(*,'("Computing Q criterion from  file ",A," saving to ",&
@@ -1093,7 +1269,7 @@ end subroutine pressure_to_Qcriterion
 ! call:
 ! ./flusi --postprocess --extract-subset ux_00000.h5 sux_00000.h5 128:1:256 128:2:1024 1:1:9999
 !-------------------------------------------------------------------------------
-subroutine extract_subset()
+subroutine extract_subset(help)
   use mpi
   use vars
   use hdf5
@@ -1101,6 +1277,7 @@ subroutine extract_subset()
   use helpers
   implicit none
 
+  logical, intent(in) :: help
   character(len=strlen) :: fname_in, fname_out, dsetname_in, dsetname_out
   character(len=strlen) :: xset,yset,zset
   integer :: ix,iy,iz,i
@@ -1137,6 +1314,29 @@ subroutine extract_subset()
   integer, parameter :: arank = 1
 
 
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --extract-subset ux_00000.h5 sux_00000.h5 128:1:256 128:2:1024 1:1:9999"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! extract subset"
+    write(*,*) "! loads a file to memory and extracts a subset, writing to a different file. We"
+    write(*,*) "! assume here that you do this for visualization; in this case, one usually keeps"
+    write(*,*) "! the original, larger files. For simplicity, ensure all files follow FLUSI"
+    write(*,*) "! naming convention."
+    write(*,*) "!---"
+    write(*,*) "! Note: through using helpers.f90::get_dsetname, it is finally possible to write"
+    write(*,*) "! to a subfolder *.h5 file directly from flusi"
+    write(*,*) "! (Thomas, 03/2015)"
+    write(*,*) "!---"
+    write(*,*) "! Using HDF5s hyperslab functions, we can read only a specific part into the"
+    write(*,*) "! memory - at no point we have to load the entire original file before we can"
+    write(*,*) "! downsample it. This is a good step forward. (Thomas 03/2015)"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: Nope"
+    return
+  endif
+
+
   if (mpisize/=1) then
     write(*,*) "./flusi --postprocess --extract-subset is a SERIAL routine, use 1CPU only"
     call abort()
@@ -1154,7 +1354,7 @@ subroutine extract_subset()
 
   write(*,'("dsetname=",A,1x,A)') trim(adjustl(dsetname_in)),trim(adjustl(dsetname_out))
 
-  call fetch_attributes( fname_in, dsetname_in, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_in, nx, ny, nz, xl, yl, zl, time, nu )
 
   call get_command_argument(5,xset)
   call get_command_argument(6,yset)
@@ -1207,8 +1407,8 @@ subroutine extract_subset()
   allocate ( field(0:nx_red-1,0:ny_red-1,0:nz_red-1) )
 
 
-  call Fetch_attributes( fname_in, dsetname_in, nx_file,ny_file,nz_file,&
-  xl_file,yl_file,zl_file,time )
+  call Fetch_attributes( fname_in, nx_file,ny_file,nz_file,&
+  xl_file,yl_file,zl_file,time, nu )
 
   !-----------------------------------------------------------------------------
   ! load the file
@@ -1309,15 +1509,32 @@ end subroutine extract_subset
 ! h5copy -i mask_000000.h5 -s mask -o hallo.h5 -d test
 !
 !-------------------------------------------------------------------------------
-subroutine copy_hdf_file()
+subroutine copy_hdf_file(help)
   use mpi
   use vars
   use helpers
   implicit none
-  character(len=strlen) :: fname_in, fname_out, dsetname_in, dsetname_out
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_in, fname_out
   real(kind=pr)::time
   ! input field
   real(kind=pr), dimension(:,:,:), allocatable :: field_in
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "/flusi --postprocess --cp ux_00000.h5 new_00000.h5 "
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! copy one hdf5 file to another one, with different name. Not you cannot do this"
+    write(*,*) "! in terminal with cp since cp does not touch the dataset name in the file,"
+    write(*,*) "! which is then not conformal to flusi naming convention."
+    write(*,*) "!"
+    write(*,*) "! since I learned about h5copy tool, this subroutine is deprecated"
+    write(*,*) "!"
+    write(*,*) "! h5copy -i mask_000000.h5 -s mask -o hallo.h5 -d test"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: no"
+    return
+  endif
 
 
   if (mpisize/=1) then
@@ -1334,16 +1551,13 @@ subroutine copy_hdf_file()
   ! get filename to save file to
   call get_command_argument(4,fname_out)
 
-  dsetname_in = get_dsetname(fname_in)
-  dsetname_out = get_dsetname(fname_out)
-
-  call fetch_attributes( fname_in, dsetname_in, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_in, nx, ny, nz, xl, yl, zl, time, nu )
   ra=0
   rb=(/nx-1,ny-1,nz-1/)
   write(*,*) "copying ",trim(adjustl(fname_in)), " to ", trim(adjustl(fname_out))
 
   allocate ( field_in(0:nx-1,0:ny-1,0:nz-1) )
-  call read_single_file_serial(fname_in,field_in)
+  call read_single_file(fname_in,field_in)
 
   call save_field_hdf5 ( time, fname_out, field_in )
 
@@ -1360,14 +1574,15 @@ end subroutine copy_hdf_file
 ! We also want to use this to add new attributes to our data, namely the
 ! viscosity
 !-------------------------------------------------------------------------------
-! ./flusi -p --set-hd5-attrbute [FILE] [ATTRIBUTE_NAME] [ATTRIBUTE_VALUE(S)]
+! ./flusi -p --set-hdf5-attrbute [FILE] [ATTRIBUTE_NAME] [ATTRIBUTE_VALUE(S)]
 !-------------------------------------------------------------------------------
-subroutine set_hdf5_attribute()
+subroutine set_hdf5_attribute(help)
   use mpi
   use hdf5
   use vars
   use helpers
   implicit none
+  logical, intent(in) :: help
   character(len=strlen) :: fname, attribute_name, dsetname,tmp
   integer :: error
 
@@ -1378,6 +1593,21 @@ subroutine set_hdf5_attribute()
   integer(hsize_t), dimension(1) :: data_dims
   real(kind=pr) ::  attr_data  ! attribute data
   real(kind=pr) :: new_value
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --set-hdf5-attrbute [FILE] [ATTRIBUTE_NAME] [ATTRIBUTE_VALUE(S)]"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! Add or modifiy an attribute to the dataset stored in a HDF5 file."
+    write(*,*) "! This is useful for example if one creates stroke-averaged fields"
+    write(*,*) "! that would all have the same time 0.0."
+    write(*,*) "! We also want to use this to add new attributes to our data, namely the"
+    write(*,*) "! viscosity"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: no"
+    return
+  endif
+
 
   data_dims(1) = 1
 
@@ -1398,10 +1628,19 @@ subroutine set_hdf5_attribute()
   ! Open an existing dataset.
   CALL h5dopen_f(file_id, dsetname, dset_id, error)
 
+  if(mpirank==0) then
+    write(*,'(80("-"))')
+    write (*,*) "FLUSI tries to open the attribute in the file..."
+  endif
+
   ! try to open the attribute
   CALL h5aopen_f(dset_id, trim(adjustl(attribute_name)), attr_id, error)
 
   if (error == 0) then
+    if(mpirank==0) then
+      write (*,*) "succesful! The file already contains the attribute"
+      write(*,'(80("-"))')
+    endif
     ! the attribute is already a part of the HDF5 file
     ! Get dataspace and read
     CALL h5aget_space_f(attr_id, aspace_id, error)
@@ -1419,12 +1658,19 @@ subroutine set_hdf5_attribute()
   else
     ! the attribute is NOT a part of the file yet, we add it now
     if(mpirank==0) then
-      write(*,'(80("-"))')
-      write (*,*) "the file did not yet contain this attribute, adding it!"
+      write(*,*) "fail: the file did not yet contain this attribute, adding it!"
       write(*,'(80("-"))')
     endif
     call write_attribute_dble(data_dims,trim(adjustl(attribute_name)),(/new_value/),1,dset_id)
   endif
+
+  ! check if everthing worked
+  if(mpirank==0) write(*,*) "checking if the operation worked..."
+  ! try to open the attribute
+  CALL h5aopen_f(dset_id, trim(adjustl(attribute_name)), attr_id, error)
+  CALL h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attr_data, data_dims, error)
+
+  if(mpirank==0) write(*,'(A,"=",g12.4)') trim(adjustl(attribute_name)), attr_data
 
   ! finalize HDF5
   CALL h5dclose_f(dset_id, error) ! End access to the dataset and release resources used by it.
@@ -1442,11 +1688,12 @@ end subroutine set_hdf5_attribute
 ! We first read in the original field from the source file, with it's resolution
 ! and domain size and timestamp.
 !-------------------------------------------------------------------------------
-subroutine upsample()
+subroutine upsample(help)
   use vars
   use p3dfft_wrapper
   implicit none
-  character(len=strlen) :: fname_in, fname_out, dsetname_in, dsetname_out, tmp
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_in, fname_out, tmp
   integer :: nx_new, ny_new, nz_new
   integer :: nx_org, ny_org, nz_org, ix_org,iy_org,iz_org, ix_new,iy_new,iz_new
   integer :: i,j,k
@@ -1454,6 +1701,19 @@ subroutine upsample()
   complex(kind=pr),dimension(:,:,:),allocatable :: uk_org, uk_new
   real(kind=pr),dimension(:,:,:),allocatable :: u_org, u_new
   integer, dimension(1:3) :: ra_org,rb_org,ca_org,cb_org,ra_new,rb_new,ca_new,cb_new
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --upsample source.h5 target.h5 256 256 526"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Upsampling from a source resolution to a target resolution"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: no"
+    return
+  endif
+
+
+
   if (mpisize/=1) then
     write(*,*) "./flusi --postprocess --upsample is a SERIAL routine, use 1CPU only"
     call abort()
@@ -1462,10 +1722,8 @@ subroutine upsample()
   ! get file to read pressure from and check if this is present
   call get_command_argument(3,fname_in)
   call check_file_exists( fname_in )
-  dsetname_in = fname_in ( 1:index( fname_in, '_' )-1 )
 
   call get_command_argument(4,fname_out)
-  dsetname_out = fname_out ( 1:index( fname_out, '_' )-1 )
 
   ! read target resolution from command line
   call get_command_argument(5,tmp)
@@ -1477,7 +1735,7 @@ subroutine upsample()
 
   write(*,'("Target resolution= ",3(i4,1x))') nx_new, ny_new, nz_new
 
-  call fetch_attributes( fname_in, dsetname_in, nx_org, ny_org, nz_org, xl, yl, zl, time )
+  call fetch_attributes( fname_in, nx_org, ny_org, nz_org, xl, yl, zl, time, nu )
   write(*,'("Origin resolution= ",3(i4,1x))') nx_org,ny_org,nz_org
 
   pi=4.d0 *datan(1.d0)
@@ -1507,7 +1765,7 @@ subroutine upsample()
   call fft_unit_test( u_org, uk_org )
 
   write(*,*) "Reading file "//trim(adjustl(fname_in))
-  call read_single_file_serial(fname_in,u_org)
+  call read_single_file(fname_in,u_org)
 
   call fft(inx=u_org, outk=uk_org)
 
@@ -1599,18 +1857,27 @@ end subroutine upsample
 ! NOTE: I actually did not figure out what happens if xl=yl=zl/=2*pi
 ! which is a rare case in all isotropic turbulence situtations, and neither
 ! of the corresponding routines have been tested for that case.
-subroutine post_spectrum()
+subroutine post_spectrum(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use mpi
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, spectrum_file
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, spectrum_file
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time, sum_u
   real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
   integer :: mpicode, k
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --spectrum ux_00000.h5 uy_00000.h5 uz_00000.h5 spectrum.dat"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -1627,8 +1894,7 @@ subroutine post_spectrum()
     call abort()
   endif
 
-  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -1702,19 +1968,30 @@ end subroutine post_spectrum
 ! which is a rare case in all isotropic turbulence situtations, and neither
 ! of the corresponding routines have been tested for that case.
 !-------------------------------------------------------------------------------
-subroutine turbulence_analysis()
+subroutine turbulence_analysis(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use mpi
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, viscosity, outfile
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, viscosity, outfile
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk,vork
   real(kind=pr),dimension(:,:,:,:),allocatable :: u, vor
   real(kind=pr) :: time, epsilon_loc, epsilon, fact, E, u_rms,lambda_macro,lambda_micro
   real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
   integer :: ix,iy,iz, mpicode
   real(kind=pr)::kx,ky,kz,kreal
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --turbulence-analysis ux_00000.h5 uy_00000.h5 uz_00000.h5 nu outfile.dat"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "compute a bunch of values relevant to Homogeneous isotropic turbulence and write them to outfile"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
 
 
   call get_command_argument(3,fname_ux)
@@ -1745,10 +2022,7 @@ subroutine turbulence_analysis()
     write(17,'(A)') "-----------------------------------"
   endif
 
-
-
-  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -1906,16 +2180,31 @@ end subroutine turbulence_analysis
 ! See TKE note 18 feb 2015 (Thomas) and 13 feb 2015 (Dmitry)
 ! Can be done in parallel
 !-------------------------------------------------------------------------------
-subroutine TKE_mean()
+subroutine TKE_mean(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use mpi
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, fname_ekin, outfile
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, fname_ekin, outfile
   real(kind=pr),dimension(:,:,: ),allocatable :: ekin
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --TKE-mean ekinavg_00.h5 uavgx_00.h5 uavgy_00.h5 uavgz_00.h5 tkeavg_000.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! From the time-avg kinetic energy field and the components of the time avg"
+    write(*,*) "! velocity field, compute the time averaged turbulent kinetic energy."
+    write(*,*) "! See TKE note 18 feb 2015 (Thomas) and 13 feb 2015 (Dmitry)"
+    write(*,*) "! TKE = ekin - 0.5d0*(ux^2 + uy^2 + uz^2)"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
 
   call get_command_argument(3,fname_ekin)
   call get_command_argument(4,fname_ux)
@@ -1933,8 +2222,7 @@ subroutine TKE_mean()
     &" "//trim(adjustl(fname_uz))//" and "//fname_ekin
   endif
 
-  dsetname = fname_ux ( 1:index( fname_ux, '_' )-1 )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -1956,8 +2244,7 @@ subroutine TKE_mean()
 
   ekin = ekin - 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
 
-  dsetname = outfile ( 1:index( outfile, '_' )-1 )
-  if (mpirank==0) write(*,*) "Wrote to "//trim(adjustl(outfile))//" "//trim(adjustl(dsetname))
+  if (mpirank==0) write(*,*) "Wrote to "//trim(adjustl(outfile))
   call save_field_hdf5 ( time,outfile,ekin)
 
 
@@ -1974,25 +2261,37 @@ end subroutine tke_mean
 ! It may be used rarely, but we needed it for turbulent bumblebees.
 ! Can be done in parallel.
 !-------------------------------------------------------------------------------
-subroutine max_over_x()
+subroutine max_over_x(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use mpi
   implicit none
-  character(len=strlen) :: dsetname, fname_ekin, outfile
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ekin, outfile
   real(kind=pr),dimension(:,:,:),allocatable :: u
   real(kind=pr), dimension(:), allocatable :: umaxx,umaxx_loc
   real(kind=pr) :: time
   integer :: ix, mpicode
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --max-over-x tkeavg_000.h5 outfile.dat"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! This function reads in the specified *.h5 file and outputs the maximum value"
+    write(*,*) "! max_yz(x) into the specified ascii-outfile"
+    write(*,*) "! It may be used rarely, but we needed it for turbulent bumblebees."
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
 
 
   call get_command_argument(3,fname_ekin)
   call get_command_argument(4,outfile)
   call check_file_exists( fname_ekin )
 
-  dsetname = fname_ekin ( 1:index( fname_ekin, '_' )-1 )
-  call fetch_attributes( fname_ekin, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -2047,17 +2346,34 @@ end subroutine max_over_x
 ! e.g., ./flusi -p --mean-2D all infile_000.h5 outfile.dat
 ! will loop over x,y,z and output all three to different files
 !-------------------------------------------------------------------------------
-subroutine mean_2d()
+subroutine mean_2d(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use helpers
   use mpi
   implicit none
-  character(len=strlen) :: dsetname, infile, outfile, direction
+  logical, intent(in) :: help
+  character(len=strlen) :: infile, outfile, direction
   real(kind=pr),dimension(:,:,:),allocatable :: u
   real(kind=pr) :: time
   integer :: ix,iy,iz
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --mean-2D [x,y,z,all] infile_000.h5 outfile.dat"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! This function reads in the specified *.h5 file and outputs the average over two"
+    write(*,*) "! directions as a function of the remaining direction."
+    write(*,*) "! e.g., ./flusi -p --mean-2D z infile_000.h5 outfile.dat"
+    write(*,*) "! averages over the x and y direction"
+    write(*,*) "! e.g., ./flusi -p --mean-2D all infile_000.h5 outfile.dat"
+    write(*,*) "! will loop over x,y,z and output all three to different files"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: nope"
+    return
+  endif
+
 
   if (mpisize/=1) then
     ! the reason for this is simplicity. if the y-z direction is nonlocal in memory
@@ -2075,8 +2391,7 @@ subroutine mean_2d()
   write(*,*) "infile="//trim(adjustl(infile))
   write(*,*) "outfile="//trim(adjustl(outfile))
 
-  dsetname = get_dsetname( infile )
-  call fetch_attributes( infile, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -2195,25 +2510,35 @@ end subroutine mean_2d
 ! in the y-z plane
 ! Can be done in parallel.
 !-------------------------------------------------------------------------------
-subroutine mean_over_x_subdomain()
+subroutine mean_over_x_subdomain(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use mpi
   implicit none
-  character(len=strlen) :: dsetname, fname_ekin, outfile
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ekin, outfile
   real(kind=pr),dimension(:,:,:),allocatable :: u, mask
   real(kind=pr), dimension(:), allocatable :: umaxx,umaxx_loc
   real(kind=pr) :: time,x,y,z,points,allpoints
   integer :: ix,iy,iz, mpicode
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --mean_over_x_subdomain tkeavg_000.h5 outfile.dat "
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Compute the avg value as a function of x for a subdomain [-1.3,1.3]x[-1.3,1.3] in the y-z plane"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
 
 
   call get_command_argument(3,fname_ekin)
   call get_command_argument(4,outfile)
   call check_file_exists( fname_ekin )
 
-  dsetname = fname_ekin ( 1:index( fname_ekin, '_' )-1 )
-  call fetch_attributes( fname_ekin, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -2311,19 +2636,31 @@ end subroutine mean_over_x_subdomain
 ! ./flusi --postprocess --ux-from-uyuz ux_00000.h5 uy_00000.h5 uz_00000.h5
 !-------------------------------------------------------------------------------
 ! compute missing ux component from given uy,uz components assuming incompressibility
-subroutine ux_from_uyuz()
+subroutine ux_from_uyuz(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use mpi
   use helpers
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --ux-from-uyuz ux_00000.h5 uy_00000.h5 uz_00000.h5 "
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) " not working"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -2338,7 +2675,7 @@ subroutine ux_from_uyuz()
     call abort()
   endif
 
-  call fetch_attributes( fname_uy, get_dsetname(fname_uy), nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_uy, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -2406,16 +2743,28 @@ end subroutine
 !-------------------------------------------------------------------------------
 ! load the vector components from file and compute & save the magnitude to
 ! another HDF5 file.
-subroutine magnitude_post()
+subroutine magnitude_post(help)
   use vars
   use basic_operators
   use p3dfft_wrapper
   use helpers
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, outfile
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, outfile
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr),dimension(:,:,:),allocatable :: work
   real(kind=pr) :: time
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --magnitude ux_00.h5 uy_00.h5 uz_00.h5 outfile_00.h5 "
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! load the vector components from file and compute & save the magnitude to"
+    write(*,*) "! another HDF5 file. mag(u) = sqrt(ux^2+uy^2+uz^2)  "
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -2434,8 +2783,7 @@ subroutine magnitude_post()
     write(*,*) "Outfile="//trim(adjustl(outfile))
   endif
 
-  dsetname = get_dsetname( fname_ux )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -2472,16 +2820,30 @@ end subroutine magnitude_post
 !-------------------------------------------------------------------------------
 ! load the vector components from file and compute & save the energy to
 ! another HDF5 file. (energy = (ux^2+uy^2+uz^2)/2)
-subroutine energy_post()
+subroutine energy_post(help)
   use vars
   use basic_operators
   use p3dfft_wrapper
   use helpers
   implicit none
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, dsetname, outfile
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, outfile
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr),dimension(:,:,:),allocatable :: work
   real(kind=pr) :: time
+
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --energy ux_00.h5 uy_00.h5 uz_00.h5 outfile_00.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! load the vector components from file and compute & save the energy to"
+    write(*,*) "! another HDF5 file. (energy = (ux^2+uy^2+uz^2)/2)"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -2493,11 +2855,10 @@ subroutine energy_post()
   call check_file_exists( fname_uz )
 
   if (mpirank==0) write(*,*) "Computing energy of vector from these files: "
-  if (mpirank==0) write(*,*) trim(adjustl(fname_ux)), trim(adjustl(fname_uy)), trim(adjustl(fname_uz))
+  if (mpirank==0) write(*,*) trim(adjustl(fname_ux))//" "//trim(adjustl(fname_uy))//" "//trim(adjustl(fname_uz))
   if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(outfile))
 
-  dsetname = get_dsetname( fname_ux )
-  call fetch_attributes( fname_ux, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -2533,15 +2894,28 @@ end subroutine energy_post
 ! load two fields and perform a simple operation ( + - / * )
 ! example: ./flusi -p --simple-field-operation vorabs_0000.h5 * mask_0000.h5 vor2_0000.h5
 ! this gives just the product vor*mask
-subroutine simple_field_operation()
+subroutine simple_field_operation(help)
   use vars
   use basic_operators
   use p3dfft_wrapper
   use helpers
   implicit none
-  character(len=strlen) :: file1, file2, file_out, dsetname, operation
+  logical, intent(in) :: help
+  character(len=strlen) :: file1, file2, file_out, operation
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --simple-field-operation field1.h5 OP field2.h5 output.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "! load two fields and perform a simple operation ( + - / * )"
+    write(*,*) "! example: ./flusi -p --simple-field-operation vorabs_0000.h5 * mask_0000.h5 vor2_0000.h5"
+    write(*,*) "! this gives just the product vor*mask"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
 
   call get_command_argument(3,file1)
   call get_command_argument(4,operation)
@@ -2557,8 +2931,7 @@ subroutine simple_field_operation()
   if (mpirank==0) write(*,*) "Operation="//trim(adjustl(operation))
   if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(file_out))
 
-  dsetname = get_dsetname( file1 )
-  call fetch_attributes( file1, dsetname, nx, ny, nz, xl, yl, zl, time )
+  call fetch_attributes( file1, nx, ny, nz, xl, yl, zl, time, nu )
 
   pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
@@ -2608,14 +2981,27 @@ end subroutine simple_field_operation
 !-------------------------------------------------------------------------------
 ! load a parameter file and check for a bunch of common mistakes/typos
 ! you tend to make, in order to help preventing stupid mistakes
-subroutine check_params_file()
+subroutine check_params_file(help)
   use fsi_vars
   use solid_model
   use insect_module
   use helpers
   implicit none
+  logical, intent(in) :: help
   character(len=strlen) :: infile
   type(diptera) :: Insect
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p  --check-params-file PARAMS.ini"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) ""
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
+
   method="fsi"
   nf = 1
   nd = 3
@@ -2656,3 +3042,118 @@ subroutine check_params_file()
 
 
 end subroutine
+
+
+
+!-------------------------------------------------------------------------------
+! ./flusi -p --field-analysis ux_00000.h5 uy_00000.h5 uz_00000.h5 outfile.dat
+!-------------------------------------------------------------------------------
+subroutine field_analysis(help)
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use mpi
+  implicit none
+  logical, intent(in) :: help
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, outfile
+  complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u
+  real(kind=pr) :: time, epsilon_loc, epsilon, fact, E, u_rms,lambda_macro,lambda_micro
+  integer :: ix,iy,iz, mpicode
+  real(kind=pr) :: Z_loc,Z_tot,nu2
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --field-analysis ux_00000.h5 uy_00000.h5 uz_00000.h5 outfile.dat"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "FLUSI field analysis. From a given vector field u (three files, one for each component)"
+    write(*,*) "we'll compute the kinetic energy E=(ux^2 + uy^2 + uz^2)/2, then the curl vor = curl(u)"
+    write(*,*) "and the enstrophy Z=(vorx^2 + vory^2 + vorz^2)/2 as well as the dissipation rate "
+    write(*,*) "epsilon=nu*Z, where the viscosity is read from the files. (note you might have to add it"
+    write(*,*) "using --set-hdf5-attribute to the file if it is missing) We print the output (integral "
+    write(*,*) "and mean) to an ascii file given in the call, as well as on the screen"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
+  call get_command_argument(3,fname_ux)
+  call get_command_argument(4,fname_uy)
+  call get_command_argument(5,fname_uz)
+  call get_command_argument(6,outfile)
+
+  call check_file_exists( fname_ux )
+  call check_file_exists( fname_uy )
+  call check_file_exists( fname_uz )
+
+  if (mpirank==0) then
+  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
+    write (*,*) "Warning in arguments, files do not start with ux uy and uz"
+    write (*,*) "note files have to be in the right order"
+  endif
+  endif
+
+  if(mpirank==0) then
+    write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
+    open(17,file=trim(adjustl(outfile)),status='replace')
+    call postprocessing_ascii_header(17)
+    write(17,'(A)') "-----------------------------------"
+    write(17,'(A)') "FLUSI field analysis"
+    write(17,'(A)') "-----------------------------------"
+  endif
+
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  call fft_initialize() ! also initializes the domain decomp
+  allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
+
+  call read_single_file ( fname_ux, u(:,:,:,1) )
+  call read_single_file ( fname_uy, u(:,:,:,2) )
+  call read_single_file ( fname_uz, u(:,:,:,3) )
+
+  ! field energy
+  epsilon_loc = 0.5d0*sum(u(:,:,:,1)**2+u(:,:,:,2)**2+u(:,:,:,3)**2)*(dx*dy*dz)
+  call MPI_REDUCE(epsilon_loc,E,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+       MPI_COMM_WORLD,mpicode)
+
+  ! compute vorticity
+  if (mpirank==0) write(*,*) "Computing vorticity.."
+  call fft3 (inx=u,outk=uk)
+  call curl3_inplace (uk)
+  call ifft3 (ink=uk,outx=u)
+
+  ! compute enstrophy
+  Z_loc = 0.5d0*sum(u(:,:,:,1)**2+u(:,:,:,2)**2+u(:,:,:,3)**2)*(dx*dy*dz)
+  call MPI_REDUCE(Z_loc,Z_tot,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+       MPI_COMM_WORLD,mpicode)
+
+  if(mpirank==0) then
+    write(*,'("viscosity=",es15.8)') nu
+    write(*,'("Total kinetic energy =",es15.8)') E
+    write(*,'("Total Enstrophy =",es15.8)') Z_tot
+    write(*,'("Total Dissipation =",es15.8)') nu*Z_tot
+    write(*,'("Mean kinetic energy =",es15.8)') E / (xl*yl*zl)
+    write(*,'("Mean Enstrophy =",es15.8)') Z_tot / (xl*yl*zl)
+    write(*,'("Mean Dissipation =",es15.8)') nu*Z_tot / (xl*yl*zl)
+
+    write(17,'("viscosity=",es15.8)') nu
+    write(17,'("Total kinetic energy =",es15.8)') E
+    write(17,'("Total Enstrophy =",es15.8)') Z_tot
+    write(17,'("Total Dissipation =",es15.8)') nu*Z_tot
+    write(17,'("Mean kinetic energy =",es15.8)') E / (xl*yl*zl)
+    write(17,'("Mean Enstrophy =",es15.8)') Z_tot / (xl*yl*zl)
+    write(17,'("Mean Dissipation =",es15.8)') nu*Z_tot / (xl*yl*zl)
+  endif
+
+  deallocate (u,uk)
+  call fft_free()
+end subroutine field_analysis
