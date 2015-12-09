@@ -145,9 +145,9 @@ subroutine rigid_solid_rhs(time,it,Insect)
   Insect%RHS_this(9)  = 0.5d0*(+ep(3)*ROT(1)+ep(0)*ROT(2)-ep(1)*ROT(3))
   Insect%RHS_this(10) = 0.5d0*(-ep(2)*ROT(1)+ep(1)*ROT(2)+ep(0)*ROT(3))
   ! integrate angular velocities
-  Insect%RHS_this(11) = ( (Jy-Jz)*ROT(2)*ROT(3)+s*torque_body(1) )/Jx
-  Insect%RHS_this(12) = ( (Jz-Jx)*ROT(3)*ROT(1)+s*torque_body(2) )/Jy
-  Insect%RHS_this(13) = ( (Jx-Jy)*ROT(1)*ROT(2)+s*torque_body(3) )/Jz
+  Insect%RHS_this(11) = ( (Jy-Jz)*ROT(2)*ROT(3) + s*torque_body(1) )/Jx
+  Insect%RHS_this(12) = ( (Jz-Jx)*ROT(3)*ROT(1) + s*torque_body(2) )/Jy
+  Insect%RHS_this(13) = ( (Jx-Jy)*ROT(1)*ROT(2) + s*torque_body(3) )/Jz
 
   ! turn on or off degrees of freedom for free flight solver. The string from
   ! ini file contains 6 characters 1 or 0 that turn on/off x,y,z,yaw,pitch,roll

@@ -603,16 +603,6 @@ subroutine Read_Single_File ( filename, field )
     write(*,'("xl=",g12.4," yl=",g12.4," zl=",g12.4)') xl_file,yl_file ,zl_file
   endif
 
-  ! if the resolutions do not match, yell and hang yourself
-  if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then
-    if (mpirank == 0) then
-      write (*,'(A)') "ERROR! Resolution mismatch"
-      write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
-      write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nx_file,ny_file,nz_file
-      call abort()
-    endif
-  endif
-
   ! if the domain size doesn't match, proceed, but yell.
   if ((xl.ne.xl_file).or.(yl.ne.yl_file).or.(zl.ne.zl_file)) then
     if (mpirank == 0) then
@@ -649,9 +639,10 @@ subroutine Read_Single_File ( filename, field )
   dimensions_local(2) = rb(2)-ra(2) +1
   dimensions_local(3) = rb(3)-ra(3) +1
 
-  call MPI_REDUCE (dimensions_local(1),nx_file,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE (dimensions_local(2),ny_file,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE (dimensions_local(3),nz_file,1,MPI_INTEGER,MPI_SUM,0,MPI_COMM_WORLD,mpicode)
+  ! check if the size of attributed memory is the size in the file.
+  call MPI_ALLREDUCE (dimensions_local(1),nx_file,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (dimensions_local(2),ny_file,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (dimensions_local(3),nz_file,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
   ! if the resolutions do not match, yell and hang yourself
   if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then

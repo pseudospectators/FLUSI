@@ -18,20 +18,17 @@ subroutine draw_wing(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot,
     call draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
          M_wing,x_pivot,rot)
   case ("suzuki")
+    ! this wing has a finite thickness
     call draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
          M_wing,x_pivot,rot)
   case ("TwoEllipses")
     call draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
          M_wing,x_pivot,rot)
-  case ("drosophila","drosophila_mutated","drosophila_sandberg",&
-        "drosophila_maeda","drosophila_sun","flapper_sane",&
-        "bumblebee","flapper_dickinsonII","robofly_dickinson")
+  case default
+    ! we assume the default to be defined in fourier coefficients, the subroutine
+    ! yells if it does not recongnize the wing.
     call draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,M_wing,&
          x_pivot,rot)
-  case default
-    if (mpirank==0) write(*,*) "Insects::draw_wing::Insect%WingShape unknown.."
-    if (mpirank==0) write(*,*) Insect%WingShape
-    call abort()
   end select
 
   time_insect_wings = time_insect_wings + MPI_wtime() - t1
@@ -125,8 +122,10 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
 end subroutine draw_wing_fourier
 
 !-------------------------------------------------------------------------------
-
-
+! Suzuki's rectangular wingshape as defined in section 3.4 of my thesis (Thomas,
+! "Numerical modeling of fluid-structure interaction in bio-inspired propulsion")
+! This wing has finite thickness.
+!-------------------------------------------------------------------------------
 subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
            M_wing,x_pivot,rot)
   use vars

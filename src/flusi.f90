@@ -388,7 +388,7 @@ program FLUSI
     !-------------------------
     ! Show the breakdown of timing information
     !-------------------------
-    if (mpirank==0) call show_timings(t2)
+    call show_timings(t2)
   end subroutine Start_Simulation
 
 
@@ -397,60 +397,92 @@ program FLUSI
   ! Output information on where the algorithm spent the most time.
   subroutine show_timings(t2)
     use fsi_vars
+    use helpers
     implicit none
-    real (kind=pr) :: t2
+    real (kind=pr) :: t2, t3
 
     3 format(80("-"))
     8 format(es12.4," (",f5.1,"%) :: ",A)
+    t3 = t2
+    t2 = mpisum(t2)
 
+    time_fft = mpisum(time_fft)
+    time_ifft = mpisum(time_ifft)
+    time_mask = mpisum(time_mask)
+     time_fluid= mpisum(time_fluid)
+     time_integrals =mpisum(time_integrals)
+     time_save=mpisum(time_save)
+     time_bckp=mpisum(time_bckp)
+     tslices=mpisum(tslices)
+     time_insect_body=mpisum(time_insect_body)
+     time_insect_eye=mpisum(time_insect_eye)
+     time_insect_head=mpisum(time_insect_head)
+     time_insect_wings=mpisum(time_insect_wings)
+     time_insect_vel=mpisum(time_insect_vel)
+     time_hdf5=mpisum(time_hdf5)
+     time_vis=mpisum(time_vis)
+     time_solid=mpisum(time_solid)
+     time_rhs=mpisum(time_rhs)
+     time_surf=mpisum(time_surf)
+     time_p=mpisum(time_p)
+     time_nlk2=mpisum(time_nlk2)
+     time_nlk_scalar=mpisum(time_nlk_scalar)
+     time_scalar=mpisum(time_scalar)
+     time_u=mpisum(time_u)
+     time_vor=mpisum(time_vor)
+     time_sponge=mpisum(time_sponge)
+     time_curl=mpisum(time_curl)
+
+if (mpirank/=0) return
 
     write(*,3)
     write(*,'("*** Timings")')
     write(*,3)
     write(*,'("of the total time ",es12.4,", FLUSI spend ",es12.4," (",f5.1,"%) on FFTS")') &
-    t2, time_fft+time_ifft,100.d0*(time_fft+time_ifft)/t2
+    t2, (time_fft)+(time_ifft),100.d0*((time_fft)+(time_ifft))/t2
     write(*,3)
     write(*,'("time stepping (top level tasks)")')
 
-    write(*,8) time_mask, 100.d0*time_mask/t2, "create_mask"
-    write(*,8) time_fluid, 100.d0*time_fluid/t2, "fluid time stepping"
-    write(*,8) time_integrals, 100.d0*time_integrals/t2, "integrals"
-    write(*,8) time_save, 100.d0*time_save/t2, "save fields"
-    write(*,8) time_bckp, 100.d0*time_bckp/t2, "backuping"
-    write(*,8) tslices, 100.d0*tslices/t2, "slicing"
+    write(*,8) (time_mask), 100.d0*(time_mask)/t2, "create_mask"
+    write(*,8) (time_fluid), 100.d0*(time_fluid)/t2, "fluid time stepping"
+    write(*,8) (time_integrals), 100.d0*(time_integrals)/t2, "integrals"
+    write(*,8) (time_save), 100.d0*(time_save)/t2, "save fields"
+    write(*,8) (time_bckp), 100.d0*(time_bckp)/t2, "backuping"
+    write(*,8) (tslices), 100.d0*(tslices)/t2, "slicing"
     write(*,3)
     write(*,'("Create Mask:")')
-    write(*,8) time_insect_body, 100.d0*time_insect_body/t2, "insect::body"
-    write(*,8) time_insect_eye,100.d0*time_insect_eye/t2, "insect::eyes"
-    write(*,8) time_insect_head,100.d0*time_insect_head/t2, "insect::head"
-    write(*,8) time_insect_wings,100.d0*time_insect_wings/t2,"insect::wings"
-    write(*,8) time_insect_vel,100.d0*time_insect_vel/t2,"insect::roration"
+    write(*,8) (time_insect_body), 100.d0*(time_insect_body)/t2, "insect::body"
+    write(*,8) (time_insect_eye),100.d0*(time_insect_eye)/t2, "insect::eyes"
+    write(*,8) (time_insect_head),100.d0*(time_insect_head)/t2, "insect::head"
+    write(*,8) (time_insect_wings),100.d0*(time_insect_wings)/t2,"insect::wings"
+    write(*,8) (time_insect_vel),100.d0*(time_insect_vel)/t2,"insect::roration"
     write(*,3)
     write(*,'("save fields:")')
-    write(*,8) time_hdf5, 100.d0*time_hdf5/t2, "hdf5 disk dumping"
+    write(*,8) (time_hdf5), 100.d0*(time_hdf5)/t2, "hdf5 disk dumping"
     write(*,3)
 
     write(*,'("Fluid time stepping:")')
-    write(*,8) time_vis,100.d0*time_vis/t2,"cal_vis"
-    write(*,8) time_rhs,100.d0*time_rhs/t2,"cal_nlk"
-    write(*,8) time_solid,100.d0*time_solid/t2,"solid  model"
-    write(*,8) time_surf,100.d0*time_surf/t2,"surface interpolation"
+    write(*,8) (time_vis),100.d0*(time_vis/t2),"cal_vis"
+    write(*,8) (time_rhs),100.d0*(time_rhs/t2),"cal_nlk"
+    write(*,8) (time_solid),100.d0*(time_solid/t2),"solid  model"
+    write(*,8) (time_surf),100.d0*(time_surf/t2),"surface interpolation"
     write(*,3)
 
     write(*,'("Fluid right hand side:")')
-    write(*,8) time_nlk2,100.d0*time_nlk2/t2,"cal_nlk_fsi"
-    write(*,8) time_p,100.d0*time_p/t2,"pressure"
-    write(*,8) time_nlk_scalar,100.d0*time_nlk_scalar/t2,"sclar rhs"
-    write(*,8) time_scalar,100.d0*time_scalar/t2,"passive scalar"
+    write(*,8) (time_nlk2),100.d0*(time_nlk2/t2),"cal_nlk_fsi"
+    write(*,8) (time_p),100.d0*(time_p/t2),"pressure"
+    write(*,8) (time_nlk_scalar),100.d0*(time_nlk_scalar/t2),"sclar rhs"
+    write(*,8) (time_scalar),100.d0*(time_scalar/t2),"passive scalar"
     write(*,3)
 
     write(*,'("cal_nlk_fsi:")')
-    write(*,8) time_u,100.d0*time_u/t2,"velocity"
-    write(*,8) time_vor,100.d0*time_vor/t2,"vorticity"
-    write(*,8) time_sponge,100.d0*time_sponge/t2,"sponge"
-    write(*,8) time_curl,100.d0*time_curl/t2,"nonlinear term"
+    write(*,8) (time_u),100.d0*(time_u)/t2,"velocity"
+    write(*,8) (time_vor),100.d0*(time_vor)/t2,"vorticity"
+    write(*,8) (time_sponge),100.d0*(time_sponge)/t2,"sponge"
+    write(*,8) (time_curl),100.d0*(time_curl)/t2,"nonlinear term"
     write(*,3)
-    write(*,'("Total walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
+    write(*,'("Integral walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
+    write(*,'("Actual   walltime ",es12.4," (",i7," CPUh)")') t3, nint( t3*dble(mpisize)/3600.d0 )
     write(*,3)
     write(*,'(A)') 'Finalizing computation....'
     write(*,3)

@@ -24,7 +24,7 @@ subroutine init_turbulent_inlet ( )
   real(kind=pr) :: u1, u2, u3
   integer :: nx_org, L, N, iy, iz, q
   real(Kind=pr),allocatable :: f(:,:), fk(:,:)
-  real(kind=pr) :: time, umax
+  real(kind=pr) :: time, umax,viscosity_dummy
 
   complex (kind=pr), dimension (:), allocatable :: cworkx, expx0, expx ! work array and shift in x
 
@@ -41,7 +41,7 @@ subroutine init_turbulent_inlet ( )
   ! first determine how many points in x-direction the file has, then allocate
   ! the field u_turb accordingly
   call Fetch_attributes( "ux_turb.h5", nx_turb,ny_turb,nz_turb,&
-       xl_turb,yl_turb,zl_turb,time)
+       xl_turb,yl_turb,zl_turb,time,viscosity_dummy)
 
 
   if (mpirank==0) write(*,*) "inlet file resolution is ",nx_turb, ny_turb, nz_turb
