@@ -124,6 +124,8 @@ contains
 
 
   !---------------------------------------
+  ! note these include files also have to be specified as dependencies in the
+  ! Makefile for make to check if one of them changed
   include "periodization.f90"
   include "body_geometry.f90"
   include "body_motion.f90"

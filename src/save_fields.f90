@@ -640,12 +640,12 @@ subroutine Read_Single_File ( filename, field )
   dimensions_local(3) = rb(3)-ra(3) +1
 
   ! check if the size of attributed memory is the size in the file.
-  call MPI_ALLREDUCE (dimensions_local(1),nx_file,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
-  call MPI_ALLREDUCE (dimensions_local(2),ny_file,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
-  call MPI_ALLREDUCE (dimensions_local(3),nz_file,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (rb(1),nx_file,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (rb(2),ny_file,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (rb(3),nz_file,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
 
   ! if the resolutions do not match, yell and hang yourself
-  if ((nx.ne.nx_file).or.(ny.ne.ny_file).or.(nz.ne.nz_file)) then
+  if ((nx-1/=nx_file).or.(ny-1/=ny_file).or.(nz-1/=nz_file)) then
     if (mpirank == 0) then
       write (*,'(A)') "ERROR! Resolution mismatch"
       write (*,'(A)') "This happens if ra(:) and rb(:) are not properly initialized."
@@ -1401,6 +1401,8 @@ subroutine save_field_hdf5_strided(time,filename,field_out)
   enddo
 
   call flusi_hdf5_wrapper( time, filename, rared, rbred, field_red)
+
+  deallocate (field_red)
 end subroutine save_field_hdf5_strided
 
 

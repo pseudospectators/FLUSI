@@ -10,7 +10,7 @@
 module basic_operators
   !-- interface for curl operators
   interface curl
-    module procedure curl, curl_inplace, curl3
+    module procedure curl, curl_inplace, curl3, curl3_inplace
   end interface
 
   !-- interface for maxima of fields
@@ -713,5 +713,77 @@ subroutine Vorticity2Velocity_inplace(uk)
     enddo
   enddo
 end subroutine Vorticity2Velocity_inplace
+
+
+
+!-------------------------------------------------------------------------------
+! compute helicity from velocity and vorticity (both in x-space)
+! INPUT:
+!   u: velocity in x-space
+!   vor: vorticity in x-space
+! OUTPUT:
+!   hel: helicty in x-space
+!-------------------------------------------------------------------------------
+subroutine helicity(u,vor,hel)
+  use mpi
+  use fsi_vars
+  use p3dfft_wrapper
+  implicit none
+
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::vor(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::hel(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+
+  integer :: ix, iy, iz
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! helicity is scalar product of u and vorticity
+        hel(ix,iy,iz) = (u(ix,iy,iz,1)*vor(ix,iy,iz,1) &
+                      +  u(ix,iy,iz,2)*vor(ix,iy,iz,2) &
+                      +  u(ix,iy,iz,3)*vor(ix,iy,iz,3))
+      enddo
+    enddo
+  enddo
+
+end subroutine helicity
+
+!-------------------------------------------------------------------------------
+! compute normalized helicity from velocity and vorticity (both in x-space)
+! INPUT:
+!   u: velocity in x-space
+!   vor: vorticity in x-space
+! OUTPUT:
+!   hel: helicty in x-space
+!-------------------------------------------------------------------------------
+subroutine helicity_norm(u,vor,hel)
+  use mpi
+  use fsi_vars
+  use p3dfft_wrapper
+  implicit none
+
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::vor(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::hel(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+
+  integer :: ix, iy, iz
+  real(kind=pr) :: norm
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! normalization is product of norms
+        norm = dsqrt(u(ix,iy,iz,1)**2 + u(ix,iy,iz,2)**2 + u(ix,iy,iz,3)**2) &
+             * dsqrt(vor(ix,iy,iz,1)**2 + vor(ix,iy,iz,2)**2 + vor(ix,iy,iz,3)**2)
+        ! helicity is scalar product of u and vorticity
+        hel(ix,iy,iz) = (u(ix,iy,iz,1)*vor(ix,iy,iz,1) &
+                      +  u(ix,iy,iz,2)*vor(ix,iy,iz,2) &
+                      +  u(ix,iy,iz,3)*vor(ix,iy,iz,3)) / norm
+      enddo
+    enddo
+  enddo
+
+end subroutine helicity_norm
 
 end module basic_operators
