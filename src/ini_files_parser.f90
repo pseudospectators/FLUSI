@@ -39,7 +39,7 @@ contains
     implicit none
 
     type(inifile), intent(inout) :: PARAMS
-    character(len=strlen) :: file ! this is the file we read the PARAMS from
+    character(len=*) :: file ! this is the file we read the PARAMS from
     character(len=maxcolumns) :: dummy, line
     logical, intent(in) :: verbose
     integer :: io_error, i

@@ -94,6 +94,8 @@ subroutine postprocessing()
     call energy_post(help)
   case ("--helicity")
     call post_helicity(help)
+  case ("--smooth-inverse-mask")
+    call post_smooth_mask(help)
   case default
     if (root) then
       write(*,*) "Available Postprocessing tools are:"
@@ -124,6 +126,7 @@ subroutine postprocessing()
       write(*,*) "--hdf2bin"
       write(*,*) "--bin2hdf"
       write(*,*) "--helicity"
+      write(*,*) "--smooth-inverse-mask"
       write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))
       write(*,*) "But I don't know what to do with that"
   endif
@@ -2915,6 +2918,7 @@ subroutine simple_field_operation(help)
     write(*,*) "! load two fields and perform a simple operation ( + - / * )"
     write(*,*) "! example: ./flusi -p --simple-field-operation vorabs_0000.h5 * mask_0000.h5 vor2_0000.h5"
     write(*,*) "! this gives just the product vor*mask"
+    write(*,*) "! NOTE: USE AN ESCAPE CHARACTER FOR OPERATION!"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: yes"
     return
@@ -3267,3 +3271,139 @@ subroutine post_helicity(help)
   deallocate (u,uk,vor,work)
   call fft_free()
 end subroutine post_helicity
+
+
+
+!-------------------------------------------------------------------------------
+!./flusi -p --smooth-inverse-mask mask_000.h5 smooth_000.h5
+!-------------------------------------------------------------------------------
+subroutine post_smooth_mask(help)
+  use vars
+  use p3dfft_wrapper
+  use basic_operators
+  use ini_files_parser
+  use mpi
+  implicit none
+  logical, intent(in) :: help
+  character(len=strlen) :: infile, outfile
+  complex(kind=pr),dimension(:,:,:),allocatable :: uk,rhs
+  real(kind=pr),dimension(:,:,:),allocatable :: u1,u2,tmp
+  real(kind=pr),dimension(:,:,:,:),allocatable :: expvis
+  real(kind=pr) :: time, dt
+  integer :: mpicode, it
+  type(inifile) :: params
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --smooth-inverse-mask mask_000.h5 smooth_000.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Reads in the mask function and solves the penalized heat equation, i.e. it diffuses the"
+    write(*,*) "mask while trying to keep 1 inside the solid. then, we save (1-mask) to disk, so that "
+    write(*,*) "one can multiply a field with it in order to smoothly cut out the region near the "
+    write(*,*) "penalized domain. The equation is:"
+    write(*,*) " d chi / dt = nu*laplace(chi) - (chi0/eta)*(chi-1.0)"
+    write(*,*) " where chi is the dilluted mask and chi0 is the initial mask (sharpened)"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "The code reads in a small smoothing.ini file which contains the required parameters"
+    write(*,*) "contents of this file:"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "[smoothing]"
+    write(*,*) "nu=1.0e-1; viscosity"
+    write(*,*) "eps=1e-2; penalization"
+    write(*,*) "tmax=0.2; final time"
+    write(*,*) "dt=0.95e-2; time step"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes"
+    return
+  endif
+
+  call get_command_argument(3,infile)
+  call get_command_argument(4,outfile)
+
+  call check_file_exists( infile )
+  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu )
+
+  pi=4.d0 *datan(1.d0)
+  scalex=2.d0*pi/xl
+  scaley=2.d0*pi/yl
+  scalez=2.d0*pi/zl
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+  nf = 1
+
+  ! read in parameters
+  if (root) call read_ini_file( params, "smoothing.ini", .true.)
+  call read_param( params,"smoothing","nu",nu,1.0d-1 )
+  call read_param( params,"smoothing","eps",eps,1.0d-2 )
+  call read_param( params,"smoothing","dt",dt,0.5d-2 )
+  call read_param( params,"smoothing","tmax",tmax,1.d0 )
+  if (root) call clean_ini_file( params )
+
+  allocate(lin(1))
+  lin(1) = nu
+
+  call fft_initialize() ! also initializes the domain decomp
+
+  allocate(u1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(u2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(tmp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  allocate(rhs(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  allocate(expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
+
+  call read_single_file ( infile, u1 )
+
+  !-----------------------------------------------------------------------------
+  ! we use u2 for forcing:
+  u2 = u1
+  if (root) write(*,*) "Removing smoothing layer from source term..."
+  ! wherever the mask is present, we will force to one, in order to exclude the
+  ! smoothing layer. That way, we are hopeful that the resulting function will be
+  ! zero at the first onset on smoothing
+  where (u2>1.0d-10)
+    u2 = 1.d0
+  end where
+
+  !-----------------------------------------------------------------------------
+  ! the initial condition is what we read from file (stepping in Fourier space)
+  call fft ( inx=u1, outk=uk )
+
+  ! compute number of time steps (approx.) to reach tmax from ini file
+  nt = nint(tmax/dt)
+  if (root) then
+    write(*,*) "nt=",nt
+    write(*,'("Penalization parameter C_eta=",es12.4," and K_eta=",es12.4)') eps, &
+    sqrt(nu*eps)/dx
+  endif
+
+  ! compute integrating factor for diffusive term
+  call cal_vis( dt, expvis )
+
+  !-----------------------------------------------------------------------------
+  ! loop over time steps for penalized heat equation problem
+  !-----------------------------------------------------------------------------
+  do it=1, nt
+      if (root) then
+        write(*,*) "step",it,"of",nt
+      endif
+
+      ! this is the penalization term:
+      tmp = -u2/eps*(u1-1.d0)
+      ! to Fourier space
+      call fft( inx=tmp, outk=rhs )
+      ! advance in time (euler), viscosity is treated with integrating factor:
+      uk = (uk + dt*rhs)*expvis(:,:,:,1)
+      ! for the next time step we need phys. space to compute penalization term
+      call ifft ( ink=uk, outx=u1)
+  enddo
+
+  ! save inverse of smoothed mask to disk
+  tmp = 1.d0 - u1
+  call save_field_hdf5 ( time, outfile, tmp )
+
+  ! done
+  deallocate (u1,u2,uk,expvis,rhs,tmp)
+  call fft_free()
+
+end subroutine post_smooth_mask

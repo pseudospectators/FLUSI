@@ -558,7 +558,7 @@ subroutine Read_Single_File ( filename, field )
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
   real (kind=pr)                :: time, xl_file, yl_file, zl_file, t1
   real (kind=pr)                :: fmax,fmin,favg,viscosity_dummy
-  character(len=strlen)             :: dsetname
+  character(len=strlen)         :: dsetname
   integer                       :: nx_file, ny_file, nz_file, mpierror, i
 
   integer(hid_t) :: file_id       ! file identifier
@@ -598,7 +598,7 @@ subroutine Read_Single_File ( filename, field )
   xl_file,yl_file ,zl_file,time, viscosity_dummy )
 
   if (mpirank==0) then
-    write(*,'("nx=",i4," ny=",i4," nz=",i4," time=",g12.4," viscosity=",g12.4)')&
+    write(*,'("nx=",i4," ny=",i4," nz=",i4," time=",g12.4," viscosity=",g16.4)')&
      nx_file,ny_file,nz_file,time,viscosity_dummy
     write(*,'("xl=",g12.4," yl=",g12.4," zl=",g12.4)') xl_file,yl_file ,zl_file
   endif
