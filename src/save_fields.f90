@@ -1185,8 +1185,6 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
 
   character(len=*) :: filename  ! file name
   character(len=80) :: dsetname  ! dataset name
-  character(len=4) :: aname     ! attribute name
-  character(len=11) :: aname2
 
   integer(hid_t) :: file_id       ! file identifier
   integer(hid_t) :: dset_id       ! dataset identifier
@@ -1200,6 +1198,7 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
   integer     ::   error ! error flag
   integer(hsize_t), dimension(1) :: data_dims
   integer :: mpirank, mpicode
+  logical :: exists
 
   call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
 
@@ -1219,8 +1218,7 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
   !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (time)
   !!!!!!!!!!!!!!!!!!!!!!!!!!
-  aname = "time"
-  CALL h5aopen_f(dset_id, aname, attr_id, error)
+  CALL h5aopen_f(dset_id, "time", attr_id, error)
 
   ! Get dataspace and read
   CALL h5aget_space_f(attr_id, aspace_id, error)
@@ -1234,8 +1232,7 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
   !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (domain_length)
   !!!!!!!!!!!!!!!!!!!!!!!!!!
-  aname2 = "domain_size"
-  CALL h5aopen_f(dset_id, aname2, attr_id, error)
+  CALL h5aopen_f(dset_id, "domain_size", attr_id, error)
 
   ! Get dataspace and read
   CALL h5aget_space_f(attr_id, aspace_id, error)
@@ -1252,9 +1249,12 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
   !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (viscosity)
   !!!!!!!!!!!!!!!!!!!!!!!!!!
-  aname = "viscosity"
-  CALL h5aopen_f(dset_id, "viscosity", attr_id, error)
-  if (error == 0) then
+  ! only recent files contain the attribute viscosity, so we need to check if it
+  ! is actually there
+  call h5aexists_f(dset_id, "viscosity", exists, error)
+
+  if (exists) then
+    CALL h5aopen_f(dset_id, "viscosity", attr_id, error)
     ! Get dataspace and read
     CALL h5aget_space_f(attr_id, aspace_id, error)
     data_dims(1) = 1
@@ -1264,15 +1264,14 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
     CALL h5aclose_f(attr_id, error) ! Close the attribute.
     CALL h5sclose_f(aspace_id, error) ! Terminate access to the data space.
   else
-    if(mpirank==0) write (*,*) "the file did not contain this attribute!"
+    if(mpirank==0) write (*,*) "the file did not contain the viscosity!"
     viscosity = 0.d0
   endif
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!
   ! open attribute (sizes)
   !!!!!!!!!!!!!!!!!!!!!!!!!!
-  aname = "nxyz"
-  CALL h5aopen_f(dset_id, aname, attr_id, error)
+  CALL h5aopen_f(dset_id, "nxyz", attr_id, error)
 
   ! Get dataspace and read
   CALL h5aget_space_f(attr_id, aspace_id, error)
@@ -1289,8 +1288,6 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
   CALL h5dclose_f(dset_id, error) ! End access to the dataset and release resources used by it.
   CALL h5fclose_f(file_id, error) ! Close the file.
   CALL h5close_f(error)  ! Close FORTRAN interface.
-
-  !   write (*,'("time=",es12.4," domain=",3(es12.4,1x),2x,3(i3,1x))') time, xl,yl,zl, nx, ny, nz
 end subroutine Fetch_attributes
 
 
