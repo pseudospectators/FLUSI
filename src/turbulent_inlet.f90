@@ -104,7 +104,7 @@ subroutine turbulent_inlet( time )
   integer :: n, i1,i2
 
   ! thickness of inflow velocity sponge
-  n = 48
+  n = inlet_thickness
   dx_turb = xl_turb / dble(nx_turb)
 
   ! note x-direction is contiguous among MPI procs, i.e. it is NOT split

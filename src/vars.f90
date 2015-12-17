@@ -129,7 +129,8 @@ module vars
 
   ! turbulent inlet:
   character(len=strlen),save :: use_turbulent_inlet
-  real(kind=pr) :: rescale
+  real(kind=pr),save :: rescale
+  integer, save :: inlet_thickness
 
   ! averaging
   character(len=strlen),save :: time_avg, vel_avg, ekin_avg, save_one_only
@@ -220,7 +221,7 @@ module vars
       integer :: mpicode
 
       if (mpirank==0) write(*,*) "Killing run..."
-      if (mpirank==0) call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine abort1
     !---------------------------------------------------------------------------
     subroutine abort2(msg)
@@ -231,7 +232,7 @@ module vars
 
       if (mpirank==0) write(*,*) "Killing run..."
       if (mpirank==0) write(*,*) msg
-      if (mpirank==0) call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
     end subroutine abort2
     !---------------------------------------------------------------------------
     ! wrapper for NaN checking (this may be compiler dependent)

@@ -121,6 +121,7 @@ subroutine get_params_common(PARAMS)
   ! turbulent inlet
   call read_param(PARAMS,"TurbulentInlet","use_turbulent_inlet",use_turbulent_inlet, "no")
   call read_param(PARAMS,"TurbulentInlet","rescale",rescale, 1.d0)
+  call read_param(PARAMS,"TurbulentInlet","inlet_thickness",inlet_thickness,48)
 
   ! averaging in time
   call read_param(PARAMS,"Averaging","time_avg",time_avg, "no")

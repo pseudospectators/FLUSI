@@ -539,6 +539,8 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   deallocate(attributes)
 end subroutine dump_field_backup
 
+
+
 ! Read in a single file that follows the naming convention
 ! note you need to know the dimensions and domain decomposition before
 ! calling it.
@@ -1303,12 +1305,10 @@ subroutine check_file_exists(fname)
   logical :: exist1
   integer :: mpicode
 
-  if (mpirank == 0) then
-    inquire ( file=fname, exist=exist1 )
-    if ( exist1 .eqv. .false.) then
-      write (*,'("ERROR! file: ",A," not found")') trim(fname)
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    endif
+  inquire ( file=fname, exist=exist1 )
+  if ( exist1 .eqv. .false.) then
+    if (root) write (*,'("ERROR! file: ",A," not found")') trim(adjustl(fname))
+    call abort("file not found")
   endif
 
 end subroutine check_file_exists
