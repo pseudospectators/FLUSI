@@ -9,7 +9,7 @@
 module fftw3_descriptors
   use vars
   implicit none
-  integer*8,dimension(1:3),save :: Desc_Handle_1D_f,Desc_Handle_1D_b
+  integer(kind=8),dimension(1:3),save :: Desc_Handle_1D_f,Desc_Handle_1D_b
 
 end module fftw3_descriptors
 
@@ -267,6 +267,7 @@ subroutine setup_cart_groups
   integer :: mpicolor,mpikey,mpicode
   integer :: mpicommtmp1,mpicommtmp2
   logical :: mpiperiods(2),periods(1),reorder
+!  integer :: mpiperiods(2),periods(1),reorder
   integer :: one=1,two=2,dims(1) ! Required for MPI_CART_GET, MPI_CART_CREATE in openmpi
 
   if (mpirank==0) write(*,*) " setting up cart_groups..."
@@ -274,6 +275,9 @@ subroutine setup_cart_groups
   ! Set parameters
   periods(1)=.true. ! This should be an array - if not, openmpi fails
   reorder=.false.
+!  periods(1)=1
+!  reorder=0
+
   ! Get Cartesian topology information
   call MPI_CART_GET(mpicommcart,two,mpidims,mpiperiods,mpicoords,mpicode)
   ! Communicator for line in y direction
@@ -339,14 +343,15 @@ subroutine coftxyz(f,fk)
   complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real(kind=pr),save :: t1
   real(kind=pr) :: norm
-  integer(kind=int64) :: npoints
+  integer(kind=8) :: npoints
 
   t1 = MPI_wtime()
   ! Compute forward FFT
   call p3dfft_ftran_r2c(f,fk,'fff')
 
   ! Normalize
-  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
+!  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
+  npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
   norm = 1.d0 / dble(npoints)
   fk(:,:,:) = fk(:,:,:) * norm
 
