@@ -11,14 +11,21 @@ subroutine StrokePlane ( time, Insect )
   real(kind=pr), intent(in) :: time
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: eta_stroke
+  character(len=strlen) :: dummy
 
   select case (Insect%BodyMotion)
   case ("free_flight")
     eta_stroke = Insect%eta0  ! read from file
   case ("tethered")
     eta_stroke = Insect%eta0  ! read from file
+  case ("command-line")
+    call get_command_argument(16,dummy)
+    read (dummy,*) eta_stroke
+
+    if(root) write(*,'("eta=",g12.4,"°")') eta_stroke
+    eta_stroke = deg2rad(eta_stroke)
+
   case ("takeoff")
-!    eta_stroke = deg2rad(-28.d0) ! 62-90, Fontaine et al., fig 13 (Dmitry, 14 Nov 2013)
     eta_stroke = Insect%eta_stroke ! read from file
   case default
     if (mpirank==0) then

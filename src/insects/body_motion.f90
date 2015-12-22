@@ -27,6 +27,7 @@ subroutine BodyMotion(time, Insect)
   real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
   real(kind=pr) :: xc(1:3), vc(1:3), ep(0:3)
   real(kind=pr) :: T,R
+  character(len=strlen) :: dummy
 
   ! the tag body_moves is used to draw the insect's body only once, if the body
   ! does not move (body_moves=="no"). For safety, we initialize the body as moving
@@ -35,6 +36,33 @@ subroutine BodyMotion(time, Insect)
 
 
   select case (Insect%BodyMotion)
+  case ("command-line")
+    ! use values specified in global variables. this is used to draw a single
+    ! mask with a dry run, where all 12 parameters are specified in the command line
+    if(root) write(*,*) "Reading left wing kinematics (params 4,5,6:x,y,z and 7,8,9:psi,beta,gamma)"
+    if(root) write(*,*) "note body does NOT move (no velocity field)"
+    call get_command_argument(4,dummy)
+    read (dummy,*) xc(1)
+    call get_command_argument(5,dummy)
+    read (dummy,*) xc(2)
+    call get_command_argument(6,dummy)
+    read (dummy,*) xc(3)
+    call get_command_argument(7,dummy)
+    read (dummy,*) psi
+    call get_command_argument(8,dummy)
+    read (dummy,*) beta
+    call get_command_argument(9,dummy)
+    read (dummy,*) gamma
+
+    body_moves = "no"
+    psi_dt   = 0.d0
+    beta_dt  = 0.d0
+    gamma_dt = 0.d0
+    vc = (/0.d0, 0.d0, 0.d0/) ! tethered: no velocity
+
+    if(root) write(*,'("x=",g12.4,"y=",g12.4,"z=",g12.4)') xc
+    if(root) write(*,'("psi=",g12.4,"beta=",g12.4,"gamma=",g12.4)') psi,beta,gamma
+
   case ("roll")
     psi      = 30.d0*sin(2.d0*pi*time)
     beta     = 0.d0 ! pitch

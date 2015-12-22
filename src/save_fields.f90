@@ -1037,6 +1037,7 @@ subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   call h5sclose_f(aspace_id, error) ! Terminate access to the data space.
 end subroutine write_attribute_dble
 
+
 ! Write a given attribute with attribute name aname and dimensions
 ! adims/dims to a given dataset identifier dset_id. Integer version.
 subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)

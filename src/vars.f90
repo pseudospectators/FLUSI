@@ -15,7 +15,6 @@ end module penalization
 ! Variables for pseudospectral simnulations
 module vars
   use mpi
-!  use iso_fortran_env
   implicit none
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
@@ -24,8 +23,6 @@ module vars
   integer,parameter :: strlen=80   ! standard string length
 
   ! Precision of doubles
-!  integer,parameter :: pr = real64
-!  integer,parameter :: i8 = int64
   integer,parameter :: pr = 8
   integer,parameter :: i8 = 8
 
@@ -400,6 +397,14 @@ module fsi_vars
     implicit none
     real(kind=pr), intent(in) :: deg
     deg2rad=deg*pi/180.d0
+    return
+  end function
+
+  real(kind=pr) function rad2deg(deg)
+    use vars
+    implicit none
+    real(kind=pr), intent(in) :: deg
+    rad2deg=deg*180.d0/pi
     return
   end function
 

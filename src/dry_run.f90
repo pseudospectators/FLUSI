@@ -45,7 +45,20 @@ subroutine dry_run()
   call get_command_argument(2,infile)
   ! read all parameters from that file
   call get_params(infile,Insect)
-
+  ! is the position of body and wings given by the command line?
+  call get_command_argument(3,infile)
+  if (infile == "--kinematics") then
+    if (root) then
+      write(*,*) "parameters are given by command line call"
+      write(*,*) "note the mask has NO velocity field! (todo: implement that)"
+      write(*,*) "./flusi --dry-run PARAMS.ini --kinemetics x y z psi beta gamma &
+      &phi_l alpha_l theta_l phi_r alpha_r theta_r eta"
+    endif
+    Insect%BodyMotion = "command-line"
+    Insect%FlappingMotion_left = "command-line-left"
+    Insect%FlappingMotion_right = "command-line-right"
+    tmax = 0.d0
+  endif
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
   !-----------------------------------------------------------------------------

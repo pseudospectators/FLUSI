@@ -764,6 +764,45 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     phi_dt   = 0.0
     alpha_dt = 0.0
     theta_dt = 0.0
+  case ("command-line-left")
+    ! use values specified in global variables. this is used to draw a single
+    ! mask with a dry run, where all 12 parameters are specified in the command line
+    if(root) write(*,*) "Reading left wing kinematics (params 10,11,12: phi,alpha,theta)"
+    if(root) write(*,*) "note wings do NOT move (no velocity field)"
+    call get_command_argument(10,dummy)
+    read (dummy,*) phi
+    call get_command_argument(11,dummy)
+    read (dummy,*) alpha
+    call get_command_argument(12,dummy)
+    read (dummy,*) theta
+
+    if(root) write(*,'("phi=",g12.4,"° alpha=",g12.4,"° theta=",g12.4,"° ")') phi,alpha,theta
+    phi = deg2rad(phi)
+    alpha = deg2rad(alpha)
+    theta = deg2rad(theta)
+    phi_dt   = 0.0
+    alpha_dt = 0.0
+    theta_dt = 0.0
+    
+  case ("command-line-right")
+    ! use values specified in global variables. this is used to draw a single
+    ! mask with a dry run, where all 12 parameters are specified in the command line
+    if(root) write(*,*) "Reading left wing kinematics (params 13,14,15: phi,alpha,theta)"
+    if(root) write(*,*) "note wings do NOT move (no velocity field)"
+    call get_command_argument(13,dummy)
+    read (dummy,*) phi
+    call get_command_argument(14,dummy)
+    read (dummy,*) alpha
+    call get_command_argument(15,dummy)
+    read (dummy,*) theta
+
+    if(root) write(*,'("phi=",g12.4,"° alpha=",g12.4,"° theta=",g12.4,"° ")') phi,alpha,theta
+    phi = deg2rad(phi)
+    alpha = deg2rad(alpha)
+    theta = deg2rad(theta)
+    phi_dt   = 0.0
+    alpha_dt = 0.0
+    theta_dt = 0.0
   case default
     if (mpirank==0) then
       write(*,*) "insects.f90::FlappingMotion: motion case (protocoll) undefined"
