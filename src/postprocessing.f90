@@ -991,13 +991,14 @@ end subroutine keyvalues
 !-------------------------------------------------------------------------------
 subroutine compare_timeseries(help)
   use fsi_vars
+  use mpi
   implicit none
   character(len=strlen) :: file1,file2
   character(len=1024) :: header, line
   character(len=15) ::format
   real(kind=pr),dimension(:),allocatable :: values1, values2, error
   real(kind=pr)::diff
-  integer :: i,columns,io_error,columns2
+  integer :: i,columns,io_error,columns2, mpicode
   logical, intent(in) :: help
 
   if (help.and.root) then
@@ -1043,6 +1044,7 @@ subroutine compare_timeseries(help)
 
   if(columns/=columns2) then
     write(*,*) "trying to compare two t files with different #columns..."
+    call MPI_FINALIZE(mpicode)
     call exit(666)
   endif
 
@@ -1079,6 +1081,7 @@ subroutine compare_timeseries(help)
       write(*,format) values1
       write(*,format) values2
       write(*,format) error
+      call MPI_FINALIZE(mpicode)
       call exit(666)
     endif
   enddo
@@ -1098,6 +1101,7 @@ subroutine compare_key(key1,key2)
   character(len=*), intent(in) :: key1,key2
   real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2,t1,t2,q1,q2
   real(kind=pr) :: e1,e2,e3,e4,e0,e5
+  integer ::mpicode
 
   call check_file_exists(key1)
   call check_file_exists(key2)
@@ -1159,10 +1163,12 @@ subroutine compare_key(key1,key2)
   if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4) .and. (e0<1.d-4) .and. (e5<1.d-4)) then
     ! all cool
     write (*,*) "OKAY..."
+    call MPI_FINALIZE(mpicode)
     call exit(0)
   else
     ! very bad
     write (*,*) "ERROR"
+    call MPI_FINALIZE(mpicode)
     call exit(1)
   endif
 end subroutine compare_key
