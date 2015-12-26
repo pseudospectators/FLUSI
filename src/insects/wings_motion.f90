@@ -10,7 +10,7 @@ subroutine FlappingMotion_left ( time, Insect )
 
   call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
   Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
-  Insect%alpha_dt_l, Insect%theta_dt_l )
+  Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
 end subroutine FlappingMotion_left
 
 
@@ -26,7 +26,7 @@ subroutine FlappingMotion_right ( time, Insect )
 
   call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
   Insect%phi_r, Insect%alpha_r, Insect%theta_r, Insect%phi_dt_r, &
-  Insect%alpha_dt_r, Insect%theta_dt_r )
+  Insect%alpha_dt_r, Insect%theta_dt_r, Insect%kine_wing_r )
 end subroutine FlappingMotion_right
 
 
@@ -41,15 +41,17 @@ end subroutine FlappingMotion_right
 !       phi: flapping/positonal angle
 !       alpha: feathering angle / angle of attack
 !       theta: deviation angle / Out-of-stroke-plane
-!       phi_dt: flapping angular velocity
-!       alpha_dt: feathering angular velocity
-!       theta_dt: deviatory angular velocity
+!       phi_dt: flapping time derivative
+!       alpha_dt: feathering time derivative
+!       theta_dt: deviatory time derivative
+!       kine: a Fourier series object, as described in insects.f90
 ! The actual motion depends on the choices in the parameter file, namely
 ! Insect%WingMotion, and sub-parameters that may further precise a given motion
 ! protocoll. Note we allow both wings to follow a differen motion, but they both
 ! call this routine here.
 !-------------------------------------------------------------------------------
-subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, alpha_dt, theta_dt)
+subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
+           alpha_dt, theta_dt, kine)
   use vars
   use ini_files_parser
   implicit none
@@ -58,6 +60,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
   type(diptera), intent(inout) :: Insect
   real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
   character (len=*), intent(in) :: protocoll
+  type(wingkinematics), intent(inout) :: kine
   real(kind=pr) :: phi_max,alpha_max, phase,f
   real(kind=pr) :: bi_alpha_flapper(1:29) ! For comparison with Sane&Dickinson
   real(kind=pr) :: ai_phi_flapper(1:31) ! For comparison with Sane&Dickinson
@@ -82,7 +85,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     ! in the params file and stored in Insect%infile. An example file
     ! (kinematics_fourier_example.ini) is in the git-repository
     !---------------------------------------------------------------------------
-    if (index( Insect%infile,".ini")==0) then
+    if (index( kine%infile,".ini")==0) then
       call abort("you're trying to load an old kinematics file,please convert it to &
       &a new *.ini file (see src/insects/kinematics_example.ini&
       & the insects-tools repository can help you do that!")
@@ -91,19 +94,19 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     !---------------------------------------------------------------------------
     ! this block is excecuted only once
     !---------------------------------------------------------------------------
-    if (.not.allocated(ai_phi)) then
+    if (.not.kine%initialized) then
       ! parse ini file
-      if (mpirank==0) call read_ini_file(kinefile, Insect%infile, .true.)
+      if (mpirank==0) call read_ini_file(kinefile, kine%infile, .true.)
 
       ! how to interpret numbers: Fourier or Hermite?
-      call read_param(kinefile,"kinematics","type",Insect%infile_type,"none")
+      call read_param(kinefile,"kinematics","type",kine%infile_type,"none")
       ! what units are given, degree or radiant?
-      call read_param(kinefile,"kinematics","units",Insect%infile_units,"degree")
+      call read_param(kinefile,"kinematics","units",kine%infile_units,"degree")
       ! what convention/definition does the data follow?
-      call read_param(kinefile,"kinematics","convention",Insect%infile_convention,"flusi")
+      call read_param(kinefile,"kinematics","convention",kine%infile_convention,"flusi")
 
       ! inform about your interpretation
-      select case (Insect%infile_type)
+      select case (kine%infile_type)
       case ("Fourier","fourier","FOURIER")
         if (mpirank==0) write(*,*) "The input file is interpreted as FOURIER coefficients"
       case ("Hermite","hermite","HERMITE")
@@ -113,29 +116,24 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
       end select
 
       ! how many coefficients will be read
-      call read_param(kinefile,"kinematics","nfft_phi",Insect%nfft_phi,0)
-      call read_param(kinefile,"kinematics","nfft_alpha",Insect%nfft_alpha,0)
-      call read_param(kinefile,"kinematics","nfft_theta",Insect%nfft_theta,0)
-
-      ! allocate fourier coefficent arrays
-      allocate ( ai_phi(1:Insect%nfft_phi) )
-      allocate ( bi_phi(1:Insect%nfft_phi) )
-      allocate ( ai_alpha(1:Insect%nfft_alpha) )
-      allocate ( bi_alpha(1:Insect%nfft_alpha) )
-      allocate ( ai_theta(1:Insect%nfft_theta) )
-      allocate ( bi_theta(1:Insect%nfft_theta) )
+      call read_param(kinefile,"kinematics","nfft_phi",kine%nfft_phi,0)
+      call read_param(kinefile,"kinematics","nfft_alpha",kine%nfft_alpha,0)
+      call read_param(kinefile,"kinematics","nfft_theta",kine%nfft_theta,0)
 
       ! read coefficients
-      call read_param(kinefile,"kinematics","a0_phi",Insect%a0_phi,0.d0)
-      call read_param(kinefile,"kinematics","a0_alpha",Insect%a0_alpha,0.d0)
-      call read_param(kinefile,"kinematics","a0_theta",Insect%a0_theta,0.d0)
+      call read_param(kinefile,"kinematics","a0_phi",kine%a0_phi,0.d0)
+      call read_param(kinefile,"kinematics","a0_alpha",kine%a0_alpha,0.d0)
+      call read_param(kinefile,"kinematics","a0_theta",kine%a0_theta,0.d0)
 
-      call read_param(kinefile,"kinematics","ai_phi",ai_phi,Insect%nfft_phi)
-      call read_param(kinefile,"kinematics","bi_phi",bi_phi,Insect%nfft_phi)
-      call read_param(kinefile,"kinematics","ai_alpha",ai_alpha,Insect%nfft_alpha)
-      call read_param(kinefile,"kinematics","bi_alpha",bi_alpha,Insect%nfft_alpha)
-      call read_param(kinefile,"kinematics","ai_theta",ai_theta,Insect%nfft_theta)
-      call read_param(kinefile,"kinematics","bi_theta",bi_theta,Insect%nfft_theta)
+      call read_param(kinefile,"kinematics","ai_phi",kine%ai_phi(1:kine%nfft_phi),kine%nfft_phi)
+      call read_param(kinefile,"kinematics","bi_phi",kine%bi_phi(1:kine%nfft_phi),kine%nfft_phi)
+      call read_param(kinefile,"kinematics","ai_alpha",kine%ai_alpha(1:kine%nfft_alpha),kine%nfft_alpha)
+
+      call read_param(kinefile,"kinematics","bi_alpha",kine%bi_alpha(1:kine%nfft_alpha),kine%nfft_alpha)
+      call read_param(kinefile,"kinematics","ai_theta",kine%ai_theta(1:kine%nfft_theta),kine%nfft_theta)
+      call read_param(kinefile,"kinematics","bi_theta",kine%bi_theta(1:kine%nfft_theta),kine%nfft_theta)
+      kine%initialized = .true.
+      call clean_ini_file( kinefile )
     endif
 
     !---------------------------------------------------------------------------
@@ -143,27 +141,27 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     !---------------------------------------------------------------------------
     ! this block is executed every time. it is called a few times only per time step
     ! so don't worry about performance, we can use the string comparison
-    select case (Insect%infile_type)
+    select case (kine%infile_type)
     case ("Fourier","fourier","FOURIER")
       ! evaluate fourier series
-      call fseries_eval(time,phi,phi_dt,Insect%a0_phi,ai_phi,bi_phi)
-      call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,ai_alpha,bi_alpha)
-      call fseries_eval(time,theta,theta_dt,Insect%a0_theta,ai_theta,bi_theta)
+      call fseries_eval(time,phi,phi_dt, kine%a0_phi, kine%ai_phi(1:kine%nfft_phi), kine%bi_phi(1:kine%nfft_phi))
+      call fseries_eval(time,alpha,alpha_dt, kine%a0_alpha, kine%ai_alpha(1:kine%nfft_alpha), kine%bi_alpha(1:kine%nfft_alpha))
+      call fseries_eval(time,theta,theta_dt, kine%a0_theta, kine%ai_theta(1:kine%nfft_theta), kine%bi_theta(1:kine%nfft_theta))
 
     case ("Hermite","hermite","HERMITE")
       ! evaluate hermite interpolation
-      call hermite_eval(time,phi,phi_dt,ai_phi,bi_phi)
-      call hermite_eval(time,alpha,alpha_dt,ai_alpha,bi_alpha)
-      call hermite_eval(time,theta,theta_dt,ai_theta,bi_theta)
+      call hermite_eval(time,phi,phi_dt    , kine%ai_phi(1:kine%nfft_phi), kine%bi_phi(1:kine%nfft_phi))
+      call hermite_eval(time,alpha,alpha_dt, kine%ai_alpha(1:kine%nfft_alpha), kine%bi_alpha(1:kine%nfft_alpha))
+      call hermite_eval(time,theta,theta_dt, kine%ai_theta(1:kine%nfft_theta), kine%bi_theta(1:kine%nfft_theta))
 
     case default
       call abort("kinematics file does not appear to be valid, set type=fourier or type=hermite")
     end select
 
     !---------------------------------------------------------------------------
-    ! make sure the output is in the right units
+    ! make sure the output is in the right units (it HAS to be radiants!)
     !---------------------------------------------------------------------------
-    select case (Insect%infile_units)
+    select case (kine%infile_units)
     case ("degree","DEGREE","Degree")
       ! the rest of the code gets radiants, so convert here
       phi    = deg2rad(phi)
@@ -181,7 +179,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     !---------------------------------------------------------------------------
     ! make sure convention / definition of angles is respected
     !---------------------------------------------------------------------------
-    select case (Insect%infile_convention)
+    select case (kine%infile_convention)
     case ("FLUSI","flusi","Flusi","FluSI")
       ! defintion as used in flusi. all angles are positive in the right hand rule
       ! that means especially that positive deviation puts wing downwards in a
@@ -197,6 +195,29 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     end select
 
 
+  case ("kinematics_loader")
+    !--------------------------------------------------
+    ! kinematics loader for non-periodic kinematics
+    !--------------------------------------------------
+    if (kine%initialized .eqv. .false.) then
+      call load_kine_init(kine)
+      kine%initialized = .true.
+    endif
+
+    ! fetch current wingkinematics from the data file, using hermite interpolation
+    call wing_kine_interp(time,kine,phi,alpha,theta,phi_dt,alpha_dt,theta_dt)
+    ! position angle
+    phi = deg2rad(phi)
+    phi_dt = deg2rad(phi_dt)
+    ! feathering angle
+    alpha = deg2rad(alpha)
+    alpha_dt = deg2rad(alpha_dt)
+    ! elevation angle in flusi coordinates
+    theta = -theta
+    theta_dt = - theta_dt
+    theta = deg2rad(theta)
+    theta_dt = deg2rad(theta_dt)
+
 
   case ("Drosophila_hovering_fry")
     !---------------------------------------------------------------------------
@@ -204,35 +225,32 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     !
     ! fourier coefficients analyzed with matlab
     !---------------------------------------------------------------------------
-    if (.not.allocated(ai_alpha)) then
-      Insect%nfft_alpha = 10
-      Insect%nfft_theta = 10
-      Insect%nfft_phi   = 10
-      allocate ( ai_phi(1:Insect%nfft_phi), bi_phi(1:Insect%nfft_phi) )
-      allocate ( ai_alpha(1:Insect%nfft_alpha), bi_alpha(1:Insect%nfft_alpha) )
-      allocate ( ai_theta(1:Insect%nfft_theta), bi_theta(1:Insect%nfft_theta) )
+    if (.not.kine%initialized) then
+      kine%nfft_alpha = 10
+      kine%nfft_theta = 10
+      kine%nfft_phi   = 10
 
-      Insect%a0_phi   =25.4649398
-      Insect%a0_alpha =-0.3056968
-      Insect%a0_theta =-17.8244658  ! - sign (Dmitry, 10 Nov 2013)
+      kine%a0_phi   =25.4649398
+      kine%a0_alpha =-0.3056968
+      kine%a0_theta =-17.8244658  ! - sign (Dmitry, 10 Nov 2013)
 
-      ai_phi   =(/71.1061858,2.1685448,-0.1986978,0.6095268,-0.0311298,&
-      -0.1255648,-0.0867778,0.0543518,0.0,0.0/)
-      bi_phi   =(/5.4547058,-3.5461688,0.6260698,0.1573728,-0.0360498,-0.0205348,&
-      -0.0083818,-0.0076848,0.0,0.0/)
-      ai_alpha =(/3.3288788,0.6303878,-10.9780518,2.1123398,-3.2301198,&
-      -1.4473158,0.6141758,-0.3071608,0.1458498,0.0848308/)
-      bi_alpha =(/67.5430838,0.6566888,9.9226018,3.9183988,-2.6882828,0.6433518,&
-      -0.8792398,-0.4817838,0.0300078,-0.1015118/)
-      ai_theta =(/-3.9750378,-8.2808998,0.0611208,0.3906598,-0.4488778,0.120087,&
-      0.0717048,-0.0699578,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
-      bi_theta =(/-2.2839398,-3.5213068,1.9296668,-1.0832488,-0.3011748,0.1786648,&
-      -0.1228608,0.0004808,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
+      kine%ai_phi(1:kine%nfft_phi) = (/71.1061858,2.1685448,-0.1986978,0.6095268,-0.0311298,&
+                                       -0.1255648,-0.0867778,0.0543518,0.0,0.0/)
+      kine%bi_phi(1:kine%nfft_phi) = (/5.4547058,-3.5461688,0.6260698,0.1573728,-0.0360498,-0.0205348,&
+                                      -0.0083818,-0.0076848,0.0,0.0/)
+      kine%ai_alpha(1:kine%nfft_alpha) = (/3.3288788,0.6303878,-10.9780518,2.1123398,-3.2301198,&
+                                          -1.4473158,0.6141758,-0.3071608,0.1458498,0.0848308/)
+      kine%bi_alpha(1:kine%nfft_alpha) = (/67.5430838,0.6566888,9.9226018,3.9183988,-2.6882828,0.6433518,&
+                                          -0.8792398,-0.4817838,0.0300078,-0.1015118/)
+      kine%ai_theta(1:kine%nfft_theta) = (/-3.9750378,-8.2808998,0.0611208,0.3906598,-0.4488778,0.120087,&
+                                          0.0717048,-0.0699578,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
+      kine%bi_theta(1:kine%nfft_theta) = (/-2.2839398,-3.5213068,1.9296668,-1.0832488,-0.3011748,0.1786648,&
+                                          -0.1228608,0.0004808,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
     endif
 
-    call fseries_eval(time,phi,phi_dt,Insect%a0_phi,ai_phi,bi_phi)
-    call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,ai_alpha,bi_alpha)
-    call fseries_eval(time,theta,theta_dt,Insect%a0_theta,ai_theta,bi_theta)
+    call fseries_eval(time,phi,phi_dt    ,kine%a0_phi, kine%ai_phi(1:kine%nfft_phi), kine%bi_phi(1:kine%nfft_phi))
+    call fseries_eval(time,alpha,alpha_dt,kine%a0_alpha, kine%ai_alpha(1:kine%nfft_alpha), kine%bi_alpha(1:kine%nfft_alpha))
+    call fseries_eval(time,theta,theta_dt,kine%a0_theta, kine%ai_theta(1:kine%nfft_theta), kine%bi_theta(1:kine%nfft_theta))
 
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
@@ -248,46 +266,43 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     ! Fourier coefficients analyzed with matlab
     ! Note that it begins with UPSTROKE, unlike Fry's kinematics
     !---------------------------------------------------------------------------
-    if (.not.allocated(ai_alpha)) then
-      Insect%nfft_alpha = 10
-      Insect%nfft_theta = 10
-      Insect%nfft_phi   = 10
-      allocate ( ai_phi(1:Insect%nfft_phi), bi_phi(1:Insect%nfft_phi) )
-      allocate ( ai_alpha(1:Insect%nfft_alpha), bi_alpha(1:Insect%nfft_alpha) )
-      allocate ( ai_theta(1:Insect%nfft_theta), bi_theta(1:Insect%nfft_theta) )
+    if (.not.kine%initialized) then
+      kine%nfft_alpha = 10
+      kine%nfft_theta = 10
+      kine%nfft_phi   = 10
 
-      Insect%a0_phi   =38.2280144124915
-      Insect%a0_alpha =1.09156750841542
-      Insect%a0_theta =-17.0396438317138
-      ai_phi   =(/-60.4766838884452,-5.34194400577534,-2.79100982711466,&
+      kine%a0_phi   =38.2280144124915
+      kine%a0_alpha =1.09156750841542
+      kine%a0_theta =-17.0396438317138
+      kine%ai_phi(1:kine%nfft_phi)   =(/-60.4766838884452,-5.34194400577534,-2.79100982711466,&
       0.334561891664093,-0.0202655263017256,-0.323801616724358,&
       -0.474435962657283,-0.111655938200879,0.00958151551130752,&
       0.119666224142596/)
-      bi_phi   =(/3.00359559936894,-7.55184535084148,-1.32520563461209,&
+      kine%bi_phi(1:kine%nfft_phi)   =(/3.00359559936894,-7.55184535084148,-1.32520563461209,&
       -0.297351445375239,-0.213108013812305,-0.0328282543472566,&
       0.0146299151981855,-0.0385423658663155,-0.512411386850196,&
       0.0785978606299901/)
-      ai_alpha =(/-7.73228268249956,8.09409174482393,3.98349294858406,&
+      kine%ai_alpha(1:kine%nfft_alpha) =(/-7.73228268249956,8.09409174482393,3.98349294858406,&
       6.54460609657175,4.20944598804824,0.138380341939039,&
       1.38813149742271,0.625930107014395,0.607953761451392,&
       -0.688049862096416/)
-      bi_alpha =(/-52.2064112743351,-3.83568699799253,-14.8200023306913,&
+      kine%bi_alpha(1:kine%nfft_alpha) =(/-52.2064112743351,-3.83568699799253,-14.8200023306913,&
       4.57428035662431,1.01656074807431,-0.113387395332322,&
       0.614350733080735,0.637197524906845,0.878128257565861,&
       0.271333646229075/)
-      ai_theta =(/-0.0876540586926952,-6.32825811106895,0.461710021840119,&
+      kine%ai_theta(1:kine%nfft_theta)  =(/-0.0876540586926952,-6.32825811106895,0.461710021840119,&
       -0.196290365124456,0.266829219535534,0.191278837298358,&
       0.0651359677824226,0.132751714936873,0.104342707251547,&
       0.0251049936194829/)
-      bi_theta =(/5.05944308805575,-0.677547202362310,-1.30945644385840,&
+      kine%bi_theta(1:kine%nfft_theta)  =(/5.05944308805575,-0.677547202362310,-1.30945644385840,&
       -0.741962147111828,-0.351209215835472,-0.0374224119537382,&
       -0.0940160961803885,-0.0563224030429001,0.0533369476976694,&
       0.0507212428142968/)
     endif
 
-    call fseries_eval(time,phi,phi_dt,Insect%a0_phi,ai_phi,bi_phi)
-    call fseries_eval(time,alpha,alpha_dt,Insect%a0_alpha,ai_alpha,bi_alpha)
-    call fseries_eval(time,theta,theta_dt,Insect%a0_theta,ai_theta,bi_theta)
+    call fseries_eval(time,phi,phi_dt    ,kine%a0_phi, kine%ai_phi(1:kine%nfft_phi), kine%bi_phi(1:kine%nfft_phi))
+    call fseries_eval(time,alpha,alpha_dt,kine%a0_alpha, kine%ai_alpha(1:kine%nfft_alpha), kine%bi_alpha(1:kine%nfft_alpha))
+    call fseries_eval(time,theta,theta_dt,kine%a0_theta, kine%ai_theta(1:kine%nfft_theta), kine%bi_theta(1:kine%nfft_theta))
 
     phi =  deg2rad(phi)
     alpha = deg2rad(alpha)
@@ -704,24 +719,6 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     theta = 0.0d0
     theta_dt = 0.0d0
 
-
-  case ("kinematics_loader")
-    !--------------------------------------------------
-    ! kinematics loader for non-periodic kinematics
-    !--------------------------------------------------
-    call wing_kine_interp(time,phi,alpha,theta,phi_dt,alpha_dt,theta_dt)
-    ! position angle
-    phi = deg2rad(phi)
-    phi_dt = deg2rad(phi_dt)
-    ! feathering angle
-    alpha = deg2rad(alpha)
-    alpha_dt = deg2rad(alpha_dt)
-    ! elevation angle in flusi coordinates
-    theta = -theta
-    theta_dt = - theta_dt
-    theta = deg2rad(theta)
-    theta_dt = deg2rad(theta_dt)
-
   case ("simplified")
     !---------------------------------------------------------------------------
     ! simplified motion protocoll
@@ -783,7 +780,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, al
     phi_dt   = 0.0
     alpha_dt = 0.0
     theta_dt = 0.0
-    
+
   case ("command-line-right")
     ! use values specified in global variables. this is used to draw a single
     ! mask with a dry run, where all 12 parameters are specified in the command line

@@ -19,6 +19,7 @@ subroutine StrokePlane ( time, Insect )
   case ("tethered")
     eta_stroke = Insect%eta0  ! read from file
   case ("command-line")
+    ! for dry runs where the kinematic state is given by the command line call
     call get_command_argument(16,dummy)
     read (dummy,*) eta_stroke
 

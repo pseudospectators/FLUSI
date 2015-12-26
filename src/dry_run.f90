@@ -9,7 +9,6 @@ subroutine dry_run()
   use solid_model
   use insect_module
   use penalization ! mask array etc
-  use kine ! kinematics from file (Dmitry, 14 Nov 2013)
   implicit none
   real(kind=pr)          :: time,memory,mem_field
   integer                :: it
@@ -45,18 +44,26 @@ subroutine dry_run()
   call get_command_argument(2,infile)
   ! read all parameters from that file
   call get_params(infile,Insect)
+
   ! is the position of body and wings given by the command line?
   call get_command_argument(3,infile)
   if (infile == "--kinematics") then
+    ! the flagg --kinematics can be used to construct a single mask function with
+    ! position and angles (=12 parameters) given by the command line call
     if (root) then
       write(*,*) "parameters are given by command line call"
       write(*,*) "note the mask has NO velocity field! (todo: implement that)"
-      write(*,*) "./flusi --dry-run PARAMS.ini --kinemetics x y z psi beta gamma &
+      write(*,*) "./flusi --dry-run PARAMS.ini --kinematics x y z psi beta gamma &
       &phi_l alpha_l theta_l phi_r alpha_r theta_r eta"
     endif
+    ! the following parameters are overwritten (thus not read from ini file)
+    ! they trigger that the routines themselves read the kinematics from the
+    ! command line arguments.
     Insect%BodyMotion = "command-line"
     Insect%FlappingMotion_left = "command-line-left"
     Insect%FlappingMotion_right = "command-line-right"
+    ! since the kinematics do not change in time (we have a single snapshot), we
+    ! save only one file
     tmax = 0.d0
   endif
   !-----------------------------------------------------------------------------
@@ -101,13 +108,6 @@ subroutine dry_run()
   !-----------------------------------------------------------------------------
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
-    if (Insect%FlappingMotion_right=="kinematics_loader".or.Insect%FlappingMotion_left=="kinematics_loader") then
-      if (mpirank==0) then
-        write(*,*) "Initializing kinematics loader for non-periodic kinematics.."
-        write(*,*) "File is "//trim(adjustl(Insect%Infile))
-      endif
-      call load_kine_init(Insect%Infile, mpirank)
-    endif
     ! If required, initialize rigid solid dynamics solver
     if (Insect%BodyMotion=="free_flight") then
       call rigid_solid_init(0.d0,Insect)
@@ -164,9 +164,7 @@ subroutine dry_run()
   deallocate(us, mask, mask_color)
 
   if (iMask=="Insect") then
-    ! Clean kinematics (Dmitry, 14 Nov 2013)
-    if (Insect%KineFromFile/="no") call load_kine_clean
-    ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
+    ! Clean insect 
     call insect_clean(Insect)
   endif
 

@@ -19,7 +19,6 @@
 !-------------------------------------------------------------------------------
 subroutine BodyMotion(time, Insect)
   use vars
-  use kine
   implicit none
 
   real(kind=pr), intent(in) :: time

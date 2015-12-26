@@ -1,136 +1,145 @@
-subroutine load_kine_init(file, mpirank)
+subroutine load_kine_init(kine)
   use mpi
-  use kine
-  use fsi_vars, only : strlen
+  use fsi_vars
   implicit none
 
-  integer, intent(in) :: mpirank
-  integer :: j, mpicode
-  real (kind=prk) :: t_period, r_wing
-  character(len=strlen), intent(in) :: file
+  type(wingkinematics), intent(inout) :: kine
+  integer :: j, mpicode, nk
+  real (kind=pr) :: t_period, r_wing
+
 
   if (mpirank==0) then
-    open (10, file = file, form='formatted', status='old')
+    write(*,*) "Initializing kinematics loader for non-periodic kinematics"
+    write(*,*) "file="//trim(adjustl(kine%infile))
+    open (10, file = kine%infile, form='formatted', status='old')
     read (10, *) t_period ! stroke period in s, for normalization
     read (10, *) r_wing   ! wing length in mm, for normalization
-    read (10, *) nk
-    write(*,'("nk=",i5," t_period=",g12.4," r_wing=",g12.4)') nk, t_period, r_wing
+    read (10, *) kine%nk
+    write(*,'("nk=",i5," t_period=",g12.4," r_wing=",g12.4)') kine%nk, t_period, r_wing
   endif
 
-  call MPI_BCAST(nk,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
-  allocate(vec_t(nk))
-  allocate(vec_phi(nk))
-  allocate(vec_phi_dt(nk))
-  allocate(vec_alpha(nk))
-  allocate(vec_alpha_dt(nk))
-  allocate(vec_theta(nk))
-  allocate(vec_theta_dt(nk))
-  allocate(vec_pitch(nk))
-  allocate(vec_pitch_dt(nk))
-  allocate(vec_vert(nk))
-  allocate(vec_vert_dt(nk))
-  allocate(vec_horz(nk))
-  allocate(vec_horz_dt(nk))
+  call MPI_BCAST(kine%nk,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
+  nk = kine%nk
+  allocate(kine%vec_t(nk))
+  allocate(kine%vec_phi(nk))
+  allocate(kine%vec_phi_dt(nk))
+  allocate(kine%vec_alpha(nk))
+  allocate(kine%vec_alpha_dt(nk))
+  allocate(kine%vec_theta(nk))
+  allocate(kine%vec_theta_dt(nk))
+  allocate(kine%vec_pitch(nk))
+  allocate(kine%vec_pitch_dt(nk))
+  allocate(kine%vec_vert(nk))
+  allocate(kine%vec_vert_dt(nk))
+  allocate(kine%vec_horz(nk))
+  allocate(kine%vec_horz_dt(nk))
 
   if (mpirank==0) then
-    ! read from file
+    ! read data from file
     do j = 1, nk
-      read (10, *) vec_t(j), &
-        vec_phi(j),&
-        vec_alpha(j),&
-        vec_theta(j),&
-        vec_pitch(j),&
-        vec_vert(j),&
-        vec_horz(j),  &
-        vec_phi_dt(j),&
-        vec_alpha_dt(j),&
-        vec_theta_dt(j),&
-        vec_pitch_dt(j),&
-        vec_vert_dt(j),&
-        vec_horz_dt(j)
+      read (10, *) kine%vec_t(j), &
+        kine%vec_phi(j),&
+        kine%vec_alpha(j),&
+        kine%vec_theta(j),&
+        kine%vec_pitch(j),&
+        kine%vec_vert(j),&
+        kine%vec_horz(j),  &
+        kine%vec_phi_dt(j),&
+        kine%vec_alpha_dt(j),&
+        kine%vec_theta_dt(j),&
+        kine%vec_pitch_dt(j),&
+        kine%vec_vert_dt(j),&
+        kine%vec_horz_dt(j)
     enddo
     close (10)
     print *, "load_kine_init: data read from file, nk=", nk
     print *, "non-dimensionalizing input data:"
     ! non-dimensionalize
-    vec_t(:) = vec_t(:) / t_period
-    vec_vert(:) = vec_vert(:) / r_wing
-    vec_horz(:) = vec_horz(:) / r_wing
-    vec_phi_dt(:) = vec_phi_dt(:) * t_period
-    vec_alpha_dt(:) = vec_alpha_dt(:) * t_period
-    vec_theta_dt(:) = vec_theta_dt(:) * t_period
-    vec_pitch_dt(:) = vec_pitch_dt(:) * t_period
-    vec_vert_dt(:) = vec_vert_dt(:) * t_period / r_wing
-    vec_horz_dt(:) = vec_horz_dt(:) * t_period / r_wing
+    kine%vec_t(:) = kine%vec_t(:) / t_period
+    kine%vec_vert(:) = kine%vec_vert(:) / r_wing
+    kine%vec_horz(:) = kine%vec_horz(:) / r_wing
+    kine%vec_phi_dt(:) = kine%vec_phi_dt(:) * t_period
+    kine%vec_alpha_dt(:) = kine%vec_alpha_dt(:) * t_period
+    kine%vec_theta_dt(:) = kine%vec_theta_dt(:) * t_period
+    kine%vec_pitch_dt(:) = kine%vec_pitch_dt(:) * t_period
+    kine%vec_vert_dt(:) = kine%vec_vert_dt(:) * t_period / r_wing
+    kine%vec_horz_dt(:) = kine%vec_horz_dt(:) * t_period / r_wing
   endif
 
-  call MPI_BCAST( vec_t, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_phi, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_alpha, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_theta, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_pitch, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_vert, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_horz, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_phi_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_alpha_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_theta_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_pitch_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_vert_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( vec_horz_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_t, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_phi, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_alpha, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_theta, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_pitch, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_vert, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_horz, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_phi_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_alpha_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_theta_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_pitch_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_vert_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_horz_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
 
-  initialized = .true.
+  kine%initialized = .true.
+  if (root) write(*,*) "done initializing kineoader!"
 end subroutine
 
 
-subroutine load_kine_clean
-  use kine
+subroutine load_kine_clean(kine)
+  use fsi_vars
   implicit none
+  type(wingkinematics), intent(inout) :: kine
 
-  deallocate(vec_t)
-  deallocate(vec_phi)
-  deallocate(vec_phi_dt)
-  deallocate(vec_alpha)
-  deallocate(vec_alpha_dt)
-  deallocate(vec_theta)
-  deallocate(vec_theta_dt)
-  deallocate(vec_pitch)
-  deallocate(vec_pitch_dt)
-  deallocate(vec_vert)
-  deallocate(vec_vert_dt)
-  deallocate(vec_horz)
+  if(allocated(kine%vec_t)) deallocate(kine%vec_t)
+  if(allocated(kine%vec_phi)) deallocate(kine%vec_phi)
+  if(allocated(kine%vec_phi_dt)) deallocate(kine%vec_phi_dt)
+  if(allocated(kine%vec_alpha)) deallocate(kine%vec_alpha)
+  if(allocated(kine%vec_alpha_dt)) deallocate(kine%vec_alpha_dt)
+  if(allocated(kine%vec_theta)) deallocate(kine%vec_theta)
+  if(allocated(kine%vec_theta_dt)) deallocate(kine%vec_theta_dt)
+  if(allocated(kine%vec_pitch)) deallocate(kine%vec_pitch)
+  if(allocated(kine%vec_pitch_dt)) deallocate(kine%vec_pitch_dt)
+  if(allocated(kine%vec_vert)) deallocate(kine%vec_vert)
+  if(allocated(kine%vec_vert_dt)) deallocate(kine%vec_vert_dt)
+  if(allocated(kine%vec_horz)) deallocate(kine%vec_horz)
 
 end subroutine
 
 
-subroutine wing_kine_interp(t_i,phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i)
-  use kine
-  use vars, only : abort
+subroutine wing_kine_interp(time, kine, phi_i, alpha_i, theta_i, phi_dt_i, alpha_dt_i, theta_dt_i)
+  use fsi_vars
   implicit none
 
-  real(kind=prk), intent(in) :: t_i
-  real(kind=prk), intent(out) :: phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i
+  real(kind=pr), intent(in) :: time
+  type(wingkinematics), intent(in) :: kine
+  real(kind=pr), intent(out) :: phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i
 
-  if (initialized .eqv. .false.) then
+  if (kine%initialized .eqv. .false.) then
     call abort("kinematics_loader is not initialized but wing_kine_interp is called")
   endif
 
-  call hermite1d(nk,vec_t,vec_phi,vec_phi_dt,t_i,phi_i,phi_dt_i)
-  call hermite1d(nk,vec_t,vec_alpha,vec_alpha_dt,t_i,alpha_i,alpha_dt_i)
-  call hermite1d(nk,vec_t,vec_theta,vec_theta_dt,t_i,theta_i,theta_dt_i)
+  if ((time<0.d0).or.(time>kine%vec_t(kine%nk))) then
+    if(root) write(*,'("time=",es15.8)') time
+    call abort("requested time in kineloader out of valid bounds")
+  endif
+
+  call hermite1d(kine%nk,kine%vec_t,kine%vec_phi  ,kine%vec_phi_dt,  time,phi_i,phi_dt_i)
+  call hermite1d(kine%nk,kine%vec_t,kine%vec_alpha,kine%vec_alpha_dt,time,alpha_i,alpha_dt_i)
+  call hermite1d(kine%nk,kine%vec_t,kine%vec_theta,kine%vec_theta_dt,time,theta_i,theta_dt_i)
 end subroutine
 
 
-subroutine body_kine_interp(t_i,pitch_i,vert_i,horz_i,pitch_dt_i,vert_dt_i,horz_dt_i)
-  use kine
-  implicit none
-
-  real(kind=prk), intent(in) :: t_i
-  real(kind=prk), intent(out) :: pitch_i,vert_i,horz_i,pitch_dt_i,vert_dt_i,horz_dt_i
-
-  call hermite1d(nk,vec_t,vec_pitch,vec_pitch_dt,t_i,pitch_i,pitch_dt_i)
-  call hermite1d(nk,vec_t,vec_vert,vec_vert_dt,t_i,vert_i,vert_dt_i)
-  call hermite1d(nk,vec_t,vec_horz,vec_horz_dt,t_i,horz_i,horz_dt_i)
-end subroutine
+! subroutine body_kine_interp(t_i,pitch_i,vert_i,horz_i,pitch_dt_i,vert_dt_i,horz_dt_i)
+!   use kine
+!   implicit none
+!
+!   real(kind=pr), intent(in) :: t_i
+!   real(kind=pr), intent(out) :: pitch_i,vert_i,horz_i,pitch_dt_i,vert_dt_i,horz_dt_i
+!
+!   call hermite1d(nk,vec_t,vec_pitch,vec_pitch_dt,t_i,pitch_i,pitch_dt_i)
+!   call hermite1d(nk,vec_t,vec_vert,vec_vert_dt,t_i,vert_i,vert_dt_i)
+!   call hermite1d(nk,vec_t,vec_horz,vec_horz_dt,t_i,horz_i,horz_dt_i)
+! end subroutine
 
 
 subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
@@ -160,7 +169,7 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
   z = 1.0d0-x
 
   ! Phi
-  ap0 = 2.0d0*x*x*x-3.0d0*x*x+1.0d0 !f(x)
+  ap0 = 2.0d0*x*x*x-3.0d0*x*x+1.0d0 ! f(x)
   ap1 = 2.0d0*z*z*z-3.0d0*z*z+1.0d0 ! f(1.0d0-x)
   ax0 = x*x*x-2.0d0*x*x+x !g(x)
   ax1 = -(z*z*z-2.0d0*z*z+z) !-g(1.0d0-x)

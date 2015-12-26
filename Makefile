@@ -7,8 +7,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
 	postprocessing.f90 runtime_control.f90 drag.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
-        kineloader.f90 rotation_matrices.f90 \
-        add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
+        rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
         noncircular_cylinder.f90 draw_flexible_plate.f90
 
 # Object and module directory:
@@ -16,7 +15,7 @@ OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
 # Files that create modules:
-MFILES = vars.f90 helpers.f90 kine.f90 cof_p3dfft.f90 solid_solver.f90 \
+MFILES = vars.f90 helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
 	slicing.f90 ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
@@ -101,13 +100,11 @@ mhd: mhd.f90 $(MOBJS) $(OBJS)
 # Fortran). Objects are specified in MOBJS (module objects).
 $(OBJDIR)/vars.o: vars.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/kine.o: kine.f90
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o $(OBJDIR)/kine.o \
+$(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 wings_motion.f90 stroke_plane.f90 \
-        periodization.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser.o
+        periodization.f90 kineloader.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o $(OBJDIR)/helpers.o \
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \

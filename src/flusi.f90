@@ -80,7 +80,6 @@ program FLUSI
     use slicing
     use turbulent_inlet_module
     use penalization ! mask array etc
-    use kine ! kinematics from file (Dmitry, 14 Nov 2013)
     implicit none
     real(kind=pr)          :: t1,t2
     real(kind=pr)          :: time,dt0,dt1,memory, mem_field
@@ -310,13 +309,6 @@ program FLUSI
     !-----------------------------------------------------------------------------
     ! Load kinematics from file (Dmitry, 14 Nov 2013)
     if (iMask=="Insect") then
-      if (Insect%FlappingMotion_right=="kinematics_loader".or.Insect%FlappingMotion_left=="kinematics_loader") then
-        if (mpirank==0) then
-          write(*,*) "Initializing kinematics loader for non-periodic kinematics.."
-          write(*,*) "File is "//trim(adjustl(Insect%Infile))
-        endif
-        call load_kine_init(Insect%Infile, mpirank)
-      endif
       ! If required, initialize rigid solid dynamics solver
       if (Insect%BodyMotion=="free_flight") then
         call rigid_solid_init(0.d0,Insect)
@@ -371,8 +363,6 @@ program FLUSI
     if (allocated(scalars_rhs)) deallocate(scalars_rhs)
 
     if (iMask=="Insect") then
-      ! Clean kinematics (Dmitry, 14 Nov 2013)
-      if (Insect%KineFromFile/="no") call load_kine_clean
       ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
       call insect_clean(Insect)
     endif

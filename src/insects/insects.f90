@@ -10,21 +10,36 @@ module insect_module
   use helpers
   implicit none
 
-  ! Fourier coefficients for wings
-  real(kind=pr), allocatable, dimension(:) :: ai,bi
-  ! fill the R0(theta) array once, then only table-lookup instead of Fseries
-  real(kind=pr), allocatable, dimension(:) :: R0_table
-  ! wing kinematics Fourier coefficients
-  real(kind=pr), allocatable, dimension(:) :: ai_phi, bi_phi, ai_theta,&
-  bi_theta, ai_alpha, bi_alpha
   ! this will hold the surface markers and their normals used for particles:
   real(kind=pr), allocatable, dimension(:,:) :: particle_points
-
   ! variables to decide whether to draw the body or not.
   logical :: body_already_drawn = .false.
   character(len=strlen) :: body_moves="yes"
   ! do we use periodicity?
-  logical :: periodic = .true.
+  logical, parameter :: periodic = .true.
+  ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
+  ! elements in derived datatypes) this is their length:
+  integer, parameter :: nfft_max = 1024
+
+
+  ! datatype for wing kinematics, if described by a Fourier series or kineloader
+  ! For both wings such a datatype is contained in the insect.
+  type wingkinematics
+    ! Fourier coefficients
+    real(kind=pr) :: a0_alpha, a0_phi, a0_theta
+    real(kind=pr), dimension(1:nfft_max) :: ai_phi, bi_phi, ai_theta, bi_theta, ai_alpha, bi_alpha
+    integer :: nfft_phi, nfft_alpha, nfft_theta
+    ! coefficients are read only once from file (or set differently)
+    logical :: initialized = .false.
+    ! some details about the file, if reading from ini file
+    character(len=strlen) :: infile_convention, infile_type, infile_units, infile
+    ! variables for kineloader (which uses non-periodic hermite interpolation)
+    integer :: nk
+    real(kind=pr), dimension (:), allocatable :: vec_t, &
+      vec_phi,vec_alpha,vec_theta,vec_pitch,vec_vert,vec_horz,  &
+      vec_phi_dt,vec_alpha_dt,vec_theta_dt,vec_pitch_dt,vec_vert_dt,vec_horz_dt
+  end type
+
 
   !-----------------------------------------------------------------------------
   ! derived datatype for insect parameters (for readability)
@@ -59,7 +74,7 @@ module insect_module
     ! moments of inertia in the body reference frame
     real(kind=pr) :: Jroll_body, Jyaw_body, Jpitch_body
     ! total mass of insect:
-    real(kind=pr) :: mass
+    real(kind=pr) :: mass, gravity
     !-------------------------------------------------------------
     ! for free flight solver
     !-------------------------------------------------------------
@@ -72,10 +87,20 @@ module insect_module
     !-------------------------------------------------------------
     ! wing shape parameters
     !-------------------------------------------------------------
-    real(kind=pr) :: a0
-    real(kind=pr) :: xc,yc ! describes the origin of the wings system
+    ! wing shape fourier coefficients. Note notation:
+    ! R = a0/2 + SUM ( ai cos(2pi*i) + bi sin(2pi*i)  )
+    ! to avoid compatibility issues, the array is of fixed size, although only
+    ! the first nftt_wings entries will be used
+    real(kind=pr), dimension(1:nfft_max) :: ai_wings, bi_wings
+    real(kind=pr) :: a0_wings
+    ! fill the R0(theta) array once, then only table-lookup instead of Fseries
+    real(kind=pr), dimension(1:25000) :: R0_table
+    ! describes the origin of the wings system
+    real(kind=pr) :: xc,yc
     ! number of fft coefficients for wing geometry
-    integer :: n_fft
+    integer :: nfft_wings
+    logical :: wingsetup_done = .false.
+    logical :: wings_radius_table_ready = .false.
     ! wing inertia
     real(kind=pr) :: Jxx,Jyy,Jzz,Jxy
 
@@ -83,18 +108,14 @@ module insect_module
     ! Wing kinematics
     !--------------------------------------------------------------
     ! wing kinematics Fourier coefficients
-    real(kind=pr) :: a0_alpha, a0_phi, a0_theta
-    integer ::  nfft_phi, nfft_alpha, nfft_theta
-
+    type(wingkinematics) :: kine_wing_l, kine_wing_r
 
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion
     !-------------------------------------------------------------
     character(len=strlen) :: WingShape, BodyType, BodyMotion, HasDetails
     character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
-    character(len=strlen) :: KineFromFile, infile, LeftWing, RightWing
-    character(len=strlen) :: infile_right, infile_left, infile_type, infile_units
-    character(len=strlen) :: infile_convention
+    character(len=strlen) :: infile, LeftWing, RightWing
     ! parameters for body:
     real(kind=pr) :: L_body, b_body, R_head, R_eye
     ! parameters for wing shape:
@@ -105,15 +126,6 @@ module insect_module
     real(kind=pr) :: distance_from_sponge
     ! Wings and body forces (1:body,2:left wing,3:right wing)
     type(Integrals), dimension(1:3) :: PartIntegrals
-
-    !-----------------------------------------------------------------
-    ! Takeoff, legs model
-    !-----------------------------------------------------------------
-    ! Takeoff parameters
-    real(kind=pr) :: x_takeoff, z_takeoff, mass_solid, gravity
-    ! Legs model parameters
-    integer :: ilegs
-    real(kind=pr) :: anglegsend, kzlegsmax, dzlegsmax, t0legs, tlinlegs
 
   end type diptera
   !-----------------------------------------------------------------------------
@@ -133,6 +145,7 @@ contains
   include "wings_geometry.f90"
   include "wings_motion.f90"
   include "stroke_plane.f90"
+  include "kineloader.f90"
   !---------------------------------------
 
 
@@ -359,9 +372,9 @@ contains
       if (body_already_drawn .eqv. .false.) then
         ! the body is at rest, but it is the first call to this routine, so
         ! draw it now.
-        if (mpirank==0) write(*,*) "Flag body_moves is no and we did not yet draw"
-        if (mpirank==0) write(*,*) "the body once: we do that now, and skip draw_body"
-        if (mpirank==0) write(*,*) "from now on."
+        if (root) write(*,*) "Flag body_moves is no and we did not yet draw"
+        if (root) write(*,*) "the body once: we do that now, and skip draw_body"
+        if (root) write(*,*) "from now on."
         call draw_body( mask, mask_color, us, Insect, color_body, M_body)
         body_already_drawn = .true.
       endif
@@ -747,18 +760,9 @@ contains
     implicit none
     type(diptera),intent(inout)::Insect
 
-    if (allocated(R0_table)) deallocate ( R0_table )
-    if (allocated(ai)) deallocate ( ai )
-    if (allocated(bi)) deallocate ( bi )
-
-    if (allocated(ai_phi)) deallocate ( ai_phi )
-    if (allocated(ai_alpha)) deallocate ( ai_alpha )
-    if (allocated(ai_theta)) deallocate ( ai_theta )
-    if (allocated(bi_phi)) deallocate ( bi_phi )
-    if (allocated(bi_alpha)) deallocate ( bi_alpha )
-    if (allocated(bi_theta)) deallocate ( bi_theta )
     if (allocated(particle_points)) deallocate ( particle_points )
-
+    call load_kine_clean( Insect%kine_wing_l )
+    call load_kine_clean( Insect%kine_wing_r )
   end subroutine insect_clean
 
 
