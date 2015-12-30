@@ -7,7 +7,7 @@ subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
   implicit none
 
   real (kind=pr),intent (in) :: time,dt1,dt0
-  type(diptera),intent(inout)::Insect
+  type(diptera),intent(inout) :: Insect
   integer,intent (in) :: it
   real (kind=pr) :: b10,b11
 
@@ -15,17 +15,21 @@ subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
   if(it == 0) then
     ! EULER startup scheme
     ! compute rhs at this time step (updates Insect%RHS_this)
-    call rigid_solid_rhs(time,it,Insect)
+    call rigid_solid_rhs(time,dt1,it,Insect)
 
     ! Euler step
     Insect%STATE = Insect%STATE + dt1*Insect%RHS_this
+    if (Insect%wing_fsi == "feathering") &
+      Insect%WING_STATE = Insect%WING_STATE + dt1*Insect%WING_RHS_this
   else
     ! ADAMS-BASHFORTH 2 scheme
     ! update vectors
     Insect%RHS_OLD = Insect%RHS_this
+    if (Insect%wing_fsi == "feathering") &
+      Insect%WING_RHS_OLD = Insect%WING_RHS_this
 
     ! compute rhs at this time step (updates Insect%RHS_this)
-    call rigid_solid_rhs(time,it,Insect)
+    call rigid_solid_rhs(time,dt1,it,Insect)
 
     ! adaptive AB2 coefficients
     b10 = dt1/dt0*(0.5*dt1 + dt0)
@@ -33,6 +37,9 @@ subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
 
     ! adaptive AB2 step
     Insect%STATE = Insect%STATE + b10*Insect%RHS_this + b11*Insect%RHS_old
+    if (Insect%wing_fsi == "feathering") &
+      Insect%WING_STATE = Insect%WING_STATE &
+      + b10*Insect%WING_RHS_this + b11*Insect%WING_RHS_old
   endif
   Insect%time = Insect%time + dt1
 
@@ -63,19 +70,27 @@ end subroutine rigid_solid_time_step
 ! RHS of the ODE system.
 ! TASK: from INSECT%STATE_THIS compute INSECT%RHS_THIS
 !-------------------------------------------------------------------------------
-subroutine rigid_solid_rhs(time,it,Insect)
+subroutine rigid_solid_rhs(time,dt,it,Insect)
   use mpi
   use vars
   implicit none
 
   integer, intent(in) :: it
-  real (kind=pr), intent (in) :: time
-  type(diptera),intent(inout)::Insect
-  real (kind=pr) :: m,g, Jx, Jy,Jz, s
+  real (kind=pr), intent (in) :: time,dt
+  type(diptera),intent(inout) :: Insect
+  real (kind=pr) :: m,g,Jx,Jy,Jz,s
+  real (kind=pr) :: Maero_l,Jxx_l,Jxy_l,stif_l,damp_l,phi_dt2_l
+  real (kind=pr) :: Maero_r,Jxx_r,Jxy_r,stif_r,damp_r,phi_dt2_r
+  real (kind=pr) :: phi_dt_i0,phi_dt_i1,phi_dt_i2
   real (kind=pr), dimension(0:3) :: ep
-  real (kind=pr), dimension(1:3) :: ROT, torque_body
+  real (kind=pr), dimension(1:3) :: ROT,torque_body
   real (kind=pr), dimension(1:3,1:3) :: C_mat
+  real (kind=pr), dimension(1:3) :: mom_aero_l,mom_aero_r
+  real (kind=pr), dimension(1:5) :: foo
 
+  !-------------------------------------------------------------------------------
+  ! body dynamics
+  !-------------------------------------------------------------------------------
   ! initialization
   Insect%RHS_this=0.d0
 
@@ -163,6 +178,48 @@ subroutine rigid_solid_rhs(time,it,Insect)
   ! Insect%RHS_this(4:6) = Insect%RHS_this(4:6) * startup_conditioner(time,0.0d0,0.25d0)
   ! Insect%RHS_this(11:13) = Insect%RHS_this(11:13) * startup_conditioner(time,0.0d0,0.25d0)
 
+  !-------------------------------------------------------------------------------
+  ! wing dynamics
+  !-------------------------------------------------------------------------------
+  if (Insect%wing_fsi == "feathering") then
+    ! initialize parameters of the feathering rotation model.
+    ! at this point we assume that both wings have the same properties
+    Jxx_l = Insect%Jxx
+    Jxy_l = Insect%Jxy
+    stif_l = Insect%stif
+    damp_l = Insect%damp
+    Jxx_r = Insect%Jxx
+    Jxy_r = Insect%Jxy
+    stif_r = Insect%stif
+    damp_r = Insect%damp
+    ! second derivative of the positional angle, which is prescribed
+    ! evaluate phi_dt2_l numerically using FD2
+    call FlappingMotion ( time+2.0d0*dt, Insect, Insect%FlappingMotion_left, &
+    foo(1),foo(2),foo(3),phi_dt_i2,foo(4),foo(5),Insect%kine_wing_l )
+    call FlappingMotion ( time+dt, Insect, Insect%FlappingMotion_left, &
+    foo(1),foo(2),foo(3),phi_dt_i1,foo(4),foo(5),Insect%kine_wing_l )
+    call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
+    foo(1),foo(2),foo(3),phi_dt_i0,foo(4),foo(5),Insect%kine_wing_l )
+    phi_dt2_l = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_i0) / (2.0d0*dt) 
+    ! evaluate phi_dt2_r numerically using FD2
+    call FlappingMotion ( time+2.0d0*dt, Insect, Insect%FlappingMotion_right, &
+    foo(1),foo(2),foo(3),phi_dt_i2,foo(4),foo(5),Insect%kine_wing_r )
+    call FlappingMotion ( time+dt, Insect, Insect%FlappingMotion_right, &
+    foo(1),foo(2),foo(3),phi_dt_i1,foo(4),foo(5),Insect%kine_wing_r )
+    call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
+    foo(1),foo(2),foo(3),phi_dt_i0,foo(4),foo(5),Insect%kine_wing_r )
+    phi_dt2_r = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_i0) / (2.0d0*dt) 
+    ! Calculate aerodynamic torques of the wings, in the wing reference frames
+    call wing_aero_torques( time, Insect, mom_aero_l, mom_aero_r )
+    ! RHS of the passive feathering equations
+    ! Use only the 2nd (y) component of the aerodynamic torques
+    call rhs_alpha(mom_aero_l(2),Jxx_l,Jxy_l,stif_l,damp_l,phi_dt2_l,Insect%WING_STATE(1:2),Insect%WING_RHS_this(1:2))
+    call rhs_alpha(-mom_aero_r(2),Jxx_r,Jxy_r,stif_r,damp_r,phi_dt2_r,Insect%WING_STATE(3:4),Insect%WING_RHS_this(3:4))
+    ! Apply startup conditionning on accelerations
+    Insect%WING_RHS_this(2) = Insect%WING_RHS_this(2) * s
+    Insect%WING_RHS_this(4) = Insect%WING_RHS_this(4) * s
+  endif
+
 end subroutine rigid_solid_rhs
 
 
@@ -185,6 +242,7 @@ subroutine rigid_solid_init(time, Insect)
   Insect%time = time
   if (mpirank==0) write(*,*) "rigid solid init at time=", Insect%time
 
+  ! body dynamics
   if (inicond(1:8)=="backup::") then
     ! resuming the rigid solid solver from a backup
     if (mpirank==0) write(*,*) "Rigid solid solver is resuming from backup..."
@@ -193,11 +251,21 @@ subroutine rigid_solid_init(time, Insect)
     if (mpirank==0) then
       open(10, file=inicond(9:len_trim(inicond))//".rigidsolver", &
           form='formatted', status='old')
-      read(10, *) Insect%time, Insect%STATE, Insect%RHS_old, &
-          Insect%RHS_this, Insect%M_body_quaternion
+      ! Select rigid model
+      if (Insect%wing_fsi == "feathering") then
+        ! With passive feathring rotation
+        read(10, *) Insect%time, Insect%STATE, Insect%RHS_old, &
+            Insect%RHS_this, Insect%M_body_quaternion, &
+            Insect%WING_STATE, Insect%WING_RHS_old, Insect%WING_RHS_this
+      else
+        ! Without passive feathering rotation
+        read(10, *) Insect%time, Insect%STATE, Insect%RHS_old, &
+            Insect%RHS_this, Insect%M_body_quaternion
+      endif
       close(10)
     endif
 
+    ! Broadcast to all ranks
     call MPI_BCAST( Insect%time, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_BCAST( Insect%STATE, 13, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_BCAST( Insect%RHS_this, 13, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
@@ -205,6 +273,11 @@ subroutine rigid_solid_init(time, Insect)
     call MPI_BCAST( Insect%M_body_quaternion(:,1), 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_BCAST( Insect%M_body_quaternion(:,2), 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_BCAST( Insect%M_body_quaternion(:,3), 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    if (Insect%wing_fsi == "feathering") then
+      call MPI_BCAST( Insect%WING_STATE, 4, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+      call MPI_BCAST( Insect%WING_RHS_this, 4, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+      call MPI_BCAST( Insect%WING_RHS_old, 4, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    endif
 
   else
     ! free flight solver based on quaternions. the task here is to initialize
@@ -233,7 +306,7 @@ subroutine rigid_solid_init(time, Insect)
     call rotation_matrix_from_quaternion( ep,Insect%M_body_quaternion )
 
 
-    ! Assemble the state vector
+    ! assemble the state vector
     Insect%STATE = (/ Insect%xc_body(1),Insect%xc_body(2),Insect%xc_body(3), &
     Insect%vc_body(1),Insect%vc_body(2),Insect%vc_body(3), &
     ep(0),ep(1),ep(2),ep(3),&
@@ -241,8 +314,48 @@ subroutine rigid_solid_init(time, Insect)
 
     Insect%RHS_this = 0.0
     Insect%RHS_old = 0.0
+
+    ! wing dynamics
+    if (Insect%wing_fsi == "feathering") then
+      ! Fetch the prescribed wing kinematics
+      call FlappingMotion_right (time, Insect)
+      call FlappingMotion_left (time, Insect)
+      ! Assemble the state vector
+      Insect%WING_STATE = (/ Insect%alpha_l,Insect%alpha_dt_l, &
+                             Insect%alpha_r,Insect%alpha_dt_r /)
+      Insect%WING_RHS_this = 0.0
+      Insect%WING_RHS_old = 0.0
+    endif
+
   endif
   if(root) write (*,*) "Insect%STATE", Insect%STATE
-
+  if(root) write (*,*) "Insect%WING_STATE", Insect%WING_STATE
 
 end subroutine rigid_solid_init
+
+
+!-------------------------------------------------------------------------------
+! Evaluate RHS of passive feathering rotation equations for one wing.
+!-------------------------------------------------------------------------------
+subroutine rhs_alpha(Maero,Jxx,Jxy,stif,damp,phi_dt2,u,du)
+  implicit none
+
+  real(kind=pr),intent(in) :: Maero,Jxx,Jxy,stif,damp,phi_dt2,u(1:2)
+  real(kind=pr),intent(out) :: du(1:2)
+  real(kind=pr) :: Miner
+
+!!! THIS FORMULATION ASSUMES THAT THE BODY DOES NOT MOVE !!!
+
+  ! Inertial torque
+  Miner = Jxy*phi_dt2*dcos(u(1))
+!  Miner = 0
+    
+  ! rhs of the pitching equation
+  du(1) = u(2)
+  du(2) = (Miner+Maero-stif*u(1)-damp*u(2))/Jxx
+
+! debug : only inertia
+!du(2) = (Miner-stif*u(1)-damp*u(2))/Jxx
+
+end subroutine rhs_alpha
+

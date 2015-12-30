@@ -61,11 +61,13 @@ module insect_module
     ! stroke plane angle
     real(kind=pr) :: eta_stroke
     ! angular velocity vectors (wings L+R, body)
-    real(kind=pr), dimension(1:3) :: rot_l, rot_r, rot_body
+    real(kind=pr), dimension(1:3) :: rot_l, rot_r, rot_body,&
+    rot_root_l, rot_root_r
     ! angular acceleration vectors (wings L+R)
     real(kind=pr), dimension(1:3) :: rot_dt_l, rot_dt_r
     ! Angular velocities of wings and body in global system
-    real(kind=pr), dimension(1:3) :: rot_body_glob, rot_l_glob, rot_r_glob
+    real(kind=pr), dimension(1:3) :: rot_body_glob, rot_l_glob, rot_r_glob,&
+    rot_root_l_glob, rot_root_r_glob
     ! Vector from body centre to pivot points in global reference frame
     real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob
     ! vectors desribing the positoions of insect's key elements
@@ -109,6 +111,16 @@ module insect_module
     !--------------------------------------------------------------
     ! wing kinematics Fourier coefficients
     type(wingkinematics) :: kine_wing_l, kine_wing_r
+
+    !-------------------------------------------------------------
+    ! wing dynamics model
+    !-------------------------------------------------------------
+    ! control parameter, "feathering" if passive feathering
+    character(len=strlen) :: wing_fsi 
+    ! ode variable and rhs
+    real(kind=pr), dimension(1:4) :: WING_RHS_old, WING_RHS_this, WING_STATE
+    ! hinge stifness and damping coefficients
+    real(kind=pr) :: stif, damp
 
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion
@@ -182,9 +194,12 @@ contains
     color_l = 2
     color_r = 3
 
+    ! Error check
     if ((dabs(Insect%time-time)>1.0d-10).and.(mpirank==0).and.(Insect%BodyMotion=="free_flight")) then
       write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
     endif
+    if ((Insect%BodyMotion=="free_flight").and.(iTimeMethodFluid/="AB2_rigid_solid")) &
+     call abort("Error: BodyMotion=free_flight only works with iTimeMethodFluid=AB2_rigid_solid");
 
     !-----------------------------------------------------------------------------
     ! delete old mask
@@ -335,6 +350,14 @@ contains
     Insect%rot_body_glob = matmul(M_body_inv, Insect%rot_body)
     Insect%rot_l_glob = matmul(M_body_inv, matmul(M_wing_l_inv, Insect%rot_l) + Insect%rot_body)
     Insect%rot_r_glob = matmul(M_body_inv, matmul(M_wing_r_inv, Insect%rot_r) + Insect%rot_body)
+
+    !-----------------------------------------------------------------------------
+    ! angular velocity of the wing root in the global reference frame
+    !-----------------------------------------------------------------------------
+    Insect%rot_root_l_glob = matmul(M_body_inv, matmul(M_wing_l_inv, Insect%rot_root_l) &
+                             + Insect%rot_body)
+    Insect%rot_root_r_glob = matmul(M_body_inv, matmul(M_wing_r_inv, Insect%rot_root_r) &
+                             + Insect%rot_body)
 
     !-----------------------------------------------------------------------------
     ! vector from body centre to left/right pivot point in global reference frame,
@@ -512,8 +535,9 @@ contains
     Insect%PartIntegrals(color_body)%APow = 0.0d0
 
     ! left wing
-    ! relative angular velocity
-    omrel = Insect%rot_l_glob - Insect%rot_body_glob
+    ! relative angular velocity of the wing root
+    ! depends of the wing dynamics model
+    omrel = Insect%rot_root_l_glob - Insect%rot_body_glob
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
@@ -524,8 +548,9 @@ contains
     Insect%PartIntegrals(color_l)%APow = - sum( momrel * omrel )
 
     ! right wing
-    ! relative angular velocity
-    omrel = Insect%rot_r_glob - Insect%rot_body_glob
+    ! relative angular velocity of the wing root
+    ! depends of the wing dynamics model
+    omrel = Insect%rot_root_r_glob - Insect%rot_body_glob
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
@@ -587,9 +612,9 @@ contains
     b(3) = Insect%Jzz * Insect%rot_l(3)
 
     Insect%PartIntegrals(color_l)%IPow = &
-    Insect%rot_l(1) * (a(1)+Insect%rot_l(2)*b(3)-Insect%rot_l(3)*b(2)) +&
-    Insect%rot_l(2) * (a(2)+Insect%rot_l(3)*b(1)-Insect%rot_l(1)*b(3)) +&
-    Insect%rot_l(3) * (a(3)+Insect%rot_l(1)*b(2)-Insect%rot_l(2)*b(1))
+    Insect%rot_root_l(1) * (a(1)+Insect%rot_l(2)*b(3)-Insect%rot_l(3)*b(2)) +&
+    Insect%rot_root_l(2) * (a(2)+Insect%rot_l(3)*b(1)-Insect%rot_l(1)*b(3)) +&
+    Insect%rot_root_l(3) * (a(3)+Insect%rot_l(1)*b(2)-Insect%rot_l(2)*b(1))
 
     !-- RIGHT WING
     a(1) = Insect%Jxx * Insect%rot_dt_r(1) + Insect%Jxy * Insect%rot_dt_r(2)
@@ -601,9 +626,9 @@ contains
     b(3) = Insect%Jzz * Insect%rot_r(3)
 
     Insect%PartIntegrals(color_r)%IPow = &
-    Insect%rot_r(1) * (a(1)+Insect%rot_r(2)*b(3)-Insect%rot_r(3)*b(2)) +&
-    Insect%rot_r(2) * (a(2)+Insect%rot_r(3)*b(1)-Insect%rot_r(1)*b(3)) +&
-    Insect%rot_r(3) * (a(3)+Insect%rot_r(1)*b(2)-Insect%rot_r(2)*b(1))
+    Insect%rot_root_r(1) * (a(1)+Insect%rot_r(2)*b(3)-Insect%rot_r(3)*b(2)) +&
+    Insect%rot_root_r(2) * (a(2)+Insect%rot_r(3)*b(1)-Insect%rot_r(1)*b(3)) +&
+    Insect%rot_root_r(3) * (a(3)+Insect%rot_r(1)*b(2)-Insect%rot_r(2)*b(1))
 
     ipowtotal = Insect%PartIntegrals(color_r)%IPow + Insect%PartIntegrals(color_l)%IPow
 
@@ -688,6 +713,22 @@ contains
     rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
     rot_r_alpha)))))
 
+    ! angular velocity of the wing root in the wing coordinate system 
+    ! depends of the wing dynamics
+    if (Insect%wing_fsi == "feathering") then
+      ! if passive feathering, it does not include feathering velocity:
+      Insect%rot_root_l = matmul(M_wing_l,matmul(transpose(M_stroke_l),matmul(transpose(M3_l), &
+      rot_l_phi+matmul(transpose(M2_l),rot_l_theta+matmul(transpose(M1_l), &
+      (/ 0.0d0, 0.0d0, 0.0d0 /))))))
+      Insect%rot_root_r = matmul(M_wing_r,matmul(transpose(M_stroke_r),matmul(transpose(M3_r), &
+      rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
+      (/ 0.0d0, 0.0d0, 0.0d0 /))))))
+    else
+      ! the default case is all 3 angles are actuated
+      Insect%rot_root_l = Insect%rot_l 
+      Insect%rot_root_r = Insect%rot_r 
+    endif
+
   end subroutine angular_velocities
 
 
@@ -755,6 +796,59 @@ contains
 
 
 
+  !-------------------------------------------------------------------------------
+  ! Wing aerodynamic torques with respect to the pivot points
+  ! in the wing reference frame. Required for passive feathering model.
+  !-------------------------------------------------------------------------------
+  subroutine wing_aero_torques( time, Insect, mom_l_loc, mom_r_loc )
+    use vars
+    implicit none
+
+    real(kind=pr), intent(in) :: time
+    type(diptera), intent(inout) :: Insect
+    real(kind=pr), dimension(1:3), intent(out) :: mom_l_loc, mom_r_loc
+
+    integer(kind=2) :: color_body, color_l,color_r 
+    real(kind=pr), dimension(1:3,1:3) :: M_wing_l, M_wing_r, &
+    M1_tmp, M2_tmp, M1_l, M2_l, M3_l, M1_r, M2_r, M3_r, &
+    M_stroke_l, M_stroke_r
+
+    !-- colors for Diptera (one body, two wings)
+    color_body = 1
+    color_l = 2
+    color_r = 3
+
+    ! rotation matrices to change between coordinate systems
+    call Ry(M1_tmp,Insect%eta_stroke)
+    M_stroke_l = M1_tmp
+
+    call Rx(M1_tmp,pi)
+    call Ry(M2_tmp,Insect%eta_stroke)
+    M_stroke_r = matmul(M1_tmp,M2_tmp)
+
+    call Ry(M1_l,Insect%alpha_l)
+    call Rz(M2_l,Insect%theta_l)   
+    call Rx(M3_l,Insect%phi_l)
+    M_wing_l = matmul(M1_l,matmul(M2_l,matmul(M3_l,M_stroke_l)))
+
+    call Ry(M1_r,-Insect%alpha_r)
+    call Rz(M2_r,Insect%theta_r)
+    call Rx(M3_r,-Insect%phi_r)
+    M_wing_r = matmul(M1_r,matmul(M2_r,matmul(M3_r,M_stroke_r)))
+
+    ! Transform wing moments global to wing reference frame
+    mom_l_loc = matmul(M_wing_l, &
+       matmul(Insect%M_body_quaternion,Insect%PartIntegrals(color_l)%Torque))
+    mom_r_loc = matmul(M_wing_r, &
+       matmul(Insect%M_body_quaternion,Insect%PartIntegrals(color_r)%Torque))
+
+  end subroutine wing_aero_torques
+
+
+
+  !-------------------------------------------------------------------------------
+  ! Deallocate insect data
+  !-------------------------------------------------------------------------------
   subroutine insect_clean(Insect)
     use vars
     implicit none

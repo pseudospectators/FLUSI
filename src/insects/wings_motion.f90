@@ -6,27 +6,49 @@ subroutine FlappingMotion_left ( time, Insect )
   implicit none
 
   real(kind=pr), intent(in) :: time
-  type(diptera) :: Insect
+  type(diptera), intent(inout) :: Insect
 
+  ! set prescribed kinematics
   call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
   Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
   Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
+
+  ! if passive feathering
+  if (Insect%wing_fsi == "feathering") then
+    ! Error check
+    if (Insect%BodyMotion/="free_flight") &
+     call abort("Error: wing_fsi=feathering requires BodyMotion=free_flight");
+    ! copy data from insect wing state vector
+    Insect%alpha_l = Insect%WING_STATE(1)
+    Insect%alpha_dt_l  = Insect%WING_STATE(2)
+  endif
 end subroutine FlappingMotion_left
 
 
 !-------------------------------------------------------------------------------
-! WARPPER Motion protocoll wrapper right wing
+! WRAPPER Motion protocoll wrapper right wing
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion_right ( time, Insect )
   use vars
   implicit none
 
   real(kind=pr), intent(in) :: time
-  type(diptera) :: Insect
+  type(diptera), intent(inout) :: Insect
 
+  ! set prescribed kinematics
   call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
   Insect%phi_r, Insect%alpha_r, Insect%theta_r, Insect%phi_dt_r, &
   Insect%alpha_dt_r, Insect%theta_dt_r, Insect%kine_wing_r )
+
+  ! if passive feathering
+  if (Insect%wing_fsi == "feathering") then
+    ! Error check
+    if (Insect%BodyMotion/="free_flight") &
+     call abort("Error: wing_fsi=feathering requires BodyMotion=free_flight");
+    ! copy data from insect wing state vector
+    Insect%alpha_r = Insect%WING_STATE(3)
+    Insect%alpha_dt_r  = Insect%WING_STATE(4)
+  endif
 end subroutine FlappingMotion_right
 
 
@@ -170,10 +192,10 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       phi_dt = deg2rad(phi_dt)
       alpha_dt = deg2rad(alpha_dt)
       theta_dt = deg2rad(theta_dt)
-    case ("radiant","RADIANT","Radiant")
-      ! if the file is already in radiants, do nothing and be happy!
+    case ("radian","RADIAN","Radian","radiant","RADIANT","Radiant")
+      ! if the file is already in radians, do nothing and be happy!
     case default
-      call abort("kinematics file does not appear to be valid, set units=degree or units=radiant")
+      call abort("kinematics file does not appear to be valid, set units=degree or units=radian")
     end select
 
     !---------------------------------------------------------------------------

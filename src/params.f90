@@ -414,12 +414,17 @@ subroutine get_params_insect( PARAMS,Insect )
 
   ! wing inertia tensor (we currently assume two identical wings)
   ! this allows computing inertial power
-  call read_param(PARAMS,"Insects","Jxx",Insect%Jxx,0.d0)
-  call read_param(PARAMS,"Insects","Jyy",Insect%Jyy,0.d0)
-  call read_param(PARAMS,"Insects","Jzz",Insect%Jzz,0.d0)
-  call read_param(PARAMS,"Insects","Jxy",Insect%Jxy,0.d0)
+  call read_param(PARAMS,"Insects","Jxx",Insect%Jxx,1.d0)
+  call read_param(PARAMS,"Insects","Jyy",Insect%Jyy,1.d0)
+  call read_param(PARAMS,"Insects","Jzz",Insect%Jzz,1.d0)
+  call read_param(PARAMS,"Insects","Jxy",Insect%Jxy,1.d0)
 
   call read_param(PARAMS,"Insects","startup_conditioner",Insect%startup_conditioner,"no")
+
+  ! parameters of the passive feathering model
+  call read_param(PARAMS,"Insects","wing_fsi",Insect%wing_fsi,"no") ! "no" or "feathering"
+  call read_param(PARAMS,"Insects","stif",Insect%stif,1.d0) ! hinge stiffness
+  call read_param(PARAMS,"Insects","damp",Insect%damp,1.d0) ! hinge damping
 
   ! position vector of the head
   call read_param(PARAMS,"Insects","x_head",&
