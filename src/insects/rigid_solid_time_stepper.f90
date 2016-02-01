@@ -79,9 +79,11 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
   real (kind=pr), intent (in) :: time,dt
   type(diptera),intent(inout) :: Insect
   real (kind=pr) :: m,g,Jx,Jy,Jz,s
-  real (kind=pr) :: Maero_l,Jxx_l,Jxy_l,stif_l,damp_l,phi_dt2_l
-  real (kind=pr) :: Maero_r,Jxx_r,Jxy_r,stif_r,damp_r,phi_dt2_r
-  real (kind=pr) :: phi_dt_i0,phi_dt_i1,phi_dt_i2
+  real (kind=pr) :: Maero_l,Jyy_l,Jxy_l,stif_l,damp_l
+  real (kind=pr) :: Maero_r,Jyy_r,Jxy_r,stif_r,damp_r
+  real (kind=pr) :: phi_dt_i1,phi_dt_i2,theta_dt_i1,theta_dt_i2
+  real (kind=pr) :: phi_l,theta_l,phi_dt_l,theta_dt_l,phi_dt2_l,theta_dt2_l
+  real (kind=pr) :: phi_r,theta_r,phi_dt_r,theta_dt_r,phi_dt2_r,theta_dt2_r
   real (kind=pr), dimension(0:3) :: ep
   real (kind=pr), dimension(1:3) :: ROT,torque_body
   real (kind=pr), dimension(1:3,1:3) :: C_mat
@@ -184,37 +186,53 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
   if (Insect%wing_fsi == "feathering") then
     ! initialize parameters of the feathering rotation model.
     ! at this point we assume that both wings have the same properties
-    Jxx_l = Insect%Jxx
+    Jyy_l = Insect%Jyy
     Jxy_l = Insect%Jxy
     stif_l = Insect%stif
     damp_l = Insect%damp
-    Jxx_r = Insect%Jxx
+    Jyy_r = Insect%Jyy
     Jxy_r = Insect%Jxy
     stif_r = Insect%stif
     damp_r = Insect%damp
-    ! second derivative of the positional angle, which is prescribed
-    ! evaluate phi_dt2_l numerically using FD2
+
+    ! Left wing
+    ! read phi_l, theta_l, phi_dt_l, theta_dt_l,  
+    ! and data for evaluating phi_dt2_l numerically using FD2
     call FlappingMotion ( time+2.0d0*dt, Insect, Insect%FlappingMotion_left, &
-    foo(1),foo(2),foo(3),phi_dt_i2,foo(4),foo(5),Insect%kine_wing_l )
+    foo(1),foo(2),foo(3),phi_dt_i2,foo(4),theta_dt_i2,Insect%kine_wing_l )
     call FlappingMotion ( time+dt, Insect, Insect%FlappingMotion_left, &
-    foo(1),foo(2),foo(3),phi_dt_i1,foo(4),foo(5),Insect%kine_wing_l )
+    foo(1),foo(2),foo(3),phi_dt_i1,foo(4),theta_dt_i1,Insect%kine_wing_l )
     call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
-    foo(1),foo(2),foo(3),phi_dt_i0,foo(4),foo(5),Insect%kine_wing_l )
-    phi_dt2_l = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_i0) / (2.0d0*dt) 
-    ! evaluate phi_dt2_r numerically using FD2
+    phi_l,foo(2),theta_l,phi_dt_l,foo(4),theta_dt_l,Insect%kine_wing_l )
+    ! second derivative of the positional angle, which is prescribed
+    phi_dt2_l = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_l) / (2.0d0*dt)
+    theta_dt2_l = (-theta_dt_i2+4.0d0*theta_dt_i1-3.0d0*theta_dt_l) / (2.0d0*dt)
+ 
+    ! Right wing
+    ! read phi_r, theta_r, phi_dt_r, theta_dt_r, 
+    ! and data for evaluating phi_dt2_r numerically using FD2
     call FlappingMotion ( time+2.0d0*dt, Insect, Insect%FlappingMotion_right, &
-    foo(1),foo(2),foo(3),phi_dt_i2,foo(4),foo(5),Insect%kine_wing_r )
+    foo(1),foo(2),foo(3),phi_dt_i2,foo(4),theta_dt_i2,Insect%kine_wing_r )
     call FlappingMotion ( time+dt, Insect, Insect%FlappingMotion_right, &
-    foo(1),foo(2),foo(3),phi_dt_i1,foo(4),foo(5),Insect%kine_wing_r )
+    foo(1),foo(2),foo(3),phi_dt_i1,foo(4),theta_dt_i1,Insect%kine_wing_r )
     call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
-    foo(1),foo(2),foo(3),phi_dt_i0,foo(4),foo(5),Insect%kine_wing_r )
-    phi_dt2_r = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_i0) / (2.0d0*dt) 
+    phi_r,foo(2),theta_r,phi_dt_r,foo(4),theta_dt_r,Insect%kine_wing_r )
+    ! second derivative of the positional angle, which is prescribed
+    phi_dt2_r = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_r) / (2.0d0*dt) 
+    theta_dt2_r = (-theta_dt_i2+4.0d0*theta_dt_i1-3.0d0*theta_dt_r) / (2.0d0*dt)
+
     ! Calculate aerodynamic torques of the wings, in the wing reference frames
     call wing_aero_torques( time, Insect, mom_aero_l, mom_aero_r )
     ! RHS of the passive feathering equations
     ! Use only the 2nd (y) component of the aerodynamic torques
-    call rhs_alpha(mom_aero_l(2),Jxx_l,Jxy_l,stif_l,damp_l,phi_dt2_l,Insect%WING_STATE(1:2),Insect%WING_RHS_this(1:2))
-    call rhs_alpha(-mom_aero_r(2),Jxx_r,Jxy_r,stif_r,damp_r,phi_dt2_r,Insect%WING_STATE(3:4),Insect%WING_RHS_this(3:4))
+    ! WARNING: Note the sign of theta changed. In the passive feathering equation,
+    ! positive theta is up.
+    call rhs_alpha(mom_aero_l(2),Jyy_l,Jxy_l,stif_l,damp_l,&
+                   phi_l,-theta_l,phi_dt_l,-theta_dt_l,phi_dt2_l,-theta_dt2_l,&
+                   Insect%WING_STATE(1:2),Insect%WING_RHS_this(1:2))
+    call rhs_alpha(-mom_aero_r(2),Jyy_r,Jxy_r,stif_r,damp_r,&
+                   phi_r,-theta_r,phi_dt_r,-theta_dt_r,phi_dt2_r,-theta_dt2_r,&
+                   Insect%WING_STATE(3:4),Insect%WING_RHS_this(3:4))
     ! Apply startup conditionning on accelerations
     Insect%WING_RHS_this(2) = Insect%WING_RHS_this(2) * s
     Insect%WING_RHS_this(4) = Insect%WING_RHS_this(4) * s
@@ -337,25 +355,29 @@ end subroutine rigid_solid_init
 !-------------------------------------------------------------------------------
 ! Evaluate RHS of passive feathering rotation equations for one wing.
 !-------------------------------------------------------------------------------
-subroutine rhs_alpha(Maero,Jxx,Jxy,stif,damp,phi_dt2,u,du)
+subroutine rhs_alpha(Maero,Jyy,Jxy,stif,damp,phi,theta,phi_dt,theta_dt,phi_dt2,theta_dt2,u,du)
   implicit none
 
-  real(kind=pr),intent(in) :: Maero,Jxx,Jxy,stif,damp,phi_dt2,u(1:2)
+  real(kind=pr),intent(in) :: Maero,Jyy,Jxy,stif,damp,phi,theta,phi_dt,theta_dt,phi_dt2,theta_dt2,u(1:2)
   real(kind=pr),intent(out) :: du(1:2)
   real(kind=pr) :: Miner
 
 !!! THIS FORMULATION ASSUMES THAT THE BODY DOES NOT MOVE !!!
 
   ! Inertial torque
-  Miner = Jxy*phi_dt2*dcos(u(1))
+!  Miner = Jxy*phi_dt2*dcos(u(1)) ! First version
+  Miner = Jyy*( 0.5d0*(phi_dt*phi_dt*dcos(theta)*dcos(theta)-theta_dt*theta_dt)*dsin(2.0d0*u(1)) - &
+                phi_dt2*dsin(theta) - phi_dt*theta_dt*dcos(theta)*(1.0d0+dcos(2.0d0*u(1))) ) + &
+          Jxy*( phi_dt2*dcos(theta)*dcos(u(1)) + theta_dt2*sin(u(1)) + &
+                0.5d0*phi_dt*phi_dt*dsin(2.0d0*theta)*dsin(u(1))-2.0d0*theta_dt*phi_dt*dsin(theta)*dcos(u(1)) )
 !  Miner = 0
     
   ! rhs of the pitching equation
   du(1) = u(2)
-  du(2) = (Miner+Maero-stif*u(1)-damp*u(2))/Jxx
+  du(2) = (Miner+Maero-stif*u(1)-damp*u(2))/Jyy
 
 ! debug : only inertia
-!du(2) = (Miner-stif*u(1)-damp*u(2))/Jxx
+!du(2) = (Miner-stif*u(1)-damp*u(2))/Jyy
 
 end subroutine rhs_alpha
 
