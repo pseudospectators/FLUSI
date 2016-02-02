@@ -20,6 +20,8 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
     call draw_suzuki_thin_rod( mask, mask_color, us, Insect, color_body, M_body)
   case ("jerry","Jerry")
     call draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
+  case ("hawkmoth","Hawkmoth")
+    call draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
   case ("particle")
     call draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   case ("platicle")
@@ -1107,3 +1109,84 @@ subroutine draw_suzuki_thin_rod( mask, mask_color, us, Insect, color_body, M_bod
   enddo
 
 end subroutine draw_suzuki_thin_rod
+
+!-------------------------------------------------------------------------------
+subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: R0,R,a_body
+  real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
+  integer :: ix,iy,iz
+
+  ! the following are coordinates of specific points on the insect's body, for
+  ! example the position of the head, its size etc. In older versions, these
+  ! parameters were set in the *.ini file, which proved to be too much flexibility.
+  ! in practice, the insect is created once, while implementing it, and then
+  ! no longer changed. For Jerry, we overwrite the coordinates with hard-coded
+  ! values here. the advantage is that we can set   BodyType=jerry;  and voilà!
+  Insect%R_head = 0.125d0
+  Insect%R_eye = 0.0625d0
+  ! Insect%x_pivot_r =(/ 0.05d0, -0.2165d0, 0.d0 /)
+  ! Insect%x_pivot_l =(/ 0.05d0, +0.2165d0, 0.d0 /)
+  Insect%b_body = 0.15d0
+  Insect%L_body = 1.0d0
+  Insect%x_head = (/0.5d0*Insect%L_body,0.d0,0.d0 /)
+  Insect%x_eye_r = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&
+  *0.8d0*(/1.d0,+1.d0,1.d0/)
+  Insect%x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head&
+  *0.8d0*(/1.d0,-1.d0,1.d0/)
+
+  a_body = Insect%L_body / 2.d0
+  !-----------------------------------------------------------------------------
+  ! Jerry's body is an ellipsoid
+  !-----------------------------------------------------------------------------
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_body = matmul( M_body, x_glob)
+        ! check if inside the surrounding box (save comput. time)
+        if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
+          if ( dabs(x_body(3)) <= Insect%b_body + Insect%safety ) then
+            ! check for length inside ellipsoid:
+            if ( dabs(x_body(1) ) < Insect%L_body/2 + Insect%safety ) then
+              R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
+              ! this gives the R(x) shape
+              if ( (x_body(1)/a_body)**2 <= 1.d0) then
+                R0 = dsqrt( Insect%b_body**2 *(1.d0- (x_body(1)/a_body)**2 ) )
+
+                if ( R < R0 + Insect%safety ) then
+                  mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+                  mask_color(ix,iy,iz) = color_body
+                endif
+              endif
+            endif
+          endif
+        endif
+      enddo
+    enddo
+  enddo
+
+  !-----------------------------------------------------------------------------
+  ! Jerry's head and eyes are spheres
+  !-----------------------------------------------------------------------------
+  x_head = Insect%xc_body + matmul(transpose(M_body),Insect%x_head)
+  call drawsphere( x_head,Insect%R_head,mask,mask_color,us,Insect,color_body )
+
+  x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_l)
+  call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
+
+  x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_r)
+  call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
+end subroutine draw_body_hawkmoth

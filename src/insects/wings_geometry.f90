@@ -767,6 +767,21 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     ! bounding box. (I actually do not recall why the L_span and L_chord are
     ! in the params file at all...)
     Insect%L_span = 1.05
+  case ('hawkmoth1')
+    Insect%nfft_wings = 28
+    Insect%a0_wings = 0.5860758
+    Insect%ai_wings(1:Insect%nfft_wings) = (/0.0219308,-0.1252418,0.0154668,0.0356038,-0.0203008,-0.0061968,&
+    0.0178288,0.0002728,-0.0089908,0.0022758,0.0022948,-0.0046148,&
+    -0.0008808,0.0032598,-0.0003708,-0.0019528,0.0006858,0.0008268,&
+    -0.0008358,-0.0000718,0.0008938,0.0000348,-0.0004598,0.0004428,&
+    0.0003158,-0.0003108,-0.0000658,0.0002798/)
+    Insect%bi_wings(1:Insect%nfft_wings) = (/0.0062418,0.0452798,0.0303808,-0.0184998,-0.0179088,0.0068018,&
+    0.0030268,-0.0058108,0.0017748,0.0040588,-0.0033678,-0.0030638,&
+    0.0021898,0.0007208,-0.0015538,0.0007128,0.0016948,-0.0003828,&
+    -0.0005898,0.0006388,0.0002888,-0.0005258,0.0000808,0.0002248,&
+    -0.0004308,-0.0002758,0.0002298,-0.0000548/)
+    Insect%yc = 0.4171918
+    Insect%xc = -0.0395258
   case default
     write (*,*) "Insect module: trying to set up fourier descriptors for wing&
                 & shape but the type Insect%WingShape is unknown! :: "// Insect%WingShape
