@@ -418,6 +418,13 @@ module fsi_vars
     cross(3) = a(1)*b(2)-a(2)*b(1)
   end function
 
+  function norm2(a)
+    use vars
+    implicit none
+    real(kind=pr),dimension(1:3),intent(in) :: a
+    real(kind=pr) :: norm2
+    norm2 = dsqrt( a(1)*a(1) + a(2)*a(2) + a(3)*a(3) )
+  end function
 
 end module fsi_vars
 

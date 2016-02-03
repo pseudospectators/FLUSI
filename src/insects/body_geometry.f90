@@ -619,67 +619,6 @@ subroutine draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
 end subroutine draw_body_sphere
 
 
-
-!-------------------------------------------------------------------------------
-! draw a sphere with radius R0 centered at the point xc
-! This routiner's intended use is for drawing the insect's body, for example
-! the head and eyes of Jerry. The velocity field inside the body is added
-! later, thus, the field us is untouched in this routines.
-!-------------------------------------------------------------------------------
-subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
-  use vars
-  implicit none
-
-  real(kind=pr),intent(inout)::xc(1:3)
-  real(kind=pr),intent(in)::R0
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  integer(kind=2),intent(in) :: icolor
-  type(diptera),intent(inout) :: Insect
-
-  integer :: ix,iy,iz
-  real(kind=pr)::x(1:3),R
-
-
-  ! periodization: if the center point is out of the domain, then correct that
-  if (xc(1)<0.0) xc(1)=xc(1)+xl
-  if (xc(2)<0.0) xc(2)=xc(2)+yl
-  if (xc(3)<0.0) xc(3)=xc(3)+zl
-
-  if (xc(1)>=xl) xc(1)=xc(1)-xl
-  if (xc(2)>=yl) xc(2)=xc(2)-yl
-  if (xc(3)>=zl) xc(3)=xc(3)-zl
-
-
-
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
-        ! x is in the global coordinate system
-        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        ! x is now centered in the sphere's center point
-        x = periodize_coordinate(x - xc)
-
-        if (dabs(x(1)) <= R0+Insect%safety) then
-          if (dabs(x(2)) <= R0+Insect%safety) then
-            if (dabs(x(3)) <= R0+Insect%safety) then
-              R = dsqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
-              if ( R <= R0+Insect%safety ) then
-                mask(ix,iy,iz) = max(steps(R,R0),mask(ix,iy,iz))
-                mask_color(ix,iy,iz) = icolor
-              endif
-            endif
-          endif
-        endif
-
-
-      enddo
-    enddo
-  enddo
-
-end subroutine
-
 ! draw a cylinder defined by points (x1,y1,z1), (x2,y2,z2) and radius R0
 subroutine draw_cylinder( xp,x1,y1,z1,x2,y2,z2,R0,mask_val,color_val,icolor,safety )
   use vars
@@ -1123,15 +1062,10 @@ subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
   real(kind=pr) :: R0,R,a_body
-  real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
+  real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3), x_eye_r(1:3), x_eye_l(1:3)
+  real(kind=pr), dimension(1:3) :: x1,x2
   integer :: ix,iy,iz
 
-  ! the following are coordinates of specific points on the insect's body, for
-  ! example the position of the head, its size etc. In older versions, these
-  ! parameters were set in the *.ini file, which proved to be too much flexibility.
-  ! in practice, the insect is created once, while implementing it, and then
-  ! no longer changed. For Jerry, we overwrite the coordinates with hard-coded
-  ! values here. the advantage is that we can set   BodyType=jerry;  and voilà!
   Insect%R_head = 0.125d0
   Insect%R_eye = 0.0625d0
   ! Insect%x_pivot_r =(/ 0.05d0, -0.2165d0, 0.d0 /)
@@ -1146,7 +1080,7 @@ subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
 
   a_body = Insect%L_body / 2.d0
   !-----------------------------------------------------------------------------
-  ! Jerry's body is an ellipsoid
+  ! The body is an ellipsoid
   !-----------------------------------------------------------------------------
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
@@ -1179,14 +1113,156 @@ subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
   enddo
 
   !-----------------------------------------------------------------------------
-  ! Jerry's head and eyes are spheres
+  ! Head is a sphere, we add antennae, which are cylinders
   !-----------------------------------------------------------------------------
   x_head = Insect%xc_body + matmul(transpose(M_body),Insect%x_head)
   call drawsphere( x_head,Insect%R_head,mask,mask_color,us,Insect,color_body )
 
-  x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_l)
-  call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
+  ! these guys are in the body system:
+  x_eye_r = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.d0,+1.d0,1.d0/)
+  x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head*1.8d0*(/1.d0,+1.d0,1.d0/)
+  ! back to global system
+  x1 = Insect%xc_body + matmul(transpose(M_body),x_eye_l)
+  x2 = Insect%xc_body + matmul(transpose(M_body),x_eye_r)
+  ! draw the cylinder (with spheres at the ends)
+  call draw_cylinder_new( x1, x2, 0.015d0*1.3d0, mask, mask_color, us, Insect, color_body )
 
-  x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_r)
-  call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
+
+  ! these guys are in the body system:
+  x_eye_r = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.d0,-1.d0,1.d0/)
+  x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head*1.8d0*(/1.d0,-1.d0,1.d0/)
+  ! back to global system
+  x1 = Insect%xc_body + matmul(transpose(M_body),x_eye_l)
+  x2 = Insect%xc_body + matmul(transpose(M_body),x_eye_r)
+  ! draw the cylinder (with spheres at the ends)
+  call draw_cylinder_new( x1, x2, 0.015d0*1.3d0, mask, mask_color, us, Insect, color_body )
 end subroutine draw_body_hawkmoth
+
+
+!-------------------------------------------------------------------------------
+! draw a cylinder defined by GLOBALS points (x1,y1,z1), (x2,y2,z2) and radius R0
+!-------------------------------------------------------------------------------
+subroutine draw_cylinder_new( x1, x2, R0, mask, mask_color, us, Insect, color_val)
+  use fsi_vars
+  implicit none
+
+  real(kind=pr),dimension(1:3),intent(inout )::x1,x2
+  real(kind=pr),intent(in)::R0
+  type(diptera),intent(inout)::Insect
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer(kind=2),intent(in) :: color_val
+
+  real(kind=pr),dimension(1:3)::x_glob, e_x, tmp
+  real(kind=pr)::ceta, R, clength, safety, t
+  integer :: ix,iy,iz
+
+  safety = Insect%safety
+
+  ! unit vector in cylinder axis direction and cylinder length
+  e_x = (x2-x1)
+  clength = norm2(e_x)
+  e_x = e_x / clength
+
+  ! first we draw the cylinder, then the endpoint spheres
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+
+        ! position on cylinder axis (projection of x-x1 on e_x)
+        ceta = dot_product(x_glob-x1, e_x)
+
+        if ( ceta >= -safety .and. ceta <= clength+safety) then
+          ! we're maybe inside the cylinder
+          ! Radius is the distance to centreline
+          tmp = x_glob - (x1 + ceta*e_x)
+          R = (tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
+
+          if ( R <= (R0+safety)**2 ) then
+            R = dsqrt(R)
+            ! the new value we'd love to set here
+            t = steps(R,R0)
+            if (t>= mask(ix,iy,iz)) then
+              mask(ix,iy,iz) = t
+              mask_color(ix,iy,iz) = color_val
+            endif
+          endif
+        endif
+      enddo
+    enddo
+  enddo
+
+  ! spheres at endpoints
+  call drawsphere( x1, R0, mask,mask_color,us,Insect,color_val )
+  call drawsphere( x2, R0, mask,mask_color,us,Insect,color_val )
+end subroutine draw_cylinder_new
+
+
+
+!-------------------------------------------------------------------------------
+! draw a sphere with radius R0 centered at the point xc
+! This routiner's intended use is for drawing the insect's body, for example
+! the head and eyes of Jerry. The velocity field inside the body is added
+! later, thus, the field us is untouched in this routines.
+!-------------------------------------------------------------------------------
+subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
+  use vars
+  implicit none
+
+  real(kind=pr),intent(inout)::xc(1:3)
+  real(kind=pr),intent(in)::R0
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer(kind=2),intent(in) :: icolor
+  type(diptera),intent(inout) :: Insect
+
+  integer :: ix,iy,iz
+  real(kind=pr)::x(1:3),R,tmp
+
+  ! periodization: if the center point is out of the domain, then correct that
+  if (xc(1)<0.0) xc(1)=xc(1)+xl
+  if (xc(2)<0.0) xc(2)=xc(2)+yl
+  if (xc(3)<0.0) xc(3)=xc(3)+zl
+
+  if (xc(1)>=xl) xc(1)=xc(1)-xl
+  if (xc(2)>=yl) xc(2)=xc(2)-yl
+  if (xc(3)>=zl) xc(3)=xc(3)-zl
+
+
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x is in the global coordinate system
+        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        ! x is now centered in the sphere's center point
+        x = periodize_coordinate(x - xc)
+
+        ! bounding box check
+        if (dabs(x(1)) <= R0+Insect%safety) then
+          if (dabs(x(2)) <= R0+Insect%safety) then
+            if (dabs(x(3)) <= R0+Insect%safety) then
+              ! compute radius
+              R = dsqrt( x(1)*x(1)+x(2)*x(2)+x(3)*x(3) )
+              if ( R <= R0+Insect%safety ) then
+                tmp = steps(R,R0)
+                if (tmp>=mask(ix,iy,iz)) then
+                  ! set new value
+                  mask(ix,iy,iz) = tmp
+                  mask_color(ix,iy,iz) = icolor
+                endif
+              endif
+            endif
+          endif
+        endif
+
+
+      enddo
+    enddo
+  enddo
+
+end subroutine

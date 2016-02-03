@@ -768,6 +768,10 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     ! in the params file at all...)
     Insect%L_span = 1.05
   case ('hawkmoth1')
+    ! this wingshape is digitized from figure 1 from Kim et al. "Hovering and forward flight of the hawkmoth
+    ! M. sexta: trim search and 6DOF dynamic stability characterization (Bioinspir Biomim. 10 (2015) 056012)"
+    ! its area is about 0.30, which is lower than most references found. in their paper, they state A=0.3788,
+    ! which raises question if fig 1 is to-scale drawing or sketch.
     Insect%nfft_wings = 28
     Insect%a0_wings = 0.5860758
     Insect%ai_wings(1:Insect%nfft_wings) = (/0.0219308,-0.1252418,0.0154668,0.0356038,-0.0203008,-0.0061968,&
@@ -782,6 +786,21 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     -0.0004308,-0.0002758,0.0002298,-0.0000548/)
     Insect%yc = 0.4171918
     Insect%xc = -0.0395258
+  case ('hawkmoth2')
+    ! this wingshape is digitized from https://en.wikipedia.org/wiki/Manduca_sexta#/media/File:Manduca_sexta_female_sjh.JPG
+    ! it has a greater aerea (A=0.40), but the original image is tricky since it is rotated. we therefore used a bit of modeling
+    ! for this wing shape.
+    Insect%nfft_wings = 18
+    Insect%a0_wings = 0.6617728
+    Insect%ai_wings(1:Insect%nfft_wings) = (/-0.0837648,-0.0802108,0.0703808,0.0069808,-0.0183478,0.0156518,&
+    -0.0000308,-0.0153718,-0.0011538,0.0032378,-0.0005008,0.0020798,&
+    0.0019888,-0.0009568,-0.0016378,-0.0010208,0.0005658,0.0009028/)
+    Insect%bi_wings(1:Insect%nfft_wings) = (/0.0086968,0.0763208,0.0216658,-0.0322558,-0.0125988,0.0042128,&
+    -0.0066278,-0.0040288,0.0093858,0.0045358,-0.0043238,0.0006298,&
+    0.0010848,-0.0028958,0.0007268,0.0022578,-0.0013068,-0.0003538/)
+    Insect%yc = 0.3946798
+    Insect%xc = -0.2157968
+
   case default
     write (*,*) "Insect module: trying to set up fourier descriptors for wing&
                 & shape but the type Insect%WingShape is unknown! :: "// Insect%WingShape
