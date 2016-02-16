@@ -120,7 +120,7 @@ module insect_module
     ! ode variable and rhs
     real(kind=pr), dimension(1:4) :: WING_RHS_old, WING_RHS_this, WING_STATE
     ! hinge stifness and damping coefficients
-    real(kind=pr) :: stif, damp
+    real(kind=pr) :: stif, damp, ang0
 
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion

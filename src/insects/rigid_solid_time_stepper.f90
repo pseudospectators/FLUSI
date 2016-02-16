@@ -79,8 +79,8 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
   real (kind=pr), intent (in) :: time,dt
   type(diptera),intent(inout) :: Insect
   real (kind=pr) :: m,g,Jx,Jy,Jz,s
-  real (kind=pr) :: Maero_l,Jyy_l,Jxy_l,stif_l,damp_l
-  real (kind=pr) :: Maero_r,Jyy_r,Jxy_r,stif_r,damp_r
+  real (kind=pr) :: Maero_l,Jyy_l,Jxy_l,stif_l,damp_l,ang0_l
+  real (kind=pr) :: Maero_r,Jyy_r,Jxy_r,stif_r,damp_r,ang0_r
   real (kind=pr) :: phi_dt_i1,phi_dt_i2,theta_dt_i1,theta_dt_i2
   real (kind=pr) :: phi_l,theta_l,phi_dt_l,theta_dt_l,phi_dt2_l,theta_dt2_l
   real (kind=pr) :: phi_r,theta_r,phi_dt_r,theta_dt_r,phi_dt2_r,theta_dt2_r
@@ -190,10 +190,12 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
     Jxy_l = Insect%Jxy
     stif_l = Insect%stif
     damp_l = Insect%damp
+    ang0_l = Insect%ang0
     Jyy_r = Insect%Jyy
     Jxy_r = Insect%Jxy
     stif_r = Insect%stif
     damp_r = Insect%damp
+    ang0_r = Insect%ang0
 
     ! Left wing
     ! read phi_l, theta_l, phi_dt_l, theta_dt_l,  
@@ -227,10 +229,10 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
     ! Use only the 2nd (y) component of the aerodynamic torques
     ! WARNING: Note the sign of theta changed. In the passive feathering equation,
     ! positive theta is up.
-    call rhs_alpha(mom_aero_l(2),Jyy_l,Jxy_l,stif_l,damp_l,&
+    call rhs_alpha(mom_aero_l(2),Jyy_l,Jxy_l,stif_l,damp_l,ang0_l,&
                    phi_l,-theta_l,phi_dt_l,-theta_dt_l,phi_dt2_l,-theta_dt2_l,&
                    Insect%WING_STATE(1:2),Insect%WING_RHS_this(1:2))
-    call rhs_alpha(-mom_aero_r(2),Jyy_r,Jxy_r,stif_r,damp_r,&
+    call rhs_alpha(-mom_aero_r(2),Jyy_r,Jxy_r,stif_r,damp_r,ang0_r,&
                    phi_r,-theta_r,phi_dt_r,-theta_dt_r,phi_dt2_r,-theta_dt2_r,&
                    Insect%WING_STATE(3:4),Insect%WING_RHS_this(3:4))
     ! Apply startup conditionning on accelerations
@@ -355,10 +357,10 @@ end subroutine rigid_solid_init
 !-------------------------------------------------------------------------------
 ! Evaluate RHS of passive feathering rotation equations for one wing.
 !-------------------------------------------------------------------------------
-subroutine rhs_alpha(Maero,Jyy,Jxy,stif,damp,phi,theta,phi_dt,theta_dt,phi_dt2,theta_dt2,u,du)
+subroutine rhs_alpha(Maero,Jyy,Jxy,stif,damp,ang0,phi,theta,phi_dt,theta_dt,phi_dt2,theta_dt2,u,du)
   implicit none
 
-  real(kind=pr),intent(in) :: Maero,Jyy,Jxy,stif,damp,phi,theta,phi_dt,theta_dt,phi_dt2,theta_dt2,u(1:2)
+  real(kind=pr),intent(in) :: Maero,Jyy,Jxy,stif,damp,ang0,phi,theta,phi_dt,theta_dt,phi_dt2,theta_dt2,u(1:2)
   real(kind=pr),intent(out) :: du(1:2)
   real(kind=pr) :: Miner
 
@@ -374,10 +376,10 @@ subroutine rhs_alpha(Maero,Jyy,Jxy,stif,damp,phi,theta,phi_dt,theta_dt,phi_dt2,t
     
   ! rhs of the pitching equation
   du(1) = u(2)
-  du(2) = (Miner+Maero-stif*u(1)-damp*u(2))/Jyy
+  du(2) = (Miner+Maero-stif*(u(1)-ang0)-damp*u(2))/Jyy
 
 ! debug : only inertia
-!du(2) = (Miner-stif*u(1)-damp*u(2))/Jyy
+!du(2) = (Miner-stif*(u(1)-ang0)-damp*u(2))/Jyy
 
 end subroutine rhs_alpha
 

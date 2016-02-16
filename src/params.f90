@@ -395,7 +395,7 @@ subroutine get_params_insect( PARAMS,Insect )
   call read_param(PARAMS,"Insects","v0",Insect%v0, (/0.d0, 0.d0, 0.d0/),3)
   call read_param(PARAMS,"Insects","yawpitchroll_0",Insect%yawpitchroll_0,&
   (/0.d0, 0.d0, 0.d0/),3)
-  ! convert yawpitchroll to radiants
+  ! convert yawpitchroll to radians
   Insect%yawpitchroll_0 = Insect%yawpitchroll_0 * (pi/180.d0)
   call read_param(PARAMS,"Insects","eta0",Insect%eta0, 0.0d0)
   Insect%eta0 = Insect%eta0*(pi/180.d0)
@@ -425,6 +425,8 @@ subroutine get_params_insect( PARAMS,Insect )
   call read_param(PARAMS,"Insects","wing_fsi",Insect%wing_fsi,"no") ! "no" or "feathering"
   call read_param(PARAMS,"Insects","stif",Insect%stif,1.d0) ! hinge stiffness
   call read_param(PARAMS,"Insects","damp",Insect%damp,1.d0) ! hinge damping
+  call read_param(PARAMS,"Insects","ang0",Insect%ang0,0.d0) ! hinge neutral angle (deg)
+  Insect%ang0 = Insect%ang0*(pi/180.d0) ! Convert to radians
 
   ! position vector of the head
   call read_param(PARAMS,"Insects","x_head",&
