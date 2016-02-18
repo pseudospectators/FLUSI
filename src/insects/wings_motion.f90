@@ -247,6 +247,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       kine%bi_theta(1:kine%nfft_theta) = (/-2.2839398,-3.5213068,1.9296668,-1.0832488,-0.3011748,0.1786648,&
                                           -0.1228608,0.0004808,0.0,0.0/)   ! - sign (Dmitry, 10 Nov 2013)
     endif
+    kine%initialized = .true.
 
     call fseries_eval(time,phi,phi_dt    ,kine%a0_phi, kine%ai_phi(1:kine%nfft_phi), kine%bi_phi(1:kine%nfft_phi))
     call fseries_eval(time,alpha,alpha_dt,kine%a0_alpha, kine%ai_alpha(1:kine%nfft_alpha), kine%bi_alpha(1:kine%nfft_alpha))
@@ -298,6 +299,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       -0.741962147111828,-0.351209215835472,-0.0374224119537382,&
       -0.0940160961803885,-0.0563224030429001,0.0533369476976694,&
       0.0507212428142968/)
+      kine%initialized = .true.
     endif
 
     call fseries_eval(time,phi,phi_dt    ,kine%a0_phi, kine%ai_phi(1:kine%nfft_phi), kine%bi_phi(1:kine%nfft_phi))

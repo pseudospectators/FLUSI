@@ -5,10 +5,18 @@
 FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	mask.f90 mask_fsi.f90 mask_mhd.f90 save_fields.f90 time_step.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
-	postprocessing.f90 runtime_control.f90 drag.f90 \
+	runtime_control.f90 drag.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
         rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
-        noncircular_cylinder.f90 draw_flexible_plate.f90
+        noncircular_cylinder.f90 draw_flexible_plate.f90 \
+	bin2hdf.f90 compare_key.f90 compare_timeseries.f90 convert_abs_vorticity.f90 \
+	convert_velocity.f90 convert_vorticity.f90 copy_hdf_file.f90 energy_post.f90 \
+	extract_subset.f90 field_analysis.f90 hdf2bin.f90 keyvalues.f90 \
+	magnitude_post.f90 mean_2d.f90 post_helicity.f90 postprocessing.f90 \
+	post_spectrum.f90 pressure_to_Qcriterion.f90 set_hdf5_attribute.f90 \
+	simple_field_operation.f90 time_avg_HDF5.f90 tke_mean.f90 \
+	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90
+
 
 # Object and module directory:
 OBJDIR=obj
@@ -17,14 +25,14 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 # Files that create modules:
 MFILES = vars.f90 helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
-	slicing.f90 ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90
+	slicing.f90 ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 stlreader.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
 VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
 VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd
-VPATH += :src/insects:src/solid_solver
+VPATH += :src/insects:src/solid_solver:src/postprocessing
 
 # Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
@@ -123,6 +131,8 @@ $(OBJDIR)/slicing.o: slicing.f90 $(OBJDIR)/vars.o
 $(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/stlreader.o: stlreader.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
