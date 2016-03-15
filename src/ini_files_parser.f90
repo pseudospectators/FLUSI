@@ -3,6 +3,9 @@ module ini_files_parser
 
   integer, parameter :: maxcolumns=1024
 
+  ! type definition of an inifile type. it contains an allocatable string array
+  ! of maxcolumns length. we will allocate the array, then fill it with what we
+  ! read from the file.
   type inifile
     ! string array that contains the text file:
     character(len=maxcolumns),allocatable,dimension(:) :: PARAMS
@@ -10,9 +13,8 @@ module ini_files_parser
     integer :: nlines
   end type
 
-
-
-
+  ! the generic call "read_param" redirects to these routines, depending on the data
+  ! type and the dimensionality. vectors can be read without setting a default.
   interface read_param
     module procedure param_dbl, param_int, param_vct, param_str, param_vct_nodefault
   end interface

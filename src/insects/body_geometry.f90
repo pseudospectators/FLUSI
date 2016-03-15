@@ -36,6 +36,8 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
     call draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body, M_body)
   case ("bumblebee")
     call draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body)
+  case ("mosquito_iams")
+    call draw_body_mosquito_iams( mask, mask_color, us, Insect, color_body, M_body)
   case default
     if(mpirank==0) write(*,*) "Insect::draw_body::Insect%BodyType unknown..."
     if(mpirank==0) write(*,*) Insect%bodytype
@@ -1139,6 +1141,135 @@ subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
 end subroutine draw_body_hawkmoth
 
 
+
+!-------------------------------------------------------------------------------
+! The mosquito is based on the simplified model presented in
+! [1] Iams "Flight stability of mosquitos: A reduced model" SIAM J. Appl. Math. 74(5) 1535--1550 (2014)
+!-------------------------------------------------------------------------------
+subroutine draw_body_mosquito_iams( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: R0,R,a_body, a,b,c, alpha, Ralpha(1:3,1:3)
+  real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3), x_eye_r(1:3), x_eye_l(1:3)
+  real(kind=pr) :: x0_head(1:3), x0_abdomen(1:3), x0_thorax(1:3)
+  real(kind=pr), dimension(1:3) :: x1,x2
+  integer :: ix,iy,iz
+
+  ! The mosquito consists of three parts: head, thorax and abdomen (sphere, ellipsoid, ellipsoid)
+  ! positions are measured from fig. 1 in [1], we computed also the center of gravity
+  ! for this mosquito, Insect%xc_body is thus the center of gravity
+  x0_head = (/ 0.5652d0, 0.d0, -0.0434d0 /)
+  x0_thorax = (/ 0.2579d0, 0.d0, 0.1267d0 /)
+  x0_abdomen = (/-0.437d0, 0.d0, -0.2024d0 /)
+
+  !-----------------------------------------------------------------------------
+  ! head
+  !-----------------------------------------------------------------------------
+  ! the head is a simple sphere with radius 0.1154
+  R0 = 0.1154d0
+  x1 = x0_head + Insect%xc_body
+  call drawsphere( x1, R0, mask,mask_color,us,Insect,color_body )
+
+  !-----------------------------------------------------------------------------
+  ! thorax
+  !-----------------------------------------------------------------------------
+  ! the thorax is a triaxial ellipsiod without rotation
+  a = 0.2628d0
+  b = 0.1603d0
+  c = b ! HACK: for simplicity, assume b=c, otherwise it can be very tough to draw
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_body = matmul( M_body, x_glob)
+        ! translate to origin of thorax
+        x_body = x_body - x0_thorax
+
+        ! check if inside the surrounding box (save comput. time)
+        if ( dabs(x_body(1)) <= b + Insect%safety ) then
+        if ( dabs(x_body(2)) <= b + Insect%safety ) then
+        if ( dabs(x_body(3)) <= a + Insect%safety ) then
+          ! the x-y plane are circles
+          R  = dsqrt ( x_body(1)**2 + x_body(2)**2 )
+          ! this gives the R(x) shape
+          if ( x_body(3)/a <= 1.d0) then
+            R0 = b * dsqrt( 1.d0 - (x_body(3)/a)**2 )
+            if ( R < R0 + Insect%safety ) then
+              mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+              mask_color(ix,iy,iz) = color_body
+            endif
+          endif
+        endif
+        endif
+        endif
+      enddo
+    enddo
+  enddo
+
+  !-----------------------------------------------------------------------------
+  ! abdomen
+  !-----------------------------------------------------------------------------
+  ! the abdomen is a axi-symmetric ellipsiod inclined by 30.44°
+  a = 0.6026d0
+  b = 0.1282d0
+  ! angle by which the abdomen is tilted (measured from figure 1 in [1])
+  alpha = deg2rad(-30.44d0)
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_body = matmul(M_body, x_glob)
+        ! translate to origin of abdomen
+        x_body = x_body - x0_abdomen
+        ! rotate into abdomens principal axis
+        call Ry(Ralpha,alpha)
+        x_body = matmul(Ralpha, x_body)
+
+        ! check if inside the surrounding box (save comput. time)
+        if ( dabs(x_body(1)) <= a + Insect%safety ) then
+        if ( dabs(x_body(2)) <= b + Insect%safety ) then
+        if ( dabs(x_body(3)) <= b + Insect%safety ) then
+          ! the y-z plane are circles
+          R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
+          ! this gives the R(x) shape
+          if ( x_body(1)/a <= 1.d0) then
+            R0 = b * dsqrt( 1.d0 - (x_body(1)/a)**2 )
+            if ( R < R0 + Insect%safety ) then
+              mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+              mask_color(ix,iy,iz) = color_body
+            endif
+          endif
+        endif
+        endif
+        endif
+      enddo
+    enddo
+  enddo
+
+
+
+end subroutine draw_body_mosquito_iams
+
+
+
+
+
 !-------------------------------------------------------------------------------
 ! draw a cylinder defined by GLOBALS points (x1,y1,z1), (x2,y2,z2) and radius R0
 !-------------------------------------------------------------------------------
@@ -1203,7 +1334,7 @@ end subroutine draw_cylinder_new
 
 
 !-------------------------------------------------------------------------------
-! draw a sphere with radius R0 centered at the point xc
+! draw a sphere with radius R0 centered at the point xc (GLOBAL SYSTEM)
 ! This routiner's intended use is for drawing the insect's body, for example
 ! the head and eyes of Jerry. The velocity field inside the body is added
 ! later, thus, the field us is untouched in this routines.
