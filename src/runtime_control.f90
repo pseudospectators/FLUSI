@@ -45,7 +45,7 @@ end subroutine Initialize_runtime_control_file
 subroutine runtime_control_command( command )
   ! reads runtime control command
   use vars
-  use ini_files_parser
+  use ini_files_parser_mpi
   use mpi
   implicit none
   character(len=strlen), intent(out)     :: command
@@ -56,13 +56,9 @@ subroutine runtime_control_command( command )
 
   ! root reads in the control file
   ! and fetched the command
-  if (mpirank ==0) then
-    call read_ini_file( CTRL_FILE, file, .false. ) ! false = non-verbose
-  endif
+  call read_ini_file_mpi( CTRL_FILE, file, .false. ) ! false = non-verbose
 
-  call read_param(CTRL_FILE, "runtime_control","runtime_control", command, "none")
+  call read_param_mpi(CTRL_FILE, "runtime_control","runtime_control", command, "none")
 
-  if (mpirank ==0) then
-    call clean_ini_file( CTRL_FILE )
-  endif
+  call clean_ini_file_mpi( CTRL_FILE )
 end subroutine runtime_control_command

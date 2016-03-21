@@ -19,7 +19,6 @@ module vars
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
   ! Used in params.f90
-  integer,parameter :: nlines=2048 ! maximum number of lines in PARAMS-file
   integer,parameter :: strlen=80   ! standard string length
 
   ! Precision of doubles

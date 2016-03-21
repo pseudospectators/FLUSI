@@ -15,7 +15,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	magnitude_post.f90 mean_2d.f90 post_helicity.f90 postprocessing.f90 \
 	post_spectrum.f90 pressure_to_Qcriterion.f90 set_hdf5_attribute.f90 \
 	simple_field_operation.f90 time_avg_HDF5.f90 tke_mean.f90 \
-	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90
+	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90
 
 
 # Object and module directory:
@@ -25,7 +25,8 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 # Files that create modules:
 MFILES = vars.f90 helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
-	slicing.f90 ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 stlreader.f90
+	slicing.f90 ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 stlreader.f90 \
+	ini_files_parser_mpi.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -129,6 +130,8 @@ $(OBJDIR)/turbulent_inlet.o: turbulent_inlet.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_
 $(OBJDIR)/slicing.o: slicing.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/ini_files_parser_mpi.o: ini_files_parser_mpi.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)

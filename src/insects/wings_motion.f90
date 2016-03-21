@@ -53,7 +53,7 @@ end subroutine FlappingMotion_right
 subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
            alpha_dt, theta_dt, kine)
   use vars
-  use ini_files_parser
+  use ini_files_parser_mpi
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -96,14 +96,14 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     !---------------------------------------------------------------------------
     if (.not.kine%initialized) then
       ! parse ini file
-      if (mpirank==0) call read_ini_file(kinefile, kine%infile, .true.)
+      call read_ini_file_mpi(kinefile, kine%infile, .true.)
 
       ! how to interpret numbers: Fourier or Hermite?
-      call read_param(kinefile,"kinematics","type",kine%infile_type,"none")
+      call read_param_mpi(kinefile,"kinematics","type",kine%infile_type,"none")
       ! what units are given, degree or radiant?
-      call read_param(kinefile,"kinematics","units",kine%infile_units,"degree")
+      call read_param_mpi(kinefile,"kinematics","units",kine%infile_units,"degree")
       ! what convention/definition does the data follow?
-      call read_param(kinefile,"kinematics","convention",kine%infile_convention,"flusi")
+      call read_param_mpi(kinefile,"kinematics","convention",kine%infile_convention,"flusi")
 
       ! inform about your interpretation
       select case (kine%infile_type)
@@ -116,24 +116,24 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       end select
 
       ! how many coefficients will be read
-      call read_param(kinefile,"kinematics","nfft_phi",kine%nfft_phi,0)
-      call read_param(kinefile,"kinematics","nfft_alpha",kine%nfft_alpha,0)
-      call read_param(kinefile,"kinematics","nfft_theta",kine%nfft_theta,0)
+      call read_param_mpi(kinefile,"kinematics","nfft_phi",kine%nfft_phi,0)
+      call read_param_mpi(kinefile,"kinematics","nfft_alpha",kine%nfft_alpha,0)
+      call read_param_mpi(kinefile,"kinematics","nfft_theta",kine%nfft_theta,0)
 
       ! read coefficients
-      call read_param(kinefile,"kinematics","a0_phi",kine%a0_phi,0.d0)
-      call read_param(kinefile,"kinematics","a0_alpha",kine%a0_alpha,0.d0)
-      call read_param(kinefile,"kinematics","a0_theta",kine%a0_theta,0.d0)
+      call read_param_mpi(kinefile,"kinematics","a0_phi",kine%a0_phi,0.d0)
+      call read_param_mpi(kinefile,"kinematics","a0_alpha",kine%a0_alpha,0.d0)
+      call read_param_mpi(kinefile,"kinematics","a0_theta",kine%a0_theta,0.d0)
 
-      call read_param(kinefile,"kinematics","ai_phi",kine%ai_phi(1:kine%nfft_phi),kine%nfft_phi)
-      call read_param(kinefile,"kinematics","bi_phi",kine%bi_phi(1:kine%nfft_phi),kine%nfft_phi)
-      call read_param(kinefile,"kinematics","ai_alpha",kine%ai_alpha(1:kine%nfft_alpha),kine%nfft_alpha)
+      call read_param_mpi(kinefile,"kinematics","ai_phi",kine%ai_phi(1:kine%nfft_phi),kine%nfft_phi)
+      call read_param_mpi(kinefile,"kinematics","bi_phi",kine%bi_phi(1:kine%nfft_phi),kine%nfft_phi)
+      call read_param_mpi(kinefile,"kinematics","ai_alpha",kine%ai_alpha(1:kine%nfft_alpha),kine%nfft_alpha)
 
-      call read_param(kinefile,"kinematics","bi_alpha",kine%bi_alpha(1:kine%nfft_alpha),kine%nfft_alpha)
-      call read_param(kinefile,"kinematics","ai_theta",kine%ai_theta(1:kine%nfft_theta),kine%nfft_theta)
-      call read_param(kinefile,"kinematics","bi_theta",kine%bi_theta(1:kine%nfft_theta),kine%nfft_theta)
+      call read_param_mpi(kinefile,"kinematics","bi_alpha",kine%bi_alpha(1:kine%nfft_alpha),kine%nfft_alpha)
+      call read_param_mpi(kinefile,"kinematics","ai_theta",kine%ai_theta(1:kine%nfft_theta),kine%nfft_theta)
+      call read_param_mpi(kinefile,"kinematics","bi_theta",kine%bi_theta(1:kine%nfft_theta),kine%nfft_theta)
       kine%initialized = .true.
-      call clean_ini_file( kinefile )
+      call clean_ini_file_mpi( kinefile )
     endif
 
     !---------------------------------------------------------------------------

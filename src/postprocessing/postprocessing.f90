@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--force-decomp")
+    call force_decomposition(help)
   case ("--stl2dist")
     call stl2dist(help)
   case ("--dist2mask","--dist2chi")
