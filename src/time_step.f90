@@ -186,7 +186,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
       case ("reload_params")
         if (root) write (*,*) "runtime control: Reloading PARAMS file.."
         ! read all parameters from the params.ini file
-        call get_params(params_file,Insect)
+        call get_params(params_file,Insect,.true.)
         ! overwrite control file
         if (root) call initialize_runtime_control_file()
       case ("save_stop")

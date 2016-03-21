@@ -43,7 +43,7 @@ subroutine dry_run()
   ! get filename of PARAMS file from command line
   call get_command_argument(2,infile)
   ! read all parameters from that file
-  call get_params(infile,Insect)
+  call get_params(infile,Insect,.true.)
 
   ! is the position of body and wings given by the command line?
   call get_command_argument(3,infile)
@@ -164,7 +164,7 @@ subroutine dry_run()
   deallocate(us, mask, mask_color)
 
   if (iMask=="Insect") then
-    ! Clean insect 
+    ! Clean insect
     call insect_clean(Insect)
   endif
 

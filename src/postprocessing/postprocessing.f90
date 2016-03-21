@@ -513,11 +513,16 @@ subroutine check_params_file(help)
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p  --check-params-file PARAMS.ini"
+    write(*,*) "./flusi -p --check-params-file PARAMS.ini template.ini"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) ""
+    write(*,*) " Compare the given params.ini file with a reference template file."
+    write(*,*) " If no reference file is given, we will perform a couple of tests only"
+    write(*,*) " If a reference file is given, we check what entries are "
+    write(*,*) " * present in both files"
+    write(*,*) " * have been removed from template (thus deprecated)"
+    write(*,*) " * have been added to template"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "Parallel: yes"
+    write(*,*) "Parallel: no"
     return
   endif
 
@@ -529,7 +534,14 @@ subroutine check_params_file(help)
 
   call get_command_argument(3,infile)
   call check_file_exists(infile)
-  call get_params(infile,Insect)
+  call get_params(infile,Insect,.false.)
+
+  call get_command_argument(4,infile)
+  if (infile /= "") then
+    ! we have a reference file given
+    call check_file_exists(infile)
+  endif
+
 
   ! now we have the parameters and perform the tests
   if ((dx /= dy).or.(dx /= dz).or.(dz /=dy)) then

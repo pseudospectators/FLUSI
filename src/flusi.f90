@@ -48,7 +48,7 @@ program FLUSI
     allocate(lin(1)) ! Set up the linear term
     ! read params file from SECOND input parameter
     call get_command_argument(2,infile)
-    call get_params(infile,dummyinsect)
+    call get_params(infile,dummyinsect,.true.)
     ! fetch postprocessing argument again:
     call get_command_argument(1,infile)
 
@@ -138,7 +138,7 @@ program FLUSI
     ! get filename of PARAMS file from command line
     call get_command_argument(1,infile)
     ! read all parameters from that file
-    call get_params(infile,Insect)
+    call get_params(infile,Insect,.true.)
 
     !-----------------------------------------------------------------------------
     ! ghost points. only the "active" FSI part, i.e. with flexible obstacles,

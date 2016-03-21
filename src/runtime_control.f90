@@ -63,6 +63,6 @@ subroutine runtime_control_command( command )
   call read_param(CTRL_FILE, "runtime_control","runtime_control", command, "none")
 
   if (mpirank ==0) then
-    call clean_ini_file( CTRL_FILE ) 
+    call clean_ini_file( CTRL_FILE )
   endif
 end subroutine runtime_control_command

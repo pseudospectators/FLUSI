@@ -76,7 +76,7 @@ program mhd
 
   call get_command_argument(1,infile) ! infile from command line
   if (mpirank == 0) write(*,'(A)') 'Reading parameters from'//infile
-  call get_params(infile,dummy_insect)
+  call get_params(infile,dummy_insect,.true.)
 
   call fft_initialize
 

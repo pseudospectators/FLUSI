@@ -3,6 +3,10 @@ module ini_files_parser
 
   integer, parameter :: maxcolumns=1024
 
+  ! is set to true, we'll produce some output on the screen (for documentation of runs)
+  ! the flag is set with the read_ini_file routine
+  logical, save :: verbosity = .true.
+
   ! type definition of an inifile type. it contains an allocatable string array
   ! of maxcolumns length. we will allocate the array, then fill it with what we
   ! read from the file.
@@ -19,18 +23,23 @@ module ini_files_parser
     module procedure param_dbl, param_int, param_vct, param_str, param_vct_nodefault
   end interface
 
+
+!!!!!!!!
 contains
+!!!!!!!!
 
 
+  !-------------------------------------------------------------------------------
+  ! clean a previously read ini file, deallocate its string array, and reset
+  ! verbosity to .true. (as a matter of precaution)
+  !-------------------------------------------------------------------------------
   subroutine clean_ini_file(PARAMS)
     implicit none
     type(inifile), intent(inout) :: PARAMS
 
     if (allocated(PARAMS%PARAMS)) deallocate(PARAMS%PARAMS)
-
+    verbosity = .true.
   end subroutine clean_ini_file
-
-
 
   !-------------------------------------------------------------------------------
   ! Read the file paramsfile, count the lines and put the
@@ -49,11 +58,15 @@ contains
     ! check if the specified file exists
     call check_file_exists( file )
 
+    ! we set the module-global variable verbosity. if set to false, all routines
+    ! will perform their task quietly.
+    verbosity = verbose
+
     !-----------------------------------------------------------------------------
     ! determine number of lines in file
     !-----------------------------------------------------------------------------
     io_error=0
-    if (verbose) then
+    if (verbosity) then
       write (*,*) "*************************************************"
       write (*,'(A,i3)') " *** info: reading params from "//trim(file)//" rank=", mpirank
       write (*,*) "*************************************************"
@@ -124,18 +137,24 @@ contains
           !-- value to be read is in absolute form (i.e. we just read the value)
           read (value, *) params_real
           write (value,'(g10.3)') params_real
-          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+          if (verbosity) then
+            write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+          endif
         else
           !-- the value is given in gridpoints (e.g. thickness=5*dx)
           read (value(1:index(value,'*dx')-1),*) params_real
           params_real = params_real*max(dy,dz)
           write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/max(dy,dz)
-          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+          if (verbosity) then
+            write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+          endif
         endif
       else
         write (value,'(g10.3)') defaultvalue
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
-        " (THIS IS THE DEFAULT VALUE!)"
+        if (verbosity) then
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+          " (THIS IS THE DEFAULT VALUE!)"
+        endif
         params_real = defaultvalue
       endif
     endif
@@ -179,15 +198,15 @@ contains
       call GetValue(PARAMS, section, keyword, value)
       if (value .ne. '') then
         params_string = value
-        ! its a bit dirty but it avoids filling the screen with
-        ! "nothing" anytime we check the runtime control file
-        if (keyword.ne."runtime_control") then
+        if (verbosity) then
           write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
         endif
       else
         value = defaultvalue
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
-        " (THIS IS THE DEFAULT VALUE!)"
+        if (verbosity) then
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+          " (THIS IS THE DEFAULT VALUE!)"
+        endif
         params_string = defaultvalue
       endif
     endif
@@ -236,11 +255,15 @@ contains
         ! read the three values from the vector string
         read (value, *) params_vector
         write (value,formatstring) params_vector
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        if (verbosity) then
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        endif
       else
         write (value,formatstring) defaultvalue
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
-        " (THIS IS THE DEFAULT VALUE!)"
+        if (verbosity) then
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+          " (THIS IS THE DEFAULT VALUE!)"
+        endif
         params_vector = defaultvalue
       endif
     endif
@@ -290,11 +313,15 @@ contains
         ! read the three values from the vector string
         read (value, *) params_vector
         write (value,formatstring) params_vector
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        if (verbosity) then
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        endif
       else
         write (value,formatstring) defaultvalue
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
-        " (THIS IS THE DEFAULT VALUE!)"
+        if (verbosity) then
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+          " (THIS IS THE DEFAULT VALUE!)"
+        endif
         params_vector = defaultvalue
       endif
     endif
@@ -336,11 +363,15 @@ contains
       if (value .ne. '') then
         read (value, *) params_int
         write (value,'(i7)') params_int
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        if (verbosity) then
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+        endif
       else
         write (value,'(i7)') defaultvalue
-        write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
-        " (THIS IS THE DEFAULT VALUE!)"
+        if (verbosity) then
+          write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))//&
+          " (THIS IS THE DEFAULT VALUE!)"
+        endif
         params_int = defaultvalue
       endif
     endif
@@ -409,16 +440,20 @@ contains
             ! found "keyword=" in this line, but delimiter ";" is missing.
             ! proceed, but this may fail (e.g. value=999commentary or
             ! value=999\newline fails)
-            write (*,'(A)') "Though found the keyword, I'm unable to find &
-                          &value for variable --> "//trim(keyword)//" <-- &
-                          &missing delimiter (;)"
+            if (verbosity) then
+              write (*,'(A)') "Though found the keyword, I'm unable to find &
+                            &value for variable --> "//trim(keyword)//" <-- &
+                            &missing delimiter (;)"
+            endif
             index1 = index(PARAMS%PARAMS(i),'=')+1
             index2 = index(PARAMS%PARAMS(i),' ')-1
             value = PARAMS%PARAMS(i)(index1:index2)
-            write (*,'(A)') "As you forgot to set ; at the end of your value,&
-                        & I try to extract a value nonetheless. Proceed, with&
-                        & fingers crossed (there is no guarantee this will work)"
-            write (*,'(A)') "Extracted --->"//trim(value)//"<-----"
+            if (verbosity) then
+              write (*,'(A)') "As you forgot to set ; at the end of your value,&
+                          & I try to extract a value nonetheless. Proceed, with&
+                          & fingers crossed (there is no guarantee this will work)"
+              write (*,'(A)') "Extracted --->"//trim(value)//"<-----"
+            endif
             exit
           endif
         endif

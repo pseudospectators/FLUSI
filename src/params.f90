@@ -1,24 +1,27 @@
 ! Wrapper to read parameters from an ini file for fsi.  Also reads
 ! parameters which are set in the vars module.
-subroutine get_params(paramsfile,Insect)
+subroutine get_params(paramsfile,Insect,verbose)
   use vars
   use ini_files_parser
   use insect_module
   ! The file we read the PARAMS from
   character(len=strlen),intent(in) :: paramsfile
+  ! print a copy of the parameters read or not?
+  logical, intent(in) :: verbose
   ! the insect we initialize here
   type(diptera), intent(inout) :: Insect
   ! this array contains the entire ascii-params file
   type(inifile) :: PARAMS
 
-  ! Read the paramsfile and put the length i and the text in PARAMS
+  ! Read the paramsfile to the derived dataytpe for ini-files
   if (mpirank==0) then
-    call read_ini_file(PARAMS,paramsfile,.true.) ! true= verbose
+    call read_ini_file(PARAMS,paramsfile,verbose)
   endif
 
   ! Get parameter values from PARAMS
   call get_params_common(PARAMS)
 
+  ! read all the specific parameters from the file
   select case(method)
   case("fsi")
     ! Get fsi-specific parameter values from PARAMS
@@ -30,10 +33,15 @@ subroutine get_params(paramsfile,Insect)
     if(mpirank==0) call abort("Error! Unkonwn method in get_params; stopping.")
   end select
 
-  ! clean file
-  if (mpirank==0) then
+
+  if (mpirank==0 .and. verbose) then
+    write (*,*) "*************************************************"
+    write (*,'(A,i3)') " *** DONE READING PARAMETERS"
+    write (*,*) "*************************************************"
+    ! clean ini file
     call clean_ini_file(PARAMS)
   endif
+
 end subroutine get_params
 
 
@@ -284,12 +292,6 @@ subroutine get_params_fsi(PARAMS,Insect)
   ! ---------------------------------------------------
 
   lin(1)=nu
-
-  if (mpirank==0) then
-    write (*,*) "*************************************************"
-    write (*,'(A,i3)') " *** DONE READING PARAMETERS"
-    write (*,*) "*************************************************"
-  endif
 end subroutine get_params_fsi
 
 
