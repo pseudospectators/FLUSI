@@ -204,7 +204,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   if (iChannel=="1") iChannel="xy" ! for downward compatibility with older ini files
   call read_param(PARAMS,"Penalization","thick_wall",thick_wall,0.2d0)
   call read_param(PARAMS,"Penalization","pos_wall",pos_wall,0.3d0)
-
+  call read_param(PARAMS,"Penalization","us_fixed",us_fixed,(/0.d0,0.d0,0.d0/),3)
   ! ---------------------------------------------------
   ! sponge
   ! ---------------------------------------------------

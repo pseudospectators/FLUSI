@@ -68,6 +68,7 @@ module vars
 
   ! Variables set via the parameters file
   real(kind=pr),save :: length, alpha_generic
+  real(kind=pr),dimension(1:3),save :: us_fixed
 
   ! Domain size variables:
   integer,save :: nx,ny,nz

@@ -10,6 +10,7 @@ subroutine create_mask_fsi (time, Insect, beams )
   real(kind=pr), intent(in) :: time
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
+  logical, save :: mask_already_read = .false.
 
 
   !-------------------------------------------------------------
@@ -45,8 +46,28 @@ subroutine create_mask_fsi (time, Insect, beams )
       ! in this case, no extra mask is set, but you might have e.g. the turbulent
       ! inlet or channel walls.
     case default
-      write (*,*) "iMask="//iMask//" not properly set; stopping."
-      call abort()
+      ! is this case, we read the entire mask from a hdf5 file. Note the mask is not
+      ! time dependent; it is read only a single time. we allow it to have constant
+      ! non-zero, homogeneous us (solid velocity)
+      ! check if the string begins with from_file::
+      if ( iMask(1:11) == "from_file::" ) then
+        ! did we already read from file?
+        if (mask_already_read .eqv. .false.) then
+          ! no -> read now and skip in the future
+          mask_already_read = .true.
+          if (root) write(*,*) "reading mask from file "//iMask(12:strlen)
+          call Read_Single_File( iMask(12:strlen), mask )
+          ! impose homogeneous, time-constant solid velocity. the value of us_fixed
+          ! can be set in the parameter file
+          us(:,:,:,1) = us_fixed(1)
+          us(:,:,:,2) = us_fixed(2)
+          us(:,:,:,3) = us_fixed(3)
+        endif
+      else
+        ! no known case...
+        write (*,*) "iMask="//iMask//" not properly set; stopping."
+        call abort()
+      endif
     end select
   endif
 
