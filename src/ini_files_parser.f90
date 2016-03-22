@@ -261,20 +261,27 @@ contains
   ! Output:
   !       params_vector: this is the parameter you were looking for
   !-------------------------------------------------------------------------------
-  subroutine param_vct (PARAMS, section, keyword, params_vector, defaultvalue, n)
+  subroutine param_vct (PARAMS, section, keyword, params_vector, defaultvalue)
     implicit none
-    integer, intent(in) :: n
     ! Contains the ascii-params file
     type(inifile), intent(inout) :: PARAMS
     character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    real(kind=pr) :: params_vector(1:n)
-    real(kind=pr) :: defaultvalue(1:n)
+    real(kind=pr) :: params_vector(1:)
+    real(kind=pr) :: defaultvalue(1:)
 
+    integer :: n,m
     character(len=maxcolumns) :: value
     character(len=14)::formatstring
 
+    n = size(params_vector,1)
+    m = size(defaultvalue,1)
     if (n==0) return
+
+    if (n/=m) then
+      write(*,*) "error: vector and default value are not of the same length"
+    endif
+
     write(formatstring,'("(",i2.2,"(g10.3,1x))")') n
 
     call GetValue(PARAMS, section, keyword, value)
@@ -307,25 +314,30 @@ contains
   ! Output:
   !       params_vector: this is the parameter you were looking for
   !-------------------------------------------------------------------------------
-  subroutine param_vct_nodefault (PARAMS, section, keyword, params_vector, n)
+  subroutine param_vct_nodefault (PARAMS, section, keyword, params_vector)
     implicit none
     ! Contains the ascii-params file
     type(inifile), intent(inout) :: PARAMS
     character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    real(kind=pr) :: params_vector(1:n)
-    real(kind=pr) :: defaultvalue(1:n)
-    integer, intent(in) :: n
+    real(kind=pr) :: params_vector(1:)
+    real(kind=pr),dimension(:),allocatable :: defaultvalue
+    integer :: n
 
     character(len=maxcolumns) :: value
     character(len=14)::formatstring
 
+    n = size(params_vector,1)
+
+
     ! just set the default vector to zero and pass to subroutines. we need
     ! that sometimes if we look for vectors that do not have a reasonable default
     ! anyways
+    allocate( defaultvalue(1:n) )
     defaultvalue = 0.d0
-    call param_vct (PARAMS, section, keyword, params_vector, defaultvalue, n)
+    call param_vct (PARAMS, section, keyword, params_vector, defaultvalue)
 
+    deallocate( defaultvalue )
   end subroutine param_vct_nodefault
 
 

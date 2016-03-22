@@ -211,7 +211,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   if (iChannel=="1") iChannel="xy" ! for downward compatibility with older ini files
   call read_param_mpi(PARAMS,"Penalization","thick_wall",thick_wall,0.2d0)
   call read_param_mpi(PARAMS,"Penalization","pos_wall",pos_wall,0.3d0)
-  call read_param_mpi(PARAMS,"Penalization","us_fixed",us_fixed,(/0.d0,0.d0,0.d0/),3)
+  call read_param_mpi(PARAMS,"Penalization","us_fixed",us_fixed,(/0.d0,0.d0,0.d0/))
   ! ---------------------------------------------------
   ! sponge
   ! ---------------------------------------------------
@@ -388,14 +388,14 @@ subroutine get_params_insect( PARAMS,Insect )
   call read_param_mpi(PARAMS,"Insects","mass",Insect%mass, 1.d0)
   call read_param_mpi(PARAMS,"Insects","gravity",Insect%gravity, 1.d0)
   call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx)
-  call read_param_mpi(PARAMS,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/),3)
+  call read_param_mpi(PARAMS,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/))
   Insect%Jroll_body  = defaultvec(3)
   Insect%Jyaw_body   = defaultvec(1)
   Insect%Jpitch_body = defaultvec(2)
-  call read_param_mpi(PARAMS,"Insects","x0",Insect%x0, (/0.5d0*xl,0.5d0*yl,0.5d0*zl/),3)
-  call read_param_mpi(PARAMS,"Insects","v0",Insect%v0, (/0.d0, 0.d0, 0.d0/),3)
+  call read_param_mpi(PARAMS,"Insects","x0",Insect%x0, (/0.5d0*xl,0.5d0*yl,0.5d0*zl/))
+  call read_param_mpi(PARAMS,"Insects","v0",Insect%v0, (/0.d0, 0.d0, 0.d0/))
   call read_param_mpi(PARAMS,"Insects","yawpitchroll_0",Insect%yawpitchroll_0,&
-  (/0.d0, 0.d0, 0.d0/),3)
+  (/0.d0, 0.d0, 0.d0/))
   ! convert yawpitchroll to radiants
   Insect%yawpitchroll_0 = Insect%yawpitchroll_0 * (pi/180.d0)
   call read_param_mpi(PARAMS,"Insects","eta0",Insect%eta0, 0.0d0)
@@ -424,21 +424,21 @@ subroutine get_params_insect( PARAMS,Insect )
 
   ! position vector of the head
   call read_param_mpi(PARAMS,"Insects","x_head",&
-  Insect%x_head, (/0.5d0*Insect%L_body,0.d0,0.d0 /),3 )
+  Insect%x_head, (/0.5d0*Insect%L_body,0.d0,0.d0 /) )
 
   ! eyes
   defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,+1.0d0,1.0d0/)
-  call read_param_mpi(PARAMS,"Insects","x_eye_r",Insect%x_eye_r, defaultvec,3)
+  call read_param_mpi(PARAMS,"Insects","x_eye_r",Insect%x_eye_r, defaultvec)
 
   defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,-1.0d0,1.0d0/)
-  call read_param_mpi(PARAMS,"Insects","x_eye_l",Insect%x_eye_l, defaultvec,3)
+  call read_param_mpi(PARAMS,"Insects","x_eye_l",Insect%x_eye_l, defaultvec)
 
   ! wing hinges (root points)
   defaultvec=(/0.d0, +Insect%b_body, 0.d0 /)
-  call read_param_mpi(PARAMS,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec,3)
+  call read_param_mpi(PARAMS,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec)
 
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
-  call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec,3)
+  call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)
 
   Insect%smooth = 2.0d0*dz
 end subroutine get_params_insect
@@ -539,7 +539,7 @@ subroutine get_params_scalars(PARAMS)
       call read_param_mpi(PARAMS,name,"eps",scalar_props(j)%eps, eps)
       call read_param_mpi(PARAMS,name,"inicond",scalar_props(j)%inicond,"right_left_discontinuous")
       call read_param_mpi(PARAMS,name,"sourceterm",scalar_props(j)%sourceterm,"none")
-      call read_param_mpi(PARAMS,name,"sourceterm_x0",scalar_props(j)%source_x0,(/0.d0,0.d0,0.d0,0.d0/),4)
+      call read_param_mpi(PARAMS,name,"sourceterm_x0",scalar_props(j)%source_x0,(/0.d0,0.d0,0.d0,0.d0/))
     enddo
   endif
 

@@ -133,21 +133,23 @@ contains
   ! Output:
   !       params_vector: this is the parameter you were looking for
   !-------------------------------------------------------------------------------
-  subroutine param_vct_mpi (PARAMS, section, keyword, params_vector, defaultvalue, n)
+  subroutine param_vct_mpi (PARAMS, section, keyword, params_vector, defaultvalue)
     implicit none
-    integer, intent(in) :: n
     ! Contains the ascii-params file
     type(inifile), intent(inout) :: PARAMS
     character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    real(kind=pr), intent(inout) :: params_vector(1:n)
-    real(kind=pr), intent(in) :: defaultvalue(1:n)
+    real(kind=pr), intent(inout) :: params_vector(1:)
+    real(kind=pr), intent(in) :: defaultvalue(1:)
 
+    integer :: n
     integer :: mpicode
+
+    n = size(params_vector,1)
 
     ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
     if (mpirank==0) then
-      call read_param (PARAMS, section, keyword, params_vector, defaultvalue, n)
+      call read_param (PARAMS, section, keyword, params_vector, defaultvalue)
     endif
 
     ! And then broadcast
@@ -167,21 +169,22 @@ contains
   ! Output:
   !       params_vector: this is the parameter you were looking for
   !-------------------------------------------------------------------------------
-  subroutine param_vct_nodefault_mpi (PARAMS, section, keyword, params_vector, n)
+  subroutine param_vct_nodefault_mpi (PARAMS, section, keyword, params_vector)
     implicit none
-    integer, intent(in) :: n
     ! Contains the ascii-params file
     type(inifile), intent(inout) :: PARAMS
     character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    real(kind=pr) :: params_vector(1:n)
+    real(kind=pr) :: params_vector(1:)
 
+    integer :: n
     integer :: mpicode
-    if(n==0) return
+
+    n = size(params_vector,1)
 
     ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
     if (mpirank==0) then
-      call read_param (PARAMS, section, keyword, params_vector, n)
+      call read_param (PARAMS, section, keyword, params_vector)
     endif
 
     ! And then broadcast
