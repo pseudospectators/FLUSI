@@ -7,20 +7,18 @@
 subroutine keyvalues(filename)
   use vars
   use mpi
+  use p3dfft_wrapper
   implicit none
   character(len=*), intent(in) :: filename
   real(kind=pr) :: time, npoints, q, x,y,z
+  real(kind=pr) :: maxi,mini,squari,meani,qi
+  real(kind=pr) :: maxl,minl,squarl,meanl,ql
   real(kind=pr), dimension(:,:,:), allocatable :: field
-  integer :: ix,iy,iz
-
-  if (mpisize>1) then
-    write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"
-    call abort()
-  endif
+  integer :: ix,iy,iz,mpicode
 
   call check_file_exists( filename )
 
-  write (*,*) "analyzing file "//trim(adjustl(filename))//" for keyvalues"
+  if (root) write (*,*) "analyzing file "//trim(adjustl(filename))//" for keyvalues"
 
   !---------------------------------------------------------
   ! in a first step, we fetch the attributes from the dataset
@@ -28,36 +26,50 @@ subroutine keyvalues(filename)
   ! this routine was created in the mpi2vis repo -> convert_hdf2xmf.f90
   !---------------------------------------------------------
   call fetch_attributes( filename, nx, ny, nz, xl, yl, zl, time , nu )
-  write(*,'("File is at time=",es12.4)') time
-  allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
+  ! initialize code and scaling factors for derivatives
+  call fft_initialize()
+  allocate(field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-  ra=(/0,0,0/)
-  rb=(/nx-1,ny-1,nz-1/)
   call read_single_file (filename, field)
 
   npoints = dble(nx)*dble(ny)*dble(nz)
 
   ! compute an additional quantity that depends also on the position
   ! (the others are translation invariant)
-  q=0.d0
-  do iz = 0, nz-1
-   do iy = 0, ny-1
-    do ix = 0, nx-1
+  ql = 0.d0
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
       x = dble(ix)*xl/dble(nx)
       y = dble(iy)*yl/dble(ny)
       z = dble(iz)*zl/dble(nz)
 
-      q = q + x*field(ix,iy,iz) + y*field(ix,iy,iz) + z*field(ix,iy,iz)
+      ql = ql + x*field(ix,iy,iz) + y*field(ix,iy,iz) + z*field(ix,iy,iz)
       enddo
     enddo
   enddo
 
-  open  (14, file = filename(1:index(filename,'.'))//'key', status = 'replace')
-  write (14,'(6(es15.8,1x))') time, maxval(field), minval(field),&
-   sum(field)/npoints, sum(field**2)/npoints, q/npoints
-  write (*,'(6(es15.8,1x))') time, maxval(field), minval(field),&
-   sum(field)/npoints, sum(field**2)/npoints, q/npoints
-  close (14)
+  maxl = maxval(field)
+  minl = minval(field)
+  squarl = sum(field**2)
+  meanl  = sum(field)
+
+  call MPI_ALLREDUCE (ql,qi,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (maxl,maxi,1,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (minl,mini,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (squarl,squari,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (meanl,meani,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+
+  qi = qi / npoints
+  squari = squari / npoints
+  meani = meani / npoints
+
+  if (root) then
+    open  (14, file = filename(1:index(filename,'.'))//'key', status = 'replace')
+    write (14,'(6(es15.8,1x))') time, maxi, mini, meani, squari, qi
+    write (* ,'(6(es15.8,1x))') time, maxi, mini, meani, squari, qi
+    close (14)
+  endif
 
   deallocate (field)
 end subroutine keyvalues

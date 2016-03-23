@@ -106,6 +106,7 @@ subroutine postprocessing()
     if (root) then
       write(*,*) "Available Postprocessing tools are:"
       write(*,*) "--energy"
+      write(*,*) "--force-decomp"
       write(*,*) "--magnitude"
       write(*,*) "--check-params-file"
       write(*,*) "--ux-from-uyuz"
@@ -586,7 +587,7 @@ subroutine post_smooth_mask(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
-  use ini_files_parser
+  use ini_files_parser_mpi
   use mpi
   implicit none
   logical, intent(in) :: help
@@ -638,12 +639,12 @@ subroutine post_smooth_mask(help)
   nf = 1
 
   ! read in parameters
-  if (root) call read_ini_file( params, "smoothing.ini", .true.)
-  call read_param( params,"smoothing","nu",nu,1.0d-1 )
-  call read_param( params,"smoothing","eps",eps,1.0d-2 )
-  call read_param( params,"smoothing","dt",dt,0.5d-2 )
-  call read_param( params,"smoothing","tmax",tmax,1.d0 )
-  if (root) call clean_ini_file( params )
+  call read_ini_file_mpi( params, "smoothing.ini", .true.)
+  call read_param_mpi( params,"smoothing","nu",nu,1.0d-1 )
+  call read_param_mpi( params,"smoothing","eps",eps,1.0d-2 )
+  call read_param_mpi( params,"smoothing","dt",dt,0.5d-2 )
+  call read_param_mpi( params,"smoothing","tmax",tmax,1.d0 )
+  call clean_ini_file_mpi( params )
 
   allocate(lin(1))
   lin(1) = nu

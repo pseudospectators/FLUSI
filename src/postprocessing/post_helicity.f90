@@ -58,20 +58,13 @@ subroutine post_helicity(help)
   call check_file_exists( fname_uz )
 
   call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  ! initialize code and scaling factors for derivatives, also domain decomposition
+  call fft_initialize()
 
-  pi = 4.d0 *datan(1.d0)
-  scalex = 2.d0*pi/xl
-  scaley = 2.d0*pi/yl
-  scalez = 2.d0*pi/zl
-  dx = xl/dble(nx)
-  dy = yl/dble(ny)
-  dz = zl/dble(nz)
   neq=3
   nd=3
   ncw=3
   nrw=3
-
-  call fft_initialize() ! also initializes the domain decomp
 
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(vor(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))

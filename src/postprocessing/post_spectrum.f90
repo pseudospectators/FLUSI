@@ -42,14 +42,8 @@ subroutine post_spectrum(help)
   endif
 
   call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
-
-  pi=4.d0 *datan(1.d0)
-  scalex=2.d0*pi/xl
-  scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl
-  dx = xl/dble(nx)
-  dy = yl/dble(ny)
-  dz = zl/dble(nz)
+  ! initialize code and scaling factors for derivatives, also domain decomposition
+  call fft_initialize()
 
   if (mpirank==0) then
     write(*,'("Computing spectrum of ",A,1x,A,1x,A)') &
@@ -58,9 +52,6 @@ subroutine post_spectrum(help)
     write(*,'("Resolution is ",i4,1x,i4,1x,i4)') nx, ny, nz
     write(*,'("Domain size is", es12.4,1x,es12.4,1x,es12.4)') xl, yl ,zl
   endif
-
-  call fft_initialize() ! also initializes the domain decomp
-
 
   call MPI_barrier (MPI_COMM_world, mpicode)
   write (*,'("mpirank=",i5," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&

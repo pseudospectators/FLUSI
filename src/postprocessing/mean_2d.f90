@@ -53,16 +53,8 @@ subroutine mean_2d(help)
   write(*,*) "outfile="//trim(adjustl(outfile))
 
   call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu )
-
-  pi=4.d0 *datan(1.d0)
-  scalex=2.d0*pi/xl
-  scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl
-  dx = xl/dble(nx)
-  dy = yl/dble(ny)
-  dz = zl/dble(nz)
-
-  call fft_initialize() ! also initializes the domain decomp
+  ! initialize code and scaling factors for derivatives, also domain decomposition
+  call fft_initialize()
 
   ! allocate memory and read file
   allocate( u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )

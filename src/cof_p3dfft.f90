@@ -97,6 +97,22 @@ subroutine fft_initialize
   integer, dimension(:,:), allocatable :: yz_plane_local
   real(kind=pr) :: k
 
+  ! setup a few globals we need throughout the code. the most important information
+  ! is the domain size
+  pi = 4.d0*datan(1.d0)
+  ! the scaling factors are used to rescale the FFTs (which are defined on a 2*pi
+  ! domain). this is important when computing derivatives.
+  scalex = 2.d0*pi/xl
+  scaley = 2.d0*pi/yl
+  scalez = 2.d0*pi/zl
+  ! the grid spacing is always equidistant (since the fourier basis is not nicely
+  ! diagonalizing on any stretched grid). note this is also done in params.f90, but
+  ! in some cases the params.f90 routines are not called (namely postprocessing)
+  ! so just in case, we repeat this here
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
   !-----------------------------------------------------------------------------
   !------ Three-dimensional FFT                                           ------
   !-----------------------------------------------------------------------------
@@ -108,6 +124,9 @@ subroutine fft_initialize
     write(*,'("Initializing P3DFFT, n=(",3(i4,1x),")")') nx,ny,nz
     write(*,'("P3DFFT reserves about ",i8,"MB (",i4,"GB) for internal work arrays")') &
     nint(1.6d-5*dble(nx)*dble(ny)*dble(nz)), nint(1.6d-5*dble(nx)*dble(ny)*dble(nz)/1000.d0)
+    write(*,'("P3DFFT domain size:     ",3(g15.8,1x))') xl,yl,zl
+    write(*,'("P3DFFT scale factors:   ",3(g15.8,1x))') scalex, scaley, scalez
+    write(*,'("P3DFFT lattice spacing: ",3(g15.8,1x))') dx,dy,dz
   endif
 
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
@@ -279,12 +298,30 @@ subroutine setup_cart_groups
 
   ! Get Cartesian topology information
   call MPI_CART_GET(mpicommcart,two,mpidims,mpiperiods,mpicoords,mpicode)
+
+ ! As the name implies, MPI_Comm_split creates new communicators by "splitting"
+ ! a communicator into a group of sub-communicators based on the input values
+ ! color and key. The first argument, mpicommcart, is the communicator that will be
+ ! used as the basis for the new communicators.
+ ! The second argument, color, determines to which new communicator each processes
+ ! will belong. All processes which pass in the same value for color are assigned
+ ! to the same communicator.
+ ! The third argument, key, determines the ordering (rank) within each new communicator.
+ ! The process which passes in the smallest value for color will be rank 0, the next
+ ! smallest will be rank 1, and so on.
+ ! The fourth argument, newcomm is how MPI returns the new communicator back to the user.
+
+
   ! Communicator for line in y direction
+  ! all ranks that have the same z-value
   mpicolor = mpicoords(2)
+  ! and they are sorted by their y-value
   mpikey = mpicoords(1)
   call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp1,mpicode)
   dims(1) = mpidims(1)
   call MPI_CART_CREATE(mpicommtmp1,one,dims,periods,reorder,mpicommz,mpicode)
+
+
   ! Communicator for line in z direction
   mpicolor = mpicoords(1)
   mpikey = mpicoords(2)

@@ -100,7 +100,7 @@ subroutine force_decomposition(help)
   call fft3( inx=u,outk=uk ) ! uk is now vork
   call curl( uk )
   call ifft3( ink=uk, outx=vor )
-
+  deallocate (uk)
 
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
@@ -128,7 +128,6 @@ subroutine force_decomposition(help)
   call save_field_hdf5 ( time, 'result_00.h5', upot(:,:,:,1) )
 
   deallocate (u)
-  deallocate (uk)
   deallocate (upot, vor)
   call fft_free()
 

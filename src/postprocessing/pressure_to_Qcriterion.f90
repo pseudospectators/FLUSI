@@ -50,17 +50,9 @@ subroutine pressure_to_Qcriterion(help)
     trim(fname_p), trim(fname_Q), nx,nx,nz,xl,yl,zl
   endif
 
-  pi=4.d0 * datan(1.d0)
-  scalex=2.d0*pi/xl
-  scaley=2.d0*pi/yl
-  scalez=2.d0*pi/zl
-
-  dx = xl/dble(nx)
-  dy = yl/dble(ny)
-  dz = zl/dble(nz)
-
-  call fft_initialize() ! also initializes the domain decomp
-
+  ! initialize code and scaling factors for derivatives, also domain decomposition
+  call fft_initialize()
+  
   allocate(p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   allocate(pk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
 
