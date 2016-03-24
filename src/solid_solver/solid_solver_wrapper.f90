@@ -82,7 +82,7 @@ end subroutine SolidSolverWrapper
 !   solid solver main entry point
 !-------------------------------------------------------------------------------
 subroutine OnlySolidSimulation()
-  use fsi_vars
+  use vars
   implicit none
   type(solid), dimension(1:nBeams) :: beams
   real (kind=pr) :: time
@@ -125,7 +125,7 @@ end subroutine
 !   solid solver convergence test
 !-------------------------------------------------------------------------------
 subroutine SolidModelConvergenceTest()
-  use fsi_vars
+  use vars
   implicit none
   type(solid), dimension(1:nBeams) :: beams
   type(solid), dimension(1:6) :: solutions

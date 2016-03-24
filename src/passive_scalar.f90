@@ -1,6 +1,6 @@
 module passive_scalar_module
   use mpi
-  use fsi_vars
+  use vars
   use penalization
   use basic_operators
   use helpers
@@ -218,7 +218,7 @@ contains
   subroutine add_scalar_source ( time, scalars, scalars_rhs )
     use mpi
     use p3dfft_wrapper
-    use fsi_vars
+    use vars
     implicit none
 
     real(kind=pr),intent(in) :: time

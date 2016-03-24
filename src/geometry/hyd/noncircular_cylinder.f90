@@ -9,7 +9,7 @@
 !-------------------------------------------------------------------------------
 subroutine noncircular_cylinder
   use penalization ! mask array etc
-  use fsi_vars
+  use vars
   implicit none
 
   integer :: iz, iy, nfft, mpicode,k

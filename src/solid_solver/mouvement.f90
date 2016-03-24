@@ -127,7 +127,7 @@ end subroutine mouvement
 !-------------------------------------------------------------------------------
 subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   psi_dt, beta_dt, gamma_dt, M_plate )
-  use fsi_vars
+  use vars
   implicit none
 
   real(kind=pr),dimension(1:3),intent(out) :: x0_plate,v0_plate

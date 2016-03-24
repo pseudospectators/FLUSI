@@ -41,7 +41,7 @@ end subroutine save_fields
 ! The latest version calls cal_nlk_fsi to avoid redudant code.
 !-------------------------------------------------------------------------------
 subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use basic_operators
   use solid_model
@@ -272,7 +272,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   work,scalars,scalars_rhs,Insect,beams)
   use mpi
   use vars
-  use fsi_vars
+  use vars
   use hdf5
   use p3dfft_wrapper
   use solid_model
@@ -731,7 +731,7 @@ end subroutine Read_Single_File
 ! Load backup data from disk to initialize run for restart
 subroutine read_runtime_backup(filename,time,dt0,dt1,n1,it,uk,nlk,explin,work,scalars,scalars_rhs)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use hdf5
   implicit none
@@ -879,7 +879,7 @@ end subroutine read_runtime_backup
 ! array containing scalar backup information
 subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   use mpi
-  use fsi_vars
+  use vars
   use hdf5
   use basic_operators
   implicit none
@@ -1076,7 +1076,7 @@ end subroutine write_attribute_int
 ! files.
 subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
   use mpi
-  use mhd_vars
+  use vars
   use p3dfft_wrapper
   use basic_operators
   use penalization ! mask array etc
@@ -1507,25 +1507,25 @@ subroutine flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
 
   ! Create the file collectively. (existing files are overwritten)
 #ifdef TURING
-if ( index(filename,'.h5')==0 ) then
-  ! file does not contain *.h5 ending -> add suffix
-  call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
-else
-  ! field DOES contain .h5 ending -> just write
-  call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
-endif
+  if ( index(filename,'.h5')==0 ) then
+    ! file does not contain *.h5 ending -> add suffix
+    call h5fcreate_f('bglockless:'//trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  else
+    ! field DOES contain .h5 ending -> just write
+    call h5fcreate_f('bglockless:'//trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  endif
 #else
-if ( index(filename,'.h5')==0 ) then
-  ! file does not contain *.h5 ending -> add suffix
-  call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
-else
-  ! field DOES contain .h5 ending -> just write
-  call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
-  file_id, error, access_prp = plist_id)
-endif
+  if ( index(filename,'.h5')==0 ) then
+    ! file does not contain *.h5 ending -> add suffix
+    call h5fcreate_f(trim(adjustl(filename))//'.h5', H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  else
+    ! field DOES contain .h5 ending -> just write
+    call h5fcreate_f(trim(adjustl(filename)), H5F_ACC_TRUNC_F, &
+    file_id, error, access_prp = plist_id)
+  endif
 #endif
 
   ! this closes the property list plist_id (we'll re-use it)

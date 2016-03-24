@@ -4,7 +4,7 @@
 ! Note this is a very reduced version from start_simulation()
 ! in flusi.f90
 subroutine dry_run()
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module

@@ -505,7 +505,7 @@ end subroutine
 ! load a parameter file and check for a bunch of common mistakes/typos
 ! you tend to make, in order to help preventing stupid mistakes
 subroutine check_params_file(help)
-  use fsi_vars
+  use vars
   use solid_model
   use insect_module
   use helpers

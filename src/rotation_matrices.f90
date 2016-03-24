@@ -2,7 +2,7 @@
 ! Rotation Matrices
 !-----------------------
 subroutine Rx (R,angle)
-  use fsi_vars
+  use vars
   use mpi
   implicit none
   real(kind=pr), intent (in) :: angle
@@ -14,7 +14,7 @@ end subroutine
 
 
 subroutine Ry (R,angle)
-  use fsi_vars
+  use vars
   use mpi
   implicit none
   real(kind=pr), intent (in) :: angle
@@ -26,7 +26,7 @@ end subroutine
 
 
 subroutine Rz (R,angle)
-  use fsi_vars
+  use vars
   use mpi
   implicit none
   real(kind=pr), intent (in) :: angle
@@ -39,7 +39,7 @@ end subroutine
 
 
 subroutine rotation_matrix_from_quaternion (ep,R)
-  use fsi_vars
+  use vars
   use mpi
   implicit none
   real(kind=pr), intent (in) :: ep(0:3)

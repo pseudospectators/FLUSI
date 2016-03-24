@@ -1,5 +1,5 @@
 module slicing
-  use fsi_vars
+  use vars
   implicit none
 
   ! module global variables

@@ -1,6 +1,6 @@
 program FLUSI
   use mpi
-  use fsi_vars
+  use vars
   use solid_model
   use insect_module
 
@@ -73,7 +73,7 @@ program FLUSI
 
   subroutine Start_Simulation()
     use mpi
-    use fsi_vars
+    use vars
     use p3dfft_wrapper
     use solid_model
     use insect_module
@@ -386,7 +386,7 @@ program FLUSI
 
   ! Output information on where the algorithm spent the most time.
   subroutine show_timings(t2)
-    use fsi_vars
+    use vars
     use helpers
     implicit none
     real (kind=pr) :: t2, t3
@@ -481,7 +481,7 @@ if (mpirank/=0) return
 
 
   subroutine initialize_time_series_files()
-    use fsi_vars
+    use vars
     implicit none
 
     ! For insect wing/body forces
@@ -580,7 +580,7 @@ if (mpirank/=0) return
 
 
   subroutine print_domain_decomposition()
-    use fsi_vars
+    use vars
     use mpi
     implicit none
     integer :: mpicode

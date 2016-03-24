@@ -1,6 +1,6 @@
 subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   use mpi
-  use fsi_vars
+  use vars
   use interpolation
   use ghosts
   implicit none
@@ -182,7 +182,7 @@ end subroutine get_surface_pressure_jump
 !-------------------------------------------------------------------------------
 subroutine surface_interpolation_testing( time, beams, work )
   use mpi
-  use fsi_vars
+  use vars
   use interpolation
   use penalization
   use insect_module

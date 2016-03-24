@@ -2,7 +2,7 @@
 ! ./flusi --postprocess --compare-timeseries forces.t ref/forces.t
 !-------------------------------------------------------------------------------
 subroutine compare_timeseries(help)
-  use fsi_vars
+  use vars
   use mpi
   implicit none
   character(len=strlen) :: file1,file2

@@ -1,7 +1,7 @@
 program mhd
   use mpi
   use p3dfft_wrapper
-  use mhd_vars
+  use vars
   use insect_module !TODO: MAKE MHD INDEPENDENT OF THIS
   use solid_model!TODO: MAKE MHD INDEPENDENT OF THIS
   use penalization ! mask array etc

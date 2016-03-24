@@ -1,6 +1,6 @@
 
 module solid_model
-  use fsi_vars ! for the precision statement
+  use vars ! for the precision statement
   ! we need the following line for presribed beams:
   use helpers
   use basic_operators
@@ -1050,7 +1050,7 @@ end subroutine Jacobi_num
 !      a state at the new time level n+1
 !-------------------------------------------------------------------------------
 subroutine initial_guess( time, dt, beam, x_guess )
-  use fsi_vars
+  use vars
   implicit none
   real(kind=pr),intent (in)   :: dt, time
   type (solid), intent(inout) :: beam

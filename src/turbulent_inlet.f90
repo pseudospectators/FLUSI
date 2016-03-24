@@ -1,5 +1,5 @@
 module turbulent_inlet_module
-  use fsi_vars
+  use vars
   implicit none
 
   ! inflow field

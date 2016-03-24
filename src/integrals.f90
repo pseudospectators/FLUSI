@@ -45,7 +45,7 @@ end subroutine write_integrals
 ! fsi version of writing integral quantities to disk
 subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beams)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use basic_operators
   use solid_model
@@ -227,7 +227,7 @@ end subroutine write_integrals_fsi
 ! velocity-only quantities first.
 subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   use mpi
-  use mhd_vars
+  use vars
   use penalization ! mask array etc
   use p3dfft_wrapper
   use basic_operators

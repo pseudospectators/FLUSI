@@ -133,7 +133,7 @@ end subroutine FluidTimestep
 subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -444,7 +444,7 @@ end subroutine FSI_AB2_semiimplicit
 subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
            scalars,scalars_rhs,Insect,beams)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -528,7 +528,7 @@ end subroutine rungekutta2
 subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
            scalars,scalars_rhs,Insect,beams)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -604,7 +604,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   expvis,press,scalars,scalars_rhs,iter,Insect,beams)
   use mpi
   use p3dfft_wrapper
-  use fsi_vars
+  use vars
   use solid_model
   use insect_module
   implicit none
@@ -679,7 +679,7 @@ end subroutine euler_startup
 subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   expvis,press,scalars,scalars_rhs,iter,Insect,beams)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -761,7 +761,7 @@ end subroutine adamsbashforth
 subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   expvis,press,scalars,scalars_rhs,Insect,beams)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -984,7 +984,7 @@ end subroutine truncate
 !-------------------------------------------------------------------------------
 subroutine set_mean_flow(uk,time)
   use mpi
-  use fsi_vars
+  use vars
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -1004,7 +1004,7 @@ end subroutine set_mean_flow
 !-------------------------------------------------------------------------------
 subroutine get_mean_flow(uk,u1,u2,u3)
   use mpi
-  use fsi_vars
+  use vars
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)

@@ -1,5 +1,5 @@
 module helpers
-  use fsi_vars
+  use vars
   implicit none
 
   ! module global variables

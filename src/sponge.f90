@@ -23,7 +23,7 @@ subroutine vorticity_sponge( vort, work1, workc, Insect )
   use mpi
   use p3dfft_wrapper
   use insect_module
-  use fsi_vars
+  use vars
   implicit none
   complex (kind=pr) :: im, spx,spy,spz
   real (kind=pr) :: kx,ky,kz,kx2,ky2,kz2,k_abs_2
@@ -93,7 +93,7 @@ end subroutine vorticity_sponge
 !-------------------------------------------------------------------------------
 subroutine penalize_vort ( vort_penalized, vort, Insect )
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   use insect_module
   implicit none

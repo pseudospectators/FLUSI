@@ -149,7 +149,6 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"Saving","iSaveVorticity",iSaveVorticity, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveMagVorticity",iSaveMagVorticity, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveMask",iSaveMask, 0)
-  call read_param_mpi(PARAMS,"Saving","iSaveXMF",iSaveXMF, 0) ! default is no
   call read_param_mpi(PARAMS,"Saving","tsave",tsave, 9.d9)
   call read_param_mpi(PARAMS,"Saving","truntime",truntime, 1.d0)
   call read_param_mpi(PARAMS,"Saving","wtimemax",wtimemax, 8760.d0) ! 1 year
@@ -189,7 +188,7 @@ end subroutine get_params_common
 ! Read individual parameter values from the PARAMS string for fsi.
 subroutine get_params_fsi(PARAMS,Insect)
   use ini_files_parser_mpi
-  use fsi_vars
+  use vars
   use insect_module
   implicit none
 
@@ -299,7 +298,7 @@ end subroutine get_params_fsi
 ! parameter.ini file. it is outsourced from params.f90
 !-------------------------------------------------------------------------------
 subroutine get_params_insect( PARAMS,Insect )
-  use fsi_vars
+  use vars
   use insect_module
   use ini_files_parser_mpi
   implicit none
@@ -550,7 +549,7 @@ end subroutine get_params_scalars
 ! Read individual parameter values from the PARAMS string for fmhd
 subroutine get_params_mhd(PARAMS)
   use ini_files_parser_mpi
-  use mhd_vars
+  use vars
   implicit none
 
   ! Contains the ascii-params file

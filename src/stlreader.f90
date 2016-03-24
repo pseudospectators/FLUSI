@@ -2,7 +2,7 @@
 ! for ascii versions. adopted from Sukhbinder Singh
 ! https://sukhbinder.wordpress.com/2011/08/07/stl-files-and-fortran/
 module stl_file_reader
-  use fsi_vars
+  use vars
 contains
 
   ! read a binary *.stl file from disk. the file contains

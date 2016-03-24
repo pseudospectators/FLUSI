@@ -611,7 +611,7 @@ end subroutine dealias3
 !-------------------------------------------------------------------------------
 subroutine Vorticity2Velocity(vork,uk)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   implicit none
 
@@ -670,7 +670,7 @@ end subroutine Vorticity2Velocity
 !-------------------------------------------------------------------------------
 subroutine Vorticity2Velocity_inplace(uk)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   implicit none
 
@@ -726,7 +726,7 @@ end subroutine Vorticity2Velocity_inplace
 !-------------------------------------------------------------------------------
 subroutine helicity(u,vor,hel)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   implicit none
 
@@ -759,7 +759,7 @@ end subroutine helicity
 !-------------------------------------------------------------------------------
 subroutine helicity_norm(u,vor,hel)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   implicit none
 

@@ -72,7 +72,7 @@ end subroutine update_us
 ! f is 0 if x>t+h
 ! f is variable (smooth) in between
 subroutine smoothstep(f,x,t,h)
-  use fsi_vars
+  use vars
   implicit none
   real (kind=pr), intent (out) :: f
   real (kind=pr), intent (in)  :: x,t,h

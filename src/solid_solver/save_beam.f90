@@ -1,5 +1,5 @@
 subroutine SaveBeamData( time, beams )
-  use fsi_vars
+  use vars
   implicit none
   real (kind=pr), intent (in) :: time
   type (solid), dimension(1:nBeams), intent (inout) :: beams

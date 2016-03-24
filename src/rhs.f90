@@ -1,6 +1,6 @@
 ! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
 subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -113,7 +113,7 @@ end subroutine cal_nlk
 subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   use mpi
   use p3dfft_wrapper
-  use fsi_vars
+  use vars
   use insect_module
   use basic_operators
   use penalization ! mask array etc
@@ -593,7 +593,7 @@ end subroutine add_grad_pressure
 ! phsyical space.
 subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use basic_operators
   use penalization ! mask array etc

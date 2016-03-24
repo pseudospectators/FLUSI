@@ -265,7 +265,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 
 subroutine show_beam( beam )
-  use fsi_vars
+  use vars
   implicit none
   character(len=20):: str
   type(solid),intent(in) :: beam
@@ -293,7 +293,7 @@ end subroutine show_beam
 
 
 subroutine show_beam_on_error( beam )
-  use fsi_vars
+  use vars
   implicit none
   type(solid),intent(in) :: beam
   if ( Vector_isNAN(beam%x).or.&
@@ -324,7 +324,7 @@ subroutine lapack_unit_test()
   ! I*x = b
   ! where I is the identity matrix, so the solution is trivially x=b
   !-----------------------------------------------------------------------------
-  use fsi_vars
+  use vars
   implicit none
   integer, parameter:: n = 20
   real(kind=pr) :: a1(1:n,1:n),a2(1:n,1:n), b(1:n), x(1:n), err
@@ -371,7 +371,7 @@ end subroutine lapack_unit_test
 ! dump runtime backup for the solid solver
 !-------------------------------------------------------------------------
 subroutine dump_solid_backup( time, beams, nbackup )
-  use fsi_vars
+  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -417,7 +417,7 @@ end subroutine dump_solid_backup
 ! read runtime backup for the solid solver
 !-------------------------------------------------------------------------
 subroutine read_solid_backup( beams, filename )
-  use fsi_vars
+  use vars
   implicit none
 
   type(solid), dimension(1:nBeams), intent(inout) :: beams
@@ -462,7 +462,7 @@ end subroutine read_solid_backup
 ! read runtime backup for the solid solver (BINARY FILE)
 !-------------------------------------------------------------------------
 subroutine read_solid_backup_binary( beams, filename )
-  use fsi_vars
+  use vars
   implicit none
 
   type(solid), dimension(1:nBeams), intent(inout) :: beams
@@ -504,7 +504,7 @@ end subroutine read_solid_backup_binary
 
 
 subroutine convert_solid_bckp_ascii
-  use fsi_vars
+  use vars
   implicit none
   type(solid), dimension(1:nBeams) :: beams
 

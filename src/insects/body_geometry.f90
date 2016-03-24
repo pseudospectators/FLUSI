@@ -1274,7 +1274,7 @@ end subroutine draw_body_mosquito_iams
 ! draw a cylinder defined by GLOBALS points (x1,y1,z1), (x2,y2,z2) and radius R0
 !-------------------------------------------------------------------------------
 subroutine draw_cylinder_new( x1, x2, R0, mask, mask_color, us, Insect, color_val)
-  use fsi_vars
+  use vars
   implicit none
 
   real(kind=pr),dimension(1:3),intent(inout )::x1,x2

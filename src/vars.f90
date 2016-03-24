@@ -73,19 +73,17 @@ module vars
   integer,save :: nx,ny,nz
   real(kind=pr),save :: xl,yl,zl,dx,dy,dz,scalex,scaley,scalez
 
-  ! FIXME: please document
+  ! dealiase (done in cal_vis.f90)
   integer,save :: iDealias
 
   ! Isotropic Turbulence Forcing
   character(len=strlen), save :: forcing_type
   real(kind=pr), save :: kf, eps_forcing
 
-
   ! Parameters to set which files are saved and how often:
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveMagVorticity
-  integer,save :: idobackup = 1
-  integer,save :: striding = 1
-  integer,save :: iSaveXMF !directly write *.XMF files (1) or not (0)
+  integer,save :: iSaveMagneticField,iSaveCurrent,iSaveSolidVelocity
+  integer,save :: striding=1,idobackup
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
   real(kind=pr),save :: tsave_first ! don't save before this time
@@ -110,14 +108,13 @@ module vars
   integer,save :: nt
   character(len=strlen),save :: iTimeMethodFluid, intelligent_dt
 
-  ! Physical parameters:
+  ! viscosity:
   real(kind=pr),save :: nu
 
   ! Initial conditions:
   character(len=strlen),save :: inicond, file_ux,file_uy,file_uz
   character(len=strlen),save :: file_bx,file_by,file_bz
   real(kind=pr),save :: omega1, nu_smoothing
-
 
   ! Boundary conditions:
   character(len=strlen),save :: iMask
@@ -148,172 +145,6 @@ module vars
   integer,save :: slices_to_save(1:4)
   real(kind=pr) :: tslice,tslice_first
 
-
-  interface abort
-    module procedure abort1, abort2
-  end interface
-
-  interface in_domain
-    module procedure in_domain1, in_domain2
-  end interface
-
-  interface on_proc
-    module procedure on_proc1, on_proc2
-  end interface
-
-  contains
-
-    ! Routines to allocate real and complex arrays using the standard
-    ! dimensions.
-    subroutine allocreal(u)
-      implicit none
-      real(kind=pr),dimension(:,:,:),allocatable :: u
-      allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-    end subroutine allocreal
-
-    subroutine alloccomplex(u)
-      implicit none
-      complex(kind=pr),dimension(:,:,:),allocatable :: u
-      allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-    end subroutine alloccomplex
-
-    subroutine allocrealnd(u)
-      implicit none
-      real(kind=pr),dimension(:,:,:,:),allocatable :: u
-      allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
-    end subroutine allocrealnd
-
-    subroutine alloccomplexnd(u)
-      implicit none
-      complex(kind=pr),dimension(:,:,:,:),allocatable :: u
-      allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
-    end subroutine alloccomplexnd
-    !---------------------------------------------------------------------------
-    integer function GetIndex(ix,nx)
-      implicit none
-      integer, intent (in) ::ix,nx
-      integer :: tmp
-      tmp=ix
-      if (tmp<0) tmp = tmp+nx
-      if (tmp>nx-1) tmp = tmp-nx
-      GetIndex=tmp
-      return
-    end function GetIndex
-    !---------------------------------------------------------------------------
-    integer function per(ix,nx)
-      implicit none
-      integer, intent (in) ::ix,nx
-      integer :: tmp
-      tmp=ix
-      if (tmp<0) tmp = tmp+nx
-      if (tmp<0) tmp = tmp+nx
-      if (tmp>nx-1) tmp = tmp-nx
-      if (tmp>nx-1) tmp = tmp-nx
-      if (nx==1) tmp=0
-      per=tmp
-      return
-    end function per
-    !---------------------------------------------------------------------------
-    subroutine abort1
-      use mpi
-      implicit none
-      integer :: mpicode
-
-      if (mpirank==0) write(*,*) "Killing run..."
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine abort1
-    !---------------------------------------------------------------------------
-    subroutine abort2(msg)
-      use mpi
-      implicit none
-      integer :: mpicode
-      character(len=*), intent(in) :: msg
-
-      if (mpirank==0) write(*,*) "Killing run..."
-      if (mpirank==0) write(*,*) msg
-      call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-    end subroutine abort2
-    !---------------------------------------------------------------------------
-    ! wrapper for NaN checking (this may be compiler dependent)
-    logical function is_nan( x )
-      implicit none
-      real(kind=pr)::x
-      is_nan = .false.
-      if (.not.(x.eq.x)) is_nan=.true.
-    end function
-    !---------------------------------------------------------------------------
-    ! check wether real coordinates x are in the domain
-    logical function in_domain1( x )
-      implicit none
-      real(kind=pr),intent(in)::x(1:3)
-      in_domain1 = .false.
-      if ( ((x(1)>=0.d0).and.(x(1)<xl)).and.&
-           ((x(2)>=0.d0).and.(x(2)<yl)).and.&
-           ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain1=.true.
-    end function
-    !---------------------------------------------------------------------------
-    ! check wether integer coordinates x are in the domain
-    logical function in_domain2( x )
-      implicit none
-      integer,intent(in)::x(1:3)
-      in_domain2 = .false.
-      if (  ((x(1)>=0).and.(x(1)<nx-1)).and.&
-            ((x(2)>=0).and.(x(2)<ny-1)).and.&
-            ((x(3)>=0).and.(x(3)<nz-1)) ) in_domain2=.true.
-    end function
-    !---------------------------------------------------------------------------
-    ! check wether real coordinates x are on this mpi-process
-    logical function on_proc1( x )
-      implicit none
-      real(kind=pr),intent(in)::x(1:3)
-      on_proc1 = .false.
-      if (  ((x(1)>=ra(1)*dx).and.(x(1)<=rb(1)*dx)).and.&
-            ((x(2)>=ra(2)*dy).and.(x(2)<=rb(2)*dy)).and.&
-            ((x(3)>=ra(3)*dz).and.(x(3)<=rb(3)*dz)) ) on_proc1=.true.
-    end function
-    !---------------------------------------------------------------------------
-    ! check wether integer coordinates x are on this mpi-process
-    logical function on_proc2( x )
-      implicit none
-      integer,intent(in)::x(1:3)
-      on_proc2 = .false.
-      if ( ((x(1)>=ra(1)).and.(x(1)<=rb(1))).and.&
-           ((x(2)>=ra(2)).and.(x(2)<=rb(2))).and.&
-           ((x(3)>=ra(3)).and.(x(3)<=rb(3))) ) on_proc2=.true.
-    end function
-    !---------------------------------------------------------------------------
-    ! wrapper for random number generator (this may be compiler dependent)
-    real(kind=pr) function rand_nbr()
-      implicit none
-      call random_number( rand_nbr )
-    end function
-    !---------------------------------------------------------------------------
-    ! soft startup funtion, is zero until time=time_release, then gently goes to
-    ! one during the time period time_tau
-    real(kind=pr) function startup_conditioner(time,time_release,time_tau)
-      implicit none
-      real(kind=pr), intent(in) :: time,time_release,time_tau
-      real(kind=pr) :: t
-
-      t = time-time_release
-
-      if (time <= time_release) then
-        startup_conditioner = 0.d0
-      elseif ( ( time >time_release ).and.(time<(time_release + time_tau)) ) then
-        startup_conditioner =  (t**3)/(-0.5d0*time_tau**3) + 3.d0*(t**2)/time_tau**2
-      else
-        startup_conditioner = 1.d0
-      endif
-
-    end function
-end module vars
-
-
-! Variables for fsi simulations
-module fsi_vars
-  use vars
-  implicit none
-
   ! switch for vorticity sponge:
   character(len=strlen), save :: iVorticitySponge, iSpongeType
   real(kind=pr), save :: eps_sponge
@@ -334,7 +165,6 @@ module fsi_vars
   ! arrays (THIS IS A HACK - TO BE REMOVED)
   complex(kind=pr),allocatable,dimension(:,:,:,:)::nlk_tmp
   complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
-  integer,save :: iSaveSolidVelocity
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
 
   ! mean flow control
@@ -375,41 +205,64 @@ module fsi_vars
      real(kind=pr),dimension(1:3) :: Torque_unst
   end type Integrals
   !-----------------------------------------------------------------------------
-  ! derived datatype for time
-  type timetype
-    real(kind=pr) :: time
-    real(kind=pr) :: dt1
-    real(kind=pr) :: dt0
-    integer :: it
-    integer :: n0
-    integer :: n1
-  end type timetype
-  !-----------------------------------------------------------------------------
 
   type(Integrals),save :: GlobalIntegrals
 
-  contains
-  !-----------------------------------------------------------------------------
+  ! Physical parameters for MHD parameters
+  real(kind=pr),save :: eta ! magnetic diffusivity
+  real(kind=pr),save :: b0, bc ! Boundary condition parameters
+  real(kind=pr),save :: ay ! x*x + ay*y*y -r1*r1 == 0 ?in boundary conditions
 
-  ! this function simplifies my life with the insects
+
+!*****************************************************************************
+!*****************************************************************************
+!*****************************************************************************
+! Helper routines for general purpose use throughout the code
+!*****************************************************************************
+!*****************************************************************************
+!*****************************************************************************
+  interface abort
+    module procedure abort1, abort2
+  end interface
+
+  interface in_domain
+    module procedure in_domain1, in_domain2
+  end interface
+
+  interface on_proc
+    module procedure on_proc1, on_proc2
+  end interface
+
+
+!!!!!!!!!!
+  contains
+!!!!!!!!!!
+
+
+  !-----------------------------------------------------------------------------
+  ! convert degree to radiant
+  !-----------------------------------------------------------------------------
   real(kind=pr) function deg2rad(deg)
-    use vars
     implicit none
     real(kind=pr), intent(in) :: deg
     deg2rad=deg*pi/180.d0
     return
   end function
 
+  !-----------------------------------------------------------------------------
+  ! radiant to degree
+  !-----------------------------------------------------------------------------
   real(kind=pr) function rad2deg(deg)
-    use vars
     implicit none
     real(kind=pr), intent(in) :: deg
     rad2deg=deg*180.d0/pi
     return
   end function
 
+  !-----------------------------------------------------------------------------
+  ! cross product of two vectors
+  !-----------------------------------------------------------------------------
   function cross(a,b)
-    use vars
     implicit none
     real(kind=pr),dimension(1:3),intent(in) :: a,b
     real(kind=pr),dimension(1:3) :: cross
@@ -418,28 +271,181 @@ module fsi_vars
     cross(3) = a(1)*b(2)-a(2)*b(1)
   end function
 
+  !-----------------------------------------------------------------------------
+  ! 2-norm length of vectors
+  !-----------------------------------------------------------------------------
   function norm2(a)
-    use vars
     implicit none
     real(kind=pr),dimension(1:3),intent(in) :: a
     real(kind=pr) :: norm2
     norm2 = dsqrt( a(1)*a(1) + a(2)*a(2) + a(3)*a(3) )
   end function
 
-end module fsi_vars
+  !---------------------------------------------------------------------------
+  ! Routines to allocate real and complex arrays using the standard
+  ! dimensions.
+  !---------------------------------------------------------------------------
+  subroutine allocreal(u)
+    implicit none
+    real(kind=pr),dimension(:,:,:),allocatable :: u
+    allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  end subroutine allocreal
 
+  subroutine alloccomplex(u)
+    implicit none
+    complex(kind=pr),dimension(:,:,:),allocatable :: u
+    allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+  end subroutine alloccomplex
 
+  subroutine allocrealnd(u)
+    implicit none
+    real(kind=pr),dimension(:,:,:,:),allocatable :: u
+    allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  end subroutine allocrealnd
 
-! Variables for mhd simulations
-module mhd_vars
-  use vars
-  implicit none
+  subroutine alloccomplexnd(u)
+    implicit none
+    complex(kind=pr),dimension(:,:,:,:),allocatable :: u
+    allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
+  end subroutine alloccomplexnd
 
-  ! Physical parameters
-  real(kind=pr),save :: eta ! magnetic diffusivity
-  real(kind=pr),save :: b0, bc ! Boundary condition parameters
-  real(kind=pr),save :: ay ! x*x + ay*y*y -r1*r1 == 0 ?in boundary conditions
+  !---------------------------------------------------------------------------
+  ! return periodic index, i.e. if we give ix greater than nx, return
+  ! smallest image convention. used, e.g., when computing finite difference
+  ! operators or interpolations
+  !---------------------------------------------------------------------------
+  integer function GetIndex(ix,nx)
+    implicit none
+    integer, intent (in) ::ix,nx
+    integer :: tmp
+    tmp=ix
+    if (tmp<0) tmp = tmp+nx
+    if (tmp>nx-1) tmp = tmp-nx
+    GetIndex=tmp
+    return
+  end function GetIndex
+  !---------------------------------------------------------------------------
+  integer function per(ix,nx)
+    implicit none
+    integer, intent (in) ::ix,nx
+    integer :: tmp
+    tmp=ix
+    if (tmp<0) tmp = tmp+nx
+    if (tmp<0) tmp = tmp+nx
+    if (tmp>nx-1) tmp = tmp-nx
+    if (tmp>nx-1) tmp = tmp-nx
+    if (nx==1) tmp=0
+    per=tmp
+    return
+  end function per
 
-  ! Determine whether we save various fields
-  integer,save :: iSaveMagneticField,iSaveCurrent
-end module mhd_vars
+  !---------------------------------------------------------------------------
+  ! abort run, with or without bye-bye message
+  !---------------------------------------------------------------------------
+  subroutine abort1
+    use mpi
+    implicit none
+    integer :: mpicode
+
+    if (mpirank==0) write(*,*) "Killing run..."
+    call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+  end subroutine abort1
+  !---------------------------------------------------------------------------
+  subroutine abort2(msg)
+    use mpi
+    implicit none
+    integer :: mpicode
+    character(len=*), intent(in) :: msg
+
+    if (mpirank==0) write(*,*) "Killing run..."
+    if (mpirank==0) write(*,*) msg
+    call MPI_abort(MPI_COMM_WORLD,666,mpicode)
+  end subroutine abort2
+
+  !---------------------------------------------------------------------------
+  ! wrapper for NaN checking (this may be compiler dependent)
+  !---------------------------------------------------------------------------
+  logical function is_nan( x )
+    implicit none
+    real(kind=pr)::x
+    is_nan = .false.
+    if (.not.(x.eq.x)) is_nan=.true.
+  end function
+
+  !---------------------------------------------------------------------------
+  ! check wether real coordinates x are in the domain
+  !---------------------------------------------------------------------------
+  logical function in_domain1( x )
+    implicit none
+    real(kind=pr),intent(in)::x(1:3)
+    in_domain1 = .false.
+    if ( ((x(1)>=0.d0).and.(x(1)<xl)).and.&
+         ((x(2)>=0.d0).and.(x(2)<yl)).and.&
+         ((x(3)>=0.d0).and.(x(3)<zl)) ) in_domain1=.true.
+  end function
+
+  !---------------------------------------------------------------------------
+  ! check wether integer coordinates x are in the domain
+  !---------------------------------------------------------------------------
+  logical function in_domain2( x )
+    implicit none
+    integer,intent(in)::x(1:3)
+    in_domain2 = .false.
+    if (  ((x(1)>=0).and.(x(1)<nx-1)).and.&
+          ((x(2)>=0).and.(x(2)<ny-1)).and.&
+          ((x(3)>=0).and.(x(3)<nz-1)) ) in_domain2=.true.
+  end function
+
+  !---------------------------------------------------------------------------
+  ! check wether real coordinates x are on this mpi-process
+  !---------------------------------------------------------------------------
+  logical function on_proc1( x )
+    implicit none
+    real(kind=pr),intent(in)::x(1:3)
+    on_proc1 = .false.
+    if (  ((x(1)>=ra(1)*dx).and.(x(1)<=rb(1)*dx)).and.&
+          ((x(2)>=ra(2)*dy).and.(x(2)<=rb(2)*dy)).and.&
+          ((x(3)>=ra(3)*dz).and.(x(3)<=rb(3)*dz)) ) on_proc1=.true.
+  end function
+
+  !---------------------------------------------------------------------------
+  ! check wether integer coordinates x are on this mpi-process
+  !---------------------------------------------------------------------------
+  logical function on_proc2( x )
+    implicit none
+    integer,intent(in)::x(1:3)
+    on_proc2 = .false.
+    if ( ((x(1)>=ra(1)).and.(x(1)<=rb(1))).and.&
+         ((x(2)>=ra(2)).and.(x(2)<=rb(2))).and.&
+         ((x(3)>=ra(3)).and.(x(3)<=rb(3))) ) on_proc2=.true.
+  end function
+
+  !---------------------------------------------------------------------------
+  ! wrapper for random number generator (this may be compiler dependent)
+  !---------------------------------------------------------------------------
+  real(kind=pr) function rand_nbr()
+    implicit none
+    call random_number( rand_nbr )
+  end function
+
+  !---------------------------------------------------------------------------
+  ! soft startup funtion, is zero until time=time_release, then gently goes to
+  ! one during the time period time_tau
+  !---------------------------------------------------------------------------
+  real(kind=pr) function startup_conditioner(time,time_release,time_tau)
+    implicit none
+    real(kind=pr), intent(in) :: time,time_release,time_tau
+    real(kind=pr) :: t
+
+    t = time-time_release
+
+    if (time <= time_release) then
+      startup_conditioner = 0.d0
+    elseif ( ( time >time_release ).and.(time<(time_release + time_tau)) ) then
+      startup_conditioner =  (t**3)/(-0.5d0*time_tau**3) + 3.d0*(t**2)/time_tau**2
+    else
+      startup_conditioner = 1.d0
+    endif
+  end function
+
+end module vars

@@ -105,7 +105,7 @@ end subroutine
 ! this the routine that does the actual job of computing the signed distance
 ! for the eulerian grid. it does so everywhere without any consideration
 subroutine signed_distance_from_triangles_everywhere(ntri, triangles, normals, work)
-  use fsi_vars
+  use vars
   use stl_file_reader ! for the function distance to triangle
   implicit none
   integer, intent(in) :: ntri
@@ -154,7 +154,7 @@ end subroutine signed_distance_from_triangles_everywhere
 ! this the routine that does the actual job of computing the signed distance
 ! for the eulerian grid. it does so everywhere without any consideration
 subroutine signed_distance_from_triangles_surface(ntri, triangles, normals, work)
-  use fsi_vars
+  use vars
   use helpers
   use stl_file_reader ! for the function distance to triangle
   implicit none

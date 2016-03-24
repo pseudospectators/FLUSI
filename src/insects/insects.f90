@@ -6,7 +6,7 @@
 !-------------------------------------------------------------------------------
 
 module insect_module
-  use fsi_vars
+  use vars
   use helpers
   implicit none
 

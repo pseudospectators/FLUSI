@@ -7,7 +7,7 @@
 !-------------------------------------------------------------------------------
 subroutine add_cavity()
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
   integer :: ix,iy,iz

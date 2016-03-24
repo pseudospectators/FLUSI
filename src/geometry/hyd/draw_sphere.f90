@@ -1,7 +1,7 @@
 ! Spherical obstacle
 subroutine draw_sphere
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 
@@ -47,7 +47,7 @@ end subroutine draw_sphere
 ! runs as well)
 subroutine draw_cylinder_x
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 
@@ -86,7 +86,7 @@ end subroutine draw_cylinder_x
 ! runs as well)
 subroutine draw_moving_cylinder_x (time)
   use vars
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 

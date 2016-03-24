@@ -9,7 +9,7 @@
 !-------------------------------------------------------------------------------
 subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   use solid_model
   use insect_module

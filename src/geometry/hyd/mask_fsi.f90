@@ -1,7 +1,7 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions
 subroutine create_mask_fsi (time, Insect, beams )
   use mpi
-  use fsi_vars
+  use vars
   use solid_model
   use insect_module
   use turbulent_inlet_module
@@ -97,7 +97,7 @@ end subroutine create_mask_fsi
 
 
 subroutine update_us_fsi(ub)
-  use fsi_vars
+  use vars
   implicit none
   real(kind=pr),intent(in)::ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   ! this is a stub in the FSI case since we always create the mask and the solid
@@ -110,7 +110,7 @@ end subroutine update_us_fsi
 subroutine Flapper (time)
   use mpi
   use penalization ! mask array etc
-  use fsi_vars
+  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -271,7 +271,7 @@ end subroutine Flapper
 !-------------------------------------------------------------------------------
 subroutine romain_open_cavity
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 
@@ -301,7 +301,7 @@ end subroutine romain_open_cavity
 
 
 subroutine taylor_couette()
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 
@@ -353,7 +353,7 @@ end subroutine
 
 
 subroutine turek_wan(time)
-  use fsi_vars
+  use vars
   use penalization
   implicit none
 
