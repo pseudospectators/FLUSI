@@ -27,7 +27,7 @@ subroutine keyvalues(filename)
   !---------------------------------------------------------
   call fetch_attributes( filename, nx, ny, nz, xl, yl, zl, time , nu )
   ! initialize code and scaling factors for derivatives
-  call fft_initialize()
+  call decomposition_initialize()
   allocate(field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
   call read_single_file (filename, field)

@@ -69,7 +69,8 @@ subroutine dry_run()
   !-----------------------------------------------------------------------------
   ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
   !-----------------------------------------------------------------------------
-  call fft_initialize
+  ! call fft_initialize
+  call decomposition_initialize
 
   !-----------------------------------------------------------------------------
   ! Allocate memory:
@@ -169,5 +170,5 @@ subroutine dry_run()
   endif
 
   ! release other memory
-  call fft_free
+  ! call fft_free
 end subroutine dry_run

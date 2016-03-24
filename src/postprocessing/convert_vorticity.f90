@@ -88,10 +88,6 @@ subroutine convert_vorticity(help)
     write(*,*) trim(adjustl(fname_outz))
     write(*,*) "Using order flag: "//trim(adjustl(order))
     write(*,'(80("-"))')
-    if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-      write (*,*) "WARNING! in arguments, files do not start with ux uy and uz"
-      write (*,*) "note files have to be in the right order"
-    endif
   endif
 
   call check_file_exists( fname_ux )

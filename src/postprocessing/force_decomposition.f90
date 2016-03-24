@@ -121,6 +121,8 @@ subroutine force_decomposition(help)
         upot(ix,iy,iz,1) = (vorz*uy-vory*uz)*upotx &
                          + (vorx*uz-vorz*ux)*upoty &
                          + (vory*ux-vorx*uy)*upotz
+        ! invert sign, according to Chang's work
+        upot(ix,iy,iz,1) = - upot(ix,iy,iz,1)
       enddo
     enddo
   enddo

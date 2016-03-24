@@ -43,8 +43,8 @@ subroutine energy_post(help)
 
   call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
-  ! initialize code and scaling factors for derivatives, also domain decomposition
-  call fft_initialize()
+  ! initialize code and domain decomposition, but do not use FFTs
+  call decomposition_initialize()
 
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))

@@ -76,9 +76,9 @@ subroutine stl2dist(help)
   call normalize_stl_file(ntri, triangles, mode, scale)
 
   time=0.d0
-  ! initialize code and scaling factors for derivatives, also domain decomposition
-  call fft_initialize()
-  
+  ! initialize code and domain decomposition, but do not use FFTs
+  call decomposition_initialize()
+
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
   if (trim(adjustl(flag))=="--surface") then
