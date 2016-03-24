@@ -9,8 +9,8 @@ subroutine force_decomposition(help)
   use mpi
   implicit none
   logical, intent(in) :: help
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, outfiles_given
-  character(len=strlen) :: fname_outx, fname_outy, fname_outz, prefix
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, outfile
+  character(len=strlen) :: fname_potx, fname_poty, fname_potz, order
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u, upot, vor
   real(kind=pr) :: time, ux,uy,uz,upotx,upoty,upotz,vorx,vory,vorz
@@ -19,6 +19,7 @@ subroutine force_decomposition(help)
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "./flusi -p --force-decomp ux_00.h5 uy_00.h5 uz_00.h5 upotx_00.h5 upoty_00.h5 upotz_00.h5"
+    write(*,*) " output.h5 --second-order"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "!"
     write(*,*) "!"
@@ -34,38 +35,39 @@ subroutine force_decomposition(help)
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
+  call get_command_argument(6,fname_potx)
+  call get_command_argument(7,fname_poty)
+  call get_command_argument(8,fname_potz)
+  call get_command_argument(9,outfile)
+  call get_command_argument(10,order)
 
-  call get_command_argument(6,fname_outx)
-  call get_command_argument(7,fname_outy)
-  call get_command_argument(8,fname_outz)
 
-
-  ! ! header and information
-  ! if (mpirank==0) then
-  !   write(*,'(80("-"))')
-  !   write(*,*) "vor2u (Biot-Savart)"
-  !   write(*,*) "Computing velocity from vorticity given in these files: "
-  !   write(*,'(80("-"))')
-  !   write(*,*) trim(adjustl(fname_ux))
-  !   write(*,*) trim(adjustl(fname_uy))
-  !   write(*,*) trim(adjustl(fname_uz))
-  !   write(*,*) "Writing to:"
-  !   write(*,*) trim(adjustl(fname_outx))
-  !   write(*,*) trim(adjustl(fname_outy))
-  !   write(*,*) trim(adjustl(fname_outz))
-  !   write(*,'(80("-"))')
-  !   if ((fname_ux(1:4).ne."vorx").or.(fname_uy(1:4).ne."vory").or.(fname_uz(1:4).ne."vorz")) then
-  !     write (*,*) "WARNING in arguments, files do not start with vorx vory and vorz"
-  !     write (*,*) "note files have to be in the right order"
-  !   endif
-  ! endif
+  ! header and information
+  if (mpirank==0) then
+    write(*,'(80("-"))')
+    write(*,*) "Force decomposition [1]"
+    write(*,*) "[1] C.C. Chang: Potential flow and forces for incompressible viscous &
+               &flow. Proc. R. Soc. Lond. A (1992), 437, 517--525"
+    write(*,'(80("-"))')
+    write(*,*) "DNS flow field data read from:"
+    write(*,'("udnsx=",A)') trim(adjustl(fname_ux))
+    write(*,'("udnsy=",A)') trim(adjustl(fname_uy))
+    write(*,'("udnsz=",A)') trim(adjustl(fname_uz))
+    write(*,*) "Potential flow read from:"
+    write(*,'("upotx=",A)') trim(adjustl(fname_potx))
+    write(*,'("upoty=",A)') trim(adjustl(fname_poty))
+    write(*,'("upotz=",A)') trim(adjustl(fname_potz))
+    write(*,'("Order flag:",A)') trim(adjustl(order))
+    write(*,'("Output=",A)') trim(adjustl(outfile))
+    write(*,'(80("-"))')
+  endif
 
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
-  call check_file_exists( fname_outx )
-  call check_file_exists( fname_outy )
-  call check_file_exists( fname_outz )
+  call check_file_exists( fname_potx )
+  call check_file_exists( fname_poty )
+  call check_file_exists( fname_potz )
 
   call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
 
@@ -93,12 +95,20 @@ subroutine force_decomposition(help)
   call read_single_file ( fname_uy, u(:,:,:,2) )
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
-  call read_single_file ( fname_outx, upot(:,:,:,1) )
-  call read_single_file ( fname_outy, upot(:,:,:,2) )
-  call read_single_file ( fname_outz, upot(:,:,:,3) )
+  call read_single_file ( fname_potx, upot(:,:,:,1) )
+  call read_single_file ( fname_poty, upot(:,:,:,2) )
+  call read_single_file ( fname_potz, upot(:,:,:,3) )
 
+  ! we need to compute the curl of the DNS data. this assumes by the way that the
+  ! data is periodic (so one can run into trouble when using subsets of a field)
   call fft3( inx=u,outk=uk ) ! uk is now vork
-  call curl( uk )
+  if (order=="--second-order") then
+    if (root) write(*,*) "using second order accuracy!"
+    call curl_2nd( uk(:,:,:,1),uk(:,:,:,2),uk(:,:,:,3) )
+  else
+    if (root) write(*,*) "using spectral accuracy!"
+    call curl( uk )
+  endif
   call ifft3( ink=uk, outx=vor )
   deallocate (uk)
 
@@ -127,7 +137,7 @@ subroutine force_decomposition(help)
     enddo
   enddo
 
-  call save_field_hdf5 ( time, 'result_00.h5', upot(:,:,:,1) )
+  call save_field_hdf5 ( time, outfile, upot(:,:,:,1) )
 
   deallocate (u)
   deallocate (upot, vor)
