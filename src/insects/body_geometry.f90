@@ -896,28 +896,17 @@ subroutine draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
   real(kind=pr) :: x_body(1:3), x(1:3), xc(1:3), n_part(1:3)
   integer :: ix,iy,iz,ip, npoints, mpicode, ijk(1:3), box, start,i,j,k
 
-  ! periodization: if the center point is out of the domain, then correct that
-  xc = Insect%xc_body
-  if (xc(1)<0.0) xc(1)=xc(1)+xl
-  if (xc(2)<0.0) xc(2)=xc(2)+yl
-  if (xc(3)<0.0) xc(3)=xc(3)+zl
-
-  if (xc(1)>=xl) xc(1)=xc(1)-xl
-  if (xc(2)>=yl) xc(2)=xc(2)-yl
-  if (xc(3)>=zl) xc(3)=xc(3)-zl
-
-
-
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         ! x is in the global coordinate system
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        ! x is now centered in the sphere's center point
-        x = periodize_coordinate(x - xc)
+        ! x is now centered in the plate's center point
+        x = periodize_coordinate(x - Insect%xc_body)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x)
 
+        ! bounding box checks
         if (dabs(x_body(1)) <= Insect%L_span+Insect%safety) then
           if (dabs(x_body(2)) <= Insect%L_chord+Insect%safety) then
             if (dabs(x_body(3)) <= Insect%WingThickness+Insect%safety) then
@@ -960,25 +949,13 @@ subroutine draw_body_coin( mask, mask_color, us, Insect, color_body, M_body)
   real(kind=pr) :: x_body(1:3), x(1:3), xc(1:3), n_part(1:3)
   integer :: ix,iy,iz,ip, npoints, mpicode, ijk(1:3), box, start,i,j,k
 
-  ! periodization: if the center point is out of the domain, then correct that
-  xc = Insect%xc_body
-  if (xc(1)<0.0) xc(1)=xc(1)+xl
-  if (xc(2)<0.0) xc(2)=xc(2)+yl
-  if (xc(3)<0.0) xc(3)=xc(3)+zl
-
-  if (xc(1)>=xl) xc(1)=xc(1)-xl
-  if (xc(2)>=yl) xc(2)=xc(2)-yl
-  if (xc(3)>=zl) xc(3)=xc(3)-zl
-
-
-
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         ! x is in the global coordinate system
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
         ! x is now centered in the sphere's center point
-        x = periodize_coordinate(x - xc)
+        x = periodize_coordinate(x - Insect%xc_body)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x)
 

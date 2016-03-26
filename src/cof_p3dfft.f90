@@ -21,7 +21,9 @@ module p3dfft_wrapper
   use vars
   implicit none
 
-  logical, save :: using_p3dfft = .true.
+  ! this flag tells us whether we are using p3dfft or just initialized the domain
+  ! decomposition, in which case we do not use it
+  logical, save, private :: using_p3dfft = .true.
 
   contains
 

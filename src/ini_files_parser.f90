@@ -19,7 +19,7 @@ module ini_files_parser
   ! maximum width of parameter file. note we have very long lines if we read long
   ! arrays, as it happens for example when we read fourier coefficients for insect
   ! kinematics
-  integer, parameter, private :: maxcolumns=1024
+  integer, parameter :: maxcolumns=1024
 
   ! is set to true, we'll produce some output on the screen (for documentation of runs)
   ! the flag is set with the read_ini_file routine

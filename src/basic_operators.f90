@@ -116,40 +116,26 @@ end subroutine curl_inplace
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl3_inplace(fk)
-  use mpi
-  use p3dfft_wrapper
   use vars
   implicit none
 
   ! input/output field in Fourier space
   complex(kind=pr),intent(inout)::fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-
-  integer :: ix,iy,iz
-  real(kind=pr) :: kx,ky,kz
-  complex(kind=pr) :: imag   ! imaginary unit
-  complex(kind=pr) :: t1,t2,t3 ! temporary loop variables
-
-  imag = dcmplx(0.d0,1.d0)
-
-  ! Compute curl of given field in Fourier space:
-   do ix=ca(3),cb(3)
-     kx=wave_x(ix)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do iz=ca(1),cb(1)
-           kz=wave_z(iz)
-
-           t1=fk(iz,iy,ix,1)
-           t2=fk(iz,iy,ix,2)
-           t3=fk(iz,iy,ix,3)
-
-           fk(iz,iy,ix,1)=imag*(ky*t3 - kz*t2)
-           fk(iz,iy,ix,2)=imag*(kz*t1 - kx*t3)
-           fk(iz,iy,ix,3)=imag*(kx*t2 - ky*t1)
-        enddo
-     enddo
-  enddo
+  call curl_inplace( fk(:,:,:,1), fk(:,:,:,2), fk(:,:,:,3) )
 end subroutine curl3_inplace
+
+
+! Given three components of an input fields in Fourier space,
+! the curl in physical space. The precision is reduced
+! to second order in space, since this kind of filtering may help in postprocessing
+subroutine curl3_2nd_inplace(fk)
+  use vars
+  implicit none
+
+  ! input/output field in Fourier space
+  complex(kind=pr),intent(inout)::fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  call curl_2nd( fk(:,:,:,1), fk(:,:,:,2), fk(:,:,:,3) )
+end subroutine curl3_2nd_inplace
 
 
 ! Given three components of an input fields in Fourier space, compute
@@ -447,8 +433,7 @@ subroutine checknan_real( field, msg )
     enddo
   enddo
 
-  call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,&
-       MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
   if (root.and.foundnans>0) write(*,'("NaN in ",A," sum=",i5)') msg, foundnans
 end subroutine checknan_real

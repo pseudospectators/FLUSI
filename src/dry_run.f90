@@ -128,9 +128,6 @@ subroutine dry_run()
   !*****************************************************************************
   time = 0.d0
   it = 0
-
-
-
   do while (time<=tmax)
     ! create the mask
     call create_mask( time,Insect,beams )
@@ -170,5 +167,5 @@ subroutine dry_run()
   endif
 
   ! release other memory
-  ! call fft_free
+  call fft_free
 end subroutine dry_run

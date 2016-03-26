@@ -528,7 +528,7 @@ subroutine dump_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   allocate (attributes(1:8))
   aname = "bckp"
   attributes = (/time,dt1,dt0,dble(n1),dble(it),dble(nx),dble(ny),dble(nz)/)
-  call write_attribute_dble(adims,aname,attributes,8,dset_id)
+  call write_attribute_dble(aname,attributes,8,dset_id)
 
   ! Close dataspaces, dataset and property list
   call h5sclose_f(filespace, error)
@@ -1007,15 +1007,14 @@ end subroutine read_field_backup
 
 ! Write a given attribute with attribute name aname and dimensions
 ! adims/dims to a given dataset identifier dset_id. Double version.
-subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
+subroutine write_attribute_dble(aname,attribute,dim,dset_id)
   use mpi
   use vars
   use hdf5
   implicit none
 
   integer, intent(in) :: dim
-  integer(hsize_t), DIMENSION(dim), intent(in) :: adims  ! Attribute dimension
-  real (kind=pr), DIMENSION(dim), intent (in) :: attribute
+  real(kind=pr), DIMENSION(dim), intent (in) :: attribute
   character(len=*), intent(in) :: aname ! attribute name
   integer(hid_t),intent(in) :: dset_id  ! dataset identifier
   integer, parameter :: arank = 1
@@ -1023,7 +1022,9 @@ subroutine write_attribute_dble(adims,aname,attribute,dim,dset_id)
   integer :: error  ! error flags
   integer(hid_t) :: aspace_id ! Attribute Dataspace identifier
   integer(hid_t) :: attr_id   ! Attribute identifier
+  integer(hsize_t) :: adims(1)
 
+  adims = int(dim,kind=hsize_t)
   ! Determine the dataspace identifier aspace_id
   call h5screate_simple_f(arank,adims,aspace_id,error)
 
@@ -1040,14 +1041,14 @@ end subroutine write_attribute_dble
 
 ! Write a given attribute with attribute name aname and dimensions
 ! adims/dims to a given dataset identifier dset_id. Integer version.
-subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
+subroutine write_attribute_int(aname,attribute,dim,dset_id)
   use mpi
   use vars
   use hdf5
   implicit none
 
   integer, intent(in) :: dim
-  integer(hsize_t), DIMENSION(dim), intent(in) :: adims  ! Attribute dimension
+  integer(hsize_t) :: adims(1)  ! Attribute dimension
   integer, DIMENSION(dim), intent (in) :: attribute
   character(len=*), intent(in) :: aname ! attribute name
   integer(hid_t),intent(in) :: dset_id  ! dataset identifier
@@ -1057,6 +1058,7 @@ subroutine write_attribute_int(adims,aname,attribute,dim,dset_id)
   integer(hid_t) :: aspace_id ! Attribute Dataspace identifier
   integer(hid_t) :: attr_id   ! Attribute identifier
 
+  adims = int(dim, kind=hsize_t)
   ! Determine the dataspace identifier aspace_id
   call h5screate_simple_f(arank,adims,aspace_id,error)
 
@@ -1429,6 +1431,7 @@ subroutine flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename
 
+  character(len=strlen) :: paramsfile
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
   integer(hid_t) :: file_id   ! file identifier
   integer(hid_t) :: dset_id   ! dataset identifier
@@ -1568,26 +1571,21 @@ subroutine flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
   ! dataspace in memory: contains only local data
   call h5screate_simple_f(rank, dimensions_local, memspace, error)
 
-
-
   !-----------------------------------------------------------------------------
   ! actual writing of heavy data
   !-----------------------------------------------------------------------------
   ! Write the dataset collectively, double precision in memory
   call h5dwrite_f(dset_id, H5T_NATIVE_DOUBLE, field_out, dimensions_file, &
-  error, file_space_id = filespace, mem_space_id = memspace,&
-  xfer_prp = plist_id)
+  error, file_space_id = filespace, mem_space_id = memspace,xfer_prp = plist_id)
 
   !!! Write the attributes to the HDF files.
   ! The attributes written are time, penalisation parameter,
   ! computational resolution, and physical domain size.
-  adims = (/1/)
-  call write_attribute_dble(adims,"time",(/time/),1,dset_id)
-  call write_attribute_dble(adims,"viscosity",(/nu/),1,dset_id)
-  call write_attribute_dble(adims,"epsi",(/eps/),1,dset_id)
-  adims = (/3/)
-  call write_attribute_dble(adims,"domain_size",(/xl,yl,zl/),3,dset_id)
-  call write_attribute_int(adims,"nxyz",(/nxred_file, nyred_file, nzred_file/),3,dset_id)
+  call write_attribute_dble("time",(/time/),1,dset_id)
+  call write_attribute_dble("viscosity",(/nu/),1,dset_id)
+  call write_attribute_dble("epsi",(/eps/),1,dset_id)
+  call write_attribute_dble("domain_size",(/xl,yl,zl/),3,dset_id)
+  call write_attribute_int("nxyz",(/nxred_file, nyred_file, nzred_file/),3,dset_id)
 
   !!! Close dataspaces:
   call h5sclose_f(filespace, error)
@@ -1597,6 +1595,93 @@ subroutine flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
   call h5fclose_f(file_id, error) ! Close the file.
   call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
 
+  ! get filename of PARAMS file from command line. since, e.g, in dry-run mode
+  ! the position of the argument varies. so we loop over the arguments and if we
+  ! find a ini file, we copy that to the HDF file
+  if (root) then ! only root does this
+    do i =1,10
+      call get_command_argument(i,paramsfile)
+      if ( index(paramsfile,'.ini') /= 0 ) then
+        if ( index(filename,'.h5')==0 ) then
+          ! file does not contain *.h5 ending -> add suffix
+          call append_params_file( trim(adjustl(filename))//'.h5', paramsfile )
+          exit
+        else
+          ! field DOES contain .h5 ending -> just write
+          call append_params_file( trim(adjustl(filename)), paramsfile )
+          exit
+        endif
+      endif
+    enddo
+  endif
 
   time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
 end subroutine flusi_hdf5_wrapper
+
+
+! this routine reads in a parameter *.ini file and adds it as a dataset to an existing
+! hdf5 file, line by line. the intention is to minimize the possible loss of data
+subroutine append_params_file( fname, paramsfile )
+  use mpi
+  use ini_files_parser_mpi
+  use vars
+  use hdf5
+  implicit none
+
+  character(len=*), intent(in) :: fname, paramsfile
+  CHARACTER(LEN=6) , PARAMETER :: dataset   = "params"
+  INTEGER(SIZE_T)  , PARAMETER :: sdim      = maxcolumns ! from ini files parser
+
+  INTEGER(HID_T)  :: file, filetype, memtype, space, dset ! Handles
+  INTEGER :: hdferr
+
+  INTEGER(HSIZE_T), DIMENSION(1:1) :: dims
+  INTEGER(HSIZE_T), DIMENSION(1:1) :: maxdims
+
+  CHARACTER(LEN=sdim), DIMENSION(:), ALLOCATABLE, TARGET :: wdata
+  TYPE(C_PTR) :: f_ptr
+  type(inifile) :: PARAMS
+
+! write(*,*) paramsfile
+
+  call read_ini_file_mpi(PARAMS, paramsfile, .false.)
+  dims = PARAMS%nlines
+  allocate (wdata(1:PARAMS%nlines))
+  wdata = PARAMS%PARAMS
+  !
+  ! Initialize FORTRAN interface.
+  !
+  CALL h5open_f(hdferr)
+  !
+  ! Create a new file using the default properties.
+  !
+  ! CALL h5fcreate_f(fname, H5F_ACC_TRUNC_F, file, hdferr)
+  CALL h5fopen_f (fname, H5F_ACC_RDWR_F, file, hdferr)
+  !
+  ! Create file datatypes.  For this example we will save
+  ! the strings as FORTRAN strings
+  !
+  CALL H5Tcopy_f(H5T_FORTRAN_S1, filetype, hdferr)
+  CALL H5Tset_size_f(filetype, sdim, hdferr)
+  !
+  ! Create dataspace.
+  !
+  CALL h5screate_simple_f(1, (/int(PARAMS%nlines,kind=8)/), space, hdferr)
+  !
+  ! Create the dataset and write the string data to it.
+  !
+  CALL h5dcreate_f(file, dataset, filetype, space, dset, hdferr)
+
+  f_ptr = C_LOC(wdata(1)(1:1))
+  CALL H5Dwrite_f(dset, filetype, f_ptr, hdferr);
+  !
+  ! Close and release resources.
+  !
+  CALL h5dclose_f(dset , hdferr)
+  CALL h5sclose_f(space, hdferr)
+  CALL H5Tclose_f(filetype, hdferr)
+  CALL h5fclose_f(file , hdferr)
+  call h5close_f(hdferr) ! Close Fortran interfaces and HDF5 library.
+  call clean_ini_file_mpi(PARAMS)
+  deallocate(wdata)
+end subroutine
