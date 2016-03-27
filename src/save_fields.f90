@@ -1595,93 +1595,94 @@ subroutine flusi_hdf5_wrapper( time, filename, rared, rbred, field_out)
   call h5fclose_f(file_id, error) ! Close the file.
   call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
 
-  ! get filename of PARAMS file from command line. since, e.g, in dry-run mode
-  ! the position of the argument varies. so we loop over the arguments and if we
-  ! find a ini file, we copy that to the HDF file
-  if (root) then ! only root does this
-    do i =1,10
-      call get_command_argument(i,paramsfile)
-      if ( index(paramsfile,'.ini') /= 0 ) then
-        if ( index(filename,'.h5')==0 ) then
-          ! file does not contain *.h5 ending -> add suffix
-          call append_params_file( trim(adjustl(filename))//'.h5', paramsfile )
-          exit
-        else
-          ! field DOES contain .h5 ending -> just write
-          call append_params_file( trim(adjustl(filename)), paramsfile )
-          exit
-        endif
-      endif
-    enddo
-  endif
+  ! ! get filename of PARAMS file from command line. since, e.g, in dry-run mode
+  ! ! the position of the argument varies. so we loop over the arguments and if we
+  ! ! find a ini file, we copy that to the HDF file
+  ! if (root) then ! only root does this
+  !   do i =1,10
+  !     call get_command_argument(i,paramsfile)
+  !     if ( index(paramsfile,'.ini') /= 0 ) then
+  !       if ( index(filename,'.h5')==0 ) then
+  !         ! file does not contain *.h5 ending -> add suffix
+  !         call append_params_file( trim(adjustl(filename))//'.h5', paramsfile )
+  !         exit
+  !       else
+  !         ! field DOES contain .h5 ending -> just write
+  !         call append_params_file( trim(adjustl(filename)), paramsfile )
+  !         exit
+  !       endif
+  !     endif
+  !   enddo
+  ! endif
 
   time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
 end subroutine flusi_hdf5_wrapper
 
 
-! this routine reads in a parameter *.ini file and adds it as a dataset to an existing
-! hdf5 file, line by line. the intention is to minimize the possible loss of data
-subroutine append_params_file( fname, paramsfile )
-  use mpi
-  use ini_files_parser_mpi
-  use vars
-  use hdf5
-  implicit none
-
-  character(len=*), intent(in) :: fname, paramsfile
-  CHARACTER(LEN=6) , PARAMETER :: dataset   = "params"
-  INTEGER(SIZE_T)  , PARAMETER :: sdim      = maxcolumns ! from ini files parser
-
-  INTEGER(HID_T)  :: file, filetype, memtype, space, dset ! Handles
-  INTEGER :: hdferr
-
-  INTEGER(HSIZE_T), DIMENSION(1:1) :: dims
-  INTEGER(HSIZE_T), DIMENSION(1:1) :: maxdims
-
-  CHARACTER(LEN=sdim), DIMENSION(:), ALLOCATABLE, TARGET :: wdata
-  TYPE(C_PTR) :: f_ptr
-  type(inifile) :: PARAMS
-
-! write(*,*) paramsfile
-
-  call read_ini_file_mpi(PARAMS, paramsfile, .false.)
-  dims = PARAMS%nlines
-  allocate (wdata(1:PARAMS%nlines))
-  wdata = PARAMS%PARAMS
-  !
-  ! Initialize FORTRAN interface.
-  !
-  CALL h5open_f(hdferr)
-  !
-  ! Create a new file using the default properties.
-  !
-  ! CALL h5fcreate_f(fname, H5F_ACC_TRUNC_F, file, hdferr)
-  CALL h5fopen_f (fname, H5F_ACC_RDWR_F, file, hdferr)
-  !
-  ! Create file datatypes.  For this example we will save
-  ! the strings as FORTRAN strings
-  !
-  CALL H5Tcopy_f(H5T_FORTRAN_S1, filetype, hdferr)
-  CALL H5Tset_size_f(filetype, sdim, hdferr)
-  !
-  ! Create dataspace.
-  !
-  CALL h5screate_simple_f(1, (/int(PARAMS%nlines,kind=8)/), space, hdferr)
-  !
-  ! Create the dataset and write the string data to it.
-  !
-  CALL h5dcreate_f(file, dataset, filetype, space, dset, hdferr)
-
-  f_ptr = C_LOC(wdata(1)(1:1))
-  CALL H5Dwrite_f(dset, filetype, f_ptr, hdferr);
-  !
-  ! Close and release resources.
-  !
-  CALL h5dclose_f(dset , hdferr)
-  CALL h5sclose_f(space, hdferr)
-  CALL H5Tclose_f(filetype, hdferr)
-  CALL h5fclose_f(file , hdferr)
-  call h5close_f(hdferr) ! Close Fortran interfaces and HDF5 library.
-  call clean_ini_file_mpi(PARAMS)
-  deallocate(wdata)
-end subroutine
+! ! this routine reads in a parameter *.ini file and adds it as a dataset to an existing
+! ! hdf5 file, line by line. the intention is to minimize the possible loss of data
+! subroutine append_params_file( fname, paramsfile )
+!   use mpi
+!   use ini_files_parser_mpi
+!   use vars
+!   use hdf5
+!   use ISO_C_BINDING
+!   implicit none
+!
+!   character(len=*), intent(in) :: fname, paramsfile
+!   CHARACTER(LEN=6) , PARAMETER :: dataset   = "params"
+!   INTEGER(SIZE_T)  , PARAMETER :: sdim      = maxcolumns ! from ini files parser
+!
+!   INTEGER(HID_T)  :: file, filetype, memtype, space, dset ! Handles
+!   INTEGER :: hdferr
+!
+!   INTEGER(HSIZE_T), DIMENSION(1:1) :: dims
+!   INTEGER(HSIZE_T), DIMENSION(1:1) :: maxdims
+!
+!   CHARACTER(LEN=sdim), DIMENSION(:), ALLOCATABLE, TARGET :: wdata
+!   TYPE(C_PTR) :: f_ptr
+!   type(inifile) :: PARAMS
+!
+! ! write(*,*) paramsfile
+!
+!   call read_ini_file_mpi(PARAMS, paramsfile, .false.)
+!   dims = PARAMS%nlines
+!   allocate (wdata(1:PARAMS%nlines))
+!   wdata = PARAMS%PARAMS
+!   !
+!   ! Initialize FORTRAN interface.
+!   !
+!   CALL h5open_f(hdferr)
+!   !
+!   ! Create a new file using the default properties.
+!   !
+!   ! CALL h5fcreate_f(fname, H5F_ACC_TRUNC_F, file, hdferr)
+!   CALL h5fopen_f (fname, H5F_ACC_RDWR_F, file, hdferr)
+!   !
+!   ! Create file datatypes.  For this example we will save
+!   ! the strings as FORTRAN strings
+!   !
+!   CALL H5Tcopy_f(H5T_FORTRAN_S1, filetype, hdferr)
+!   CALL H5Tset_size_f(filetype, sdim, hdferr)
+!   !
+!   ! Create dataspace.
+!   !
+!   CALL h5screate_simple_f(1, (/int(PARAMS%nlines,kind=8)/), space, hdferr)
+!   !
+!   ! Create the dataset and write the string data to it.
+!   !
+!   CALL h5dcreate_f(file, dataset, filetype, space, dset, hdferr)
+!
+!   f_ptr = C_LOC(wdata(1)(1:1))
+!   CALL H5Dwrite_f(dset, filetype, f_ptr, hdferr);
+!   !
+!   ! Close and release resources.
+!   !
+!   CALL h5dclose_f(dset , hdferr)
+!   CALL h5sclose_f(space, hdferr)
+!   CALL H5Tclose_f(filetype, hdferr)
+!   CALL h5fclose_f(file , hdferr)
+!   call h5close_f(hdferr) ! Close Fortran interfaces and HDF5 library.
+!   call clean_ini_file_mpi(PARAMS)
+!   deallocate(wdata)
+! end subroutine
