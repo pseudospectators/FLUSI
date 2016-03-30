@@ -57,8 +57,8 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
     time_p = time_p + MPI_wtime() - t1
 
     !---------------------------------------------------------------------------
-    ! passive scalar (currently only one) the work array vort is now free
-    ! so use it in cal_nlk_scalar
+    ! passive scalar. the new module uses finite differences and evolves up to 9
+    ! different colors. for FD, no work arrays are required.
     !---------------------------------------------------------------------------
     t1 = MPI_wtime()
     if ((use_passive_scalar==1).and.(compute_scalar)) then

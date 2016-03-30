@@ -12,7 +12,6 @@ subroutine create_mask_fsi (time, Insect, beams )
   type(diptera),intent(inout)::Insect
   logical, save :: mask_already_read = .false.
 
-
   !-------------------------------------------------------------
   ! create obstacle mask
   !-------------------------------------------------------------
@@ -62,6 +61,10 @@ subroutine create_mask_fsi (time, Insect, beams )
           us(:,:,:,1) = us_fixed(1)
           us(:,:,:,2) = us_fixed(2)
           us(:,:,:,3) = us_fixed(3)
+        else
+          ! since we divide by eps later, in the main wrapper for mask, we multiply
+          ! here first..
+          mask = mask * eps
         endif
       else
         ! no known case...

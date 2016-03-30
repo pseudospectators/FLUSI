@@ -28,7 +28,6 @@ subroutine create_mask(time,Insect,beams)
   mask = mask*eps_inv
 
 
-
   ! for global timing.
   time_mask = time_mask + MPI_wtime() - t1
 end subroutine create_mask

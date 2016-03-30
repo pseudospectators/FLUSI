@@ -539,6 +539,10 @@ if (mpirank/=0) return
     write (14,'(3(A15,1x))') "%          time","max_div","max_div_fluid"
     close (14)
 
+    open  (14,file='ekin.t',status='replace')
+    write (14,'(2(A15,1x))') "%          time","E_kin_tot"
+    close (14)
+
     open  (14,file='energy.t',status='replace')
     write (14,'(18(A15,1x))') "%          time",&
     "E_kin_f","E_kin_x_f","E_kin_y_f","E_kin_z_f",&

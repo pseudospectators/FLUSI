@@ -157,6 +157,7 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"Saving","tsave_period",tsave_period,1.0d0)
   call read_param_mpi(PARAMS,"Saving","save_only_one_period",&
   save_only_one_period,"no")
+  call read_param_mpi(PARAMS,"Saving","naming",naming,"time")
   call read_param_mpi(PARAMS,"Saving","field_precision",&
   field_precision,"single")
   call read_param_mpi(PARAMS,"Saving","itdrag",itdrag,99999)

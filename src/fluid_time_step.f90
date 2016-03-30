@@ -38,6 +38,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use vars
   use solid_model
   use insect_module
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -119,9 +120,19 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
       + (time-tstart_avg)*e_avg ) / ( (time-tstart_avg)+dt1 )
     endif
   endif
+
+  if(method=="fsi") then
+    ! write kinetic energy to disk
+    call output_kinetic_energy(time+dt1, uk)
+    ! check if we did something stupid and failed
+    call checknan(uk(:,:,:,1),'ukx (current time step)')
+    call checknan(uk(:,:,:,2),'uky (current time step)')
+  endif
+
+
+
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
-
 
 
 
@@ -1029,3 +1040,53 @@ subroutine get_mean_flow(uk,u1,u2,u3)
   call MPI_ALLREDUCE ( u2l,u2,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
   call MPI_ALLREDUCE ( u3l,u3,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 end subroutine get_mean_flow
+
+
+
+
+!-------------------------------------------------------------------------------
+! write total kinetic energy to a small text file
+! This operation is NOT in integrals.f90, since it is (almost) for free and can
+! be done in every time step.
+! Integration is performed in Fourier space using parsevals identity, output is
+! written to ekin.t directly
+!-------------------------------------------------------------------------------
+subroutine output_kinetic_energy(time, uk)
+  use vars
+  use helpers
+  implicit none
+  real(kind=pr), intent(in) :: time
+  complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  integer :: ix,iy,iz
+  real(kind=pr) :: E, e1
+
+  ! compute total kinetic energy (including the solid domain) in Fourier space
+  ! using Parseval's identity
+  e1 = 0.d0
+  do iz=ca(1),cb(1)
+    do iy=ca(2),cb(2)
+      do ix=ca(3),cb(3)
+        if ( ix==0 .or. ix==nx/2 ) then
+          ! note zero mode and highest wavenumber is special
+          e1=e1+dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
+          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
+          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+        else
+          e1=e1+dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
+          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
+          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+        endif
+      enddo
+    enddo
+  enddo
+
+  ! note the scaling factor for parsevals identity
+  E = mpisum(e1)*xl*yl*zl
+
+  if (root) then
+    open(14,file='ekin.t',status='unknown',position='append')
+    write (14,'(2(g15.8,1x))') time, E
+    close(14)
+  endif
+
+end subroutine output_kinetic_energy

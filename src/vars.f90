@@ -52,7 +52,7 @@ module vars
   ! only root rank has this true:
   logical, save :: root=.false.
 
-  real(kind=pr),save :: pi ! 3.14....
+  real(kind=pr),save :: pi= 4.d0*datan(1.d0) ! 3.14....
 
   real(kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
 
@@ -96,7 +96,7 @@ module vars
   real(kind=pr),save :: wtimemax ! Stop after a certain number of hours of wall.
   ! for periodically repeating flows, it may be better to always have only
   ! one set of files on the disk
-  character(len=strlen),save :: save_only_one_period, field_precision
+  character(len=strlen),save :: save_only_one_period, field_precision, naming
   real(kind=pr),save :: tsave_period ! then this is period time
   character(len=strlen),save :: iSaveSpectrae
 

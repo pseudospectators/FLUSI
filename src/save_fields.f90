@@ -1,11 +1,12 @@
 ! Wrapper for saving fields routine
-subroutine save_fields(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
   use vars
   use solid_model
   use insect_module
   implicit none
 
   real(kind=pr),intent(in) :: time
+  integer,intent(in) :: it
   complex(kind=pr),intent(in)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
@@ -22,7 +23,7 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,
 
   select case(method)
   case("fsi")
-    call save_fields_fsi(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+    call save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
   case("mhd")
     call save_fields_mhd(time,uk,u,vort,nlk)
   case default
@@ -40,7 +41,7 @@ end subroutine save_fields
 ! files.
 ! The latest version calls cal_nlk_fsi to avoid redudant code.
 !-------------------------------------------------------------------------------
-subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
   use vars
   use p3dfft_wrapper
   use basic_operators
@@ -50,6 +51,7 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Ins
   implicit none
 
   real(kind=pr),intent(in) :: time
+  integer,intent(in) :: it
   complex(kind=pr),intent(in) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
@@ -58,22 +60,32 @@ subroutine save_fields_fsi(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Ins
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
-  real(kind=pr):: volume
+  real(kind=pr):: volume, t
   character(len=6) :: name
   character(len=7) :: scalar_name
   integer :: j
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
-  !--Set up file name base
-  if ( save_only_one_period == "yes" ) then
-    ! overwrite files from last period to save disk space
-    ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
-    write(name,'(i6.6)') nint( (time-dble(floor(time/tsave_period)))*1000.d0 )
-  else
-    ! name is just the time
-    write(name,'(i6.6)') nint(time*1000.d0)
-  endif
+  ! set up base name for files. we can use either the physical time or the time step
+  ! for this. If we use the time, and we have save_only_one_period == "yes", then
+  ! we save t/T for only one period
+  select case(naming)
+  case('timestep')
+    ! write time step-based names
+    write(name,'(i6.6)') it
+  case default
+    ! write time-based names by default
+    if ( save_only_one_period == "yes" ) then
+      ! overwrite files from last period to save disk space
+      ! i.e. t=1.05 is written to t=0.05, as well as 2.05 and 3.05
+      write(name,'(i6.6)') nint( (time-dble(floor(time/tsave_period)))*1000.d0 )
+    else
+      ! name is just the time
+      write(name,'(i6.6)') nint(time*1000.d0)
+    endif
+  end select
+
 
   if (mpirank == 0 ) then
     write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') &
