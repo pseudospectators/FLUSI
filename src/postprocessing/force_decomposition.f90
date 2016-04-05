@@ -99,6 +99,8 @@ subroutine force_decomposition(help)
   call read_single_file ( fname_poty, upot(:,:,:,2) )
   call read_single_file ( fname_potz, upot(:,:,:,3) )
 
+  if (root) write(*,*) "done reading input files."
+
   ! we need to compute the curl of the DNS data. this assumes by the way that the
   ! data is periodic (so one can run into trouble when using subsets of a field)
   call fft3( inx=u,outk=uk ) ! uk is now vork
@@ -111,6 +113,8 @@ subroutine force_decomposition(help)
   endif
   call ifft3( ink=uk, outx=vor )
   deallocate (uk)
+
+  if (root) write(*,*) "done computing curl(u_dns)."
 
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
@@ -137,6 +141,8 @@ subroutine force_decomposition(help)
     enddo
   enddo
 
+  if (root) write(*,*) "done computing force decomposition."
+  if (root) write(*,*) "writing output"
   call save_field_hdf5 ( time, outfile, upot(:,:,:,1) )
 
   deallocate (u)
