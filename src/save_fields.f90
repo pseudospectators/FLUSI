@@ -148,7 +148,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
 
   if (iSaveMagVorticity==1) then
     !-- save vorticity magnitude
-    work(:,:,:,1) = dsqrt( vort(:,:,:,1)**2 + vort(:,:,:,1)**2 + vort(:,:,:,1)**2 )
+    work(:,:,:,1) = dsqrt( vort(:,:,:,1)**2 + vort(:,:,:,2)**2 + vort(:,:,:,3)**2 )
     call save_field_hdf5(time,"./vorabs_"//name,work(:,:,:,1))
   endif
 
