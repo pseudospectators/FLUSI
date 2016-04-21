@@ -1249,6 +1249,11 @@ end subroutine draw_body_mosquito_iams
 
 !-------------------------------------------------------------------------------
 ! draw a cylinder defined by GLOBALS points (x1,y1,z1), (x2,y2,z2) and radius R0
+! At the start/end point, we add a sphere.
+! The solid velocity field us is not touched -- we consider this routine for bodies
+! therefore the solid velocity field (which is a solid body rotation around
+! insect%xc) is added in the main insect drawing routine.
+! The color of the new cylinder will be what you pass in color_val
 !-------------------------------------------------------------------------------
 subroutine draw_cylinder_new( x1, x2, R0, mask, mask_color, us, Insect, color_val)
   use vars
@@ -1283,6 +1288,7 @@ subroutine draw_cylinder_new( x1, x2, R0, mask, mask_color, us, Insect, color_va
         ! position on cylinder axis (projection of x-x1 on e_x)
         ceta = dot_product(x_glob-x1, e_x)
 
+        ! is the height inside the bounding box?
         if ( ceta >= -safety .and. ceta <= clength+safety) then
           ! we're maybe inside the cylinder
           ! Radius is the distance to centreline

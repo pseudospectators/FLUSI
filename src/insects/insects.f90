@@ -32,7 +32,7 @@ module insect_module
     ! coefficients are read only once from file (or set differently)
     logical :: initialized = .false.
     ! some details about the file, if reading from ini file
-    character(len=strlen) :: infile_convention, infile_type, infile_units, infile
+    character(len=strlen) :: infile_convention="", infile_type="", infile_units="", infile=""
     ! variables for kineloader (which uses non-periodic hermite interpolation)
     integer :: nk
     real(kind=pr), dimension (:), allocatable :: vec_t, &

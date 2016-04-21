@@ -11,7 +11,10 @@ subroutine convert_bin2hdf(help)
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_bin,fname_hdf,tmp
+  ! we read a single precision field from binary
   real, dimension(:,:,:), allocatable :: field
+  ! and convert it to a double precision field (however: hdf file is single again)
+  real(kind=pr), dimension(:,:,:), allocatable :: field_out
   integer, parameter :: pr_out = 4
   integer :: ix, iy ,iz, i,j,k
   integer(kind=8) :: record_length
@@ -60,7 +63,7 @@ subroutine convert_bin2hdf(help)
   !-----------------------------------------------------------------------------
   ! read in the binary field to be converted
   !-----------------------------------------------------------------------------
-  allocate ( field(0:nx-1,0:ny-1,0:nz-1) )
+  allocate ( field(0:nx-1,0:ny-1,0:nz-1), field_out(0:nx-1,0:ny-1,0:nz-1) )
 
   !   inquire (iolength=record_length) field
   !   open(11, file=fname_bin, form='unformatted', &
@@ -80,8 +83,8 @@ subroutine convert_bin2hdf(help)
   ! initializes serial domain decomposition:
   ra=(/0, 0, 0/)
   rb=(/nx-1, ny-1, nz-1/)
+  field_out = real(field,kind=pr)
+  call save_field_hdf5(time,fname_hdf,field_out)
 
-  call save_field_hdf5(time,fname_hdf,dble(field))
-
-  deallocate (field)
+  deallocate (field,field_out)
 end subroutine convert_bin2hdf

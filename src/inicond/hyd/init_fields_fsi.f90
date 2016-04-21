@@ -277,41 +277,61 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     end do
 
     call Vorticity2Velocity_old (uk, nlk(:,:,:,:,0), vort)
+
   case("VortexRing")
      !--------------------------------------------------
-     ! Vortex ring
+     ! Vortex ring intial condition
+     ! The vortex ring is a poloidal vorticty field, as for example defined in
+     ! Jause-Labert et al., "Numerical validation of the volume penalization method in three-dimensional
+     ! pseudo-spectral simulations" Computers & Fluids 2012
+     ! This ring has the strength omega1, its center is at (x0,y0,z0), and its radius is "length"
      !--------------------------------------------------
-     if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
-     r00=yl/8.d0
-     a  =0.4131d0 * r00
-     a  =0.82d0 * r00
-     gamma0=12.0d0
-     x00=0.5d0 * xl
+     ! radius of vortexring (set in params file)
+     r00 = length
+     a  = 0.4131d0 * r00
+     a  = 0.82d0 * r00
+     ! strength (set in params file)
+     gamma0 = omega1
+
+     if (mpirank==0) then
+       write(*,'(80("*"))')
+       write (*,*) "*** inicond: vortex ring initial condition"
+       write (*,'("r00=",g12.4," a=",g12.4," gamma0=",g12.4," RE=",g13.4)') r00,a,gamma0,gamma0/nu
+       write(*,'("center=",3(g12.4,1x))') x0,y0,z0
+       write(*,'(80("*"))')
+     endif
 
      ! define vorticity in phy space
      do iz=ra(3), rb(3)
-        z=dble(iz) * zl / dble(nz)
-        do iy=ra(2), rb(2)
-           y=dble(iy) * yl / dble(ny)
-           do ix=ra(1), rb(1)
-              x=dble(ix) * xl / dble(nx)
-              r=dsqrt( (y-0.5d0*yl)**2 + (z-0.5d0*zl)**2 )
-              omega=(gamma0 / (pi*a**2))&
-                   *dexp(-( (x-x00)**2 + (r-r00)**2 )/(a**2) )
+       do iy=ra(2), rb(2)
+         do ix=ra(1), rb(1)
+           x = dble(ix)*dx
+           y = dble(iy)*dy
+           z = dble(iz)*dz
+           ! radius in cylinder coordinates. note we do not need the polar
+           ! angle, luckily, as we can directly set their cosine/sine with
+           ! z/r and y/r. This is much cheaper.
+           r = dsqrt( (y-y0)**2 + (z-z0)**2 )
 
-              if ( dabs(r)> 1.0d-12) then
-                 vort (ix,iy,iz,2)=-omega * ( (z-0.5d0*zl)/r) ! sin(theta)
-                 vort (ix,iy,iz,3)= omega * ( (y-0.5d0*yl)/r) ! cos(theta)
-              else
-                 vort (ix,iy,iz,2)=0.d0
-                 vort (ix,iy,iz,3)=0.d0
-              endif
+           ! angular vorticity component. The vorticity vector in cylinder
+           ! coordinates is (r,theta,z) = (0,omega,0), see eg
+           ! Jause-Labert et al., "Numerical validation of the volume penalization method in three-dimensional
+           ! pseudo-spectral simulations" Computers & Fluids 2012
+           omega = (gamma0/(pi*a**2))*dexp(-((x-x0)**2 + (r-r00)**2)/(a**2) )
 
-           end do
-        end do
-     end do
-     call Vorticity2Velocity_old(uk, nlk(:,:,:,:,0), vort)
-
+           ! avoid division by zero if R is very small
+           if ( dabs(r)> 1.0d-12) then
+             vort(ix,iy,iz,2) =-omega * ( (z-z0)/r) ! this is sin(theta)
+             vort(ix,iy,iz,3) = omega * ( (y-y0)/r) ! this is cos(theta)
+           endif
+         enddo
+       enddo
+     enddo
+     ! go to Fourier space
+     call fft3(inx=vort, outk=nlk(:,:,:,:,0))
+     ! invert curl (Biot-Savart Operator)
+     call Vorticity2Velocity(nlk(:,:,:,:,0),uk)
+     ! add mean flow (note: any inverted curl always has zero mean flow)
      call set_mean_flow(uk,time)
 
   case ("vortex")

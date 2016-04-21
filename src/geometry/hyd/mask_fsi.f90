@@ -19,6 +19,8 @@ subroutine create_mask_fsi (time, Insect, beams )
   if (iPenalization==1) then
     ! Actual mask functions:
     select case (iMask)
+    case ("floor_yz","floor_zy","flooryz","floorzy")
+      call Draw_floor_yz()
     case ("sphere","Sphere")
       call Draw_Sphere()
     case ("cylinder","cylinder_x")
@@ -401,6 +403,38 @@ subroutine turek_wan(time)
         mask_color(:,iy,iz) = 1
         us(:,iy,iz,2) = uu
       endif
+    enddo
+  enddo
+
+end subroutine
+
+
+
+subroutine Draw_floor_yz()
+  use vars
+  use penalization ! mask array etc
+  implicit none
+
+  integer :: iy, iz, ix
+  real (kind=pr) :: y, z, x
+
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        x = dble(ix)*dx
+        y = dble(iy)*dy
+        z = dble(iz)*dz
+
+        if (x <= thick_wall) then
+          mask(ix,iy,iz) = 1.d0
+          mask_color(ix,iy,iz) = 1
+        endif
+      enddo
     enddo
   enddo
 

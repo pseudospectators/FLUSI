@@ -12,14 +12,14 @@ subroutine convert_abs_vorticity(help)
   use basic_operators
   implicit none
   logical, intent(in) :: help
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, order
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, fname_vor, order
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p --vor-abs ux_00000.h5 uy_00000.h5 uz_00000.h5 [--second-order]"
+    write(*,*) "./flusi -p --vor-abs ux_00000.h5 uy_00000.h5 uz_00000.h5 vorabs_0000.h5 [--second-order]"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) " load the velocity components from file and compute & save the vorticity"
     write(*,*) " directly compute the absolute value of vorticity, do not save components"
@@ -32,7 +32,8 @@ subroutine convert_abs_vorticity(help)
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
   call get_command_argument(5,fname_uz)
-  call get_command_argument(6,order)
+  call get_command_argument(6,fname_vor)
+  call get_command_argument(7,order)
 
   call check_file_exists(fname_ux)
   call check_file_exists(fname_uy)
@@ -43,6 +44,7 @@ subroutine convert_abs_vorticity(help)
     write(*,*) "ux="//trim(adjustl(fname_ux))
     write(*,*) "uy="//trim(adjustl(fname_uy))
     write(*,*) "uz="//trim(adjustl(fname_uz))
+    write(*,*) "output="//trim(adjustl(fname_vor))
     write(*,*) "order flag is: "//trim(adjustl(order))
   endif
 
@@ -78,17 +80,15 @@ subroutine convert_abs_vorticity(help)
   call ifft (u(:,:,:,2),uk(:,:,:,2))
   call ifft (u(:,:,:,3),uk(:,:,:,3))
 
-  ! now u contains the mag(vorticity) in physical space
-  fname_ux='vorabs'//fname_ux(index(fname_ux,'_'):index(fname_ux,'.')-1)
 
   if (mpirank == 0) then
-    write (*,'("Writing mag(vor) to file: ",A)') trim(fname_ux)
+    write (*,'("Writing mag(vor) to file: ",A)') trim(fname_vor)
   endif
 
   ! compute absolute vorticity:
   u(:,:,:,1) = dsqrt(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
 
-  call save_field_hdf5 ( time,fname_ux,u(:,:,:,1))
+  call save_field_hdf5 ( time,fname_vor,u(:,:,:,1) )
 
   deallocate (u)
   deallocate (uk)
