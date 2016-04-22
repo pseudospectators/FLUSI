@@ -187,24 +187,26 @@ subroutine surface_interpolation_testing( time, beams, work )
   use penalization
   use insect_module
   use penalization
+  use ghosts
   implicit none
   real(kind=pr),intent (in) :: time
   type(solid),dimension(1:nbeams),intent (inout) :: beams
   real(kind=pr),intent(inout):: work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   integer :: ix,iy,iz
-  real(kind=pr) :: x,y,z
+  real(kind=pr) :: x,y,z,fexact,fsync
   type(diptera)::insectdummy
 
   !-- create mask
-!   call Draw_flexible_plate(time, beam)
   call create_mask(time,insectdummy,beams)
   !-- copy mask in extended array (the one with ghost points)
   work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask*eps
+  call synchronize_ghosts ( work )
   !-- interpolate the mask at the beam surfaces
   call get_surface_pressure_jump (time, beams(1), work, testing="mask")
 
   work=0.d0
-  !-- the array "mask" with some values (analytic)
+  !-- the array "mask" with some values (analytic function defintion)
+  ! we fill only the interior points, then we synchronize, and check if this worked
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
@@ -215,6 +217,34 @@ subroutine surface_interpolation_testing( time, beams, work )
       enddo
     enddo
   enddo
+
+  call synchronize_ghosts ( work )
+
+  if (root) write(*,*) "running ghost node synchronization unit test..."
+
+  ! we now have the ghost nodes synchronized, so why not testing if it worked?
+  do iz=ga(3),gb(3)
+    do iy=ga(2),gb(2)
+      do ix=ga(1),gb(1)
+        x = dble(per(ix,nx))*dx
+        y = dble(per(iy,ny))*dy
+        z = dble(per(iz,nz))*dz
+        fexact=sin(y)*cos(z)
+        fsync =work(ix,iy,iz)
+
+        if ( abs(fexact) > 1.0d-9 ) then
+          if ( abs((fexact-fsync)/fexact) >= 1.0d-13 ) then
+            write(*,*) "err=",abs((fexact-fsync)/fexact),ix,iy,iz
+            call abort("ghost node synchronization unit test failed")
+          endif
+        endif
+
+      enddo
+    enddo
+  enddo
+
+  if (root) write(*,*) "ghost node test done."
+
   !-- interpolate these values on the surface and compare to exact solution
   call get_surface_pressure_jump (time, beams(1), work, testing="linear")
 

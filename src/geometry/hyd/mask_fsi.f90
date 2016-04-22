@@ -56,7 +56,10 @@ subroutine create_mask_fsi (time, Insect, beams )
         if (mask_already_read .eqv. .false.) then
           ! no -> read now and skip in the future
           mask_already_read = .true.
-          if (root) write(*,*) "reading mask from file "//iMask(12:strlen)
+          if (root) then
+            write(*,*) "reading mask from file "//iMask(12:strlen)
+            write(*,*) "solid velocity field will be ", us_fixed
+          endif
           call Read_Single_File( iMask(12:strlen), mask )
           ! impose homogeneous, time-constant solid velocity. the value of us_fixed
           ! can be set in the parameter file
