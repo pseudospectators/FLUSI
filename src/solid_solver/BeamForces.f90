@@ -14,7 +14,6 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
   real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
-  real(kind=pr),dimension(:,:),allocatable::ghostsy,ghostsz
   integer :: nh,is,ih,isurf,mpicode
   t0 = MPI_wtime()
 
@@ -107,16 +106,18 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   ! Note this does not apply for gravity or imposed motion.
   !-----------------------------------------------------------------------------
   soft_startup = startup_conditioner(time,T_release,tau)
+  p_surface = p_surface * soft_startup
 
   !-----------------------------------------------------------------------------
   ! Mask inactive points
+  ! Our basic plate is rectangular, with ns x nh points. Non-rectangular shapes
+  ! are masked.
   !-----------------------------------------------------------------------------
-  p_surface(:,:,1)=p_surface(:,:,1)*active_points
-  p_surface(:,:,2)=p_surface(:,:,2)*active_points
+  p_surface(:,:,1) = p_surface(:,:,1)*active_points
+  p_surface(:,:,2) = p_surface(:,:,2)*active_points
 
   !-----------------------------------------------------------------------------
-  ! Average the pressure in the spanwise direction and multiply with startup
-  ! conditioner.
+  ! Integrate the pressure over the spanwise direction
   !-----------------------------------------------------------------------------
   if (.not.(present(testing))) then
     do is=0,ns-1
@@ -124,31 +125,24 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
         if (timelevel=="old") then
           !-- store result of interpolation at OLD timelevel
           beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2))
-          beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
         elseif (timelevel=="new") then
           !-- store result of interpolation at NEW timelevel
           beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2))
-          beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
         endif
       else
         ! write into both
         beam%pressure_old(is) = sum(p_surface(is,:,1)-p_surface(is,:,2))
         beam%pressure_new(is) = sum(p_surface(is,:,1)-p_surface(is,:,2))
-
-        beam%pressure_old(is) = beam%pressure_old(is)*soft_startup
-        beam%pressure_new(is) = beam%pressure_new(is)*soft_startup
       endif
 
       ! integrate. note: in earlier versions, we used the average here. this
       ! is fine for rectangular plates, as the width L then drops out of th eqn
       ! which is why we had the same mue and eta for different plates. now
       ! for complicated shapes, we integrate properly; this is much cleaner.
-      ! beam%pressure_old(is) = beam%pressure_old(is) / sum(active_points(is,:))
-      ! beam%pressure_new(is) = beam%pressure_new(is) / sum(active_points(is,:))
-
       beam%pressure_old(is) = beam%L_rigid(is)*beam%pressure_old(is) / sum(active_points(is,:))
       beam%pressure_new(is) = beam%L_rigid(is)*beam%pressure_new(is) / sum(active_points(is,:))
 
+      ! don't divide by 0
       if (sum(active_points(is,:))<1.0d-10) then
         beam%pressure_old(is) = 0.d0
         beam%pressure_new(is) = 0.d0
@@ -156,15 +150,6 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
 
     enddo
   endif
-
-  if (time <= T_release) then
-    beam%pressure_new = 0.d0
-    beam%pressure_old = 0.d0
-  endif
-
-!   deallocate(surfaces)
-!   deallocate(p_surface)
-!   deallocate(p_surface_local)
 
   time_surf = time_surf + MPI_wtime() - t0
 end subroutine get_surface_pressure_jump

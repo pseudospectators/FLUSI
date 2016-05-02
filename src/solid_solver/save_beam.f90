@@ -12,7 +12,7 @@ subroutine SaveBeamData( time, beams )
 
   ! set up formats
   write(ns1_string, '(I3)') ns+1
-  format_ns1 = '('//ns1_string//'(es12.5,1x))'
+  format_ns1 = '('//ns1_string//'(es15.8,1x))'
 
   !-- loop over beams
   do i=1, nBeams

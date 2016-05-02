@@ -523,7 +523,6 @@ if (mpirank/=0) return
       "rot_r_x","rot_r_y","rot_r_z",&
       "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
       "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
-
       close (14)
       ! If this is not an insect
     else
@@ -544,13 +543,12 @@ if (mpirank/=0) return
     close (14)
 
     open  (14,file='energy.t',status='replace')
-    write (14,'(18(A15,1x))') "%          time",&
+    write (14,'(21(A15,1x))') "%          time",&
     "E_kin_f","E_kin_x_f","E_kin_y_f","E_kin_z_f",&
     "diss_f","diss_x_f","diss_y_f","diss_z_f",&
     "E_kin_tot","E_kin_tot_x","E_kin_tot_y","E_kin_tot_z",&
     "diss_tot","diss_tot_x","diss_tot_y","diss_tot_z",&
-    "flux_penal"
-
+    "Power-penal","Power-penalx","Power-penaly","Power-penalz"
     close (14)
 
     ! this file contains, time, iteration#, time step and performance

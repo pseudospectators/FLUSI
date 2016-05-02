@@ -4,7 +4,7 @@ subroutine init_beams ( beams )
   ! straight lines, possible oriented with different angles, at rest.
   !---------------------------------------------------
   implicit none
-  integer :: n, i
+  integer :: n, i, a
   type(solid), dimension (1:nBeams), intent (out) :: beams
   real (kind=pr) :: alpha, alpha_t, alpha_tt
   ! LeadingEdge: x, y, vx, vy, ax, ay (Array)
@@ -25,34 +25,49 @@ subroutine init_beams ( beams )
   ! allocate beam storage for each beam
   !-------------------------------------------
   do i = 1, nBeams
-!     allocate ( beams(i)%x(0:ns-1) )
-!     allocate ( beams(i)%y(0:ns-1) )
-!     allocate ( beams(i)%vx(0:ns-1) )
-!     allocate ( beams(i)%vy(0:ns-1) )
-!     allocate ( beams(i)%ax(0:ns-1) )
-!     allocate ( beams(i)%ay(0:ns-1) )
-!     allocate ( beams(i)%theta(0:ns-1) )
-!     allocate ( beams(i)%theta_dot(0:ns-1) )
-!     allocate ( beams(i)%pressure_old(0:ns-1) )
-!     allocate ( beams(i)%pressure_new(0:ns-1) )
-!     allocate ( beams(i)%tau_old(0:ns-1) )
-!     allocate ( beams(i)%tau_new(0:ns-1) )
-!     allocate ( beams(i)%beam_oldold(0:ns-1,1:6) )
-
     !------------------------------------------------
     !-- overwrite beam files if not retaking a backup
     !------------------------------------------------
     if ((index(inicond,'backup::') == 0).and.(root)) then
       write (beamstr,'(i1)') i
-      call init_empty_file('beam_data'//beamstr//'.t')
-      call init_empty_file('mouvement'//beamstr//'.t')
-      call init_empty_file('IBES_iter.t')
-      call init_empty_file('beam_x'//beamstr//'.t')
-      call init_empty_file('beam_y'//beamstr//'.t')
-      call init_empty_file('beam_vx'//beamstr//'.t')
-      call init_empty_file('beam_vy'//beamstr//'.t')
-      call init_empty_file('beam_theta'//beamstr//'.t')
-      call init_empty_file('beam_p'//beamstr//'.t')
+
+      open  (14,file='IBES_iter.t',status='replace')
+      write (14,'(21(A15,1x))') "%          time","iterations"
+      close (14)
+
+      open  (14,file='beam_data'//beamstr//'.t',status='replace')
+      write (14,'(21(A15,1x))') "%          time","press(ns-1)","press(3ns/4)","press(ns/2)",&
+      "x(ns-1)","y(ns-1)","vx(ns-1)","vy(ns-1)","theta(ns-1)","theta_dot(ns-1)",&
+      "Force(1)","Force(2)","Force_unst(1)","Force_unst(2)","Force_press(1)","Force_press(2)",&
+      "Inert_Force(1)","Inert_Force(2)","E_kinetic","E_elastic","E_pot"
+      close (14)
+
+      open  (14,file='mouvement'//beamstr//'.t',status='replace')
+      write (14,'(10(A15,1x))') "%          time","alpha","alpha_t","alpha_tt","leadingedge_x","leadingedge_y",&
+      "leadingedge_vx","leadingedge_vy","leadingedge_ax","leadingedge_ay"
+      close (14)
+
+      open (15,file='beam_x'//beamstr//'.t',status='replace')
+      open (16,file='beam_y'//beamstr//'.t',status='replace')
+      open (17,file='beam_vx'//beamstr//'.t',status='replace')
+      open (18,file='beam_vy'//beamstr//'.t',status='replace')
+      open (19,file='beam_theta'//beamstr//'.t',status='replace')
+      open (20,file='beam_p'//beamstr//'.t',status='replace')
+
+      do n = 15,20
+        write(n,'(A15,1x)',advance='no') "%          time"
+        do a = 0,ns-1
+          write(n,'("     value(",i3,")",1x)',advance='no') a
+        enddo
+        close(n)
+      enddo
+
+      ! call init_empty_file('beam_x'//beamstr//'.t')
+      ! call init_empty_file('beam_y'//beamstr//'.t')
+      ! call init_empty_file('beam_vx'//beamstr//'.t')
+      ! call init_empty_file('beam_vy'//beamstr//'.t')
+      ! call init_empty_file('beam_theta'//beamstr//'.t')
+      ! call init_empty_file('beam_p'//beamstr//'.t')
     endif
 
     !---------------------------------------------

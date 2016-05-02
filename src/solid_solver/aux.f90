@@ -421,39 +421,69 @@ subroutine read_solid_backup( beams, filename )
   implicit none
 
   type(solid), dimension(1:nBeams), intent(inout) :: beams
-  integer :: ns_file, nBeams_file, i
+  integer :: ns_file, nBeams_file, i, mpicode
   character(len=*), intent(in) :: filename
   real(kind=pr) :: time
 
-  !-- all ranks read from file
-  if (root) write(*,'(A)',advance='no') "Reading in backup of solid solver: "//filename
+  ! only root shall read in the file, the results is then send to the other
+  if (root) then
+    write(*,'(A)') "Reading in backup of solid solver: "//filename
 
-  open(14,file=filename,status='old',form='formatted',action='read')
-  read(14,*) time
-  read(14,*) ns_file, nBeams_file
+    open(14,file=filename,status='old',form='formatted',action='read')
+    read(14,*) time
+    read(14,*) ns_file, nBeams_file
 
-  if (root) write(*,'("(time=",e11.4,")")',advance='no') time
+    write(*,'("(time=",e11.4,")")') time
 
-  if ((ns_file/=ns).or.(nBeams_file/=nBeams)) then
-    write(*,*) "Cant retake solid backup: resolution ns or beam number doesnt match"
-    call abort()
+    if ((ns_file/=ns).or.(nBeams_file/=nBeams)) then
+      call abort("Cant resume solid backup: resolution ns or beam number doesnt match")
+    endif
+
+    do i =1, nBeams
+      read(14,*) beams(i)%x, beams(i)%y, beams(i)%vx, beams(i)%vy
+      read(14,*) beams(i)%theta, beams(i)%theta_dot, beams(i)%ax, beams(i)%ay
+      read(14,*) beams(i)%pressure_old, beams(i)%pressure_new
+      read(14,*) beams(i)%tau_old, beams(i)%tau_new
+      read(14,*) beams(i)%Force, beams(i)%Force_unst, beams(i)%Force_press
+      read(14,*) beams(i)%Inertial_Force, beams(i)%x0, beams(i)%y0, beams(i)%AngleBeam
+      read(14,*) beams(i)%phase, beams(i)%dt_old, beams(i)%drag_unst_new
+      read(14,*) beams(i)%drag_unst_old, beams(i)%lift_unst_new, beams(i)%lift_unst_old
+      read(14,*) beams(i)%StartupStep, beams(i)%UnsteadyCorrectionsReady
+    enddo
+    close(14)
+
+    write(*,'(A)') "...done reading solid backup."
   endif
 
   do i =1, nBeams
-    read(14,*) beams(i)%x, beams(i)%y, beams(i)%vx, beams(i)%vy
-    read(14,*) beams(i)%theta, beams(i)%theta_dot, beams(i)%ax, beams(i)%ay
-    read(14,*) beams(i)%pressure_old, beams(i)%pressure_new
-    read(14,*) beams(i)%tau_old, beams(i)%tau_new
-    read(14,*) beams(i)%Force, beams(i)%Force_unst, beams(i)%Force_press
-    read(14,*) beams(i)%Inertial_Force, beams(i)%x0, beams(i)%y0, beams(i)%AngleBeam
-    read(14,*) beams(i)%phase, beams(i)%dt_old, beams(i)%drag_unst_new
-    read(14,*) beams(i)%drag_unst_old, beams(i)%lift_unst_new, beams(i)%lift_unst_old
-    read(14,*) beams(i)%StartupStep, beams(i)%UnsteadyCorrectionsReady
+    call MPI_Bcast( beams(i)%x, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%y, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%vx, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%vy, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%theta, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%theta_dot, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%ax, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%ay, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%pressure_old, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%pressure_new, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%tau_old, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%tau_new, nsmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%Force, 2, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%Force_unst, 2, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%Force_press, 2, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%Inertial_Force, 2, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%x0, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%y0, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%AngleBeam, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%phase, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%dt_old, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%drag_unst_new, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%drag_unst_old, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%lift_unst_new, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%lift_unst_old, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%StartupStep, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( beams(i)%UnsteadyCorrectionsReady, 1, MPI_LOGICAL, 0, MPI_COMM_WORLD, mpicode )
   enddo
-
-  close(14)
-
-  if (root) write(*,'(A)',advance='yes') "...DONE!"
 end subroutine read_solid_backup
 
 

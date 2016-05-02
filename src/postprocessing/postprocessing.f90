@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--extend-domain")
+    call extend_domain(help)
   case ("--force-decomp")
     call force_decomposition(help)
   case ("--stl2dist")
@@ -136,6 +138,7 @@ subroutine postprocessing()
       write(*,*) "--stl2dist"
       write(*,*) "--dist2mask   --dist2chi"
       write(*,*) "--smooth-inverse-mask"
+      write(*,*) "--extend-domain"
       write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))
       write(*,*) "But I don't know what to do with that"
     endif
