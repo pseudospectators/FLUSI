@@ -8,7 +8,7 @@ echo "***************************************************"
 #tar xzf tests_data.tar.gz
 
 # list all the test scrits you want, separated by spaces
-tests=(solid_model.sh solid_model2.sh solid_model3.sh solid_model4.sh jerry.sh
+tests=(solid_model.sh solid_model2.sh solid_model3.sh solid_model4.sh jerry.sh striding.sh
        fruitfly_mask.sh fruitfly_mask_kineloader.sh bumblebee_mask.sh scalar.sh
        vortexring1_AB2.sh
        vortexring2_RK2.sh vortexring4_sponge.sh

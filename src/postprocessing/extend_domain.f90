@@ -54,6 +54,10 @@ subroutine extend_domain(help)
   write(*,'("Source field size= ",3(i4,1x))') nx_org, ny_org, nz_org
   write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
+  if ((nx_new<nx_org).or.(ny_new<ny_org).or.(nz_new<nz_org)) then
+    call abort("new resolution may not be smaller than old resolution")
+  endif
+
   write(*,*) "Initializing SMALL field..."
   nx = nx_org
   ny = ny_org

@@ -63,7 +63,9 @@ end subroutine save_slices
 ! Thus: If the cache is half full and flush_slices
 ! is called, then we only save half of the cache (no redundancy)
 subroutine flush_slices
+  use hdf5_wrapper
   implicit none
+
   integer :: idir, slice_slot, i
   character(len=strlen)::fname, dsetname
   real(kind=pr), allocatable :: tmp(:,:,:)
@@ -84,7 +86,8 @@ subroutine flush_slices
             write(fname, '(A14,"_",i6.6,".h5")') dsetname, iflush
 
             tmp = slice_cache(0:icache-1,:,:,idir,slice_slot)
-            call save_field_hdf5_xvar(9.9d9,fname,tmp,icache)
+            call write_field_hdf5( trim(adjustl(fname)), trim(adjustl(dsetname)),(/0,ra(2),ra(3)/),(/icache-1,rb(2),rb(3)/),tmp  )
+            call write_attribute( trim(adjustl(fname)), trim(adjustl(dsetname)), "nxyz",(/icache,ny,nz/))
           enddo
         endif
       enddo
@@ -118,7 +121,7 @@ end subroutine flush_slices
 ! initialize the slicing module.
 subroutine slice_init(time)
   implicit none
-  real(kind=pr),intent(inout)::time  
+  real(kind=pr),intent(inout)::time
   integer :: i
 
   if (mpirank==0) write(*,'(A)',advance='no') "Initializing slicing module.."

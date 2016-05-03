@@ -222,7 +222,7 @@ module vars
 !*****************************************************************************
 !*****************************************************************************
   interface abort
-    module procedure abort1, abort2
+    module procedure abort1, abort2, abort4, abort3
   end interface
 
   interface in_domain
@@ -361,6 +361,28 @@ module vars
     if (mpirank==0) write(*,*) msg
     call MPI_abort(MPI_COMM_WORLD,666,mpicode)
   end subroutine abort2
+  !---------------------------------------------------------------------------
+  subroutine abort3(code)
+    use mpi
+    implicit none
+    integer, intent(in) :: code
+    integer :: mpicode
+
+    if (mpirank==0) write(*,*) "Killing run..."
+    call MPI_abort(MPI_COMM_WORLD,code,mpicode)
+  end subroutine abort3
+  !---------------------------------------------------------------------------
+  subroutine abort4(code,msg)
+    use mpi
+    implicit none
+    integer :: mpicode
+    integer, intent(in) :: code
+    character(len=*), intent(in) :: msg
+
+    if (mpirank==0) write(*,*) "Killing run..."
+    if (mpirank==0) write(*,*) msg
+    call MPI_abort(MPI_COMM_WORLD,code,mpicode)
+  end subroutine abort4
 
   !---------------------------------------------------------------------------
   ! wrapper for NaN checking (this may be compiler dependent)
