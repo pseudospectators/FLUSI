@@ -208,8 +208,11 @@ subroutine are_we_there_yet(time,wtime_tstart,dt1)
   real(kind=pr):: time_left, t2
 
   if(mpirank==0) then
+    ! compute the time elapsed since the time stepping started
     t2 = MPI_wtime() - wtime_tstart
+    ! compute (estimated) remaining time
     time_left = (tmax-time) * (t2/(time-tstart))
+    ! print information
     write(*,'("time left: ",i2,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",g10.2)') &
     floor(time_left/(24.d0*3600.d0))   ,&
     floor(mod(time_left,24.d0*3600.d0)/3600.d0),&

@@ -29,20 +29,26 @@ contains
       irc = 0
       ntri = 0
 
-      open(unit=iunit,file=filename,status='old',form='unformatted', &
-      & access='direct',recl=80)
+#ifdef TURING
+      ! TURING's IBM XL compiler by default reads binary data in BIG ENDIAN exclusively
+      ! while it is supposedly possible to modify this behavior with environment variables
+      ! I did not suceed in doing so. the following command ensures reading from unit 13
+      ! in little endian.
+      ! see also:
+      ! http://www.ibm.com/support/knowledgecenter/SS2MB5_14.1.0/com.ibm.xlf141.bg.doc/language_ref/sup-setrteopts.html%23sup-setrteopts
+      ! http://www-01.ibm.com/support/docview.wss?uid=swg21243120
+      call setrteopts("ufmt_littleendian=13")
+#endif
 
+      open(unit=iunit,file=filename,status='old',form='unformatted',access='direct',recl=80)
       read(iunit,rec=1)title
       close(iunit,status='keep')
 
-      open(unit=iunit,file=filename,status='old',form='unformatted', &
-      & access='direct',recl=4)
-
+      open(unit=iunit,file=filename,status='old',form='unformatted',access='direct',recl=4)
       read(iunit,rec=21)ntri
       close(iunit,status='keep')
 
-      open(unit=iunit,file=filename,status='old',form='unformatted', &
-      & access='direct',recl=2)
+      open(unit=iunit,file=filename,status='old',form='unformatted',access='direct',recl=2)
       irc=(80+4)/2+1
 
       allocate(normals(3,ntri))
