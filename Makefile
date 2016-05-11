@@ -7,8 +7,8 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
 	runtime_control.f90 drag.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
-        rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
-        noncircular_cylinder.f90 draw_flexible_plate.f90 \
+  rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
+  noncircular_cylinder.f90 draw_flexible_plate.f90 \
 	bin2hdf.f90 compare_key.f90 compare_timeseries.f90 convert_abs_vorticity.f90 \
 	convert_velocity.f90 convert_vorticity.f90 copy_hdf_file.f90 energy_post.f90 \
 	extract_subset.f90 field_analysis.f90 hdf2bin.f90 keyvalues.f90 \
@@ -128,7 +128,7 @@ $(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/turbulent_inlet.o: turbulent_inlet.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/basic_operators.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/slicing.o: slicing.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/slicing.o: slicing.f90 $(OBJDIR)/vars.o $(OBJDIR)/hdf5_wrapper.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
@@ -138,7 +138,7 @@ $(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/stlreader.o: stlreader.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/hdf_wrapper.o: hdf_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/helpers.o
+$(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
