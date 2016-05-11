@@ -114,7 +114,7 @@ subroutine read_field_hdf5 ( filename, dsetname, rared, rbred, field )
   ! which is about 16MB)
   do i = 1, 3
     call MPI_ALLREDUCE ( dims_local(i),chunk_dims(i),1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpicode)
-    chunk_dims(i) = min(chunk_dims(i), 128)
+    chunk_dims(i) = min(chunk_dims(i), int(128,kind=hsize_t) )
   enddo
 
   !----------------------------------------------------------------------------
@@ -267,7 +267,7 @@ subroutine write_field_hdf5( filename, dsetname, rared, rbred, field, overwrite)
   ! which is about 16MB)
   do i = 1, 3
     call MPI_ALLREDUCE ( dims_local(i),chunk_dims(i),1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpicode)
-    chunk_dims(i) = min(chunk_dims(i), 128)
+    chunk_dims(i) = min(chunk_dims(i), int(128,kind=hsize_t) )
   enddo
 
 
