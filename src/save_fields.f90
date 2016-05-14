@@ -353,7 +353,9 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   ! Create current filename:
   write(filename,'("runtime_backup",i1,".h5")') nbackup
 
-  call init_empty_file(filename)
+  if (root) then
+    call init_empty_file(filename)
+  endif
 
   ! Write the fluid backup field:
   call ifft(work,ub(:,:,:,1))
