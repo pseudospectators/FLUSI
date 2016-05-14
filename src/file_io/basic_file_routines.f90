@@ -11,7 +11,7 @@ subroutine check_file_exists(fname)
   inquire ( file=fname, exist=exist1 )
   if ( exist1 .eqv. .false.) then
     if (root) write (*,'("ERROR! file: ",A," not found")') trim(adjustl(fname))
-    call abort("file not found")
+    call abort(223,"file not found")
   endif
 
 end subroutine check_file_exists
@@ -24,6 +24,9 @@ subroutine init_empty_file( fname )
   implicit none
   character (len=*), intent(in) :: fname
 
-  open (15, file=fname, status='replace')
-  close(15)
+  if (root) then
+    open (15, file=fname, status='replace')
+    close(15)
+  endif
+  
 end subroutine
