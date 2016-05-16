@@ -87,7 +87,8 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
 
 
   if (mpirank == 0 ) then
-    write(*,'("Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A," ...")',advance='no') &
+    write(*,'(80("~"))')
+    write(*,'("Saving data, time= ",g12.4,1x," flags= ",5(i1)," name=",A," ...")') &
     time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
   endif
 
@@ -220,7 +221,10 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
     endif
   endif
 
-  if (mpirank==0) write(*,*) " ...DONE!"
+  if (root) then
+    write(*,*) " ...done saving!"
+    write(*,'(80("~"))')
+  endif
 end subroutine save_fields_fsi
 
 
@@ -496,7 +500,7 @@ subroutine Read_Single_File ( filename, field )
   integer, dimension(1:3) :: nxyz
   real(kind=pr), dimension(1:3) :: domain
   real(kind=pr), dimension(1) :: ttime, viscosity_dummy
-  real(kind=pr) :: fmax,fmin,favg,t1
+  real(kind=pr) :: fmax,fmin,favg,t1,mbyte,t2
 
   t1 = MPI_wtime()
 
@@ -536,11 +540,14 @@ subroutine Read_Single_File ( filename, field )
   ! check if field contains NaN
   call checknan(field,"recently loaded field")
 
-  fmax=fieldmax(field)
-  fmin=fieldmin(field)
-  favg=fieldmean(field)
+  fmax = fieldmax(field)
+  fmin = fieldmin(field)
+  favg = fieldmean(field)
+  mbyte = dble(nx)*dble(ny)*dble(nz)*4.d0/1.0d+6
+  t2 = MPI_wtime() - t1
 
   if (mpirank==0) then
+    write (*,'("read ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') mbyte,t2,mbyte/t2
     write (*,'("max=",g12.4," min=",g12.4," mean=",g12.4)') fmax,fmin,favg
     write (*,'("Done reading file, Elapsed time=",g12.4,"s")') MPI_wtime() - t1
     write(*,'(40("~"))')
@@ -775,8 +782,9 @@ subroutine save_field_hdf5(time,filename,field_out)
   character(len=*), intent (in) :: filename
   character(len=strlen) :: fname,fname2
   integer, dimension(1:3) :: tmp
-  real(kind=pr), dimension(1:3) :: x
+  real(kind=pr) :: t1, mbyte
 
+  t1 = MPI_wtime()
   ! check if the file name contains the suffix *.h5
   ! if not, add it
   if (index(filename,'.h5')==0 ) then
@@ -784,6 +792,12 @@ subroutine save_field_hdf5(time,filename,field_out)
     fname = trim(adjustl(filename))//'.h5'
   else
     fname = trim(adjustl(filename))
+  endif
+
+  ! header
+  if (root) then
+    write(*,'("Writing to ",A," dset=",A," stride=",i1," ...")',advance='no') &
+    trim(adjustl(fname)), trim(adjustl(get_dsetname(fname))), striding
   endif
 
   if (striding<1) call abort("Striding value is bad, exit!")
@@ -803,6 +817,11 @@ subroutine save_field_hdf5(time,filename,field_out)
     call save_field_hdf5_strided(time,fname,field_out)
   endif
 
+  ! footer
+  t1 = MPI_wtime() - t1
+  mbyte = dble(nx)*dble(ny)*dble(nz)*4.d0/1.0d+6
+  if (root) write(*,'(".. wrote ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') &
+  mbyte, t1, mbyte/t1
 end subroutine save_field_hdf5
 
 

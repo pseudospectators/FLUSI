@@ -116,14 +116,14 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     !---------------------------------------------------------------------------
     ! Output how much time remains
     !---------------------------------------------------------------------------
-    if ((modulo(it,50)==0).or.(it==20)) then
+    if ((modulo(it,10)==0).or.(it==20)) then
       call are_we_there_yet(time,t1,dt1)
     endif
 
     !-------------------------------------------------
     ! escape from loop if walltime is about to be exceeded
     !-------------------------------------------------
-    if(wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+    if (wtimemax < (MPI_wtime()-time_total)/3600.d0) then
       if (root) write(*,*) "Out of walltime!"
       continue_timestepping=.false.
     endif

@@ -8,7 +8,7 @@ module hdf5_wrapper
   ! maximum size of data chunks. HDF always writes chunks of data to the disk,
   ! these are different from the domain decomposition and important for i/o performance
   ! we limit their dimensions to max_chunk**3
-  integer(kind=hsize_t), parameter :: max_chunk = 4096
+  integer(kind=hsize_t) :: max_chunk = 4096
 
   ! interface for writing attributes. an attribute is an object which is attached
   ! to a dataset, in our case a array saved in the file. we put useful information
