@@ -3,6 +3,12 @@ module hdf5_wrapper
   use mpi
   use vars, only : pr, root, field_precision, mpirank
   use hdf5
+  implicit none
+
+  ! maximum size of data chunks. HDF always writes chunks of data to the disk,
+  ! these are different from the domain decomposition and important for i/o performance
+  ! we limit their dimensions to max_chunk**3
+  integer(kind=hsize_t), parameter :: max_chunk = 4096
 
   ! interface for writing attributes. an attribute is an object which is attached
   ! to a dataset, in our case a array saved in the file. we put useful information
@@ -114,7 +120,7 @@ subroutine read_field_hdf5 ( filename, dsetname, rared, rbred, field )
   ! which is about 16MB)
   do i = 1, 3
     call MPI_ALLREDUCE ( dims_local(i),chunk_dims(i),1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpicode)
-    chunk_dims(i) = min(chunk_dims(i), int(128,kind=hsize_t) )
+    chunk_dims(i) = min(chunk_dims(i), max_chunk )
   enddo
 
   !----------------------------------------------------------------------------
@@ -267,7 +273,7 @@ subroutine write_field_hdf5( filename, dsetname, rared, rbred, field, overwrite)
   ! which is about 16MB)
   do i = 1, 3
     call MPI_ALLREDUCE ( dims_local(i),chunk_dims(i),1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpicode)
-    chunk_dims(i) = min(chunk_dims(i), int(128,kind=hsize_t) )
+    chunk_dims(i) = min(chunk_dims(i), max_chunk )
   enddo
 
 
