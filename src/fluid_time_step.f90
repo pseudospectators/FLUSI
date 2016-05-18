@@ -121,15 +121,8 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     endif
   endif
 
-  if(method=="fsi") then
-    ! write kinetic energy to disk
-    call output_kinetic_energy(time+dt1, uk)
-    ! check if we did something stupid and failed
-    call checknan(uk(:,:,:,1),'ukx (current time step)')
-    call checknan(uk(:,:,:,2),'uky (current time step)')
-  endif
-
-
+  ! write kinetic energy to disk
+  if(method=="fsi") call output_kinetic_energy(time+dt1, uk)
 
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
