@@ -462,6 +462,42 @@ subroutine compute_energies(u,E,Ex,Ey,Ez)
 end subroutine compute_energies
 
 
+!-------------------------------------------------------------------------------
+! Compute the integral total energy for a input field given in Fourier space
+!-------------------------------------------------------------------------------
+subroutine compute_energies_k(uk,E)
+    use vars
+    use helpers
+    implicit none
+    complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+    integer :: ix,iy,iz
+    real(kind=pr) :: E,e1
+
+    ! compute total kinetic energy (including the solid domain) in Fourier space
+    ! using Parseval's identity
+    e1 = 0.d0
+    do iz=ca(1),cb(1)
+      do iy=ca(2),cb(2)
+        do ix=ca(3),cb(3)
+          if ( ix==0 .or. ix==nx/2 ) then
+            ! note zero mode and highest wavenumber is special
+            e1=e1+dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
+                 +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
+                 +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+          else
+            e1=e1+dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
+                 +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
+                 +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+          endif
+        enddo
+      enddo
+    enddo
+
+    ! note the scaling factor for parsevals identity
+    E = mpisum(e1)*xl*yl*zl
+end subroutine compute_energies_k
+
+
 ! Compute the average average component in each direction for a
 ! physical-space vector fields with components f1, f2, f3, leaving the
 ! input vector field untouched.

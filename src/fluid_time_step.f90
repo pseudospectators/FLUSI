@@ -1057,31 +1057,11 @@ subroutine output_kinetic_energy(time, uk)
   implicit none
   real(kind=pr), intent(in) :: time
   complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  integer :: ix,iy,iz
-  real(kind=pr) :: E, e1
+  real(kind=pr) :: E
 
   ! compute total kinetic energy (including the solid domain) in Fourier space
   ! using Parseval's identity
-  e1 = 0.d0
-  do iz=ca(1),cb(1)
-    do iy=ca(2),cb(2)
-      do ix=ca(3),cb(3)
-        if ( ix==0 .or. ix==nx/2 ) then
-          ! note zero mode and highest wavenumber is special
-          e1=e1+dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
-          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
-          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
-        else
-          e1=e1+dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
-          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
-          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
-        endif
-      enddo
-    enddo
-  enddo
-
-  ! note the scaling factor for parsevals identity
-  E = mpisum(e1)*xl*yl*zl
+  call compute_energies_k(uk,E)
 
   if (root) then
     open(14,file='ekin.t',status='unknown',position='append')
