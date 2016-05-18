@@ -13,10 +13,8 @@ module insect_module
   ! this will hold the surface markers and their normals used for particles:
   real(kind=pr), allocatable, dimension(:,:) :: particle_points
   ! variables to decide whether to draw the body or not.
-  logical :: body_already_drawn = .false.
-  character(len=strlen) :: body_moves="yes"
-  ! do we use periodicity?
-  logical, parameter :: periodic = .true.
+  logical, save :: body_already_drawn = .false.
+  character(len=strlen), save :: body_moves="yes"
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
   ! elements in derived datatypes) this is their length:
   integer, parameter :: nfft_max = 1024
@@ -138,7 +136,6 @@ contains
   !---------------------------------------
   ! note these include files also have to be specified as dependencies in the
   ! Makefile for make to check if one of them changed
-  include "periodization.f90"
   include "body_geometry.f90"
   include "body_motion.f90"
   include "rigid_solid_time_stepper.f90"

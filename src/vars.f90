@@ -122,6 +122,7 @@ module vars
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
   real(kind=pr),save :: pseudoeps, pseudodt, pseudoerrmin, pseudoerrmax
+  logical, save :: periodic = .false.
 
   ! turbulent inlet:
   character(len=strlen),save :: use_turbulent_inlet
@@ -509,6 +510,29 @@ module vars
       endif
     endif
   end function
+
+  !-----------------------------------------------------------------------------
+  ! given a point x, check if it lies in the computational domain centered at zero
+  ! (note: we assume [-xl/2...+xl/2] size this is useful for insects )
+  !-----------------------------------------------------------------------------
+  function periodize_coordinate(x_glob)
+    real(kind=pr),intent(in) :: x_glob(1:3)
+    real(kind=pr),dimension(1:3) :: periodize_coordinate
+
+    periodize_coordinate = x_glob
+
+    if (periodic) then
+      if (x_glob(1)<-xl/2.0) periodize_coordinate(1)=x_glob(1)+xl
+      if (x_glob(2)<-yl/2.0) periodize_coordinate(2)=x_glob(2)+yl
+      if (x_glob(3)<-zl/2.0) periodize_coordinate(3)=x_glob(3)+zl
+
+      if (x_glob(1)>xl/2.0) periodize_coordinate(1)=x_glob(1)-xl
+      if (x_glob(2)>yl/2.0) periodize_coordinate(2)=x_glob(2)-yl
+      if (x_glob(3)>zl/2.0) periodize_coordinate(3)=x_glob(3)-zl
+    endif
+
+  end function
+
 
 !!!!!!!!!!!!!!!
 end module vars

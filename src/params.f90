@@ -52,6 +52,7 @@ subroutine get_params_common(PARAMS)
   use ini_files_parser_mpi
   use vars
   implicit none
+  character(len=strlen) :: dummystr
 
   ! Contains the ascii-params file
   type(inifile), intent(inout) :: PARAMS
@@ -124,6 +125,10 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"Penalization","pseudodt",pseudodt, 1.d-2)
   call read_param_mpi(PARAMS,"Penalization","pseuderrmin",pseudoerrmin,3d-4)
   call read_param_mpi(PARAMS,"Penalization","pseuderrmax",pseudoerrmax,5d-4)
+  call read_param_mpi(PARAMS,"Penalization","periodic",dummystr,"no")
+  if (dummystr=="yes") then
+    periodic=.true.
+  endif
 
   ! turbulent inlet
   call read_param_mpi(PARAMS,"TurbulentInlet","use_turbulent_inlet",use_turbulent_inlet, "no")
@@ -309,7 +314,7 @@ subroutine get_params_insect( PARAMS,Insect )
   ! Contains the ascii-params file
   type(inifile), intent(inout) :: PARAMS
   real(kind=pr),dimension(1:3)::defaultvec
-  character(len=strlen) :: DoF_string
+  character(len=strlen) :: DoF_string, dummystr
 
   call read_param_mpi(PARAMS,"Insects","WingShape",Insect%WingShape,"none")
   call read_param_mpi(PARAMS,"Insects","b_top",Insect%b_top, 0.d0)
