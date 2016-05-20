@@ -35,7 +35,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
     call write_integrals_mhd(time,uk,u,vort,nlk,work(:,:,:,1))
   case default
     if (mpirank == 0) write(*,*) "Error! Unkonwn method in write_integrals"
-    call abort()
+    call abort(1)
   end select
 
   time_integrals = time_integrals + MPI_wtime()-t1

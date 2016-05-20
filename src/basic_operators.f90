@@ -436,7 +436,7 @@ subroutine checknan_real( field, msg )
   call MPI_ALLREDUCE (foundnan,foundnans,1,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
   if (foundnans>0) then
-    call abort('NaN in '//msg)
+    call abort(201,'NaN in '//msg)
   endif
 end subroutine checknan_real
 
@@ -465,7 +465,7 @@ subroutine checknan_cmplx( field, msg )
        MPI_COMM_WORLD,mpicode)
 
   if (foundnans>0) then
-    call abort('NaN in '//msg)
+    call abort(202,'NaN in '//msg)
   endif
 end subroutine checknan_cmplx
 !-------------------------------------------------------------------------------

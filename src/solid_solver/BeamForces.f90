@@ -220,7 +220,7 @@ subroutine surface_interpolation_testing( time, beams, work )
         if ( abs(fexact) > 1.0d-9 ) then
           if ( abs((fexact-fsync)/fexact) >= 1.0d-13 ) then
             write(*,*) "err=",abs((fexact-fsync)/fexact),ix,iy,iz
-            call abort("ghost node synchronization unit test failed")
+            call abort(4456,"ghost node synchronization unit test failed")
           endif
         endif
 

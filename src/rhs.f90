@@ -361,7 +361,7 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
 
   ! this is a hack - we should not call this routine with insects
   if (iMask=="Insect") then
-    call abort("do not call pressure_given_uk with iMask==insect!!!")
+    call abort(99919,"do not call pressure_given_uk with iMask==insect!!!")
   endif
 
   call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect_dummy)
@@ -522,7 +522,7 @@ subroutine add_forcing_term(time,uk,nlk)
 
   case default
     if (mpirank==0) write(*,*) "unknown forcing method.."
-    call abort()
+    call abort(99929)
   end select
 end subroutine add_forcing_term
 

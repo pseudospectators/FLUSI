@@ -13,7 +13,7 @@ subroutine Solve_linear_system ( A, b, x )
 
   nn = size(b)
 
-  if (size(b) /= size(x) ) call abort('Solve_linear_system: size(b)/=size(x)')
+  if (size(b) /= size(x) ) call abort(91,'Solve_linear_system: size(b)/=size(x)')
 
   allocate(ipiv(1:nn))
 
@@ -21,14 +21,14 @@ subroutine Solve_linear_system ( A, b, x )
   call dgetrf( nn, nn, A , nn, ipiv, error )
   if (error .ne. 0) then
     write(*,*) "!!! mmCrutial: dgetrf error.", error ,nn
-    call abort()
+    call abort(92)
   endif
 
   x = b
   call dgetrs( 'N', nn, 1, A, nn, ipiv, x, nn, error )
   if (error .ne. 0) then
     write(*,*) "!!! mmCrutial: dgetrs error.", error ,nn
-    call abort()
+    call abort(93)
   endif
 
   time_LAPACK = time_LAPACK + MPI_wtime() - t0
@@ -58,7 +58,7 @@ subroutine time_marching_coefs(dt,dt_old,C1,C2,C3,C4)
     C4 = (-R**2 )/(1.d0+2.d0*R)   ! factor before the THETA_DOT_N-1 term
   endif
 
-  if (C2.ne.0.0) call abort("to use c2/=0 you have to implement the rhs first")
+  if (C2.ne.0.0) call abort(94,"to use c2/=0 you have to implement the rhs first")
 end subroutine
 
 ! ------------------------------------------------------------------------------
@@ -96,7 +96,7 @@ subroutine Differentiate1D (f, f_derivative, N, dx, order)
       f_derivative = matmul(D4,f)
     case default
       if (root) write(*,*) "Differentiate1D wrong choice"
-      call abort()
+      call abort(95)
   end select
 
 end subroutine Differentiate1D
@@ -359,7 +359,7 @@ subroutine lapack_unit_test()
   err = maxval( x - b )
   if ( err>1.d-12 ) then
     write (*,*) "LAPACK unit test failed"
-    call abort()
+    call abort(96)
   endif
 
   if (root) write(*,'(" Done. err=",es15.8)') err
@@ -436,7 +436,7 @@ subroutine read_solid_backup( beams, filename )
     write(*,'("(time=",e11.4,")")') time
 
     if ((ns_file/=ns).or.(nBeams_file/=nBeams)) then
-      call abort("Cant resume solid backup: resolution ns or beam number doesnt match")
+      call abort(97,"Cant resume solid backup: resolution ns or beam number doesnt match")
     endif
 
     do i =1, nBeams
@@ -511,7 +511,7 @@ subroutine read_solid_backup_binary( beams, filename )
 
   if ((ns_file/=ns).or.(nBeams_file/=nBeams)) then
     write(*,*) "Cant retake solid backup: resolution ns or beam number doesnt match"
-    call abort()
+    call abort(98)
   endif
 
   do i =1, nBeams

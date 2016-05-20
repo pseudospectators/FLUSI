@@ -37,7 +37,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
     call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
     if (mpirank == 0) write(*,*) "Error! Unkonwn method in init_fields."
-    call abort()
+    call abort(1)
   end select
 
   n0 = 1-n1 !important to do this now in case we're retaking a backp
@@ -247,7 +247,7 @@ subroutine init_taylorcouette_u(ubk,ub)
   if(mpirank == 0) then
     if(r1 >= r2) then
       write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
-      call abort()
+      call abort(112)
     endif
   endif
 

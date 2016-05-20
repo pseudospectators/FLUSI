@@ -80,7 +80,7 @@ subroutine rigid_solid_rhs(time,it,Insect)
   Insect%RHS_this=0.d0
 
   if ((root).and.(Insect%BodyMotion/="free_flight")) then
-    call abort("Insect%BodyMotion"//trim(adjustl(Insect%BodyMotion))//" but using free-flight?")
+    call abort(900,"Insect%BodyMotion"//trim(adjustl(Insect%BodyMotion))//" but using free-flight?")
   endif
 
   ! copy some shortcuts (this is easier to code)

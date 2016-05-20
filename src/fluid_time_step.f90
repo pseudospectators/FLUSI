@@ -91,7 +91,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case default
     if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-    call abort()
+    call abort(10001)
   end select
 
   ! compute unsteady corrections in every time step
@@ -170,7 +170,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   ! useful error messages
   if (use_solid_model/="yes") then
     write(*,*) "using FSI_AB2_iteration without solid model?"
-    call abort()
+    call abort(10002)
   endif
 
   ! allocate extra space for velocity in Fourier space
@@ -336,7 +336,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   ! useful error messages
   if (use_solid_model/="yes") then
     write(*,*) "using FSI_AB2_staggered without solid model?"
-    call abort()
+    call abort(10003)
   endif
 
   !---------------------------------------------------------------------------
@@ -404,7 +404,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   ! useful error messages
   if (use_solid_model/="yes") then
     write(*,*) "using FSI_AB2_staggered without solid model?"
-    call abort()
+    call abort(10004)
   endif
 
   !---------------------------------------------------------------------------
@@ -473,7 +473,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
 
   if ((use_passive_scalar==1).and.(mpirank==1)) then
     write(*,*) "RK2 is not equipped for passive scalars..."
-    call abort()
+    call abort(100051)
   endif
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
@@ -558,12 +558,12 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
 
   if ((use_passive_scalar==1).and.(mpirank==0)) then
     write(*,*) "RK4 is not equipped for passive scalars..."
-    call abort()
+    call abort(10005)
   endif
 
   if ((method=="mhd").and.(mpirank==0)) then
     write(*,*) "RK4 is not equipped for MHD..."
-    call abort()
+    call abort(10006)
   endif
 
   if ((mpirank==0).and.(it==1)) then
@@ -794,12 +794,12 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   if ((Insect%BodyMotion/="free_flight").and.(root)) then
     write(*,*) "ERROR AB2_rigid_solid and flag SolidDyn%idynamics/=1"
     write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
-    call abort()
+    call abort(10007)
   endif
 
   if ((method/="fsi").and.(mpirank==0)) then
     write(*,*) "AB2_rigid_solid is an FSI method and not suitable for MHD"
-    call abort()
+    call abort(10008)
   endif
 
   !---------------------------------------------------------------------------
@@ -871,12 +871,12 @@ subroutine adjust_dt(time,u,dt1)
     if(mpirank == 0) then
       if(is_nan(umax)) then
         write(*,*) "Evolved field contains a NAN: aborting run."
-        call abort()
+        call abort(100011)
       endif
 
       if(umax>=1.0d3) then
         write(*,*) "Umax is very big, surely this is an error, ", umax
-        call abort()
+        call abort(100012)
       endif
       !-- Impose the CFL condition.
       if (umax >= 1.0d-8) then
