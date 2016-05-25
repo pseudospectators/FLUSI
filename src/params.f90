@@ -469,6 +469,9 @@ subroutine get_params_solid(PARAMS)
   if (use_solid_model=="yes") then
     !-- beam resolution
     call read_param_mpi(PARAMS,"SolidModel","ns",ns, 32)
+
+    if ((root).and.(ns>=nsmax)) call abort(707,"ns is too big for nsmax")
+
     !-- interpolation method
     call read_param_mpi(PARAMS,"SolidModel","interp",interp,"delta")
     !-- density / stiffness / gravity

@@ -12,7 +12,7 @@ module solid_model
   integer,parameter :: nBeams = 1
   integer,save :: ns, debug_pressure
   ! see "type solid" about nsmax 06 Aug 2014
-  integer,parameter :: nsmax = 200
+  integer,parameter :: nsmax = 300
   ! TODO: move these into the solid model datastructure
   real(kind=pr),save :: mue0
   real(kind=pr),save :: eta0
