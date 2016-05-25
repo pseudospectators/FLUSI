@@ -710,14 +710,20 @@ subroutine read_field_backup(filename,dsetname,field)
   implicit none
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),intent(out) :: field
   character(len=*), intent (in) :: dsetname, filename
+  real(kind=pr)::mbyte,t1
+  t1 = MPI_wtime()
 
   if (mpirank==0) then
-    write(*,'("Reading ",A," from backup file ",A)') trim(adjustl(dsetname)),trim(adjustl(filename))
+    write(*,'("Reading ",A," from backup file ",A)',advance='no') trim(adjustl(dsetname)),trim(adjustl(filename))
   endif
 
   call read_field_hdf5( filename, dsetname, ra, rb, field )
   call checknan(field,'recently read backup file!!')
 
+  mbyte = dble(nx)*dble(ny)*dble(nz)*8.d0/1.0d+6
+  t1 = MPI_wtime() -t1
+  if (root) write(*,'(".. read ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') &
+  mbyte, t1, mbyte/t1
 end subroutine read_field_backup
 
 

@@ -103,15 +103,36 @@ contains
   end subroutine hermite_eval
 
 
-function mpisum( a )
-  use mpi
-  use vars
-  implicit none
-  real(kind=pr) :: a_loc, mpisum
-  real(kind=pr),intent(in) :: a
-  integer :: mpicode
-  a_loc=a
-  call MPI_ALLREDUCE (a_loc,mpisum,1, MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-end function
+  function mpisum( a )
+    use mpi
+    use vars
+    implicit none
+    real(kind=pr) :: a_loc, mpisum
+    real(kind=pr),intent(in) :: a
+    integer :: mpicode
+    a_loc=a
+    call MPI_ALLREDUCE (a_loc,mpisum,1, MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  end function
 
-end module helpers
+  function mpimax( a )
+    use mpi
+    use vars
+    implicit none
+    real(kind=pr) :: a_loc, mpimax
+    real(kind=pr),intent(in) :: a
+    integer :: mpicode
+    a_loc=a
+    call MPI_ALLREDUCE (a_loc,mpimax,1, MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  end function
+
+  function mpimin( a )
+    use mpi
+    use vars
+    implicit none
+    real(kind=pr) :: a_loc, mpimin
+    real(kind=pr),intent(in) :: a
+    integer :: mpicode
+    a_loc=a
+    call MPI_ALLREDUCE (a_loc,mpimin,1, MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  end function
+  end module helpers
