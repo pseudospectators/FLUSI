@@ -18,6 +18,8 @@ module insect_module
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
   ! elements in derived datatypes) this is their length:
   integer, parameter :: nfft_max = 1024
+  ! Maximum number of Hermite interpolation nodes (hardcoded because of sxf90 compiler requirements)
+  integer, parameter :: nhrmt_max = 10000
 
 
   ! datatype for wing kinematics, if described by a Fourier series or kineloader
@@ -33,7 +35,7 @@ module insect_module
     character(len=strlen) :: infile_convention="", infile_type="", infile_units="", infile=""
     ! variables for kineloader (which uses non-periodic hermite interpolation)
     integer :: nk
-    real(kind=pr), dimension (:), allocatable :: vec_t, &
+    real(kind=pr), dimension (1:nhrmt_max) :: vec_t, &
       vec_phi,vec_alpha,vec_theta,vec_pitch,vec_vert,vec_horz,  &
       vec_phi_dt,vec_alpha_dt,vec_theta_dt,vec_pitch_dt,vec_vert_dt,vec_horz_dt
   end type

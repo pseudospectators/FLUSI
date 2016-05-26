@@ -15,24 +15,28 @@ subroutine load_kine_init(kine)
     read (10, *) t_period ! stroke period in s, for normalization
     read (10, *) r_wing   ! wing length in mm, for normalization
     read (10, *) kine%nk
+    if (kine%nk > nhrmt_max) then
+      write(*,*) "WARNING(load_kine_init): adjusting the value kine%nk to nhrmt_max"
+      kine%nk = nhrmt_max
+    endif
     write(*,'("nk=",i5," t_period=",g12.4," r_wing=",g12.4)') kine%nk, t_period, r_wing
   endif
 
   call MPI_BCAST(kine%nk,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
   nk = kine%nk
-  allocate(kine%vec_t(nk))
-  allocate(kine%vec_phi(nk))
-  allocate(kine%vec_phi_dt(nk))
-  allocate(kine%vec_alpha(nk))
-  allocate(kine%vec_alpha_dt(nk))
-  allocate(kine%vec_theta(nk))
-  allocate(kine%vec_theta_dt(nk))
-  allocate(kine%vec_pitch(nk))
-  allocate(kine%vec_pitch_dt(nk))
-  allocate(kine%vec_vert(nk))
-  allocate(kine%vec_vert_dt(nk))
-  allocate(kine%vec_horz(nk))
-  allocate(kine%vec_horz_dt(nk))
+  !allocate(kine%vec_t(nk))
+  !allocate(kine%vec_phi(nk))
+  !allocate(kine%vec_phi_dt(nk))
+  !allocate(kine%vec_alpha(nk))
+  !allocate(kine%vec_alpha_dt(nk))
+  !allocate(kine%vec_theta(nk))
+  !allocate(kine%vec_theta_dt(nk))
+  !allocate(kine%vec_pitch(nk))
+  !allocate(kine%vec_pitch_dt(nk))
+  !allocate(kine%vec_vert(nk))
+  !allocate(kine%vec_vert_dt(nk))
+  !allocate(kine%vec_horz(nk))
+  !allocate(kine%vec_horz_dt(nk))
 
   if (mpirank==0) then
     ! read data from file
@@ -90,18 +94,18 @@ subroutine load_kine_clean(kine)
   implicit none
   type(wingkinematics), intent(inout) :: kine
 
-  if(allocated(kine%vec_t)) deallocate(kine%vec_t)
-  if(allocated(kine%vec_phi)) deallocate(kine%vec_phi)
-  if(allocated(kine%vec_phi_dt)) deallocate(kine%vec_phi_dt)
-  if(allocated(kine%vec_alpha)) deallocate(kine%vec_alpha)
-  if(allocated(kine%vec_alpha_dt)) deallocate(kine%vec_alpha_dt)
-  if(allocated(kine%vec_theta)) deallocate(kine%vec_theta)
-  if(allocated(kine%vec_theta_dt)) deallocate(kine%vec_theta_dt)
-  if(allocated(kine%vec_pitch)) deallocate(kine%vec_pitch)
-  if(allocated(kine%vec_pitch_dt)) deallocate(kine%vec_pitch_dt)
-  if(allocated(kine%vec_vert)) deallocate(kine%vec_vert)
-  if(allocated(kine%vec_vert_dt)) deallocate(kine%vec_vert_dt)
-  if(allocated(kine%vec_horz)) deallocate(kine%vec_horz)
+  !if(allocated(kine%vec_t)) deallocate(kine%vec_t)
+  !if(allocated(kine%vec_phi)) deallocate(kine%vec_phi)
+  !if(allocated(kine%vec_phi_dt)) deallocate(kine%vec_phi_dt)
+  !if(allocated(kine%vec_alpha)) deallocate(kine%vec_alpha)
+  !if(allocated(kine%vec_alpha_dt)) deallocate(kine%vec_alpha_dt)
+  !if(allocated(kine%vec_theta)) deallocate(kine%vec_theta)
+  !if(allocated(kine%vec_theta_dt)) deallocate(kine%vec_theta_dt)
+  !if(allocated(kine%vec_pitch)) deallocate(kine%vec_pitch)
+  !if(allocated(kine%vec_pitch_dt)) deallocate(kine%vec_pitch_dt)
+  !if(allocated(kine%vec_vert)) deallocate(kine%vec_vert)
+  !if(allocated(kine%vec_vert_dt)) deallocate(kine%vec_vert_dt)
+  !if(allocated(kine%vec_horz)) deallocate(kine%vec_horz)
 
 end subroutine
 
