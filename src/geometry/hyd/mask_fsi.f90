@@ -19,6 +19,8 @@ subroutine create_mask_fsi (time, Insect, beams )
   if (iPenalization==1) then
     ! Actual mask functions:
     select case (iMask)
+    case ("fractal_tree")
+      call Draw_fractal_tree()
     case ("floor_yz","floor_zy","flooryz","floorzy")
       call Draw_floor_yz()
     case ("sphere","Sphere")
