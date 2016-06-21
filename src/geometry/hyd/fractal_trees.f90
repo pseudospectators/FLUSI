@@ -28,7 +28,7 @@ subroutine draw_fractal_tree()
 
   call check_file_exists( file )
   !*****************************************************************************
-  ! phase one: read the number of lines
+  ! phase one: read the number of lines (which is the number of rigid cylinders in the tree)
   !*****************************************************************************
   if (root) then
     io_error = 0
@@ -41,10 +41,10 @@ subroutine draw_fractal_tree()
       endif
     enddo
     close (14)
+    write(*,'("Building a fractal tree with ",i5," rigid cylinders")') nlines
   endif
 
   call MPI_BCAST(nlines,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
-  write (*,*) mpirank, nlines
 
   !*****************************************************************************
   ! phase two: read all cylinders from the file into the array and bcast them
@@ -57,6 +57,7 @@ subroutine draw_fractal_tree()
       read (14,'(A)',iostat=io_error) dummy
       if (io_error==0) then
         read (dummy,*) treedata(i,:)
+        write(*,'("read cylinder ",7(es12.4,1x))') treedata(i,:)
       endif
     enddo
     close (14)
@@ -66,10 +67,13 @@ subroutine draw_fractal_tree()
 
   !*****************************************************************************
   ! phase 3: all ranks draw the individual cylinders...
+  ! please note we assume the root point to be 0 0 0 in the file
   !*****************************************************************************
   do i=1, nlines
     x1 = treedata(i,1:3) + (/x0,y0,z0/)
     x2 = treedata(i,4:6) + (/x0,y0,z0/)
+    ! the file containes the length of the cylinder, we assume a fixed ratio
+    ! thickness to length here
     R = 0.1d0* treedata(i,7)
     call draw_cylinder_new( x1, x2, R, mask, mask_color, us, dummyinsect, int(1,kind=2))
   enddo

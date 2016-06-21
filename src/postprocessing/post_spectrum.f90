@@ -38,7 +38,7 @@ subroutine post_spectrum(help)
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
     write (*,*) "Error in arguments, files do not start with ux uy and uz"
     write (*,*) "note files have to be in the right order"
-    call abort()
+    ! call abort()
   endif
 
   call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
