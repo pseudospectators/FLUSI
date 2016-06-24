@@ -121,7 +121,7 @@ subroutine BodyMotion(time, Insect)
     xc              = Insect%STATE(1:3)
     vc              = Insect%STATE(4:6)
     ep              = Insect%STATE(7:10)
-    Insect%rot_body = Insect%STATE(11:13)
+    Insect%rot_body_b = Insect%STATE(11:13)
 
     ! compute yaw pitch roll from the quaternion. attention: this is just for
     ! information to dump in the log file (may be useful), but NOT for the rotation
@@ -139,7 +139,7 @@ subroutine BodyMotion(time, Insect)
     call rotation_matrix_from_quaternion( ep , Insect%M_body_quaternion )
 
     if(root) write(*,'(f12.4,2x,9(es12.4,1x))') time, &
-    xc,vc,Insect%rot_body
+    xc,vc,Insect%rot_body_b
 
   case default
     if (mpirank==0) then
@@ -167,8 +167,8 @@ subroutine BodyMotion(time, Insect)
   Insect%psi_dt   = psi_dt
   Insect%beta_dt  = beta_dt
   Insect%gamma_dt = gamma_dt
-  Insect%xc_body  = xc
-  Insect%vc_body  = vc
+  Insect%xc_body_g  = xc
+  Insect%vc_body_g  = vc
 
 
   ! for compability, we update the x0,y0,z0 also

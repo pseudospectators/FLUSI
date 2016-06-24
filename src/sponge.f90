@@ -121,7 +121,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
     do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
-          x = (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/) - Insect%xc_body
+          x = (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/) - Insect%xc_body_g
           x = periodize_coordinate(x)
 
           if ( (x(1)>xl/2.d0-dble(sponge_thickness)*dx).or.(x(1)<-xl/2.d0+dble(sponge_thickness)*dx)  ) then
@@ -148,7 +148,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
     do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
-          x = (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/) - Insect%xc_body
+          x = (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/) - Insect%xc_body_g
           x = periodize_coordinate(x)
           if ( (x(3)>zl/2.d0-dble(sponge_thickness)*dz).or.(x(3)<-zl/2.d0+dble(sponge_thickness)*dz)  ) then
             vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv

@@ -524,7 +524,7 @@ if (mpirank/=0) return
       "Aero_Power", "Inert power"
       close (14)
       open  (14,file='kinematics.t',status='replace')
-      write (14,'(26(A15,1x))') "%          time","xc_body","yc_body","zc_body",&
+      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
       "psi","beta","gamma","eta_stroke",&
       "alpha_l","phi_l","theta_l",&
       "alpha_r","phi_r","theta_r",&

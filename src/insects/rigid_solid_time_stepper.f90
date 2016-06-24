@@ -216,9 +216,9 @@ subroutine rigid_solid_init(time, Insect)
     Insect%gamma = Insect%yawpitchroll_0(1)
     Insect%beta  = Insect%yawpitchroll_0(2)
     Insect%psi   = Insect%yawpitchroll_0(3)
-    Insect%xc_body = Insect%x0
-    Insect%vc_body = Insect%v0
-    Insect%rot_body = 0.d0
+    Insect%xc_body_g = Insect%x0
+    Insect%vc_body_g = Insect%v0
+    Insect%rot_body_b = 0.d0
 
     ! create initial value for attitude quaternion
     yaw   =  Insect%gamma / 2.d0
@@ -234,10 +234,10 @@ subroutine rigid_solid_init(time, Insect)
 
 
     ! Assemble the state vector
-    Insect%STATE = (/ Insect%xc_body(1),Insect%xc_body(2),Insect%xc_body(3), &
-    Insect%vc_body(1),Insect%vc_body(2),Insect%vc_body(3), &
+    Insect%STATE = (/ Insect%xc_body_g(1),Insect%xc_body_g(2),Insect%xc_body_g(3), &
+    Insect%vc_body_g(1),Insect%vc_body_g(2),Insect%vc_body_g(3), &
     ep(0),ep(1),ep(2),ep(3),&
-    Insect%rot_body(1),Insect%rot_body(2),Insect%rot_body(3) /)
+    Insect%rot_body_b(1),Insect%rot_body_b(2),Insect%rot_body_b(3) /)
 
     Insect%RHS_this = 0.0
     Insect%RHS_old = 0.0
@@ -246,3 +246,30 @@ subroutine rigid_solid_init(time, Insect)
 
 
 end subroutine rigid_solid_init
+
+
+
+! compute the muscle moment which is required to force the prescribed wing kinematics
+! for both wings at time t
+! Required inputs:
+!   Insect%PartIntegrals(2)%Torque        Aerodynamic moment on left wing (global system)
+!   Insect%PartIntegrals(3)%Torque        Aerodynamic moment on right wing (global system)
+!   Insect%Jxx,Jyy,Jzz,Jxy                Wing inertia tensor (wing system) (assumes same wings l/r)
+!   Insect%rot_dt_wing_l_w                Angular acceleration of wing in wing system
+!   Insect%rot_dt_wing_r_w                Angular acceleration of wing in wing system
+!   Insect%rot_wing_l_w                   Angular velocity of wing in wing system
+!   Insect%rot_wing_r_w                   Angular velocity of wing in wing system
+subroutine cal_muscle_moments(time,Insect)
+  implicit none
+  real(kind=pr), intent(in) :: time
+  type(diptera), intent(inout) :: Insect
+
+
+end subroutine cal_muscle_moments
+
+
+! ! initialize wing fsi part: from the given kinematics, compute the value of the
+! ! quaternion and create the wing transformation matrix, as before for the body
+! if (Insect%wing_fsi == "yes") then
+!
+! endif

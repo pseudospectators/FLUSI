@@ -12,7 +12,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
 
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
-  real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
+  real(kind=pr),dimension(1:3) :: u_tmp,rot_body_b,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   integer :: nh,is,ih,isurf,mpicode
   t0 = MPI_wtime()

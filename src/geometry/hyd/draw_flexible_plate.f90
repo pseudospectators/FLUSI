@@ -13,7 +13,7 @@ subroutine Draw_flexible_plate (time, beam)
   real(kind=pr), intent(in) :: time
   type(Solid), intent(inout) :: beam
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt
-  real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate,u_tmp,rot_body,v_tmp,v0_plate
+  real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate,u_tmp,rot_body_b,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   !-- for the triangles:
   real(kind=pr) :: a,b,c,alpha,beta,h,safety, s,s1,s2, ux,uy, R ,dmax, love
@@ -43,7 +43,7 @@ subroutine Draw_flexible_plate (time, beam)
   ! angular velocity of moving relative frame
   ! ISSUE #9: https://github.com/pseudospectators/FLUSI/issues/9
   ! FIXME: the following line IS WRONG and needs to be corrected
-  rot_body = (/psi_dt, beta_dt, gamma_dt/)
+  rot_body_b = (/psi_dt, beta_dt, gamma_dt/)
 
   ! reset everything
   mask = 0.d0
@@ -184,9 +184,9 @@ subroutine Draw_flexible_plate (time, beam)
       !-- this is the velocity in the relative system
       u_tmp = (/ux,uy,0.d0/)
       !-- add solid body rotation to the velocity field of the beam
-      v_tmp(1) = rot_body(2)*x_plate(3)-rot_body(3)*x_plate(2)
-      v_tmp(2) = rot_body(3)*x_plate(1)-rot_body(1)*x_plate(3)
-      v_tmp(3) = rot_body(1)*x_plate(2)-rot_body(2)*x_plate(1)
+      v_tmp(1) = rot_body_b(2)*x_plate(3)-rot_body_b(3)*x_plate(2)
+      v_tmp(2) = rot_body_b(3)*x_plate(1)-rot_body_b(1)*x_plate(3)
+      v_tmp(3) = rot_body_b(1)*x_plate(2)-rot_body_b(2)*x_plate(1)
 
       ! FIXME: make sure that upon correction above, you're sure that v_tmp
       ! at this point is in BODY reference frame

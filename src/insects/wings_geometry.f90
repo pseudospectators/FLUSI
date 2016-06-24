@@ -71,7 +71,7 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x - Insect%xc_body)
+        x = periodize_coordinate(x - Insect%xc_body_g)
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot)
 
@@ -160,7 +160,7 @@ subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x - Insect%xc_body)
+        x = periodize_coordinate(x - Insect%xc_body_g)
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot)
 
@@ -241,7 +241,7 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x - Insect%xc_body)
+        x = periodize_coordinate(x - Insect%xc_body_g)
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot)
 
@@ -334,7 +334,7 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x-Insect%xc_body)
+        x = periodize_coordinate(x-Insect%xc_body_g)
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot)
 
@@ -430,7 +430,7 @@ subroutine draw_wing_mosquito(mask,mask_color,us,Insect,color_wing,M_body,&
       do ix = ra(1), rb(1)
         !-- define the various coordinate systems we are going to use
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x-Insect%xc_body)
+        x = periodize_coordinate(x-Insect%xc_body_g)
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot)
 

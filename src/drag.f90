@@ -95,13 +95,13 @@ subroutine cal_drag ( time, u, Insect )
         ! but for the wings it is computed with respect tot the pivot points
         if (iMask=="Insect") then
           if (color==2) then
-            xlev = xlev - Insect%x_pivot_l_glob(1)
-            ylev = ylev - Insect%x_pivot_l_glob(2)
-            zlev = zlev - Insect%x_pivot_l_glob(3)
+            xlev = xlev - Insect%x_pivot_l_g(1)
+            ylev = ylev - Insect%x_pivot_l_g(2)
+            zlev = zlev - Insect%x_pivot_l_g(3)
           elseif (color==3) then
-            xlev = xlev - Insect%x_pivot_r_glob(1)
-            ylev = ylev - Insect%x_pivot_r_glob(2)
-            zlev = zlev - Insect%x_pivot_r_glob(3)
+            xlev = xlev - Insect%x_pivot_r_g(1)
+            ylev = ylev - Insect%x_pivot_r_g(2)
+            zlev = zlev - Insect%x_pivot_r_g(3)
           endif
           xc = periodize_coordinate((/xlev,ylev,zlev/))
           xlev = xc(1)
@@ -370,13 +370,13 @@ subroutine cal_unst_corrections ( time, dt, Insect )
         ! but for the wings it is computed with respect tot the pivot points
         if (iMask=="Insect") then
           if (color==2) then
-            xlev = xlev - Insect%x_pivot_l_glob(1)
-            ylev = ylev - Insect%x_pivot_l_glob(2)
-            zlev = zlev - Insect%x_pivot_l_glob(3)
+            xlev = xlev - Insect%x_pivot_l_g(1)
+            ylev = ylev - Insect%x_pivot_l_g(2)
+            zlev = zlev - Insect%x_pivot_l_g(3)
           elseif (color==3) then
-            xlev = xlev - Insect%x_pivot_r_glob(1)
-            ylev = ylev - Insect%x_pivot_r_glob(2)
-            zlev = zlev - Insect%x_pivot_r_glob(3)
+            xlev = xlev - Insect%x_pivot_r_g(1)
+            ylev = ylev - Insect%x_pivot_r_g(2)
+            zlev = zlev - Insect%x_pivot_r_g(3)
           endif
         endif
 

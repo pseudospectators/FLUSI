@@ -20,7 +20,8 @@ module insect_module
   integer, parameter :: nfft_max = 1024
   ! Maximum number of Hermite interpolation nodes (hardcoded because of sxf90 compiler requirements)
   integer, parameter :: nhrmt_max = 10000
-
+  ! only used in steps (to reduce number of args:)
+  real(kind=pr), save :: smoothing
 
   ! datatype for wing kinematics, if described by a Fourier series or kineloader
   ! For both wings such a datatype is contained in the insect.
@@ -48,7 +49,7 @@ module insect_module
     ! Body motion state, wing motion state and characteristic points on insect
     !-------------------------------------------------------------
     ! position of logical center, and translational velocity
-    real(kind=pr), dimension(1:3) :: xc_body, vc_body
+    real(kind=pr), dimension(1:3) :: xc_body_g, vc_body_g
     ! initial or tethered position, velocity and yawpitchroll angles:
     real(kind=pr), dimension(1:3) :: x0, v0, yawpitchroll_0
     ! roll pitch yaw angles and their time derivatives
@@ -61,13 +62,13 @@ module insect_module
     ! stroke plane angle
     real(kind=pr) :: eta_stroke
     ! angular velocity vectors (wings L+R, body)
-    real(kind=pr), dimension(1:3) :: rot_l, rot_r, rot_body
+    real(kind=pr), dimension(1:3) :: rot_wing_l_w, rot_wing_r_w, rot_body_b
     ! angular acceleration vectors (wings L+R)
     real(kind=pr), dimension(1:3) :: rot_dt_l, rot_dt_r
     ! Angular velocities of wings and body in global system
-    real(kind=pr), dimension(1:3) :: rot_body_glob, rot_l_glob, rot_r_glob
+    real(kind=pr), dimension(1:3) :: rot_body_g, rot_wing_l_g, rot_wing_r_g
     ! Vector from body centre to pivot points in global reference frame
-    real(kind=pr), dimension(1:3) :: x_pivot_l_glob, x_pivot_r_glob
+    real(kind=pr), dimension(1:3) :: x_pivot_l_g, x_pivot_r_g
     ! vectors desribing the positoions of insect's key elements
     ! in the body coordinate system
     real(kind=pr), dimension(1:3) :: x_head,x_eye_r,x_eye_l,x_pivot_l,x_pivot_r
@@ -82,7 +83,7 @@ module insect_module
     real(kind=pr), dimension(1:3,1:3) :: M_body_quaternion
     real(kind=pr), dimension(1:13) :: RHS_old, RHS_this, STATE
     real(kind=pr), dimension(1:6) :: DoF_on_off
-    character(len=strlen) :: startup_conditioner
+    character(len=strlen) :: startup_conditioner, wing_fsi
 
     !-------------------------------------------------------------
     ! wing shape parameters
@@ -130,7 +131,6 @@ module insect_module
   end type diptera
   !-----------------------------------------------------------------------------
 
-  real(kind=pr), save :: smoothing
 
 contains
 
@@ -185,33 +185,12 @@ contains
       write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
     endif
 
-    !-----------------------------------------------------------------------------
-    ! delete old mask
-    !-----------------------------------------------------------------------------
-    if (body_moves=="no") then
-      ! the body is at rest, so we will not draw it. Delete everything EXCEPT the
-      ! body, which is marked by its specific color
-      where (mask_color/=color_body)
-        mask = 0.d0
-        mask_color = 0
-      end where
-      ! the value in the mask array is divided by eps already and will be divided
-      ! by eps again in the main mask wrapper. we thus multiply the existing body
-      ! by eps.
-      where (mask_color==color_body)
-        mask = mask*eps
-      end where
-      ! as the body rests it has no solid body velocity, which means we can safely
-      ! reset the velocity everywhere (this step is actually unnessesary, but for
-      ! safety we do it as well)
-      us = 0.d0
-    else
-      ! the body of the insect moves, so we will construct the entire insect in this
-      ! (and all other) call, and therefore we can safely reset the entire mask to zeros.
-      mask = 0.d0
-      mask_color = 0
-      us = 0.d0
+    ! some checks
+    if ((mpirank==0).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
+      write (*,*) "insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong."
+      call abort(4453)
     endif
+
 
     if (nx/=1) then
       Insect%safety = 2.5d0*max(dz,dy,dx)
@@ -222,12 +201,9 @@ contains
     endif
     smoothing = Insect%smooth
 
-    ! some checks
-    if ((mpirank==0).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
-      write (*,*) "insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong."
-      call abort(4453)
-    endif
 
+    ! delete old mask
+    call delete_old_mask( time, mask, mask_color, us, Insect )
     !-----------------------------------------------------------------------------
     ! fetch current motion state
     !-----------------------------------------------------------------------------
@@ -240,27 +216,8 @@ contains
     ! define the rotation matrices to change between coordinate systems
     !-----------------------------------------------------------------------------
     if (Insect%BodyMotion=="free_flight") then
-    !   call Rx(M1_b,Insect%psi)
-    !   call Ry(M2_b,Insect%beta)
-    !   call Rz(M3_b,Insect%gamma)
-    !   M_body = matmul(M1_b,matmul(M2_b,M3_b))
-    !   if(root) then
-    !   write(*,*) "--rotmat-"
-    !   write(*,'(3(es12.4,1x))') M_body(1,:)
-    !   write(*,'(3(es12.4,1x))') M_body(2,:)
-    !   write(*,'(3(es12.4,1x))') M_body(3,:)
-    !   write(*,*) "--quat-"
-    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(1,:)
-    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(2,:)
-    !   write(*,'(3(es12.4,1x))') Insect%M_body_quaternion(3,:)
-    !   write(*,*) "---"
-    ! endif
-      !
       ! ! QUATERNIONS
       M_body = Insect%M_body_quaternion
-      !
-      ! if(maxval(M_body)==0.d0) call abort()
-
     else
       ! conventional yaw, pitch, roll. Note the order of matrices is important.
       ! first we yaw, then we pitch, then we roll the insect. Note that when the
@@ -307,17 +264,17 @@ contains
       rot_b_beta  = (/ 0.0d0, Insect%beta_dt, 0.0d0  /)
       rot_b_gamma = (/ 0.0d0, 0.0d0, Insect%gamma_dt /)
 
-      ! body angular velocity in the body coodrinate system
-      Insect%rot_body = matmul(M_body,matmul(transpose(M3_b),rot_b_gamma+ &
+      ! body angular velocity in the body coordinate system
+      Insect%rot_body_b = matmul(M_body,matmul(transpose(M3_b),rot_b_gamma+ &
       matmul(transpose(M2_b),rot_b_beta+matmul(transpose(M1_b),rot_b_psi))))
     endif
 
-    ! wing angular velocities in the wing coordinate system
-    call angular_velocities ( time, Insect )
 
     !-----------------------------------------------------------------------------
     ! angular acceleration for wings (required for inertial power)
     !-----------------------------------------------------------------------------
+    ! wing angular velocities in the wing coordinate system
+    call angular_velocities ( time, Insect )
     call angular_accel( time, Insect )
 
     !-----------------------------------------------------------------------------
@@ -331,16 +288,16 @@ contains
     !-----------------------------------------------------------------------------
     ! angular velocity in the global reference frame
     !-----------------------------------------------------------------------------
-    Insect%rot_body_glob = matmul(M_body_inv, Insect%rot_body)
-    Insect%rot_l_glob = matmul(M_body_inv, matmul(M_wing_l_inv, Insect%rot_l) + Insect%rot_body)
-    Insect%rot_r_glob = matmul(M_body_inv, matmul(M_wing_r_inv, Insect%rot_r) + Insect%rot_body)
+    Insect%rot_body_g = matmul(M_body_inv, Insect%rot_body_b)
+    Insect%rot_wing_l_g = matmul(M_body_inv, matmul(M_wing_l_inv, Insect%rot_wing_l_w) + Insect%rot_body_b)
+    Insect%rot_wing_r_g = matmul(M_body_inv, matmul(M_wing_r_inv, Insect%rot_wing_r_w) + Insect%rot_body_b)
 
     !-----------------------------------------------------------------------------
     ! vector from body centre to left/right pivot point in global reference frame,
     ! for aerodynamic power
     !-----------------------------------------------------------------------------
-    Insect%x_pivot_l_glob = matmul(M_body_inv, Insect%x_pivot_l)
-    Insect%x_pivot_r_glob = matmul(M_body_inv, Insect%x_pivot_r)
+    Insect%x_pivot_l_g = matmul(M_body_inv, Insect%x_pivot_l)
+    Insect%x_pivot_r_g = matmul(M_body_inv, Insect%x_pivot_r)
 
 
     !-----------------------------------------------------------------------------
@@ -350,10 +307,10 @@ contains
     counter = counter + 1
     if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
       open  (17,file='kinematics.t',status='unknown',position='append')
-      write (17,'(26(es15.8,1x))') time, Insect%xc_body, Insect%psi, Insect%beta, &
+      write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
       Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
       Insect%theta_l, Insect%alpha_r, Insect%phi_r, Insect%theta_r, &
-      Insect%rot_l, Insect%rot_r, Insect%rot_dt_l, Insect%rot_dt_r
+      Insect%rot_wing_l_w, Insect%rot_wing_r_w, Insect%rot_dt_l, Insect%rot_dt_r
       close (17)
     endif
 
@@ -387,12 +344,12 @@ contains
     !-----------------------------------------------------------------------------
     if (Insect%RightWing == "yes") then
       call draw_wing(mask,mask_color,us,Insect,color_r,M_body,M_wing_r,&
-      Insect%x_pivot_r,Insect%rot_r )
+      Insect%x_pivot_r,Insect%rot_wing_r_w )
     endif
 
     if (Insect%LeftWing == "yes") then
       call draw_wing(mask,mask_color,us,Insect,color_l,M_body,M_wing_l,&
-      Insect%x_pivot_l,Insect%rot_l )
+      Insect%x_pivot_l,Insect%rot_wing_l_w )
     endif
 
     !-----------------------------------------------------------------------------
@@ -405,7 +362,7 @@ contains
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-          x = periodize_coordinate(x - Insect%xc_body)
+          x = periodize_coordinate(x - Insect%xc_body_g)
           x_body = matmul(M_body,x)
           ! add solid body rotation in the body-reference frame, if color
           ! indicates that this part of the mask belongs to the insect
@@ -414,13 +371,13 @@ contains
             ! translational part. we compute the rotational part in the body
             ! reference frame, therefore, we must transform the body translation
             ! velocity Insect%vc (which is in global coordinates) to the body frame
-            v_tmp = matmul(M_body,Insect%vc_body)
+            v_tmp = matmul(M_body,Insect%vc_body_g)
 
             ! add solid body rotation to the translational velocity field. Note
-            ! that rot_body and x_body are in the body reference frame
-            v_tmp(1) = v_tmp(1)+Insect%rot_body(2)*x_body(3)-Insect%rot_body(3)*x_body(2)
-            v_tmp(2) = v_tmp(2)+Insect%rot_body(3)*x_body(1)-Insect%rot_body(1)*x_body(3)
-            v_tmp(3) = v_tmp(3)+Insect%rot_body(1)*x_body(2)-Insect%rot_body(2)*x_body(1)
+            ! that rot_body_b and x_body are in the body reference frame
+            v_tmp(1) = v_tmp(1)+Insect%rot_body_b(2)*x_body(3)-Insect%rot_body_b(3)*x_body(2)
+            v_tmp(2) = v_tmp(2)+Insect%rot_body_b(3)*x_body(1)-Insect%rot_body_b(1)*x_body(3)
+            v_tmp(3) = v_tmp(3)+Insect%rot_body_b(1)*x_body(2)-Insect%rot_body_b(2)*x_body(1)
 
             ! the body motion is added to the wing motion, which is already in us
             ! and they are also in the body refrence frame. However, us has to be
@@ -512,7 +469,7 @@ contains
 
     ! left wing
     ! relative angular velocity
-    omrel = Insect%rot_l_glob - Insect%rot_body_glob
+    omrel = Insect%rot_wing_l_g - Insect%rot_body_g
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
@@ -524,7 +481,7 @@ contains
 
     ! right wing
     ! relative angular velocity
-    omrel = Insect%rot_r_glob - Insect%rot_body_glob
+    omrel = Insect%rot_wing_r_g - Insect%rot_body_g
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
@@ -581,28 +538,28 @@ contains
     a(2) = Insect%Jxy * Insect%rot_dt_l(1) + Insect%Jyy * Insect%rot_dt_l(2)
     a(3) = Insect%Jzz * Insect%rot_dt_l(3)
 
-    b(1) = Insect%Jxx * Insect%rot_l(1) + Insect%Jxy * Insect%rot_l(2)
-    b(2) = Insect%Jxy * Insect%rot_l(1) + Insect%Jyy * Insect%rot_l(2)
-    b(3) = Insect%Jzz * Insect%rot_l(3)
+    b(1) = Insect%Jxx * Insect%rot_wing_l_w(1) + Insect%Jxy * Insect%rot_wing_l_w(2)
+    b(2) = Insect%Jxy * Insect%rot_wing_l_w(1) + Insect%Jyy * Insect%rot_wing_l_w(2)
+    b(3) = Insect%Jzz * Insect%rot_wing_l_w(3)
 
     Insect%PartIntegrals(color_l)%IPow = &
-    Insect%rot_l(1) * (a(1)+Insect%rot_l(2)*b(3)-Insect%rot_l(3)*b(2)) +&
-    Insect%rot_l(2) * (a(2)+Insect%rot_l(3)*b(1)-Insect%rot_l(1)*b(3)) +&
-    Insect%rot_l(3) * (a(3)+Insect%rot_l(1)*b(2)-Insect%rot_l(2)*b(1))
+    Insect%rot_wing_l_w(1) * (a(1)+Insect%rot_wing_l_w(2)*b(3)-Insect%rot_wing_l_w(3)*b(2)) +&
+    Insect%rot_wing_l_w(2) * (a(2)+Insect%rot_wing_l_w(3)*b(1)-Insect%rot_wing_l_w(1)*b(3)) +&
+    Insect%rot_wing_l_w(3) * (a(3)+Insect%rot_wing_l_w(1)*b(2)-Insect%rot_wing_l_w(2)*b(1))
 
     !-- RIGHT WING
     a(1) = Insect%Jxx * Insect%rot_dt_r(1) + Insect%Jxy * Insect%rot_dt_r(2)
     a(2) = Insect%Jxy * Insect%rot_dt_r(1) + Insect%Jyy * Insect%rot_dt_r(2)
     a(3) = Insect%Jzz * Insect%rot_dt_r(3)
 
-    b(1) = Insect%Jxx * Insect%rot_r(1) + Insect%Jxy * Insect%rot_r(2)
-    b(2) = Insect%Jxy * Insect%rot_r(1) + Insect%Jyy * Insect%rot_r(2)
-    b(3) = Insect%Jzz * Insect%rot_r(3)
+    b(1) = Insect%Jxx * Insect%rot_wing_r_w(1) + Insect%Jxy * Insect%rot_wing_r_w(2)
+    b(2) = Insect%Jxy * Insect%rot_wing_r_w(1) + Insect%Jyy * Insect%rot_wing_r_w(2)
+    b(3) = Insect%Jzz * Insect%rot_wing_r_w(3)
 
     Insect%PartIntegrals(color_r)%IPow = &
-    Insect%rot_r(1) * (a(1)+Insect%rot_r(2)*b(3)-Insect%rot_r(3)*b(2)) +&
-    Insect%rot_r(2) * (a(2)+Insect%rot_r(3)*b(1)-Insect%rot_r(1)*b(3)) +&
-    Insect%rot_r(3) * (a(3)+Insect%rot_r(1)*b(2)-Insect%rot_r(2)*b(1))
+    Insect%rot_wing_r_w(1) * (a(1)+Insect%rot_wing_r_w(2)*b(3)-Insect%rot_wing_r_w(3)*b(2)) +&
+    Insect%rot_wing_r_w(2) * (a(2)+Insect%rot_wing_r_w(3)*b(1)-Insect%rot_wing_r_w(1)*b(3)) +&
+    Insect%rot_wing_r_w(3) * (a(3)+Insect%rot_wing_r_w(1)*b(2)-Insect%rot_wing_r_w(2)*b(1))
 
     ipowtotal = Insect%PartIntegrals(color_r)%IPow + Insect%PartIntegrals(color_l)%IPow
 
@@ -612,7 +569,7 @@ contains
   !-------------------------------------------------------------------------------
   ! given the angles of each wing (and their time derivatives), compute
   ! the angular velocity vectors for both wings.
-  ! output Insect%rot_r, Insect%rot_l is understood in the WING coordinate system.
+  ! output Insect%rot_wing_r_w, Insect%rot_wing_l_w is understood in the WING coordinate system.
   !-------------------------------------------------------------------------------
   subroutine angular_velocities ( time, Insect )
     use vars
@@ -680,10 +637,10 @@ contains
     rot_r_phi   = (/ -phi_dt_r, 0.0d0, 0.0d0  /)
 
     ! in the wing coordinate system
-    Insect%rot_l = matmul(M_wing_l,matmul(transpose(M_stroke_l),matmul(transpose(M3_l), &
+    Insect%rot_wing_l_w = matmul(M_wing_l,matmul(transpose(M_stroke_l),matmul(transpose(M3_l), &
     rot_l_phi+matmul(transpose(M2_l),rot_l_theta+matmul(transpose(M1_l), &
     rot_l_alpha)))))
-    Insect%rot_r = matmul(M_wing_r,matmul(transpose(M_stroke_r),matmul(transpose(M3_r), &
+    Insect%rot_wing_r_w = matmul(M_wing_r,matmul(transpose(M_stroke_r),matmul(transpose(M3_r), &
     rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
     rot_r_alpha)))))
 
@@ -728,8 +685,8 @@ contains
       call angular_velocities (time-dt, Insect1)
 
       ! use centered finite differences
-      Insect%rot_dt_l = (Insect2%rot_l - Insect1%rot_l)/(2.d0*dt)
-      Insect%rot_dt_r = (Insect2%rot_r - Insect1%rot_r)/(2.d0*dt)
+      Insect%rot_dt_l = (Insect2%rot_wing_l_w - Insect1%rot_wing_l_w)/(2.d0*dt)
+      Insect%rot_dt_r = (Insect2%rot_wing_r_w - Insect1%rot_wing_r_w)/(2.d0*dt)
     else
       Insect1 = Insect
       Insect2 = Insect
@@ -747,8 +704,8 @@ contains
       call angular_velocities (time, Insect1)
 
       ! use centered finite differences
-      Insect%rot_dt_l = (Insect2%rot_l - Insect1%rot_l)/dt
-      Insect%rot_dt_r = (Insect2%rot_r - Insect1%rot_r)/dt
+      Insect%rot_dt_l = (Insect2%rot_wing_l_w - Insect1%rot_wing_l_w)/dt
+      Insect%rot_dt_r = (Insect2%rot_wing_r_w - Insect1%rot_wing_r_w)/dt
     endif
   end subroutine angular_accel
 
@@ -764,5 +721,53 @@ contains
     call load_kine_clean( Insect%kine_wing_r )
   end subroutine insect_clean
 
+
+
+
+  subroutine delete_old_mask( time, mask, mask_color, us, Insect )
+    use vars
+    implicit none
+
+    real(kind=pr), intent(in) :: time
+    type(diptera),intent(inout) :: Insect
+    real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+    integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    integer(kind=2) :: color_body, color_l, color_r
+
+    ! colors for Diptera (one body, two wings)
+    color_body = 1
+    color_l = 2
+    color_r = 3
+
+    !-----------------------------------------------------------------------------
+    ! delete old mask
+    !-----------------------------------------------------------------------------
+    if (body_moves=="no") then
+      ! the body is at rest, so we will not draw it. Delete everything EXCEPT the
+      ! body, which is marked by its specific color
+      where (mask_color/=color_body)
+        mask = 0.d0
+        mask_color = 0
+      end where
+      ! the value in the mask array is divided by eps already and will be divided
+      ! by eps again in the main mask wrapper. we thus multiply the existing body
+      ! by eps.
+      where (mask_color==color_body)
+        mask = mask*eps
+      end where
+      ! as the body rests it has no solid body velocity, which means we can safely
+      ! reset the velocity everywhere (this step is actually unnessesary, but for
+      ! safety we do it as well)
+      us = 0.d0
+    else
+      ! the body of the insect moves, so we will construct the entire insect in this
+      ! (and any other) call, and therefore we can safely reset the entire mask to zeros.
+      mask = 0.d0
+      mask_color = 0
+      us = 0.d0
+    endif
+
+  end subroutine delete_old_mask
 
 end module

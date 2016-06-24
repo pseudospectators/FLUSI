@@ -418,6 +418,11 @@ subroutine get_params_insect( PARAMS,Insect )
   if (root) write(*,'(6(f4.2,1x))') Insect%DoF_on_off
 
 
+  ! wing FSI section
+  call read_param_mpi(PARAMS,"Insects","wing_fsi",Insect%wing_fsi,"no")
+
+
+
   ! wing inertia tensor (we currently assume two identical wings)
   ! this allows computing inertial power
   call read_param_mpi(PARAMS,"Insects","Jxx",Insect%Jxx,0.d0)

@@ -79,7 +79,7 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x_glob)
 
@@ -163,7 +163,7 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
       do ix = ra(1), rb(1)
         !-- define the head coordinate systems we are going to use
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
         x_body   = matmul(M_body,x_glob)
         x_head   = x_body - Insect%x_head
 
@@ -232,7 +232,7 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
       do ix = ra(1), rb(1)
         !-- define the head coordinate systems we are going to use
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
         x_body   = matmul(M_body,x_glob)
 
         !-- check bounds
@@ -321,7 +321,7 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x_glob)
 
@@ -414,7 +414,7 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
       do ix = ra(1), rb(1)
         !-- define the head coordinate systems we are going to use
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x_glob)
         x_head   = x_body - Insect%x_head
@@ -470,7 +470,7 @@ subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_bod
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x_glob)
 
@@ -561,8 +561,8 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
-        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body_g
         x_body = matmul( M_body, x_glob)
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
@@ -589,13 +589,13 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   !-----------------------------------------------------------------------------
   ! Jerry's head and eyes are spheres
   !-----------------------------------------------------------------------------
-  x_head = Insect%xc_body + matmul(transpose(M_body),Insect%x_head)
+  x_head = Insect%xc_body_g + matmul(transpose(M_body),Insect%x_head)
   call drawsphere( x_head,Insect%R_head,mask,mask_color,us,Insect,color_body )
 
-  x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_l)
+  x_eye = Insect%xc_body_g + matmul(transpose(M_body),Insect%x_eye_l)
   call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
 
-  x_eye = Insect%xc_body + matmul(transpose(M_body),Insect%x_eye_r)
+  x_eye = Insect%xc_body_g + matmul(transpose(M_body),Insect%x_eye_r)
   call drawsphere( x_eye,Insect%R_eye,mask,mask_color,us,Insect,color_body )
 end subroutine draw_body_jerry
 
@@ -616,7 +616,7 @@ subroutine draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
   real(kind=pr) :: corner
   real(kind=pr) :: x_body(1:3), x_glob(1:3), x_head(1:3), x_eye(1:3)
 
-  x_head = Insect%xc_body
+  x_head = Insect%xc_body_g
   call drawsphere( x_head,0.50d0,mask,mask_color,us,Insect,color_body )
 
 end subroutine draw_body_sphere
@@ -756,7 +756,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     n_part = particle_points(ip,4:6)
 
     ! go to laboratory frame:
-    x_glob = matmul( transpose(M_body), x_part) + Insect%xc_body
+    x_glob = matmul( transpose(M_body), x_part) + Insect%xc_body_g
     ! periodize:
     if (x_glob(1)<0.0) x_glob(1)=x_glob(1)+xl
     if (x_glob(2)<0.0) x_glob(2)=x_glob(2)+yl
@@ -779,8 +779,8 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
           if ( on_proc( (/ix,iy,iz/)  ) ) then
             ! x_glob is in the global coordinate system
             x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-            x_glob = periodize_coordinate(x_glob - Insect%xc_body)
-            ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+            x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+            ! x_body is in the body coordinate system, which is centered at Insect%xc_body_g
             x_body = matmul( M_body, x_glob )
 
             ! unsigned distance to point
@@ -839,8 +839,8 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   ! we start at a point which is surely not inside
   ! the particle. the algorithm cannot start on interior
   ! points.
-  ! start = per(nint( (Insect%xc_body(1)-0.5*xl)/dx), nx)
-  ! if(root) write(*,*) "point is", Insect%xc_body(1)-0.5*xl
+  ! start = per(nint( (Insect%xc_body_g(1)-0.5*xl)/dx), nx)
+  ! if(root) write(*,*) "point is", Insect%xc_body_g(1)-0.5*xl
 
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
@@ -903,7 +903,7 @@ subroutine draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
         ! x is in the global coordinate system
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
         ! x is now centered in the plate's center point
-        x = periodize_coordinate(x - Insect%xc_body)
+        x = periodize_coordinate(x - Insect%xc_body_g)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x)
 
@@ -956,7 +956,7 @@ subroutine draw_body_coin( mask, mask_color, us, Insect, color_body, M_body)
         ! x is in the global coordinate system
         x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
         ! x is now centered in the sphere's center point
-        x = periodize_coordinate(x - Insect%xc_body)
+        x = periodize_coordinate(x - Insect%xc_body_g)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x)
 
@@ -1008,8 +1008,8 @@ subroutine draw_suzuki_thin_rod( mask, mask_color, us, Insect, color_body, M_bod
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
-        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body_g
         x_body = matmul( M_body, x_glob)
 
         if ( dabs(x_body(1))<=0.5d0+Insect%safety) then
@@ -1067,8 +1067,8 @@ subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
-        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body_g
         x_body = matmul( M_body, x_glob)
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
@@ -1095,15 +1095,15 @@ subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
   !-----------------------------------------------------------------------------
   ! Head is a sphere, we add antennae, which are cylinders
   !-----------------------------------------------------------------------------
-  x_head = Insect%xc_body + matmul(transpose(M_body),Insect%x_head)
+  x_head = Insect%xc_body_g + matmul(transpose(M_body),Insect%x_head)
   call drawsphere( x_head,Insect%R_head,mask,mask_color,us,Insect,color_body )
 
   ! these guys are in the body system:
   x_eye_r = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.d0,+1.d0,1.d0/)
   x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head*1.8d0*(/1.d0,+1.d0,1.d0/)
   ! back to global system
-  x1 = Insect%xc_body + matmul(transpose(M_body),x_eye_l)
-  x2 = Insect%xc_body + matmul(transpose(M_body),x_eye_r)
+  x1 = Insect%xc_body_g + matmul(transpose(M_body),x_eye_l)
+  x2 = Insect%xc_body_g + matmul(transpose(M_body),x_eye_r)
   ! draw the cylinder (with spheres at the ends)
   call draw_cylinder_new( x1, x2, 0.015d0*1.3d0, mask, mask_color, us, Insect, color_body )
 
@@ -1112,8 +1112,8 @@ subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
   x_eye_r = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.d0,-1.d0,1.d0/)
   x_eye_l = Insect%x_head+dsin(45.d0*pi/180.d0)*Insect%R_head*1.8d0*(/1.d0,-1.d0,1.d0/)
   ! back to global system
-  x1 = Insect%xc_body + matmul(transpose(M_body),x_eye_l)
-  x2 = Insect%xc_body + matmul(transpose(M_body),x_eye_r)
+  x1 = Insect%xc_body_g + matmul(transpose(M_body),x_eye_l)
+  x2 = Insect%xc_body_g + matmul(transpose(M_body),x_eye_r)
   ! draw the cylinder (with spheres at the ends)
   call draw_cylinder_new( x1, x2, 0.015d0*1.3d0, mask, mask_color, us, Insect, color_body )
 end subroutine draw_body_hawkmoth
@@ -1143,7 +1143,7 @@ subroutine draw_body_mosquito_iams( mask, mask_color, us, Insect, color_body, M_
 
   ! The mosquito consists of three parts: head, thorax and abdomen (sphere, ellipsoid, ellipsoid)
   ! positions are measured from fig. 1 in [1], we computed also the center of gravity
-  ! for this mosquito, Insect%xc_body is thus the center of gravity
+  ! for this mosquito, Insect%xc_body_g is thus the center of gravity
   x0_head = (/ 0.5652d0, 0.d0, -0.0434d0 /)
   x0_thorax = (/ 0.2579d0, 0.d0, 0.1267d0 /)
   x0_abdomen = (/-0.437d0, 0.d0, -0.2024d0 /)
@@ -1153,7 +1153,7 @@ subroutine draw_body_mosquito_iams( mask, mask_color, us, Insect, color_body, M_
   !-----------------------------------------------------------------------------
   ! the head is a simple sphere with radius 0.1154
   R0 = 0.1154d0
-  x1 = x0_head + Insect%xc_body
+  x1 = x0_head + Insect%xc_body_g
   call drawsphere( x1, R0, mask,mask_color,us,Insect,color_body )
 
   !-----------------------------------------------------------------------------
@@ -1169,8 +1169,8 @@ subroutine draw_body_mosquito_iams( mask, mask_color, us, Insect, color_body, M_
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
-        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body_g
         x_body = matmul( M_body, x_glob)
         ! translate to origin of thorax
         x_body = x_body - x0_thorax
@@ -1210,8 +1210,8 @@ subroutine draw_body_mosquito_iams( mask, mask_color, us, Insect, color_body, M_
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x_glob = periodize_coordinate(x_glob - Insect%xc_body)
-        ! x_body is in the body coordinate system, which is centered at Insect%xc_body
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body_g
         x_body = matmul(M_body, x_glob)
         ! translate to origin of abdomen
         x_body = x_body - x0_abdomen
