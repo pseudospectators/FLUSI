@@ -62,12 +62,14 @@ module insect_module
     ! stroke plane angle
     real(kind=pr) :: eta_stroke
     ! angular velocity vectors (wings L+R, body)
-    real(kind=pr), dimension(1:3) :: rot_rel_wing_l_w, rot_rel_wing_r_w, rot_body_b
+    real(kind=pr), dimension(1:3) :: rot_body_b, rot_body_g
+    real(kind=pr), dimension(1:3) :: rot_rel_wing_l_w, rot_rel_wing_r_w
+    real(kind=pr), dimension(1:3) :: rot_rel_wing_l_b, rot_rel_wing_r_b
+    real(kind=pr), dimension(1:3) :: rot_rel_wing_l_g, rot_rel_wing_r_g
+    real(kind=pr), dimension(1:3) :: rot_abs_wing_l_g, rot_abs_wing_r_g
     ! angular acceleration vectors (wings L+R)
     real(kind=pr), dimension(1:3) :: rot_dt_wing_l_w, rot_dt_wing_r_w
     real(kind=pr), dimension(1:3) :: rot_dt_wing_l_g, rot_dt_wing_r_g
-    ! Angular velocities of wings and body in global system
-    real(kind=pr), dimension(1:3) :: rot_body_g, rot_abs_wing_l_g, rot_abs_wing_r_g
     ! Vector from body centre to pivot points in global reference frame
     real(kind=pr), dimension(1:3) :: x_pivot_l_g, x_pivot_r_g
     ! vectors desribing the positoions of insect's key elements
@@ -264,13 +266,12 @@ contains
       call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g )
     endif
 
-
     !-----------------------------------------------------------------------------
     ! angular acceleration for wings (required for inertial power)
     !-----------------------------------------------------------------------------
     ! wing angular velocities in the wing coordinate system
-    call angular_velocities ( time, Insect )
-    call angular_accel( time, Insect )
+    call wing_angular_velocities ( time, Insect, M_body )
+    call wing_angular_accel( time, Insect, M_body )
 
     !-----------------------------------------------------------------------------
     ! inverse of the rotation matrices
@@ -280,18 +281,11 @@ contains
     M_wing_r_inv = transpose(M_wing_r)
 
     !-----------------------------------------------------------------------------
-    ! angular velocity in the global reference frame
-    !-----------------------------------------------------------------------------
-    Insect%rot_abs_wing_l_g = matmul(M_body_inv, matmul(M_wing_l_inv, Insect%rot_rel_wing_l_w) + Insect%rot_body_b)
-    Insect%rot_abs_wing_r_g = matmul(M_body_inv, matmul(M_wing_r_inv, Insect%rot_rel_wing_r_w) + Insect%rot_body_b)
-
-    !-----------------------------------------------------------------------------
     ! vector from body centre to left/right pivot point in global reference frame,
     ! for aerodynamic power
     !-----------------------------------------------------------------------------
     Insect%x_pivot_l_g = matmul(M_body_inv, Insect%x_pivot_l)
     Insect%x_pivot_r_g = matmul(M_body_inv, Insect%x_pivot_r)
-
 
     !-----------------------------------------------------------------------------
     ! write kinematics to disk (Dmitry, 28 Oct 2013)
@@ -592,13 +586,18 @@ contains
   !-------------------------------------------------------------------------------
   ! given the angles of each wing (and their time derivatives), compute
   ! the angular velocity vectors for both wings.
-  ! output Insect%rot_rel_wing_r_w, Insect%rot_rel_wing_l_w is understood in the WING coordinate system.
+  ! output:
+  !    Insect%rot_rel_wing_r_w    relative angular velocity of right wing (wing frame)
+  !    Insect%rot_rel_wing_r_b    relative angular velocity of right wing (body frame)
+  !    Insect%rot_rel_wing_r_g    relative angular velocity of right wing (glob frame)
+  !    Insect%rot_abs_wing_r_g    absolute angular velocity of right wing (glob frame)
   !-------------------------------------------------------------------------------
-  subroutine angular_velocities ( time, Insect )
+  subroutine wing_angular_velocities ( time, Insect, M_body )
     use vars
     implicit none
 
     real(kind=pr), intent(in) :: time
+    real(kind=pr), intent(in) :: M_body(1:3,1:3)
     type(diptera), intent(inout) :: Insect
 
     real(kind=pr) :: eta_stroke
@@ -650,7 +649,7 @@ contains
     M_wing_r = matmul(M1_r,matmul(M2_r,matmul(M3_r,M_stroke_r)))
 
     !-----------------------------------------------------------------------------
-    ! angular velocity vectors
+    ! angular velocity vectors (in wing system)
     !-----------------------------------------------------------------------------
     rot_l_alpha = (/ 0.0d0, alpha_dt_l, 0.0d0 /)
     rot_l_theta = (/ 0.0d0, 0.0d0, theta_dt_l /)
@@ -667,7 +666,18 @@ contains
     rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
     rot_r_alpha)))))
 
-  end subroutine angular_velocities
+    ! prior to the call of this routine, the routine body_angular_velocity has
+    ! computed the body angular velocity (both g/b frames) so here now we can also
+    ! compute global and absolute wing angular velocities.
+    Insect%rot_rel_wing_l_b = matmul( transpose(M_wing_l), Insect%rot_rel_wing_l_w )
+    Insect%rot_rel_wing_r_b = matmul( transpose(M_wing_r), Insect%rot_rel_wing_r_w )
+
+    Insect%rot_rel_wing_l_g = matmul( transpose(M_body), Insect%rot_rel_wing_l_b )
+    Insect%rot_rel_wing_r_g = matmul( transpose(M_body), Insect%rot_rel_wing_r_b )
+
+    Insect%rot_abs_wing_l_g = Insect%rot_body_g + Insect%rot_rel_wing_l_g
+    Insect%rot_abs_wing_r_g = Insect%rot_body_g + Insect%rot_rel_wing_l_g
+  end subroutine wing_angular_velocities
 
 
 
@@ -675,10 +685,11 @@ contains
   ! Numerically estimate (it's a very precise estimation) the angular acceleration
   ! vectors for both wings, using centered finite differences
   !-------------------------------------------------------------------------------
-  subroutine angular_accel( time, Insect )
+  subroutine wing_angular_accel( time, Insect, M_body )
     use vars
     implicit none
     real(kind=pr), intent(in) :: time
+    real(kind=pr), intent(in) :: M_body(1:3,1:3)
     type(diptera), intent(inout) :: Insect
     type(diptera) :: Insect1, Insect2
 
@@ -690,7 +701,7 @@ contains
 
     dt =1.0d-7
 
-    ! please note that if angular_accel is called immediatly after angular_velocities
+    ! please note that if wing_angular_accel is called immediatly after wing_angular_velocities
     ! the values of rot_abs_wing_l_g  /  rot_abs_wing_r_g  are not initialized?
 
     ! note we cannot go to negative times
@@ -702,13 +713,13 @@ contains
       call FlappingMotion_right(time+dt, Insect2)
       call FlappingMotion_left (time+dt, Insect2)
       call StrokePlane (time+dt, Insect2)
-      call angular_velocities ( time+dt, Insect2 )
+      call wing_angular_velocities ( time+dt, Insect2, M_body )
 
       ! fetch motion state at time-dt
       call FlappingMotion_right(time-dt, Insect1)
       call FlappingMotion_left (time-dt, Insect1)
       call StrokePlane (time-dt, Insect1)
-      call angular_velocities (time-dt, Insect1)
+      call wing_angular_velocities (time-dt, Insect1, M_body)
 
       ! use centered finite differences
       Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect1%rot_rel_wing_l_w)/(2.d0*dt)
@@ -721,19 +732,19 @@ contains
       call FlappingMotion_right(time+dt, Insect2)
       call FlappingMotion_left (time+dt, Insect2)
       call StrokePlane (time+dt, Insect2)
-      call angular_velocities ( time+dt, Insect2 )
+      call wing_angular_velocities ( time+dt, Insect2, M_body )
 
       ! fetch motion state at time-dt
       call FlappingMotion_right(time, Insect1)
       call FlappingMotion_left (time, Insect1)
       call StrokePlane (time, Insect1)
-      call angular_velocities (time, Insect1)
+      call wing_angular_velocities (time, Insect1, M_body)
 
       ! use centered finite differences
       Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect1%rot_rel_wing_l_w)/dt
       Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect1%rot_rel_wing_r_w)/dt
     endif
-  end subroutine angular_accel
+  end subroutine wing_angular_accel
 
 
 
