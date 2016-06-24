@@ -437,31 +437,37 @@ contains
     ! body is not driven directly, therefore the power is set to zero
     Insect%PartIntegrals(color_body)%APow = 0.0d0
 
+    !-----------
     ! left wing
+    !-----------
     ! relative angular velocity
     omrel = Insect%rot_abs_wing_l_g - Insect%rot_body_g
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
     momrel = Insect%PartIntegrals(color_l)%Torque + &
-    Insect%PartIntegrals(color_l)%Torque_unst
+             Insect%PartIntegrals(color_l)%Torque_unst
 
     ! aerodynamic power
     Insect%PartIntegrals(color_l)%APow = - sum( momrel * omrel )
 
+    !-----------
     ! right wing
+    !-----------
     ! relative angular velocity
     omrel = Insect%rot_abs_wing_r_g - Insect%rot_body_g
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
     momrel = Insect%PartIntegrals(color_r)%Torque + &
-    Insect%PartIntegrals(color_r)%Torque_unst
+             Insect%PartIntegrals(color_r)%Torque_unst
 
     ! aerodynamic power
     Insect%PartIntegrals(color_r)%APow = - sum( momrel * omrel )
 
+    !-----------
     ! Total aerodynamic power
+    !-----------
     apowtotal = Insect%PartIntegrals(color_body)%APow + &
     Insect%PartIntegrals(color_l)%APow + Insect%PartIntegrals(color_r)%APow
 
@@ -678,7 +684,7 @@ contains
     Insect%rot_rel_wing_r_g = matmul( transpose(M_body), Insect%rot_rel_wing_r_b )
 
     Insect%rot_abs_wing_l_g = Insect%rot_body_g + Insect%rot_rel_wing_l_g
-    Insect%rot_abs_wing_r_g = Insect%rot_body_g + Insect%rot_rel_wing_l_g
+    Insect%rot_abs_wing_r_g = Insect%rot_body_g + Insect%rot_rel_wing_r_g
   end subroutine wing_angular_velocities
 
 

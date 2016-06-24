@@ -68,6 +68,29 @@ done
 
 rm kinematics.ini
 
+
+#-------------------------------------------------------------------------------
+#                               time series
+#-------------------------------------------------------------------------------
+
+file=kinematics.t
+
+  echo comparing $file time series...
+
+  ${mpi_serial} ./flusi --postprocess --compare-timeseries $file $dir/$file
+
+  result=$?
+  if [ $result == "0" ]; then
+    echo -e ":) Happy, time series: this looks okay! " $file
+    happy=$((happy+1))
+  else
+    echo -e ":[ Sad, time series: this is failed! " $file
+    sad=$((sad+1))
+  fi
+
+
+
+
 echo -e "\thappy tests: \t" $happy
 echo -e "\tsad tests: \t" $sad
 
