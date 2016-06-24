@@ -251,34 +251,17 @@ contains
     call Rx(M3,-Insect%phi_r)
     M_wing_r = matmul(M1,matmul(M2,matmul(M3,M_stroke_r)))
 
-    !-----------------------------------------------------------------------------
-    ! angular velocity vectors
-    !-----------------------------------------------------------------------------
-    ! If Insect%BodyMotion=="free_flight", then
-    ! the angular velocity is a state variable of the insect free flight
-    ! solver, and the value is copied in body-motion to the insect variable
-    ! in body_motion.f90.
-    ! Otherwise, the following block is active:
-    if (Insect%BodyMotion /= "free_flight") then
-      ! NOTE: when using the quaternion based free-flight solver, the angular
-      ! velocity of the body is computed dynamically, and the rotation matrix that
-      ! brings us from global to body system is computed with quaternions
-      call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g )
-    endif
-
-    !-----------------------------------------------------------------------------
-    ! angular acceleration for wings (required for inertial power)
-    !-----------------------------------------------------------------------------
-    ! wing angular velocities in the wing coordinate system
-    call wing_angular_velocities ( time, Insect, M_body )
-    call wing_angular_accel( time, Insect, M_body )
-
-    !-----------------------------------------------------------------------------
     ! inverse of the rotation matrices
-    !-----------------------------------------------------------------------------
     M_body_inv = transpose(M_body)
     M_wing_l_inv = transpose(M_wing_l)
     M_wing_r_inv = transpose(M_wing_r)
+
+    ! body angular velocity vector in b/g coordinate system
+    call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g, M_body )
+    ! rel+abs wing angular velocities in the w/b/g coordinate system
+    call wing_angular_velocities ( time, Insect, M_body )
+    ! angular acceleration for wings (required for inertial power)
+    call wing_angular_accel( time, Insect, M_body )
 
     !-----------------------------------------------------------------------------
     ! vector from body centre to left/right pivot point in global reference frame,
@@ -552,15 +535,29 @@ contains
 
   end subroutine inert_power
 
-
-  ! given yaw.pitch roll angles and their time derivatives, return the bodies
-  ! angular velocity vector in global and body frame
-  subroutine body_angular_velocity( Insect, rot_body_b, rot_body_g )
+  !-----------------------------------------------------------------------------
+  ! Body angular velocity vector
+  !-----------------------------------------------------------------------------
+  ! Variant (a) : free flight with quaternion solver
+  !
+  !    when using the quaternion based free-flight solver, the angular
+  !    velocity of the body is computed dynamically, and the rotation matrix that
+  !    brings us from global to body system is computed with quaternions. In body_motion
+  !    the solver sets Insect%rot_body_b, so here we compute only rot_body_g
+  !
+  ! Variant (b) : imposed (prescribed) body dynamics
+  !
+  !    If the free flight solver is not active, body yaw,pitch,roll are known, so
+  !    given yaw.pitch roll angles and their time derivatives, return the bodies
+  !    angular velocity vector in global and body frame
+  !-----------------------------------------------------------------------------
+  subroutine body_angular_velocity( Insect, rot_body_b, rot_body_g, M_body )
     implicit none
 
     type(diptera), intent(inout) :: Insect
-    real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+    real(kind=pr), intent(in) :: M_body(1:3,1:3)
     real(kind=pr), dimension(1:3), intent(out) :: rot_body_b, rot_body_g
+    real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
 
     psi = Insect%psi
     beta = Insect%beta
@@ -569,16 +566,21 @@ contains
     beta_dt = Insect%beta_dt
     gamma_dt = Insect%gamma_dt
 
-    ! in global frame
-    rot_body_g = (/ psi_dt*cos(beta)*cos(gamma)-beta_dt*sin(gamma) ,&
-                    beta_dt*cos(gamma)+psi_dt*cos(beta)*sin(gamma) ,&
-                    gamma_dt-psi_dt*sin(beta) /)
-
-    ! in body frame
-    rot_body_b = (/ psi_dt-gamma_dt*sin(beta) ,&
-                    beta_dt*cos(psi)+gamma_dt*cos(beta)*sin(psi) ,&
-                    gamma_dt*cos(beta)*cos(psi)-beta_dt*sin(psi) /)
-
+    if ( Insect%BodyMotion == "free_flight" ) then
+      ! variant (a)
+      rot_body_b = Insect%rot_body_b ! copy (useless, actually, but required for interface)
+      rot_body_g = matmul( transpose(M_body), rot_body_b)
+    else
+      ! variant (b)
+      ! in global frame
+      rot_body_g = (/ psi_dt*cos(beta)*cos(gamma)-beta_dt*sin(gamma) ,&
+                      beta_dt*cos(gamma)+psi_dt*cos(beta)*sin(gamma) ,&
+                      gamma_dt-psi_dt*sin(beta) /)
+      ! in body frame
+      rot_body_b = (/ psi_dt-gamma_dt*sin(beta) ,&
+                      beta_dt*cos(psi)+gamma_dt*cos(beta)*sin(psi) ,&
+                      gamma_dt*cos(beta)*cos(psi)-beta_dt*sin(psi) /)
+    endif
   end subroutine body_angular_velocity
 
 
@@ -683,7 +685,9 @@ contains
 
   !-------------------------------------------------------------------------------
   ! Numerically estimate (it's a very precise estimation) the angular acceleration
-  ! vectors for both wings, using centered finite differences
+  ! vectors for both wings, using one-sided finite differences (in the future)
+  ! NOTE: this routine requires us to be able to evaluate both body and wing state
+  !       at arbitrary times.
   !-------------------------------------------------------------------------------
   subroutine wing_angular_accel( time, Insect, M_body )
     use vars
@@ -691,59 +695,35 @@ contains
     real(kind=pr), intent(in) :: time
     real(kind=pr), intent(in) :: M_body(1:3,1:3)
     type(diptera), intent(inout) :: Insect
+
     type(diptera) :: Insect1, Insect2
-
     real(kind=pr) :: dt
-    real(kind=pr), dimension(1:3) :: rot_l_1, rot_l_2, rot_r_1, rot_r_2
-    real(kind=pr) :: eta_stroke
-    real(kind=pr) :: phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r
-    real(kind=pr) :: phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l
 
-    dt =1.0d-7
+    dt = 1.0d-7
 
     ! please note that if wing_angular_accel is called immediatly after wing_angular_velocities
     ! the values of rot_abs_wing_l_g  /  rot_abs_wing_r_g  are not initialized?
 
-    ! note we cannot go to negative times
-    if (time > 1.0d-7) then
-      Insect1 = Insect
-      Insect2 = Insect
 
-      ! fetch motion state at time+dt
-      call FlappingMotion_right(time+dt, Insect2)
-      call FlappingMotion_left (time+dt, Insect2)
-      call StrokePlane (time+dt, Insect2)
-      call wing_angular_velocities ( time+dt, Insect2, M_body )
+    Insect1 = Insect
+    Insect2 = Insect
 
-      ! fetch motion state at time-dt
-      call FlappingMotion_right(time-dt, Insect1)
-      call FlappingMotion_left (time-dt, Insect1)
-      call StrokePlane (time-dt, Insect1)
-      call wing_angular_velocities (time-dt, Insect1, M_body)
+    ! fetch motion state at time+dt
+    call FlappingMotion_right(time+dt, Insect2)
+    call FlappingMotion_left (time+dt, Insect2)
+    call StrokePlane (time+dt, Insect2)
+    call wing_angular_velocities ( time+dt, Insect2, M_body )
 
-      ! use centered finite differences
-      Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect1%rot_rel_wing_l_w)/(2.d0*dt)
-      Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect1%rot_rel_wing_r_w)/(2.d0*dt)
-    else
-      Insect1 = Insect
-      Insect2 = Insect
+    ! fetch motion state at time-dt
+    call FlappingMotion_right(time, Insect1)
+    call FlappingMotion_left (time, Insect1)
+    call StrokePlane (time, Insect1)
+    call wing_angular_velocities (time, Insect1, M_body)
 
-      ! fetch motion state at time+dt
-      call FlappingMotion_right(time+dt, Insect2)
-      call FlappingMotion_left (time+dt, Insect2)
-      call StrokePlane (time+dt, Insect2)
-      call wing_angular_velocities ( time+dt, Insect2, M_body )
+    ! use one-sided finite differences
+    Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect1%rot_rel_wing_l_w)/dt
+    Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect1%rot_rel_wing_r_w)/dt
 
-      ! fetch motion state at time-dt
-      call FlappingMotion_right(time, Insect1)
-      call FlappingMotion_left (time, Insect1)
-      call StrokePlane (time, Insect1)
-      call wing_angular_velocities (time, Insect1, M_body)
-
-      ! use centered finite differences
-      Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect1%rot_rel_wing_l_w)/dt
-      Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect1%rot_rel_wing_r_w)/dt
-    endif
   end subroutine wing_angular_accel
 
 
