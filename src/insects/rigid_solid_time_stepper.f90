@@ -257,8 +257,8 @@ end subroutine rigid_solid_init
 !   Insect%Jxx,Jyy,Jzz,Jxy                Wing inertia tensor (wing system) (assumes same wings l/r)
 !   Insect%rot_dt_wing_l_w                Angular acceleration of wing in wing system
 !   Insect%rot_dt_wing_r_w                Angular acceleration of wing in wing system
-!   Insect%rot_wing_l_w                   Angular velocity of wing in wing system
-!   Insect%rot_wing_r_w                   Angular velocity of wing in wing system
+!   Insect%rot_rel_wing_l_w                   Angular velocity of wing in wing system
+!   Insect%rot_rel_wing_r_w                   Angular velocity of wing in wing system
 subroutine cal_muscle_moments(time,Insect)
   implicit none
   real(kind=pr), intent(in) :: time

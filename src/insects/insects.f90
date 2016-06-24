@@ -62,11 +62,12 @@ module insect_module
     ! stroke plane angle
     real(kind=pr) :: eta_stroke
     ! angular velocity vectors (wings L+R, body)
-    real(kind=pr), dimension(1:3) :: rot_wing_l_w, rot_wing_r_w, rot_body_b
+    real(kind=pr), dimension(1:3) :: rot_rel_wing_l_w, rot_rel_wing_r_w, rot_body_b
     ! angular acceleration vectors (wings L+R)
-    real(kind=pr), dimension(1:3) :: rot_dt_l, rot_dt_r
+    real(kind=pr), dimension(1:3) :: rot_dt_wing_l_w, rot_dt_wing_r_w
+    real(kind=pr), dimension(1:3) :: rot_dt_wing_l_g, rot_dt_wing_r_g
     ! Angular velocities of wings and body in global system
-    real(kind=pr), dimension(1:3) :: rot_body_g, rot_wing_l_g, rot_wing_r_g
+    real(kind=pr), dimension(1:3) :: rot_body_g, rot_abs_wing_l_g, rot_abs_wing_r_g
     ! Vector from body centre to pivot points in global reference frame
     real(kind=pr), dimension(1:3) :: x_pivot_l_g, x_pivot_r_g
     ! vectors desribing the positoions of insect's key elements
@@ -165,7 +166,7 @@ contains
     integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
     real(kind=pr),dimension(1:3) :: x, x_body, x_wing_l, x_wing_r, x_eye_r,&
-    x_eye_l,x_head, v_tmp, rot_b_psi,rot_b_beta,rot_b_gamma
+    x_eye_l,x_head, v_tmp
     real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
     M1_b, M2_b, M3_b, M1, M2, M3, M_stroke_l, M_stroke_r, M_body_inv, &
     M_wing_l_inv, M_wing_r_inv
@@ -216,7 +217,7 @@ contains
     ! define the rotation matrices to change between coordinate systems
     !-----------------------------------------------------------------------------
     if (Insect%BodyMotion=="free_flight") then
-      ! ! QUATERNIONS
+      ! QUATERNIONS
       M_body = Insect%M_body_quaternion
     else
       ! conventional yaw, pitch, roll. Note the order of matrices is important.
@@ -254,19 +255,13 @@ contains
     ! If Insect%BodyMotion=="free_flight", then
     ! the angular velocity is a state variable of the insect free flight
     ! solver, and the value is copied in body-motion to the insect variable
-    ! in line 61 of body_motion.f90.
+    ! in body_motion.f90.
     ! Otherwise, the following block is active:
-    if (Insect%BodyMotion/="free_flight") then
+    if (Insect%BodyMotion /= "free_flight") then
       ! NOTE: when using the quaternion based free-flight solver, the angular
       ! velocity of the body is computed dynamically, and the rotation matrix that
       ! brings us from global to body system is computed with quaternions
-      rot_b_psi   = (/ Insect%psi_dt, 0.0d0, 0.0d0   /)
-      rot_b_beta  = (/ 0.0d0, Insect%beta_dt, 0.0d0  /)
-      rot_b_gamma = (/ 0.0d0, 0.0d0, Insect%gamma_dt /)
-
-      ! body angular velocity in the body coordinate system
-      Insect%rot_body_b = matmul(M_body,matmul(transpose(M3_b),rot_b_gamma+ &
-      matmul(transpose(M2_b),rot_b_beta+matmul(transpose(M1_b),rot_b_psi))))
+      call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g )
     endif
 
 
@@ -278,7 +273,6 @@ contains
     call angular_accel( time, Insect )
 
     !-----------------------------------------------------------------------------
-
     ! inverse of the rotation matrices
     !-----------------------------------------------------------------------------
     M_body_inv = transpose(M_body)
@@ -288,9 +282,8 @@ contains
     !-----------------------------------------------------------------------------
     ! angular velocity in the global reference frame
     !-----------------------------------------------------------------------------
-    Insect%rot_body_g = matmul(M_body_inv, Insect%rot_body_b)
-    Insect%rot_wing_l_g = matmul(M_body_inv, matmul(M_wing_l_inv, Insect%rot_wing_l_w) + Insect%rot_body_b)
-    Insect%rot_wing_r_g = matmul(M_body_inv, matmul(M_wing_r_inv, Insect%rot_wing_r_w) + Insect%rot_body_b)
+    Insect%rot_abs_wing_l_g = matmul(M_body_inv, matmul(M_wing_l_inv, Insect%rot_rel_wing_l_w) + Insect%rot_body_b)
+    Insect%rot_abs_wing_r_g = matmul(M_body_inv, matmul(M_wing_r_inv, Insect%rot_rel_wing_r_w) + Insect%rot_body_b)
 
     !-----------------------------------------------------------------------------
     ! vector from body centre to left/right pivot point in global reference frame,
@@ -310,7 +303,7 @@ contains
       write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
       Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
       Insect%theta_l, Insect%alpha_r, Insect%phi_r, Insect%theta_r, &
-      Insect%rot_wing_l_w, Insect%rot_wing_r_w, Insect%rot_dt_l, Insect%rot_dt_r
+      Insect%rot_rel_wing_l_w, Insect%rot_rel_wing_r_w, Insect%rot_dt_wing_l_w, Insect%rot_dt_wing_r_w
       close (17)
     endif
 
@@ -344,12 +337,12 @@ contains
     !-----------------------------------------------------------------------------
     if (Insect%RightWing == "yes") then
       call draw_wing(mask,mask_color,us,Insect,color_r,M_body,M_wing_r,&
-      Insect%x_pivot_r,Insect%rot_wing_r_w )
+      Insect%x_pivot_r,Insect%rot_rel_wing_r_w )
     endif
 
     if (Insect%LeftWing == "yes") then
       call draw_wing(mask,mask_color,us,Insect,color_l,M_body,M_wing_l,&
-      Insect%x_pivot_l,Insect%rot_wing_l_w )
+      Insect%x_pivot_l,Insect%rot_rel_wing_l_w )
     endif
 
     !-----------------------------------------------------------------------------
@@ -469,7 +462,7 @@ contains
 
     ! left wing
     ! relative angular velocity
-    omrel = Insect%rot_wing_l_g - Insect%rot_body_g
+    omrel = Insect%rot_abs_wing_l_g - Insect%rot_body_g
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
@@ -481,7 +474,7 @@ contains
 
     ! right wing
     ! relative angular velocity
-    omrel = Insect%rot_wing_r_g - Insect%rot_body_g
+    omrel = Insect%rot_abs_wing_r_g - Insect%rot_body_g
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
@@ -505,8 +498,8 @@ contains
   !       ipowtotal: total inertial power
   !       Insect%PartIntegrals%IPow: (global): individual inertial power
   ! INPUT:
-  !       Insect%rot_dt_l (global): left wing angular acceleration
-  !       Insect%rot_dt_r (global): right wing angular acceleration
+  !       Insect%rot_dt_wing_l_w (global): left wing angular acceleration
+  !       Insect%rot_dt_wing_r_w (global): right wing angular acceleration
   !       Insect%Jxx,Jyy,Jxy,Jzz (global) Wing inertia
   ! MATHEMATICS:
   !       P_inertia = omega*( J*omega_dt + omega \cross (J*omega) )
@@ -534,42 +527,72 @@ contains
     color_r = 3
 
     !-- LEFT WING
-    a(1) = Insect%Jxx * Insect%rot_dt_l(1) + Insect%Jxy * Insect%rot_dt_l(2)
-    a(2) = Insect%Jxy * Insect%rot_dt_l(1) + Insect%Jyy * Insect%rot_dt_l(2)
-    a(3) = Insect%Jzz * Insect%rot_dt_l(3)
+    a(1) = Insect%Jxx * Insect%rot_dt_wing_l_w(1) + Insect%Jxy * Insect%rot_dt_wing_l_w(2)
+    a(2) = Insect%Jxy * Insect%rot_dt_wing_l_w(1) + Insect%Jyy * Insect%rot_dt_wing_l_w(2)
+    a(3) = Insect%Jzz * Insect%rot_dt_wing_l_w(3)
 
-    b(1) = Insect%Jxx * Insect%rot_wing_l_w(1) + Insect%Jxy * Insect%rot_wing_l_w(2)
-    b(2) = Insect%Jxy * Insect%rot_wing_l_w(1) + Insect%Jyy * Insect%rot_wing_l_w(2)
-    b(3) = Insect%Jzz * Insect%rot_wing_l_w(3)
+    b(1) = Insect%Jxx * Insect%rot_rel_wing_l_w(1) + Insect%Jxy * Insect%rot_rel_wing_l_w(2)
+    b(2) = Insect%Jxy * Insect%rot_rel_wing_l_w(1) + Insect%Jyy * Insect%rot_rel_wing_l_w(2)
+    b(3) = Insect%Jzz * Insect%rot_rel_wing_l_w(3)
 
     Insect%PartIntegrals(color_l)%IPow = &
-    Insect%rot_wing_l_w(1) * (a(1)+Insect%rot_wing_l_w(2)*b(3)-Insect%rot_wing_l_w(3)*b(2)) +&
-    Insect%rot_wing_l_w(2) * (a(2)+Insect%rot_wing_l_w(3)*b(1)-Insect%rot_wing_l_w(1)*b(3)) +&
-    Insect%rot_wing_l_w(3) * (a(3)+Insect%rot_wing_l_w(1)*b(2)-Insect%rot_wing_l_w(2)*b(1))
+    Insect%rot_rel_wing_l_w(1) * (a(1)+Insect%rot_rel_wing_l_w(2)*b(3)-Insect%rot_rel_wing_l_w(3)*b(2)) +&
+    Insect%rot_rel_wing_l_w(2) * (a(2)+Insect%rot_rel_wing_l_w(3)*b(1)-Insect%rot_rel_wing_l_w(1)*b(3)) +&
+    Insect%rot_rel_wing_l_w(3) * (a(3)+Insect%rot_rel_wing_l_w(1)*b(2)-Insect%rot_rel_wing_l_w(2)*b(1))
 
     !-- RIGHT WING
-    a(1) = Insect%Jxx * Insect%rot_dt_r(1) + Insect%Jxy * Insect%rot_dt_r(2)
-    a(2) = Insect%Jxy * Insect%rot_dt_r(1) + Insect%Jyy * Insect%rot_dt_r(2)
-    a(3) = Insect%Jzz * Insect%rot_dt_r(3)
+    a(1) = Insect%Jxx * Insect%rot_dt_wing_r_w(1) + Insect%Jxy * Insect%rot_dt_wing_r_w(2)
+    a(2) = Insect%Jxy * Insect%rot_dt_wing_r_w(1) + Insect%Jyy * Insect%rot_dt_wing_r_w(2)
+    a(3) = Insect%Jzz * Insect%rot_dt_wing_r_w(3)
 
-    b(1) = Insect%Jxx * Insect%rot_wing_r_w(1) + Insect%Jxy * Insect%rot_wing_r_w(2)
-    b(2) = Insect%Jxy * Insect%rot_wing_r_w(1) + Insect%Jyy * Insect%rot_wing_r_w(2)
-    b(3) = Insect%Jzz * Insect%rot_wing_r_w(3)
+    b(1) = Insect%Jxx * Insect%rot_rel_wing_r_w(1) + Insect%Jxy * Insect%rot_rel_wing_r_w(2)
+    b(2) = Insect%Jxy * Insect%rot_rel_wing_r_w(1) + Insect%Jyy * Insect%rot_rel_wing_r_w(2)
+    b(3) = Insect%Jzz * Insect%rot_rel_wing_r_w(3)
 
     Insect%PartIntegrals(color_r)%IPow = &
-    Insect%rot_wing_r_w(1) * (a(1)+Insect%rot_wing_r_w(2)*b(3)-Insect%rot_wing_r_w(3)*b(2)) +&
-    Insect%rot_wing_r_w(2) * (a(2)+Insect%rot_wing_r_w(3)*b(1)-Insect%rot_wing_r_w(1)*b(3)) +&
-    Insect%rot_wing_r_w(3) * (a(3)+Insect%rot_wing_r_w(1)*b(2)-Insect%rot_wing_r_w(2)*b(1))
+    Insect%rot_rel_wing_r_w(1) * (a(1)+Insect%rot_rel_wing_r_w(2)*b(3)-Insect%rot_rel_wing_r_w(3)*b(2)) +&
+    Insect%rot_rel_wing_r_w(2) * (a(2)+Insect%rot_rel_wing_r_w(3)*b(1)-Insect%rot_rel_wing_r_w(1)*b(3)) +&
+    Insect%rot_rel_wing_r_w(3) * (a(3)+Insect%rot_rel_wing_r_w(1)*b(2)-Insect%rot_rel_wing_r_w(2)*b(1))
 
     ipowtotal = Insect%PartIntegrals(color_r)%IPow + Insect%PartIntegrals(color_l)%IPow
 
   end subroutine inert_power
 
 
+  ! given yaw.pitch roll angles and their time derivatives, return the bodies
+  ! angular velocity vector in global and body frame
+  subroutine body_angular_velocity( Insect, rot_body_b, rot_body_g )
+    implicit none
+
+    type(diptera), intent(inout) :: Insect
+    real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+    real(kind=pr), dimension(1:3), intent(out) :: rot_body_b, rot_body_g
+
+    psi = Insect%psi
+    beta = Insect%beta
+    gamma = Insect%gamma
+    psi_dt = Insect%psi_dt
+    beta_dt = Insect%beta_dt
+    gamma_dt = Insect%gamma_dt
+
+    ! in global frame
+    rot_body_g = (/ psi_dt*cos(beta)*cos(gamma)-beta_dt*sin(gamma) ,&
+                    beta_dt*cos(gamma)+psi_dt*cos(beta)*sin(gamma) ,&
+                    gamma_dt-psi_dt*sin(beta) /)
+
+    ! in body frame
+    rot_body_b = (/ psi_dt-gamma_dt*sin(beta) ,&
+                    beta_dt*cos(psi)+gamma_dt*cos(beta)*sin(psi) ,&
+                    gamma_dt*cos(beta)*cos(psi)-beta_dt*sin(psi) /)
+
+  end subroutine body_angular_velocity
+
+
+
   !-------------------------------------------------------------------------------
   ! given the angles of each wing (and their time derivatives), compute
   ! the angular velocity vectors for both wings.
-  ! output Insect%rot_wing_r_w, Insect%rot_wing_l_w is understood in the WING coordinate system.
+  ! output Insect%rot_rel_wing_r_w, Insect%rot_rel_wing_l_w is understood in the WING coordinate system.
   !-------------------------------------------------------------------------------
   subroutine angular_velocities ( time, Insect )
     use vars
@@ -637,10 +660,10 @@ contains
     rot_r_phi   = (/ -phi_dt_r, 0.0d0, 0.0d0  /)
 
     ! in the wing coordinate system
-    Insect%rot_wing_l_w = matmul(M_wing_l,matmul(transpose(M_stroke_l),matmul(transpose(M3_l), &
+    Insect%rot_rel_wing_l_w = matmul(M_wing_l,matmul(transpose(M_stroke_l),matmul(transpose(M3_l), &
     rot_l_phi+matmul(transpose(M2_l),rot_l_theta+matmul(transpose(M1_l), &
     rot_l_alpha)))))
-    Insect%rot_wing_r_w = matmul(M_wing_r,matmul(transpose(M_stroke_r),matmul(transpose(M3_r), &
+    Insect%rot_rel_wing_r_w = matmul(M_wing_r,matmul(transpose(M_stroke_r),matmul(transpose(M3_r), &
     rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
     rot_r_alpha)))))
 
@@ -667,6 +690,9 @@ contains
 
     dt =1.0d-7
 
+    ! please note that if angular_accel is called immediatly after angular_velocities
+    ! the values of rot_abs_wing_l_g  /  rot_abs_wing_r_g  are not initialized?
+
     ! note we cannot go to negative times
     if (time > 1.0d-7) then
       Insect1 = Insect
@@ -685,8 +711,8 @@ contains
       call angular_velocities (time-dt, Insect1)
 
       ! use centered finite differences
-      Insect%rot_dt_l = (Insect2%rot_wing_l_w - Insect1%rot_wing_l_w)/(2.d0*dt)
-      Insect%rot_dt_r = (Insect2%rot_wing_r_w - Insect1%rot_wing_r_w)/(2.d0*dt)
+      Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect1%rot_rel_wing_l_w)/(2.d0*dt)
+      Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect1%rot_rel_wing_r_w)/(2.d0*dt)
     else
       Insect1 = Insect
       Insect2 = Insect
@@ -704,8 +730,8 @@ contains
       call angular_velocities (time, Insect1)
 
       ! use centered finite differences
-      Insect%rot_dt_l = (Insect2%rot_wing_l_w - Insect1%rot_wing_l_w)/dt
-      Insect%rot_dt_r = (Insect2%rot_wing_r_w - Insect1%rot_wing_r_w)/dt
+      Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect1%rot_rel_wing_l_w)/dt
+      Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect1%rot_rel_wing_r_w)/dt
     endif
   end subroutine angular_accel
 

@@ -29,10 +29,7 @@ subroutine StrokePlane ( time, Insect )
   case ("takeoff")
     eta_stroke = Insect%eta_stroke ! read from file
   case default
-    if (mpirank==0) then
-    write (*,*) "insects.f90::StrokePlane: motion case (Insect%BodyMotion) undefined"
-    call abort()
-    endif
+    eta_stroke = Insect%eta0  ! read from file
   end select
 
   ! save it in the insect

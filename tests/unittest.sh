@@ -9,7 +9,7 @@ echo "***************************************************"
 
 # list all the test scrits you want, separated by spaces
 tests=(solid_model.sh solid_model2.sh solid_model3.sh solid_model4.sh jerry.sh striding.sh
-       fruitfly_mask.sh fruitfly_mask_kineloader.sh bumblebee_mask.sh scalar.sh
+       fruitfly_mask.sh fruitfly_mask_movingbody.sh fruitfly_mask_kineloader.sh bumblebee_mask.sh scalar.sh
        vortexring1_AB2.sh
        vortexring2_RK2.sh vortexring4_sponge.sh
        sphere_sponge_RK2.sh sphere.sh sphere_restart.sh sphere_fall_fsi.sh mhdorszagtang.sh

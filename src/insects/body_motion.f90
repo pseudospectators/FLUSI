@@ -62,6 +62,18 @@ subroutine BodyMotion(time, Insect)
     if(root) write(*,'("x=",g12.4,"y=",g12.4,"z=",g12.4)') xc
     if(root) write(*,'("psi=",g12.4,"beta=",g12.4,"gamma=",g12.4)') psi,beta,gamma
 
+  case ("yawpitchroll")
+    psi      = 30.d0*sin(2.d0*pi*time)
+    beta     = 30.d0*sin(2.d0*pi*time) ! pitch
+    gamma    = 30.d0*sin(2.d0*pi*time)
+    psi_dt   = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+    beta_dt  = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+    gamma_dt = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+    xc = Insect%x0
+    vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
+    body_moves = "yes"
+
+
   case ("roll")
     psi      = 30.d0*sin(2.d0*pi*time)
     beta     = 0.d0 ! pitch
