@@ -167,12 +167,9 @@ contains
     real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
-    real(kind=pr),dimension(1:3) :: x, x_body, x_wing_l, x_wing_r, x_eye_r,&
-    x_eye_l,x_head, v_tmp
-    real(kind=pr), dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, &
-    M1_b, M2_b, M3_b, M1, M2, M3, M_stroke_l, M_stroke_r, M_body_inv, &
-    M_wing_l_inv, M_wing_r_inv
-    real(kind=pr)::t1
+    real(kind=pr) :: t1
+    real(kind=pr),dimension(1:3) :: x, x_body, v_tmp
+    real(kind=pr),dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, M_body_inv
     integer :: ix, iy, iz
     integer, save :: counter = 0
     integer(kind=2) :: color_body, color_l, color_r
@@ -218,43 +215,12 @@ contains
     !-----------------------------------------------------------------------------
     ! define the rotation matrices to change between coordinate systems
     !-----------------------------------------------------------------------------
-    if (Insect%BodyMotion=="free_flight") then
-      ! QUATERNIONS
-      M_body = Insect%M_body_quaternion
-    else
-      ! conventional yaw, pitch, roll. Note the order of matrices is important.
-      ! first we yaw, then we pitch, then we roll the insect. Note that when the
-      ! free-flight solver is used, this matrix is obtained from quaternions, and
-      ! not as a product of simple rotaion matrices. The latter can cause "gimbal-lock"
-      call Rx(M1_b,Insect%psi)
-      call Ry(M2_b,Insect%beta)
-      call Rz(M3_b,Insect%gamma)
-      M_body = matmul(M1_b,matmul(M2_b,M3_b))
-    endif
+    call body_rotation_matrix( Insect, M_body )
+    call wing_right_rotation_matrix( Insect, M_wing_r )
+    call wing_left_rotation_matrix( Insect, M_wing_l )
 
-    call Ry(M1,Insect%eta_stroke)
-    M_stroke_l = M1
-
-    call Rx(M1,pi)
-    call Ry(M2,Insect%eta_stroke)
-    M_stroke_r = matmul(M1,M2)
-
-    call Ry(M1,Insect%alpha_l)
-    call Rz(M2,Insect%theta_l)   ! Order changed (Dmitry, 7 Nov 2013)
-    call Rx(M3,Insect%phi_l)
-    M_wing_l = matmul(M1,matmul(M2,matmul(M3,M_stroke_l)))
-
-    ! note the coordinate system is rotated so we don't need to inverse the sign
-    ! of theta, and the wings still rotate in opposite direction
-    call Ry(M1,-Insect%alpha_r)
-    call Rz(M2, Insect%theta_r)   ! Order changed (Dmitry, 7 Nov 2013)
-    call Rx(M3,-Insect%phi_r)
-    M_wing_r = matmul(M1,matmul(M2,matmul(M3,M_stroke_r)))
-
-    ! inverse of the rotation matrices
+    ! inverse of the body rotation matrices
     M_body_inv = transpose(M_body)
-    M_wing_l_inv = transpose(M_wing_l)
-    M_wing_r_inv = transpose(M_wing_r)
 
     ! body angular velocity vector in b/g coordinate system
     call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g, M_body )
@@ -440,8 +406,8 @@ contains
     !-----------
     ! left wing
     !-----------
-    ! relative angular velocity
-    omrel = Insect%rot_abs_wing_l_g - Insect%rot_body_g
+    ! relative angular velocity, in global system
+    omrel = Insect%rot_rel_wing_l_g
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
@@ -454,8 +420,8 @@ contains
     !-----------
     ! right wing
     !-----------
-    ! relative angular velocity
-    omrel = Insect%rot_abs_wing_r_g - Insect%rot_body_g
+    ! relative angular velocity, in global system
+    omrel = Insect%rot_rel_wing_r_g
 
     ! compute moment with respect to the pivot point
     ! initialize it as the moment with respect to insect's centre point
@@ -792,5 +758,74 @@ contains
     endif
 
   end subroutine delete_old_mask
+
+
+  !-----------------------------------------------------------------------------
+  ! return the body rotation matrix
+  !-----------------------------------------------------------------------------
+  subroutine body_rotation_matrix( Insect, M_body )
+    implicit none
+
+    type(diptera),intent(inout) :: Insect
+    real(kind=pr),intent(out) :: M_body(1:3,1:3)
+    real(kind=pr), dimension(1:3,1:3) :: M1_b, M2_b, M3_b
+
+    if (Insect%BodyMotion=="free_flight") then
+      ! QUATERNIONS
+      M_body = Insect%M_body_quaternion
+    else
+      ! conventional yaw, pitch, roll. Note the order of matrices is important.
+      ! first we yaw, then we pitch, then we roll the insect. Note that when the
+      ! free-flight solver is used, this matrix is obtained from quaternions, and
+      ! not as a product of simple rotaion matrices. The latter can cause "gimbal-lock"
+      call Rx(M1_b,Insect%psi)
+      call Ry(M2_b,Insect%beta)
+      call Rz(M3_b,Insect%gamma)
+      M_body = matmul(M1_b,matmul(M2_b,M3_b))
+    endif
+  end subroutine body_rotation_matrix
+
+  !-----------------------------------------------------------------------------
+  ! return the rotation matrix for the right wing
+  !-----------------------------------------------------------------------------
+  subroutine wing_right_rotation_matrix( Insect, M_wing_r )
+    implicit none
+
+    type(diptera),intent(inout) :: Insect
+    real(kind=pr),intent(out) :: M_wing_r(1:3,1:3)
+    real(kind=pr), dimension(1:3,1:3) :: M1, M2, M3, M_stroke_r
+
+
+    call Rx(M1,pi)
+    call Ry(M2,Insect%eta_stroke)
+    M_stroke_r = matmul(M1,M2)
+
+    ! note the coordinate system is rotated so we don't need to inverse the sign
+    ! of theta, and the wings still rotate in opposite direction
+    call Ry(M1,-Insect%alpha_r)
+    call Rz(M2, Insect%theta_r)   ! Order changed (Dmitry, 7 Nov 2013)
+    call Rx(M3,-Insect%phi_r)
+    M_wing_r = matmul(M1,matmul(M2,matmul(M3,M_stroke_r)))
+  end subroutine wing_right_rotation_matrix
+
+
+  !-----------------------------------------------------------------------------
+  ! return the rotation matrix for the left wing
+  !-----------------------------------------------------------------------------
+  subroutine wing_left_rotation_matrix( Insect, M_wing_l )
+    implicit none
+
+    type(diptera),intent(inout) :: Insect
+    real(kind=pr),intent(out) :: M_wing_l(1:3,1:3)
+    real(kind=pr),dimension(1:3,1:3) :: M1, M2, M3, M_stroke_l
+
+    call Ry(M1,Insect%eta_stroke)
+    M_stroke_l = M1
+
+    call Ry(M1,Insect%alpha_l)
+    call Rz(M2,Insect%theta_l)   ! Order changed (Dmitry, 7 Nov 2013)
+    call Rx(M3,Insect%phi_l)
+    M_wing_l = matmul(M1,matmul(M2,matmul(M3,M_stroke_l)))
+  end subroutine wing_left_rotation_matrix
 
 end module

@@ -13,8 +13,8 @@ tests=(solid_model.sh solid_model2.sh solid_model3.sh solid_model4.sh jerry.sh s
        vortexring1_AB2.sh
        vortexring2_RK2.sh vortexring4_sponge.sh
        sphere_sponge_RK2.sh sphere.sh sphere_restart.sh sphere_fall_fsi.sh mhdorszagtang.sh
-       swimmer1_iteration.sh swimmer2_staggered.sh swimmer3_semiimplicit.sh
-       insect.sh insect_RK4.sh)
+       insect.sh insect_RK4.sh 
+       swimmer1_iteration.sh swimmer2_staggered.sh swimmer3_semiimplicit.sh)
 
 # link flusi and mhd from .. to . if this isn't already done.
 if [ ! -f flusi ]; then
