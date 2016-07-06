@@ -8,10 +8,9 @@
 #-------------------------------------------------------------------------------
 
 # what parameter file
-dir="fruitfly_mask_kineloader/"
-params="fruitfly_mask_kineloader/fruitfly_mask.ini"
-cp fruitfly_mask_kineloader/kinematics.ini ./
-cp fruitfly_mask_kineloader/data_kin.dat ./
+dir="insects_mask_FF_moving_rotation/"
+params=${dir}"insect_test.ini"
+cp ${dir}kinematics.ini ./
 happy=0
 sad=0
 
@@ -19,7 +18,7 @@ sad=0
 # list of prefixes the test generates
 prefixes=(mask usx usy usz)
 # list of possible times (no need to actually have them)
-times=(000000 000200 000400 000600 000800 001000 001200 001400 001600 001800 002000)
+times=(000000 000250 000500 000750 001000)
 # run actual test
 ${mpi_command} ./flusi --dry-run ${params}
 echo "============================"
@@ -67,7 +66,30 @@ do
   done
 done
 
-rm kinematics.ini data_kin.dat
+rm kinematics.ini
+
+
+#-------------------------------------------------------------------------------
+#                               time series
+#-------------------------------------------------------------------------------
+
+file=kinematics.t
+
+  echo comparing $file time series...
+
+  ${mpi_serial} ./flusi --postprocess --compare-timeseries $file $dir/$file
+
+  result=$?
+  if [ $result == "0" ]; then
+    echo -e ":) Happy, time series: this looks okay! " $file
+    happy=$((happy+1))
+  else
+    echo -e ":[ Sad, time series: this is failed! " $file
+    sad=$((sad+1))
+  fi
+
+
+
 
 echo -e "\thappy tests: \t" $happy
 echo -e "\tsad tests: \t" $sad

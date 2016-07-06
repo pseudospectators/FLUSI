@@ -8,9 +8,9 @@
 #-------------------------------------------------------------------------------
 
 # what parameter file
-dir="fruitfly_mask_movingbody/"
-params="fruitfly_mask_movingbody/fruitfly_mask.ini"
-cp fruitfly_mask/kinematics.ini ./
+dir="insects_mask_FF_tethered_bodyrotated/"
+params=${dir}"insect_test.ini"
+cp ${dir}kinematics.ini ./
 happy=0
 sad=0
 
@@ -18,7 +18,7 @@ sad=0
 # list of prefixes the test generates
 prefixes=(mask usx usy usz)
 # list of possible times (no need to actually have them)
-times=(000000 000200 000400 000600 000800 001000)
+times=(000000 000250 000500 000750 001000)
 # run actual test
 ${mpi_command} ./flusi --dry-run ${params}
 echo "============================"

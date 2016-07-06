@@ -212,6 +212,7 @@ contains
     call FlappingMotion_left (time, Insect)
     call StrokePlane (time, Insect)
 
+
     !-----------------------------------------------------------------------------
     ! define the rotation matrices to change between coordinate systems
     !-----------------------------------------------------------------------------
@@ -227,7 +228,7 @@ contains
     ! rel+abs wing angular velocities in the w/b/g coordinate system
     call wing_angular_velocities ( time, Insect, M_body )
     ! angular acceleration for wings (required for inertial power)
-    call wing_angular_accel( time, Insect, M_body )
+    call wing_angular_accel( time, Insect )
 
     !-----------------------------------------------------------------------------
     ! vector from body centre to left/right pivot point in global reference frame,
@@ -246,7 +247,8 @@ contains
       write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
       Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
       Insect%theta_l, Insect%alpha_r, Insect%phi_r, Insect%theta_r, &
-      Insect%rot_rel_wing_l_w, Insect%rot_rel_wing_r_w, Insect%rot_dt_wing_l_w, Insect%rot_dt_wing_r_w
+      Insect%rot_rel_wing_l_w, Insect%rot_rel_wing_r_w, &
+      Insect%rot_dt_wing_l_w, Insect%rot_dt_wing_r_w
       close (17)
     endif
 
@@ -324,6 +326,10 @@ contains
       enddo
     enddo
     time_insect_vel = time_insect_vel + MPI_wtime() - t1
+
+    ! print some important numbers, routine exectutes only once during a simulation
+    call print_insect_reynolds_numbers( Insect )
+
   end subroutine Draw_Insect
 
 
@@ -661,40 +667,47 @@ contains
   ! NOTE: this routine requires us to be able to evaluate both body and wing state
   !       at arbitrary times.
   !-------------------------------------------------------------------------------
-  subroutine wing_angular_accel( time, Insect, M_body )
+  subroutine wing_angular_accel( time, Insect )
     use vars
     implicit none
     real(kind=pr), intent(in) :: time
-    real(kind=pr), intent(in) :: M_body(1:3,1:3)
     type(diptera), intent(inout) :: Insect
 
-    type(diptera) :: Insect1, Insect2
+    real(kind=pr) :: M_body(1:3,1:3), rot_dt_wing_g(1:3), M_wing_r(1:3,1:3), M_wing_l(1:3,1:3)
+    type(diptera) :: Insect2
     real(kind=pr) :: dt
 
-    dt = 1.0d-7
-
-    ! please note that if wing_angular_accel is called immediatly after wing_angular_velocities
-    ! the values of rot_abs_wing_l_g  /  rot_abs_wing_r_g  are not initialized?
-
-
-    Insect1 = Insect
+    dt = 1.0d-8
     Insect2 = Insect
 
+    Insect%rot_dt_wing_l_w = 0.d0
+    Insect%rot_dt_wing_r_w = 0.d0
+
     ! fetch motion state at time+dt
+    call BodyMotion (time+dt, Insect2)
     call FlappingMotion_right(time+dt, Insect2)
     call FlappingMotion_left (time+dt, Insect2)
     call StrokePlane (time+dt, Insect2)
+    call body_rotation_matrix( Insect2, M_body )
     call wing_angular_velocities ( time+dt, Insect2, M_body )
 
-    ! fetch motion state at time-dt
-    call FlappingMotion_right(time, Insect1)
-    call FlappingMotion_left (time, Insect1)
-    call StrokePlane (time, Insect1)
-    call wing_angular_velocities (time, Insect1, M_body)
+    ! this is the current state:
+    call body_rotation_matrix( Insect, M_body )
+    call wing_right_rotation_matrix( Insect, M_wing_r )
+    call wing_left_rotation_matrix( Insect, M_wing_l )
 
     ! use one-sided finite differences
-    Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect1%rot_rel_wing_l_w)/dt
-    Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect1%rot_rel_wing_r_w)/dt
+!    rot_dt_wing_g = (Insect2%rot_abs_wing_l_g - Insect%rot_abs_wing_l_g)/dt
+!    Insect%rot_dt_wing_l_w = matmul(M_wing_l,matmul(M_body, rot_dt_wing_g))
+
+! this is the OLD CODE. It is actually wrong, since it computes the time derivative
+! in the moving refrence frame of the wing, which is not the actual angular acceleration
+Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect%rot_rel_wing_r_w)/dt
+Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect%rot_rel_wing_l_w)/dt
+
+
+!     rot_dt_wing_g = (Insect2%rot_rel_wing_r_g - Insect%rot_rel_wing_r_g)/dt
+!     Insect%rot_dt_wing_r_w = matmul(M_wing_r,matmul(M_body, rot_dt_wing_g))
 
   end subroutine wing_angular_accel
 
@@ -827,5 +840,69 @@ contains
     call Rx(M3,Insect%phi_l)
     M_wing_l = matmul(M1,matmul(M2,matmul(M3,M_stroke_l)))
   end subroutine wing_left_rotation_matrix
+
+  !-----------------------------------------------------------------------------
+  ! Compute and print a couple of important numbers for insects
+  !-----------------------------------------------------------------------------
+  subroutine  print_insect_reynolds_numbers( Insect )
+    implicit none
+    type(diptera),intent(inout) :: Insect
+    type(diptera) :: Insect_copy
+    real(kind=pr) :: area, Re_f, Re
+    real(kind=pr) :: time, dt
+    real(kind=pr) :: phil_min, phil_max, phir_min, phir_max
+    logical, save :: first_call = .true.
+
+    ! the second call is just a return statement
+    if ( first_call .eqv. .false.) return
+
+    ! only root does this...
+    if (root) then
+      ! we need the wing area to compute the mean wing chord
+      call compute_wing_surface(Insect, area)
+      write(*,'(50("~"))')
+      write(*,'("Wing area is A=",g15.8)') area
+      write(*,'("Mean chord length is c_m=",g15.8)') area/1.d0 ! note c_m = A/R but R=1
+
+      if (Insect%wing_fsi /= 'yes') then
+        ! first we computethe stroke amplitude of the positional angle phi (for
+        ! both wings). for safety, we make a copy of the insect, since the routines
+        ! for the flapping motion write to this object, and we want to prevent any
+        ! unwanted side effects
+        Insect_copy = Insect
+        time = 0.d0
+        dt = 1.0d-3
+        phil_min = 0.d0
+        phil_max = 0.d0
+        phir_min = 0.d0
+        phir_max = 0.d0
+        ! we use only one stroke ( the first one )
+        do while (time < 1.d0)
+          call FlappingMotion_left ( time, Insect_copy )
+          call FlappingMotion_right ( time, Insect_copy )
+          phil_min = min( phil_min, Insect_copy%phi_l )
+          phil_max = max( phil_max, Insect_copy%phi_l )
+          phir_min = min( phir_min, Insect_copy%phi_r )
+          phir_max = max( phir_max, Insect_copy%phi_r )
+          time = time + dt
+        end do
+        write(*,'("All following quantities are based on the first stroke 0.0 <= t <= 1.0")')
+        write(*,'("Stroke amplitude is PHI_L=",g15.8)') abs(phil_max) + abs(phil_min)
+        write(*,'("Stroke amplitude is PHI_R=",g15.8)') abs(phir_max) + abs(phir_min)
+        write(*,'("Re_left  = 2*phi*R*f*c_m / nu =",g15.8)') 2.d0*(abs(phil_max)+abs(phil_min))*1.d0*1.d0*area/nu
+        write(*,'("Re_right = 2*phi*R*f*c_m / nu =",g15.8)') 2.d0*(abs(phir_max)+abs(phir_min))*1.d0*1.d0*area/nu
+        write(*,'("Re_f = R*R*f / nu =",g15.8)') 1.d0/nu
+      else
+        write(*,*) "In the case of wing_fsi problems, we do not know the wing"
+        write(*,*) "kinematics before the computation. Therefore, we cannot tell"
+        write(*,*) "the Reynolds number in advance."
+        write(*,'("Re_f = R*R*f / nu =",g15.8)') 1.d0/nu
+      endif
+      write(*,'(50("~"))')
+    endif
+
+    first_call = .false.
+  end subroutine print_insect_reynolds_numbers
+
 
 end module

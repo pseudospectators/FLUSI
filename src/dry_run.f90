@@ -35,6 +35,8 @@ subroutine dry_run()
      write(*,'(A)') '--------------------------------------'
   endif
 
+
+
   !-----------------------------------------------------------------------------
   ! Read input parameters
   !-----------------------------------------------------------------------------
@@ -115,6 +117,17 @@ subroutine dry_run()
       GlobalIntegrals%force = 0.d0
       GlobalIntegrals%force_unst = 0.d0
     endif
+
+    open  (14,file='kinematics.t',status='replace')
+    write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
+    "psi","beta","gamma","eta_stroke",&
+    "alpha_l","phi_l","theta_l",&
+    "alpha_r","phi_r","theta_r",&
+    "rot_l_x","rot_l_y","rot_l_z",&
+    "rot_r_x","rot_r_y","rot_r_z",&
+    "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
+    "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+    close (14)
   endif
 
 

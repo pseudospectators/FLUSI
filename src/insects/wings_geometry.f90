@@ -503,7 +503,7 @@ real(kind=pr) function Radius_Fourier(theta,Insect)
   use vars
   implicit none
   integer :: i,j, n_radius
-  real(kind=pr) :: R0, theta2, dphi
+  real(kind=pr) :: R0, theta2, dphi, area
   type(diptera),intent(inout)::Insect
   real(kind=pr), intent(in) :: theta
 
@@ -513,7 +513,11 @@ real(kind=pr) function Radius_Fourier(theta,Insect)
   ! evaluate the entire R(theta) once with very fine resolution, so when
   ! calling it for the second time we only need linear interpolation.
   if (.not.Insect%wings_radius_table_ready) then
-    ! loop over all thetas
+    !---------------------------------------------------------------------------
+    ! fill radius table
+    !---------------------------------------------------------------------------
+    ! loop over all thetas and compute the radius for all of them, store it
+    ! in the table Insect%R0_table
     do j = 1, n_radius
       R0 = Insect%a0_wings / 2.d0
       theta2 = dble(j-1) * dphi
@@ -524,6 +528,7 @@ real(kind=pr) function Radius_Fourier(theta,Insect)
       enddo
       Insect%R0_table(j)=R0
     enddo
+
     ! skip setup on next call
     Insect%wings_radius_table_ready = .true.
   endif
@@ -533,6 +538,46 @@ real(kind=pr) function Radius_Fourier(theta,Insect)
   Radius_Fourier = Insect%R0_table(j) + ((theta-dble(j-1)*dphi) / dphi) &
                  * (Insect%R0_table(j+1)-Insect%R0_table(j))
 end function
+
+
+
+!---------------------------------------------------------------------------
+! compute wing surface for Fourier wings
+!---------------------------------------------------------------------------
+! from the Fourier series, we can directly compute the wing Area (surface)
+! the aera is the double integral A = \int(0,2pi) \int(0,R(theta)) r dr dtheta
+subroutine compute_wing_surface(Insect, area)
+  implicit none
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(out) :: area
+
+  real(kind=pr) :: dr, dtheta, r
+  real(kind=pr) :: R0, theta
+
+  ! the numerical precision is a tad exagerated, but since this is cheap, we do
+  ! not really care.
+  dr = 1.0d-4
+  dtheta = 2.d0*pi/1000.d0
+  theta = 0.d0
+  r = 0.d0
+  area = 0.d0
+
+  ! this method currently works only for Fourier wings (i.e. the shape is described
+  ! as Fourier coefficients). We return zero for non-Fourier wings.
+  if ( Insect%nfft_wings /= 0 ) then
+    ! solve the double integral
+    do while ( theta < 2.d0*pi )
+        R0 = Radius_Fourier(theta,Insect)
+        r = 0.d0
+        do while (r < R0)
+            area = area + r*dtheta*dr
+            r = r+dr
+        end do
+        theta = theta + dtheta;
+    end do
+  endif
+end subroutine
+
 
 !-------------------------------------------------------------------------------
 ! Here all hard-coded fourier series coefficients for different wings shapes are
@@ -906,4 +951,14 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     call abort()
   end select
 
+  if (root) then
+    write(*,'(30("-"))')
+    write(*,'("Insect module: Setup_Wing_Fourier_coefficients")')
+    write(*,'("Wing shape is ",A)') trim(adjustl(Insect%WingShape))
+    write(*,'("nfft_wings=",i3)') Insect%nfft_wings
+    write(*,'(30("-"))')
+  endif
+
+  ! skip this routine in the future
+  Insect%wingsetup_done = .true.
 end subroutine Setup_Wing_Fourier_coefficients

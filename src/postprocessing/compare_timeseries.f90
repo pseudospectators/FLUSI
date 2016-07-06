@@ -45,7 +45,7 @@ subroutine compare_timeseries(help)
   !-----------------------------------------------------------------------------
   ! how many colums are in the second *.t file?
   !-----------------------------------------------------------------------------
-  open  (14, file = file1, status = 'unknown', action='read')
+  open  (14, file = file2, status = 'unknown', action='read')
   read (14,'(A)') header
   read (14,'(A)') line
   columns2=1
@@ -81,7 +81,7 @@ subroutine compare_timeseries(help)
     do i=1,columns
       diff = values1(i)-values2(i)
       ! ignore values smaller 1e-4 in ref file
-      if ((dabs(values2(i))>1.d-4).and.(diff>1.d-7)) then
+      if ((dabs(values2(i))>1.d-4).and.(dabs(diff)>1.d-7)) then
         error(i) = dabs(diff/values2(i))
       else
         error(i) = 0.0
@@ -90,6 +90,7 @@ subroutine compare_timeseries(help)
 
     if (maxval(error)>1.d-4) then
       write(*,*) "time series comparison failed..."
+      write(*,'(A)') header
       write(*,format) values1
       write(*,format) values2
       write(*,format) error

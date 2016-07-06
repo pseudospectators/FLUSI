@@ -69,8 +69,8 @@ subroutine BodyMotion(time, Insect)
     psi_dt   = 30.d0*cos(2.d0*pi*time)*2.d0*pi
     beta_dt  = 30.d0*cos(2.d0*pi*time)*2.d0*pi
     gamma_dt = 30.d0*cos(2.d0*pi*time)*2.d0*pi
-    xc = Insect%x0
-    vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
+    xc = Insect%x0 + time*Insect%v0
+    vc = Insect%v0
     body_moves = "yes"
 
 

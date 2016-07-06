@@ -4,23 +4,22 @@
 # FLUSI (FSI) unit test
 # This file contains one specific unit test, and it is called by unittest.sh
 #-------------------------------------------------------------------------------
-# jerry mask test
-#-------------------------------------------------------------------------------
 
 # what parameter file
-params="jerry/jerry.ini"
 
+dir="./insects_flow_COIN_freeflight/"
+params=${dir}"sphere_fall.ini"
 happy=0
 sad=0
 
-echo "jerry mask test"
+echo "Sphere unit test: phase one"
 
 # list of prefixes the test generates
-prefixes=(mask usx usy usz)
+prefixes=(ux uy uz mask)
 # list of possible times (no need to actually have them)
-times=(000000 000500 001000)
+times=(000000 000200 000400 000600 000800 001000 001200 002000)
 # run actual test
-${mpi_command} ./flusi --dry-run ${params}
+${mpi_command} ./flusi ${params}
 echo "============================"
 echo "run done, analyzing data now"
 echo "============================"
@@ -36,7 +35,7 @@ do
     # will be transformed into this *.key file
     keyfile=${p}"_"${t}".key"
     # which we will compare to this *.ref file
-    reffile=./jerry/${p}"_"${t}".ref"
+    reffile=${dir}${p}"_"${t}".ref"
 
     if [ -f $file ]; then
         # get four characteristic values describing the field
@@ -64,6 +63,29 @@ do
     echo " "
 
   done
+done
+
+
+#-------------------------------------------------------------------------------
+#                               time series
+#-------------------------------------------------------------------------------
+
+files=(forces.t forces_part1.t forces_part2.t forces_part3.t kinematics.t energy.t rigidsolidsolver.t ekin.t)
+
+for file in ${files[@]}
+do
+  echo comparing $file time series...
+
+  ${mpi_serial} ./flusi --postprocess --compare-timeseries $file ${dir}/$file
+
+  result=$?
+  if [ $result == "0" ]; then
+    echo -e ":) Happy, time series: this looks okay! " $file
+    happy=$((happy+1))
+  else
+    echo -e ":[ Sad, time series: this is failed! " $file
+    sad=$((sad+1))
+  fi
 done
 
 

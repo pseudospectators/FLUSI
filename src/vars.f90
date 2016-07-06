@@ -189,21 +189,21 @@ module vars
   !-----------------------------------------------------------------------------
   ! The derived integral quantities for fluid-structure interactions.
   type Integrals
-     real(kind=pr) :: time
-     real(kind=pr) :: EKin
-     real(kind=pr) :: Dissip
-     real(kind=pr) :: Divergence
-     real(kind=pr) :: Volume
-     real(kind=pr) :: APow
-     real(kind=pr) :: IPow
-     real(kind=pr) :: penalization_power
-     real(kind=pr) :: penalization_power_x
-     real(kind=pr) :: penalization_power_y
-     real(kind=pr) :: penalization_power_z
-     real(kind=pr),dimension(1:3) :: Force
-     real(kind=pr),dimension(1:3) :: Force_unst
-     real(kind=pr),dimension(1:3) :: Torque
-     real(kind=pr),dimension(1:3) :: Torque_unst
+     real(kind=pr) :: time = 0.d0
+     real(kind=pr) :: EKin = 0.d0
+     real(kind=pr) :: Dissip = 0.d0
+     real(kind=pr) :: Divergence = 0.d0
+     real(kind=pr) :: Volume = 0.d0
+     real(kind=pr) :: APow = 0.d0
+     real(kind=pr) :: IPow = 0.d0
+     real(kind=pr) :: penalization_power = 0.d0
+     real(kind=pr) :: penalization_power_x = 0.d0
+     real(kind=pr) :: penalization_power_y = 0.d0
+     real(kind=pr) :: penalization_power_z = 0.d0
+     real(kind=pr),dimension(1:3) :: Force = 0.d0
+     real(kind=pr),dimension(1:3) :: Force_unst = 0.d0
+     real(kind=pr),dimension(1:3) :: Torque = 0.d0
+     real(kind=pr),dimension(1:3) :: Torque_unst = 0.d0
   end type Integrals
   !-----------------------------------------------------------------------------
 
