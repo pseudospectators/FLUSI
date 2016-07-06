@@ -135,13 +135,13 @@ subroutine init_beams ( beams )
     !---------------------------------------------------------------------------
     ! set up material and derivatives
     !---------------------------------------------------------------------------
-    beams(i)%zeta = eta0 * beams(i)%L_rigid
-    beams(i)%mu   = mue0 * beams(i)%L_rigid
+    beams(i)%zeta(0:ns-1) = eta0 * beams(i)%L_rigid(0:ns-1)
+    beams(i)%mu(0:ns-1)   = mue0 * beams(i)%L_rigid(0:ns-1)
     call Differentiate1D (beams(i)%zeta, beams(i)%zeta_s, ns, ds, 1)
     call Differentiate1D (beams(i)%zeta, beams(i)%zeta_ss, ns, ds, 2)
     call Differentiate1D (beams(i)%zeta, beams(i)%zeta_sss, ns, ds, 3)
     call Differentiate1D (beams(i)%mu, beams(i)%mu_s, ns, ds, 1)
-    beams(i)%mu_star = beams(i)%mu_s / beams(i)%mu
+    beams(i)%mu_star(0:ns-1) = beams(i)%mu_s(0:ns-1) / beams(i)%mu(0:ns-1)
 
 
     if (mpirank ==0) then

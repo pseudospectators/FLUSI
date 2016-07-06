@@ -263,9 +263,13 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! convergence test
     !---------------------------------------------------------------------------
-    ROC1 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / dble(ns)
-    ROC2 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / norm
-    if (((ROC2<1.0d-3).or.(inter==100)).or.(it<2)) then
+    if (it >= 2) then
+      ROC1 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / dble(ns)
+      ROC2 = dsqrt( sum((beams(1)%pressure_new(0:ns-1)-bpress_old_iterating)**2)) / norm
+      if (((ROC2<1.0d-3).or.(inter==100)).or.(it<2)) then
+        iterate = .false.
+      endif
+    else
       iterate = .false.
     endif
 

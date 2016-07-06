@@ -361,7 +361,7 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
           ! distortion of s
           s1 = 1.0d0 - ( s + 0.08d0*dtanh(30.0d0*s) ) / (1.0d0+0.08d0*dtanh(30.0d0))
           s1 = ( s1 + 0.04d0*dtanh(60.0d0*s1) ) / (1.0d0+0.04d0*dtanh(60.0d0))
-          ! s1 = ( max(dsin(1.2d0*s1)/dsin(1.2d0), 0.d0) )**1.25
+
           ! s1 = ( dsin(1.2d0*s1)/dsin(1.2d0) )**1.25
           s1 = dsin(1.2d0*s1)/dsin(1.2d0)
           s1 = sign(abs(s1)**1.25,s1)
