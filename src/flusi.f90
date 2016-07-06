@@ -262,6 +262,19 @@ program FLUSI
       ! this logical "activates" the scalar. if, for example, a NaN in the scalar occurs,
       ! it is set to false and the scalar is skipped, since the fluid can still be okay
       compute_scalar = .true.
+
+    else
+      ! HACK HACK On newer intel compilers with array bounds checks (i.e. ifort -CB)
+      ! passing unallocated arrays to suborutines causes errors (although these
+      ! arrays are of course unused). So for the intel ifort compiler, we allocate
+      ! always one scalar.
+#ifdef IFORT
+      n_scalars = 1
+      if(mpirank==0) write(*,*) "scalar module is in use: allocate additional memory (IFORT EXCEPTION)"
+      allocate(scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars))
+      allocate(scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1))
+      memory = memory + dble((1+nrhs)*n_scalars)*mem_field
+#endif
     endif
 
     ! for time averaging

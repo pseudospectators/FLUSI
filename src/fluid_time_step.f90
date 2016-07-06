@@ -166,7 +166,9 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   type(diptera)::Insect_dummy
   integer :: inter
   logical :: iterate
-
+  ROC1 = 0.d0
+  ROC2 = 0.d0
+  
   ! useful error messages
   if (use_solid_model/="yes") then
     write(*,*) "using FSI_AB2_iteration without solid model?"
