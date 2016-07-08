@@ -843,7 +843,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   ! points.
   ! start = per(nint( (Insect%xc_body_g(1)-0.5*xl)/dx), nx)
   ! if(root) write(*,*) "point is", Insect%xc_body_g(1)-0.5*xl
-
+start =0
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = start, start+nx ! we run all points, still
