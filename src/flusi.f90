@@ -300,14 +300,6 @@ program FLUSI
       call init_turbulent_inlet ( )
     endif
 
-    ! unit testing for io writing. just write a file with a field to disk, the
-    ! code displays the i/o performance and you can decide if that is good or bad
-    call save_field_hdf5(0.d0,"test_ioperformance.h5",work(:,:,:,1))
-    if (mpirank==0) then
-      write(*,*) "deleting file test_ioperformance.h5"
-      call init_empty_file("test_ioperformance.h5")
-    endif
-
     !-----------------------------------------------------------------------------
     ! show memory consumption for information
     !-----------------------------------------------------------------------------

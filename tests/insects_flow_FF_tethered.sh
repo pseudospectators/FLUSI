@@ -16,7 +16,7 @@ sad=0
 
 
 # list of prefixes the test generates
-prefixes=(vorabs ux uy uz p mask)
+prefixes=(vorabs ux uy uz p mask usx usy usz)
 # list of possible times (no need to actually have them)
 times=(000000 000250 000500 000750 001000)
 

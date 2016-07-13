@@ -34,8 +34,10 @@ subroutine compare_timeseries(help)
   ! how many colums are in the *.t file?
   !-----------------------------------------------------------------------------
   open  (14, file = file1, status = 'unknown', action='read')
-  read (14,'(A)') header
-  read (14,'(A)') line
+  read (14,'(A)', iostat=io_error) header
+  read (14,'(A)', iostat=io_error) line
+  if (io_error /= 0) call abort(107712,'I/O error in ascii file (Maybe empty?)')
+
   columns=1
   do i=2,len_trim(line)
     if ((line(i:i)==" ").and.(line(i+1:i+1)/=" ")) columns=columns+1
@@ -46,8 +48,10 @@ subroutine compare_timeseries(help)
   ! how many colums are in the second *.t file?
   !-----------------------------------------------------------------------------
   open  (14, file = file2, status = 'unknown', action='read')
-  read (14,'(A)') header
-  read (14,'(A)') line
+  read (14,'(A)', iostat=io_error) header
+  read (14,'(A)', iostat=io_error) line
+  if (io_error /= 0) call abort(107712,'I/O error in ascii file (Maybe empty?)')
+
   columns2=1
   do i=2,len_trim(line)
     if ((line(i:i)==" ").and.(line(i+1:i+1)/=" ")) columns2=columns2+1

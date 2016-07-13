@@ -15,7 +15,7 @@ sad=0
 cp ${dir}/kinematics.ini .
 
 # list of prefixes the test generates
-prefixes=(ux uy uz mask vorabs p)
+prefixes=(ux uy uz mask vorabs p usx usy usz)
 # list of possible times (no need to actually have them)
 times=(000000 000250 000500 000750 001000)
 
