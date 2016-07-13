@@ -99,7 +99,7 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
           !-----------------------------------------
           ! set new value for mask and velocity us
           !-----------------------------------------
-          if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
+          if ((mask(ix,iy,iz) < mask_tmp).and.(mask_tmp>0.0)) then
             mask(ix,iy,iz) = mask_tmp
             mask_color(ix,iy,iz) = color_wing
             !------------------------------------------------
@@ -191,7 +191,7 @@ subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
 
               mask_tmp = z_tmp*y_tmp*x_tmp
 
-              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
+              if ((mask(ix,iy,iz) < mask_tmp).and.(mask_tmp>0.0)) then
                 mask(ix,iy,iz) = mask_tmp
                 mask_color(ix,iy,iz) = color_wing
                 !------------------------------------------------
@@ -275,7 +275,7 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
 
               mask_tmp = z_tmp*y_tmp*x_tmp
 
-              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
+              if ((mask(ix,iy,iz) < mask_tmp).and.(mask_tmp>0.0)) then
                 mask(ix,iy,iz) = mask_tmp
                 mask_color(ix,iy,iz) = color_wing
                 !------------------------------------------------
@@ -374,7 +374,7 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
 
               mask_tmp = z_tmp*y_tmp*x_tmp
 
-              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
+              if ((mask(ix,iy,iz) < mask_tmp).and.(mask_tmp>0.0)) then
                 mask(ix,iy,iz) = mask_tmp
                 mask_color(ix,iy,iz) = color_wing
                 !------------------------------------------------
@@ -470,7 +470,7 @@ subroutine draw_wing_mosquito(mask,mask_color,us,Insect,color_wing,M_body,&
 
               mask_tmp = z_tmp*y_tmp*x_tmp
 
-              if ((mask(ix,iy,iz) <= mask_tmp).and.(mask_tmp>0.0)) then
+              if ((mask(ix,iy,iz) < mask_tmp).and.(mask_tmp>0.0)) then
                 mask(ix,iy,iz) = mask_tmp
                 mask_color(ix,iy,iz) = color_wing
                 !------------------------------------------------
