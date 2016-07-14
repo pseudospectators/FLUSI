@@ -646,6 +646,18 @@ contains
     rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
     rot_r_alpha)))))
 
+    ! if (root) then
+    !   write(*,*) "old code omega=", Insect%rot_rel_wing_l_w
+    !   write(*,*) "dir code omega=", (/phi_dt_l*cos(alpha_l)*cos(theta_l)-theta_dt_l*sin(alpha_l),&
+    !   alpha_dt_l-phi_dt_l*sin(theta_l),&
+    !   theta_dt_l*cos(alpha_l)+phi_dt_l*sin(alpha_l)*cos(theta_l)/)
+    ! endif
+
+    ! direct definition, equivalent to what is above.
+    ! Insect%rot_rel_wing_l_w = (/phi_dt_l*cos(alpha_l)*cos(theta_l)-theta_dt_l*sin(alpha_l),&
+    !   alpha_dt_l-phi_dt_l*sin(theta_l),&
+    !   theta_dt_l*cos(alpha_l)+phi_dt_l*sin(alpha_l)*cos(theta_l)/)
+
     ! prior to the call of this routine, the routine body_angular_velocity has
     ! computed the body angular velocity (both g/b frames) so here now we can also
     ! compute global and absolute wing angular velocities.
@@ -675,7 +687,7 @@ contains
 
     real(kind=pr) :: M_body(1:3,1:3), rot_dt_wing_g(1:3), M_wing_r(1:3,1:3), M_wing_l(1:3,1:3)
     type(diptera) :: Insect2
-    real(kind=pr) :: dt
+    real(kind=pr) :: dt,t
 
     dt = 1.0d-8
     Insect2 = Insect
@@ -690,24 +702,54 @@ contains
     call StrokePlane (time+dt, Insect2)
     call body_rotation_matrix( Insect2, M_body )
     call wing_angular_velocities ( time+dt, Insect2, M_body )
-
     ! this is the current state:
     call body_rotation_matrix( Insect, M_body )
     call wing_right_rotation_matrix( Insect, M_wing_r )
     call wing_left_rotation_matrix( Insect, M_wing_l )
 
-    ! use one-sided finite differences
-!    rot_dt_wing_g = (Insect2%rot_abs_wing_l_g - Insect%rot_abs_wing_l_g)/dt
-!    Insect%rot_dt_wing_l_w = matmul(M_wing_l,matmul(M_body, rot_dt_wing_g))
+    ! use one-sided finite differences to derive the absolute angular velocity with
+    ! respect to time. NOte in older code versions, this was wrong, as we derived
+    ! the ang. vel. in the wing coordinate system, which is a moving reference frame.
 
-! this is the OLD CODE. It is actually wrong, since it computes the time derivative
-! in the moving refrence frame of the wing, which is not the actual angular acceleration
-Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect%rot_rel_wing_r_w)/dt
-Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect%rot_rel_wing_l_w)/dt
+    ! now happily, the old results are still correct, as long as the body does not rotate
+    ! see, e.g., this document https://www.google.de/url?sa=t&rct=j&q=&esrc=s&source=web&cd=3&ved=0ahUKEwjzl-XP6_LNAhWoC5oKHUdDCHwQFggoMAI&url=http%3A%2F%2Focw.mit.edu%2Fcourses%2Faeronautics-and-astronautics%2F16-07-dynamics-fall-2009%2Flecture-notes%2FMIT16_07F09_Lec08.pdf&usg=AFQjCNHzEB-n_NMm6K3J1eRpIaGnuKpW0Q&sig2=yEPNin3bL5DnWauNJk2hcw&bvm=bv.126993452,d.bGs&cad=rjt
+    ! however, if the body moves, an additional term occurs, and this was indeed missing
+    ! in previous results.
+    rot_dt_wing_g = (Insect2%rot_rel_wing_l_g - Insect%rot_rel_wing_l_g) / dt
+    Insect%rot_dt_wing_l_w = matmul(M_wing_l,matmul(M_body, rot_dt_wing_g))
+
+    rot_dt_wing_g = (Insect2%rot_rel_wing_r_g - Insect%rot_rel_wing_r_g) / dt
+    Insect%rot_dt_wing_r_w = matmul(M_wing_r,matmul(M_body, rot_dt_wing_g))
 
 
-!     rot_dt_wing_g = (Insect2%rot_rel_wing_r_g - Insect%rot_rel_wing_r_g)/dt
-!     Insect%rot_dt_wing_r_w = matmul(M_wing_r,matmul(M_body, rot_dt_wing_g))
+    ! if (root) then
+    !   write(*,*) "L new code", Insect%rot_dt_wing_l_w
+    !   write(*,*) "L old code", (Insect2%rot_rel_wing_l_w - Insect%rot_rel_wing_l_w)/dt
+    !   write(*,*) "rot_rel_wing_l_g", Insect%rot_rel_wing_l_g
+    !   write(*,*) "rot_body_g", Insect%rot_body_g
+    !   write(*,*) "rot_body_b", Insect%rot_body_b
+    !   write(*,*) "rot_dt_body_g", (Insect2%rot_body_g-Insect%rot_body_g)/dt
+    ! endif
+    !
+    ! if (root) then
+    !   t = 0.d0
+    !   open  (17,file='test.t',status='replace')
+    !   do while (t<=6.d0)
+    !     call FlappingMotion_left ( t, Insect)
+    !     write (17,'(7(es15.8,1x))') t,  &
+    !     Insect%alpha_l, Insect%phi_l, Insect%theta_l, &
+    !     Insect%alpha_dt_l, Insect%phi_dt_l, Insect%theta_dt_l
+    !
+    !     t = t + 1.0d-5
+    !   end do
+    !   close (17)
+    !   call abort(7)
+    ! endif
+
+    ! ! this is the OLD CODE. It is actually wrong, since it computes the time derivative
+    ! ! in the moving refrence frame of the wing, which is not the actual angular acceleration
+    ! Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect%rot_rel_wing_r_w)/dt
+    ! Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect%rot_rel_wing_l_w)/dt
 
   end subroutine wing_angular_accel
 

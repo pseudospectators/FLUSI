@@ -173,9 +173,9 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
   ! Phi
   ap0 = 2.0d0*x*x*x-3.0d0*x*x+1.0d0 ! f(x)
   ap1 = 2.0d0*z*z*z-3.0d0*z*z+1.0d0 ! f(1.0d0-x)
-  ax0 = x*x*x-2.0d0*x*x+x !g(x)
-  ax1 = -(z*z*z-2.0d0*z*z+z) !-g(1.0d0-x)
-  phi_interp=(phi(i0)*ap0+phi(i1)*ap1)+dx*(dpdx(i0)*ax0+dpdx(i1)*ax1)
+  ax0 = x*x*x  -2.0d0*x*x + x !g(x)
+  ax1 = -(z*z*z -2.0d0*z*z + z) !-g(1.0d0-x)
+  phi_interp = (phi(i0)*ap0+phi(i1)*ap1) + dx*(dpdx(i0)*ax0+dpdx(i1)*ax1)
 
   ! Phi_x
   if ((i0>1).and.(i1<n)) then
@@ -187,7 +187,7 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
      ap1 = -(6.0d0*z*z-6.0d0*z) !-df(1.0d0-x)
      ax0 = 3.0d0*x*x-4.0d0*x+1.0d0 !dg(x)
      ax1 = 3.0d0*z*z-4.0d0*z+1.0d0 ! dg(1.0d0-x)
-     dpdx_interp=(phi(i0)*ap0+phi(i1)*ap1)/dx+(dpdx(i0)*ax0+dpdx(i1)*ax1)
+     dpdx_interp = (phi(i0)*ap0+phi(i1)*ap1)/dx+(dpdx(i0)*ax0+dpdx(i1)*ax1)
   endif
 
 end subroutine
