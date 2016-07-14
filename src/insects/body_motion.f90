@@ -63,22 +63,45 @@ subroutine BodyMotion(time, Insect)
     if(root) write(*,'("psi=",g12.4,"beta=",g12.4,"gamma=",g12.4)') psi,beta,gamma
 
   case ("yawpitchroll")
-    psi      = 30.d0*sin(2.d0*pi*time)
-    beta     = 30.d0*sin(2.d0*pi*time) ! pitch
-    gamma    = 30.d0*sin(2.d0*pi*time)
-    psi_dt   = 30.d0*cos(2.d0*pi*time)*2.d0*pi
-    beta_dt  = 30.d0*cos(2.d0*pi*time)*2.d0*pi
-    gamma_dt = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+    psi      = 30.d0*pi/180.d0*sin(2.d0*pi*time)
+    beta     = 30.d0*pi/180.d0*sin(2.d0*pi*time) ! pitch
+    gamma    = 30.d0*pi/180.d0*sin(2.d0*pi*time)
+    psi_dt   = 30.d0*pi/180.d0*cos(2.d0*pi*time)*2.d0*pi
+    beta_dt  = 30.d0*pi/180.d0*cos(2.d0*pi*time)*2.d0*pi
+    gamma_dt = 30.d0*pi/180.d0*cos(2.d0*pi*time)*2.d0*pi
     xc = Insect%x0 + time*Insect%v0
     vc = Insect%v0
     body_moves = "yes"
 
+  case ("buffeting")
+    psi      = -7.d0*pi/180.d0*sin(2.d0*pi*(23d0/152.d0)*time) ! roll
+    beta     = -24.5d0*pi/180.d0 ! pitch
+    gamma    = 180.d0*pi/180.d0 ! yaw
+    psi_dt   = -7.d0*pi/180.d0*cos(2.d0*pi*(23.d0/152.d0)*time)*2.d0*pi*(23.d0/152.d0)
+    beta_dt  = 0.d0
+    gamma_dt = 0.d0
+    xc = Insect%x0
+    xc(2) = xc(2) - 0.45d0/13.2d0*sin(2.d0*pi*(23.d0/152.d0)*time)
+    vc = (/0.0d0, -0.45d0/13.2d0*cos(2.d0*pi*(23.d0/152.d0)*time)*2.d0*pi*(23.d0/152.d0), 0.0d0/) 
+    body_moves = "yes"
+
+  case ("casting")
+    psi      = -20.d0*pi/180.d0*sin(2.d0*pi*(2d0/152.d0)*time) ! roll
+    beta     = -24.5d0*pi/180.d0 ! pitch
+    gamma    = 180.d0*pi/180.d0 ! yaw
+    psi_dt   = -20.d0*pi/180.d0*cos(2.d0*pi*(2.d0/152.d0)*time)*2.d0*pi*(2.d0/152.d0)
+    beta_dt  = 0.d0
+    gamma_dt = 0.d0
+    xc = Insect%x0
+    xc(2) = xc(2) + 22.d0/13.2d0*sin(2.d0*pi*(2.d0/152.d0)*time)
+    vc = (/0.0d0, 22.d0/13.2d0*cos(2.d0*pi*(2.d0/152.d0)*time)*2.d0*pi*(2.d0/152.d0), 0.0d0/) 
+    body_moves = "yes"
 
   case ("roll")
-    psi      = 30.d0*sin(2.d0*pi*time)
+    psi      = 30.d0*pi/180.d0*sin(2.d0*pi*time)
     beta     = 0.d0 ! pitch
     gamma    = 0.d0 ! yaw
-    psi_dt   = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+    psi_dt   = 30.d0*pi/180.d0*cos(2.d0*pi*time)*2.d0*pi
     beta_dt  = 0.d0
     gamma_dt = 0.d0
     xc = Insect%x0
@@ -87,10 +110,10 @@ subroutine BodyMotion(time, Insect)
 
   case ("pitch")
       psi      = 0.d0
-      beta     = 30.d0*sin(2.d0*pi*time)
+      beta     = 30.d0*pi/180.d0*sin(2.d0*pi*time)
       gamma    = 0.d0 ! yaw
       psi_dt   = 0.d0
-      beta_dt  = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+      beta_dt  = 30.d0*pi/180.d0*cos(2.d0*pi*time)*2.d0*pi
       gamma_dt = 0.d0
       xc = Insect%x0
       vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
@@ -99,10 +122,10 @@ subroutine BodyMotion(time, Insect)
   case ("yaw")
     psi      = 0.d0
     beta     = 0.d0
-    gamma    = 30.d0*sin(2.d0*pi*time)
+    gamma    = 30.d0*pi/180.d0*sin(2.d0*pi*time)
     psi_dt   = 0.d0
     beta_dt  = 0.d0
-    gamma_dt = 30.d0*cos(2.d0*pi*time)*2.d0*pi
+    gamma_dt = 30.d0*pi/180.d0*cos(2.d0*pi*time)*2.d0*pi
     xc = Insect%x0
     vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
     body_moves = "yes"
