@@ -175,7 +175,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
 
   ! allocate extra space for velocity in Fourier space
   if (.not.allocated(uk_old)) then
-    call alloccomplexnd(uk_old)
+    allocate(uk_old(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
   endif
   ! we need that to compute the pressure at preliminary times
   if (.not.allocated(nlk_tmp)) then

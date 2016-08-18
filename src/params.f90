@@ -183,7 +183,6 @@ subroutine get_params_common(PARAMS)
 
 
   ! Set other parameters (all procs)
-  pi=4.d0 *datan(1.d0)
   ! scaling for FFTs
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl

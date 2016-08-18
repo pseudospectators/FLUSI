@@ -1,23 +1,34 @@
 # Makefile for fsi and mhd codes. See README for necessary environment
 # variables.
 
+# HDF5 flag set to 'yes' by default
+ifndef HDF5FLAG
+HDF5FLAG = yes
+endif
+
 # Non-module Fortran files to be compiled:
 FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
-	mask.f90 mask_fsi.f90 mask_mhd.f90 save_fields.f90 time_step.f90 \
+	mask.f90 mask_fsi.f90 mask_mhd.f90 time_step.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
 	runtime_control.f90 drag.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
-  rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
-  noncircular_cylinder.f90 draw_flexible_plate.f90 \
+	rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
+	noncircular_cylinder.f90 draw_flexible_plate.f90 \
+	fractal_trees.f90 basic_file_routines.f90
+
+ifeq ($(HDF5FLAG),yes)
+FFILES += save_fields.f90 postprocessing.f90 \
 	bin2hdf.f90 compare_key.f90 compare_timeseries.f90 convert_abs_vorticity.f90 \
 	convert_velocity.f90 convert_vorticity.f90 copy_hdf_file.f90 energy_post.f90 \
 	extract_subset.f90 field_analysis.f90 hdf2bin.f90 keyvalues.f90 \
-	magnitude_post.f90 mean_2d.f90 post_helicity.f90 postprocessing.f90 \
+	magnitude_post.f90 mean_2d.f90 post_helicity.f90 \
 	post_spectrum.f90 pressure_to_Qcriterion.f90 set_hdf5_attribute.f90 \
 	simple_field_operation.f90 time_avg_HDF5.f90 tke_mean.f90 \
 	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90 \
-	extend_domain.f90 basic_file_routines.f90 fractal_trees.f90
-
+	extend_domain.f90 fractal_trees.f90
+else
+FFILES += save_fields_nohdf5.f90 postprocessing_nohdf5.f90
+endif
 
 # Object and module directory:
 OBJDIR=obj
@@ -26,8 +37,15 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 # Files that create modules:
 MFILES = vars.f90 helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
-	slicing.f90 ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 stlreader.f90 \
-	ini_files_parser_mpi.f90 hdf5_wrapper.f90
+	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
+	ini_files_parser_mpi.f90 
+
+ifeq ($(HDF5FLAG),yes)
+MFILES += hdf5_wrapper.f90 slicing.f90 stlreader.f90
+else
+MFILES += slicing_nohdf5.f90 
+endif
+
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
@@ -43,8 +61,17 @@ endif
 ifeq ($(FC),f77)
 FC = mpif90
 endif
+ifeq ($(FC),sxf90)
+FC = sxmpif90
+endif
 
-
+#SX compiler
+ifeq ($(FC),sxmpif90)
+FFLAGS += -I$(OBJDIR)
+#FFLAGS += -R2 -Wf"-pvctl fullmsg" -ftrace -f2003
+FFLAGS += -R0 -P stack -C hopt -pi nest=2 -pi exp="periodize_coordinate" expin="src/vars.f90" -f2003
+PPFLAG =
+else
 
 # GNU compiler
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
@@ -77,6 +104,8 @@ DIFORT=-WF,-DTURING # this defines the TURING with the IBM compiler
 PPFLAG=-qsuffix=cpp=f90  #preprocessor flag
 endif
 
+endif
+
 PROGRAMS = flusi mhd
 
 # FFT_ROOT is set in envinroment.
@@ -91,11 +120,23 @@ P3DFFT_INC = $(P3DFFT_ROOT)/include
 HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
 
-LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 -lm
-LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
+LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 
+ifeq ($(HDF5FLAG),yes)
+LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB)
+LDFLAGS += -lhdf5_fortran -lhdf5
+endif
 LDFLAGS += -llapack
-FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
+ifeq ($(FC),sxmpif90)
+LDFLAGS += -L${ASL_ROOT} -laslf90 -lasl -lblas
+else
+LDFLAGS += -lz -ldl
+endif
+LDFLAGS += -lm
 
+ifeq ($(HDF5FLAG),yes)
+FFLAGS += -I$(HDF_INC)
+endif
+FFLAGS += -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
 # Both programs are compiled by default.
 all: directories $(PROGRAMS)
@@ -129,6 +170,8 @@ $(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_
 $(OBJDIR)/turbulent_inlet.o: turbulent_inlet.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/basic_operators.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/slicing.o: slicing.f90 $(OBJDIR)/vars.o $(OBJDIR)/hdf5_wrapper.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/slicing_nohdf5.o: slicing_nohdf5.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)

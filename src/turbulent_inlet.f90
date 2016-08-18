@@ -40,7 +40,7 @@ subroutine init_turbulent_inlet ( )
   ! nessesarily match in the x-direction (they DO match in y-z direction). We
   ! first determine how many points in x-direction the file has, then allocate
   ! the field u_turb accordingly
-  call Fetch_attributes( "ux_turb.h5", nx_turb,ny_turb,nz_turb,&
+  call fetch_attributes( "ux_turb.h5", nx_turb,ny_turb,nz_turb,&
        xl_turb,yl_turb,zl_turb,time,viscosity_dummy)
 
 

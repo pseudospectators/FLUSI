@@ -125,14 +125,14 @@ program mhd
 
   ! Allocate memory:
   allocate(ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-  call allocrealnd(ub)
-  call allocrealnd(wj)
+  allocate(ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  allocate(wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1))
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw))
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
-  call allocreal(mask)
-  call allocrealnd(us)
+  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
 
   ! Check if at least FFT works okay
   call fft_unit_test(ub(:,:,:,1),ubk(:,:,:,1))
