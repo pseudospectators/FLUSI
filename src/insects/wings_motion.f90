@@ -5,12 +5,34 @@ subroutine FlappingMotion_left ( time, Insect )
   use vars
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(in) :: time
+  real(kind=pr),dimension(0:3)::ep
   type(diptera) :: Insect
 
-  call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
-  Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
-  Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
+  if (Insect%wing_fsi == "yes") then
+    !**********************************
+    !** Wing fsi model               **
+    !**********************************
+    ! the angles that we return here as postprocessing quantities for better
+    ! interpretation of the output. they are NOT used to compute the wing rotation
+    ! matrix, which is instead computed from the wing quaternion
+    ep = Insect%STATE(14:17)
+    Insect%phi_l   = atan2( 2.d0*ep(2)*ep(3)+2.d0*ep(0)*ep(1), ep(2)**2-ep(3)**2+ep(0)**2-ep(1)**2)
+    Insect%alpha_l = atan2(2.d0*ep(1)*ep(3)+2.d0*ep(0)*ep(2) , ep(1)**2+ep(0)**2-ep(3)**2-ep(2)**2 )
+    Insect%theta_l = -asin(2.d0*(ep(1)*ep(2)-ep(0)*ep(3)))
+    ! the time derivatives are not necessary and set to zero (the angular velocity
+    ! is computed dynamically from the eqns of motion)
+    Insect%phi_dt_l = 0.d0
+    Insect%alpha_dt_l = 0.d0
+    Insect%theta_dt_l = 0.d0
+  else
+    ! conventional model: all angles are prescribed (by fourier/hermite or others)
+    ! and can be evaluated for any time t. here, we return the 3 angles as well
+    ! as their time derivatives
+    call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
+    Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
+    Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
+  endif
 end subroutine FlappingMotion_left
 
 
@@ -742,6 +764,24 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     phi_dt   =-phi_max *f *dsin(f*time)
     alpha_dt = alpha_max*f*dcos(f*(time+phase))
     theta_dt = 0.0
+
+  case ("simplified2")
+    !---------------------------------------------------------------------------
+    ! simplified motion protocoll
+    !---------------------------------------------------------------------------
+    phi_max     = deg2rad(60.d0)  ! phi is up/down angle (flapping)
+    alpha_max   = deg2rad(0.d0)  ! alpha is tethering
+    phase       = 0.d0! 10.d0*pi/180.d0  ! phase shift between flapping and tethering
+    f = 1.d0*2.0*pi
+
+    phi      = phi_max  *dcos(f*time)
+    alpha    = alpha_max*dsin(f*(time+phase))
+    theta    = 0.0
+
+    phi_dt   =-phi_max *f *dsin(f*time)
+    alpha_dt = alpha_max*f*dcos(f*(time+phase))
+    theta_dt = 0.0
+
   case ("debug")
     phi      = 0.0
     alpha    = deg2rad(-45.d0)

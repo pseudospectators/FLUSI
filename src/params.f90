@@ -51,12 +51,16 @@ end subroutine get_params
 subroutine get_params_common(PARAMS)
   use ini_files_parser_mpi
   use vars
+  use hdf5_wrapper
   implicit none
   character(len=strlen) :: dummystr
 
   ! Contains the ascii-params file
   type(inifile), intent(inout) :: PARAMS
   character(len=strlen) :: dummy
+  real(kind=pr) :: time1,time2,bckp(1:8)
+  logical :: exists
+  integer :: mpicode
 
   ! Resolution section
   call read_param_mpi(PARAMS,"Resolution","nx",nx, 4)
@@ -180,6 +184,51 @@ subroutine get_params_common(PARAMS)
   if (dummy=="yes") then
     call abort('dry_run_without_fluid is depecreated; run flusi with ./flusi --dry-run PARAMS.ini instead')
   endif
+
+  ! ----------------------------------------------------------------------------
+  ! automatic backup resuming...
+  ! ----------------------------------------------------------------------------
+  if (inicond == "backup") then
+    if (root) then
+      write(*,'(80("$"))')
+      write(*,*) "AUTOMATIC BACKUP RESUMING (FLOW FIELDS...)"
+      write(*,'(80("$"))')
+
+      inquire ( file='runtime_backup0.h5', exist=exists )
+      if (exists) then
+        write(*,*) 'found: runtime_backup0.h5'
+        call read_attribute('runtime_backup0.h5','ux','bckp',bckp)
+        time1 = bckp(1)
+      else
+        time1 = -9.0d9
+      endif
+
+      inquire ( file='runtime_backup1.h5', exist=exists )
+      if (exists) then
+        write(*,*) 'found: runtime_backup1.h5'
+        call read_attribute('runtime_backup1.h5','ux','bckp',bckp)
+        time2 = bckp(1)
+      else
+        time2 = -9.0d9
+      endif
+    endif
+
+    call MPI_BCAST(time1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+    call MPI_BCAST(time2,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+
+    if (time1>time2) then
+      inicond = 'backup::runtime_backup0.h5'
+    else
+      inicond = 'backup::runtime_backup1.h5'
+    endif
+
+    if ( max(time1,time2) <-1.d0) call abort(81,"no backup files found...")
+
+    if (root) write(*,*) "we decided which backup to resume..."
+    if (root) write(*,*) "it is at time=", max(time1,time2)
+    if (root) write(*,*) "resuming "//trim(adjustl(inicond))
+  endif
+
 
 
   ! Set other parameters (all procs)
@@ -420,11 +469,12 @@ subroutine get_params_insect( PARAMS,Insect )
 
   ! wing FSI section
   call read_param_mpi(PARAMS,"Insects","wing_fsi",Insect%wing_fsi,"no")
-
+  call read_param_mpi(PARAMS,"Insects","init_alpha_phi_theta",&
+  Insect%init_alpha_phi_theta, (/0.d0, 0.d0, 0.d0 /) )
 
 
   ! wing inertia tensor (we currently assume two identical wings)
-  ! this allows computing inertial power
+  ! this allows computing inertial power and wing FSI model
   call read_param_mpi(PARAMS,"Insects","Jxx",Insect%Jxx,0.d0)
   call read_param_mpi(PARAMS,"Insects","Jyy",Insect%Jyy,0.d0)
   call read_param_mpi(PARAMS,"Insects","Jzz",Insect%Jzz,0.d0)

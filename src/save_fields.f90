@@ -442,7 +442,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
     if ((iMask=="Insect").and.(Insect%BodyMotion=="free_flight")) then
       write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
       open(10, file=filename//".rigidsolver", form='formatted', status='replace')
-      write(10, *) time, Insect%STATE, Insect%RHS_old, Insect%RHS_this, Insect%M_body_quaternion
+      write(10, *) time, Insect%STATE, Insect%RHS_old, Insect%RHS_this
       close(10)
     endif
   endif

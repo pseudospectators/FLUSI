@@ -20,120 +20,10 @@ module insect_module
   integer, parameter :: nfft_max = 1024
   ! Maximum number of Hermite interpolation nodes (hardcoded because of sxf90 compiler requirements)
   integer, parameter :: nhrmt_max = 10000
-  ! only used in steps (to reduce number of args:)
+  ! only used in steps (to reduce number of arguments)
   real(kind=pr), save :: smoothing
 
-  ! datatype for wing kinematics, if described by a Fourier series or kineloader
-  ! For both wings such a datatype is contained in the insect.
-  type wingkinematics
-    ! Fourier coefficients
-    real(kind=pr) :: a0_alpha, a0_phi, a0_theta
-    real(kind=pr), dimension(1:nfft_max) :: ai_phi, bi_phi, ai_theta, bi_theta, ai_alpha, bi_alpha
-    integer :: nfft_phi, nfft_alpha, nfft_theta
-    ! coefficients are read only once from file (or set differently)
-    logical :: initialized = .false.
-    ! some details about the file, if reading from ini file
-    character(len=strlen) :: infile_convention="", infile_type="", infile_units="", infile=""
-    ! variables for kineloader (which uses non-periodic hermite interpolation)
-    integer :: nk
-    real(kind=pr), dimension (1:nhrmt_max) :: vec_t, &
-      vec_phi,vec_alpha,vec_theta,vec_pitch,vec_vert,vec_horz,  &
-      vec_phi_dt,vec_alpha_dt,vec_theta_dt,vec_pitch_dt,vec_vert_dt,vec_horz_dt
-  end type
-
-
-  !-----------------------------------------------------------------------------
-  ! derived datatype for insect parameters (for readability)
-  type diptera
-    !-------------------------------------------------------------
-    ! Body motion state, wing motion state and characteristic points on insect
-    !-------------------------------------------------------------
-    ! position of logical center, and translational velocity
-    real(kind=pr), dimension(1:3) :: xc_body_g, vc_body_g
-    ! initial or tethered position, velocity and yawpitchroll angles:
-    real(kind=pr), dimension(1:3) :: x0, v0, yawpitchroll_0
-    ! roll pitch yaw angles and their time derivatives
-    real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt, eta0
-    ! body pitch angle, if it is constant (used in forward flight and hovering)
-    real(kind=pr) :: body_pitch_const
-    ! angles of the wings (left and right)
-    real(kind=pr) :: phi_r, alpha_r, theta_r, phi_dt_r, alpha_dt_r, theta_dt_r
-    real(kind=pr) :: phi_l, alpha_l, theta_l, phi_dt_l, alpha_dt_l, theta_dt_l
-    ! stroke plane angle
-    real(kind=pr) :: eta_stroke
-    ! angular velocity vectors (wings L+R, body)
-    real(kind=pr), dimension(1:3) :: rot_body_b, rot_body_g
-    real(kind=pr), dimension(1:3) :: rot_rel_wing_l_w, rot_rel_wing_r_w
-    real(kind=pr), dimension(1:3) :: rot_rel_wing_l_b, rot_rel_wing_r_b
-    real(kind=pr), dimension(1:3) :: rot_rel_wing_l_g, rot_rel_wing_r_g
-    real(kind=pr), dimension(1:3) :: rot_abs_wing_l_g, rot_abs_wing_r_g
-    ! angular acceleration vectors (wings L+R)
-    real(kind=pr), dimension(1:3) :: rot_dt_wing_l_w, rot_dt_wing_r_w
-    real(kind=pr), dimension(1:3) :: rot_dt_wing_l_g, rot_dt_wing_r_g
-    ! Vector from body centre to pivot points in global reference frame
-    real(kind=pr), dimension(1:3) :: x_pivot_l_g, x_pivot_r_g
-    ! vectors desribing the positoions of insect's key elements
-    ! in the body coordinate system
-    real(kind=pr), dimension(1:3) :: x_head,x_eye_r,x_eye_l,x_pivot_l,x_pivot_r
-    ! moments of inertia in the body reference frame
-    real(kind=pr) :: Jroll_body, Jyaw_body, Jpitch_body
-    ! total mass of insect:
-    real(kind=pr) :: mass, gravity
-    !-------------------------------------------------------------
-    ! for free flight solver
-    !-------------------------------------------------------------
-    real(kind=pr) :: time
-    real(kind=pr), dimension(1:3,1:3) :: M_body_quaternion
-    real(kind=pr), dimension(1:13) :: RHS_old, RHS_this, STATE
-    real(kind=pr), dimension(1:6) :: DoF_on_off
-    character(len=strlen) :: startup_conditioner, wing_fsi
-
-    !-------------------------------------------------------------
-    ! wing shape parameters
-    !-------------------------------------------------------------
-    ! wing shape fourier coefficients. Note notation:
-    ! R = a0/2 + SUM ( ai cos(2pi*i) + bi sin(2pi*i)  )
-    ! to avoid compatibility issues, the array is of fixed size, although only
-    ! the first nftt_wings entries will be used
-    real(kind=pr), dimension(1:nfft_max) :: ai_wings, bi_wings
-    real(kind=pr) :: a0_wings
-    ! fill the R0(theta) array once, then only table-lookup instead of Fseries
-    real(kind=pr), dimension(1:25000) :: R0_table
-    ! describes the origin of the wings system
-    real(kind=pr) :: xc,yc
-    ! number of fft coefficients for wing geometry
-    integer :: nfft_wings
-    logical :: wingsetup_done = .false.
-    logical :: wings_radius_table_ready = .false.
-    ! wing inertia
-    real(kind=pr) :: Jxx,Jyy,Jzz,Jxy
-
-    !--------------------------------------------------------------
-    ! Wing kinematics
-    !--------------------------------------------------------------
-    ! wing kinematics Fourier coefficients
-    type(wingkinematics) :: kine_wing_l, kine_wing_r
-
-    !-------------------------------------------------------------
-    ! parameters that control shape of wings,body, and motion
-    !-------------------------------------------------------------
-    character(len=strlen) :: WingShape, BodyType, BodyMotion, HasDetails
-    character(len=strlen) :: FlappingMotion_right, FlappingMotion_left
-    character(len=strlen) :: infile, LeftWing, RightWing
-    ! parameters for body:
-    real(kind=pr) :: L_body, b_body, R_head, R_eye
-    ! parameters for wing shape:
-    real(kind=pr) :: b_top, b_bot, L_chord, L_span, WingThickness
-    ! this is a safety distance for smoothing:
-    real(kind=pr) :: safety, smooth
-    ! parameter for hovering:
-    real(kind=pr) :: distance_from_sponge
-    ! Wings and body forces (1:body,2:left wing,3:right wing)
-    type(Integrals), dimension(1:3) :: PartIntegrals
-
-  end type diptera
-  !-----------------------------------------------------------------------------
-
+  include "type_definitions.f90"
 
 contains
 
@@ -589,7 +479,6 @@ contains
     M1_tmp, M2_tmp, M1_l, M2_l, M3_l, M1_r, M2_r, M3_r, &
     M_stroke_l, M_stroke_r
 
-
     phi_r      = Insect%phi_r
     alpha_r    = Insect%alpha_r
     theta_r    = Insect%theta_r
@@ -646,13 +535,6 @@ contains
     rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
     rot_r_alpha)))))
 
-    ! if (root) then
-    !   write(*,*) "old code omega=", Insect%rot_rel_wing_l_w
-    !   write(*,*) "dir code omega=", (/phi_dt_l*cos(alpha_l)*cos(theta_l)-theta_dt_l*sin(alpha_l),&
-    !   alpha_dt_l-phi_dt_l*sin(theta_l),&
-    !   theta_dt_l*cos(alpha_l)+phi_dt_l*sin(alpha_l)*cos(theta_l)/)
-    ! endif
-
     ! direct definition, equivalent to what is above.
     ! Insect%rot_rel_wing_l_w = (/phi_dt_l*cos(alpha_l)*cos(theta_l)-theta_dt_l*sin(alpha_l),&
     !   alpha_dt_l-phi_dt_l*sin(theta_l),&
@@ -669,6 +551,20 @@ contains
 
     Insect%rot_abs_wing_l_g = Insect%rot_body_g + Insect%rot_rel_wing_l_g
     Insect%rot_abs_wing_r_g = Insect%rot_body_g + Insect%rot_rel_wing_r_g
+
+
+    if (Insect%wing_fsi == "yes") then
+      !**********************************
+      !** Wing fsi model               **
+      !**********************************
+      ! overwrite the left wing
+      Insect%rot_rel_wing_l_w = Insect%STATE(18:20)
+      Insect%rot_rel_wing_l_b = matmul( transpose(M_wing_l), Insect%rot_rel_wing_l_w )
+      Insect%rot_rel_wing_l_g = matmul( transpose(M_body), Insect%rot_rel_wing_l_b )
+      ! the last guy is actually unused, as we have non-rotating body
+      Insect%rot_abs_wing_l_g = Insect%rot_body_g + Insect%rot_rel_wing_l_g
+    endif
+
   end subroutine wing_angular_velocities
 
 
@@ -751,21 +647,17 @@ contains
     ! Insect%rot_dt_wing_r_w = (Insect2%rot_rel_wing_r_w - Insect%rot_rel_wing_r_w)/dt
     ! Insect%rot_dt_wing_l_w = (Insect2%rot_rel_wing_l_w - Insect%rot_rel_wing_l_w)/dt
 
+
+    if (Insect%wing_fsi == "yes") then
+      !**********************************
+      !** Wing fsi model               **
+      !**********************************
+      ! overwrite the left wings acceleration. the right hand side 18,19,20 is the
+      ! time derivative of the angular velocity, so the acceleration is readily available
+      Insect%rot_dt_wing_l_w = Insect%RHS_THIS(18:20)
+    endif
+
   end subroutine wing_angular_accel
-
-
-
-  subroutine insect_clean(Insect)
-    use vars
-    implicit none
-    type(diptera),intent(inout)::Insect
-
-    if (allocated(particle_points)) deallocate ( particle_points )
-    call load_kine_clean( Insect%kine_wing_l )
-    call load_kine_clean( Insect%kine_wing_r )
-  end subroutine insect_clean
-
-
 
 
   subroutine delete_old_mask( time, mask, mask_color, us, Insect )
@@ -826,8 +718,8 @@ contains
     real(kind=pr), dimension(1:3,1:3) :: M1_b, M2_b, M3_b
 
     if (Insect%BodyMotion=="free_flight") then
-      ! QUATERNIONS
-      M_body = Insect%M_body_quaternion
+      ! entries 7,8,9,10 of the Insect%STATE vector are the body quaternion
+      call rotation_matrix_from_quaternion( Insect%STATE(7:10), M_body)
     else
       ! conventional yaw, pitch, roll. Note the order of matrices is important.
       ! first we yaw, then we pitch, then we roll the insect. Note that when the
@@ -874,13 +766,26 @@ contains
     real(kind=pr),intent(out) :: M_wing_l(1:3,1:3)
     real(kind=pr),dimension(1:3,1:3) :: M1, M2, M3, M_stroke_l
 
-    call Ry(M1,Insect%eta_stroke)
-    M_stroke_l = M1
+    if ( Insect%wing_fsi /= "yes" ) then
+      ! we're not using the wing fsi solver, so the wings follow a prescribed
+      ! motion and we can compute the rotation matrix from the angles
+      call Ry(M1,Insect%eta_stroke)
+      M_stroke_l = M1
 
-    call Ry(M1,Insect%alpha_l)
-    call Rz(M2,Insect%theta_l)   ! Order changed (Dmitry, 7 Nov 2013)
-    call Rx(M3,Insect%phi_l)
-    M_wing_l = matmul(M1,matmul(M2,matmul(M3,M_stroke_l)))
+      call Ry(M1,Insect%alpha_l)
+      call Rz(M2,Insect%theta_l)   ! Order changed (Dmitry, 7 Nov 2013)
+      call Rx(M3,Insect%phi_l)
+      M_wing_l = matmul(M1,matmul(M2,matmul(M3,M_stroke_l)))
+    else
+      !**********************************
+      !** Wing fsi model               **
+      !**********************************
+      ! in the wing FSI case, a quaternion-based formulation is used to get the
+      ! rotation matrix from the wing quaterion. note the wing quaternion are the
+      ! entries 14,15,16,17 of the Insect%STATE vector
+      ! entries 18,19,20 are the angular VELOCITY of the wing
+      call rotation_matrix_from_quaternion( Insect%STATE(14:17), M_wing_l)
+    endif
   end subroutine wing_left_rotation_matrix
 
   !-----------------------------------------------------------------------------
@@ -946,5 +851,14 @@ contains
     first_call = .false.
   end subroutine print_insect_reynolds_numbers
 
+  subroutine insect_clean(Insect)
+    use vars
+    implicit none
+    type(diptera),intent(inout)::Insect
+
+    if (allocated(particle_points)) deallocate ( particle_points )
+    call load_kine_clean( Insect%kine_wing_l )
+    call load_kine_clean( Insect%kine_wing_r )
+  end subroutine insect_clean
 
 end module

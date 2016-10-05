@@ -321,22 +321,19 @@ program FLUSI
     !-----------------------------------------------------------------------------
     ! initalize some insect stuff, if used
     !-----------------------------------------------------------------------------
-    ! Load kinematics from file (Dmitry, 14 Nov 2013)
-    if (iMask=="Insect") then
-      ! If required, initialize rigid solid dynamics solver
-      if (Insect%BodyMotion=="free_flight") then
-        call rigid_solid_init(0.d0,Insect)
-      endif
+    ! If required, initialize rigid solid dynamics solver
+    if ((iMask=="Insect").and.(Insect%BodyMotion=="free_flight")) then
+      ! note we have to do that before init_fields as rigid_solid_init sets up
+      ! the state vector without which create_mask cannot know the position and velocity
+      ! of body and wings
+      call rigid_solid_init(time,Insect)
     endif
-
 
     !-----------------------------------------------------------------------------
     ! Initial condition
     !-----------------------------------------------------------------------------
     call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
-         press,scalars,scalars_rhs,Insect,beams)
-
-
+    press,scalars,scalars_rhs,Insect,beams)
 
 
     if (use_slicing=="yes") then
@@ -529,14 +526,18 @@ if (mpirank/=0) return
       "Aero_Power", "Inert power"
       close (14)
       open  (14,file='kinematics.t',status='replace')
-      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
+      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body_g","zc_body_g",&
       "psi","beta","gamma","eta_stroke",&
       "alpha_l","phi_l","theta_l",&
       "alpha_r","phi_r","theta_r",&
-      "rot_l_x","rot_l_y","rot_l_z",&
-      "rot_r_x","rot_r_y","rot_r_z",&
-      "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
-      "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+      "rot_l_w_x","rot_l_w_y","rot_l_w_z",&
+      "rot_r_w_x","rot_r_w_y","rot_r_w_z",&
+      "rot_dt_l_w_x","rot_dt_l_w_y","rot_dt_l_w_z",&
+      "rot_dt_r_w_x","rot_dt_r_w_y","rot_dt_r_w_z"
+      close (14)
+      open  (14,file='muscle.t',status='replace')
+      close (14)
+      open  (14,file='insect_state.t',status='replace')
       close (14)
       ! If this is not an insect
     else

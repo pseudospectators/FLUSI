@@ -68,6 +68,8 @@ subroutine create_mask_fsi (time, Insect, beams )
           us(:,:,:,1) = us_fixed(1)
           us(:,:,:,2) = us_fixed(2)
           us(:,:,:,3) = us_fixed(3)
+          ! set color to 1
+          mask_color = 1
         else
           ! since we divide by eps later, in the main wrapper for mask, we multiply
           ! here first..

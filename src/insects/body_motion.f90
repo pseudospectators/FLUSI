@@ -82,7 +82,7 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 0.d0
     xc = Insect%x0
     xc(2) = xc(2) - 0.45d0/13.2d0*sin(2.d0*pi*(23.d0/152.d0)*time)
-    vc = (/0.0d0, -0.45d0/13.2d0*cos(2.d0*pi*(23.d0/152.d0)*time)*2.d0*pi*(23.d0/152.d0), 0.0d0/) 
+    vc = (/0.0d0, -0.45d0/13.2d0*cos(2.d0*pi*(23.d0/152.d0)*time)*2.d0*pi*(23.d0/152.d0), 0.0d0/)
     body_moves = "yes"
 
   case ("casting")
@@ -94,7 +94,7 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 0.d0
     xc = Insect%x0
     xc(2) = xc(2) + 22.d0/13.2d0*sin(2.d0*pi*(2.d0/152.d0)*time)
-    vc = (/0.0d0, 22.d0/13.2d0*cos(2.d0*pi*(2.d0/152.d0)*time)*2.d0*pi*(2.d0/152.d0), 0.0d0/) 
+    vc = (/0.0d0, 22.d0/13.2d0*cos(2.d0*pi*(2.d0/152.d0)*time)*2.d0*pi*(2.d0/152.d0), 0.0d0/)
     body_moves = "yes"
 
   case ("roll")
@@ -153,9 +153,9 @@ subroutine BodyMotion(time, Insect)
     body_moves = "yes"
 
     ! copy data from insect state vector
-    xc              = Insect%STATE(1:3)
-    vc              = Insect%STATE(4:6)
-    ep              = Insect%STATE(7:10)
+    xc = Insect%STATE(1:3)
+    vc = Insect%STATE(4:6)
+    ep = Insect%STATE(7:10)
     Insect%rot_body_b = Insect%STATE(11:13)
 
     ! compute yaw pitch roll from the quaternion. attention: this is just for
@@ -169,12 +169,12 @@ subroutine BodyMotion(time, Insect)
     beta_dt  = 0.0d0
     gamma_dt = 0.0d0
 
-    ! note yaw,pitch and roll do NOT enter the body rotation matrix, it is computed
-    ! from the orientation quaternion
-    call rotation_matrix_from_quaternion( ep , Insect%M_body_quaternion )
+    if (Insect%wing_fsi /= "yes") then
+      ! output on screen
+      if(root) write(*,'(f12.4,2x,9(es12.4,1x))') time, xc,vc,Insect%rot_body_b
+    endif
 
-    if(root) write(*,'(f12.4,2x,9(es12.4,1x))') time, &
-    xc,vc,Insect%rot_body_b
+    if (iTimeMethodFluid /= "AB2_rigid_solid") call abort(99,"free flight requires AB2_rigid_solid")
 
   case default
     if (mpirank==0) then
