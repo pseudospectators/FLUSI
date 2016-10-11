@@ -168,7 +168,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   logical :: iterate
   ROC1 = 0.d0
   ROC2 = 0.d0
-  
+
   ! useful error messages
   if (use_solid_model/="yes") then
     write(*,*) "using FSI_AB2_iteration without solid model?"
@@ -1004,9 +1004,17 @@ subroutine set_mean_flow(uk,time)
   ! TODO: this might not always select the proper mode; it could be
   ! better to determine if 0 is between ca(i) and cb(i) for i=1,2,3
   if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+    ! constant mean flow forcing
     if (iMeanFlow_x=="fixed") uk(0,0,0,1)=Uxmean
     if (iMeanFlow_y=="fixed") uk(0,0,0,2)=Uymean
     if (iMeanFlow_z=="fixed") uk(0,0,0,3)=Uzmean
+
+    ! sinusoidal forcing uses f=unity
+    ! for some reason we overwrite uxmean later by the actual, current meanflow
+    ! which means we cannot use uxmean for focing with sinusoidfal mean flow.
+    if (iMeanFlow_x=="sinusoidal") uk(0,0,0,1)=umean_amplitude(1)*dsin(2.d0*pi*time)
+    if (iMeanFlow_y=="sinusoidal") uk(0,0,0,2)=umean_amplitude(2)*dsin(2.d0*pi*time)
+    if (iMeanFlow_z=="sinusoidal") uk(0,0,0,3)=umean_amplitude(3)*dsin(2.d0*pi*time)
   endif
 end subroutine set_mean_flow
 !-------------------------------------------------------------------------------

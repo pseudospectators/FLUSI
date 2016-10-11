@@ -169,7 +169,7 @@ module vars
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
 
   ! mean flow control
-  real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid
+  real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid, umean_amplitude(1:3)
   character(len=strlen),save :: iMeanFlow_x,iMeanFlow_y,iMeanFlow_z
   ! mean flow startup conditioner (if "dynamic" and mean flow at t=0 is not zero
   ! the forces are singular at the beginning. use the startup conditioner to

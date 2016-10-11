@@ -303,6 +303,10 @@ subroutine get_params_fsi(PARAMS,Insect)
   iMeanFlowStartupConditioner,"no")
   call read_param_mpi(PARAMS,"MeanFlow","tau_meanflow",tau_meanflow, 0.d0)
   call read_param_mpi(PARAMS,"MeanFlow","T_release_meanflow",T_release_meanflow,0.d0)
+  ! for some reason we overwrite uxmean later b ythe actual, current meanflow
+  ! which means we cannot use uxmean for focing with sinusoidfal mean flow.
+  ! therefore, make a copy here.
+  umean_amplitude = (/ uxmean, uymean, uzmean /)
 
   ! for compatibility with old files:
   if (old_meanflow=="1") then
