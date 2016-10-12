@@ -72,9 +72,8 @@ subroutine draw_fractal_tree()
   do i=1, nlines
     x1 = treedata(i,1:3) + (/x0,y0,z0/)
     x2 = treedata(i,4:6) + (/x0,y0,z0/)
-    ! the file containes the length of the cylinder, we assume a fixed ratio
-    ! thickness to length here
-    R = 0.1d0* treedata(i,7)
+    ! the file containes the radius of the cylinder
+    R = treedata(i,7)
     call draw_cylinder_new( x1, x2, R, mask, mask_color, us, dummyinsect, int(1,kind=2))
   enddo
 
