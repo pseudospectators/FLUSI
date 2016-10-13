@@ -40,6 +40,8 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
     call draw_body_mosquito_iams( mask, mask_color, us, Insect, color_body, M_body)
   case ("pyramid")
     call draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
+  case ("cone")
+    call draw_body_cone( mask, mask_color, us, Insect, color_body, M_body)
   case default
     if(mpirank==0) write(*,*) "Insect::draw_body::Insect%BodyType unknown..."
     if(mpirank==0) write(*,*) Insect%bodytype
@@ -1255,8 +1257,9 @@ end subroutine draw_body_mosquito_iams
 ! oscillating airflow, Phys. Rev. Lett. 2012
 ! The HEIGHT is Insect%L_body
 ! The SIDELENGTH is INsect%b_body
+! This is the conical version (so a pyramid with circular base area)
 !-------------------------------------------------------------------------------
-subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
+subroutine draw_body_cone( mask, mask_color, us, Insect, color_body, M_body)
   use vars
   implicit none
 
@@ -1281,9 +1284,11 @@ subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
   ! we draw a shell here, and this is its thickness
   thick = Insect%WingThickness
 
-  if (informed .eqv. .false. .and. root) then
-    write(*,'("Conical flyer (pyramid) H=",g12.4," alpha=",g12.4," a=",g12.4)') H, alpha*180.d0/pi, a
-    informed = .true.
+  if (root) then
+    if (informed .eqv. .false.) then
+      write(*,'("Conical flyer H=",g12.4," alpha=",g12.4," a=",g12.4)') H, alpha*180.d0/pi, a
+      informed = .true.
+    endif
   endif
 
   do iz = ra(3), rb(3)
@@ -1300,12 +1305,14 @@ subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_body(1)) <= a + Insect%safety ) then
         if ( dabs(x_body(2)) <= a + Insect%safety ) then
-        if ( dabs(x_body(3)) <= H + Insect%safety .and. x_body(3)>-Insect%safety) then
+        if ( dabs(x_body(3)) <= H*2.d0/3.d0 + Insect%safety .and. x_body(3)>-Insect%safety-H/3.d0) then
           ! the x-y plane are circles
           R  = dsqrt ( x_body(1)**2 + x_body(2)**2 )
           ! this gives the R(z) shape
-          R0 = max( a*dsin(alpha) - x_body(3)*dsin(alpha)/dcos(alpha), 0.d0)
-          mask(ix,iy,iz)= max(steps(dabs(R-R0),0.5d0*thick)*steps(x_body(3),H)*steps(-x_body(3),0.d0),mask(ix,iy,iz))
+          R0 = max( -a*sin(alpha)*x_body(3) + (2.d0/3.d0)*H*a*sin(alpha) , 0.d0 )
+          ! define the mask. note w shifted the system to the center of gravity
+          ! therefore -H/3 <= z <= 2H/3
+          mask(ix,iy,iz)= max(steps(dabs(R-R0),0.5d0*thick)*steps(x_body(3),H*2.d0/3.d0)*steps(-x_body(3),H/3.d0),mask(ix,iy,iz))
           mask_color(ix,iy,iz) = color_body
         endif
         endif
@@ -1313,12 +1320,79 @@ subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
       enddo
     enddo
   enddo
+end subroutine draw_body_cone
 
 
+!-------------------------------------------------------------------------------
+! The flying pyramid, optimistically termed "bug" from the paper
+! Liu, Ristroph, Weathers, Childress, Zhang, Intrinsic Stability of a Body hovering in an
+! oscillating airflow, Phys. Rev. Lett. 2012
+! The HEIGHT is Insect%L_body
+! The SIDELENGTH is INsect%b_body
+!-------------------------------------------------------------------------------
+subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
 
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: R0,R,a,H,b, alpha, thick
+  real(kind=pr) :: x_body(1:3), x_glob(1:3)
+  integer :: ix,iy,iz
+  logical, save :: informed = .false.
+
+  ! a is the sidelength of the pyramid
+  a = Insect%b_body
+  ! alpha is HALF the opening angle
+  alpha = Insect%eta0
+  ! heigh is defined by alpha and a
+  H = a * dcos(alpha)
+  ! we draw a shell here, and this is its thickness
+  thick = Insect%WingThickness
+
+  if (root) then
+    if (informed .eqv. .false.) then
+      write(*,'("Pyramid flyer H=",g12.4," alpha=",g12.4," a=",g12.4)') H, alpha*180.d0/pi, a
+      informed = .true.
+    endif
+  endif
+
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body_g
+        x_body = matmul( M_body, x_glob)
+        ! shift x body to the center of gravity
+        x_body(3) = x_body(3) + H/3.d0
+
+        ! check if inside the surrounding box (save comput. time)
+        if ( dabs(x_body(1)) <= a + Insect%safety ) then
+        if ( dabs(x_body(2)) <= a + Insect%safety ) then
+        if ( dabs(x_body(3)) <= H*2.d0/3.d0 + Insect%safety .and. x_body(3)>-Insect%safety-H/3.d0) then
+          ! b is the sidelength of the pyramid
+          b = max( -a*sin(alpha)*x_body(3) + (2.d0/3.d0)*H*a*sin(alpha) , 0.d0 )
+          b = 2.d0*b
+          ! the x-y plane are qudratic rectangles. compute their signed distance:
+          R  = maxval( (/ abs(x_body(1))-b/2.d0 , abs(x_body(2))-b/2.d0 /) )
+          ! define the mask. note w shifted the system to the center of gravity
+          ! therefore -H/3 <= z <= 2H/3
+          mask(ix,iy,iz)= max(steps(dabs(R),0.5d0*thick)*steps(x_body(3),H*2.d0/3.d0)*steps(-x_body(3),H/3.d0),mask(ix,iy,iz))
+          mask_color(ix,iy,iz) = color_body
+        endif
+        endif
+        endif
+      enddo
+    enddo
+  enddo
 end subroutine draw_body_pyramid
-
-
 
 
 !-------------------------------------------------------------------------------
