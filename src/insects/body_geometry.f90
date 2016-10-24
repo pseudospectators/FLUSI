@@ -1415,51 +1415,74 @@ subroutine draw_cylinder_new( x1, x2, R0, mask, mask_color, us, Insect, color_va
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   integer(kind=2),intent(in) :: color_val
 
-  real(kind=pr),dimension(1:3)::x_glob, e_x, tmp
-  real(kind=pr)::ceta, R, clength, safety, t
+  real(kind=pr),dimension(1:3)::x_glob, e_x, tmp, e_r, e_3
+  real(kind=pr)::ceta1, ceta2, ceta3, R, clength, safety, t
   integer :: ix,iy,iz
 
   safety = Insect%safety
 
   ! unit vector in cylinder axis direction and cylinder length
-  e_x = (x2-x1)
+  e_x = x2 - x1
   clength = norm2(e_x)
   e_x = e_x / clength
+
+  ! radial unit vector
+  ! use a vector perpendicular to e_x, since it is a azimuthal symmetry
+  ! it does not really matter which one. however, we must be sure that the vector
+  ! we use and the e_x vector are not colinear -- their cross product is the zero vector, if that is the case
+  e_r = (/0.d0,0.d0,0.d0/)
+  do while ( norm2(e_r) <= 1.0d-12 )
+    e_r = cross( (/rand_nbr(),rand_nbr(),rand_nbr()/), e_x)
+  enddo
+  e_r = e_r / norm2(e_r)
+
+  ! third (also radial) unit vector, simply the cross product of the others
+  e_3 = cross(e_x,e_r)
+  e_3 = e_3 / norm2(e_3)
 
   ! first we draw the cylinder, then the endpoint spheres
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         ! x_glob is in the global coordinate system
-        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        ! note origin is shifted to x1
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - x1
 
         ! position on cylinder axis (projection of x-x1 on e_x)
-        ceta = dot_product(x_glob-x1, e_x)
+        ceta1 = dot_product(x_glob, e_x)
+        ceta2 = dot_product(x_glob, e_r)
+        ceta3 = dot_product(x_glob, e_3)
 
-        ! is the height inside the bounding box?
-        if ( ceta >= -safety .and. ceta <= clength+safety) then
-          ! we're maybe inside the cylinder
-          ! Radius is the distance to centreline
-          tmp = x_glob - (x1 + ceta*e_x)
-          R = (tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
+        ! bounding box check
+        if ( ceta1>=-(R0+safety) .and. ceta1<=clength+R0+safety .and. abs(ceta2)<R0+safety .and. abs(ceta3)<R0+safety ) then
+          if ( ceta1 <= 0.d0 ) then
+            ! ZONE 1: sphere at the base
+            R = norm2( x_glob )
+          elseif ( ceta1 > 0.d0 .and. ceta1 < clength) then
+            ! ZONE 2: the actual cylinder. to get its radius, we project x_glob on the
+            ! 3 unit vectors defined previously: the e_r and e_3 components are in the
+            ! plane perp. to the axis, and so their norm defines the radius
+            R = dsqrt( ceta2**2 + ceta3**2)
+          else
+            ! ZONE 3: the sphere at the tip. (note we shift x_glob to x2, now)
+            R = norm2( x_glob-(x2-x1) )
+          end if
 
-          if ( R <= (R0+safety)**2 ) then
-            R = dsqrt(R)
-            ! the new value we'd love to set here
-            t = steps(R,R0)
-            if (t>= mask(ix,iy,iz)) then
-              mask(ix,iy,iz) = t
-              mask_color(ix,iy,iz) = color_val
-            endif
+          ! r is now the signed distance to the cylinder mid-line.
+          ! since there may be other cylinders already, the closest one defines the
+          ! actual signed distance, saved in mask array. we would thus take min(R-R0, mask(ix,iy,iz))
+          ! is the mask contained the distance. BUT the mask contains chi, and chi is a monotonous function
+          ! of -R, we take the max operator
+          t = steps(R,R0)
+          if (t >= mask(ix,iy,iz)) then
+            mask(ix,iy,iz) = t
+            mask_color(ix,iy,iz) = color_val
           endif
-        endif
+        end if
+
       enddo
     enddo
   enddo
-
-  ! spheres at endpoints
-  call drawsphere( x1, R0, mask,mask_color,us,Insect,color_val )
-  call drawsphere( x2, R0, mask,mask_color,us,Insect,color_val )
 end subroutine draw_cylinder_new
 
 

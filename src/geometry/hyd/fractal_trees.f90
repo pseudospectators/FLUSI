@@ -7,7 +7,7 @@ subroutine draw_fractal_tree()
   implicit none
 
   integer :: io_error, nlines, mpicode,i
-  real (kind=pr) :: R, N_smooth, safety, x1(1:3),x2(1:3)
+  real (kind=pr) :: R, N_smooth, safety, x1(1:3),x2(1:3), t1
   character(len=2048) :: dummy
   character(len=strlen) :: file
   type(diptera) :: dummyinsect
@@ -69,13 +69,24 @@ subroutine draw_fractal_tree()
   ! phase 3: all ranks draw the individual cylinders...
   ! please note we assume the root point to be 0 0 0 in the file
   !*****************************************************************************
-  do i=1, nlines
+  t1 = MPI_Wtime()
+ do i=1, nlines
     x1 = treedata(i,1:3) + (/x0,y0,z0/)
     x2 = treedata(i,4:6) + (/x0,y0,z0/)
     ! the file containes the radius of the cylinder
     R = treedata(i,7)
     call draw_cylinder_new( x1, x2, R, mask, mask_color, us, dummyinsect, int(1,kind=2))
-  enddo
+  end do
+
+  R = MPI_wtime() - t1
+  R = mpisum(R)
+  if (root) then
+    write(*,'(80("-"))')
+    write(*,'("done creating fractal tree mask of ",i4," branches")'), nlines
+    write(*,'("wtime on master process is ",es12.4," secs")') MPI_wtime()-t1
+    write(*,'("sum wtime on all cpu ",es12.4," secs (avg=",es12.4,")")') R, R/dble(mpisize)
+    write(*,'(80("-"))')
+  end if
 
   deallocate(treedata)
 end subroutine draw_fractal_tree
