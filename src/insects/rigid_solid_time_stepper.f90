@@ -405,7 +405,7 @@ subroutine muscle_moment( time, insect )
     elseif ((phi>-60.d0).and.(phi<=-40.d0)) then
       m = 3.d0 + (phi+60.d0) / 20.d0 * (4.5d0-3.0d0)
     elseif ((phi>-40).and.(phi<60.d0)) then
-      m = 4.5d0 + (phi--40.d0) * (-3.d0-4.5d0)/(60.d0--40.d0)
+      m = 4.5d0 + (phi+40.d0) * (-3.d0-4.5d0)/(60.d0+40.d0)
     elseif (phi>=60.d0) then
       m = -3.d0
     endif

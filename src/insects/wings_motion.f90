@@ -93,7 +93,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
   real(kind=pr) :: a_posi(1:4),b_posi(1:4),a_elev(1:4),b_elev(1:4),a_feth(1:4),b_feth(1:4)
   real(kind=pr) :: s,c,a0_phi
   real(kind=pr) :: phicdeg
-  real(kind=pr) :: alphacdeg
+  real(kind=pr) :: alphacdeg, ttau
   integer :: i,mpicode
   character(len=strlen) :: dummy
   type(inifile) :: kinefile
@@ -240,6 +240,22 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     theta = deg2rad(theta)
     theta_dt = deg2rad(theta_dt)
 
+  case ("revolving-set1")
+    ! revolving wing kinematics, pre-defined set. We fix alpha to 45deg and increase
+    ! phi linearily with a short startup conditioner as suggested in [1]. The startup
+    ! time is fixed to 0.4, which gives phi=31.35deg at the end of that interval
+    ! [3] D. Kolomenskiy, Y. Elimelech and K. Schneider. Leading-edge vortex shedding from rotating wings. Fluid Dyn. Res., 46, 031421, 2014.
+    ttau = 0.4
+    ! position angle (is directly given in radiant)
+    ! we use PHI_DOT = 1 as normalization as well (since we have no frequency in this case)
+    phi = 1.d0*( ttau*dexp(-time/ttau) + time)
+    phi_dt = 1.d0*(1.d0-dexp(-time/ttau))
+    ! feathering angle is constant
+    alpha = deg2rad(-45.d0)
+    alpha_dt = 0.d0
+    ! elevation angle is always zero
+    theta = 0.d0
+    theta_dt = 0.d0
 
   case ("Drosophila_hovering_fry")
     !---------------------------------------------------------------------------

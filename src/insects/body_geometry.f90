@@ -1332,6 +1332,7 @@ end subroutine draw_body_cone
 !-------------------------------------------------------------------------------
 subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
   use vars
+  use stl_file_reader
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1341,7 +1342,7 @@ subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
   integer(kind=2),intent(in) :: color_body
   real(kind=pr),intent(in)::M_body(1:3,1:3)
 
-  real(kind=pr) :: R0,R,a,H,b, alpha, thick
+  real(kind=pr) :: R0,R,a,H,b, alpha, thick, di(1:4)
   real(kind=pr) :: x_body(1:3), x_glob(1:3)
   integer :: ix,iy,iz
   logical, save :: informed = .false.
@@ -1376,16 +1377,27 @@ subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_body(1)) <= a + Insect%safety ) then
         if ( dabs(x_body(2)) <= a + Insect%safety ) then
+        !  note we shifted the system to the center of gravity therefore -H/3 <= z <= 2H/3
         if ( dabs(x_body(3)) <= H*2.d0/3.d0 + Insect%safety .and. x_body(3)>-Insect%safety-H/3.d0) then
-          ! b is the sidelength of the pyramid
-          b = max( -a*sin(alpha)*x_body(3) + (2.d0/3.d0)*H*a*sin(alpha) , 0.d0 )
-          b = 2.d0*b
-          ! the x-y plane are qudratic rectangles. compute their signed distance:
-          R  = maxval( (/ abs(x_body(1))-b/2.d0 , abs(x_body(2))-b/2.d0 /) )
-          ! define the mask. note w shifted the system to the center of gravity
-          ! therefore -H/3 <= z <= 2H/3
-          mask(ix,iy,iz)= max(steps(dabs(R),0.5d0*thick)*steps(x_body(3),H*2.d0/3.d0)*steps(-x_body(3),H/3.d0),mask(ix,iy,iz))
+          ! realizing that the pyramid consists of 4 triangles, we can use the pointTriangleDistance function from
+          ! the stl_file_reader module to compute, for all points within the bounding box, the distance to the
+          ! pyramid. This is more elegant than the old solution, since it nicely smoothes the surface and edges.
+          ! note we do use the NORMAL only to distinguish between in/out, it's not required to be correct
+          di(1) = pointTriangleDistance( (/+a/2.d0,-a/2.d0,-H/3.d0/), (/+a/2.d0,+a/2.d0,-H/3.d0/) ,&
+                  (/0.d0,0.d0,2.d0*H/3.d0/), x_body, (/1.d0,0.d0,0.d0/) )
+          di(2) = pointTriangleDistance( (/+a/2.d0,+a/2.d0,-H/3.d0/), (/-a/2.d0,+a/2.d0,-H/3.d0/) ,&
+                  (/0.d0,0.d0,2.d0*H/3.d0/), x_body, (/0.d0,1.d0,0.d0/) )
+          di(3) = pointTriangleDistance( (/-a/2.d0,+a/2.d0,-H/3.d0/), (/-a/2.d0,-a/2.d0,-H/3.d0/) ,&
+                  (/0.d0,0.d0,2.d0*H/3.d0/), x_body, (/-1.d0,0.d0,0.d0/) )
+          di(4) = pointTriangleDistance( (/-a/2.d0,-a/2.d0,-H/3.d0/), (/+a/2.d0,-a/2.d0,-H/3.d0/) ,&
+                  (/0.d0,0.d0,2.d0*H/3.d0/), x_body, (/0.d0,-1.d0,0.d0/) )
+
+          ! note maxval(di) is the union of all the triangles' interiors (thus a solid filled pyramid results),
+          ! and abs(maxval(di))-t/2 is the shell operator which gives us just the shell (negative values are inside the solid, by convention)
+          ! we also directly take the CHI(delta) here.
+          mask(ix,iy,iz)= steps( abs(maxval(di)) -thick/2.d0, 0.d0)
           mask_color(ix,iy,iz) = color_body
+          ! please note that the solid body velocity will be added elsewhere in the code
         endif
         endif
         endif
