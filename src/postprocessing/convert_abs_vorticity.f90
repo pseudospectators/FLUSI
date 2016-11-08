@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-! ./flusi --postprocess --vor_abs ux_00000.h5 uy_00000.h5 uz_00000.h5 --second-order
+! ./flusi --postprocess --vor-abs ux_00000.h5 uy_00000.h5 uz_00000.h5 --second-order
 !-------------------------------------------------------------------------------
 ! load the velocity components from file and compute & save the vorticity
 ! directly compute the absolute value of vorticity, do not save components

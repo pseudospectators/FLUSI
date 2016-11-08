@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--convert-to-wing-system")
+    call convert_to_wing_system(help)
   case ("--extend-domain")
     call extend_domain(help)
   case ("--force-decomp")
@@ -139,6 +141,7 @@ subroutine postprocessing()
       write(*,*) "--dist2mask   --dist2chi"
       write(*,*) "--smooth-inverse-mask"
       write(*,*) "--extend-domain"
+      write(*,*) "--convert-to-wing-system"
       write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))
       write(*,*) "But I don't know what to do with that"
     endif

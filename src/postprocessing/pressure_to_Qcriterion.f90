@@ -41,7 +41,7 @@ subroutine pressure_to_Qcriterion(help)
   call get_command_argument(4,fname_Q)
 
   ! read in information from the file
-  call fetch_attributes( fname_p, "p", nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_p, nx, ny, nz, xl, yl, zl, time, nu )
 
   if (mpirank==0) then
     write(*,'("Computing Q criterion from  file ",A," saving to ",&
@@ -52,7 +52,7 @@ subroutine pressure_to_Qcriterion(help)
 
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
-  
+
   allocate(p(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   allocate(pk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
 
