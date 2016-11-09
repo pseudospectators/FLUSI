@@ -23,6 +23,7 @@ subroutine convert_to_wing_system(help)
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
   real(kind=pr) :: x_wing(1:3),x_glob(1:3),M_wing_r(1:3,1:3),M_wing_l(1:3,1:3),M_body(1:3,1:3)
+  real(kind=pr) :: u1,u2
 
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
@@ -61,7 +62,7 @@ subroutine convert_to_wing_system(help)
 
   if (mpisize/=1) then
     write(*,*) "./flusi -p --convert-to-wing-system IS A SERIAL ROUTINE; USE 1CPU ONLY"
-    call abort(40004)
+    ! call abort(40004)
   endif
   !-----------------------------------------------------------------------------
   ! Read input parameters
@@ -125,23 +126,33 @@ subroutine convert_to_wing_system(help)
   call wing_left_rotation_matrix( Insect, M_wing_l )
 
 
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
+  do iz = 0,nz-1!ra(3), rb(3)
+    do iy = 0,ny-1!ra(2), rb(2)
+      do ix = 0,nx-1!ra(1), rb(1)
         ! define the position in the wing coordinate system (we seek for u in this
         ! coordinate system, so our output matrix is to be understood in this)
         x_wing = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl,yl,zl/)/2.d0
 
         x_glob = Insect%xc_body_g+ matmul(transpose(M_body), (matmul(transpose(M_wing_l),x_wing)+Insect%x_pivot_l) )
 
-        call trilinear_interp_ghosts(x_glob,u_interp,u_org(ix,iy,iz))
+        call trilinear_interp_ghosts(x_glob,u_interp,u1)!u_org(ix,iy,iz))
+        u2 = mpimax(u1)
+        if ( on_proc( (/ix,iy,iz/)  ) ) then
+          u_org(ix,iy,iz) = u2
+        endif
+
 
       enddo
     enddo
   enddo
 
+  where (u_org < -9.0d10)
+    u_org = 0.d0
+  end where
+
   call get_command_argument(5,infile)
-  call save_field_hdf5(time,infile,u_org)
+  if (root) write(*,*) "ouput will be written to "//infile
+  call save_field_hdf5(time, infile, u_org)
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory
