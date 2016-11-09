@@ -233,114 +233,114 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
   ! ----------------------------------------------------------------------------
   ! legs (composed of 3 cylinders)
   ! ----------------------------------------------------------------------------
-  do j = 1,  4
-    ! transform coordinates to global system. they are defined in the body system
-    xa = matmul( transpose(M_body), (/xl1(j),yl1(j),zl1(j)/) ) + Insect%xc_body_g
-    xb = matmul( transpose(M_body), (/xl1(j+1),yl1(j+1),zl1(j+1)/) ) + Insect%xc_body_g
-    ! note input to draw_cylinder_new is in global coordinates
-    call draw_cylinder_new( xa, xb, rl1(j), mask, mask_color, us, Insect, color_body)
+  ! do j = 1,  4
+  !   ! transform coordinates to global system. they are defined in the body system
+  !   xa = matmul( transpose(M_body), (/xl1(j),yl1(j),zl1(j)/) ) + Insect%xc_body_g
+  !   xb = matmul( transpose(M_body), (/xl1(j+1),yl1(j+1),zl1(j+1)/) ) + Insect%xc_body_g
+  !   ! note input to draw_cylinder_new is in global coordinates
+  !   call draw_cylinder_new( xa, xb, rl1(j), mask, mask_color, us, Insect, color_body)
+  !
+  !   xa = matmul( transpose(M_body), (/xl2(j),yl2(j),zl2(j)/) ) + Insect%xc_body_g
+  !   xb = matmul( transpose(M_body), (/xl2(j+1),yl2(j+1),zl2(j+1)/) ) + Insect%xc_body_g
+  !   call draw_cylinder_new( xa, xb, rl2(j), mask, mask_color, us, Insect, color_body)
+  !
+  !   xa = matmul( transpose(M_body), (/xl3(j),yl3(j),zl3(j)/) ) + Insect%xc_body_g
+  !   xb = matmul( transpose(M_body), (/xl3(j+1),yl3(j+1),zl3(j+1)/) ) + Insect%xc_body_g
+  !   call draw_cylinder_new( xa, xb, rl3(j), mask, mask_color, us, Insect, color_body)
+  !
+  !   ! right side of body (flip the sign of y)
+  !   xa = matmul( transpose(M_body), (/xl1(j),-yl1(j),zl1(j)/) ) + Insect%xc_body_g
+  !   xb = matmul( transpose(M_body), (/xl1(j+1),-yl1(j+1),zl1(j+1)/) ) + Insect%xc_body_g
+  !   call draw_cylinder_new( xa, xb, rl1(j), mask, mask_color, us, Insect, color_body)
+  !
+  !   xa = matmul( transpose(M_body), (/xl2(j),-yl2(j),zl2(j)/) ) + Insect%xc_body_g
+  !   xb = matmul( transpose(M_body), (/xl2(j+1),-yl2(j+1),zl2(j+1)/) ) + Insect%xc_body_g
+  !   call draw_cylinder_new( xa, xb, rl2(j), mask, mask_color, us, Insect, color_body)
+  !
+  !   xa = matmul( transpose(M_body), (/xl3(j),-yl3(j),zl3(j)/) ) + Insect%xc_body_g
+  !   xb = matmul( transpose(M_body), (/xl3(j+1),-yl3(j+1),zl3(j+1)/) ) + Insect%xc_body_g
+  !   call draw_cylinder_new( xa, xb, rl3(j), mask, mask_color, us, Insect, color_body)
+  ! enddo
+  !
+  ! ! antenna (left)
+  ! xa = matmul( transpose(M_body), (/xan(1),yan(1),zan(1)/) ) + Insect%xc_body_g
+  ! xb = matmul( transpose(M_body), (/xan(2),yan(2),zan(2)/) ) + Insect%xc_body_g
+  ! call draw_cylinder_new( xa, xb, ran, mask, mask_color, us, Insect, color_body)
+  !
+  ! ! antenna (right)
+  ! xa = matmul( transpose(M_body), (/xan(1),-yan(1),zan(1)/) ) + Insect%xc_body_g
+  ! xb = matmul( transpose(M_body), (/xan(2),-yan(2),zan(2)/) ) + Insect%xc_body_g
+  ! call draw_cylinder_new( xa, xb, ran, mask, mask_color, us, Insect, color_body)
+  !
+  !
+  ! ! proscrobis ( to drink )
+  ! xa = matmul( transpose(M_body), (/xf(1),yf(1),zf(1)/) ) + Insect%xc_body_g
+  ! xb = matmul( transpose(M_body), (/xf(2),yf(2),zf(2)/) ) + Insect%xc_body_g
+  ! call draw_cylinder_new( xa, xb, rf, mask, mask_color, us, Insect, color_body)
 
-    xa = matmul( transpose(M_body), (/xl2(j),yl2(j),zl2(j)/) ) + Insect%xc_body_g
-    xb = matmul( transpose(M_body), (/xl2(j+1),yl2(j+1),zl2(j+1)/) ) + Insect%xc_body_g
-    call draw_cylinder_new( xa, xb, rl2(j), mask, mask_color, us, Insect, color_body)
 
-    xa = matmul( transpose(M_body), (/xl3(j),yl3(j),zl3(j)/) ) + Insect%xc_body_g
-    xb = matmul( transpose(M_body), (/xl3(j+1),yl3(j+1),zl3(j+1)/) ) + Insect%xc_body_g
-    call draw_cylinder_new( xa, xb, rl3(j), mask, mask_color, us, Insect, color_body)
+    ! Assign values to mask pointwise
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          !-- define the head coordinate systems we are going to use
+          x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+          x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+          x_body   = matmul(M_body,x_glob)
 
-    ! right side of body (flip the sign of y)
-    xa = matmul( transpose(M_body), (/xl1(j),-yl1(j),zl1(j)/) ) + Insect%xc_body_g
-    xb = matmul( transpose(M_body), (/xl1(j+1),-yl1(j+1),zl1(j+1)/) ) + Insect%xc_body_g
-    call draw_cylinder_new( xa, xb, rl1(j), mask, mask_color, us, Insect, color_body)
+          !-- check bounds
+          if ((x_body(1)>=xmin_bbox).and.(x_body(1)<=xmax_bbox)&
+          .and.(x_body(2)>=ymin_bbox).and.(x_body(2)<=ymax_bbox)&
+          .and.(x_body(3)>=zmin_bbox).and.(x_body(3)<=zmax_bbox)) then
 
-    xa = matmul( transpose(M_body), (/xl2(j),-yl2(j),zl2(j)/) ) + Insect%xc_body_g
-    xb = matmul( transpose(M_body), (/xl2(j+1),-yl2(j+1),zl2(j+1)/) ) + Insect%xc_body_g
-    call draw_cylinder_new( xa, xb, rl2(j), mask, mask_color, us, Insect, color_body)
-
-    xa = matmul( transpose(M_body), (/xl3(j),-yl3(j),zl3(j)/) ) + Insect%xc_body_g
-    xb = matmul( transpose(M_body), (/xl3(j+1),-yl3(j+1),zl3(j+1)/) ) + Insect%xc_body_g
-    call draw_cylinder_new( xa, xb, rl3(j), mask, mask_color, us, Insect, color_body)
+          !-- left and right legs, antennae and proboscis
+          if (x_body(2)>0) then
+            if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")) then
+              do j=1,4
+                call draw_cylinder(x_body,xl1(j),yl1(j),zl1(j),&
+                xl1(j+1),yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              enddo
+              do j=1,4
+                call draw_cylinder(x_body,xl2(j),yl2(j),zl2(j),&
+                xl2(j+1),yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              enddo
+              do j=1,4
+                call draw_cylinder(x_body,xl3(j),yl3(j),zl3(j),&
+                xl3(j+1),yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              enddo
+            endif
+            if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+              call draw_cylinder(x_body,xan(1),yan(1),zan(1),&
+              xan(2),yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+            endif
+          else
+            if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")) then
+              do j=1,4
+                call draw_cylinder(x_body,xl1(j),-yl1(j),zl1(j),&
+                xl1(j+1),-yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              enddo
+              do j=1,4
+                call draw_cylinder(x_body,xl2(j),-yl2(j),zl2(j),&
+                xl2(j+1),-yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              enddo
+              do j=1,4
+                call draw_cylinder(x_body,xl3(j),-yl3(j),zl3(j),&
+                xl3(j+1),-yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+              enddo
+            endif
+            if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+              call draw_cylinder(x_body,xan(1),-yan(1),zan(1),&
+              xan(2),-yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+            endif
+          endif
+          if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
+            call draw_cylinder(x_body,xf(1),yf(1),zf(1),&
+            xf(2),yf(2),zf(2),rf,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
+          endif
+        endif
+      enddo
+    enddo
   enddo
-
-  ! antenna (left)
-  xa = matmul( transpose(M_body), (/xan(1),yan(1),zan(1)/) ) + Insect%xc_body_g
-  xb = matmul( transpose(M_body), (/xan(2),yan(2),zan(2)/) ) + Insect%xc_body_g
-  call draw_cylinder_new( xa, xb, ran, mask, mask_color, us, Insect, color_body)
-
-  ! antenna (right)
-  xa = matmul( transpose(M_body), (/xan(1),-yan(1),zan(1)/) ) + Insect%xc_body_g
-  xb = matmul( transpose(M_body), (/xan(2),-yan(2),zan(2)/) ) + Insect%xc_body_g
-  call draw_cylinder_new( xa, xb, ran, mask, mask_color, us, Insect, color_body)
-
-
-  ! proscrobis ( to drink )
-  xa = matmul( transpose(M_body), (/xf(1),yf(1),zf(1)/) ) + Insect%xc_body_g
-  xb = matmul( transpose(M_body), (/xf(2),yf(2),zf(2)/) ) + Insect%xc_body_g
-  call draw_cylinder_new( xa, xb, rf, mask, mask_color, us, Insect, color_body)
-
-!
-!   ! Assign values to mask pointwise
-!   do iz = ra(3), rb(3)
-!     do iy = ra(2), rb(2)
-!       do ix = ra(1), rb(1)
-!         !-- define the head coordinate systems we are going to use
-!         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-!         x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
-!         x_body   = matmul(M_body,x_glob)
-!
-!         !-- check bounds
-!         if ((x_body(1)>=xmin_bbox).and.(x_body(1)<=xmax_bbox)&
-!         .and.(x_body(2)>=ymin_bbox).and.(x_body(2)<=ymax_bbox)&
-!         .and.(x_body(3)>=zmin_bbox).and.(x_body(3)<=zmax_bbox)) then
-!
-!         !-- left and right legs, antennae and proboscis
-!         if (x_body(2)>0) then
-!           if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")) then
-!             do j=1,4
-!               call draw_cylinder(x_body,xl1(j),yl1(j),zl1(j),&
-!               xl1(j+1),yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!             enddo
-!             do j=1,4
-!               call draw_cylinder(x_body,xl2(j),yl2(j),zl2(j),&
-!               xl2(j+1),yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!             enddo
-!             do j=1,4
-!               call draw_cylinder(x_body,xl3(j),yl3(j),zl3(j),&
-!               xl3(j+1),yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!             enddo
-!           endif
-!           if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
-!             call draw_cylinder(x_body,xan(1),yan(1),zan(1),&
-!             xan(2),yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!           endif
-!         else
-!           if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="legs")) then
-!             do j=1,4
-!               call draw_cylinder(x_body,xl1(j),-yl1(j),zl1(j),&
-!               xl1(j+1),-yl1(j+1),zl1(j+1),rl1(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!             enddo
-!             do j=1,4
-!               call draw_cylinder(x_body,xl2(j),-yl2(j),zl2(j),&
-!               xl2(j+1),-yl2(j+1),zl2(j+1),rl2(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!             enddo
-!             do j=1,4
-!               call draw_cylinder(x_body,xl3(j),-yl3(j),zl3(j),&
-!               xl3(j+1),-yl3(j+1),zl3(j+1),rl3(j),mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!             enddo
-!           endif
-!           if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
-!             call draw_cylinder(x_body,xan(1),-yan(1),zan(1),&
-!             xan(2),-yan(2),zan(2),ran,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!           endif
-!         endif
-!         if ((Insect%HasDetails=="all").or.(Insect%HasDetails=="antennae_proboscis")) then
-!           call draw_cylinder(x_body,xf(1),yf(1),zf(1),&
-!           xf(2),yf(2),zf(2),rf,mask(ix,iy,iz),mask_color(ix,iy,iz),color_body,Insect%safety)
-!         endif
-!       endif
-!     enddo
-!   enddo
-! enddo
 endif
 
 end subroutine draw_body_bumblebee

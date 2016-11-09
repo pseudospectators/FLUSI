@@ -14,10 +14,11 @@ subroutine convert_to_wing_system(help)
 
   real(kind=pr)          :: t1,t2
   real(kind=pr)          :: time
-  integer                :: ix,iy,iz
+  integer                :: ix,iy,iz,mpicode
   character (len=strlen) :: infile
   ! arrays needed for interpolation
   real(kind=pr),dimension(:,:,:),allocatable :: u_org,u_interp
+  real(kind=pr),dimension(:),allocatable :: u_buffer, u_buffer2
   ! this is the insect we're using (object oriented)
   type(diptera) :: Insect
   ! this is the solid model beams:
@@ -56,14 +57,10 @@ subroutine convert_to_wing_system(help)
     write(*,*) "! Note the wing span axis is y, while the chord ix x. z is wing normal."
     write(*,*) "! "
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "Parallel: no (since interpolation is tedious on MPI distributed data)"
+    write(*,*) "Parallel: yes"
     return
   endif
 
-  if (mpisize/=1) then
-    write(*,*) "./flusi -p --convert-to-wing-system IS A SERIAL ROUTINE; USE 1CPU ONLY"
-    ! call abort(40004)
-  endif
   !-----------------------------------------------------------------------------
   ! Read input parameters
   !-----------------------------------------------------------------------------
@@ -91,6 +88,8 @@ subroutine convert_to_wing_system(help)
   allocate( u_org(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
   ! interpolated field has ghost nodes
   allocate( u_interp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)) )
+  allocate( u_buffer(0:nx-1),u_buffer2(0:nx-1) )
+
 
   if (iMask/="Insect") then
     call abort(7774,"transforming to wing system makes no sense if not applied to an insect")
@@ -132,20 +131,25 @@ subroutine convert_to_wing_system(help)
         ! define the position in the wing coordinate system (we seek for u in this
         ! coordinate system, so our output matrix is to be understood in this)
         x_wing = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl,yl,zl/)/2.d0
-
+        ! compute global coordinate
         x_glob = Insect%xc_body_g+ matmul(transpose(M_body), (matmul(transpose(M_wing_l),x_wing)+Insect%x_pivot_l) )
-
-        call trilinear_interp_ghosts(x_glob,u_interp,u1)!u_org(ix,iy,iz))
-        u2 = mpimax(u1)
-        if ( on_proc( (/ix,iy,iz/)  ) ) then
-          u_org(ix,iy,iz) = u2
-        endif
-
-
+        ! interpolate the value
+        call trilinear_interp_ghosts(x_glob,u_interp,u_buffer(ix))
       enddo
+      ! at this point, all procs have interpolated a value in u_buffer. most of them
+      ! are -9.9E10, which means the CPU does not have the data required for interpolation
+      call MPI_ALLREDUCE(u_buffer,u_buffer2,nx,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+      ! now, all CPU have the line in x-direction with the properly interpolated values. however,
+      ! only one of them actually holds this data. NOw we note that in FLUSI, we never split
+      ! the x-coordinate, so this direction is ALWAYS contiguous
+      if ( on_proc( (/0,iy,iz/) ) ) then
+        u_org(:,iy,iz) = u_buffer2
+      end if
     enddo
   enddo
 
+  ! for some points, no value can be interpolated, since they do not exist ( happens for example at the corners)
+  ! set 0 at these points:
   where (u_org < -9.0d10)
     u_org = 0.d0
   end where
@@ -157,7 +161,7 @@ subroutine convert_to_wing_system(help)
   !-----------------------------------------------------------------------------
   ! Deallocate memory
   !-----------------------------------------------------------------------------
-  deallocate(u_org,u_interp)
+  deallocate(u_org, u_interp, u_buffer, u_buffer2)
   ! Clean insect (the globally stored arrays for Fourier coeffs etc..)
   call insect_clean(Insect)
 end subroutine convert_to_wing_system
