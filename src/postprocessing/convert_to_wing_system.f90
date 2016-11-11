@@ -4,10 +4,8 @@ subroutine convert_to_wing_system(help)
   use p3dfft_wrapper
   use solid_model
   use insect_module
-  use slicing
   use ghosts
   use interpolation
-  use penalization ! mask array etc
 
   implicit none
   logical, intent(in) :: help

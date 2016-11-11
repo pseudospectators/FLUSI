@@ -775,4 +775,34 @@ subroutine helicity_norm(u,vor,hel)
 
 end subroutine helicity_norm
 
+! gradient of a scalar field in fourier space
+subroutine gradient(uk,uk_dx,uk_dy,uk_dz)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)),intent(inout):: uk,uk_dx,uk_dy,uk_dz
+  integer :: ix,iy,iz
+  real(kind=pr) :: kx,ky,kz
+  complex(kind=pr) :: imag   ! imaginary unit
+
+  imag = dcmplx(0.d0,1.d0)
+
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           uk_dx = imag*kx*uk
+           uk_dy = imag*ky*uk
+           uk_dz = imag*kz*uk
+       enddo
+    enddo
+  enddo
+end subroutine gradient
+
+
+
 end module basic_operators

@@ -16,7 +16,8 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	post_spectrum.f90 pressure_to_Qcriterion.f90 set_hdf5_attribute.f90 \
 	simple_field_operation.f90 time_avg_HDF5.f90 tke_mean.f90 \
 	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90 \
-	extend_domain.f90 basic_file_routines.f90 fractal_trees.f90 convert_to_wing_system.f90
+	extend_domain.f90 basic_file_routines.f90 fractal_trees.f90 convert_to_wing_system.f90 \
+	pressure_force.f90
 
 
 # Object and module directory:

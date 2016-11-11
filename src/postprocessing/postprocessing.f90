@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--pressure-force")
+    call pressure_force(help)
   case ("--convert-to-wing-system")
     call convert_to_wing_system(help)
   case ("--extend-domain")
@@ -142,6 +144,7 @@ subroutine postprocessing()
       write(*,*) "--smooth-inverse-mask"
       write(*,*) "--extend-domain"
       write(*,*) "--convert-to-wing-system"
+      write(*,*) "--pressure-force"
       write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))
       write(*,*) "But I don't know what to do with that"
     endif
