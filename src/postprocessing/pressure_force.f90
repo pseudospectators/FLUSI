@@ -20,16 +20,11 @@ subroutine pressure_force(help)
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "./flusi -p --pressure-force p_0000.h5 mask_0000.h5 outfile.txt"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) " Read velocity components from file and compute their curl. Optionally second order"
+    write(*,*) " Compute the integral force contribution of the pressure. "
     write(*,*) " "
-    write(*,*) " You can write to standard output: (vorx_0000.h5 in the example:)"
-    write(*,*) " ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 [--second-order]"
-    write(*,*) " "
-    write(*,*) " Or specify a prefix for the output files: (writes to curl_0000.h5 in example:)"
-    write(*,*) " ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --outputprefix curl [--second-order]"
-    write(*,*) " "
-    write(*,*) " Or specifiy the ouput files directly:"
-    write(*,*) " ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --outfiles vx_00.h5 vy_00.h5 vz_00.h5 [--second-order]"
+    write(*,*) " Note that F = \int ( sigma.dA) = \int (div(sigma)) dV"
+    write(*,*) " therefore, we can set sigma = -p*delta_ij and we are left with integration of grad(p)"
+    write(*,*) " over the volume of the obstacle."
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: yes"
     return
@@ -46,7 +41,6 @@ subroutine pressure_force(help)
     write(*,'(80("-"))')
     write(*,*) "Compute pressure force acting on obstacle"
     write(*,*) "Pressure and mask files:"
-    write(*,'(80("-"))')
     write(*,*) trim(adjustl(fname_p))
     write(*,*) trim(adjustl(fname_mask))
     write(*,*) "Writing to:"
@@ -56,7 +50,6 @@ subroutine pressure_force(help)
 
   call check_file_exists( fname_p )
   call check_file_exists( fname_mask )
-  call check_file_exists( outfile )
 
   call fetch_attributes( fname_p, nx, ny, nz, xl, yl, zl, time, nu )
 
@@ -85,7 +78,8 @@ subroutine pressure_force(help)
     call ifft( ink=workc(:,:,:,i), outx=workr )
     ! apply mask
     workr = workr * chi
-    force(i) = sum(workr)*dx*dy*dz
+    ! sum gives the pressure force (volume integral inside the obstacle)
+    force(i) = -1.d0*mpisum(sum(workr))*dx*dy*dz
   end do
 
   if (mpirank==0) then

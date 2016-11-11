@@ -795,9 +795,9 @@ subroutine gradient(uk,uk_dx,uk_dy,uk_dz)
         ky=wave_y(iy)
         do iz=ca(1),cb(1)
            kz=wave_z(iz)
-           uk_dx = imag*kx*uk
-           uk_dy = imag*ky*uk
-           uk_dz = imag*kz*uk
+           uk_dx(iz,iy,ix) = imag*kx*uk(iz,iy,ix)
+           uk_dy(iz,iy,ix) = imag*ky*uk(iz,iy,ix)
+           uk_dz(iz,iy,ix) = imag*kz*uk(iz,iy,ix)
        enddo
     enddo
   enddo
