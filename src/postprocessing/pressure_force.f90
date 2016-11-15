@@ -72,7 +72,6 @@ subroutine pressure_force(help)
 
   call gradient(pk,workc(:,:,:,1),workc(:,:,:,2),workc(:,:,:,3))
 
-
   do i=1,3
     ! to x-space
     call ifft( ink=workc(:,:,:,i), outx=workr )

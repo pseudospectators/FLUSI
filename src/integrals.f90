@@ -188,15 +188,21 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   ! mask volume
   !-----------------------------------------------------------------------------
   mask = mask*eps
+  ! the mask volume is useful for debugging, since we woul see some changes if occasionally
+  ! the code does not set some values at some grid points
   call compute_mask_volume(volume)
   mask = mask/eps
+  ! the mask is not everything: the solid velocity has to be correct too, so here we
+  ! compute another integral quantity:
+  kx = mpisum( sum(mask*us(:,:,:,1))*dx*dy*dz*eps )
+  ky = mpisum( sum(mask*us(:,:,:,2))*dx*dy*dz*eps )
+  kz = mpisum( sum(mask*us(:,:,:,3))*dx*dy*dz*eps )
 
   if(mpirank == 0) then
     open(14,file='mask_volume.t',status='unknown',position='append')
-    write (14,'(2(es15.8,1x))') time,volume
+    write (14,'(5(es15.8,1x))') time, volume, kx, ky, kz
     close(14)
   endif
-
   !-----------------------------------------------------------------------------
   ! Spectrum
   !-----------------------------------------------------------------------------

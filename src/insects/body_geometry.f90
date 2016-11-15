@@ -1424,8 +1424,8 @@ subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
         x_body(3) = x_body(3) + H/3.d0
 
         ! check if inside the surrounding box (save comput. time)
-        if ( dabs(x_body(1)) <= a + Insect%safety ) then
-        if ( dabs(x_body(2)) <= a + Insect%safety ) then
+        if ( dabs(x_body(1)) <= a/2.d0 + Insect%safety ) then
+        if ( dabs(x_body(2)) <= a/2.d0 + Insect%safety ) then
         !  note we shifted the system to the center of gravity therefore -H/3 <= z <= 2H/3
         if ( dabs(x_body(3)) <= H*2.d0/3.d0 + Insect%safety .and. x_body(3)>-Insect%safety-H/3.d0) then
           ! realizing that the pyramid consists of 4 triangles, we can use the pointTriangleDistance function from

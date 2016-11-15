@@ -171,7 +171,7 @@ subroutine BodyMotion(time, Insect)
 
     if (Insect%wing_fsi /= "yes") then
       ! output on screen
-      if(root) write(*,'(f12.4,2x,9(es12.4,1x))') time, xc,vc,Insect%rot_body_b
+      if(root) write(*,'("free--flight: ",f12.4,2x,9(es12.4,1x))') time, xc,vc,Insect%rot_body_b
     endif
 
     if (iTimeMethodFluid /= "AB2_rigid_solid") call abort(99,"free flight requires AB2_rigid_solid")

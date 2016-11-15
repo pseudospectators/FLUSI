@@ -83,12 +83,11 @@ contains
 
 
     if (nx/=1) then
-      Insect%safety = 2.5d0*max(dz,dy,dx)
       Insect%smooth = 1.0d0*max(dz,dy,dx)
     else
-      Insect%safety = 2.5d0*max(dz,dy)
       Insect%smooth = 1.0d0*max(dz,dy)
     endif
+    Insect%safety = 3.5d0*Insect%smooth
     smoothing = Insect%smooth
 
 

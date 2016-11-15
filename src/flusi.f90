@@ -580,8 +580,11 @@ if (mpirank/=0) return
     write (14,'(4(A15,1x))') "%          time","mean_ux","mean_uy","mean_uz"
     close (14)
 
+    open  (14,file='mask_volume.t',status='replace')
+    write (14,'(5(A15,1x))') "%          time","volume","mask*usx","mask*usy","mask*usz"
+    close (14)
+
     call init_empty_file('iterations.t')
-    call init_empty_file('mask_volume.t')
     call init_empty_file('rigidsolidsolver.t')
 
     open  (14,file='rigidsolidsolver.t',status='replace')
