@@ -22,7 +22,8 @@ subroutine convert_to_wing_system(help)
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
   real(kind=pr) :: x_wing(1:3),x_glob(1:3),M_wing_r(1:3,1:3),M_wing_l(1:3,1:3),M_body(1:3,1:3)
-  real(kind=pr) :: u1,u2
+  real(kind=pr) :: u1,u2, x_body(1:3)
+  logical :: wing_system
 
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
@@ -111,6 +112,13 @@ subroutine convert_to_wing_system(help)
   u_interp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u_org
   call synchronize_ghosts( u_interp )
 
+  call get_command_argument(2,infile)
+  if (infile == "--convert-to-wing-system") then
+    wing_system = .true.
+  else
+    wing_system = .false.
+  endif
+
   !-----------------------------------------------------------------------------
   ! fetch current motion state of the insect
   !-----------------------------------------------------------------------------
@@ -126,11 +134,17 @@ subroutine convert_to_wing_system(help)
   do iz = 0,nz-1!ra(3), rb(3)
     do iy = 0,ny-1!ra(2), rb(2)
       do ix = 0,nx-1!ra(1), rb(1)
-        ! define the position in the wing coordinate system (we seek for u in this
-        ! coordinate system, so our output matrix is to be understood in this)
-        x_wing = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl,yl,zl/)/2.d0
-        ! compute global coordinate
-        x_glob = Insect%xc_body_g+ matmul(transpose(M_body), (matmul(transpose(M_wing_l),x_wing)+Insect%x_pivot_l) )
+        if (wing_system) then
+          ! define the position in the wing coordinate system (we seek for u in this
+          ! coordinate system, so our output matrix is to be understood in this)
+          x_wing = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl,yl,zl/)/2.d0
+          ! compute global coordinate
+          x_glob = Insect%xc_body_g+ matmul(transpose(M_body), (matmul(transpose(M_wing_l),x_wing)+Insect%x_pivot_l) )
+        else
+          ! transform to body system
+          x_body = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl,yl,zl/)/2.d0
+          x_glob = Insect%xc_body_g + matmul(transpose(M_body), x_body)
+        endif
         ! interpolate the value
         call trilinear_interp_ghosts(x_glob,u_interp,u_buffer(ix))
       enddo

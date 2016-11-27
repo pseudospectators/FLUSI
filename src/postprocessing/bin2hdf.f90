@@ -84,6 +84,7 @@ subroutine convert_bin2hdf(help)
   ra=(/0, 0, 0/)
   rb=(/nx-1, ny-1, nz-1/)
   field_out = real(field,kind=pr)
+  striding = 1
   call save_field_hdf5(time,fname_hdf,field_out)
 
   deallocate (field,field_out)
