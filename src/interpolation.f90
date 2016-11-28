@@ -32,25 +32,72 @@ subroutine trilinear_interp_ghosts(x,field,value)
   yd = (x(2)-dble(iy)*dy)/dy
   zd = (x(3)-dble(iz)*dz)/dz
 
-  !-- note border are ra/rb and not ga/gb
-  if ((((ix>=ra(1)).and.(ix<=rb(1))).or.(nx==1)).and.&
-        (iy>=ra(2)).and.(iy<=rb(2)).and.&
-        (iz>=ra(3)).and.(iz<=rb(3))) then
+  ! if the point is not on the local grid, return a very large, negative value
+  ! (afterwards we take the mpimax)
+  value = -9.9d10
 
-      c00 = field(per(ix,nx),iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
-      c10 = field(per(ix,nx),iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
-      c01 = field(per(ix,nx),iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
-      c11 = field(per(ix,nx),iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
+  ! if (ng /= 2) call abort(9997110,"linear interp requires 2 ghost nodes for proper periodization")
 
-      c0 = c00*(1.d0-yd) + c10*yd
-      c1 = c01*(1.d0-yd) + c11*yd
+  if (nx > 1) then
+    !********
+    ! 3D case
+    !********
+    ! note border are ra/rb and not ga/gb. However, we allow the lower limit to be one grid point
+    ! below our local memory (which means it IS the ghost node). Note on the upper limit, this is not
+    ! the case
+    ! ascii-scheme:
+    ! g o o o o o g
+    !  - - - - - -
+    ! the dashes are possible interpolation points
+    if ((((ix>=ra(1)-1).and.(ix<=rb(1)))).and.&
+          (iy>=ra(2)-1).and.(iy<=rb(2)).and.&
+          (iz>=ra(3)-1).and.(iz<=rb(3))) then
 
-      value = c0*(1.d0-zd)+c1*zd
+        c00 = field(ix,iy  ,iz  )*(1.d0-xd)+field(ix+1,iy  ,iz  )*xd
+        c10 = field(ix,iy+1,iz  )*(1.d0-xd)+field(ix+1,iy+1,iz  )*xd
+        c01 = field(ix,iy  ,iz+1)*(1.d0-xd)+field(ix+1,iy  ,iz+1)*xd
+        c11 = field(ix,iy+1,iz+1)*(1.d0-xd)+field(ix+1,iy+1,iz+1)*xd
+
+        c0 = c00*(1.d0-yd) + c10*yd
+        c1 = c01*(1.d0-yd) + c11*yd
+
+        value = c0*(1.d0-zd)+c1*zd
+    endif
   else
-      !-- point is not on the local grid, return a very small value
-      !-- (afterwards we take the max)
-      value = -9.9d10
+    !********
+    ! 2D case
+    !********
+    if ((iy>=ra(2)-1).and.(iy<=rb(2)+1).and.(iz>=ra(3)-1).and.(iz<=rb(3)+1)) then
+
+        ! ! NOTE: 28 Nov 2016, I discovered the PER function is used here but I cannot remember
+        ! ! why we should so so?? the ghost nodes should take care of that.
+        ! ! ANSWER: for 2D runs..
+        ! c00 = field(per(ix,nx),iy  ,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz  )*xd
+        ! c10 = field(per(ix,nx),iy+1,iz  )*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz  )*xd
+        ! c01 = field(per(ix,nx),iy  ,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy  ,iz+1)*xd
+        ! c11 = field(per(ix,nx),iy+1,iz+1)*(1.d0-xd)+field(per(ix+1,nx),iy+1,iz+1)*xd
+        !
+        ! c0 = c00*(1.d0-yd) + c10*yd
+        ! c1 = c01*(1.d0-yd) + c11*yd
+        !
+        ! value = c0*(1.d0-zd)+c1*zd
+        ! i=int((x_target-x1_box)/dx)  ! attention on index shift because of automatic array
+        ! j=int((y_target-y1_box)/dy)
+        !
+        !
+        ! x_1= real(i)*dx + x1_box
+        ! y_1= real(j)*dy + y1_box
+        ! x_2= dx*real(i+1) + x1_box
+        ! y_2= dy*real(j+1) + y1_box
+        ! R1 = (x_2-x_target)*field2(i,j)/dx   + (x_target-x_1)*field2(i+1,j)/dx
+        ! R2 = (x_2-x_target)*field2(i,j+1)/dx + (x_target-x_1)*field2(i+1,j+1)/dx
+        !
+        ! LinearInterpolation = (y_2-y_target)*R1/dy + (y_target-y_1)*R2/dy
+
+        call abort(9997111,"linear interpolation for 2d simulations currently not implemented...have fun")
+    endif
   endif
+
 end subroutine trilinear_interp_ghosts
 
 

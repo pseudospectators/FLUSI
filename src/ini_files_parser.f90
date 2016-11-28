@@ -86,7 +86,7 @@ contains
       ! if we're past the header AND the read worked (i.e. not end of file)
       if (i > n_header .and. io_error==0) then
         read(dummy,*) array(i-n_header,:)
-        write(*,fmt) array(i-n_header,:)
+!        write(*,fmt) array(i-n_header,:)
       endif
     enddo
     close (14)
@@ -176,8 +176,11 @@ contains
     open(unit=14,file=trim(adjustl(file)),action='read',status='old')
     do while (io_error==0)
       read (14,'(A)',iostat=io_error) line
-      PARAMS%PARAMS(i) = adjustl(line)
-      i = i+1
+      ! if we're not yet at EoF
+      if (io_error == 0) then
+        PARAMS%PARAMS(i) = adjustl(line)
+        i = i+1
+      endif
     enddo
     close (14)
   end subroutine read_ini_file

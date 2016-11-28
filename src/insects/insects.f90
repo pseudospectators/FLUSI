@@ -862,6 +862,14 @@ contains
   end subroutine insect_clean
 
 
+  !-----------------------------------------------------------------------------
+  ! In some cases, we need to reconstruct the mask or the body system in postprocessing
+  ! if the free_flight solver was used, the body system cannnot be simply evaluated from closed-from
+  ! expressions.
+  ! In these case, we have to read the rigidsolidsolver.t file, which contains the Insect%STATE
+  ! and from this the body orientation, rotation matrix, etc can be computed. So here we read this file
+  ! and return Insect%STATE at the desired time (linear interpolation is used)
+  !-----------------------------------------------------------------------------
   subroutine read_insect_STATE_from_file(time, Insect)
     use vars
     use ini_files_parser_mpi
@@ -871,7 +879,6 @@ contains
     integer :: num_lines, n_header = 1, i
     character(len=maxcolumns) :: dummy
     real(kind=pr), allocatable :: data(:,:)
-    real(kind=pr) ::t
 
     ! read rigidsolidsolver.t file
     ! skip header, count lines, read
@@ -880,19 +887,19 @@ contains
     allocate( data(1:num_lines,1:14))
     call read_array_from_ascii_file_mpi('rigidsolidsolver.t', data , n_header)
 
-    
-    t = time
     ! interpolate in time
     i=1
-    do while (data(i,1) <= t)
+    do while (data(i,1) <= time .and. i<num_lines)
       i=i+1
     enddo
     ! we now have data(i-1,1) <= time < data(i,1)
     ! use linear interpolation
     Insect%STATE = 0.d0
-    Insect%STATE(1:13) = data(i-1,2:14) + (t - data(i-1,1)) * (data(i,2:14)-data(i-1,2:14)) / (data(i,1)-data(i-1,1))
+    Insect%STATE(1:13) = data(i-1,2:14) + (time - data(i-1,1)) * (data(i,2:14)-data(i-1,2:14)) / (data(i,1)-data(i-1,1))
 
-    if (root) write(*,*) Insect%STATE
+    if (root) write(*,*) "The extracted Insect%STATE vector is:"
+    if (root) write(*,'(21(es12.4,1x))') time,Insect%STATE
+    deallocate (data)
   end subroutine
 
 end module

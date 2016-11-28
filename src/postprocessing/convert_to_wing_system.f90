@@ -74,7 +74,7 @@ subroutine convert_to_wing_system(help)
   !-----------------------------------------------------------------------------
   ! ghost points. we need that for interpolation
   !-----------------------------------------------------------------------------
-  ng=1 ! one ghost point
+  ng=1 ! one ghost points
   if (root) write(*,'("Set up ng=",i1," ghost points")') ng
 
   ! initialize code and domain decomposition, but do not use FFTs
@@ -110,14 +110,16 @@ subroutine convert_to_wing_system(help)
   call get_command_argument(2,infile)
   if (infile == "--convert-to-wing-system") then
     wing_system = .true.
+    if (root) write(*,*) "we convert to wing system"
   else
     wing_system = .false.
+    if (root) write(*,*) "we convert to body system"
   endif
-
+  if (root) write(*,'("OPERATING AT TIME=",es15.8)') time
   !-----------------------------------------------------------------------------
   ! fetch current motion state of the insect
   !-----------------------------------------------------------------------------
-  if (Insect%BodyMotion=="free_flight") then
+  if (Insect%BodyMotion == "free_flight") then
     if (root) write(*,*) "The insects body motion is free_flight, therefore we try to read the"
     if (root) write(*,*) "insect state vector from the file rigidsolidsolver.t"
     if (root) write(*,*) "from the state vector we can construct the body rotation matrix"
@@ -146,7 +148,18 @@ subroutine convert_to_wing_system(help)
           x_body = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl,yl,zl/)/2.d0
           x_glob = Insect%xc_body_g + matmul(transpose(M_body), x_body)
         endif
+
+        ! periodization (note we cannot use periodize_coordinate as it is centeres around the midpoint)
+        if (x_glob(1)<0.d0) x_glob(1)=x_glob(1)+xl
+        if (x_glob(2)<0.d0) x_glob(2)=x_glob(2)+yl
+        if (x_glob(3)<0.d0) x_glob(3)=x_glob(3)+zl
+
+        if (x_glob(1)>=xl-dx) x_glob(1)=x_glob(1)-xl
+        if (x_glob(2)>=yl-dy) x_glob(2)=x_glob(2)-yl
+        if (x_glob(3)>=zl-dz) x_glob(3)=x_glob(3)-zl
+
         ! interpolate the value
+        ! call delta_interpolation(x_glob,u_interp,u_buffer(ix))
         call trilinear_interp_ghosts(x_glob,u_interp,u_buffer(ix))
       enddo
       ! at this point, all procs have interpolated a value in u_buffer. most of them
