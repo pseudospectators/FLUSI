@@ -47,6 +47,83 @@ contains
 !!!!!!!!
 
 
+  !-----------------------------------------------------------------------------
+  ! read an array from an ascii file (SERIAL version, to be executed only on root)
+  ! note: array is assumed-shape and its size defines what we try to read
+  ! --> MPI wrapper in the MPI parser module
+  !-----------------------------------------------------------------------------
+  subroutine read_array_from_ascii_file(file, array, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(in) :: n_header
+    real(kind=pr), intent(inout) :: array (1:,1:)
+    integer :: nlines, ncols, i, io_error
+    character(len=maxcolumns) :: dummy
+    character(len=16) :: fmt
+    character(len=3) :: ncols_str
+
+    ! check if the specified file exists
+    call check_file_exists( file )
+
+    nlines = size(array,1)
+    ncols = size(array,2)
+
+    write(*,'(80("-"))')
+    write(*,'("reading ",i5," lines with ",i3," colums from ",A)') nlines, ncols, file
+
+    ! set up format string
+    write(ncols_str,'(i3.3)') ncols
+    fmt = '('//ncols_str//'(es12.4,1x))'
+
+    io_error = 0
+    i = 0
+
+    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+    do while (io_error==0)
+      ! read a line from file
+      read (14,'(A)',iostat=io_error) dummy
+      i = i + 1
+      ! if we're past the header AND the read worked (i.e. not end of file)
+      if (i > n_header .and. io_error==0) then
+        read(dummy,*) array(i-n_header,:)
+        write(*,fmt) array(i-n_header,:)
+      endif
+    enddo
+    close (14)
+
+    write(*,'("Done reading.")')
+    write(*,'(80("-"))')
+  end subroutine read_array_from_ascii_file
+
+
+  !-----------------------------------------------------------------------------
+  ! count the number of lines in an ascii file, skip n_header lines
+  ! --> MPI wrapper in the MPI parser module
+  !-----------------------------------------------------------------------------
+  subroutine count_lines_in_ascii_file(file, num_lines, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(out) :: num_lines
+    integer, intent(in) :: n_header
+    integer :: io_error, i
+    character(len=maxcolumns) :: dummy
+
+    ! check if the specified file exists
+    call check_file_exists( file )
+
+    ! count the lines
+    io_error = 0
+    i = 0
+    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+    do while (io_error==0)
+      read (14,'(A)',iostat=io_error) dummy
+      if (io_error==0) i = i+1
+    enddo
+    close (14)
+    num_lines = i - n_header
+  end subroutine count_lines_in_ascii_file
+
+
   !-------------------------------------------------------------------------------
   ! clean a previously read ini file, deallocate its string array, and reset
   ! verbosity to .true. (as a matter of precaution)
@@ -88,16 +165,7 @@ contains
     !-----------------------------------------------------------------------------
     ! determine number of lines in file
     !-----------------------------------------------------------------------------
-    io_error = 0
-    i = 0
-    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
-    do while (io_error==0)
-      read (14,'(A)',iostat=io_error) dummy
-      i = i+1
-    enddo
-    close (14)
-    PARAMS%nlines = i
-
+    call count_lines_in_ascii_file( file, PARAMS%nlines, 0)
     allocate( PARAMS%PARAMS(1:PARAMS%nlines) )
 
     !-----------------------------------------------------------------------------

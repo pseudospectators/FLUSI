@@ -2,6 +2,7 @@
 subroutine draw_fractal_tree()
   use mpi
   use vars
+  use ini_files_parser_mpi
   use penalization ! mask array etc
   use insect_module
   implicit none
@@ -25,26 +26,20 @@ subroutine draw_fractal_tree()
   dummyinsect%safety = safety
 
   file = 'tree_data.in'
-
   call check_file_exists( file )
+
+  ! error checks
+  if (iMoving == 1) then
+    call abort("fractal trees do not move -- set iMoving=0 (avoid creating mask in every iteration)")
+  endif
+
   !*****************************************************************************
   ! phase one: read the number of lines (which is the number of rigid cylinders in the tree)
   !*****************************************************************************
+  call count_lines_in_ascii_file_mpi(file, nlines, 0)
   if (root) then
-    io_error = 0
-    nlines = 0
-    open(unit=14,file=file,action='read',status='old')
-    do while (io_error==0)
-      read (14,'(A)',iostat=io_error) dummy
-      if (io_error==0) then
-        nlines = nlines+1
-      endif
-    enddo
-    close (14)
     write(*,'("Building a fractal tree with ",i5," rigid cylinders")') nlines
   endif
-
-  call MPI_BCAST(nlines,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
 
   !*****************************************************************************
   ! phase two: read all cylinders from the file into the array and bcast them

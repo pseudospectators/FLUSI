@@ -850,6 +850,7 @@ contains
     first_call = .false.
   end subroutine print_insect_reynolds_numbers
 
+
   subroutine insect_clean(Insect)
     use vars
     implicit none
@@ -859,5 +860,39 @@ contains
     call load_kine_clean( Insect%kine_wing_l )
     call load_kine_clean( Insect%kine_wing_r )
   end subroutine insect_clean
+
+
+  subroutine read_insect_STATE_from_file(time, Insect)
+    use vars
+    use ini_files_parser_mpi
+    implicit none
+    real(kind=pr), intent(in) :: time
+    type(diptera),intent(inout) :: Insect
+    integer :: num_lines, n_header = 1, i
+    character(len=maxcolumns) :: dummy
+    real(kind=pr), allocatable :: data(:,:)
+    real(kind=pr) ::t
+
+    ! read rigidsolidsolver.t file
+    ! skip header, count lines, read
+    call count_lines_in_ascii_file_mpi('rigidsolidsolver.t', num_lines, n_header)
+    ! read contents of file
+    allocate( data(1:num_lines,1:14))
+    call read_array_from_ascii_file_mpi('rigidsolidsolver.t', data , n_header)
+
+    
+    t = time
+    ! interpolate in time
+    i=1
+    do while (data(i,1) <= t)
+      i=i+1
+    enddo
+    ! we now have data(i-1,1) <= time < data(i,1)
+    ! use linear interpolation
+    Insect%STATE = 0.d0
+    Insect%STATE(1:13) = data(i-1,2:14) + (t - data(i-1,1)) * (data(i,2:14)-data(i-1,2:14)) / (data(i,1)-data(i-1,1))
+
+    if (root) write(*,*) Insect%STATE
+  end subroutine
 
 end module

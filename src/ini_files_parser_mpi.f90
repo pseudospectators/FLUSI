@@ -21,6 +21,46 @@ module ini_files_parser_mpi
 contains
 !!!!!!!!
 
+  !-----------------------------------------------------------------------------
+  ! read an array from an ascii file (SERIAL version, to be executed only on root)
+  ! note: array is assumed-shape and its size defines what we try to read
+  !-----------------------------------------------------------------------------
+  subroutine read_array_from_ascii_file_mpi(file, array, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(in) :: n_header
+    real(kind=pr), intent(inout) :: array (1:,1:)
+    integer :: nlines, ncols, mpicode
+
+    ! check if the specified file exists
+    call check_file_exists( file )
+
+    nlines = size(array,1)
+    ncols = size(array,2)
+
+    ! only root reads from file...
+    if (mpirank==0) call read_array_from_ascii_file(file, array, n_header)
+    ! ... then broadcast
+    call MPI_BCAST(array,nlines*ncols,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+  end subroutine read_array_from_ascii_file_mpi
+
+
+  !-----------------------------------------------------------------------------
+  ! count the number of lines in an ascii file, skip n_header lines
+  !-----------------------------------------------------------------------------
+  subroutine count_lines_in_ascii_file_mpi(file, num_lines, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(out) :: num_lines
+    integer, intent(in) :: n_header
+    integer :: mpicode
+
+    ! only root reads from file...
+    if (mpirank==0) call count_lines_in_ascii_file(file, num_lines, n_header)
+    ! ... then broadcast
+    call MPI_BCAST(num_lines,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
+  end subroutine count_lines_in_ascii_file_mpi
+  
 
   !-------------------------------------------------------------------------------
   ! clean a previously read ini file, deallocate its string array, and reset

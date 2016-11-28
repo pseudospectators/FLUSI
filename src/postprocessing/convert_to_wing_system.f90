@@ -37,6 +37,7 @@ subroutine convert_to_wing_system(help)
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "./flusi -p --convert-to-wing-system PARAMS.ini input_0000.h5 output_0000.h5"
+    write(*,*) "./flusi -p --convert-to-body-system PARAMS.ini input_0000.h5 output_0000.h5"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "! Convert a file to the (left) wings coordinate system"
     write(*,*) "! We read a field from file, which we assume to be a scalar field (or vector component)"
@@ -94,13 +95,6 @@ subroutine convert_to_wing_system(help)
     call abort(7774,"transforming to wing system makes no sense if not applied to an insect")
   endif
 
-  if (Insect%BodyMotion=="free_flight") then
-    ! we currently require a prescribed body to perform the transformation: in the
-    ! free flight case, we would have to get the position/orientation for example
-    ! from the kinematics.t log-file.
-    call abort(44432,"this module currently will not run with free flight, as body position is unkown")
-  endif
-
   !*****************************************************************************
   ! main (active) part of this postprocessing tool
   !*****************************************************************************
@@ -112,6 +106,7 @@ subroutine convert_to_wing_system(help)
   u_interp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u_org
   call synchronize_ghosts( u_interp )
 
+  ! check if user wants to go to body or wing coordinate system
   call get_command_argument(2,infile)
   if (infile == "--convert-to-wing-system") then
     wing_system = .true.
@@ -122,6 +117,12 @@ subroutine convert_to_wing_system(help)
   !-----------------------------------------------------------------------------
   ! fetch current motion state of the insect
   !-----------------------------------------------------------------------------
+  if (Insect%BodyMotion=="free_flight") then
+    if (root) write(*,*) "The insects body motion is free_flight, therefore we try to read the"
+    if (root) write(*,*) "insect state vector from the file rigidsolidsolver.t"
+    if (root) write(*,*) "from the state vector we can construct the body rotation matrix"
+    call read_insect_STATE_from_file(time, Insect)
+  endif
   call BodyMotion (time, Insect)
   call FlappingMotion_right (time, Insect)
   call FlappingMotion_left (time, Insect)
