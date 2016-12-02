@@ -153,6 +153,7 @@ subroutine get_params_common(PARAMS)
   endif
   ! Saving section
   call read_param_mpi(PARAMS,"Saving","iDoBackup",iDoBackup, 1)
+  call read_param_mpi(PARAMS,"Saving","backup_type",backup_type,"one-file-backup")
   call read_param_mpi(PARAMS,"Saving","iSaveVelocity",iSaveVelocity, 0)
   call read_param_mpi(PARAMS,"Saving","iSavePress",iSavePress, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveVorticity",iSaveVorticity, 0)

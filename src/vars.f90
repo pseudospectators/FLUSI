@@ -84,6 +84,7 @@ module vars
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveMagVorticity
   integer,save :: iSaveMagneticField,iSaveCurrent,iSaveSolidVelocity
   integer,save :: striding=1,idobackup
+  character(len=strlen),save :: backup_type = "one-file-backup"
   real(kind=pr),save :: tintegral ! Time between output of integral quantities
   real(kind=pr),save :: tsave ! Time between outpout of entire fields.
   real(kind=pr),save :: tsave_first ! don't save before this time
