@@ -9,7 +9,7 @@
 module fftw3_descriptors
   use vars
   implicit none
-  integer*8,dimension(1:3),save :: Desc_Handle_1D_f,Desc_Handle_1D_b
+  integer(kind=8),dimension(1:3),save :: Desc_Handle_1D_f,Desc_Handle_1D_b
 
 end module fftw3_descriptors
 
@@ -20,6 +20,10 @@ end module fftw3_descriptors
 module p3dfft_wrapper
   use vars
   implicit none
+
+  ! this flag tells us whether we are using p3dfft or just initialized the domain
+  ! decomposition, in which case we do not use it
+  logical, save, private :: using_p3dfft = .true.
 
   contains
 
@@ -97,6 +101,24 @@ subroutine fft_initialize
   integer, dimension(:,:), allocatable :: yz_plane_local
   real(kind=pr) :: k
 
+  ! setup a few globals we need throughout the code. the most important information
+  ! is the domain size
+  pi = 4.d0*datan(1.d0)
+  ! the scaling factors are used to rescale the FFTs (which are defined on a 2*pi
+  ! domain). this is important when computing derivatives.
+  scalex = 2.d0*pi/xl
+  scaley = 2.d0*pi/yl
+  scalez = 2.d0*pi/zl
+  ! the grid spacing is always equidistant (since the fourier basis is not nicely
+  ! diagonalizing on any stretched grid). note this is also done in params.f90, but
+  ! in some cases the params.f90 routines are not called (namely postprocessing)
+  ! so just in case, we repeat this here
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+  ! yes, we can perform ffts (see also decomposition_initialize)
+  using_p3dfft = .true.
+
   !-----------------------------------------------------------------------------
   !------ Three-dimensional FFT                                           ------
   !-----------------------------------------------------------------------------
@@ -107,7 +129,10 @@ subroutine fft_initialize
     write(*,'(A)') "-----------------------------------p3dfft init---------------------------"
     write(*,'("Initializing P3DFFT, n=(",3(i4,1x),")")') nx,ny,nz
     write(*,'("P3DFFT reserves about ",i8,"MB (",i4,"GB) for internal work arrays")') &
-    nint(1.6d-5*dble(nx*ny*nz)), nint(1.6d-5*dble(nx*ny*nz)/1000.d0)
+    nint(1.6d-5*dble(nx)*dble(ny)*dble(nz)), nint(1.6d-5*dble(nx)*dble(ny)*dble(nz)/1000.d0)
+    write(*,'("P3DFFT domain size:     ",3(g15.8,1x))') xl,yl,zl
+    write(*,'("P3DFFT scale factors:   ",3(g15.8,1x))') scalex, scaley, scalez
+    write(*,'("P3DFFT lattice spacing: ",3(g15.8,1x))') dx,dy,dz
   endif
 
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
@@ -133,12 +158,14 @@ subroutine fft_initialize
 
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
-     print *, 'wrong mpidims: change mpisize'
-     call abort()
+    call abort("wrong mpidims: change mpisize")
   endif
 
   !-- Initialize P3DFFT
   call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
+
+  !-- Get Cartesian topology info
+  call p3dfft_get_mpi_info(mpitaskid,mpitasks,mpicommcart)
 
   !-- Get local sizes
   call p3dfft_get_dims(ra,rb,rs,1)  ! real blocks
@@ -148,19 +175,21 @@ subroutine fft_initialize
   ca(:) = ca(:) - 1
   cb(:) = cb(:) - 1
 
-  !-- extends of real arrays that have ghost points
-  ga=ra
-  gb=rb
-  if (decomposition=="1D") then
-    ga(3) = ga(3)-ng
-    gb(3) = gb(3)+ng
-  elseif (decomposition=="2D") then
-    ga(2) = ga(2)-ng
-    gb(2) = gb(2)+ng
-    ga(3) = ga(3)-ng
-    gb(3) = gb(3)+ng
+  !-- extends of real arrays that have ghost points. We add ghosts in all
+  !-- directions, including the periodic ones.
+  ga=ra-ng
+  gb=rb+ng
+
+  if (nx==1) then
+    ga(1)=0
+    gb(1)=0
   endif
 
+  if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
+    if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
+    if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
+    call abort()
+  endif
 
   !-- Allocate domain partitioning tables and gather sizes from all processes
   !-- (only for real arrays)
@@ -250,6 +279,67 @@ if (mpirank==0) write(*,'(A)') "------------------------------p3dfft init DONE--
 end subroutine fft_initialize
 
 
+!-------------------------------------------------------------------------------
+
+subroutine setup_cart_groups
+  ! Setup 1d communicators
+  use mpi
+  use vars
+  use p3dfft
+
+  implicit none
+  integer :: mpicolor,mpikey,mpicode
+  integer :: mpicommtmp1,mpicommtmp2
+  logical :: mpiperiods(2),periods(1),reorder
+!  integer :: mpiperiods(2),periods(1),reorder
+  integer :: one=1,two=2,dims(1) ! Required for MPI_CART_GET, MPI_CART_CREATE in openmpi
+
+  if (mpirank==0) write(*,*) " setting up cart_groups..."
+
+  ! Set parameters
+  periods(1)=.true. ! This should be an array - if not, openmpi fails
+  reorder=.false.
+!  periods(1)=1
+!  reorder=0
+
+  ! Get Cartesian topology information
+  call MPI_CART_GET(mpicommcart,two,mpidims,mpiperiods,mpicoords,mpicode)
+
+ ! As the name implies, MPI_Comm_split creates new communicators by "splitting"
+ ! a communicator into a group of sub-communicators based on the input values
+ ! color and key. The first argument, mpicommcart, is the communicator that will be
+ ! used as the basis for the new communicators.
+ ! The second argument, color, determines to which new communicator each processes
+ ! will belong. All processes which pass in the same value for color are assigned
+ ! to the same communicator.
+ ! The third argument, key, determines the ordering (rank) within each new communicator.
+ ! The process which passes in the smallest value for color will be rank 0, the next
+ ! smallest will be rank 1, and so on.
+ ! The fourth argument, newcomm is how MPI returns the new communicator back to the user.
+
+
+  ! Communicator for line in y direction
+  ! all ranks that have the same z-value
+  mpicolor = mpicoords(2)
+  ! and they are sorted by their y-value
+  mpikey = mpicoords(1)
+  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp1,mpicode)
+  dims(1) = mpidims(1)
+  call MPI_CART_CREATE(mpicommtmp1,one,dims,periods,reorder,mpicommz,mpicode)
+
+
+  ! Communicator for line in z direction
+  mpicolor = mpicoords(1)
+  mpikey = mpicoords(2)
+  call MPI_COMM_SPLIT (mpicommcart,mpicolor,mpikey,mpicommtmp2,mpicode)
+  dims(1) = mpidims(2)
+  call MPI_CART_CREATE(mpicommtmp2,one,dims,periods,reorder,mpicommy,mpicode)
+
+  if (mpirank==0) write(*,*) " done setting up cart_groups!"
+end subroutine setup_cart_groups
+
+
+
 subroutine fft_free
   !====================================================================
   !     Free memory allocated for FFT
@@ -266,13 +356,14 @@ subroutine fft_free
      write(*,*) "*** cleaning FFT"
   endif
 
-  call p3dfft_clean
-
-  !-- Clean 1d workspaces
-  do j = 1,3
-     call dfftw_destroy_plan(Desc_Handle_1D_f(j))
-     call dfftw_destroy_plan(Desc_Handle_1D_b(j))
-  enddo
+  if (using_p3dfft) then
+    call p3dfft_clean
+    !-- Clean 1d workspaces
+    do j = 1,3
+       call dfftw_destroy_plan(Desc_Handle_1D_f(j))
+       call dfftw_destroy_plan(Desc_Handle_1D_b(j))
+    enddo
+  endif
 
   if (allocated(yz_plane_ranks)) deallocate(yz_plane_ranks)
   if (allocated(ra_table)) deallocate(ra_table)
@@ -295,13 +386,21 @@ subroutine coftxyz(f,fk)
   complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   real(kind=pr),save :: t1
   real(kind=pr) :: norm
+  integer(kind=8) :: npoints
+
+  if (using_p3dfft .eqv. .false.) then
+    call abort('P3DFFT is not initialized, you cannot perform FFTs')
+  endif
+
 
   t1 = MPI_wtime()
   ! Compute forward FFT
   call p3dfft_ftran_r2c(f,fk,'fff')
 
   ! Normalize
-  norm = 1.d0 / dble(nx*ny*nz)
+!  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
+  npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
+  norm = 1.d0 / dble(npoints)
   fk(:,:,:) = fk(:,:,:) * norm
 
   time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
@@ -323,6 +422,10 @@ subroutine cofitxyz(fk,f)
   real(kind=pr),intent(out) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),save :: t1
   t1 = MPI_wtime()
+
+  if (using_p3dfft .eqv. .false.) then
+    call abort('P3DFFT is not initialized, you cannot perform FFTs')
+  endif
 
   ! Compute backward FFT
   call p3dfft_btran_c2r(fk,f,'fff')
@@ -357,7 +460,7 @@ subroutine cofts(iplan,f,fk,L,n)
   call dfftw_execute_dft_r2c(Desc_Handle_1D_f(iplan),f,ft)
 
   ! Output
-  norm = 1.0 / real(L)
+  norm = 1.0d0 / real(L)
   do j=0,n-1
      fk(:,j) = ft(0:L-1,j) * norm
   end do
@@ -392,7 +495,7 @@ subroutine cofits(iplan,fk,f,L,n)
   ! Input
   do j=0,n-1
      ft(0:L-1,j) = fk(:,j)
-     ft(L:L+1,j) = 0.0
+     ft(L:L+1,j) = 0.0d0
   end do
 
   call dfftw_execute_dft_c2r(Desc_Handle_1D_b(iplan),ft,f)
@@ -434,7 +537,6 @@ end subroutine trextents
 ! wavenumber functions: return the kx,ky,kz wavenumbers
 ! as a function of the array index
 !----------------------------------------------------------------
-
 real(kind=pr) function wave_x( ix )
   use vars ! for scale and precision statement
   implicit none
@@ -455,5 +557,233 @@ real(kind=pr) function wave_z( iz )
   integer, intent (in) :: iz
   wave_z = scalez*dble(modulo(iz+nz/2,nz)-nz/2)
 end function
+
+
+!-------------------------------------------------------------------------------
+!     Initialize domain decomposition, do not use p3dfft
+!-------------------------------------------------------------------------------
+! This is very useful in postprocessing, since in many cases we do not actually
+! intent to do FFTs, for example when computing the energy of a field, or when
+! extrcating subsets, dry runs, etc.
+! These routines provide the domain decomposition for REAL data (since complex
+! data would imply using FFTs), that is, for all procs, the local bounds
+! ra(1:3) and rb(1:3), as well as the communicators used for ghost node synchronizaiton
+!-------------------------------------------------------------------------------
+subroutine decomposition_initialize
+  use mpi ! Module incapsulates mpif.
+  use vars
+  implicit none
+
+  integer,parameter :: nmpidims = 2
+  integer :: mpicode,idir,L,n
+  integer,dimension(1:3) :: ka,kb,ks,kat,kbt,kst
+  logical,dimension(2) :: subcart
+  real(kind=pr),dimension(:,:),allocatable :: f,ft
+
+  ! setup a few globals we need throughout the code. the most important information
+  ! is the domain size
+  pi = 4.d0*datan(1.d0)
+  ! the scaling factors are used to rescale the FFTs (which are defined on a 2*pi
+  ! domain). this is important when computing derivatives.
+  scalex = 2.d0*pi/xl
+  scaley = 2.d0*pi/yl
+  scalez = 2.d0*pi/zl
+  ! the grid spacing is always equidistant (since the fourier basis is not nicely
+  ! diagonalizing on any stretched grid). note this is also done in params.f90, but
+  ! in some cases the params.f90 routines are not called (namely postprocessing)
+  ! so just in case, we repeat this here
+  dx = xl/dble(nx)
+  dy = yl/dble(ny)
+  dz = zl/dble(nz)
+
+  ! default case, no decomposition
+  decomposition="none"
+  ! to avoid user errors, we set the flag to false and yell if we try to perform
+  ! ffts anyways:
+  using_p3dfft = .false.
+
+  if (mpirank==0) then
+    write(*,'(A)') "-----------------------------------decomposition init (NO P3DFFT)---------------------------"
+    write(*,'("Initializing decomposition, n=(",3(i4,1x),")")') nx,ny,nz
+    write(*,'("DECOMPOSITION domain size:     ",3(g15.8,1x))') xl,yl,zl
+    write(*,'("DECOMPOSITION scale factors:   ",3(g15.8,1x))') scalex, scaley, scalez
+    write(*,'("DECOMPOSITION lattice spacing: ",3(g15.8,1x))') dx,dy,dz
+  endif
+
+  !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
+  ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
+  ! along the z direction in real space.
+  if (nz>mpisize.and.nx==1) then
+     mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+     mpidims(2) = mpisize       ! 3rd index in real space.
+     decomposition="1D"
+  else
+     ! unfortunately, 2D data decomposition does not work with 2D code (nx==1)
+     mpidims = 0
+     call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
+     if(mpidims(1) > mpidims(2)) then
+        mpidims(1) = mpidims(2)
+        mpidims(2) = mpisize / mpidims(1)
+     endif
+     decomposition="2D"
+  endif
+
+  if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims
+  if (root) write(*,'("Using ",A," decomposition!")') trim(adjustl(decomposition))
+
+  !-- Check dimensions
+  if(mpidims(1)*mpidims(2)/=mpisize) then
+     print *, 'wrong mpidims: change mpisize'
+     call abort()
+  endif
+
+  !-- Set subdomain bounds
+  !-- Get Cartesian topology info
+  !-- Get local sizes
+  call p3dfft_stub(mpidims,nx,ny,nz,MPI_COMM_WORLD,mpitaskid,mpitasks,mpicommcart,ra,rb,rs)
+  ra(:) = ra(:) - 1
+  rb(:) = rb(:) - 1
+
+  !-- extents of real arrays that have ghost points. We add ghosts in all
+  !-- directions, including the periodic ones.
+  ga=ra-ng
+  gb=rb+ng
+
+  if (nx==1) then
+    ga(1)=0
+    gb(1)=0
+  endif
+
+  if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
+    if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
+    if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
+    call abort()
+  endif
+
+  !-- Allocate domain partitioning tables and gather sizes from all processes
+  !-- (only for real arrays)
+  ! TODO: These tables are currently not used for communication between subdomains,
+  ! but may be still useful for development/debugging purposes.
+  allocate ( ra_table(1:3,0:mpisize-1), rb_table(1:3,0:mpisize-1) )
+  call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
+  call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
+
+  if (mpirank==0) write(*,'(A)') "------------------------------decomposition init DONE---------------------------"
+end subroutine decomposition_initialize
+
+
+!----------------------------------------------------------------
+! domain decomposition routine derived from P3DFFT
+!----------------------------------------------------------------
+subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_comm_out,istart,iend,isize)
+  implicit none
+
+  integer, intent (in) :: nx,ny,nz,mpi_comm_in
+  integer, intent (out) :: istart(3),iend(3),isize(3)
+  integer, intent (out) :: mpi_taskid,mpi_tasks,mpi_comm_out
+  integer, intent (in) :: dims_in(2)
+
+  integer :: i,j,k,ierr,mpicomm,mpi_comm_cart
+  integer :: ipid,jpid,iproc,jproc
+  integer :: numtasks,taskid
+  integer :: cartid(2),dims(2)
+  integer, dimension (:), allocatable :: jist,jisz,jien,kjst,kjsz,kjen
+  logical :: periodic(2),remain_dims(2)
+
+  if(nx .le. 0 .or. ny .le. 0 .or. nz .le. 0) then
+     print *,'Invalid dimensions :',nx,ny,nz
+     call abort()
+  endif
+
+  mpicomm = mpi_comm_in
+  call MPI_COMM_SIZE (mpicomm,numtasks,ierr)
+  call MPI_COMM_RANK (mpicomm,taskid,ierr)
+
+  if(dims_in(1) .le. 0 .or. dims_in(2) .le. 0 .or.  dims_in(1)*dims_in(2) .ne. numtasks) then
+     print *,'Invalid processor geometry: ',dims,' for ',numtasks, 'tasks'
+     call abort()
+  endif
+
+  if(taskid .eq. 0) then
+     print *,'Using stride-1 layout'
+  endif
+
+  iproc = dims_in(1)
+  jproc = dims_in(2)
+  dims(1) = dims_in(2)
+  dims(2) = dims_in(1)
+
+  periodic(1) = .false.
+  periodic(2) = .false.
+! creating cartesian processor grid
+  call MPI_Cart_create(mpicomm,2,dims,periodic,.false.,mpi_comm_cart,ierr)
+! Obtaining process ids with in the cartesian grid
+  call MPI_Cart_coords(mpi_comm_cart,taskid,2,cartid,ierr)
+! process with a linear id of 5 may have cartid of (3,1)
+
+  ipid = cartid(2)
+  jpid = cartid(1)
+
+  allocate (jist(0:iproc-1))
+  allocate (jisz(0:iproc-1))
+  allocate (jien(0:iproc-1))
+  allocate (kjst(0:jproc-1))
+  allocate (kjsz(0:jproc-1))
+  allocate (kjen(0:jproc-1))
+!
+!Mapping 3-D data arrays onto 2-D process grid
+! (nx+2,ny,nz) => (iproc,jproc)
+!
+  call MapDataToProc(ny,iproc,jist,jien,jisz)
+  call MapDataToProc(nz,jproc,kjst,kjen,kjsz)
+
+! These are local array indices for each processor
+  istart(1) = 1
+  iend(1) = nx
+  isize(1) = nx
+  istart(2) = jist(ipid)
+  iend(2) = jien(ipid)
+  isize(2) = jisz(ipid)
+  istart(3) = kjst(jpid)
+  iend(3) = kjen(jpid)
+  isize(3) = kjsz(jpid)
+
+  deallocate(jist,jisz,jien,kjst,kjsz,kjen)
+
+  mpi_taskid = taskid
+  mpi_tasks = numtasks
+  mpi_comm_out = mpi_comm_cart
+
+end subroutine p3dfft_stub
+
+
+!----------------------------------------------------------------
+! calculate subdomain bounds
+!----------------------------------------------------------------
+subroutine MapDataToProc (data,proc,st,en,sz)
+  implicit none
+  integer data,proc,st(0:proc-1),en(0:proc-1),sz(0:proc-1)
+  integer i,size,nl,nu
+
+  size=data/proc
+  nu = data - size * proc
+  nl = proc - nu
+  st(0) = 1
+  sz(0) = size
+  en(0) = size
+  do i=1,nl-1
+     st(i) = st(i-1) + size
+     sz(i) = size
+     en(i) = en(i-1) + size
+  enddo
+  size = size + 1
+  do i=nl,proc-1
+     st(i) = en(i-1) + 1
+     sz(i) = size
+     en(i) = en(i-1) + size
+  enddo
+  en(proc-1)= data
+  sz(proc-1)= data-st(proc-1)+1
+end subroutine
 
 end module p3dfft_wrapper

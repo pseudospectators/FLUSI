@@ -1,12 +1,12 @@
 ! Spherical obstacle
 subroutine draw_sphere
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 
   integer :: ix, iy, iz
-  real (kind=pr) :: x, y, z, tmp, R, N_smooth
+  real (kind=pr) :: x, y, z, tmp, R, N_smooth, smoothing, safety
 
   ! reset everything
   mask = 0.d0
@@ -14,16 +14,24 @@ subroutine draw_sphere
   us = 0.d0
 
   N_smooth = 1.5d0
+  ! thickness of smoothing layer and safety distance
+  if (nx==1) then
+    smoothing = N_smooth*max(dy,dz)
+    safety = 2.d0*N_smooth*max(dy,dz)
+  else
+    smoothing = N_smooth*max(dx,dy,dz)
+    safety = 2.d0*N_smooth*max(dx,dy,dz)
+  endif
 
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1) 
+      do ix=ra(1),rb(1)
         x=dble(ix)*dx
         y=dble(iy)*dy
         z=dble(iz)*dz
         R = dsqrt( (x-x0)**2 + (y-y0)**2 + (z-z0)**2 )
-        if ( R <= 0.5d0*length+2.d0*N_smooth*max(dx,dy,dz) ) then
-          call SmoothStep (tmp, R, 0.5d0*length , N_smooth*max(dx,dy,dz))
+        if ( R <= 0.5d0*length+safety ) then
+          call SmoothStep (tmp, R, 0.5d0*length , smoothing)
           mask (ix, iy, iz) = tmp
 
           ! assign color "1" where >0 indicates something "useful"
@@ -39,7 +47,7 @@ end subroutine draw_sphere
 ! runs as well)
 subroutine draw_cylinder_x
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 
@@ -55,7 +63,7 @@ subroutine draw_cylinder_x
 
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1) 
+      do ix=ra(1),rb(1)
         y=dble(iy)*dy
         z=dble(iz)*dz
         R = dsqrt( (y-y0)**2 + (z-z0)**2 )
@@ -78,16 +86,16 @@ end subroutine draw_cylinder_x
 ! runs as well)
 subroutine draw_moving_cylinder_x (time)
   use vars
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   implicit none
-  
+
   real(kind=pr),intent(in) :: time
   integer :: ix, iy, iz
   real (kind=pr) :: x, y, z, tmp, R, N_smooth, Vc, yc
 
   ! Velocity and positions of the cylinder
-  Vc = -1.0
+  Vc = -1.0d0
   yc = y0 + Vc * time
 
   N_smooth = 1.5d0
@@ -112,5 +120,3 @@ subroutine draw_moving_cylinder_x (time)
     enddo
   enddo
 end subroutine draw_moving_cylinder_x
-
-

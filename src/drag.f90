@@ -15,7 +15,7 @@
 !-------------------------------------------------------------------------------
 subroutine cal_drag ( time, u, Insect )
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   use insect_module
   implicit none
@@ -30,190 +30,202 @@ subroutine cal_drag ( time, u, Insect )
   ! we can choose up to 6 different colors
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
   real(kind=pr),dimension(0:5) :: torquex0,torquey0,torquez0
+  real(kind=pr) :: xc(1:3)
   ! power (flux of energy)
   real(kind=pr) :: power,powerx,powery,powerz
   character(len=strlen) :: forcepartfilename
 
-  if (iPenalization==1) then
-    forcex  = 0.d0
-    forcey  = 0.d0
-    forcez  = 0.d0
-    torquex = 0.d0
-    torquey = 0.d0
-    torquez = 0.d0
-    torquex0 = 0.d0
-    torquey0 = 0.d0
-    torquez0 = 0.d0
-    powerx = 0.d0
-    powery = 0.d0
-    powerz = 0.d0
+  if (iPenalization/=1) return
 
-    !---------------------------------------------------------------------------
-    ! loop over penalization term (this saves a work array)
-    !---------------------------------------------------------------------------
-    do iz=ra(3),rb(3)
-      do iy=ra(2),rb(2)
-        do ix=ra(1),rb(1)
-          ! actual penalization term
-          penalx = -mask(ix,iy,iz)*(u(ix,iy,iz,1)-us(ix,iy,iz,1))
-          penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
-          penalz = -mask(ix,iy,iz)*(u(ix,iy,iz,3)-us(ix,iy,iz,3))
+  forcex  = 0.d0
+  forcey  = 0.d0
+  forcez  = 0.d0
+  torquex = 0.d0
+  torquey = 0.d0
+  torquez = 0.d0
+  torquex0 = 0.d0
+  torquey0 = 0.d0
+  torquez0 = 0.d0
+  powerx = 0.d0
+  powery = 0.d0
+  powerz = 0.d0
 
-          ! what color does the point have?
-          color = mask_color(ix,iy,iz)
+  !---------------------------------------------------------------------------
+  ! loop over penalization term (this saves a work array)
+  !---------------------------------------------------------------------------
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        ! actual penalization term
+        penalx = -mask(ix,iy,iz)*(u(ix,iy,iz,1)-us(ix,iy,iz,1))
+        penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
+        penalz = -mask(ix,iy,iz)*(u(ix,iy,iz,3)-us(ix,iy,iz,3))
 
-          ! integrate forces + torques (note sign inversion!)
-          forcex(color) = forcex(color) - penalx
-          forcey(color) = forcey(color) - penaly
-          forcez(color) = forcez(color) - penalz
+        ! what color does the point have?
+        color = mask_color(ix,iy,iz)
 
-          ! for torque moment with respect to (x0,y0,z0)
-          xlev = dble(ix)*dx - x0
-          ylev = dble(iy)*dy - y0
-          zlev = dble(iz)*dz - z0
+        ! integrate forces + torques (note sign inversion!)
+        forcex(color) = forcex(color) - penalx
+        forcey(color) = forcey(color) - penaly
+        forcez(color) = forcez(color) - penalz
 
-          ! compute moment with respect to (x0,y0,z0)
-          torquex0(color) = torquex0(color) - (ylev*penalz - zlev*penaly)
-          torquey0(color) = torquey0(color) - (zlev*penalx - xlev*penalz)
-          torquez0(color) = torquez0(color) - (xlev*penaly - ylev*penalx)
+        ! for torque moment with respect to (x0,y0,z0)
+        xlev = dble(ix)*dx - x0
+        ylev = dble(iy)*dy - y0
+        zlev = dble(iz)*dz - z0
 
-          ! input power due to penalization term
-          powerx = powerx + u(ix,iy,iz,1)*penalx
-          powery = powery + u(ix,iy,iz,2)*penaly
-          powerz = powerz + u(ix,iy,iz,3)*penalz
+        ! is the obstacle is near the boundary, parts of it may cross the periodic
+        ! boundary. therefore, ensure that xlev is periodized:
+        xc = periodize_coordinate((/xlev,ylev,zlev/))
+        xlev = xc(1)
+        ylev = xc(2)
+        zlev = xc(3)
 
-          ! for insects, moment of the body is computed with respect to (x0,y0,z0)
-          ! but for the wings it is computed with respect tot the pivot points
-          if (iMask=="Insect") then
-            if (color==2) then
-              xlev = xlev - Insect%x_pivot_l_glob(1)
-              ylev = ylev - Insect%x_pivot_l_glob(2)
-              zlev = zlev - Insect%x_pivot_l_glob(3)
-            elseif (color==3) then
-              xlev = xlev - Insect%x_pivot_r_glob(1)
-              ylev = ylev - Insect%x_pivot_r_glob(2)
-              zlev = zlev - Insect%x_pivot_r_glob(3)
-            endif
+        ! compute moment with respect to (x0,y0,z0)
+        torquex0(color) = torquex0(color) - (ylev*penalz - zlev*penaly)
+        torquey0(color) = torquey0(color) - (zlev*penalx - xlev*penalz)
+        torquez0(color) = torquez0(color) - (xlev*penaly - ylev*penalx)
+
+        ! input power due to penalization term
+        powerx = powerx + us(ix,iy,iz,1)*penalx
+        powery = powery + us(ix,iy,iz,2)*penaly
+        powerz = powerz + us(ix,iy,iz,3)*penalz
+
+        ! for insects, moment of the body is computed with respect to (x0,y0,z0)
+        ! but for the wings it is computed with respect tot the pivot points
+        if (iMask=="Insect") then
+          if (color==2) then
+            xlev = xlev - Insect%x_pivot_l_glob(1)
+            ylev = ylev - Insect%x_pivot_l_glob(2)
+            zlev = zlev - Insect%x_pivot_l_glob(3)
+          elseif (color==3) then
+            xlev = xlev - Insect%x_pivot_r_glob(1)
+            ylev = ylev - Insect%x_pivot_r_glob(2)
+            zlev = zlev - Insect%x_pivot_r_glob(3)
           endif
+          xc = periodize_coordinate((/xlev,ylev,zlev/))
+          xlev = xc(1)
+          ylev = xc(2)
+          zlev = xc(3)
+        endif
 
-          ! Compute moments relative to each part
-          torquex(color) = torquex(color) - (ylev*penalz - zlev*penaly)
-          torquey(color) = torquey(color) - (zlev*penalx - xlev*penalz)
-          torquez(color) = torquez(color) - (xlev*penaly - ylev*penalx)
-        enddo
+        ! Compute moments relative to each part
+        torquex(color) = torquex(color) - (ylev*penalz - zlev*penaly)
+        torquey(color) = torquey(color) - (zlev*penalx - xlev*penalz)
+        torquez(color) = torquez(color) - (xlev*penaly - ylev*penalx)
       enddo
     enddo
+  enddo
 
-    !---------------------------------------------------------------------------
-    ! save global forces
-    !---------------------------------------------------------------------------
-    forcex = forcex*dx*dy*dz
-    forcey = forcey*dx*dy*dz
-    forcez = forcez*dx*dy*dz
+  !---------------------------------------------------------------------------
+  ! save global forces
+  !---------------------------------------------------------------------------
+  forcex = forcex*dx*dy*dz
+  forcey = forcey*dx*dy*dz
+  forcez = forcez*dx*dy*dz
 
-    powerx = powerx*dx*dy*dz
-    powery = powery*dx*dy*dz
-    powerz = powerz*dx*dy*dz
-    power  = powerx+powery+powerz
+  powerx = powerx*dx*dy*dz
+  powery = powery*dx*dy*dz
+  powerz = powerz*dx*dy*dz
+  power  = powerx+powery+powerz
 
-    ! in the global structure, we store all contributions with color > 0, so we
-    ! only EXCLUDE channel / cavity walls (the boring stuff)
-    call MPI_ALLREDUCE ( sum(forcex(1:5)),GlobalIntegrals%Force(1),1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( sum(forcey(1:5)),GlobalIntegrals%Force(2),1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( sum(forcez(1:5)),GlobalIntegrals%Force(3),1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  ! in the global structure, we store all contributions with color > 0, so we
+  ! only EXCLUDE channel / cavity walls (the boring stuff)
+  call MPI_ALLREDUCE ( sum(forcex(1:5)),GlobalIntegrals%Force(1),1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( sum(forcey(1:5)),GlobalIntegrals%Force(2),1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( sum(forcez(1:5)),GlobalIntegrals%Force(3),1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
-    ! penalization power ( -u.[chi*(u-us)] )
-    call MPI_ALLREDUCE ( power,GlobalIntegrals%penalization_power,1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( powerx,GlobalIntegrals%penalization_power_x,1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( powery,GlobalIntegrals%penalization_power_y,1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( powerz,GlobalIntegrals%penalization_power_z,1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  ! penalization power ( -u.[chi*(u-us)] )
+  call MPI_ALLREDUCE ( power,GlobalIntegrals%penalization_power,1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( powerx,GlobalIntegrals%penalization_power_x,1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( powery,GlobalIntegrals%penalization_power_y,1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( powerz,GlobalIntegrals%penalization_power_z,1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
 
-    ! the insects have forces on the wing and body separate
+  ! the insects have forces on the wing and body separate
+  if (iMask=="Insect") then
+    do color = 1,3
+      call MPI_ALLREDUCE (forcex(color),Insect%PartIntegrals(color)%Force(1),1,&
+      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+      call MPI_ALLREDUCE (forcey(color),Insect%PartIntegrals(color)%Force(2),1,&
+      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+      call MPI_ALLREDUCE (forcez(color),Insect%PartIntegrals(color)%Force(3),1,&
+      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+    enddo
+  endif
+
+  ! in the global structure, we store all contributions with color > 0, so we
+  ! only EXCLUDE channel / cavity walls (the boring stuff)
+  torquex0 = torquex0*dx*dy*dz
+  torquey0 = torquey0*dx*dy*dz
+  torquez0 = torquez0*dx*dy*dz
+  torquex = torquex*dx*dy*dz
+  torquey = torquey*dx*dy*dz
+  torquez = torquez*dx*dy*dz
+
+  ! Integral moment with respect to (x0,y0,z0)
+  call MPI_ALLREDUCE ( sum(torquex0(1:5)),GlobalIntegrals%Torque(1),1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( sum(torquey0(1:5)),GlobalIntegrals%Torque(2),1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( sum(torquez0(1:5)),GlobalIntegrals%Torque(3),1,&
+  MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+
+  ! the insects have torques on the wing and body separate
+  if (iMask=="Insect") then
+    do color = 1,3
+      call MPI_ALLREDUCE (torquex(color),Insect%PartIntegrals(color)%Torque(1),1,&
+      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+      call MPI_ALLREDUCE (torquey(color),Insect%PartIntegrals(color)%Torque(2),1,&
+      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+      call MPI_ALLREDUCE (torquez(color),Insect%PartIntegrals(color)%Torque(3),1,&
+      MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+    enddo
+  endif
+
+  ! compute aerodynamic power
+  if (iMask=="Insect") then
+    call aero_power (Insect,apowtotal)
+    call inert_power(Insect,ipowtotal)
+  endif
+
+  !---------------------------------------------------------------------------
+  ! write time series to disk
+  ! note: we also dump the unst corrections and thus suppose that they
+  ! have been computed ( call cal_unst_corrections first! )
+  !---------------------------------------------------------------------------
+  if(mpirank == 0) then
     if (iMask=="Insect") then
-      do color = 1,3
-        call MPI_ALLREDUCE (forcex(color),Insect%PartIntegrals(color)%Force(1),1,&
-        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-        call MPI_ALLREDUCE (forcey(color),Insect%PartIntegrals(color)%Force(2),1,&
-        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-        call MPI_ALLREDUCE (forcez(color),Insect%PartIntegrals(color)%Force(3),1,&
-        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-      enddo
-    endif
-
-    ! in the global structure, we store all contributions with color > 0, so we
-    ! only EXCLUDE channel / cavity walls (the boring stuff)
-    torquex0 = torquex0*dx*dy*dz
-    torquey0 = torquey0*dx*dy*dz
-    torquez0 = torquez0*dx*dy*dz
-    torquex = torquex*dx*dy*dz
-    torquey = torquey*dx*dy*dz
-    torquez = torquez*dx*dy*dz
-
-    ! Integral moment with respect to (x0,y0,z0)
-    call MPI_ALLREDUCE ( sum(torquex0(1:5)),GlobalIntegrals%Torque(1),1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( sum(torquey0(1:5)),GlobalIntegrals%Torque(2),1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( sum(torquez0(1:5)),GlobalIntegrals%Torque(3),1,&
-    MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-
-    ! the insects have torques on the wing and body separate
-    if (iMask=="Insect") then
-      do color = 1,3
-        call MPI_ALLREDUCE (torquex(color),Insect%PartIntegrals(color)%Torque(1),1,&
-        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-        call MPI_ALLREDUCE (torquey(color),Insect%PartIntegrals(color)%Torque(2),1,&
-        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-        call MPI_ALLREDUCE (torquez(color),Insect%PartIntegrals(color)%Torque(3),1,&
-        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-      enddo
-    endif
-
-    ! compute aerodynamic power
-    if (iMask=="Insect") then
-      call aero_power (Insect,apowtotal)
-      call inert_power(Insect,ipowtotal)
-    endif
-
-    !---------------------------------------------------------------------------
-    ! write time series to disk
-    ! note: we also dump the unst corrections and thus suppose that they
-    ! have been computed ( call cal_unst_corrections first! )
-    !---------------------------------------------------------------------------
-    if(mpirank == 0) then
-      if (iMask=="Insect") then
-        ! Aerodynamic power is only computed for insects
-        open(14,file='forces.t',status='unknown',position='append')
-        write (14,'(15(es15.8,1x))') time, GlobalIntegrals%Force, &
-        GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
-        GlobalIntegrals%Torque_unst, apowtotal, ipowtotal
+      ! Aerodynamic power is only computed for insects
+      open(14,file='forces.t',status='unknown',position='append')
+      write (14,'(15(es15.8,1x))') time, GlobalIntegrals%Force, &
+      GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
+      GlobalIntegrals%Torque_unst, apowtotal, ipowtotal
+      close(14)
+      ! currently, only insects have different colors
+      do color=1,3
+        write (forcepartfilename, "(A11,I1,A2)") "forces_part", color, ".t"
+        open(14,file=trim(forcepartfilename),status='unknown',position='append')
+        write (14,'(15(es15.8,1x))') time, Insect%PartIntegrals(color)%Force, &
+        Insect%PartIntegrals(color)%Force_unst, Insect%PartIntegrals(color)%Torque, &
+        Insect%PartIntegrals(color)%Torque_unst, Insect%PartIntegrals(color)%APow,&
+        Insect%PartIntegrals(color)%IPow
         close(14)
-        ! currently, only insects have different colors
-        do color=1,3
-          write (forcepartfilename, "(A11,I1,A2)") "forces_part", color, ".t"
-          open(14,file=trim(forcepartfilename),status='unknown',position='append')
-          write (14,'(15(es15.8,1x))') time, Insect%PartIntegrals(color)%Force, &
-          Insect%PartIntegrals(color)%Force_unst, Insect%PartIntegrals(color)%Torque, &
-          Insect%PartIntegrals(color)%Torque_unst, Insect%PartIntegrals(color)%APow,&
-          Insect%PartIntegrals(color)%IPow
-          close(14)
-        enddo
-      else
-        ! Not an insect, we have only one part of the force
-        open(14,file='forces.t',status='unknown',position='append')
-        write (14,'(13(es15.8,1x))') time, GlobalIntegrals%Force, &
-        GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
-        GlobalIntegrals%Torque_unst
-        close(14)
-      endif
+      enddo
+    else
+      ! Not an insect, we have only one part of the force
+      open(14,file='forces.t',status='unknown',position='append')
+      write (14,'(13(es15.8,1x))') time, GlobalIntegrals%Force, &
+      GlobalIntegrals%Force_unst, GlobalIntegrals%Torque, &
+      GlobalIntegrals%Torque_unst
+      close(14)
     endif
   endif
 end subroutine cal_drag
@@ -234,7 +246,7 @@ end subroutine cal_drag
 !-------------------------------------------------------------------------------
 subroutine cal_unst_corrections ( time, dt, Insect )
   use mpi
-  use fsi_vars
+  use vars
   use penalization ! mask array etc
   use insect_module
   implicit none
@@ -269,9 +281,9 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   !-----------------------------------------------------------------------------
   ! force
   !-----------------------------------------------------------------------------
-  force_new_locx = 0.0
-  force_new_locy = 0.0
-  force_new_locz = 0.0
+  force_new_locx = 0.0d0
+  force_new_locy = 0.0d0
+  force_new_locz = 0.0d0
 
   norm = dx*dy*dz*eps
 

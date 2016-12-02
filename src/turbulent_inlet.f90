@@ -1,5 +1,5 @@
 module turbulent_inlet_module
-  use fsi_vars
+  use vars
   implicit none
 
   ! inflow field
@@ -24,7 +24,7 @@ subroutine init_turbulent_inlet ( )
   real(kind=pr) :: u1, u2, u3
   integer :: nx_org, L, N, iy, iz, q
   real(Kind=pr),allocatable :: f(:,:), fk(:,:)
-  real(kind=pr) :: time, umax
+  real(kind=pr) :: time, umax,viscosity_dummy
 
   complex (kind=pr), dimension (:), allocatable :: cworkx, expx0, expx ! work array and shift in x
 
@@ -40,8 +40,8 @@ subroutine init_turbulent_inlet ( )
   ! nessesarily match in the x-direction (they DO match in y-z direction). We
   ! first determine how many points in x-direction the file has, then allocate
   ! the field u_turb accordingly
-  call Fetch_attributes( "ux_turb.h5", "ux", nx_turb,ny_turb,nz_turb,&
-       xl_turb,yl_turb,zl_turb,time)
+  call Fetch_attributes( "ux_turb.h5", nx_turb,ny_turb,nz_turb,&
+       xl_turb,yl_turb,zl_turb,time,viscosity_dummy)
 
 
   if (mpirank==0) write(*,*) "inlet file resolution is ",nx_turb, ny_turb, nz_turb
@@ -74,12 +74,12 @@ subroutine init_turbulent_inlet ( )
   call Read_Single_File ( "uz_turb.h5", u_turb(:,:,:,3) )
 
   ! determine the maximum velocity of the perturbation field
-  umax = fieldmaxabs(u_turb)
+  umax = field_max_magnitude(u_turb)
   if (mpirank==0) write (*,*) " turbulence intensity in infile", umax
 
   u_turb = u_turb * rescale
 
-  umax = fieldmaxabs(u_turb)
+  umax = field_max_magnitude(u_turb)
   if (mpirank==0) write (*,*) " turbulence intensity, in use", umax
 
   ! reset dimensions to old value (for the rest of the program)
@@ -104,7 +104,7 @@ subroutine turbulent_inlet( time )
   integer :: n, i1,i2
 
   ! thickness of inflow velocity sponge
-  n = 48
+  n = inlet_thickness
   dx_turb = xl_turb / dble(nx_turb)
 
   ! note x-direction is contiguous among MPI procs, i.e. it is NOT split

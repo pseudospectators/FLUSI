@@ -1,7 +1,7 @@
 ! Initialize fields for mhd simulations
 subroutine init_fields_mhd(time,it,dt0,dt1,n0,n1,ubk,nlk,wj,explin)
   use mpi
-  use fsi_vars
+  use vars
   use p3dfft_wrapper
   use penalization ! mask array etc
   implicit none
@@ -14,7 +14,7 @@ subroutine init_fields_mhd(time,it,dt0,dt1,n0,n1,ubk,nlk,wj,explin)
   real(kind=pr),intent (inout) :: wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real (kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   integer :: i
-  
+
   ! Assign zero values
   time=0.0d0
   dt1=0.0d0
@@ -42,12 +42,12 @@ subroutine init_fields_mhd(time,it,dt0,dt1,n0,n1,ubk,nlk,wj,explin)
      call read_single_file(file_ux,wj(:,:,:,1))
      call read_single_file(file_uy,wj(:,:,:,2))
      call read_single_file(file_uz,wj(:,:,:,3))
-    
+
      ! read in b-field from files
      call read_single_file(file_bx,wj(:,:,:,4))
      call read_single_file(file_by,wj(:,:,:,5))
      call read_single_file(file_bz,wj(:,:,:,6))
-     
+
      ! transform everything to fourier space
      do i = 1,nd
         call fft(ubk(:,:,:,i),wj(:,:,:,i))
@@ -76,7 +76,7 @@ end subroutine init_fields_mhd
 ! The Orszag-Tang initial conditions for mhd.
 subroutine init_orszagtang(ubk,ub)
   use mpi
-  use mhd_vars
+  use vars
   use penalization ! mask array etc
   use p3dfft_wrapper
   implicit none
@@ -106,7 +106,7 @@ complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
         enddo
      enddo
   enddo
-  
+
   do i=1,nd
      call fft(ubk(:,:,:,i),ub(:,:,:,i))
   enddo
@@ -117,7 +117,7 @@ end subroutine init_orszagtang
 subroutine init_const(ubk,wj)
   use mpi
   use p3dfft_wrapper
-  use mhd_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 
@@ -143,7 +143,7 @@ end subroutine init_const
 subroutine init_smc(ubk,ub)
   use mpi
   use p3dfft_wrapper
-  use mhd_vars
+  use vars
   use penalization ! mask array etc
   implicit none
 
@@ -174,7 +174,7 @@ complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
      y=yl*(dble(iy)/dble(ny) -0.5d0)
      do ix=ra(1),rb(1)
         x=xl*(dble(ix)/dble(nx) -0.5d0)
-   
+
         r=dsqrt(x*x + y*y)
 
         if(r < r2) then
@@ -204,7 +204,7 @@ end subroutine init_smc
 ! time-stepped penalziation field.
 subroutine init_smcnum(ubk,ub)
   use mpi
-  use mhd_vars
+  use vars
   use penalization ! mask array etc
   use p3dfft_wrapper
   implicit none
@@ -242,15 +242,15 @@ end subroutine init_smcnum
 subroutine init_tc_mhd(ubk,ub)
   use mpi
   use p3dfft_wrapper
-  use mhd_vars
+  use vars
   implicit none
 
 complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   real(kind=pr),intent (inout) :: ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  
+
   ! Initialize the velocity field:
   call init_taylorcouette_u(ubk,ub)
-  
+
   ! Create a perturbation for the magnetic field:
   call perturbation(ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6),&
        ub(:,:,:,4),ub(:,:,:,5),ub(:,:,:,6),&

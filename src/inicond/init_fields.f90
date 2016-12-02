@@ -1,5 +1,6 @@
 ! Wrapper for init_fields
-subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,press,Insect,beams)
+subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
+           press,scalars,scalars_rhs,Insect,beams)
   use mpi
   use vars
   use p3dfft_wrapper
@@ -12,45 +13,48 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,pre
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) 
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))  
+  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nBeams), intent(out) :: beams
-  type(diptera),intent(inout)::Insect 
- 
+  type(diptera),intent(inout)::Insect
+
   if (mpirank==0) write(*,*) "Set up initial conditions...."
   tstart = 0.d0
-  
+
   !-----------------------------------------------------------------------------
   ! initialize fields, possibly read in backup file
-  !----------------------------------------------------------------------------- 
+  !-----------------------------------------------------------------------------
   select case(method)
-  case("fsi") 
-     call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
-          workc,press,Insect,beams)
+  case("fsi")
+    call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
+    workc,press,scalars,scalars_rhs,Insect,beams)
   case("mhd")
-     call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
+    call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
-     if (mpirank == 0) write(*,*) "Error! Unkonwn method in init_fields."
-     call abort()
+    if (mpirank == 0) write(*,*) "Error! Unkonwn method in init_fields."
+    call abort(1)
   end select
 
   n0 = 1-n1 !important to do this now in case we're retaking a backp
-  
+
   !-----------------------------------------------------------------------------
   ! create startup mask function
   !-----------------------------------------------------------------------------
   if (mpirank==0) write(*,'("Creating startup mask...time=",es12.4)') time
   call create_mask(time,Insect,beams)
-  
+
   !-----------------------------------------------------------------------------
   ! save initial conditions (if not resuming a backup)
   !-----------------------------------------------------------------------------
   if (index(inicond,'backup::')==0 .and. (time>=tsave_first)) then
     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
-    call save_fields(time,uk,u,vort,nlk(:,:,:,:,n0),work,workc,Insect,beams)
+    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,&
+         scalars_rhs,Insect,beams)
   endif
 end subroutine init_fields
 
@@ -63,7 +67,7 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   use p3dfft_wrapper
   use penalization ! mask array etc
   implicit none
-  
+
   complex(kind=pr),intent(inout):: fk1(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout):: fk2(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout):: fk3(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
@@ -88,37 +92,37 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   pfluidarea=0.d0
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
-  do ix=ra(1),rb(1)
-           if(mask(ix,iy,iz) == 0.d0) then
-              ux=f1(ix,iy,iz)
-              uy=f2(ix,iy,iz)
-              uz=f3(ix,iy,iz)
+      do ix=ra(1),rb(1)
+        if(mask(ix,iy,iz) == 0.d0) then
+          ux=f1(ix,iy,iz)
+          uy=f2(ix,iy,iz)
+          uz=f3(ix,iy,iz)
 
-              pekin = pekin + ux*ux + uy*uy + uz*uz
-              pfluidarea = pfluidarea + 1.d0
-           endif
-        enddo
-     enddo
+          pekin = pekin + ux*ux + uy*uy + uz*uz
+          pfluidarea = pfluidarea + 1.d0
+        endif
+      enddo
+    enddo
   enddo
 
-  pekin = 0.5*pekin
-  
+  pekin = 0.5d0*pekin
+
   call MPI_REDUCE(pekin,ekin,&
-       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)
+  1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  0,MPI_COMM_WORLD,mpicode)
   call MPI_REDUCE(pfluidarea,fluidarea,&
-       1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-       0,MPI_COMM_WORLD,mpicode)
+  1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  0,MPI_COMM_WORLD,mpicode)
 
   if(mpirank == 0) then
-     ekin = ekin/fluidarea
+    ekin = ekin/fluidarea
   endif
   call MPI_BCAST(ekin,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
 
   ! Normalize the field to the desired energy:
   enorm=dsqrt(energy/ekin)
   f1=f1*enorm
-  f2=f2*enorm  
+  f2=f2*enorm
   f3=f3*enorm
 
   call fft(fk1,f1)
@@ -155,7 +159,7 @@ subroutine randgen3d(fk1,fk2,fk3,w)
 
   k0=3.d0*sqrt(2.d0)*pi/4.d0
 
-  !-- generate 3D gaussian field 
+  !-- generate 3D gaussian field
   do ix=ca(3),cb(3)
     kx = wave_x(ix)
     do iy=ca(2),cb(2)
@@ -186,9 +190,9 @@ subroutine randgen3d(fk1,fk2,fk3,w)
           fk2(iz,iy,ix)=dcmplx(0.5d0*ek,0.5d0*ek)
           fk3(iz,iy,ix)=dcmplx(0.d0,0.d0)
           if(kz.eq.0) then
-              fk1(iz,iy,ix)=dcmplx(0.d0,0.d0)
-              fk2(iz,iy,ix)=dcmplx(0.d0,0.d0)
-              fk3(iz,iy,ix)=dcmplx(0.d0,0.d0)
+            fk1(iz,iy,ix)=dcmplx(0.d0,0.d0)
+            fk2(iz,iy,ix)=dcmplx(0.d0,0.d0)
+            fk3(iz,iy,ix)=dcmplx(0.d0,0.d0)
           endif
         else
           call random_number(rand1)
@@ -196,21 +200,21 @@ subroutine randgen3d(fk1,fk2,fk3,w)
           psi1=2.*pi*rand1
           beta=2.*pi*rand2
           fk1(iz,iy,ix)=dcmplx(&
-                ek*dcos(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x),&
-                ek*dsin(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x)&
-                )
+          ek*dcos(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x),&
+          ek*dsin(psi1)*(dcos(beta)*e1x+dsin(beta)*e2x)&
+          )
           fk2(iz,iy,ix)=dcmplx(&
-                ek*dcos(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y),&
-                ek*dsin(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y)&
-                )
+          ek*dcos(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y),&
+          ek*dsin(psi1)*(dcos(beta)*e1y+dsin(beta)*e2y)&
+          )
           fk3(iz,iy,ix)=dcmplx(&
-                ek*dcos(psi1)*(dsin(beta)*e2z),&
-                ek*dsin(psi1)*(dsin(beta)*e2z)&
-                )
+          ek*dcos(psi1)*(dsin(beta)*e2z),&
+          ek*dsin(psi1)*(dsin(beta)*e2z)&
+          )
         endif
       enddo
     enddo
-enddo
+  enddo
 
   ! Enforce Hermitian symmetry the lazy way:
   call ifft(w,fk1)
@@ -240,54 +244,54 @@ subroutine init_taylorcouette_u(ubk,ub)
   real(kind=pr) :: x,y,r
   real(kind=pr) :: A,B,F
 
-    if(mpirank == 0) then
-     if(r1 >= r2) then
-        write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
-        call abort()
-     endif
+  if(mpirank == 0) then
+    if(r1 >= r2) then
+      write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
+      call abort(112)
+    endif
   endif
-  
+
   A=-omega1*r1*r1/(r2*r2 - r1*r1)
   B=omega1*r1*r1*r2*r2/(r2*r2 - r1*r1)
 
   do iy=ra(2),rb(2)
-     y=yl*(dble(iy)/dble(ny) -0.5d0)
-     do ix=ra(1),rb(1)
-        x=xl*(dble(ix)/dble(nx) -0.5d0)
+    y=yl*(dble(iy)/dble(ny) -0.5d0)
+    do ix=ra(1),rb(1)
+      x=xl*(dble(ix)/dble(nx) -0.5d0)
 
-        r=dsqrt(x*x +y*y)
+      r=dsqrt(x*x +y*y)
 
-        if(r <= R1) then
-           do iz=ra(3),rb(3)
-              ub(ix,iy,iz,1)=-omega1*y
-              ub(ix,iy,iz,2)=omega1*x
-           enddo
-        endif
+      if(r <= R1) then
+        do iz=ra(3),rb(3)
+          ub(ix,iy,iz,1)=-omega1*y
+          ub(ix,iy,iz,2)=omega1*x
+        enddo
+      endif
 
-        if(r > R1 .and. r < R2) then
-           do iz=ra(3),rb(3)
-              F=A*r+B/r
-              ub(ix,iy,iz,1)=-F*y/r
-              ub(ix,iy,iz,2)=F*x/r
-           enddo
-        endif
-        
-        if(r >= R2) then
-           do iz=ra(3),rb(3)
-              ! NB: We assume that the outer wall is not moving.
-              us(ix,iy,iz,1)=0.d0
-              us(ix,iy,iz,2)=0.d0
-           enddo
-        endif
+      if(r > R1 .and. r < R2) then
+        do iz=ra(3),rb(3)
+          F=A*r+B/r
+          ub(ix,iy,iz,1)=-F*y/r
+          ub(ix,iy,iz,2)=F*x/r
+        enddo
+      endif
 
-     enddo
+      if(r >= R2) then
+        do iz=ra(3),rb(3)
+          ! NB: We assume that the outer wall is not moving.
+          us(ix,iy,iz,1)=0.d0
+          us(ix,iy,iz,2)=0.d0
+        enddo
+      endif
+
+    enddo
   enddo
 
   us(:,:,:,3)=0.d0
-  
+
   ! Transform velocity field to Fourier space:
   do i=1,3
-     call fft(ubk(:,:,:,i),ub(:,:,:,i))
+    call fft(ubk(:,:,:,i),ub(:,:,:,i))
   enddo
-  
+
 end subroutine init_taylorcouette_u
