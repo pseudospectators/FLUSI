@@ -38,6 +38,9 @@ program FLUSI
     !-------------------------------------------------------------------------
     call dry_run()
 
+  elseif ( infile == "--io-test" ) then
+    call io_test()
+
   elseif ( infile=="--solid" .or. infile=="--solid-time-convergence" ) then
     !-------------------------------------------------------------------------
     ! run solid model only
