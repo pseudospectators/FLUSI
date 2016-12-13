@@ -418,7 +418,7 @@ subroutine add_forcing_term(time,uk,nlk)
   complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
 
-  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin, kvec
   real(kind=pr) :: kx,ky,kz,kreal,factor,epsilon,epsilon_loc,k2
   real(kind=pr) :: E
   integer :: ix,iy,iz, k, mpicode
@@ -431,7 +431,7 @@ subroutine add_forcing_term(time,uk,nlk)
     ! eps_forcing, which is read from the parameter file.
 
     ! get spectrum (on all procs, MPI_ALLREDUCE)
-    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    call compute_spectrum(time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
     factor = eps_forcing / (2.d0*(S_Ekin(1)+S_Ekin(2)))
 
     ! force wavenumber shells
@@ -456,7 +456,7 @@ subroutine add_forcing_term(time,uk,nlk)
     enddo
   case ("kaneda")
     ! get spectrum (on all procs, MPI_ALLREDUCE)
-    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    call compute_spectrum(time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
 
     ! compute current dissipation rate. There are several ways to do this; one
     ! is computing the enstrophy in x-space, using the vorticity, but we can also

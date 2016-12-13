@@ -28,7 +28,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
   real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega,viscosity_dummy
   real (kind=pr) :: uu,Ek,E,Ex,Ey,Ez,kx,ky,kz,theta1,theta2,phi,kabs,kh,kp,maxdiv
   complex(kind=pr) :: alpha,beta
-  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin, kvec
 
   ! Assign zero values
   time = 0.0d0
@@ -160,7 +160,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
 
     ! we now renomalize the velocity, such that it has the given energy omega1
     ! which is set in the parameter file
-    call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+    call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
     Ek = sum(S_Ekin)
     if (mpirank==0) write(*,*) "MEAN Energy before normalization=" ,ek
 
@@ -168,7 +168,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     uk = uk * dsqrt(omega1/Ek)
 
     ! check if this really worked
-    call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+    call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
     if (mpirank==0) write(*,*) "MEAN Energy after normalization =" ,sum(S_Ekin)
     if (mpirank==0) write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
     if (mpirank==0) write(*,*) "because it is the volume integral and not the mean"

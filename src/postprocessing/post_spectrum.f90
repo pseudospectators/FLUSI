@@ -15,7 +15,7 @@ subroutine post_spectrum(help)
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time, sum_u
-  real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec
   integer :: mpicode, k
 
   if (help.and.root) then
@@ -62,7 +62,7 @@ subroutine post_spectrum(help)
 
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
-  allocate(S_Ekinx(0:nx-1),S_Ekiny(0:nx-1),S_Ekinz(0:nx-1),S_Ekin(0:nx-1))
+  allocate(S_Ekinx(0:nx-1),S_Ekiny(0:nx-1),S_Ekinz(0:nx-1),S_Ekin(0:nx-1),kvec(0:nx-1))
 
   call read_single_file ( fname_ux, u(:,:,:,1) )
   call read_single_file ( fname_uy, u(:,:,:,2) )
@@ -73,14 +73,15 @@ subroutine post_spectrum(help)
   call fft (uk(:,:,:,3),u(:,:,:,3))
 
   ! compute the actual spectrum
-  call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+  call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
   ! on root, write it to disk
   if (mpirank == 0) then
     open(10,file=spectrum_file,status='replace')
     write(10,'(5(A15,1x))') '%   K ','E_u(K)','E_ux(K)','E_uy(K)','E_uz(K)'
     do k=0,nx-1
-      write(10,'(5(1x,es15.8))') dble(k),S_Ekin(k),S_Ekinx(k),S_Ekiny(k),S_Ekinz(k)
+      write(10,'(5(1x,es15.8))') kvec(k),S_Ekin(k),S_Ekinx(k),S_Ekiny(k),S_Ekinz(k)
+      write(*,'(5(1x,es15.8))') kvec(k),S_Ekin(k),S_Ekinx(k),S_Ekiny(k),S_Ekinz(k)
     enddo
 
     sum_u=0.0d0
@@ -94,7 +95,7 @@ subroutine post_spectrum(help)
 
   deallocate (u)
   deallocate (uk)
-  deallocate(S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+  deallocate(S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec)
   call fft_free()
 
 end subroutine post_spectrum

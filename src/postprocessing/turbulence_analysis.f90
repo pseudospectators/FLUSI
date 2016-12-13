@@ -15,7 +15,7 @@ subroutine turbulence_analysis(help)
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk,vork
   real(kind=pr),dimension(:,:,:,:),allocatable :: u, vor
   real(kind=pr) :: time, epsilon_loc, epsilon, fact, E, u_rms,lambda_macro,lambda_micro
-  real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec
   integer :: ix,iy,iz, mpicode
   real(kind=pr)::kx,ky,kz,kreal
 
@@ -61,12 +61,12 @@ subroutine turbulence_analysis(help)
   call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
-  
+
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
   allocate(vor(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(vork(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
-  allocate(S_Ekinx(0:nx-1),S_Ekiny(0:nx-1),S_Ekinz(0:nx-1),S_Ekin(0:nx-1))
+  allocate(S_Ekinx(0:nx-1),S_Ekiny(0:nx-1),S_Ekinz(0:nx-1),S_Ekin(0:nx-1),kvec(0:nx-1))
 
   call read_single_file ( fname_ux, u(:,:,:,1) )
   call read_single_file ( fname_uy, u(:,:,:,2) )
@@ -77,7 +77,7 @@ subroutine turbulence_analysis(help)
   call ifft3 (ink=vork,outx=vor)
 
   ! compute spectrum
-  call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+  call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
   !-----------------------------------------------------------------------------
   ! dissipation rate from velocity in Fourier space
@@ -195,7 +195,7 @@ subroutine turbulence_analysis(help)
 
   deallocate (u,vor,vork)
   deallocate (uk)
-  deallocate (S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+  deallocate (S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec)
   call fft_free()
 
 end subroutine turbulence_analysis
