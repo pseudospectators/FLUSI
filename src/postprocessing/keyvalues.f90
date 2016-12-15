@@ -67,7 +67,10 @@ subroutine keyvalues(filename)
   if (root) then
     open  (14, file = filename(1:index(filename,'.'))//'key', status = 'replace')
     write (14,'(6(es15.8,1x))') time, maxi, mini, meani, squari, qi
+    write (*,'(A)') "Result:"
+    write (* ,'(6(A15,1x))') "time","maxval","minval","meanval","sumsquares","Q-integral"
     write (* ,'(6(es15.8,1x))') time, maxi, mini, meani, squari, qi
+    write (*,'(A)') "These values can be used to compare two HDF5 files"
     close (14)
   endif
 

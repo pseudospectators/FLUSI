@@ -68,7 +68,7 @@ subroutine save_field_hdf5(time,filename,field_out)
   ! footer
   t1 = MPI_wtime() - t1
   mbyte = dble(nx/striding)*dble(ny/striding)*dble(nz/striding)*4.d0/1.0d+6
-  if (root) write(*,'(".. wrote ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') &
+  if (root) write(*,'(".. wrote ",f9.2," MB in ",f9.2," s (",f9.2,"MB/s)")') &
   mbyte, t1, mbyte/t1
 end subroutine save_field_hdf5
 
@@ -267,7 +267,7 @@ subroutine Read_Single_File ( filename, field )
   t2 = MPI_wtime() - t1
 
   if (mpirank==0) then
-    write (*,'("read ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') mbyte,t2,mbyte/t2
+    write (*,'("read ",f9.2," MB in ",f9.2," s (",f9.2,"MB/s)")') mbyte,t2,mbyte/t2
     write (*,'("max=",g12.4," min=",g12.4," mean=",g12.4)') fmax,fmin,favg
     write (*,'("Done reading file, Elapsed time=",g12.4,"s")') MPI_wtime() - t1
     write(*,'(40("~"))')

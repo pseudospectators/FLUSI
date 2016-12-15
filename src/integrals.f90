@@ -853,8 +853,10 @@ subroutine compute_spectrum(time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
   ! kmax = norm2( (/scalex*nx/2,scaley*ny/2,scalez*nz/2/) )
   ! and corresponds to the corner in wavenumber space. However, for a spectrum, we integrate
   ! over wavenumber shells: therefore, the largest COMPLETE shell is given by the smallest maximum
-  ! wavenumber in one direction:
-  kmax = minval( (/scalex*dble(nx/2),scaley*dble(ny/2),scalez*dble(nz/2)/) )
+  ! wavenumber in one direction.
+  ! On the other hand, if we do that, \int E(k) does not equal the energy of the field..
+!  kmax = minval( (/scalex*dble(nx/2),scaley*dble(ny/2),scalez*dble(nz/2)/) )
+  kmax = norm2( (/scalex*dble(nx/2),scaley*dble(ny/2),scalez*dble(nz/2)/) )
 
   ! spacing in wavenumber space oddly is the scale factors itself
   dk = minval( (/scalex,scaley,scalez/) )

@@ -88,7 +88,8 @@ subroutine post_spectrum(help)
     do k=1,nx-1
       sum_u=sum_u +S_Ekin(k)
     enddo
-    write(10,*) '% Etot = ',sum_u
+    write(10,*) '% sum = ',sum_u
+    write(10,*) '% sum*dk = integral = ', sum_u*(kvec(2)-kvec(1))
     write(10,*) '% time = ',time
     close(10)
   endif

@@ -349,16 +349,12 @@ real(kind=pr) function fieldmean( inx )
   implicit none
   real(kind=pr),intent(in):: inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr) :: mean_local, mean_global
-  integer :: mpicode, npoints
-
-  ! number of points on local CPU
-  npoints = (rb(1)-ra(1)+1)*(rb(2)-ra(2)+1)*(rb(3)-ra(3)+1)
-
-  mean_local = sum(inx) / dble(npoints)
+  integer :: mpicode
+  mean_local = sum(inx)
   call MPI_ALLREDUCE (mean_local,mean_global,1,&
        MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
   ! return the value
-  fieldmean = mean_global
+  fieldmean = mean_global / (dble(nx)*dble(ny)*dble(nz))
 end function fieldmean
 
 
