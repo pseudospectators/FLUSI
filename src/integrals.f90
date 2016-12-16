@@ -890,13 +890,13 @@ subroutine compute_spectrum(time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
           ! NOTE what we are computing here is the power spectrum, so a sine-wave 1*sin(x)
           ! has the power 0.25 (or generall A*sin(x) has (A/2)^2 energy)
           if ( ix==0 .or. ix==nx/2 ) then
-            sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2.d0
-            sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2.d0
-            sum_uz=dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.d0
+            sum_ux = dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2.d0
+            sum_uy = dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2.d0
+            sum_uz = dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.d0
           else
-            sum_ux=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)
-            sum_uy=dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)
-            sum_uz=dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+            sum_ux = dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)
+            sum_uy = dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)
+            sum_uz = dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
           endif
 
           sum_u = sum_ux + sum_uy + sum_uz

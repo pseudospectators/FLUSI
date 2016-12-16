@@ -8,13 +8,14 @@ subroutine post_spectrum(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
-  use mpi
+  use helpers
+
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, spectrum_file
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
-  real(kind=pr) :: time, sum_u
+  real(kind=pr) :: time, E
   real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec
   integer :: mpicode, k
 
@@ -68,12 +69,14 @@ subroutine post_spectrum(help)
   call read_single_file ( fname_uy, u(:,:,:,2) )
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
-  call fft (uk(:,:,:,1),u(:,:,:,1))
-  call fft (uk(:,:,:,2),u(:,:,:,2))
-  call fft (uk(:,:,:,3),u(:,:,:,3))
+  call fft3( inx=u, outk=uk)
 
   ! compute the actual spectrum
   call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+
+  ! compute energy in physical space (to check parsevals identity)
+  u(:,:,:,1) = u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2
+  E = mpisum( sum(u(:,:,:,1))/2.d0 )
 
   ! on root, write it to disk
   if (mpirank == 0) then
@@ -84,12 +87,10 @@ subroutine post_spectrum(help)
       write(*,'(5(1x,es15.8))') kvec(k),S_Ekin(k),S_Ekinx(k),S_Ekiny(k),S_Ekinz(k)
     enddo
 
-    sum_u=0.0d0
-    do k=1,nx-1
-      sum_u=sum_u +S_Ekin(k)
-    enddo
-    write(10,*) '% sum = ',sum_u
-    write(10,*) '% sum*dk = integral = ', sum_u*(kvec(2)-kvec(1))
+    write(10,*) '% parsevals identity:'
+    write(10,*) '% Energy integrated from spectrum: ',sum(S_ekin), 'Energy in phys. space:', E/(dble(nx)*dble(ny)*dble(nz))
+    write(10,*) '% sum = ', sum(S_Ekin), sum(S_Ekinx), sum(S_Ekiny), sum(S_Ekinz)
+    write(10,*) '% sum*dk = integral = ', sum(S_Ekin)*(kvec(2)-kvec(1))
     write(10,*) '% time = ',time
     close(10)
   endif
