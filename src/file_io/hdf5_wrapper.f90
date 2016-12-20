@@ -155,6 +155,7 @@ subroutine read_field_hdf5 ( filename, dsetname, rared, rbred, field )
   call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
   call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
 
+
   call h5dread_f( dset_id, H5T_NATIVE_DOUBLE, field, dims_local, error, &
   mem_space_id = memspace, file_space_id = filespace, xfer_prp = plist_id )
 
@@ -334,7 +335,7 @@ subroutine write_field_hdf5( filename, dsetname, rared, rbred, field, overwrite)
   endif
 
   ! create the dataset
-  call h5dcreate_f(file_id, dsetname, file_precision, filespace,dset_id, error, plist_id)
+  call h5dcreate_f(file_id, dsetname, file_precision, filespace, dset_id, error, plist_id)
   call h5sclose_f(filespace, error)
 
   ! Select hyperslab in the file.
@@ -344,8 +345,7 @@ subroutine write_field_hdf5( filename, dsetname, rared, rbred, field, overwrite)
 
   ! Create property list for collective dataset write
   call h5pcreate_f(H5P_DATASET_XFER_F, plist_id, error)
-  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_COLLECTIVE_F, error)
-
+  call h5pset_dxpl_mpio_f(plist_id, H5FD_MPIO_INDEPENDENT_F, error)
   !-----------------------------------------------------------------------------
   ! create dataspace "memspace" to be written
   !-----------------------------------------------------------------------------

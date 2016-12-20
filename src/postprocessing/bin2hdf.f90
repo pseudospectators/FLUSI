@@ -60,32 +60,32 @@ subroutine convert_bin2hdf(help)
   &3(es15.8,1x)," time=",es15.8)') trim(adjustl(fname_bin)), &
   trim(adjustl(fname_hdf)), nx,ny,nz, xl,yl,zl,time
 
+  allocate ( field(0:nx-1,0:ny-1,0:nz-1), field_out(0:nx-1,0:ny-1,0:nz-1) )
+
   !-----------------------------------------------------------------------------
   ! read in the binary field to be converted
   !-----------------------------------------------------------------------------
-  allocate ( field(0:nx-1,0:ny-1,0:nz-1), field_out(0:nx-1,0:ny-1,0:nz-1) )
-
-  !   inquire (iolength=record_length) field
-  !   open(11, file=fname_bin, form='unformatted', &
-  !   access='direct', recl=record_length, convert="little_endian")
-  !   read (11,rec=1) field
-  !   close (11)
-  !   write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field),minval(field)
-
-
+  ! note the binary file is supposed to be single precision
+  write(*,*) "Reading input bin file (LITTLE_ENDIAN is assumed)"
   OPEN(10,FILE=fname_bin,FORM='unformatted',STATUS='OLD', convert='LITTLE_ENDIAN')
   read(10) (((field(i,j,k),i=0,nx-1),j=0,ny-1),k=0,nz-1)
   CLOSE(10)
   write (*,'("maxval=",es12.4," minval=",es12.4)') maxval(field),minval(field)
+
   !-----------------------------------------------------------------------------
   ! write the field data to an HDF file
   !-----------------------------------------------------------------------------
   ! initializes serial domain decomposition:
   ra=(/0, 0, 0/)
   rb=(/nx-1, ny-1, nz-1/)
-  field_out = real(field,kind=pr)
   striding = 1
+  eps = 0.d0
+  nu = 0.d0
+  field_precision = "single"
+
+  field_out = real(field,kind=pr)
+  deallocate(field)
   call save_field_hdf5(time,fname_hdf,field_out)
 
-  deallocate (field,field_out)
+  deallocate (field_out)
 end subroutine convert_bin2hdf

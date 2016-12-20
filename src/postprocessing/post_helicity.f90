@@ -125,6 +125,14 @@ subroutine post_helicity(help)
     enddo
   enddo
 
+  ! NOTE
+  ! The integral helicity, as represented by the sum of specHel, is a factor of 2
+  ! too small to give you the enire mean helicity as it is integrated in physical space
+  ! Therefore, to compare plancherell, you have to multiply the helicity spectrum by 2.
+  ! (we simply skip the negative wavenumber part)
+  ! On the other hand, if you check abs(H(k)) / k*E(k), you have to omit the factor 2
+  ! since you have to sum from -intfy to +infty
+
   ! the returned wavenumber is the middle of the bin: (and not kreal!)
   kvec=0.d0
   do k = 0, nk

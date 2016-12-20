@@ -76,7 +76,6 @@ subroutine convert_vorticity(help)
   ! header and information
   if (mpirank==0) then
     write(*,'(80("-"))')
-    write(*,*) "vor2u (Biot-Savart)"
     write(*,*) "Computing vorticity from velocity given in these files: "
     write(*,'(80("-"))')
     write(*,*) trim(adjustl(fname_ux))
