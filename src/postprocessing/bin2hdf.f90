@@ -5,12 +5,12 @@
 ! converts the given binary file into an HDF5 file following flusi's conventions
 subroutine convert_bin2hdf(help)
   use vars
-  use mpi
+  use hdf5_wrapper
   use basic_operators
   use helpers
   implicit none
   logical, intent(in) :: help
-  character(len=strlen) :: fname_bin,fname_hdf,tmp
+  character(len=strlen) :: fname_bin,fname_hdf,tmp, hack
   ! we read a single precision field from binary
   real, dimension(:,:,:), allocatable :: field
   ! and convert it to a double precision field (however: hdf file is single again)
@@ -22,11 +22,17 @@ subroutine convert_bin2hdf(help)
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p --bin2hdf [file_bin] [file_hdf5] [nx] [ny] [nz] [xl] [yl] [zl] [time]"
+    write(*,*) "./flusi -p --bin2hdf [file_bin] [file_hdf5] [nx] [ny] [nz] [xl] [yl] [zl] [time] [--hack]"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "converts the given binary file into an HDF5 file following flusi's conventions"
+    write(*,*) ""
+    write(*,*) "The --hack flag is an unfortunate requirement on some machines. we may happen to convert quite"
+    write(*,*) "big files, which still fit comfortable on the memory of one CPU. However HDF5 saving fails "
+    write(*,*) "if they're to big to be stored in one go. If --hack is set, we write two arrays in the file"
+    write(*,*) "and leave you with the task of manually merging them somehow (matlab?)"
+    write(*,*) ""
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "Parallel: Nope"
+    write(*,*) "Parallel: Nope (and that is the problem for the --hack flag)"
     return
   endif
 
@@ -55,6 +61,7 @@ subroutine convert_bin2hdf(help)
   read (tmp,*) zl
   call get_command_argument(11,tmp)
   read (tmp,*) time
+  call get_command_argument(12,hack)
 
   write(*,'("converting ",A," into ",A," resolution: ",3(i4,1x)," box size: ",&
   &3(es15.8,1x)," time=",es15.8)') trim(adjustl(fname_bin)), &
@@ -85,7 +92,22 @@ subroutine convert_bin2hdf(help)
 
   field_out = real(field,kind=pr)
   deallocate(field)
-  call save_field_hdf5(time,fname_hdf,field_out)
+
+  if (hack == "--hack") then
+    ! write actual field to the file (first part)
+    call write_field_hdf5( fname_hdf, get_dsetname(fname_hdf), ra, (/nx/2, ny-1, nz-1/) , field_out(0:nx/2,:,:), .true. )
+    ! append some useful attributes to the field in the file
+    call write_attribute( fname_hdf, get_dsetname(fname_hdf), "time",(/time/))
+    call write_attribute( fname_hdf, get_dsetname(fname_hdf), "viscosity",(/nu/))
+    call write_attribute( fname_hdf, get_dsetname(fname_hdf), "epsi",(/eps/))
+    call write_attribute( fname_hdf, get_dsetname(fname_hdf), "domain_size",(/xl,yl,zl/))
+    call write_attribute( fname_hdf, get_dsetname(fname_hdf), "nxyz",(/nx,ny,nz/))
+    ! second part
+    call write_field_hdf5( fname_hdf, trim(adjustl(get_dsetname(fname_hdf)))//'b', &
+    (/0,0,0/), (/(nx-1)-(nx/2+1), ny-1, nz-1/) , field_out(nx/2+1:nx-1,:,:), .false. )
+  else
+    call save_field_hdf5(time,fname_hdf,field_out)
+  endif
 
   deallocate (field_out)
 end subroutine convert_bin2hdf
