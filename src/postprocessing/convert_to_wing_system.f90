@@ -12,18 +12,18 @@ subroutine convert_to_wing_system(help)
 
   real(kind=pr)          :: t1,t2
   real(kind=pr)          :: time
-  integer                :: ix,iy,iz,mpicode
-  character (len=strlen) :: infile
+  integer                :: ix,iy,iz,mpicode, i
+  character (len=strlen) :: infile, outfile
   ! arrays needed for interpolation
-  real(kind=pr),dimension(:,:,:),allocatable :: u_org,u_interp
-  real(kind=pr),dimension(:),allocatable :: u_buffer, u_buffer2
+  real(kind=pr),dimension(:,:,:,:),allocatable :: u_org,u_interp
+  real(kind=pr),dimension(:,:),allocatable :: u_buffer, u_buffer2
   ! this is the insect we're using (object oriented)
   type(diptera) :: Insect
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
   real(kind=pr) :: x_wing(1:3),x_glob(1:3),M_wing_r(1:3,1:3),M_wing_l(1:3,1:3),M_body(1:3,1:3)
-  real(kind=pr) :: u1,u2, x_body(1:3)
-  logical :: wing_system
+  real(kind=pr) :: u1,u2, x_body(1:3), u(1:3)
+  logical :: wing_system, vector
 
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
@@ -36,8 +36,12 @@ subroutine convert_to_wing_system(help)
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p --convert-to-wing-system PARAMS.ini input_0000.h5 output_0000.h5"
-    write(*,*) "./flusi -p --convert-to-body-system PARAMS.ini input_0000.h5 output_0000.h5"
+    write(*,*) "./flusi -p --convert-to-wing-system --scalar PARAMS.ini input_0000.h5 output_0000.h5"
+    write(*,*) "./flusi -p --convert-to-body-system --scalar PARAMS.ini input_0000.h5 output_0000.h5"
+    write(*,*) "./flusi -p --convert-to-wing-system --vector PARAMS.ini inx_0000.h5 iny_0000.h5 &
+                &inz_0000.h5 outx_0000.h5 outy_0000.h5 outz_0000.h5"
+    write(*,*) "./flusi -p --convert-to-body-system --vector PARAMS.ini inx_0000.h5 iny_0000.h5 &
+                &inz_0000.h5 outx_0000.h5 outy_0000.h5 outz_0000.h5"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "! Convert a file to the (left) wings coordinate system"
     write(*,*) "! We read a field from file, which we assume to be a scalar field (or vector component)"
@@ -56,6 +60,10 @@ subroutine convert_to_wing_system(help)
     write(*,*) "! "
     write(*,*) "! Note the wing span axis is y, while the chord ix x. z is wing normal."
     write(*,*) "! "
+    write(*,*) "! Note: this routine is useful to interpolate scalars. for vector components, it can be"
+    write(*,*) "! used, but afterwards the vector still has to be rotated. In other words, we still are left with"
+    write(*,*) "! vectors described in the global system, even though their position is described in the wing/body"
+    write(*,*) "! system"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: yes"
     return
@@ -66,17 +74,32 @@ subroutine convert_to_wing_system(help)
   !-----------------------------------------------------------------------------
   allocate(lin(nf)) ! Set up the linear term
   if (root) write(*,'(A)') '*** info: Reading input data...'
-  ! get filename of PARAMS file from command line
+
+  ! do we deal with a vector or a scalar?
   call get_command_argument(3,infile)
+  if (infile == "--vector") then
+    vector = .true.
+    ! we allocate (and read) three components:
+    nd = 3
+    if (root) write(*,'(A)') 'we run in vector mode (3 components)'
+  elseif (infile == "--scalar") then
+    vector = .false.
+    ! routine applied to scalar, one field only
+    nd = 1
+    if (root) write(*,'(A)') 'we run in scalar mode'
+  endif
+
+  ! get filename of PARAMS file from command line
+  call get_command_argument(4,infile)
   ! read all parameters from that file
   call get_params(infile,Insect,.true.)
+  if (root) write(*,'("The resolution given by params file is: ",3(i4,1x))') nx,ny,nz
 
   !-----------------------------------------------------------------------------
   ! ghost points. we need that for interpolation
   !-----------------------------------------------------------------------------
   ng=1 ! one ghost points
   if (root) write(*,'("Set up ng=",i1," ghost points")') ng
-
   ! initialize code and domain decomposition, but do not use FFTs
   call decomposition_initialize()
   ! Setup communicators used for ghost point update
@@ -85,11 +108,10 @@ subroutine convert_to_wing_system(help)
   !-----------------------------------------------------------------------------
   ! Allocate memory:
   !-----------------------------------------------------------------------------
-  allocate( u_org(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  allocate( u_org(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd) )
   ! interpolated field has ghost nodes
-  allocate( u_interp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)) )
-  allocate( u_buffer(0:nx-1),u_buffer2(0:nx-1) )
-
+  allocate( u_interp(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:nd) )
+  allocate( u_buffer(0:nx-1,1:nd),u_buffer2(0:nx-1,1:nd) )
 
   if (iMask/="Insect") then
     call abort(7774,"transforming to wing system makes no sense if not applied to an insect")
@@ -98,13 +120,18 @@ subroutine convert_to_wing_system(help)
   !*****************************************************************************
   ! main (active) part of this postprocessing tool
   !*****************************************************************************
-  ! read in the input file to be transformed
-  call get_command_argument(4,infile)
-  call read_single_file ( infile, u_org )
+  ! read in the input file(s) to be transformed
+  do i = 1, nd
+    call get_command_argument(i+4, infile)
+    call read_single_file ( infile, u_org(:,:,:,i) )
+  enddo
+  ! call fetch attributes (even though we knew the resolution in advance) since we
+  ! want to know what time the data is at
   call fetch_attributes(infile,nx,ny,nz,xl,yl,zl,time,nu)
-  ! synchronize ghosts
-  u_interp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = u_org
-  call synchronize_ghosts( u_interp )
+
+  ! synchronize ghosts (required for interpolation)
+  u_interp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),:) = u_org
+  call synchronize_ghosts( u_interp, nd )
 
   ! check if user wants to go to body or wing coordinate system
   call get_command_argument(2,infile)
@@ -116,6 +143,7 @@ subroutine convert_to_wing_system(help)
     if (root) write(*,*) "we convert to body system"
   endif
   if (root) write(*,'("OPERATING AT TIME=",es15.8)') time
+
   !-----------------------------------------------------------------------------
   ! fetch current motion state of the insect
   !-----------------------------------------------------------------------------
@@ -159,17 +187,19 @@ subroutine convert_to_wing_system(help)
         if (x_glob(3)>=zl-dz) x_glob(3)=x_glob(3)-zl
 
         ! interpolate the value
-        ! call delta_interpolation(x_glob,u_interp,u_buffer(ix))
-        call trilinear_interp_ghosts(x_glob,u_interp,u_buffer(ix))
+        do i = 1,nd
+          call trilinear_interp_ghosts(x_glob,u_interp(:,:,:,i),u_buffer(ix,i))
+        enddo
       enddo
       ! at this point, all procs have interpolated a value in u_buffer. most of them
       ! are -9.9E10, which means the CPU does not have the data required for interpolation
-      call MPI_ALLREDUCE(u_buffer,u_buffer2,nx,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+      call MPI_ALLREDUCE(u_buffer,u_buffer2,nx*nd,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
       ! now, all CPU have the line in x-direction with the properly interpolated values. however,
       ! only one of them actually holds this data. NOw we note that in FLUSI, we never split
       ! the x-coordinate, so this direction is ALWAYS contiguous
       if ( on_proc( (/0,iy,iz/) ) ) then
-        u_org(:,iy,iz) = u_buffer2
+        ! only the responsible rank does this
+        u_org(:,iy,iz,1:nd) = u_buffer2
       end if
     enddo
   enddo
@@ -180,9 +210,44 @@ subroutine convert_to_wing_system(help)
     u_org = 0.d0
   end where
 
-  call get_command_argument(5,infile)
-  if (root) write(*,*) "ouput will be written to "//infile
-  call save_field_hdf5(time, infile, u_org)
+  ! for now, interpolation has been done, i.e. we rotated the camera. now, if we are dealing with a
+  ! vector, this is not enough, since we do not only shift, but also rotate the individual vectors.
+  ! this is done now:
+  if (vector) then
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          u = (/u_org(ix,iy,iz,1), u_org(ix,iy,iz,2), u_org(ix,iy,iz,3)/)
+          if (wing_system) then
+            ! from global to wing system
+            u = matmul(M_wing_l, matmul(M_body,u))
+          else
+            ! from global to body system
+            u = matmul(M_body, u)
+          endif
+          u_org(ix,iy,iz,1:3) = u
+        enddo
+      enddo
+    enddo
+  endif
+
+
+  !-----------------------------------------------------------------------------
+  ! done, save output
+  !-----------------------------------------------------------------------------
+  if (vector .eqv. .true.) then
+    ! vector case
+    do i = 1, nd
+      call get_command_argument(i+7,outfile)
+      if (root) write(*,*) "vector output will be written to "//outfile
+      call save_field_hdf5(time, outfile, u_org(:,:,:,i))
+    enddo
+  else
+    ! scalar case
+    call get_command_argument(6,outfile)
+    if (root) write(*,*) "scalar output will be written to "//trim(adjustl(outfile))
+    call save_field_hdf5(time, trim(adjustl(outfile)), u_org(:,:,:,1))
+  endif
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory
