@@ -200,11 +200,15 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      ! read HDF5 files
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: reading infiles"
+     ! fetch time from one file
+     call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy )
+     ! read files
      call Read_Single_File ( file_ux, vort(:,:,:,1) )
      call Read_Single_File ( file_uy, vort(:,:,:,2) )
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
      call fft3 ( uk,vort )
      if (mpirank==0) write (*,*) "*** done reading infiles"
+     
   case("infile_inlet")
     ! read fields from file, but repeat it in the x-direction, since it is too short
     ! note that the resulting field is non-periodic (but the boundary conditions

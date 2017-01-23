@@ -87,6 +87,8 @@ subroutine convert_to_wing_system(help)
     ! routine applied to scalar, one field only
     nd = 1
     if (root) write(*,'(A)') 'we run in scalar mode'
+  else
+    call abort(4556, "flag is unkown. --scalar or --vector")
   endif
 
   ! get filename of PARAMS file from command line
