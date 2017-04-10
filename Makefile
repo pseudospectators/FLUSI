@@ -57,7 +57,7 @@ FFLAGS += -J$(OBJDIR) # specify directory for modules.
 #FFLAGS += -O3
 PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
-#FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
+FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 FFLAGS += -O3
 endif
 

@@ -54,7 +54,6 @@ subroutine get_params_common(PARAMS)
   use hdf5_wrapper
   implicit none
   character(len=strlen) :: dummystr
-
   ! Contains the ascii-params file
   type(inifile), intent(inout) :: PARAMS
   character(len=strlen) :: dummy
@@ -84,6 +83,8 @@ subroutine get_params_common(PARAMS)
     xl = 1.d0!dx
     if (root) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
   endif
+
+  call set_lattice_spacing_mpi(dy)
 
   ! Geometry section
   call read_param_mpi(PARAMS,"Geometry","Size",length, 0.d0)

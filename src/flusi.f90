@@ -587,11 +587,10 @@ if (mpirank/=0) return
     close (14)
 
     call init_empty_file('iterations.t')
-    call init_empty_file('rigidsolidsolver.t')
 
     open  (14,file='rigidsolidsolver.t',status='replace')
     write (14,'(14(A15,1x))') "%          time","x","y","z","vx","vy","vz",&
-    "eps0","eps1","eps2","eps3","rotx","roty","rotz"
+    "eps0","eps1","eps2","eps3","rot_body_b_x","rot_body_b_y","rot_body_b_z"
     close (14)
 
 

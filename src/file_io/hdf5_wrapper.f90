@@ -34,22 +34,22 @@ contains
 ! INPUT
 !   filename        file to read from
 !   dsetname        datasetname, i.e. the name of the array in the file
-!   rared           lower bounds of memory portion hold by the CPU
-!   rbred           upper bounds of memory portion hold by the CPU
-!                   NOTE: rared and rbred are 1:3 arrays. if running on one proc
-!                   they are rared=(/0,0,0/) rbred=(/nx-1,ny-1,nz-1/). If the data
+!   lbounds           lower bounds of memory portion hold by the CPU
+!   ubounds           upper bounds of memory portion hold by the CPU
+!                   NOTE: lbounds and ubounds are 1:3 arrays. if running on one proc
+!                   they are lbounds=(/0,0,0/) ubounds=(/nx-1,ny-1,nz-1/). If the data
 !                   is distributed among procs, each proc has to indicate which
 !                   portion of the array it holds
 !   field           actual data (ALLOCATED!!!)
 ! OUTPUT:
 !   field           data read from file
 !-------------------------------------------------------------------------------
-subroutine read_field_hdf5 ( filename, dsetname, rared, rbred, field )
+subroutine read_field_hdf5 ( filename, dsetname, lbounds, ubounds, field )
   implicit none
 
   character(len=*),intent(in) :: filename, dsetname
-  integer,dimension(1:3), intent(in) :: rared, rbred
-  real(kind=pr),intent(inout) :: field(rared(1):rbred(1),rared(2):rbred(2),rared(3):rbred(3))
+  integer,dimension(1:3), intent(in) :: lbounds, ubounds
+  real(kind=pr),intent(inout) :: field(lbounds(1):ubounds(1),lbounds(2):ubounds(2),lbounds(3):ubounds(3))
 
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
   integer                       :: i
@@ -75,16 +75,16 @@ subroutine read_field_hdf5 ( filename, dsetname, rared, rbred, field )
 
   ! determine size of memory (i.e. the entire array). note we assume the file
   ! contains the right amount of data, which must be ensured outside of this function
-  call MPI_ALLREDUCE ( rared(1), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
-  call MPI_ALLREDUCE ( rbred(1), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( lbounds(1), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( ubounds(1), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
   dims_global(1) = int( maxdim-mindim+1, kind=hsize_t)
 
-  call MPI_ALLREDUCE ( rared(2), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
-  call MPI_ALLREDUCE ( rbred(2), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( lbounds(2), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( ubounds(2), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
   dims_global(2) = int( maxdim-mindim+1, kind=hsize_t)
 
-  call MPI_ALLREDUCE ( rared(3), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
-  call MPI_ALLREDUCE ( rbred(3), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( lbounds(3), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( ubounds(3), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
   dims_global(3) = int( maxdim-mindim+1, kind=hsize_t)
 
   !-----------------------------------------------------------------------------
@@ -106,13 +106,13 @@ subroutine read_field_hdf5 ( filename, dsetname, rared, rbred, field )
   call h5pclose_f(plist_id, error)
 
   ! Definition of memory distribution
-  dims_local(1) = rbred(1)-rared(1) +1
-  dims_local(2) = rbred(2)-rared(2) +1
-  dims_local(3) = rbred(3)-rared(3) +1
+  dims_local(1) = ubounds(1)-lbounds(1) +1
+  dims_local(2) = ubounds(2)-lbounds(2) +1
+  dims_local(3) = ubounds(3)-lbounds(3) +1
 
-  offset(1) = rared(1)
-  offset(2) = rared(2)
-  offset(3) = rared(3)
+  offset(1) = lbounds(1)
+  offset(2) = lbounds(2)
+  offset(3) = lbounds(3)
 
   ! Each process knows how much data it has and where to store it.
   ! now, define the dataset chunking. Chunking is largest dimension in
@@ -176,10 +176,10 @@ end subroutine read_field_hdf5
 ! INPUT
 !   filename        file to write to
 !   dsetname        datasetname, i.e. the name of the array in the file
-!   rared           lower bounds of memory portion hold by the CPU
-!   rbred           upper bounds of memory portion hold by the CPU
-!                   NOTE: rared and rbred are 1:3 arrays. if running on one proc
-!                   they are rared=(/0,0,0/) rbred=(/nx-1,ny-1,nz-1/). If the data
+!   lbounds           lower bounds of memory portion hold by the CPU
+!   ubounds           upper bounds of memory portion hold by the CPU
+!                   NOTE: lbounds and ubounds are 1:3 arrays. if running on one proc
+!                   they are lbounds=(/0,0,0/) ubounds=(/nx-1,ny-1,nz-1/). If the data
 !                   is distributed among procs, each proc has to indicate which
 !                   portion of the array it holds
 !   field       actual data
@@ -190,12 +190,12 @@ end subroutine read_field_hdf5
 ! OUTPUT:
 !   none
 !-------------------------------------------------------------------------------
-subroutine write_field_hdf5( filename, dsetname, rared, rbred, field, overwrite)
+subroutine write_field_hdf5( filename, dsetname, lbounds, ubounds, field, overwrite)
   implicit none
 
   character(len=*), intent (in) :: filename, dsetname
-  integer,dimension(1:3), intent(in) :: rared, rbred
-  real(kind=pr),intent(in) :: field(rared(1):rbred(1),rared(2):rbred(2),rared(3):rbred(3))
+  integer,dimension(1:3), intent(in) :: lbounds, ubounds
+  real(kind=pr),intent(in) :: field(lbounds(1):ubounds(1),lbounds(2):ubounds(2),lbounds(3):ubounds(3))
   logical, intent(in), optional :: overwrite
 
   integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
@@ -238,25 +238,25 @@ subroutine write_field_hdf5( filename, dsetname, rared, rbred, field, overwrite)
   ! Compute the dimension of the complete field (i.e. the union of all CPU's)
   ! which we will write to file.
   ! ----------------------------------------------------------------------------
-  call MPI_ALLREDUCE ( rared(1),mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
-  call MPI_ALLREDUCE ( rbred(1),maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( lbounds(1),mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( ubounds(1),maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
   dims_global(1) = int( maxdim-mindim+1, kind=hsize_t )
 
-  call MPI_ALLREDUCE ( rared(2),mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
-  call MPI_ALLREDUCE ( rbred(2),maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( lbounds(2),mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( ubounds(2),maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
   dims_global(2) = int( maxdim-mindim+1, kind=hsize_t )
 
-  call MPI_ALLREDUCE ( rared(3),mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
-  call MPI_ALLREDUCE ( rbred(3),maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( lbounds(3),mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( ubounds(3),maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
   dims_global(3) = int( maxdim-mindim+1, kind=hsize_t )
 
   ! Tell HDF5 how our  data is organized:
-  offset(1) = rared(1)
-  offset(2) = rared(2)
-  offset(3) = rared(3)
-  dims_local(1) = rbred(1)-rared(1) + 1
-  dims_local(2) = rbred(2)-rared(2) + 1
-  dims_local(3) = rbred(3)-rared(3) + 1
+  offset(1) = lbounds(1)
+  offset(2) = lbounds(2)
+  offset(3) = lbounds(3)
+  dims_local(1) = ubounds(1)-lbounds(1) + 1
+  dims_local(2) = ubounds(2)-lbounds(2) + 1
+  dims_local(3) = ubounds(3)-lbounds(3) + 1
 
   ! if (mpirank==0) then
   !   write(*,'("writing to file=",A," dset=",A," overwrite=",L1)') trim(adjustl(filename)), trim(adjustl(dsetname)), ovrwrte
