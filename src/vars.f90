@@ -52,7 +52,7 @@ module vars
   ! only root rank has this true:
   logical, save :: root=.false.
 
-  real(kind=pr),save :: pi= 4.d0*datan(1.d0) ! 3.14....
+  real(kind=pr),parameter :: pi= 3.1415926535897932384626433832795028841971693993751058209749445923078164d0
 
   real(kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
 
@@ -282,34 +282,6 @@ module vars
     real(kind=pr) :: norm2
     norm2 = dsqrt( a(1)*a(1) + a(2)*a(2) + a(3)*a(3) )
   end function
-
-  !---------------------------------------------------------------------------
-  ! Routines to allocate real and complex arrays using the standard
-  ! dimensions.
-  !---------------------------------------------------------------------------
-  subroutine allocreal(u)
-    implicit none
-    real(kind=pr),dimension(:,:,:),allocatable :: u
-    allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  end subroutine allocreal
-
-  subroutine alloccomplex(u)
-    implicit none
-    complex(kind=pr),dimension(:,:,:),allocatable :: u
-    allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
-  end subroutine alloccomplex
-
-  subroutine allocrealnd(u)
-    implicit none
-    real(kind=pr),dimension(:,:,:,:),allocatable :: u
-    allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
-  end subroutine allocrealnd
-
-  subroutine alloccomplexnd(u)
-    implicit none
-    complex(kind=pr),dimension(:,:,:,:),allocatable :: u
-    allocate(u(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd))
-  end subroutine alloccomplexnd
 
   !---------------------------------------------------------------------------
   ! return periodic index, i.e. if we give ix greater than nx, return

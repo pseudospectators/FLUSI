@@ -1381,7 +1381,6 @@ end subroutine draw_body_cone
 !-------------------------------------------------------------------------------
 subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
   use vars
-  use stl_file_reader
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1432,13 +1431,13 @@ subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
           ! the stl_file_reader module to compute, for all points within the bounding box, the distance to the
           ! pyramid. This is more elegant than the old solution, since it nicely smoothes the surface and edges.
           ! note we do use the NORMAL only to distinguish between in/out, it's not required to be correct
-          di(1) = pointTriangleDistance( (/+a/2.d0,-a/2.d0,-H/3.d0/), (/+a/2.d0,+a/2.d0,-H/3.d0/) ,&
+          di(1) = pointTriangleDistance2( (/+a/2.d0,-a/2.d0,-H/3.d0/), (/+a/2.d0,+a/2.d0,-H/3.d0/) ,&
                   (/0.d0,0.d0,2.d0*H/3.d0/), x_body, (/1.d0,0.d0,0.d0/) )
-          di(2) = pointTriangleDistance( (/+a/2.d0,+a/2.d0,-H/3.d0/), (/-a/2.d0,+a/2.d0,-H/3.d0/) ,&
+          di(2) = pointTriangleDistance2( (/+a/2.d0,+a/2.d0,-H/3.d0/), (/-a/2.d0,+a/2.d0,-H/3.d0/) ,&
                   (/0.d0,0.d0,2.d0*H/3.d0/), x_body, (/0.d0,1.d0,0.d0/) )
-          di(3) = pointTriangleDistance( (/-a/2.d0,+a/2.d0,-H/3.d0/), (/-a/2.d0,-a/2.d0,-H/3.d0/) ,&
+          di(3) = pointTriangleDistance2( (/-a/2.d0,+a/2.d0,-H/3.d0/), (/-a/2.d0,-a/2.d0,-H/3.d0/) ,&
                   (/0.d0,0.d0,2.d0*H/3.d0/), x_body, (/-1.d0,0.d0,0.d0/) )
-          di(4) = pointTriangleDistance( (/-a/2.d0,-a/2.d0,-H/3.d0/), (/+a/2.d0,-a/2.d0,-H/3.d0/) ,&
+          di(4) = pointTriangleDistance2( (/-a/2.d0,-a/2.d0,-H/3.d0/), (/+a/2.d0,-a/2.d0,-H/3.d0/) ,&
                   (/0.d0,0.d0,2.d0*H/3.d0/), x_body, (/0.d0,-1.d0,0.d0/) )
 
           ! note maxval(di) is the union of all the triangles' interiors (thus a solid filled pyramid results),
@@ -1614,3 +1613,299 @@ subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
   enddo
 
 end subroutine
+
+
+! This function is used in body type pyramid
+real(kind=pr) function pointTriangleDistance2(tri1,tri2,tri3,point,normal)
+! calculate distance between a point and a triangle in 3D
+! SYNTAX
+!   dist = pointTriangleDistance2(TRI,P)
+!   [dist,PP0] = pointTriangleDistance2(TRI,P)
+!
+! DESCRIPTION
+!   Calculate the distance of a given point P from a triangle TRI.
+!   Point P is a row vector of the form 1x3. The triangle is a matrix
+!   formed by three rows of points TRI = [P1P2P3] each of size 1x3.
+!   dist = pointTriangleDistance2(TRI,P) returns the distance of the point P
+!   to the triangle TRI.
+!   [dist,PP0] = pointTriangleDistance2(TRI,P) additionally returns the
+!   closest point PP0 to P on the triangle TRI.
+!
+! Author: Gwendolyn Fischer
+! Release: 1.0
+! Release date: 09/02/02
+! Release: 1.1 Fixed Bug because of normalization
+! Release: 1.2 Fixed Bug because of typo in region 5 20101013
+! Release: 1.3 Fixed Bug because of typo in region 2 20101014
+
+! Possible extention could be a version tailored not to return the distance
+! and additionally the closest point, but instead return only the closest
+! point. Could lead to a small speed gain.
+
+! Example:
+! !! The Problem
+! P0 = [0.5 -0.3 0.5]
+!
+! P1 = [0 -1 0]
+! P2 = [1  0 0]
+! P3 = [0  0 0]
+!
+! vertices = [P1 P2 P3]
+! faces = [1 2 3]
+!
+! !! The Engine
+! [dist,PP0] = pointTriangleDistance([P1P2P3],P0)
+!
+! !! Visualization
+! [x,y,z] = sphere(20)
+! x = dist*x+P0(1)
+! y = dist*y+P0(2)
+! z = dist*z+P0(3)
+!
+! figure
+! hold all
+! patch('Vertices',vertices,'Faces',faces,'FaceColor','r','FaceAlpha',0.8)
+! plot3(P0(1),P0(2),P0(3),'b*')
+! plot3(PP0(1),PP0(2),PP0(3),'*g')
+! surf(x,y,z,'FaceColor','b','FaceAlpha',0.3)
+! view(3)
+
+! The algorithm is based on
+! "David Eberly, 'Distance Between Point and Triangle in 3D',
+! Geometric Tools, LLC, (1999)"
+! http:\\www.geometrictools.com/Documentation/DistancePoint3Triangle3.pdf
+!
+!        ^t
+!  \     |
+!   \reg2|
+!    \   |
+!     \  |
+!      \ |
+!       \|
+!        *P2
+!        |\
+!        | \
+!  reg3  |  \ reg1
+!        |   \
+!        |reg0\
+!        |     \
+!        |      \ P1
+! -------*-------*------->s
+!        |P0      \
+!  reg4  | reg5    \ reg6
+  implicit none
+  real(kind=pr), dimension(1:3), intent(in) :: tri1,tri2,tri3,point,normal
+  real(kind=pr), dimension(1:3) :: BB,EE0,EE1,DD
+  real(kind=pr) :: a,b,c,d,e,f,det,s,t,sqrDistance,tmp0,tmp1,numer,denom,invDet
+
+  ! rewrite triangle in normal form
+  BB = tri1
+  EE0 = tri2-BB
+  EE1 = tri3-BB
+
+
+  DD = BB - point
+  a = dot_product(EE0,EE0)
+  b = dot_product(EE0,EE1)
+  c = dot_product(EE1,EE1)
+  d = dot_product(EE0,DD)
+  e = dot_product(EE1,DD)
+  f = dot_product(DD,DD)
+
+
+
+  det = a*c - b*b ! do we have to use abs here?
+  s   = b*e - c*d
+  t   = b*d - a*e
+
+  if (det < 1.0d-11) then
+    pointTriangleDistance2 = 9.0d9
+    return
+  endif
+
+
+  ! write(*,'(12(es12.4,1x))') tri1,tri2,tri3,point
+  ! write(*,'(12(es12.4,1x))') a,b,c,d,e,f,det,s,t
+
+  ! Terible tree of conditionals to determine in which region of the diagram
+  ! shown above the projection of the point into the triangle-plane lies.
+  if ((s+t) <= det) then
+    if (s < 0.d0) then
+      if (t < 0.d0) then
+        !region4
+        if (d < 0.d0) then
+          t = 0.d0
+          if (-d >= a) then
+            s = 1.d0
+            sqrDistance = a + 2.d0*d + f
+          else
+            s = -d/a
+            sqrDistance = d*s + f
+          endif
+        else
+          s = 0.d0
+          if (e >= 0.d0) then
+            t = 0.d0
+            sqrDistance = f
+          else
+            if (-e >= c) then
+              t = 1.d0
+              sqrDistance = c + 2.d0*e + f
+            else
+              t = -e/c
+              sqrDistance = e*t + f
+            endif
+          endif
+        endif !of region 4
+      else
+        ! region 3
+        s = 0.d0
+        if (e >= 0.d0) then
+          t = 0.d0
+          sqrDistance = f
+        else
+          if (-e >= c) then
+            t = 1.d0
+            sqrDistance = c + 2.d0*e +f
+          else
+            t = -e/c
+            sqrDistance = e*t + f
+          endif
+        endif
+      endif !of region 3
+    else
+      if (t < 0.d0) then
+        ! region 5
+        t = 0.d0
+        if (d >= 0.d0) then
+          s = 0.d0
+          sqrDistance = f
+        else
+          if (-d >= a) then
+            s = 1.d0
+            sqrDistance = a + 2.d0*d + f! GF 20101013 fixed typo d*s ->2*d
+          else
+            s = -d/a
+            sqrDistance = d*s + f
+          endif
+        endif
+      else
+        ! region 0
+        invDet = 1.d0/det
+        s = s*invDet
+        t = t*invDet
+        sqrDistance = s*(a*s + b*t + 2.d0*d) &
+                    + t*(b*s + c*t + 2.d0*e) + f
+      endif
+    endif
+  else
+    if (s < 0.d0) then
+      ! region 2
+      tmp0 = b + d
+      tmp1 = c + e
+      if (tmp1 > tmp0) then ! minimum on edge s+t=1
+        numer = tmp1 - tmp0
+        denom = a - 2.d0*b + c
+        if (numer >= denom) then
+          s = 1.d0
+          t = 0.d0
+          sqrDistance = a + 2.d0*d + f ! GF 20101014 fixed typo 2*b -> 2*d
+        else
+          s = numer/denom
+          t = 1.d0-s
+          sqrDistance = s*(a*s + b*t + 2.d0*d) &
+                      + t*(b*s + c*t + 2.d0*e) + f
+        endif
+      else          ! minimum on edge s=0
+        s = 0.d0
+        if (tmp1 <= 0.d0) then
+          t = 1.d0
+          sqrDistance = c + 2.d0*e + f
+        else
+          if (e >= 0.d0) then
+            t = 0.d0
+            sqrDistance = f
+          else
+            t = -e/c
+            sqrDistance = e*t + f
+          endif
+        endif
+      endif !of region 2
+    else
+      if (t < 0.d0) then
+        !region6
+        tmp0 = b + e
+        tmp1 = a + d
+        if (tmp1 > tmp0) then
+          numer = tmp1 - tmp0
+          denom = a-2.d0*b+c
+          if (numer >= denom) then
+            t = 1.d0
+            s = 0.d0
+            sqrDistance = c + 2.d0*e + f
+          else
+            t = numer/denom
+            s = 1.d0 - t
+            sqrDistance = s*(a*s + b*t + 2.d0*d) &
+                        + t*(b*s + c*t + 2.d0*e) + f
+          endif
+        else
+          t = 0.d0
+          if (tmp1 <= 0) then
+              s = 1.d0
+              sqrDistance = a + 2.d0*d + f
+          else
+            if (d >= 0.d0) then
+                s = 0.d0
+                sqrDistance = f
+            else
+                s = -d/a
+                sqrDistance = d*s + f
+            endif
+          endif
+        endif
+        !end region 6
+      else
+        ! region 1
+        numer = c + e - b - d
+        if (numer <= 0.d0) then
+          s = 0.d0
+          t = 1.d0
+          sqrDistance = c + 2.d0*e + f
+        else
+          denom = a - 2.d0*b + c
+          if (numer >= denom) then
+            s = 1.d0
+            t = 0.d0
+            sqrDistance = a + 2.d0*d + f
+          else
+            s = numer/denom
+            t = 1-s
+            sqrDistance = s*(a*s + b*t + 2.d0*d) &
+                        + t*(b*s + c*t + 2.d0*e) + f
+          endif
+        endif !of region 1
+      endif
+    endif
+  endif
+
+  ! account for numerical round-off error
+  if (sqrDistance < 0.d0) then
+    sqrDistance = 0.d0
+  endif
+
+
+
+  ! closest point on triangle
+  DD = BB + s*EE0 + t*EE1;
+  ! vector from target point to closest point on surface
+  DD = point-DD
+  t = dot_product(DD,normal)
+  if (t >= 0.d0) then
+    pointTriangleDistance2 = dsqrt(sqrDistance)
+  else
+    pointTriangleDistance2 = -dsqrt(sqrDistance)
+  endif
+
+end function
+

@@ -12,7 +12,7 @@ module ini_files_parser_mpi
   ! the generic call "read_param" redirects to these routines, depending on the data
   ! type and the dimensionality. vectors can be read without setting a default.
   interface read_param_mpi
-    module procedure param_dbl_mpi, param_int_mpi, param_vct_mpi, param_str_mpi, param_bool_mpi, param_matrix_mpi
+    module procedure param_dbl_mpi, param_int_mpi, param_vct_mpi, param_str_mpi, param_bool_mpi
   end interface
 
 
@@ -98,13 +98,6 @@ contains
     integer :: mpirank, mpicode
 
     logical :: exists
-
-    ! check if the specified file exists
-    inquire ( file=file, exist=exists )
-    if ( exists .eqv. .false.) then
-      write (*,'("ERROR! file: ",A," not found")') trim(adjustl(file))
-      call MPI_abort(MPI_COMM_WORLD, 86552, mpicode)
-    endif
 
     ! fetch my process id
     call MPI_Comm_rank(MPI_COMM_WORLD, mpirank, mpicode)
@@ -235,51 +228,6 @@ contains
     call MPI_BCAST( params_vector, n, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
   end subroutine param_vct_mpi
 
-
-  !-------------------------------------------------------------------------------
-  ! Fetches a VECTOR VALUED parameter from the PARAMS.ini file.
-  ! Displays what it does on stdout (so you can see whats going on)
-  ! Input:
-  !       PARAMS: the complete *.ini file
-  !       section: the section we're looking for
-  !       keyword: the keyword we're looking for
-  !       defaultvalue: if the we can't find a vector, we return this and warn
-  !       n: length of vector
-  ! Output:
-  !       params_vector: this is the parameter you were looking for
-  !-------------------------------------------------------------------------------
-  subroutine param_matrix_mpi (PARAMS, section, keyword, matrix)
-    implicit none
-    ! Contains the ascii-params file
-    type(inifile), intent(inout) :: PARAMS
-    character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
-    character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    real(kind=pr), allocatable, intent(out) :: matrix(:,:)
-
-    integer :: n,m
-    integer :: mpicode
-    integer :: mpirank
-
-    ! fetch my process id
-    call MPI_Comm_rank(MPI_COMM_WORLD, mpirank, mpicode)
-
-    ! Root rank fetches value from PARAMS.ini file (which is in PARAMS)
-    if (mpirank==0) then
-      call read_param (PARAMS, section, keyword, matrix)
-      n = size(matrix,1)
-      m = size(matrix,2)
-    endif
-
-    ! And then broadcast
-    call MPI_BCAST(  n, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpicode )
-    call MPI_BCAST(  m, 1, MPI_INTEGER, 0, MPI_COMM_WORLD, mpicode )
-
-    if ( .not. allocated(matrix) ) then
-      allocate(matrix(1:n,1:m))
-    endif
-
-    call MPI_BCAST(  matrix, n*m, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  end subroutine param_matrix_mpi
 
     !-------------------------------------------------------------------------------
     ! Fetches a INTEGER VALUED parameter from the PARAMS.ini file.

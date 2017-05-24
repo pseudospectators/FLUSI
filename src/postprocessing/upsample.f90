@@ -55,7 +55,6 @@ subroutine upsample(help)
   call fetch_attributes( fname_in, nx_org, ny_org, nz_org, xl, yl, zl, time, nu )
   write(*,'("Origin resolution= ",3(i4,1x))') nx_org,ny_org,nz_org
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl

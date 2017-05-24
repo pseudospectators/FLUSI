@@ -4,7 +4,6 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   work,scalars,scalars_rhs,Insect,beams)
   use mpi
   use vars
-  use hdf5
   use p3dfft_wrapper
   use solid_model
   use insect_module
@@ -19,14 +18,20 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid), dimension(1), intent(in) :: beams
   type(diptera), intent(in) :: Insect
-
-  character(len=15) :: filename
   character(len=1) :: scalar_id
   real(kind=pr) :: t1
   integer :: error,j  ! error flags
+#ifndef NOHDF5
+  character(len=15) :: filename
+#else
+  character(len=256) :: filename
+  character(len=5) :: suffix
+#endif
 
   t1=MPI_wtime() ! performance diagnostic
 
+#ifndef NOHDF5
+  ! Write backup file with parallel HDF5 support
   if(mpirank == 0) then
     write(*,'(80("~"))')
     write(*,'("Dumping runtime_backup",i1,".h5 (time=",es12.4,") to disk....")') nbackup, time
@@ -40,6 +45,25 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
     ! if all fields are written to one file, we need to initialize the empty file first
     call init_empty_file(filename//".h5")
   endif
+#else
+  ! Write backup files without parallel HDF5 support
+  if(mpirank == 0) then
+    write(*,'(80("~"))')
+    write(*,'("Dumping runtime_backup",i1,".np* (time=",es12.4,") to disk....")') nbackup, time
+  endif
+
+  ! Create current filename:
+  write(filename,'("runtime_backup",i1)') nbackup
+  write(suffix,'(i5.5)') mpirank
+  suffix = trim(adjustl(suffix))
+  filename = trim(adjustl(filename))//'.np'//suffix
+
+  ! Open file for output
+  open(11, file = trim(adjustl(filename)), form='unformatted', access='sequential')
+
+  ! Write attributes
+  write(11) time, dt1, dt0, n1, it, nx, ny, nz
+#endif
 
   ! Write the fluid backup field:
   call ifft(work,ub(:,:,:,1))
@@ -115,6 +139,11 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
     call dump_field_backup(filename,Z_avg,"Z_avg",time,dt0,dt1,n1,it)
   endif
 
+#ifdef NOHDF5
+  ! close backup file
+  close(11)
+#endif
+
   !-------------------------------------------------------------------------
   ! backup for the rigid body solver (free-flight insect)
   !-------------------------------------------------------------------------
@@ -146,68 +175,14 @@ end subroutine dump_runtime_backup
 
 
 !-------------------------------------------------------------------------------
-! This routine dumps a single field "field" as a dataset "dsetname" to
-! a backup file "filename". Attributes are stores in one attribute
-! "bckp" which contains 8 values
-!-------------------------------------------------------------------------------
-subroutine dump_field_backup(filename,field,dsetname,time,dt0,dt1,n1,it)
-  use vars
-  use hdf5_wrapper
-  use helpers
-  implicit none
-
-  integer,intent(in) :: n1,it
-  real(kind=pr), intent (in) :: time,dt1,dt0
-  real(kind=pr),intent(in) :: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  character(len=*), intent (in) :: dsetname, filename
-  real(kind=pr) :: t1, mbyte
-  t1 = MPI_wtime()
-
-  if (backup_type == "one-file-backup") then
-    !---------------------------------------------------------------------------
-    ! all fields go to one HDF5 file
-    !---------------------------------------------------------------------------
-    ! header
-    if (root) then
-      write(*,'("Writing to ",A," dset=",A," ...")',advance='no') filename//".h5", dsetname
-    endif
-
-    call write_field_hdf5( filename//".h5",dsetname, ra, rb, field, overwrite=.false.)
-    call write_attribute( filename//".h5",dsetname,"bckp",&
-    (/time,dt1,dt0,dble(n1),dble(it),dble(nx),dble(ny),dble(nz)/) )
-  else
-    !---------------------------------------------------------------------------
-    ! each field goes to one hdf file
-    !---------------------------------------------------------------------------
-    ! header
-    if (root) then
-      write(*,'("Writing to ",A," dset=",A," ...")',advance='no') &
-      filename//"_"//dsetname//".h5",dsetname
-    endif
-
-    call write_field_hdf5( filename//"_"//dsetname//".h5",dsetname, ra, rb, field, overwrite=.true.)
-    call write_attribute( filename//"_"//dsetname//".h5",dsetname,"bckp",&
-    (/time,dt1,dt0,dble(n1),dble(it),dble(nx),dble(ny),dble(nz)/) )
-  endif
-
-  ! footer
-  t1 = MPI_wtime() - t1
-  mbyte = dble(nx)*dble(ny)*dble(nz)*4.d0/1.0d+6
-  if (root) write(*,'(".. wrote ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') &
-  mbyte, t1, mbyte/t1
-end subroutine dump_field_backup
-
-
-
-
-
-!-------------------------------------------------------------------------------
 ! Load backup data from disk to initialize run for restart
 !-------------------------------------------------------------------------------
 subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,scalars,scalars_rhs)
   use vars
   use p3dfft_wrapper
+#ifndef NOHDF5
   use hdf5_wrapper
+#endif
   implicit none
 
   character(len=*),intent(in) :: filename2
@@ -220,13 +195,19 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
-
   integer :: error  ! Error flag
   integer :: j,nx_file,ny_file,nz_file
   character(len=1) :: scalar_id
-  character(len=15) :: filename
   real(kind=pr), dimension(1:8) :: attributes
+#ifndef NOHDF5
+  character(len=15) :: filename
+#else
+  character(len=256) :: filename
+  character(len=5) :: suffix
+#endif
 
+#ifndef NOHDF5
+  ! Read backup file with parallel HDF5 support
   filename = filename2(1:15) ! "runtime_backup0" or "runtime_backup1"
 
   if(mpirank == 0) then
@@ -253,6 +234,25 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   nx_file = int(attributes(6))
   ny_file = int(attributes(7))
   nz_file = int(attributes(8))
+#else
+  ! Read backup files without parallel HDF5 support
+  if(mpirank == 0) then
+    write(*,'("---------")')
+    write(*,'(A)') "!!! I'm trying to resume a backup file: "//trim(adjustl(filename2))
+  endif
+
+  ! Create current filename:
+  write(suffix,'(i5.5)') mpirank
+  suffix = trim(adjustl(suffix))
+  filename = trim(adjustl(filename2))//'.np'//suffix
+
+  ! Open file for output
+  open(11, file = trim(adjustl(filename)), form='unformatted', access='sequential')
+  call check_file_exists ( filename )
+
+  ! read the attributes
+  read(11) time, dt1, dt0, n1, it, nx_file, ny_file, nz_file
+#endif
 
   if ((nx/=nx_file).or.(ny/=ny_file).or.(nz/=nz_file)) then
     write (*,'(A)') "ERROR! Resolution mismatch"
@@ -333,6 +333,11 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
     call read_field_backup(filename,"Z_avg",Z_avg)
   endif
 
+#ifdef NOHDF5
+  ! close backup file
+  close(11)
+#endif
+
   ! It is important to have explin, because it won't be initialized
   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
   ! are you sure about dt1??? TODO)
@@ -349,36 +354,3 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
 
 end subroutine read_runtime_backup
 
-!-------------------------------------------------------------------------------
-! This routine reads a single field "dsetname" from a backup file
-! "file_id". the field has the attribute "attributes", which is an 8x1
-! array containing scalar backup information
-!-------------------------------------------------------------------------------
-subroutine read_field_backup(filename,dsetname,field)
-  use vars
-  use hdf5_wrapper
-  use basic_operators, only : checknan
-  implicit none
-  real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),intent(out) :: field
-  character(len=*), intent (in) :: dsetname, filename
-  real(kind=pr)::mbyte,t1
-  t1 = MPI_wtime()
-
-  if (mpirank==0) then
-    write(*,'("Reading ",A," from backup file ",A)',advance='no') trim(adjustl(dsetname)),trim(adjustl(filename))
-  endif
-
-  if (backup_type == "one-file-backup") then
-    call read_field_hdf5( filename//".h5", dsetname, ra, rb, field )
-  else
-    call read_field_hdf5( filename//"_"//dsetname//".h5", dsetname, ra, rb, field )
-  endif
-
-  ! check if we read crap
-  call checknan(field,'recently read backup file!!')
-
-  mbyte = dble(nx)*dble(ny)*dble(nz)*8.d0/1.0d+6
-  t1 = MPI_wtime() -t1
-  if (root) write(*,'(".. read ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') &
-  mbyte, t1, mbyte/t1
-end subroutine read_field_backup

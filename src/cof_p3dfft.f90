@@ -103,7 +103,6 @@ subroutine fft_initialize
 
   ! setup a few globals we need throughout the code. the most important information
   ! is the domain size
-  pi = 4.d0*datan(1.d0)
   ! the scaling factors are used to rescale the FFTs (which are defined on a 2*pi
   ! domain). this is important when computing derivatives.
   scalex = 2.d0*pi/xl
@@ -582,7 +581,6 @@ subroutine decomposition_initialize
 
   ! setup a few globals we need throughout the code. the most important information
   ! is the domain size
-  pi = 4.d0*datan(1.d0)
   ! the scaling factors are used to rescale the FFTs (which are defined on a 2*pi
   ! domain). this is important when computing derivatives.
   scalex = 2.d0*pi/xl
