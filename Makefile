@@ -119,7 +119,7 @@ HDF_INC = $(HDF_ROOT)/include
 
 # Common build flags
 LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 
-ifeq ($(HDF5FLAG),yes)
+ifndef NOHDF5
 LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB)
 LDFLAGS += -lhdf5_fortran -lhdf5
 endif
