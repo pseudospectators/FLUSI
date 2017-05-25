@@ -21,6 +21,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   character(len=1) :: scalar_id
   real(kind=pr) :: t1
   integer :: error,j  ! error flags
+  character(len=15) :: filename15
 #ifndef NOHDF5
   character(len=15) :: filename
 #else
@@ -149,8 +150,9 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   !-------------------------------------------------------------------------
   if ((method=="fsi").and.(mpirank==0)) then
     if ((iMask=="Insect").and.(Insect%BodyMotion=="free_flight")) then
-      write (*,'(A)',advance="no") "insect bckp in "//filename//".rigidsolver"
-      open(10, file=filename//".rigidsolver", form='formatted', status='replace')
+      write(filename15,'("runtime_backup",i1)') nbackup
+      write (*,'(A)',advance="no") "insect bckp in "//filename15//".rigidsolver"
+      open(10, file=filename15//".rigidsolver", form='formatted', status='replace')
       write(10, *) time, Insect%STATE, Insect%RHS_old, Insect%RHS_this
       close(10)
     endif
@@ -179,6 +181,7 @@ end subroutine dump_runtime_backup
 !-------------------------------------------------------------------------------
 subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,scalars,scalars_rhs)
   use vars
+  use mpi
   use p3dfft_wrapper
 #ifndef NOHDF5
   use hdf5_wrapper
@@ -238,29 +241,24 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   ! Read backup files without parallel HDF5 support
   if(mpirank == 0) then
     write(*,'("---------")')
-    write(*,'(A)') "!!! I'm trying to resume a backup file: "//trim(adjustl(filename2))
+    write(*,'(A)') "!!! I'm trying to resume a backup file: "//filename2(1:15)
   endif
-
   ! Create current filename:
   write(suffix,'(i5.5)') mpirank
   suffix = trim(adjustl(suffix))
-  filename = trim(adjustl(filename2))//'.np'//suffix
-
+  filename = filename2(1:15)//'.np'//suffix
   ! Open file for output
-  open(11, file = trim(adjustl(filename)), form='unformatted', access='sequential')
-  call check_file_exists ( filename )
-
+  call check_file_exists ( trim(adjustl(filename)) )
+  open(11, file = trim(adjustl(filename)), form='unformatted', access='sequential', status='old')
   ! read the attributes
   read(11) time, dt1, dt0, n1, it, nx_file, ny_file, nz_file
 #endif
-
   if ((nx/=nx_file).or.(ny/=ny_file).or.(nz/=nz_file)) then
     write (*,'(A)') "ERROR! Resolution mismatch"
     write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
     write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nx_file,ny_file,nz_file
     call abort(77776)
   endif
-
   ! Read fluid backup field:
   call read_field_backup(filename,"ux",work)
   call fft(uk(:,:,:,1),work)
@@ -281,7 +279,6 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   call fft(nlk(:,:,:,2,1),work)
   call read_field_backup(filename,"nlkz1",work)
   call fft(nlk(:,:,:,3,1),work)
-
   if(method == "mhd") then
     ! Read MHD backup field:
     call read_field_backup(filename,"bx",work)
@@ -332,12 +329,10 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   if((method=="fsi").and.(time_avg=="yes").and.(enstrophy_avg=="yes")) then
     call read_field_backup(filename,"Z_avg",Z_avg)
   endif
-
 #ifdef NOHDF5
   ! close backup file
   close(11)
 #endif
-
   ! It is important to have explin, because it won't be initialized
   ! if both time steps dt0 and dt1 match so we compute it here (TOMMY:
   ! are you sure about dt1??? TODO)

@@ -16,8 +16,9 @@ subroutine save_field_hdf5(time,filename,field_out)
   integer :: sz_out(1:3) ! local array size
   character(len=5) :: suffix
   character(len=256) :: fullname
-
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
+  integer :: mpicode
+
   t1 = MPI_wtime()
  
   !--Set up file name
@@ -37,6 +38,7 @@ subroutine save_field_hdf5(time,filename,field_out)
     close (10)
   endif
 
+  call MPI_barrier(MPI_COMM_WORLD,mpicode)
   time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
 end subroutine save_field_hdf5
 
@@ -58,6 +60,7 @@ subroutine Read_Single_File ( filename, field )
   integer :: sz_out(1:3) ! local array size
   character(len=5) :: suffix
   character(len=256) :: fullname
+  integer :: mpicode
 
   !--Set up file name
   write(suffix,'(i5.5)') mpirank
@@ -87,7 +90,8 @@ subroutine Read_Single_File ( filename, field )
     read (10,rec=1) field
     close (10)
   endif
-  
+
+  call MPI_barrier(MPI_COMM_WORLD,mpicode)  
   if (mpirank==0) then
     write (*,'("...DONE! ")',advance='yes')
   endif
@@ -110,17 +114,20 @@ subroutine dump_field_backup(filename,field,dsetname,time,dt0,dt1,n1,it)
   real(kind=pr),intent(in) :: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   character(len=*), intent (in) :: dsetname, filename
   real(kind=pr) :: t1, mbyte
+  integer :: mpicode
+
   t1 = MPI_wtime()
 
   if (rb(3)-ra(3)+1 > 0) then
     if (root) then
-      write(*,'("Writing to ",A," dset=",A," ...")',advance='no') filename, dsetname
+      write(*,'("Writing to ",A," dset=",A," ...")',advance='no') trim(adjustl(filename)), trim(adjustl(dsetname))
     endif
 
     write(11) field
   endif
 
   ! footer
+  call MPI_barrier(MPI_COMM_WORLD,mpicode)
   t1 = MPI_wtime() - t1
   mbyte = dble(nx)*dble(ny)*dble(nz)*4.d0/1024.0d0/1024.0d0
   if (root) write(*,'(".. wrote ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') &
@@ -137,9 +144,12 @@ subroutine read_field_backup(filename,dsetname,field)
   use vars
   use basic_operators, only : checknan
   implicit none
+
   real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),intent(out) :: field
   character(len=*), intent (in) :: dsetname, filename
   real(kind=pr)::mbyte,t1
+  integer :: mpicode
+
   t1 = MPI_wtime()
 
   if (rb(3)-ra(3)+1 > 0) then
@@ -151,6 +161,8 @@ subroutine read_field_backup(filename,dsetname,field)
 !    call checknan(field,'recently read backup file!!')
   endif
 
+  ! footer
+  call MPI_barrier(MPI_COMM_WORLD,mpicode)
   mbyte = dble(nx)*dble(ny)*dble(nz)*8.d0/1024.0d0/1024.0d0
   t1 = MPI_wtime() -t1
   if (root) write(*,'(".. read ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') &
