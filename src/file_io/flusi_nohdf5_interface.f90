@@ -32,7 +32,7 @@ subroutine save_field_hdf5(time,filename,field_out)
   sz_out(3) = rb(3)-ra(3) +1
 
   ! Write Fortran binary file
-  if (sz_out(3) > 0) then ! real 2D fields are only allocated on some of the mpi ranks
+  if (sz_out(3) > 0) then ! fields with nz==1 are only allocated on some of the mpi ranks
     open(10, file = trim(adjustl(fullname)), form='unformatted', access='direct', recl=sz_out(1)*sz_out(2)*sz_out(3)*pr)
     write (10,rec=1) field_out
     close (10)
