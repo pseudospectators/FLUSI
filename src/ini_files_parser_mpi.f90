@@ -97,8 +97,6 @@ contains
     logical, intent(in) :: verbose
     integer :: mpirank, mpicode
 
-    logical :: exists
-
     ! fetch my process id
     call MPI_Comm_rank(MPI_COMM_WORLD, mpirank, mpicode)
 
