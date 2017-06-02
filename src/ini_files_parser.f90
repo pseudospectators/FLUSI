@@ -44,7 +44,7 @@ module ini_files_parser
   ! the generic call "read_param" redirects to these routines, depending on the data
   ! type and the dimensionality. vectors can be read without setting a default.
   interface read_param
-    module procedure param_sgl, param_dbl, param_int, param_vct, param_str, param_bool, param_matrix
+    module procedure param_sgl, param_dbl, param_int, param_vct, param_str, param_bool
   end interface
 
 
@@ -508,126 +508,6 @@ contains
     endif
   end subroutine param_bool
 
-
-  !-------------------------------------------------------------------------------
-  ! Fetches a MATRIX VALUED parameter from the PARAMS.ini file.
-  ! Displays what it does on stdout (so you can see whats going on)
-  ! Input:
-  !       PARAMS: the complete *.ini file
-  !       section: the section we're looking for
-  !       keyword: the keyword we're looking for
-  !       defaultvalue: if the we can't find the parameter, we return this and warn
-  ! Output:
-  !       params_int: this is the parameter you were looking for
-  !-------------------------------------------------------------------------------
-  subroutine param_matrix(PARAMS, section, keyword, matrix)
-    implicit none
-    ! Contains the ascii-params file
-    type(inifile), intent(inout) :: PARAMS
-    character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
-    character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    real(kind=pr), allocatable, intent(out) :: matrix(:,:)
-    character(len=maxcolumns) ::  value    ! returns the value
-    integer :: i, j, matrixcols, matrixlines
-    integer :: index1, index2
-    logical :: foundsection
-
-    foundsection = .false.
-    value = ''
-
-    if (allocated(matrix)) then
-      write(*,*) "INIFILES: ERROR: matrix already allocated"
-      stop
-    end if
-
-    !-- loop over the lines of PARAMS.ini file
-    do i=1, PARAMS%nlines
-      !-- ignore commented lines completely, if first non-blank character is one of #,!,;,%
-      if ((PARAMS%PARAMS(i)(1:1).ne.'#').and.(PARAMS%PARAMS(i)(1:1).ne.';').and.&
-      (PARAMS%PARAMS(i)(1:1).ne.'!').and.(PARAMS%PARAMS(i)(1:1).ne.'%')) then
-
-      !-- does this line contain the "[section]" statement?
-      if (index(PARAMS%PARAMS(i),'['//section//']')==1) then
-        ! yes, it does
-        foundsection = .true.
-      elseif (PARAMS%PARAMS(i)(1:1) == '[') then
-        ! we're already at the next section mark, so we left the section we
-        ! were looking for again
-        foundsection = .false.
-      endif
-
-      !-- we're inside the section we want
-      if (foundsection) then
-        ! for a matrix, prototype is
-        ! [SECTION]
-        ! keyword=(/1 2 3 4
-        ! 4 5 6 7
-        ! 9 9 9 9/);
-
-        ! does this line contain the beginning of the keyword we're looking for ?
-        if (index(PARAMS%PARAMS(i),keyword//'=(/')==1) then
-          ! yes, it does.
-          index1 = index(PARAMS%PARAMS(i),'=(/')+1
-          index2 = len_trim( PARAMS%PARAMS(i) )
-
-          ! first we check how many columns we have, by looping over the first line
-          ! containing the =(/ substring
-          matrixcols = 1
-          do j = index1+1, index2-1
-            ! count elements in the line by counting the separating spaces
-            if (PARAMS%PARAMS(i)(j:j) == " ") then
-              matrixcols = matrixcols + 1
-            end if
-          enddo
-
-
-          ! now count lines in array, loop until you find /) substring (or = substring)
-          matrixlines = 0
-          do j = i, PARAMS%nlines
-            matrixlines = matrixlines +1
-            if (index(PARAMS%PARAMS(j),"/)") /= 0) then
-              ! we found the terminal line of the matrix statement
-              exit
-            elseif (index(PARAMS%PARAMS(j),"=") /= 0 .and. j>i) then
-              ! a = would mean we skipped past the matrix definition to the next variable..
-              write(*,*) "INIFILES: ERROR: invalid ini matrix (code 767626201)"
-              stop
-            end if
-          end do
-
-          allocate( matrix(1:matrixlines,1:matrixcols) )
-
-
-          do j = i, i+matrixlines-1
-            if ( j == i ) then
-              ! first line
-              index1 = index(PARAMS%PARAMS(j),"(/")+2
-              index2 = len_trim(PARAMS%PARAMS(j))
-            elseif (j == i+matrixlines-1) then
-              ! last line
-              index1 = 1
-              index2 = index(PARAMS%PARAMS(j),"/)")-1
-            else
-              ! interior lines
-              index1 = 1
-              index2 = len_trim(PARAMS%PARAMS(j))
-            endif
-
-            read( PARAMS%PARAMS(j)(index1:index2), * ) matrix(j-i+1,:)
-          enddo
-
-          exit ! loop over lines
-        endif ! found first line
-      endif ! found section
-    end if
-    end do ! loop over lines
-
-
-  ! in verbose mode, inform about what we did
-  if (verbosity) then
-    write(*,'("read ",A,"::",A," as Matrix of size ",i4," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
-  endif
-end subroutine param_matrix
 
 
   !-------------------------------------------------------------------------------

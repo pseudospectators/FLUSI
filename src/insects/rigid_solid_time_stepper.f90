@@ -288,9 +288,10 @@ subroutine rigid_solid_init(time, Insect)
     ! resuming the rigid solid solver from a backup
     if (mpirank==0) then
       write(*,*) "Rigid solid solver is resuming from backup..."
-      write(*,*) inicond(9:len_trim(inicond))//".rigidsolver"
+      ! File name can be either runtime_backup0 or runtime_backup1
+      write(*,*) inicond(9:23)//".rigidsolver"
 
-      open(10,file=inicond(9:len_trim(inicond))//".rigidsolver",form='formatted', status='old')
+      open(10,file=inicond(9:23)//".rigidsolver",form='formatted', status='old')
       read(10,*) Insect%time, Insect%STATE, Insect%RHS_old, Insect%RHS_this
       close(10)
       write(*,*) "backup was at time ", Insect%time

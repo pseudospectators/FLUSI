@@ -87,6 +87,7 @@ program FLUSI
     real(kind=pr)          :: t1,t2
     real(kind=pr)          :: time,dt0,dt1,memory, mem_field
     integer                :: n0=0,n1=1,it
+    integer                :: mpicode
     character (len=strlen)     :: infile
     ! Arrays needed for simulation
     real(kind=pr),dimension(:,:,:,:),allocatable :: explin
@@ -359,6 +360,8 @@ program FLUSI
     !-----------------------------------------------------------------------------
     ! Deallocate memory
     !-----------------------------------------------------------------------------
+    ! All processes should reach this point before the arrays are deallocated
+    call MPI_barrier(MPI_COMM_WORLD,mpicode)
     deallocate(lin)
     deallocate(explin)
     deallocate(vort,work,workc)

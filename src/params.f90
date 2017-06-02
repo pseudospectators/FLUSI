@@ -51,7 +51,9 @@ end subroutine get_params
 subroutine get_params_common(PARAMS)
   use ini_files_parser_mpi
   use vars
+#ifndef NOHDF5
   use hdf5_wrapper
+#endif
   implicit none
   character(len=strlen) :: dummystr
   ! Contains the ascii-params file
@@ -190,6 +192,8 @@ subroutine get_params_common(PARAMS)
   ! ----------------------------------------------------------------------------
   ! automatic backup resuming...
   ! ----------------------------------------------------------------------------
+  ! automatic file selection only implemented for HDF5 restart files
+#ifndef NOHDF5
   if (inicond == "backup") then
     if (root) then
       write(*,'(80("$"))')
@@ -230,11 +234,10 @@ subroutine get_params_common(PARAMS)
     if (root) write(*,*) "it is at time=", max(time1,time2)
     if (root) write(*,*) "resuming "//trim(adjustl(inicond))
   endif
-
+#endif
 
 
   ! Set other parameters (all procs)
-  pi=4.d0 *datan(1.d0)
   ! scaling for FFTs
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl

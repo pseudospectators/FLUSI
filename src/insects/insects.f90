@@ -9,7 +9,6 @@ module insect_module
   use vars
   use helpers
   ! we need this only for the body shape "pyramid", where we use point-triangle-distance function
-  use stl_file_reader
   implicit none
 
   ! this will hold the surface markers and their normals used for particles:

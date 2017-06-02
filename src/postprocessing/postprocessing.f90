@@ -228,7 +228,6 @@ subroutine max_over_x(help)
 
   call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu )
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl
@@ -313,7 +312,6 @@ subroutine mean_over_x_subdomain(help)
 
   call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu )
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl
@@ -450,7 +448,6 @@ subroutine ux_from_uyuz(help)
 
   call fetch_attributes( fname_uy, nx, ny, nz, xl, yl, zl, time, nu )
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl
@@ -638,7 +635,6 @@ subroutine post_smooth_mask(help)
   call check_file_exists( infile )
   call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu )
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl
