@@ -759,12 +759,14 @@ subroutine helicity_norm(u,vor,hel)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
         ! normalization is product of norms
-        norm = dsqrt(u(ix,iy,iz,1)**2 + u(ix,iy,iz,2)**2 + u(ix,iy,iz,3)**2) &
-             * dsqrt(vor(ix,iy,iz,1)**2 + vor(ix,iy,iz,2)**2 + vor(ix,iy,iz,3)**2)
-        ! helicity is scalar product of u and vorticity
-        hel(ix,iy,iz) = (u(ix,iy,iz,1)*vor(ix,iy,iz,1) &
-                      +  u(ix,iy,iz,2)*vor(ix,iy,iz,2) &
-                      +  u(ix,iy,iz,3)*vor(ix,iy,iz,3)) / norm
+        norm = norm2( u(ix,iy,iz,:) ) * norm2( vor(ix,iy,iz,:) )
+
+        if (norm >= 1.0d-5) then
+          ! helicity is scalar product of u and vorticity
+          hel(ix,iy,iz) = (u(ix,iy,iz,1)*vor(ix,iy,iz,1) &
+                        +  u(ix,iy,iz,2)*vor(ix,iy,iz,2) &
+                        +  u(ix,iy,iz,3)*vor(ix,iy,iz,3)) / norm
+        endif
       enddo
     enddo
   enddo

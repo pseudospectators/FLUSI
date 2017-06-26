@@ -70,9 +70,9 @@ type diptera
   ! STATE(8) : 2nd component of body quaternion
   ! STATE(9) : 3rd component of body quaternion
   ! STATE(10) : 4th component of body quaternion
-  ! STATE(11) : x-angular velocity of body
-  ! STATE(12) : y-angular velocity of body
-  ! STATE(13) : z-angular velocity of body
+  ! STATE(11) : x-angular velocity of body (in body system)
+  ! STATE(12) : y-angular velocity of body (in body system)
+  ! STATE(13) : z-angular velocity of body (in body system)
   ! STATE(14) : 1st component of left wing quaternion
   ! STATE(15) : 2nd component of left wing quaternion
   ! STATE(16) : 3rd component of left wing quaternion
@@ -106,8 +106,16 @@ type diptera
   integer :: nfft_wings
   logical :: wingsetup_done = .false.
   logical :: wings_radius_table_ready = .false.
+  ! wing bounding box (xmin, xmax, ymin, ymax, zmin, zmax)
+  real(kind=pr) :: wing_bounding_box(1:6) = 0.d0
   ! wing inertia
   real(kind=pr) :: Jxx,Jyy,Jzz,Jxy
+  character(len=strlen) :: wing_thickness_distribution = "constant"
+  ! a non-constant thickness is stored here:
+  real(kind=pr), allocatable, dimension(:,:) :: wing_thickness_profile
+  ! wing corrugation (i.e. the deviation from a flat wing)
+  logical :: corrugated
+  real(kind=pr), allocatable, dimension(:,:) :: corrugation_profile
 
   !--------------------------------------------------------------
   ! Wing kinematics

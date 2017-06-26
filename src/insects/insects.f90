@@ -10,6 +10,11 @@ module insect_module
   use helpers
   ! we need this only for the body shape "pyramid", where we use point-triangle-distance function
   use stl_file_reader
+  ! we need this to read from ini files
+  use ini_files_parser_mpi
+  ! we need this to interpolate wing thickness and corrugation
+  use interpolation
+
   implicit none
 
   ! this will hold the surface markers and their normals used for particles:
@@ -221,6 +226,8 @@ contains
     ! print some important numbers, routine exectutes only once during a simulation
     call print_insect_reynolds_numbers( Insect )
 
+    ! this is a debug test, which suceeded.
+    !call check_if_us_is_derivative_of_position_wingtip(time, Insect)
   end subroutine Draw_Insect
 
 
@@ -903,5 +910,62 @@ contains
     if (root) write(*,'(21(es12.4,1x))') time,Insect%STATE
     deallocate (data)
   end subroutine
+
+
+  ! this routine computes  the wingteip velocity in the global system by two means:
+  ! one we compute the global position vector (which we derive wrt time in postprocessing)
+  ! and once the cross-products of rotation ang velocities as it is done in the actual code.
+  ! we checked: both agree, also with imposed body velocity.
+  subroutine check_if_us_is_derivative_of_position_wingtip(time, Insect)
+    real(kind=pr), intent(in) :: time
+    type(diptera), intent(inout) :: Insect
+
+    real(kind=pr) :: M_body(1:3,1:3), M_wing_r(1:3,1:3), x_tip_w(1:3), x_tip_b(1:3), x_tip_g(1:3), &
+      us_tip_g(1:3), v_tmp(1:3), v_tmp_b(1:3)
+    real(kind=pr)::xd,yd,zd
+    real(kind=pr)::c00,c10,c01,c11,c0,c1
+    integer :: ix,iy,iz
+
+    call body_rotation_matrix( Insect, M_body )
+    call wing_right_rotation_matrix( Insect, M_wing_r )
+    ! body angular velocity vector in b/g coordinate system
+    call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g, M_body )
+    ! rel+abs wing angular velocities in the w/b/g coordinate system
+    call wing_angular_velocities ( time, Insect, M_body )
+
+    x_tip_w = (/ 1.0d0, 1.0d0, 1.0d0 /)
+    x_tip_b = matmul( transpose(M_wing_r), x_tip_w ) + Insect%x_pivot_r
+    x_tip_g = matmul( transpose(M_body), x_tip_b ) + Insect%xc_body_g
+
+    !-----------------------------------------------------------------------------
+    ! now we extrcat how the us field is constructed
+    v_tmp(1) = Insect%rot_rel_wing_r_w(2)*x_tip_w(3)-Insect%rot_rel_wing_r_w(3)*x_tip_w(2)
+    v_tmp(2) = Insect%rot_rel_wing_r_w(3)*x_tip_w(1)-Insect%rot_rel_wing_r_w(1)*x_tip_w(3)
+    v_tmp(3) = Insect%rot_rel_wing_r_w(1)*x_tip_w(2)-Insect%rot_rel_wing_r_w(2)*x_tip_w(1)
+    v_tmp_b = matmul(transpose(M_wing_r), v_tmp) ! in body system
+
+
+    ! translational part. we compute the rotational part in the body
+    ! reference frame, therefore, we must transform the body translation
+    ! velocity Insect%vc (which is in global coordinates) to the body frame
+    v_tmp = matmul(M_body,Insect%vc_body_g)
+
+    ! add solid body rotation to the translational velocity field. Note
+    ! that rot_body_b and x_body are in the body reference frame
+    v_tmp(1) = v_tmp(1) + Insect%rot_body_b(2)*x_tip_b(3)-Insect%rot_body_b(3)*x_tip_b(2)
+    v_tmp(2) = v_tmp(2) + Insect%rot_body_b(3)*x_tip_b(1)-Insect%rot_body_b(1)*x_tip_b(3)
+    v_tmp(3) = v_tmp(3) + Insect%rot_body_b(1)*x_tip_b(2)-Insect%rot_body_b(2)*x_tip_b(1)
+
+    ! the body motion is added to the wing motion, which is already in us
+    ! and they are also in the body refrence frame. However, us has to be
+    ! in the global reference frame, so M_body_inverse is applied
+    us_tip_g = matmul( transpose(M_body), v_tmp_b + v_tmp )
+
+    open(14,file='debug_wing_us.t',status='unknown',position='append')
+    write (14,'(7(es15.8,1x))') time, x_tip_g, us_tip_g
+    close(14)
+
+  end subroutine
+
 
 end module

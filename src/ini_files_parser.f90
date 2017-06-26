@@ -25,7 +25,7 @@ module ini_files_parser
   ! maximum width of parameter file. note we have very long lines if we read long
   ! arrays, as it happens for example when we read fourier coefficients for insect
   ! kinematics
-  integer, parameter :: maxcolumns=1024
+  integer, parameter :: maxcolumns=4096
 
   ! is set to true, we'll produce some output on the screen (for documentation of runs)
   ! the flag is set with the read_ini_file routine
@@ -210,7 +210,24 @@ contains
       read (14,'(A)',iostat=io_error) line
       ! if we're not yet at EoF
       if (io_error == 0) then
-        PARAMS%PARAMS(i) = adjustl(line)
+
+        !-----------------------------------------------------------------------
+        ! Preprocessing of ini file
+        !-----------------------------------------------------------------------
+        ! remove leading spaces
+        line = adjustl(line)
+
+        ! remove everthing after ";", if it occurs ( comments )
+        if (index(line,";") /= 0) then
+          line( index(line,";")+1:len_trim(line) ) = " "
+        endif
+
+        ! remove commented lines completely
+        if (line(1:1) == ";" .or. line(1:1) == "!" .or. line(1:1) == "#" .or. line(1:1) == "%") then
+          line = " "
+        endif
+
+        PARAMS%PARAMS(i) = line
         i = i+1
       endif
     enddo
@@ -567,15 +584,17 @@ contains
         ! does this line contain the beginning of the keyword we're looking for ?
         if (index(PARAMS%PARAMS(i),keyword//'=(/')==1) then
           ! yes, it does.
-          index1 = index(PARAMS%PARAMS(i),'=(/')+1
+          index1 = index(PARAMS%PARAMS(i),'=(/')+3
           index2 = len_trim( PARAMS%PARAMS(i) )
+          ! remove spaces between (/     and values
+          value = adjustl(PARAMS%PARAMS(i)(index1:index2))
 
           ! first we check how many columns we have, by looping over the first line
           ! containing the =(/ substring
           matrixcols = 1
-          do j = index1+1, index2-1
+          do j = 1, len_trim(value)
             ! count elements in the line by counting the separating spaces
-            if (PARAMS%PARAMS(i)(j:j) == " ") then
+            if ( value(j:j) == " " ) then
               matrixcols = matrixcols + 1
             end if
           enddo
@@ -612,8 +631,9 @@ contains
               index1 = 1
               index2 = len_trim(PARAMS%PARAMS(j))
             endif
-
-            read( PARAMS%PARAMS(j)(index1:index2), * ) matrix(j-i+1,:)
+            ! remove leading spaces, then read
+            value = adjustl(PARAMS%PARAMS(j)(index1:index2))
+            read( value, * ) matrix(j-i+1,:)
           enddo
 
           exit ! loop over lines
@@ -625,7 +645,7 @@ contains
 
   ! in verbose mode, inform about what we did
   if (verbosity) then
-    write(*,'("read ",A,"::",A," as Matrix of size ",i4," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
+    write(*,'(" read ",A,"::",A," as Matrix of size ",i4," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
   endif
 end subroutine param_matrix
 
@@ -659,6 +679,8 @@ end subroutine param_matrix
     !-- loop over the lines of PARAMS.ini file
     do i=1, PARAMS%nlines
       !-- ignore commented lines completely, if first non-blank character is one of #,!,;,%
+      ! shouldn't happen anymore since inifile-preprocessing while reading should
+      ! directly skip these lines..
       if ((PARAMS%PARAMS(i)(1:1).ne.'#').and.(PARAMS%PARAMS(i)(1:1).ne.';').and.&
       (PARAMS%PARAMS(i)(1:1).ne.'!').and.(PARAMS%PARAMS(i)(1:1).ne.'%')) then
 
@@ -679,7 +701,7 @@ end subroutine param_matrix
             ! found "keyword=" in this line, as well as the delimiter ";"
             index1 = index(PARAMS%PARAMS(i),'=')+1
             index2 = index(PARAMS%PARAMS(i),';')-1
-            value = PARAMS%PARAMS(i)(index1:index2)
+            value = adjustl(PARAMS%PARAMS(i)(index1:index2))
             exit ! leave do loop
           else
             ! found "keyword=" in this line, but delimiter ";" is missing.
