@@ -25,7 +25,7 @@ module ini_files_parser
   ! maximum width of parameter file. note we have very long lines if we read long
   ! arrays, as it happens for example when we read fourier coefficients for insect
   ! kinematics
-  integer, parameter :: maxcolumns=4096
+  integer, parameter :: maxcolumns=16834
 
   ! is set to true, we'll produce some output on the screen (for documentation of runs)
   ! the flag is set with the read_ini_file routine
@@ -585,6 +585,7 @@ contains
         if (index(PARAMS%PARAMS(i),keyword//'=(/')==1) then
           ! yes, it does.
           index1 = index(PARAMS%PARAMS(i),'=(/')+3
+          ! remove trailing spaces.
           index2 = len_trim( PARAMS%PARAMS(i) )
           ! remove spaces between (/     and values
           value = adjustl(PARAMS%PARAMS(i)(index1:index2))

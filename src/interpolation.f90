@@ -180,13 +180,12 @@ real (kind=pr) function delta(x,dx1)
 end function
 
 
-real (kind=pr) function interp2_nonper (x_target, y_target, field2, axis )!x1_box, y1_box, x2_box, y2_box )
+real (kind=pr) function interp2_nonper (x_target, y_target, field2, axis)
 !  LINEAR Interpolation in a field. The field is of automatic size, indices starting with 0 both. The domain is
 !  defined by x1_box,y1_box and x2_box,y2_box. The target coordinates should lie within that box.
 !  NOTE: attention on the upper point of the box. In the rest of the code, which is periodic, the grid is 0:nx-1
 !        but the lattice spacing is yl/nx. This means that the point (nx-1) has NOT the coordinate yl but yl-dx
 !        (otherwise this point would exist two times!)
-!  NOTE3: Coordinates in the box are a constant source for errors. be careful and note that x1_box is NOT ZERO
   use vars, only : pr
   implicit none
   integer :: i,j
@@ -205,17 +204,13 @@ real (kind=pr) function interp2_nonper (x_target, y_target, field2, axis )!x1_bo
 
 
   if ( (x_target > x2_box).or.(x_target < x1_box).or.(y_target > y2_box).or.(y_target < y1_box) ) then
-    ! write(*,'("target: (",es11.4,"|",es11.4,") but box: (",es11.4,"|",es11.4,") x (",es11.4,"|",es11.4,")")') &
-    ! x_target, y_target, x1_box, y1_box, x2_box, y2_box
-    ! write (*,*) "!!! LinearInterpolation: target coordinates not in the field."
-    ! stop
+    ! return zero if point lies outside valid bounds
     interp2_nonper = 0.0d0
     return
   endif
 
-  i = int((x_target-x1_box)/dx)  ! attention on index shift because of automatic array
+  i = int((x_target-x1_box)/dx)
   j = int((y_target-y1_box)/dy)
-
 
   x_1 = dble(i)*dx + x1_box
   y_1 = dble(j)*dy + y1_box
@@ -225,8 +220,6 @@ real (kind=pr) function interp2_nonper (x_target, y_target, field2, axis )!x1_bo
   R2 = (x_2-x_target)*field2(i,j+1)/dx + (x_target-x_1)*field2(i+1,j+1)/dx
 
   interp2_nonper = (y_2-y_target)*R1/dy + (y_target-y_1)*R2/dy
-
-  return
 
 end function interp2_nonper
 

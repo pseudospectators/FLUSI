@@ -1099,7 +1099,7 @@ subroutine set_wing_bounding_box_fourier( Insect )
     ! and indeed rotates in positve z-direction. That means in the plane
     !
     !  ^ x_wing
-    !  '
+    !  |
     !  o-------> y_wing
     !
     ! It rotates CLOCKWISE, starting from the x_wing axis (zero is the x-axis, vertical)
