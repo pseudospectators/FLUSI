@@ -561,7 +561,8 @@ if (mpirank/=0) return
     close (14)
 
     open  (14,file='u_residual.t',status='replace')
-    write (14,'(2(A15,1x))') "%          time","u_residual"
+    write (14,'(7(A15,1x))') "%          time","u_res_color0","u_res_color1",&
+    "u_res_color2","u_res_color3","u_res_color4","u_res_color5"
     close (14)
 
     open  (14,file='energy.t',status='replace')

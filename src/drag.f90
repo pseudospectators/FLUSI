@@ -32,7 +32,7 @@ subroutine cal_drag ( time, u, Insect )
   real(kind=pr),dimension(0:5) :: torquex0,torquey0,torquez0
   real(kind=pr) :: xc(1:3)
   ! power (flux of energy)
-  real(kind=pr) :: power,powerx,powery,powerz, u_residual, u_residual_glob
+  real(kind=pr) :: power,powerx,powery,powerz, u_residual(0:5), u_residual_glob(0:5)
   real(kind=pr) :: dux, duy, duz
   character(len=strlen) :: forcepartfilename
 
@@ -68,17 +68,17 @@ subroutine cal_drag ( time, u, Insect )
         penaly = -mask(ix,iy,iz) * duy
         penalz = -mask(ix,iy,iz) * duz
 
+        ! what color does the point have?
+        color = mask_color(ix,iy,iz)
+
         ! if we're inside the mask, we check the residual velocity, that means
         ! the minimum of mag(u-us). It should be close to eps (penalization parameter)
         ! if it is too large, it implies that penalization is too weak: either C_eta should
         ! be decreased or the obstacle must be thicker. The latter is relevant for thin structures
         ! like insect wings
         if (mask(ix,iy,iz) > 0.d0) then
-          u_residual = min( u_residual, dux**2 + duy**2 + duz**2)
+          u_residual(color) = min( u_residual(color), dux**2 + duy**2 + duz**2)
         endif
-
-        ! what color does the point have?
-        color = mask_color(ix,iy,iz)
 
         ! integrate forces + torques (note sign inversion!)
         forcex(color) = forcex(color) - penalx
@@ -164,7 +164,7 @@ subroutine cal_drag ( time, u, Insect )
   call MPI_ALLREDUCE ( powerz,GlobalIntegrals%penalization_power_z,1,&
   MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
-  call MPI_ALLREDUCE ( u_residual,u_residual_glob,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
+  call MPI_ALLREDUCE ( u_residual,u_residual_glob,6,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
 
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
@@ -247,7 +247,7 @@ subroutine cal_drag ( time, u, Insect )
 
     ! save residual velocity, see above comment
     open(14,file='u_residual.t',status='unknown',position='append')
-    write (14,'(13(es15.8,1x))') time, sqrt(u_residual_glob)
+    write (14,'(7(es15.8,1x))') time, sqrt(u_residual_glob(0:5))
     close(14)
 
   endif
