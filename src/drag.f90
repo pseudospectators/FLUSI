@@ -32,7 +32,8 @@ subroutine cal_drag ( time, u, Insect )
   real(kind=pr),dimension(0:5) :: torquex0,torquey0,torquez0
   real(kind=pr) :: xc(1:3)
   ! power (flux of energy)
-  real(kind=pr) :: power,powerx,powery,powerz
+  real(kind=pr) :: power,powerx,powery,powerz, u_residual, u_residual_glob
+  real(kind=pr) :: dux, duy, duz
   character(len=strlen) :: forcepartfilename
 
   if (iPenalization/=1) return
@@ -49,6 +50,7 @@ subroutine cal_drag ( time, u, Insect )
   powerx = 0.d0
   powery = 0.d0
   powerz = 0.d0
+  u_residual = 9.0d9
 
   !---------------------------------------------------------------------------
   ! loop over penalization term (this saves a work array)
@@ -56,10 +58,24 @@ subroutine cal_drag ( time, u, Insect )
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
+        ! velocity difference
+        dux = u(ix,iy,iz,1)-us(ix,iy,iz,1)
+        duy = u(ix,iy,iz,2)-us(ix,iy,iz,2)
+        duz = u(ix,iy,iz,3)-us(ix,iy,iz,3)
+
         ! actual penalization term
-        penalx = -mask(ix,iy,iz)*(u(ix,iy,iz,1)-us(ix,iy,iz,1))
-        penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
-        penalz = -mask(ix,iy,iz)*(u(ix,iy,iz,3)-us(ix,iy,iz,3))
+        penalx = -mask(ix,iy,iz) * dux
+        penaly = -mask(ix,iy,iz) * duy
+        penalz = -mask(ix,iy,iz) * duz
+
+        ! if we're inside the mask, we check the residual velocity, that means
+        ! the minimum of mag(u-us). It should be close to eps (penalization parameter)
+        ! if it is too large, it implies that penalization is too weak: either C_eta should
+        ! be decreased or the obstacle must be thicker. The latter is relevant for thin structures
+        ! like insect wings
+        if (mask(ix,iy,iz) > 0.d0) then
+          u_residual = min( u_residual, dux**2 + duy**2 + duz**2)
+        endif
 
         ! what color does the point have?
         color = mask_color(ix,iy,iz)
@@ -148,6 +164,7 @@ subroutine cal_drag ( time, u, Insect )
   call MPI_ALLREDUCE ( powerz,GlobalIntegrals%penalization_power_z,1,&
   MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
+  call MPI_ALLREDUCE ( u_residual,u_residual_glob,1,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
 
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
@@ -227,6 +244,12 @@ subroutine cal_drag ( time, u, Insect )
       GlobalIntegrals%Torque_unst
       close(14)
     endif
+
+    ! save residual velocity, see above comment
+    open(14,file='u_residual.t',status='unknown',position='append')
+    write (14,'(13(es15.8,1x))') time, sqrt(u_residual_glob)
+    close(14)
+
   endif
 end subroutine cal_drag
 
