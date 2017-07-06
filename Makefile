@@ -17,7 +17,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	simple_field_operation.f90 time_avg_HDF5.f90 tke_mean.f90 \
 	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90 \
 	extend_domain.f90 basic_file_routines.f90 fractal_trees.f90 convert_to_wing_system.f90 \
-	pressure_force.f90 flusi_hdf5_interface.f90 runtime_backuping.f90 io_test.f90
+	pressure_force.f90 flusi_hdf5_interface.f90 runtime_backuping.f90 io_test.f90 transpose_test.f90
 
 
 # Object and module directory:
@@ -28,13 +28,13 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 MFILES = vars.f90 helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
 	slicing.f90 ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 stlreader.f90 \
-	ini_files_parser_mpi.f90 hdf5_wrapper.f90
+	ini_files_parser_mpi.f90 hdf5_wrapper.f90 wavelet_library.f90
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
 # Source code directories (colon-separated):
 VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
-VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd
+VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd:src/wavelets
 VPATH += :src/insects:src/solid_solver:src/postprocessing:src/file_io
 
 # Set the default compiler if it's not already set, make sure it's not F77.
@@ -57,8 +57,9 @@ FFLAGS += -J$(OBJDIR) # specify directory for modules.
 #FFLAGS += -O3
 PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
-FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
+FFLAGS += -Wuninitialized -fimplicit-none -fbounds-check -g -ggdb
 FFLAGS += -O3
+FFLAGS += -ffpe-trap=zero,overflow,underflow -ffree-line-length-none
 endif
 
 # Intel compiler
@@ -143,6 +144,8 @@ $(OBJDIR)/stlreader.o: stlreader.f90 $(OBJDIR)/vars.o
 $(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/helpers.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
