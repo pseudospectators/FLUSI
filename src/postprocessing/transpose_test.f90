@@ -46,9 +46,13 @@ subroutine transpose_test(help)
   ! ============================================================================
 
   allocate( work1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+  allocate( work2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
   allocate( work3(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
-work1 = 0.d0
-work3 = 0.d0
+
+  work1 = 0.d0
+  work2 = 0.d0
+  work3 = 0.d0
+
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
@@ -60,15 +64,21 @@ work3 = 0.d0
       enddo
     enddo
   enddo
+  work2 = work1
   call save_field_hdf5(0.d0,'in_00.h5',work1)
 
   call setup_coiflet_coefs( 1, wavelet )
-  ! call FWT1_PO( work1(:,1,1), work1(:,2,2), wavelet)
 
-  call FWT3_PO( work1, work3, wavelet )
+  call FWT3_PO( work1, work3, wavelet, 1)
+  call save_field_hdf5(0.d0,'wc_00.h5',wc)
 
-call MPI_barrier(MPI_COMM_WORLD,ix)
-stop
+
+  call IWT3_PO( work3, work1, wavelet, 1)
+  call save_field_hdf5(0.d0,'IWT_00.h5',u)
+  call save_field_hdf5(0.d0,'error_00.h5',work2-work1)
+
+  call MPI_barrier(MPI_COMM_WORLD,ix)
+  stop
 
 
   work3 = work1
