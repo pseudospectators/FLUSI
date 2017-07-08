@@ -226,7 +226,7 @@ contains
         ! ---------------------
         if (mpidims(2) == 1) then
           ! CASE A): index 2 is contiguous and not split among procs.
-          call WaveReconstruction_dim2( wc, nc, wavelet, buffer1, buffer2, buffer3 )
+          call WaveReconstruction_dim2( u, nc, wavelet, buffer1, buffer2, buffer3 )
 
         else
           ! transposition: exchange x-y data

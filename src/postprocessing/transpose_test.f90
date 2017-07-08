@@ -70,13 +70,13 @@ subroutine transpose_test(help)
   call setup_coiflet_coefs( 1, wavelet )
 
   call FWT3_PO( work1, work3, wavelet, 1)
-  call save_field_hdf5(0.d0,'wc_00.h5',wc)
+  call save_field_hdf5(0.d0,'wc_00.h5',work3)
 
 
   call IWT3_PO( work3, work1, wavelet, 1)
-  call save_field_hdf5(0.d0,'IWT_00.h5',u)
+  call save_field_hdf5(0.d0,'IWT_00.h5',work1)
   call save_field_hdf5(0.d0,'error_00.h5',work2-work1)
-
+    write(*,*) "error:", maxval(work2-work1)
   call MPI_barrier(MPI_COMM_WORLD,ix)
   stop
 
