@@ -530,12 +530,14 @@ real(kind=pr) function Radius_Fourier(theta,Insect)
   n_radius = 25000
   dphi = (2.d0*pi) / (dble(n_radius-1))
 
+
   ! evaluate the entire R(theta) once with very fine resolution, so when
   ! calling it for the second time we only need linear interpolation.
   if (.not.Insect%wings_radius_table_ready) then
     !---------------------------------------------------------------------------
     ! fill radius table
     !---------------------------------------------------------------------------
+    Insect%R0_table = 0.d0
     ! loop over all thetas and compute the radius for all of them, store it
     ! in the table Insect%R0_table
     do j = 1, n_radius
@@ -622,6 +624,9 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     ! the second call is just a return statement
     return
   endif
+
+  Insect%ai_wings = 0.d0
+  Insect%bi_wings = 0.d0
 
   !-----------------------------------------
   ! hard-coded Fourier coefficients for R(theta)

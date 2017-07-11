@@ -1,8 +1,9 @@
 module flusi_wavelet_lib
 
-  use vars, only : pr, ra, rb, nx, ny, nz, on_proc, mpidims, mpicoords, mpicommslab, abort
+  use vars, only : pr, ra, rb, nx, ny, nz, on_proc, mpidims, mpicoords, mpicommslab, abort, mpirank, root
   use mpi
   use p3dfft_wrapper
+  use helpers, only : mpisum
 
   implicit none
 
@@ -19,431 +20,10 @@ module flusi_wavelet_lib
 
 contains
 
+  include "FWT3_PO.f90"
+  include "IWT3_PO.f90"
+  include "coherent_vortex_extraction.f90"
 
-  ! ! 1D fast wavelet transform, periodized, orthogonal
-  ! subroutine FWT1_PO(u, wc, wavelet)
-  !   implicit none
-  !   ! derived datatype containing the filters
-  !   type(orth_wavelet),intent(in) :: wavelet
-  !   ! signal to be transformed
-  !   real(kind=pr), dimension(1:), intent(in) :: u
-  !   ! resulting wavelet coefficients
-  !   real(kind=pr), dimension(1:), intent(inout) :: wc
-  !   ! signal length
-  !   integer :: N, J0, nc, Jmin, j
-  !   ! buffer
-  !   real(kind=pr), allocatable, dimension(:) :: buffer1, buffer2
-  !
-  !   ! get length and level of input signal
-  !   call dyadlength(u, N, J0)
-  !
-  !   nc = N
-  !   Jmin = 0
-  !   wc = u
-  !
-  !   ! FWT goes down in levels starting from the signal sampling
-  !   ! (finest level)
-  !   do j = J0-1, Jmin, -1
-  !       allocate( buffer1(1:nc), buffer2(1:nc) )
-  !
-  !       call WaveDecomposition_dim1( wc, nc, wavelet, buffer1, buffer2 )
-  !
-  !       nc = nc / 2
-  !       deallocate(buffer1, buffer2)
-  !   enddo
-  !
-  !   nc = 2**(Jmin+1)
-  !   do j = J0-1, Jmin, -1
-  !       allocate( buffer1(1:nc), buffer2(1:nc) )
-  !
-  !       call WaveReconstruction_dim1( wc, nc, wavelet, buffer1, buffer2 )
-  !
-  !       nc = nc * 2
-  !       deallocate(buffer1, buffer2)
-  !   enddo
-  !
-  !
-  !   call init_empty_file('fwt1d.txt')
-  !   open(14,file='fwt1d.txt',status='unknown',position='append')
-  !   do j = 1, N
-  !     write(14,'(es15.8)') wc(j)
-  !   enddo
-  !   close(14)
-  !
-  ! end subroutine FWT1_PO
-
-
-  !-----------------------------------------------------------------------------
-  ! 3D fast wavelet transform, periodized, orthogonal
-  !-----------------------------------------------------------------------------
-  subroutine FWT3_PO(u, wc, wavelet, Jmin)
-    implicit none
-    ! derived datatype containing the filters
-    type(orth_wavelet),intent(in) :: wavelet
-    ! signal to be transformed
-    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: u
-    ! resulting wavelet coefficients
-    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
-    ! coarse level
-    integer, intent(in) :: Jmin
-    ! signal length
-    integer :: N, J0, nc, j, ix,iy,iz, idir, mpicode
-    ! buffer
-    real(kind=pr), allocatable, dimension(:) :: buffer1, buffer2
-    real(kind=pr), allocatable, dimension(:,:,:) :: work
-    integer, dimension(1:3) :: ka,kb,ks, kat, kbt, kst
-
-    N = nx ! this works currently only for nx = ny = nz
-    J0 = ceiling( log(dble(N)) / log(2.d0) )
-
-    ! the first iteration acts on the complete data
-    nc = N
-    ! initialize wavelet coefficients
-    wc(:,:,:) = u(:,:,:)
-
-    ! -------------------------------------------------------
-    ! FWT goes down in levels starting from the finest level
-    ! -------------------------------------------------------
-    do j = J0-1, Jmin, -1
-        ! an inplace filtering is not possible, so we allocate buffers for a line
-        ! (of current size)
-        allocate( buffer1(1:nc), buffer2(1:nc) )
-
-        ! ---------------------
-        ! --- x direction -----
-        ! ---------------------
-        ! Filters are applied in the first coordinate, as it is always contiguous in memory
-        ! and not split among MPI processes
-        call WaveDecomposition_dim1( wc, nc, wavelet, buffer1, buffer2 )
-
-
-        ! ---------------------
-        ! --- y direction -----
-        ! ---------------------
-        if (mpidims(2) == 1) then
-          ! CASE A): index 2 is contiguous and not split among procs.
-          call WaveDecomposition_dim2( wc, nc, wavelet, buffer1, buffer2 )
-
-        else
-          ! transposition: exchange x-y data
-          ! idir = 1 - permute 1 and 2 indices
-          ! idir = 2 - permute 1 and 3 indices
-          idir = 1
-          call trextents(idir, (/nx,ny,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
-          allocate( work(kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)) )
-          work = 0.d0
-          call subtr ( idir, (/nx,ny,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
-                       MPI_DOUBLE_PRECISION, wc, work )
-
-
-          ! at this point we have work(iy,ix,iz)
-          ! again, the first dimension is filtered, but this now is the y-data
-          call WaveDecomposition_dim1( work, nc, wavelet, buffer1, buffer2 )
-
-          ! transposition: exchange x-y data
-          ! idir = 1 - permute 1 and 2 indices
-          ! idir = 2 - permute 1 and 3 indices
-          idir = 1
-          call trextents(idir, (/ny,nx,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
-          call subtr ( idir, (/ny,nx,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
-                       MPI_DOUBLE_PRECISION, work, wc )
-          ! at this point we have again wc(ix,iy,iz), which is what we started with
-        endif
-
-
-        idir = 2
-        call trextents(idir, (/nx,ny,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
-        if(allocated(work)) deallocate(work)
-        allocate( work(kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)) )
-        call subtr ( idir, (/nx,ny,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
-                     MPI_DOUBLE_PRECISION, wc, work )
-
-        ! --- z direction -----
-        ! at this point we have work(iz,iy,ix)
-        ! again, the first dimension is filtered, but this now is the z-data
-        call WaveDecomposition_dim1( work, nc, wavelet, buffer1, buffer2 )
-
-        ! final permutation back to the original dataset
-        idir = 2
-        call trextents(idir, (/nz,ny,nx/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
-        call subtr ( idir, (/nz,ny,nx/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
-                     MPI_DOUBLE_PRECISION, work, wc )
-        if(allocated(work)) deallocate(work)
-        ! at this point we have wc(ix,iy,iz)
-
-        nc = nc / 2
-        deallocate(buffer1, buffer2)
-    enddo
-
-  end subroutine FWT3_PO
-
-
-  !-----------------------------------------------------------------------------
-  ! 3D fast wavelet transform, periodized, orthogonal
-  !-----------------------------------------------------------------------------
-  subroutine IWT3_PO(wc, u, wavelet, Jmin)
-    implicit none
-    ! derived datatype containing the filters
-    type(orth_wavelet),intent(in) :: wavelet
-    ! wavelet coefficients
-    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
-    ! output of reconstruction
-    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: u
-    ! coarse level
-    integer, intent(in) :: Jmin
-    ! signal length
-    integer :: N, J0, nc, j, ix, iy, iz, idir, mpicode
-    ! buffer
-    real(kind=pr), allocatable, dimension(:) :: buffer1, buffer2, buffer3
-    real(kind=pr), allocatable, dimension(:,:,:) :: work
-    integer, dimension(1:3) :: ka,kb,ks, kat, kbt, kst
-
-    N = nx ! this works currently only for nx = ny = nz
-    J0 = ceiling( log(dble(N)) / log(2.d0) )
-
-    ! the first iteration acts on the coarest level
-    nc = 2**(Jmin+1)
-    ! initialize wavelet coefficients
-    u(:,:,:) = wc(:,:,:)
-
-    ! -------------------------------------------------------
-    ! IWT starts from coarse level and goes up level by level
-    ! -------------------------------------------------------
-    do j = Jmin, J0-1
-        ! an inplace filtering is not possible, so we allocate buffers for a line
-        ! (of current size)
-        allocate( buffer1(1:nc), buffer2(1:nc), buffer3(1:nc) )
-
-        ! ---------------------
-        ! --- x direction -----
-        ! ---------------------
-        ! Filters are applied in the first coordinate, as it is always contiguous in memory
-        ! and not split among MPI processes
-        call WaveReconstruction_dim1( u, nc, wavelet, buffer1, buffer2, buffer3 )
-
-        ! ---------------------
-        ! --- y direction -----
-        ! ---------------------
-        if (mpidims(2) == 1) then
-          ! CASE A): index 2 is contiguous and not split among procs.
-          call WaveReconstruction_dim2( u, nc, wavelet, buffer1, buffer2, buffer3 )
-
-        else
-          ! transposition: exchange x-y data
-          ! idir = 1 - permute 1 and 2 indices
-          ! idir = 2 - permute 1 and 3 indices
-          idir = 1
-          call trextents(idir, (/nx,ny,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
-          allocate( work(kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)) )
-          work = 0.d0
-          call subtr ( idir, (/nx,ny,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
-                       MPI_DOUBLE_PRECISION, u, work )
-
-          ! at this point we have work(iy,ix,iz)
-          ! again, the first dimension is filtered, but this now is the y-data
-          call WaveReconstruction_dim1( work, nc, wavelet, buffer1, buffer2, buffer3 )
-
-          ! transposition: exchange x-y data
-          ! idir = 1 - permute 1 and 2 indices
-          ! idir = 2 - permute 1 and 3 indices
-          idir = 1
-          call trextents(idir, (/ny,nx,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
-          call subtr ( idir, (/ny,nx,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
-                       MPI_DOUBLE_PRECISION, work, u )
-          ! at this point we have again u(ix,iy,iz), which is what we started with
-        endif
-
-
-        idir = 2
-        call trextents(idir, (/nx,ny,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
-        if(allocated(work)) deallocate(work)
-        allocate( work(kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)) )
-        call subtr ( idir, (/nx,ny,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
-                     MPI_DOUBLE_PRECISION, u, work )
-
-        ! ---------------------
-        ! --- z direction -----
-        ! ---------------------
-        ! at this point we have work(iz,iy,ix)
-        ! again, the first dimension is filtered, but this now is the z-data
-        call WaveReconstruction_dim1( work, nc, wavelet, buffer1, buffer2, buffer3 )
-
-        ! final permutation back to the original dataset
-        idir = 2
-        call trextents(idir, (/nz,ny,nx/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
-        call subtr ( idir, (/nz,ny,nx/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
-                     MPI_DOUBLE_PRECISION, work, u )
-        if(allocated(work)) deallocate(work)
-        ! at this point we have u(ix,iy,iz)
-
-        nc = nc * 2
-        deallocate(buffer1, buffer2, buffer3)
-    enddo
-
-  end subroutine IWT3_PO
-
-
-  !-----------------------------------------------------------------------------
-  ! Reconstruction from low- and high pass filtered coefficients.
-  ! Data is first upsampled, then filtered with the reconstruction filters.
-  ! Note reconstruction filters are reverse of decomposition filters.
-  !
-  !         | low pass     ||  high pass   |
-  ! Input:  hhhhhhhhhhhhhhhhgggggggggggggggg
-  ! Output: uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
-  !-----------------------------------------------------------------------------
-  subroutine WaveReconstruction_dim1( wc, nc, wavelet, buffer1, buffer2, buffer3 )
-    implicit none
-    integer, intent(in) :: nc
-    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
-    real(kind=pr), dimension(1:nc), intent(inout) :: buffer1, buffer2, buffer3
-    type(orth_wavelet), intent(in) :: wavelet
-    integer :: ix,iy,iz
-
-    ! Filters are applied in the first coordinate, as it is always contiguous in memory
-    ! and not split among MPI processes
-    do iy = 0, nc-1 ! note loop bounds 0,nc-1 (and not 0,ny-1)
-      do iz = 0, nc-1
-        ! is this on my local bounds? (MPI-sense, some procs may idle)
-        if (on_proc((/0,iy,iz/))) then
-          ! bot: 0:nc/2-1 (zero-based)
-          ! top: nc/2:nc-1 (zero-based)
-
-          ! fill upsampling buffer for low-pass filter: every second point
-          buffer3 = 0.d0
-          buffer3(1:nc-1:2) = wc(0:nc/2-1,iy,iz) ! bot, UpDyadLo
-          ! apply low-pass filter to upsampled signal
-          call filter1P( buffer3, buffer1, wavelet%HR, lbound(wavelet%HR,dim=1), ubound(wavelet%HR,dim=1))
-
-          ! fill upsampling buffer for high-pass filter: every second point
-          buffer3 = 0.d0
-          buffer3(1:nc-1:2) = wc(nc/2:nc-1,iy,iz) ! top, UpDyadHi
-          ! apply high-pass filter to upsampled signal
-          call filter1P( buffer3, buffer2, wavelet%GR, lbound(wavelet%GR,dim=1), ubound(wavelet%GR,dim=1))
-
-          wc(0:nc-1,iy,iz) = buffer1 + buffer2
-        endif
-      enddo
-    enddo
-  end subroutine WaveReconstruction_dim1
-
-  !-----------------------------------------------------------------------------
-  ! Reconstruction from low- and high pass filtered coefficients.
-  ! Data is first upsampled, then filtered with the reconstruction filters.
-  ! Note reconstruction filters are reverse of decomposition filters.
-  !
-  ! Routine works along second index of wc, requiring it to be contiguous
-  !
-  !         | low pass     ||  high pass   |
-  ! Input:  hhhhhhhhhhhhhhhhgggggggggggggggg
-  ! Output: uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
-  !-----------------------------------------------------------------------------
-  subroutine WaveReconstruction_dim2( wc, nc, wavelet, buffer1, buffer2, buffer3 )
-    implicit none
-    integer, intent(in) :: nc
-    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
-    real(kind=pr), dimension(1:nc), intent(inout) :: buffer1, buffer2, buffer3
-    type(orth_wavelet), intent(in) :: wavelet
-    integer :: ix,iy,iz
-
-    ! Filters are applied in the first coordinate, as it is always contiguous in memory
-    ! and not split among MPI processes
-    do ix = 0, nc-1 ! note loop bounds 0,nc-1 (and not 0,ny-1)
-      do iz = 0, nc-1
-        ! is this on my local bounds? (MPI-sense, some procs may idle)
-        if (on_proc((/0,0,iz/))) then
-          ! bot: 0:nc/2-1 (zero-based)
-          ! top: nc/2:nc-1 (zero-based)
-
-          ! fill upsampling buffer for low-pass filter: every second point
-          buffer3 = 0.d0
-          buffer3(1:nc-1:2) = wc(ix,0:nc/2-1,iz) ! bot, UpDyadLo
-          ! apply low-pass filter to upsampled signal
-          call filter1P( buffer3, buffer1, wavelet%HR, lbound(wavelet%HR,dim=1), ubound(wavelet%HR,dim=1))
-
-          ! fill upsampling buffer for high-pass filter: every second point
-          buffer3 = 0.d0
-          buffer3(1:nc-1:2) = wc(ix,nc/2:nc-1,iz) ! top, UpDyadHi
-          ! apply high-pass filter to upsampled signal
-          call filter1P( buffer3, buffer2, wavelet%GR, lbound(wavelet%GR,dim=1), ubound(wavelet%GR,dim=1))
-
-          wc(ix,0:nc-1,iz) = buffer1 + buffer2
-        endif
-      enddo
-    enddo
-  end subroutine WaveReconstruction_dim2
-
-
-  !-----------------------------------------------------------------------------
-  ! Along the first dimension of array u, apply low- and high-pass filters, decimate
-  ! their result and sort them into the first nc elements of the array.
-  ! The code acts only on the first nc datapoints (which is nc=nx in the beginning)
-  ! in the second iteration, nc=nx/2 and so forth.
-  !
-  ! Input:  uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
-  ! Output: hhhhhhhhhhhhhhhhgggggggggggggggg
-  !         | low pass     ||  high pass   |
-  !-----------------------------------------------------------------------------
-  subroutine WaveDecomposition_dim1( wc, nc, wavelet, buffer1, buffer2 )
-    implicit none
-    integer, intent(in) :: nc
-    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
-    real(kind=pr), dimension(1:nc), intent(inout) :: buffer1, buffer2
-    type(orth_wavelet), intent(in) :: wavelet
-    integer :: ix,iy,iz
-
-    ! Filters are applied in the first coordinate, as it is always contiguous in memory
-    ! and not split among MPI processes
-    do iy = 0, nc-1 ! note loop bounds 0,nc-1 (and not 0,ny-1)
-      do iz = 0, nc-1
-        ! is this on my local bounds? (MPI-sense, some procs may idle)
-        if (on_proc((/0,iy,iz/))) then
-          ! low-pass filter (scaling function)
-          call filter1P(wc(0:nc-1,iy,iz), buffer1, wavelet%HD, lbound(wavelet%HD,dim=1), ubound(wavelet%HD,dim=1))
-          ! high-pass filter (these guys are the details)
-          call filter1P(wc(0:nc-1,iy,iz), buffer2, wavelet%GD, lbound(wavelet%GD,dim=1), ubound(wavelet%GD,dim=1))
-
-          ! decimation by 2, sort into array
-          wc(0:nc/2-1,iy,iz) = buffer1(1:nc-1:2)  ! bot: 0:nc/2-1 (zero-based)
-          wc(nc/2:nc-1,iy,iz) = buffer2(1:nc-1:2) ! top: nc/2:nc-1 (zero-based)
-        endif
-      enddo
-    enddo
-  end subroutine WaveDecomposition_dim1
-
-
-  ! Along the second  dimension of array u, apply low- and high-pass filters, decimate
-  ! their result and sort them into the first nc elements of the array.
-  ! NOTE: This procedure MUST NOT be called if the second index is split among MPI procs
-  subroutine WaveDecomposition_dim2( wc, nc, wavelet, buffer1, buffer2 )
-    implicit none
-    integer, intent(in) :: nc
-    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
-    real(kind=pr), dimension(1:nc), intent(inout) :: buffer1, buffer2
-    type(orth_wavelet), intent(in) :: wavelet
-    integer :: ix,iy,iz
-
-    if (mpidims(2)>1) then
-      call abort(99919991, 'WaveDecomposition_dim2')
-    endif
-
-    ! NOTE: we assume dimension 2 to be contiguous!!
-    do ix = 0, nc-1
-      do iz = 0, nc-1
-        ! is this on my local bounds? (MPI-sense, some procs may idle)
-        if (on_proc((/ix,0,iz/))) then
-          ! low-pass filter
-          call filter1P(wc(ix,0:nc-1,iz), buffer1, wavelet%HD, lbound(wavelet%HD,dim=1), ubound(wavelet%HD,dim=1))
-          ! high-pass filter
-          call filter1P(wc(ix,0:nc-1,iz), buffer2, wavelet%GD, lbound(wavelet%GD,dim=1), ubound(wavelet%GD,dim=1))
-
-          ! decimation by 2
-          wc(ix,0:nc/2-1,iz) = buffer1(1:nc-1:2)
-          wc(ix,nc/2:nc-1,iz) = buffer2(1:nc-1:2)
-        endif
-      enddo
-    enddo
-  end subroutine WaveDecomposition_dim2
 
   ! sets up the coiflet coefficients for the given order "order"
   subroutine setup_coiflet_coefs( order, wavelet )
@@ -577,6 +157,24 @@ contains
     J = ceiling( log(dble(N)) / log(2.d0) )
   end subroutine
 
+  subroutine dyad(J, i1, i2)
+    implicit none
+    integer, intent(in) :: J
+    integer, intent(out) :: i1, i2
+
+    ! dyad -- Index entire j-th dyad of 1-d wavelet xform
+    !  Usage
+    !    ix = dyad(j);
+    !  Inputs
+    !    j     integer
+    !  Outputs
+    !    ix    list of all indices of wavelet coeffts at j-th level
+    ! Adpoted from wavelab 850
+    ! i = (2^(j)+1):(2^(j+1))
+    ! zero-based indexing
+    i1 = 2**J
+    i2 = 2**(J+1)-1
+  end subroutine dyad
 
 
   subroutine reverse( x )
@@ -594,6 +192,42 @@ contains
     enddo
 
     deallocate(tmp)
+  end subroutine
+
+  ! out of place hard thresholding
+  subroutine hard_thresholding( wc_in, wc_out, threshold)
+    implicit none
+    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc_in
+    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc_out
+    real(kind=pr), intent(in) :: threshold
+
+    wc_out = wc_in
+
+    where ( abs(wc_out) < threshold)
+      wc_out = 0.d0
+    end where
+  end subroutine
+
+  ! count zeros in field
+  subroutine compression_rate( wc, rate )
+    implicit none
+    real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
+    real(kind=pr), intent(out) :: rate
+    integer :: i, N, ix, iy, iz
+
+    i = 0
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
+          if (abs(wc(ix,iy,iz))<1e-10) then
+            i = i +1
+          endif
+        enddo
+      enddo
+    enddo
+    rate = dble(i)
+    rate = mpisum(rate)
+    rate = rate / ( dble(nx)*dble(ny)*dble(nz) )
   end subroutine
 
 end module
