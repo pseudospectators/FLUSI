@@ -1390,10 +1390,12 @@ subroutine draw_birch_seed( mask, mask_color, us, Insect, color_body, M_body)
   integer :: ix,iy,iz
   logical, save :: informed = .false.
 
-  if (root .and. informed .eqv. .false. ) then
-    write(*,'("Conical flyer H=",g12.4," alpha=",g12.4," a=",g12.4)') H, alpha*180.d0/pi, a
-    informed = .true.
-  endif
+  ! if (root ) then
+  !    if (informed .eqv. .false. ) then
+  !     write(*,'("Conical flyer H=",g12.4," alpha=",g12.4," a=",g12.4)') H, alpha*180.d0/pi, a
+  !     informed = .true.
+  !   endif
+  ! endif
 
   Insect%b_body = 0.09d0
   a_body = 0.17d0
