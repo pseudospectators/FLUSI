@@ -191,11 +191,11 @@ $(OBJDIR)/ini_files_parser_mpi.o: ini_files_parser_mpi.f90 $(OBJDIR)/vars.o $(OB
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o $(OBJDIR)/insects.o $(OBJDIR)/solid_solver.o
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o $(OBJDIR)/solid_solver.o
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o $(OBJDIR)/runtime_backuping.o
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
