@@ -97,6 +97,19 @@ subroutine BodyMotion(time, Insect)
     vc = (/0.0d0, 22.d0/13.2d0*cos(2.d0*pi*(2.d0/152.d0)*time)*2.d0*pi*(2.d0/152.d0), 0.0d0/)
     body_moves = "yes"
 
+  case ("roll_param")
+    ! Roll motion for aerodynamic power analysis
+    ! Bumblebee model, wingbeat frequency 152 Hz, roll frequency 25 Hz, pitch angle 24.5 deg nose up
+    psi      = -10.d0  *pi/180.d0*sin(2.d0*pi*(25d0/152.d0)*time) ! roll
+    beta     = -24.5d0*pi/180.d0 ! pitch
+    gamma    = 180.d0*pi/180.d0 ! yaw
+    psi_dt   = -10.d0  *pi/180.d0*cos(2.d0*pi*(25.d0/152.d0)*time)*2.d0*pi*(25.d0/152.d0)
+    beta_dt  = 0.d0
+    gamma_dt = 0.d0
+    xc = Insect%x0
+    vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
+    body_moves = "yes"
+
   case ("roll")
     psi      = 30.d0*pi/180.d0*sin(2.d0*pi*time)
     beta     = 0.d0 ! pitch
