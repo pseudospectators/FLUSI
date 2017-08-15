@@ -553,14 +553,14 @@ subroutine compute_components(Cx,Cy,Cz,f1,f2,f3)
   LCz=LCz*dx*dy*dz
 
   ! Sum over all MPI processes
-  call MPI_REDUCE(LCx,Cx,&
-  1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(LCx,Cx,&
+  1,MPI_DOUBLE_PRECISION,MPI_SUM,&
   MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(LCy,Cy,&
-  1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(LCy,Cy,&
+  1,MPI_DOUBLE_PRECISION,MPI_SUM,&
   MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(LCz,Cz,&
-  1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(LCz,Cz,&
+  1,MPI_DOUBLE_PRECISION,MPI_SUM,&
   MPI_COMM_WORLD,mpicode)
 end subroutine compute_components
 
@@ -643,8 +643,8 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
   enddo
 
   ! Find the global max
-  call MPI_REDUCE(locmax,maxdiv,&
-  1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+  call MPI_ALLREDUCE(locmax,maxdiv,&
+  1,MPI_DOUBLE_PRECISION,MPI_MAX,&
   MPI_COMM_WORLD,mpicode)
 end subroutine compute_max_div
 
@@ -689,17 +689,17 @@ subroutine compute_max(vmax,xmax,ymax,zmax,f1,f2,f3)
   enddo
 
   ! Determine the global max
-  call MPI_REDUCE(Lmax,vmax,&
-  1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+  call MPI_ALLREDUCE(Lmax,vmax,&
+  1,MPI_DOUBLE_PRECISION,MPI_MAX,&
   MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(Lxmax,xmax,&
-  1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+  call MPI_ALLREDUCE(Lxmax,xmax,&
+  1,MPI_DOUBLE_PRECISION,MPI_MAX,&
   MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(Lymax,ymax,&
-  1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+  call MPI_ALLREDUCE(Lymax,ymax,&
+  1,MPI_DOUBLE_PRECISION,MPI_MAX,&
   MPI_COMM_WORLD,mpicode)
-  call MPI_REDUCE(Lzmax,zmax,&
-  1,MPI_DOUBLE_PRECISION,MPI_MAX,0,&
+  call MPI_ALLREDUCE(Lzmax,zmax,&
+  1,MPI_DOUBLE_PRECISION,MPI_MAX,&
   MPI_COMM_WORLD,mpicode)
 end subroutine compute_max
 
@@ -719,7 +719,8 @@ subroutine compute_mean_norm(mean,f1,f2,f3)
   real(kind=pr) :: v1,v2,v3
   real(kind=pr) :: Lmean ! Process-local mean
 
-  Lmean=0.d0
+  Lmean = 0.d0
+  mean = 0.d0
 
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
@@ -737,8 +738,8 @@ subroutine compute_mean_norm(mean,f1,f2,f3)
 
   Lmean=Lmean*dx*dy*dz
 
-  call MPI_REDUCE(Lmean,mean,&
-  1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(Lmean,mean,&
+  1,MPI_DOUBLE_PRECISION,MPI_SUM,&
   MPI_COMM_WORLD,mpicode)
 end subroutine compute_mean_norm
 
@@ -772,8 +773,8 @@ subroutine compute_fluid_volume(volume)
       enddo
     enddo
 
-    call MPI_REDUCE(Lvolume,volume,&
-    1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+    call MPI_ALLREDUCE(Lvolume,volume,&
+    1,MPI_DOUBLE_PRECISION,MPI_SUM,&
     MPI_COMM_WORLD,mpicode)
   endif
 end subroutine compute_fluid_volume
@@ -794,7 +795,7 @@ subroutine compute_mask_volume(volume)
 
   Lvolume=sum(mask)*dx*dy*dz
 
-  call MPI_REDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
+  call MPI_ALLREDUCE(Lvolume,volume,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
   MPI_COMM_WORLD,mpicode)
 
 end subroutine compute_mask_volume
