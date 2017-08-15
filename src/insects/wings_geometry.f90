@@ -612,13 +612,9 @@ end subroutine
 ! series.
 !-------------------------------------------------------------------------------
 subroutine Setup_Wing_Fourier_coefficients(Insect)
-  use vars
   implicit none
   real(kind=pr) :: xroot, yroot
   type(diptera),intent(inout)::Insect
-  type(inifile) :: ifile
-  real(kind=pr), allocatable :: tmparray(:,:)
-  character(len=strlen) :: type_str
 
   if (Insect%wingsetup_done) then
     ! the second call is just a return statement
@@ -993,55 +989,7 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
       !-------------------------------------------------------------------------
       ! wing shape is read from ini-file
       !-------------------------------------------------------------------------
-      if (root) then
-        write(*,'(80("-"))')
-        write(*,'("Reading wing shape from file ",A)') trim(adjustl(Insect%WingShape( 12:len_trim(Insect%WingShape) )))
-        write(*,'(80("-"))')
-      endif
-      ! instead of the hard-coded values above, read fourier coefficients for wings from
-      ! an ini-file
-      call read_ini_file_mpi(ifile, Insect%WingShape( 12:len_trim(Insect%WingShape) ), .true.  )
-
-      ! check if this file seem to be valid:
-      call read_param_mpi(ifile,"Wing","type",type_str,"none")
-      if (type_str /= "fourier") then
-        call abort(6652, "ini file for wing does not seem to be fourier series...")
-      endif
-
-      call read_param_mpi( ifile, "Wing", "a0_wings", Insect%a0_wings, 0.d0)
-      ! use read_matrix from inifile, which requires passing an allocatabble array
-      call read_param_mpi( ifile, "Wing", "ai_wings", tmparray)
-      Insect%nfft_wings = size(tmparray,2)
-      Insect%ai_wings(1:Insect%nfft_wings) = tmparray(1,:)
-      deallocate(tmparray)
-      call read_param_mpi( ifile, "Wing", "bi_wings", tmparray)
-      Insect%bi_wings(1:Insect%nfft_wings) = tmparray(1,:)
-
-      ! wing mid-point (of course in wing system..)
-      call read_param_mpi(ifile,"Wing","x0w",Insect%xc, 0.d0)
-      call read_param_mpi(ifile,"Wing","y0w",Insect%yc, 0.d0)
-
-      ! wing thickness
-      call read_Param_mpi(ifile,"Wing","wing_thickness_distribution",Insect%wing_thickness_distribution, "constant")
-      if ( Insect%wing_thickness_distribution == "constant") then
-        if (root) write(*,*) "Wing thickness is constant along the wing"
-        ! wing thickness (NOTE: overwrites settings in other params file)
-        call read_Param_mpi(ifile,"Wing","wing_thickness_value",Insect%WingThickness, 4.0d0*dy)
-      elseif ( Insect%wing_thickness_distribution == "variable") then
-        if (root) write(*,*) "Wing thickness is variable, i.e. t = t(x,y)"
-        call read_Param_mpi(ifile,"Wing","wing_thickness_profile",Insect%wing_thickness_profile)
-      else
-        call abort(77623, " Insect wing thickness distribution is unknown (must be constant or variable)")
-      endif
-
-      ! wing corrugation
-      call read_Param_mpi(ifile,"Wing","corrugated",Insect%corrugated, .false.)
-      if (Insect%corrugated) then
-        if (root) write(*,*) "wing is corrugated, z=z(x,y)"
-        call read_Param_mpi(ifile,"Wing","corrugation_profile",Insect%corrugation_profile)
-      else
-        if (root) write(*,*) "wing is flat (non-corrugated), z==0"
-      endif
+      call Setup_Wing_from_inifile(Insect, trim(adjustl(Insect%WingShape( 12:len_trim(Insect%WingShape) ))))
 
     else
       ! now we theres an error...
@@ -1070,6 +1018,111 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
   endif
 
 end subroutine Setup_Wing_Fourier_coefficients
+
+
+!-------------------------------------------------------------------------------
+! Initialize the wing from an ini file
+!-------------------------------------------------------------------------------
+! We read:
+!     - Fourier coefficients for the radius wing shape
+!     - Wing thickness profile (constant or variable)
+!     - Wing corrugation profile (flat or corrugated)
+!-------------------------------------------------------------------------------
+subroutine Setup_Wing_from_inifile(Insect, fname)
+  implicit none
+  type(diptera),intent(inout) :: Insect
+  character(len=*), intent(in) :: fname
+
+  type(inifile) :: ifile
+  real(kind=pr), allocatable :: tmparray(:,:)
+  character(len=strlen) :: type_str
+  integer :: a,b
+
+  if (root) then
+    write(*,'(80("-"))')
+    write(*,'("Reading wing shape from file ",A)') fname
+    write(*,'(80("-"))')
+  endif
+  ! instead of the hard-coded values above, read fourier coefficients for wings from
+  ! an ini-file
+  call read_ini_file_mpi(ifile, fname, .true.  )
+
+
+  ! check if this file seem to be valid:
+  call read_param_mpi(ifile,"Wing","type",type_str,"none")
+  if (type_str /= "fourier") then
+    call abort(6652, "ini file for wing does not seem to be fourier series...")
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! Read fourier coeffs for wing radius
+  !-----------------------------------------------------------------------------
+  call read_param_mpi( ifile, "Wing", "a0_wings", Insect%a0_wings, 0.d0)
+  ! NOTE: Annoyingly, the fujitsu SXF90 compiler cannot handle allocatable arrays
+  ! as arguments. so we have to split the routine in one part that returns the size
+  ! of the array, then let the caller allocate, then read the matrix. very tedious.
+  ! fetch size of matrix
+  call param_matrix_size_mpi( ifile, "Wing", "ai_wings", a, b)
+  ! allocate matrix
+  allocate( tmparray(1:a,1:b) )
+  ! read matrix
+  call param_matrix_read_mpi( ifile, "Wing", "ai_wings", tmparray)
+  Insect%nfft_wings = size(tmparray,2)
+  Insect%ai_wings(1:Insect%nfft_wings) = tmparray(1,:)
+  deallocate(tmparray)
+
+
+  call param_matrix_size_mpi( ifile, "Wing", "bi_wings", a, b)
+  ! allocate matrix
+  allocate( tmparray(1:a,1:b) )
+  ! read matrix
+  call param_matrix_read_mpi( ifile, "Wing", "bi_wings", tmparray)
+  Insect%nfft_wings = size(tmparray,2)
+  Insect%bi_wings(1:Insect%nfft_wings) = tmparray(1,:)
+  deallocate(tmparray)
+
+  ! wing mid-point (of course in wing system..)
+  call read_param_mpi(ifile,"Wing","x0w",Insect%xc, 0.d0)
+  call read_param_mpi(ifile,"Wing","y0w",Insect%yc, 0.d0)
+
+  !-----------------------------------------------------------------------------
+  ! wing thickness
+  !-----------------------------------------------------------------------------
+  call read_param_mpi(ifile,"Wing","wing_thickness_distribution",Insect%wing_thickness_distribution, "constant")
+  if ( Insect%wing_thickness_distribution == "constant") then
+      if (root) write(*,*) "Wing thickness is constant along the wing"
+      ! wing thickness (NOTE: overwrites settings in other params file)
+      call read_param_mpi(ifile,"Wing","wing_thickness_value",Insect%WingThickness, 4.0d0*dy)
+
+  elseif ( Insect%wing_thickness_distribution == "variable") then
+      if (root) write(*,*) "Wing thickness is variable, i.e. t = t(x,y)"
+
+      ! read matrix from ini file, see comments on SXF90 compiler
+      call param_matrix_size_mpi(ifile,"Wing","wing_thickness_profile",a,b)
+      allocate(Insect%wing_thickness_profile(1:a,1:b))
+      call param_matrix_read_mpi(ifile,"Wing","wing_thickness_profile",Insect%wing_thickness_profile)
+
+  else
+      call abort(77623, " Insect wing thickness distribution is unknown (must be constant or variable)")
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! wing corrugation
+  !-----------------------------------------------------------------------------
+  call read_param_mpi(ifile,"Wing","corrugated",Insect%corrugated, .false.)
+  if (Insect%corrugated) then
+      if (root) write(*,*) "wing is corrugated, z=z(x,y)"
+      ! read matrix from ini file, see comments on SXF90 compiler
+      call param_matrix_size_mpi(ifile,"Wing","corrugation_profile",a,b)
+      allocate(Insect%corrugation_profile(1:a,1:b))
+      call param_matrix_read_mpi(ifile,"Wing","corrugation_profile",Insect%corrugation_profile)
+
+  else
+      if (root) write(*,*) "wing is flat (non-corrugated), z==0"
+  endif
+
+end subroutine Setup_Wing_from_inifile
+
 
 !-------------------------------------------------------------------------------
 ! Setup extends of wing for reduction of computational time

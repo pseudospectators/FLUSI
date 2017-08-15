@@ -19,6 +19,10 @@ subroutine FWT3_PO(u, wc, wavelet, Jmin)
   integer, dimension(1:3) :: ka,kb,ks, kat, kbt, kst
 
   N = nx ! this works currently only for nx = ny = nz
+  if (nx /= ny .or. ny /= nz .or. nx /= nz) then
+    call abort(55526,"Wavelet error: condition nx=ny=nz is violated.")
+  endif
+  ! finest level
   J0 = ceiling( log(dble(N)) / log(2.d0) )
 
   ! the first iteration acts on the complete data
@@ -26,9 +30,6 @@ subroutine FWT3_PO(u, wc, wavelet, Jmin)
   ! initialize wavelet coefficients
   wc(:,:,:) = u(:,:,:)
 
-  if (nx /= ny .or. ny /= nz .or. nx /= nz) then
-    call abort(55526,"Wavelet error: condition nx=ny=nz is violated.")
-  endif
 
   ! -------------------------------------------------------
   ! FWT goes down in levels starting from the finest level

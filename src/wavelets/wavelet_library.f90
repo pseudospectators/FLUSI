@@ -7,9 +7,8 @@ module flusi_wavelet_lib
 
   implicit none
 
-  ! largest number of filter coefficients allowed in program:
-  integer, parameter :: MaxFlt = 30
-  !
+  ! derived datatype for the orthogonal wavelet. note it is defined by four filter banks
+  ! (high/low pass or decomposition/reconstruction), and we give it a name
   type orth_wavelet
     real(kind=pr), dimension(:), allocatable :: HD ! low pass decomposition filter
     real(kind=pr), dimension(:), allocatable :: GD ! high pass decomposition filter
@@ -20,6 +19,7 @@ module flusi_wavelet_lib
 
 contains
 
+  ! include files, note they have to be marked as dependencies in the makefile
   include "FWT3_PO.f90"
   include "IWT3_PO.f90"
   include "coherent_vortex_extraction.f90"
