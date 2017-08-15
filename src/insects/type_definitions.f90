@@ -59,7 +59,7 @@ type diptera
   !-------------------------------------------------------------
   ! for free flight solver
   !-------------------------------------------------------------
-  real(kind=pr) :: time
+  real(kind=pr) :: time=0.d0
   real(kind=pr), dimension(1:20) :: RHS_old=0.d0, RHS_this=0.d0
   real(kind=pr), dimension(1:20) :: STATE=0.d0
   ! STATE(1) : x-position of body

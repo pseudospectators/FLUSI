@@ -16,6 +16,7 @@ insects_mask_FF_tethered_kineloader.sh
 insects_mask_FF_moving_rotation.sh
 insects_mask_FF_moving_rotationtranslation.sh
 insects_mask_jerry.sh
+insects_mask_corrugation.sh
 insects_flow_FF_tethered.sh
 insects_flow_BB_tethered_AB2.sh
 insects_flow_BB_tethered_AB2_periodic.sh
