@@ -60,7 +60,7 @@ PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
 FFLAGS += -Wuninitialized -fimplicit-none -fbounds-check -g -ggdb
 FFLAGS += -O3
-FFLAGS += -ffpe-trap=zero,overflow,underflow -ffree-line-length-none
+FFLAGS += -ffpe-trap=zero,overflow,underflow -ffree-line-length-none -fbacktrace
 endif
 
 # Intel compiler

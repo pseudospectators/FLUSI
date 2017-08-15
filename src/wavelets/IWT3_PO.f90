@@ -26,6 +26,11 @@ subroutine IWT3_PO(wc, u, wavelet, Jmin)
   ! initialize wavelet coefficients
   u(:,:,:) = wc(:,:,:)
 
+
+  if (nx /= ny .or. ny /= nz .or. nx /= nz) then
+    call abort(55527,"Wavelet error: condition nx=ny=nz is violated.")
+  endif
+
   ! -------------------------------------------------------
   ! IWT starts from coarse level and goes up level by level
   ! -------------------------------------------------------

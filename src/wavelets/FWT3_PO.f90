@@ -26,6 +26,10 @@ subroutine FWT3_PO(u, wc, wavelet, Jmin)
   ! initialize wavelet coefficients
   wc(:,:,:) = u(:,:,:)
 
+  if (nx /= ny .or. ny /= nz .or. nx /= nz) then
+    call abort(55526,"Wavelet error: condition nx=ny=nz is violated.")
+  endif
+
   ! -------------------------------------------------------
   ! FWT goes down in levels starting from the finest level
   ! -------------------------------------------------------
@@ -96,6 +100,9 @@ subroutine FWT3_PO(u, wc, wavelet, Jmin)
       if(allocated(work)) deallocate(work)
       ! at this point we have wc(ix,iy,iz)
 
+      if ( modulo(nc,2) /= 0) then
+        write(*,*) "Wavelet warning: we encounter an odd number of grid points"
+      endif
       nc = nc / 2
       deallocate(buffer1, buffer2)
   enddo
