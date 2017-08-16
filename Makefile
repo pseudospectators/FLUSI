@@ -199,10 +199,6 @@ $(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/ini_files_parser_mpi.o: ini_files_parser_mpi.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o
-	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o
-	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o $(OBJDIR)/insects.o $(OBJDIR)/solid_solver.o
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o $(OBJDIR)/solid_solver.o
