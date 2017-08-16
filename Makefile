@@ -1,7 +1,9 @@
 # Makefile for fsi and mhd codes. See README for necessary environment
 # variables.
 
+#--------------------------------------------------------------
 # Non-module Fortran files to be compiled:
+#--------------------------------------------------------------
 FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	mask.f90 mask_fsi.f90 mask_mhd.f90 save_fields.f90 time_step.f90 \
 	init_fields_mhd.f90 init_fields_fsi.f90 integrals.f90 params.f90 \
@@ -12,6 +14,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	basic_file_routines.f90 fractal_trees.f90 runtime_backuping.f90 io_test.f90
 
 ifndef NOHDF5
+# Case WITH HDF5 (all machines except earth simulator)
 FFILES += postprocessing.f90 \
 	bin2hdf.f90 compare_key.f90 compare_timeseries.f90 convert_abs_vorticity.f90 \
 	convert_velocity.f90 convert_vorticity.f90 copy_hdf_file.f90 energy_post.f90 \
@@ -21,21 +24,23 @@ FFILES += postprocessing.f90 \
 	simple_field_operation.f90 time_avg_HDF5.f90 tke_mean.f90 \
 	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90 \
 	extend_domain.f90 convert_to_wing_system.f90 \
-	pressure_force.f90 flusi_hdf5_interface.f90
+	pressure_force.f90 flusi_hdf5_interface.f90 post_CVE.f90 transpose_test.f90
 
 else
+# Case WITHOUT Hdf
 FFILES += flusi_nohdf5_interface.f90 postprocessing_nohdf5.f90
 endif
-
 # Object and module directory:
 OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 
+#--------------------------------------------------------------
 # Files that create modules:
+#--------------------------------------------------------------
 MFILES = vars.f90 helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
 	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
 	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
-	ini_files_parser_mpi.f90
+	ini_files_parser_mpi.f90 wavelet_library.f90
 ifndef NOHDF5
 MFILES += hdf5_wrapper.f90 slicing.f90 stlreader.f90
 else
@@ -44,10 +49,12 @@ endif
 
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
 
+#--------------------------------------------------------------
 # Source code directories (colon-separated):
+#--------------------------------------------------------------
 VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
-VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd
+VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd:src/wavelets
 VPATH += :src/insects:src/solid_solver:src/postprocessing:src/file_io
 
 # Set the default compiler if it's not already set, make sure it's not F77.
@@ -77,11 +84,11 @@ FFLAGS += -J$(OBJDIR) # specify directory for modules.
 #FFLAGS += -Wall # warn for unused and uninitialzied variables
 #FFLAGS += -Werror # warnings are errors
 #FFLAGS += -pedantic
-#FFLAGS += -O3
 PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
 FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 FFLAGS += -O3
+#FFLAGS += -ffpe-trap=zero,overflow,underflow -ffree-line-length-none -fbacktrace
 endif
 
 # Intel compiler
@@ -118,7 +125,7 @@ HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
 
 # Common build flags
-LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 
+LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3
 ifndef NOHDF5
 LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB)
 LDFLAGS += -lhdf5_fortran -lhdf5
@@ -143,6 +150,7 @@ NOHDF5FLAG = -DNOHDF5
 endif
 
 
+
 # Both programs are compiled by default.
 all: directories $(PROGRAMS)
 
@@ -158,10 +166,10 @@ $(OBJDIR)/vars.o: vars.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o type_definitions.f90 \
+$(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 \
-	wings_motion.f90 stroke_plane.f90 \
-	kineloader.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser_mpi.o
+	wings_motion.f90 stroke_plane.f90 type_definitions.f90 \
+	kineloader.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser_mpi.o $(OBJDIR)/interpolation.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o $(OBJDIR)/helpers.o \
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
@@ -181,6 +189,10 @@ $(OBJDIR)/slicing_nohdf5.o: slicing_nohdf5.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/ini_files_parser_mpi.o: ini_files_parser_mpi.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/stlreader.o: stlreader.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/helpers.o
@@ -197,11 +209,13 @@ $(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o $(OBJDIR)/
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o $(OBJDIR)/runtime_backuping.o
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o coherent_vortex_extraction.f90 FWT3_PO.f90 \
+	IWT3_PO.f90
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
 $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-
 
 clean:
 	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out

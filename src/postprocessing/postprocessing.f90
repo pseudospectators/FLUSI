@@ -37,6 +37,10 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--coherent-vortex-extraction","--coherent-scalar-extraction","--CVE","--CSE")
+    call post_CVE(help)
+  case ("--transpose-test")
+    call transpose_test(help)
   case ("--pressure-force")
     call pressure_force(help)
   case ("--convert-to-wing-system","--convert-to-body-system")
@@ -112,6 +116,8 @@ subroutine postprocessing()
     if (root) then
       write(*,*) "Available Postprocessing tools are:"
       write(*,*) "--energy"
+      write(*,*) "--coherent-vortex-extraction --coherent-scalar-extraction --CVE --CSE"
+      write(*,*) "--tranpose-test"
       write(*,*) "--force-decomp"
       write(*,*) "--magnitude"
       write(*,*) "--check-params-file"

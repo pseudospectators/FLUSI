@@ -42,6 +42,8 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
     call draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
   case ("cone")
     call draw_body_cone( mask, mask_color, us, Insect, color_body, M_body)
+  case ("birch_seed")
+    call draw_birch_seed( mask, mask_color, us, Insect, color_body, M_body)
   case default
     if(mpirank==0) write(*,*) "Insect::draw_body::Insect%BodyType unknown..."
     if(mpirank==0) write(*,*) Insect%bodytype
@@ -1371,6 +1373,71 @@ subroutine draw_body_cone( mask, mask_color, us, Insect, color_body, M_body)
   enddo
 end subroutine draw_body_cone
 
+
+subroutine draw_birch_seed( mask, mask_color, us, Insect, color_body, M_body)
+  use vars
+  implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer(kind=2),intent(in) :: color_body
+  real(kind=pr),intent(in)::M_body(1:3,1:3)
+
+  real(kind=pr) :: R0,R,a,H, alpha, thick, a_body
+  real(kind=pr) :: x_body(1:3), x_glob(1:3), Id(1:3,1:3)
+  integer :: ix,iy,iz
+  logical, save :: informed = .false.
+
+  ! if (root ) then
+  !    if (informed .eqv. .false. ) then
+  !     write(*,'("Conical flyer H=",g12.4," alpha=",g12.4," a=",g12.4)') H, alpha*180.d0/pi, a
+  !     informed = .true.
+  !   endif
+  ! endif
+
+  Insect%b_body = 0.09d0
+  a_body = 0.17d0
+
+  !-----------------------------------------------------------------------------
+  ! The seed's core is an ellipsoid
+  !-----------------------------------------------------------------------------
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        ! x_glob is in the global coordinate system
+        x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
+        ! x_body is in the body coordinate system, which is centered at Insect%xc_body_g
+        x_body = matmul( M_body, x_glob)
+        ! check if inside the surrounding box (save comput. time)
+        if ( dabs(x_body(2)) <= Insect%b_body + Insect%safety ) then
+          if ( dabs(x_body(3)) <= Insect%b_body + Insect%safety ) then
+            ! check for length inside ellipsoid:
+            if ( dabs(x_body(1) ) < Insect%L_body/2 + Insect%safety ) then
+              R  = dsqrt ( x_body(2)**2 + x_body(3)**2 )
+              ! this gives the R(x) shape
+              if ( (x_body(1)/a_body)**2 <= 1.d0) then
+                R0 = dsqrt( Insect%b_body**2 *(1.d0- (x_body(1)/a_body)**2 ) )
+                if ( R < R0 + Insect%safety ) then
+                  mask(ix,iy,iz)= max(steps(R,R0),mask(ix,iy,iz))
+                  mask_color(ix,iy,iz) = color_body
+                endif
+              endif
+            endif
+          endif
+        endif
+      enddo
+    enddo
+  enddo
+
+  Id = 0.d0
+  Id(1,1) = 1.d0; Id(2,2) = 1.d0; Id(3,3) = 1.0d0
+
+  call draw_wing_fourier(mask,mask_color,us,Insect,color_body,M_body,Id,(/0.d0,0.d0,0.d0/),(/0.d0,0.d0,0.d0/))
+
+end subroutine draw_birch_seed
 
 !-------------------------------------------------------------------------------
 ! The flying pyramid, optimistically termed "bug" from the paper

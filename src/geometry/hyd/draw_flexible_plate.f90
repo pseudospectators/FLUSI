@@ -64,7 +64,6 @@ subroutine Draw_flexible_plate (time, beam)
       !-- in the plate system
       x_plate = matmul( M_plate, x-x0_plate )
 
-
       !-- check z-size in plate coordinate sytem (thus spanwise)
       if ((x_plate(3)>=-(0.5*L_span+t_beam+safety)).and.(x_plate(3)<=(0.5*L_span+t_beam+safety))) then
       !-- check x-size in plate system (so length, which is unity)
@@ -165,15 +164,19 @@ subroutine Draw_flexible_plate (time, beam)
       !-------------------------------------------------------------------------
       !-- make plate finite in z-direction, possibly with non-rectangular shapes
       !-------------------------------------------------------------------------
-      if (x_plate(3)<0.d0) then
-        call smoothstep( tmp2, -x_plate(3), z_bottom(s), smoothing )
+      if (infinite=="yes" .or. nx==1) then
+        ! plate is very large - span is infinite, or flow is two-dimensional
+        ! in these cases, the rigid direction is constant (spanwise) and we do not
+        ! need to make the plate finite
+        tmp2 = 1.d0
       else
-        call smoothstep( tmp2,  x_plate(3), z_top(s), smoothing )
+        ! plate is finite, we have to do something about the finite length
+        if (x_plate(3)<0.d0) then
+          call smoothstep( tmp2, -x_plate(3), z_bottom(s), smoothing )
+        else 
+          call smoothstep( tmp2,  x_plate(3), z_top(s), smoothing )
+        endif
       endif
-
-      ! plate is very large - span is infinite
-      if (infinite=="yes") tmp2 = 1.d0
-
 
       !-- final value of mask function at this point
       mask(ix,iy,iz) = tmp*tmp2

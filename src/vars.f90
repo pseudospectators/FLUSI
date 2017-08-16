@@ -321,7 +321,7 @@ module vars
     implicit none
     integer :: mpicode
 
-    if (mpirank==0) write(*,*) "Killing run..."
+    write(*,*) "Killing run..."
     call MPI_abort(MPI_COMM_WORLD,666,mpicode)
   end subroutine abort1
   !---------------------------------------------------------------------------
@@ -331,8 +331,8 @@ module vars
     integer :: mpicode
     character(len=*), intent(in) :: msg
 
-    if (mpirank==0) write(*,*) "Killing run..."
-    if (mpirank==0) write(*,*) msg
+    write(*,*) "Killing run..."
+    write(*,*) msg
     call MPI_abort(MPI_COMM_WORLD,666,mpicode)
   end subroutine abort2
   !---------------------------------------------------------------------------
@@ -342,7 +342,7 @@ module vars
     integer, intent(in) :: code
     integer :: mpicode
 
-    if (mpirank==0) write(*,*) "Killing run..."
+    write(*,*) "Killing run..."
     call MPI_abort(MPI_COMM_WORLD,code,mpicode)
   end subroutine abort3
   !---------------------------------------------------------------------------
@@ -353,8 +353,8 @@ module vars
     integer, intent(in) :: code
     character(len=*), intent(in) :: msg
 
-    if (mpirank==0) write(*,*) "Killing run..."
-    if (mpirank==0) write(*,*) msg
+    write(*,*) "Killing run..."
+    write(*,*) msg
     call MPI_abort(MPI_COMM_WORLD,code,mpicode)
   end subroutine abort4
 

@@ -58,14 +58,14 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
 
   integer :: ix,iy,iz
   real(kind=pr) :: x_body(1:3),x_wing(1:3),x(1:3)
-  real(kind=pr) :: R, R0, R_tmp
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp
+  real(kind=pr) :: R, R0, R_tmp, zz0
+  real(kind=pr) :: y_tmp, x_tmp, z_tmp, s, t
   real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
 
-  !-- define the wings fourier coeffients, but only once
+  !-- define the wings fourier coeffients, but do that only once
   call Setup_Wing_Fourier_coefficients(Insect)
 
-
+  s = Insect%safety
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
@@ -75,14 +75,14 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot)
 
-        !-- first, check if the point lies inside the rectangle L_span x L_span
-        !-- here we assume that the chordlength is NOT greater than the span
-        if ((x_wing(2)>=-Insect%safety).and.(x_wing(2)<=Insect%L_span + Insect%safety)) then
-        if ((x_wing(1)>=-(Insect%L_span+Insect%safety)).and.(x_wing(1)<=Insect%L_span+Insect%safety)) then
-        if (abs(x_wing(3))<=0.5*Insect%WingThickness + Insect%safety) then
+        ! bounding box check: does this point lie within the bounding box? Note Insect%wing_bounding_box
+        ! is set in SET_WING_BOUNDING_BOX_FOURIER
+        if ( x_wing(1) >= Insect%wing_bounding_box(1)-s .and. x_wing(1) <= Insect%wing_bounding_box(2)+s) then
+        if ( x_wing(2) >= Insect%wing_bounding_box(3)-s .and. x_wing(2) <= Insect%wing_bounding_box(4)+s) then
+        if ( x_wing(3) >= Insect%wing_bounding_box(5)-s .and. x_wing(3) <= Insect%wing_bounding_box(6)+s) then
 
           !-- get normalized angle (theta)
-          theta = atan2 (x_wing(2)-Insect%yc,x_wing(1)-Insect%xc )
+          theta = atan2( x_wing(2)-Insect%yc, x_wing(1)-Insect%xc )
           theta = ( theta + pi ) / (2.d0*pi)
 
           !-- construct R by evaluating the fourier series
@@ -92,8 +92,27 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
           R = dsqrt ( (x_wing(1)-Insect%xc)**2 + (x_wing(2)-Insect%yc)**2 )
           R_tmp = steps(R,R0)
 
-          !-- smooth also the thicknes
-          z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
+          ! wing corrugation (i.e. deviation from a flat plate)
+          if ( Insect%corrugated ) then
+            ! if the wing is corrugated, its height profile is read from ini file
+            ! and interpolated at the position on the wing
+            zz0 = interp2_nonper( x_wing(1), x_wing(2), Insect%corrugation_profile, Insect%wing_bounding_box(1:4) )
+          else
+            ! no corrugation - the wing is a flat surface
+            zz0 = 0.0_pr
+          endif
+
+          ! wing thickness
+          if ( Insect%wing_thickness_distribution=="variable") then
+              ! variable wing thickness is read from an array in the wing.ini file
+              ! and interpolated linearly at the x_wing position.
+              t = interp2_nonper( x_wing(1), x_wing(2), Insect%wing_thickness_profile, Insect%wing_bounding_box(1:4) )
+          else
+              ! constant thickness, read from main params.ini file
+              t = Insect%WingThickness
+          endif
+
+          z_tmp = steps( dabs(x_wing(3)-zz0), 0.5d0*t ) ! thickness
           mask_tmp = z_tmp*R_tmp
 
           !-----------------------------------------
@@ -498,6 +517,7 @@ end subroutine draw_wing_mosquito
 
 !-------------------------------------------------------------------------------
 ! evaluates the fourier series given in the ai, bi
+! NOTE: angle theta is NORMALIZED!  theta = ( theta + pi ) / (2.d0*pi)
 !-------------------------------------------------------------------------------
 real(kind=pr) function Radius_Fourier(theta,Insect)
   use vars
@@ -510,12 +530,14 @@ real(kind=pr) function Radius_Fourier(theta,Insect)
   n_radius = 25000
   dphi = (2.d0*pi) / (dble(n_radius-1))
 
+
   ! evaluate the entire R(theta) once with very fine resolution, so when
   ! calling it for the second time we only need linear interpolation.
   if (.not.Insect%wings_radius_table_ready) then
     !---------------------------------------------------------------------------
     ! fill radius table
     !---------------------------------------------------------------------------
+    Insect%R0_table = 0.d0
     ! loop over all thetas and compute the radius for all of them, store it
     ! in the table Insect%R0_table
     do j = 1, n_radius
@@ -590,7 +612,6 @@ end subroutine
 ! series.
 !-------------------------------------------------------------------------------
 subroutine Setup_Wing_Fourier_coefficients(Insect)
-  use vars
   implicit none
   real(kind=pr) :: xroot, yroot
   type(diptera),intent(inout)::Insect
@@ -599,6 +620,9 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     ! the second call is just a return statement
     return
   endif
+
+  Insect%ai_wings = 0.d0
+  Insect%bi_wings = 0.d0
 
   !-----------------------------------------
   ! hard-coded Fourier coefficients for R(theta)
@@ -821,6 +845,7 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     0.000710028654602170d0/)
     Insect%xc = -0.1d0
     Insect%yc = 0.501549263807117d0
+
   case ('b_ignitus')
     !********************************************
     !  Bumblebee B. ignitus
@@ -850,6 +875,7 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     0.000278542046262820d0/)
     Insect%xc = -0.13d0
     Insect%yc = 0.434820393790595d0
+
   case ('flapper_sane')
     !********************************************
     !  Mechanical model from Sane and Dickinson, JEB 205, 2002
@@ -899,10 +925,6 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     Insect%yc = 0.5282438
     Insect%xc = -0.1184548
 
-    ! overwrite this because otherwise the wing is not entirely in the
-    ! bounding box. (I actually do not recall why the L_span and L_chord are
-    ! in the params file at all...)
-    Insect%L_span = 1.2
   case ('robofly_dickinson')
     !********************************************
     ! Digitized from the hand drawn figure M. Dickinson sent via email, which
@@ -926,10 +948,6 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     Insect%yc = 0.4645238
     Insect%xc = -0.0716018
 
-    ! overwrite this because otherwise the wing is not entirely in the
-    ! bounding box. (I actually do not recall why the L_span and L_chord are
-    ! in the params file at all...)
-    Insect%L_span = 1.05
   case ('hawkmoth1')
     ! this wingshape is digitized from figure 1 from Kim et al. "Hovering and forward flight of the hawkmoth
     ! M. sexta: trim search and 6DOF dynamic stability characterization (Bioinspir Biomim. 10 (2015) 056012)"
@@ -965,10 +983,31 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     Insect%xc = -0.2157968
 
   case default
-    write (*,*) "Insect module: trying to set up fourier descriptors for wing&
-                & shape but the type Insect%WingShape is unknown! :: "// Insect%WingShape
-    call abort()
+
+    ! if all other options fail, we still might load coefficients from file:
+    if (index(Insect%wingShape,"from_file::") /= 0) then
+      !-------------------------------------------------------------------------
+      ! wing shape is read from ini-file
+      !-------------------------------------------------------------------------
+      call Setup_Wing_from_inifile(Insect, trim(adjustl(Insect%WingShape( 12:len_trim(Insect%WingShape) ))))
+
+    else
+      ! now we theres an error...
+      write (*,*) "Insect module: trying to set up fourier descriptors for wing&
+                  & shape but the type Insect%WingShape is unknown! :: "// Insect%WingShape
+      call abort()
+    end if
   end select
+
+  ! skip this routine in the future and let other routines know that the wing
+  ! shape is ready to be used.
+  Insect%wingsetup_done = .true.
+
+  ! for many cases, it is important that Lspan and Lchord are known, but that is
+  ! tedious for Fourier shapes, as the use cannot see it from the cooefficients.
+  ! Therefore, we compute the max / min of x / y here and store the result
+  call set_wing_bounding_box_fourier( Insect )
+
 
   if (root) then
     write(*,'(30("-"))')
@@ -978,6 +1017,192 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
     write(*,'(30("-"))')
   endif
 
-  ! skip this routine in the future
-  Insect%wingsetup_done = .true.
 end subroutine Setup_Wing_Fourier_coefficients
+
+
+!-------------------------------------------------------------------------------
+! Initialize the wing from an ini file
+!-------------------------------------------------------------------------------
+! We read:
+!     - Fourier coefficients for the radius wing shape
+!     - Wing thickness profile (constant or variable)
+!     - Wing corrugation profile (flat or corrugated)
+!-------------------------------------------------------------------------------
+subroutine Setup_Wing_from_inifile(Insect, fname)
+  implicit none
+  type(diptera),intent(inout) :: Insect
+  character(len=*), intent(in) :: fname
+
+  type(inifile) :: ifile
+  real(kind=pr), allocatable :: tmparray(:,:)
+  character(len=strlen) :: type_str
+  integer :: a,b
+
+  if (root) then
+    write(*,'(80("-"))')
+    write(*,'("Reading wing shape from file ",A)') fname
+    write(*,'(80("-"))')
+  endif
+  ! instead of the hard-coded values above, read fourier coefficients for wings from
+  ! an ini-file
+  call read_ini_file_mpi(ifile, fname, .true.  )
+
+
+  ! check if this file seem to be valid:
+  call read_param_mpi(ifile,"Wing","type",type_str,"none")
+  if (type_str /= "fourier") then
+    call abort(6652, "ini file for wing does not seem to be fourier series...")
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! Read fourier coeffs for wing radius
+  !-----------------------------------------------------------------------------
+  call read_param_mpi( ifile, "Wing", "a0_wings", Insect%a0_wings, 0.d0)
+  ! NOTE: Annoyingly, the fujitsu SXF90 compiler cannot handle allocatable arrays
+  ! as arguments. so we have to split the routine in one part that returns the size
+  ! of the array, then let the caller allocate, then read the matrix. very tedious.
+  ! fetch size of matrix
+  call param_matrix_size_mpi( ifile, "Wing", "ai_wings", a, b)
+  ! allocate matrix
+  allocate( tmparray(1:a,1:b) )
+  ! read matrix
+  call param_matrix_read_mpi( ifile, "Wing", "ai_wings", tmparray)
+  Insect%nfft_wings = size(tmparray,2)
+  Insect%ai_wings(1:Insect%nfft_wings) = tmparray(1,:)
+  deallocate(tmparray)
+
+
+  call param_matrix_size_mpi( ifile, "Wing", "bi_wings", a, b)
+  ! allocate matrix
+  allocate( tmparray(1:a,1:b) )
+  ! read matrix
+  call param_matrix_read_mpi( ifile, "Wing", "bi_wings", tmparray)
+  Insect%nfft_wings = size(tmparray,2)
+  Insect%bi_wings(1:Insect%nfft_wings) = tmparray(1,:)
+  deallocate(tmparray)
+
+  ! wing mid-point (of course in wing system..)
+  call read_param_mpi(ifile,"Wing","x0w",Insect%xc, 0.d0)
+  call read_param_mpi(ifile,"Wing","y0w",Insect%yc, 0.d0)
+
+  !-----------------------------------------------------------------------------
+  ! wing thickness
+  !-----------------------------------------------------------------------------
+  call read_param_mpi(ifile,"Wing","wing_thickness_distribution",Insect%wing_thickness_distribution, "constant")
+  if ( Insect%wing_thickness_distribution == "constant") then
+      if (root) write(*,*) "Wing thickness is constant along the wing"
+      ! wing thickness (NOTE: overwrites settings in other params file)
+      call read_param_mpi(ifile,"Wing","wing_thickness_value",Insect%WingThickness, 4.0d0*dy)
+
+  elseif ( Insect%wing_thickness_distribution == "variable") then
+      if (root) write(*,*) "Wing thickness is variable, i.e. t = t(x,y)"
+
+      ! read matrix from ini file, see comments on SXF90 compiler
+      call param_matrix_size_mpi(ifile,"Wing","wing_thickness_profile",a,b)
+      allocate(Insect%wing_thickness_profile(1:a,1:b))
+      call param_matrix_read_mpi(ifile,"Wing","wing_thickness_profile",Insect%wing_thickness_profile)
+
+  else
+      call abort(77623, " Insect wing thickness distribution is unknown (must be constant or variable)")
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! wing corrugation
+  !-----------------------------------------------------------------------------
+  call read_param_mpi(ifile,"Wing","corrugated",Insect%corrugated, .false.)
+  if (Insect%corrugated) then
+      if (root) write(*,*) "wing is corrugated, z=z(x,y)"
+      ! read matrix from ini file, see comments on SXF90 compiler
+      call param_matrix_size_mpi(ifile,"Wing","corrugation_profile",a,b)
+      allocate(Insect%corrugation_profile(1:a,1:b))
+      call param_matrix_read_mpi(ifile,"Wing","corrugation_profile",Insect%corrugation_profile)
+
+  else
+      if (root) write(*,*) "wing is flat (non-corrugated), z==0"
+  endif
+
+end subroutine Setup_Wing_from_inifile
+
+
+!-------------------------------------------------------------------------------
+! Setup extends of wing for reduction of computational time
+!-------------------------------------------------------------------------------
+! for many cases, it is important that Lspan and Lchord are known, but that is
+! tedious for Fourier shapes, as the use cannot see it from the cooefficients.
+! Therefore, we compute the max / min of x / y / z  here and store the result
+! NOTE: This code is executed only once.
+!-------------------------------------------------------------------------------
+subroutine set_wing_bounding_box_fourier( Insect )
+  implicit none
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr) :: theta, xmin,xmax, ymin, ymax, R, x, y, theta_prime
+
+  theta = 0.d0
+  xmin = 999.d9
+  ymin = 999.d9
+  xmax = -999.d9
+  ymax = -999.d9
+
+  ! construct the wing border by looping over the angle theta, look for smallest and largest x,y values
+  ! note flusi uses a normalized angle between [0,1)
+  do while ( theta < 1.d0 )
+    ! note this is normalized angle
+    R = Radius_Fourier( theta, Insect )
+
+    theta_prime = 2.d0*pi*theta - pi
+    x = Insect%xc + R * cos( theta_prime )
+    y = Insect%yc + R * sin( theta_prime )
+
+    ! NOTE: A word on theta_prime: it is the angle described with the positve x-axis
+    ! and indeed rotates in positve z-direction. That means in the plane
+    !
+    !  ^ x_wing
+    !  |
+    !  o-------> y_wing
+    !
+    ! It rotates CLOCKWISE, starting from the x_wing axis (zero is the x-axis, vertical)
+
+    xmin = min( xmin, x )
+    ymin = min( ymin, y )
+
+    xmax = max( xmax, x )
+    ymax = max( ymax, y )
+
+    theta = theta + 1.0d-3
+  end do
+
+  Insect%wing_bounding_box(1:4) = (/xmin, xmax, ymin, ymax/)
+
+  ! the bounding box in z-direction depends on the wing thicnkess (constant or not)
+  ! and the corrugation
+  if ( Insect%wing_thickness_distribution == "constant" ) then
+    if ( Insect%corrugated ) then
+      Insect%wing_bounding_box(5) = minval(Insect%corrugation_profile) - Insect%WingThickness / 2.0_pr
+      Insect%wing_bounding_box(6) = maxval(Insect%corrugation_profile) + Insect%WingThickness / 2.0_pr
+    else
+      ! constant thickness, no corrugation is the classical flat case:
+      Insect%wing_bounding_box(5) = -Insect%WingThickness / 2.0_pr
+      Insect%wing_bounding_box(6) = +Insect%WingThickness / 2.0_pr
+    endif
+  else
+    if ( Insect%corrugated ) then
+      ! minimum of lower surface
+      Insect%wing_bounding_box(5) = minval(Insect%corrugation_profile-Insect%wing_thickness_profile/2.0_pr)
+      ! maximum of upper surface
+      Insect%wing_bounding_box(6) = maxval(Insect%corrugation_profile+Insect%wing_thickness_profile/2.0_pr)
+    else
+      ! bounding box is +- largest thickness  simply
+      Insect%wing_bounding_box(5) = -maxval(Insect%wing_thickness_profile / 2.0_pr)
+      Insect%wing_bounding_box(6) =  maxval(Insect%wing_thickness_profile / 2.0_pr)
+    endif
+  end if
+
+  if (root) then
+    write(*,'("Effective (=the real surface) wing lengths are:")')
+    write(*,'("Lspan=",es15.8,"Lchord=",es15.8)') ymax-ymin, xmax-xmin
+    write(*,'("Bounding box is:")')
+    write(*,'("xwmin=",es15.8," xwmax=",es15.8)') Insect%wing_bounding_box(1:2)
+    write(*,'("ywmin=",es15.8," ywmax=",es15.8)') Insect%wing_bounding_box(3:4)
+    write(*,'("zwmin=",es15.8," zwmax=",es15.8)') Insect%wing_bounding_box(5:6)
+  endif
+end subroutine set_wing_bounding_box_fourier

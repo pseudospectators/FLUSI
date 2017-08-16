@@ -22,14 +22,15 @@ subroutine extend_domain(help)
     write(*,*) "As a mpi-decomposed field cannot simply be copied locally, but instead involves communication"
     write(*,*) "this routine has to be run in serial, unfortunately. at least, it does not allocate any extra memory."
     write(*,*) ""
+    write(*,*) "Note: if the target field is smaller, then the source field is cropped"
+    write(*,*) ""
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: nope"
     return
   endif
 
   if (mpisize/=1) then
-    write(*,*) "./flusi --postprocess --extend-domain is a SERIAL routine, use 1CPU only"
-    call abort()
+    call abort(9998, "./flusi --postprocess --extend-domain is a SERIAL routine, use 1CPU only")
   endif
 
   ! get file to read pressure from and check if this is present
@@ -54,9 +55,6 @@ subroutine extend_domain(help)
   write(*,'("Source field size= ",3(i4,1x))') nx_org, ny_org, nz_org
   write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
-  if ((nx_new<nx_org).or.(ny_new<ny_org).or.(nz_new<nz_org)) then
-    call abort("new resolution may not be smaller than old resolution")
-  endif
 
   write(*,*) "Initializing SMALL field..."
   nx = nx_org
@@ -71,6 +69,13 @@ subroutine extend_domain(help)
 
   allocate(u_org(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   call read_single_file(fname_in,u_org)
+
+  if ((nx_new<nx_org).or.(ny_new<ny_org).or.(nz_new<nz_org)) then
+    write(*,*) "The new field is smaller than the source field - data will be cropped!"
+    nx_org = min(nx_new, nx_org)
+    ny_org = min(ny_new, ny_org)
+    nz_org = min(nz_new, nz_org)
+  endif
 
   !-----------------------
   write(*,*) "Initializing BIG field..."
@@ -88,7 +93,7 @@ subroutine extend_domain(help)
 
   write(*,*) "data allocated. we'll now copy the data from small to big field"
   ! copy data to lower bottom corner
-  u_new(0:nx_org-1, 0:ny_org-1, 0:nz_org-1) = u_org
+  u_new(0:nx_org-1, 0:ny_org-1, 0:nz_org-1) = u_org(0:nx_org-1, 0:ny_org-1, 0:nz_org-1)
   deallocate( u_org )
 
   write(*,*) "Saving upsampled field to " // trim(adjustl(fname_out))

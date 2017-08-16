@@ -179,4 +179,49 @@ real (kind=pr) function delta(x,dx1)
 
 end function
 
+
+real (kind=pr) function interp2_nonper (x_target, y_target, field2, axis)
+!  LINEAR Interpolation in a field. The field is of automatic size, indices starting with 0 both. The domain is
+!  defined by x1_box,y1_box and x2_box,y2_box. The target coordinates should lie within that box.
+!  NOTE: attention on the upper point of the box. In the rest of the code, which is periodic, the grid is 0:nx-1
+!        but the lattice spacing is yl/nx. This means that the point (nx-1) has NOT the coordinate yl but yl-dx
+!        (otherwise this point would exist two times!)
+  use vars, only : pr
+  implicit none
+  integer :: i,j
+  real (kind=pr) :: x,y,x_1,y_1,x_2,y_2,dx, dy, R1,R2
+  real (kind=pr), intent (in) :: field2(0:,0:), x_target, y_target, axis(1:4)
+  real(kind=pr) :: x1_box, y1_box, x2_box, y2_box
+
+  x1_box = axis(1)
+  x2_box = axis(2)
+  y1_box = axis(3)
+  y2_box = axis(4)
+
+
+  dx = (x2_box-x1_box) / dble(size(field2,1)-1 )
+  dy = (y2_box-y1_box) / dble(size(field2,2)-1 )
+
+
+  if ( (x_target > x2_box).or.(x_target < x1_box).or.(y_target > y2_box).or.(y_target < y1_box) ) then
+    ! return zero if point lies outside valid bounds
+    interp2_nonper = 0.0d0
+    return
+  endif
+
+  i = int((x_target-x1_box)/dx)
+  j = int((y_target-y1_box)/dy)
+
+  x_1 = dble(i)*dx + x1_box
+  y_1 = dble(j)*dy + y1_box
+  x_2 = dx*dble(i+1) + x1_box
+  y_2 = dy*dble(j+1) + y1_box
+  R1 = (x_2-x_target)*field2(i,j)/dx   + (x_target-x_1)*field2(i+1,j)/dx
+  R2 = (x_2-x_target)*field2(i,j+1)/dx + (x_target-x_1)*field2(i+1,j+1)/dx
+
+  interp2_nonper = (y_2-y_target)*R1/dy + (y_target-y_1)*R2/dy
+
+end function interp2_nonper
+
+
 end module interpolation

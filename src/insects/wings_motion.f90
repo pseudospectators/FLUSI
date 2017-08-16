@@ -75,7 +75,6 @@ end subroutine FlappingMotion_right
 subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
            alpha_dt, theta_dt, kine)
   use vars
-  use ini_files_parser_mpi
   implicit none
 
   real(kind=pr), intent(in) :: time

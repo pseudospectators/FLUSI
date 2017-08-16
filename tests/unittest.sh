@@ -16,6 +16,7 @@ insects_mask_FF_tethered_kineloader.sh
 insects_mask_FF_moving_rotation.sh
 insects_mask_FF_moving_rotationtranslation.sh
 insects_mask_jerry.sh
+insects_mask_corrugation.sh
 insects_flow_FF_tethered.sh
 insects_flow_BB_tethered_AB2.sh
 insects_flow_BB_tethered_AB2_periodic.sh
@@ -56,10 +57,10 @@ if [ -z "$nprocs" ]; then
     nprocs=4
 fi
 if [ -z "$mpi_command" ]; then
-    export mpi_command="nice -n 19 ionice -c 3 mpiexec --np ${nprocs}"
+    export mpi_command="nice mpirun -n ${nprocs}"
 fi
 if [ -z "$mpi_serial" ]; then
-    export mpi_serial=""
+    export mpi_serial="nice mpirun -n 1 "
 fi
 
 numtests=0
