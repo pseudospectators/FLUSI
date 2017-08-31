@@ -19,7 +19,7 @@ module vars
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
   ! Used in params.f90
-  integer,parameter :: strlen=80   ! standard string length
+  integer,parameter :: strlen=120   ! standard string length
 
   ! Precision of doubles
   integer,parameter :: pr = 8

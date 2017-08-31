@@ -2,7 +2,7 @@
 ! For both wings such a datatype is contained in the insect.
 type wingkinematics
   ! Fourier coefficients
-  real(kind=pr) :: a0_alpha, a0_phi, a0_theta=0.d0
+  real(kind=pr) :: a0_alpha=0.d0, a0_phi=0.d0, a0_theta=0.d0
   real(kind=pr), dimension(1:nfft_max) :: ai_phi=0.d0, bi_phi=0.d0, ai_theta=0.d0, &
     bi_theta=0.d0, ai_alpha=0.d0, bi_alpha=0.d0
   integer :: nfft_phi=0, nfft_alpha=0, nfft_theta=0

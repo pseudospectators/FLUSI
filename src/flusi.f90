@@ -167,6 +167,7 @@ program FLUSI
     ! we need more memory for RK4:
     if (iTimeMethodFluid=="RK4") nrhs=5
     if (root) write(*,'("Using nrhs=",i1," right hand side registers")') nrhs
+
     !-----------------------------------------------------------------------------
     ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
     !-----------------------------------------------------------------------------
@@ -174,19 +175,6 @@ program FLUSI
     call fft_initialize
     ! Setup communicators used for ghost point update
     call setup_cart_groups
-
-    !-----------------------------------------------------------------------------
-    ! Initialize time series output files, if not resuming a backup
-    !-----------------------------------------------------------------------------
-    if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then
-      call initialize_time_series_files()
-    endif
-
-    ! initialize runtime control file
-    if (mpirank==0) call initialize_runtime_control_file()
-
-    ! Print domain decomposition
-    call print_domain_decomposition()
 
     !-----------------------------------------------------------------------------
     ! Allocate memory:
@@ -339,6 +327,26 @@ program FLUSI
     call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
     press,scalars,scalars_rhs,Insect,beams)
 
+    !-----------------------------------------------------------------------------
+    ! Initialize time series output files, if not resuming a backup
+    !-----------------------------------------------------------------------------
+    if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then
+      if (time == 0.d0) then
+        ! the inicond "infile" reads the time from the hdf5 files and is often used
+        ! if runtime backuping failed for some reason. therefore in that case, do not
+        ! delete existing time series files.
+        call initialize_time_series_files()
+      else
+        ! do nothing
+        write(*,*) "As initial condition set t/=0.d0, I do NOT reset the time series files."
+      endif
+    endif
+
+    ! initialize runtime control file
+    if (mpirank==0) call initialize_runtime_control_file()
+
+    ! Print domain decomposition
+    call print_domain_decomposition()
 
     if (use_slicing=="yes") then
       call slice_init(time)

@@ -154,7 +154,7 @@ subroutine save_field_hdf5_strided(time,fname,field_out)
   call write_attribute( fname, get_dsetname(fname), "viscosity",(/nu/))
   call write_attribute( fname, get_dsetname(fname), "epsi",(/eps/))
   call write_attribute( fname, get_dsetname(fname), "domain_size",(/xl,yl,zl/))
-  call write_attribute( fname, get_dsetname(fname), "nxyz",(/nx/2,ny/2,nz/2/))
+  call write_attribute( fname, get_dsetname(fname), "nxyz", (/nx,ny,nz/) / striding )
 
   deallocate (field_red)
 end subroutine save_field_hdf5_strided
@@ -365,4 +365,3 @@ subroutine read_field_backup(filename,dsetname,field)
   if (root) write(*,'(".. read ",f7.2," MB in ",f7.2," s (",f7.2,"MB/s)")') &
   mbyte, t1, mbyte/t1
 end subroutine read_field_backup
-
