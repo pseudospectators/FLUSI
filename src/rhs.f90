@@ -73,8 +73,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
      call cal_nlk_mhd(nlk,uk,u,vort)
 
   case default
-     if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
-     call abort()
+     call abort(1,"Error! Unknown method in cal_nlk")
   end select
 
   time_rhs = time_rhs + MPI_wtime() - t0
@@ -150,7 +149,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   ! nlk is temporarily used for vortk
   call curl ( ink=uk, outk=nlk )
   ! transform it to physical space
-  call ifft3 ( ink=nlk, outx=vort)
+  call ifft3 ( ink=nlk, outx=vort )
   time_vor = time_vor + MPI_wtime() - t1
 
   !-----------------------------------------------------------------------------
@@ -169,7 +168,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   !-- vorticity sponge term
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  call vorticity_sponge( vort, work(:,:,:,1), workc, Insect )
+  if (iVorticitySponge == "yes") then
+    call vorticity_sponge( vort, work(:,:,:,1), workc, Insect )
+  endif
   time_sponge = time_sponge + MPI_wtime() - t1
 
   !-----------------------------------------------------------------------------
@@ -340,16 +341,30 @@ end subroutine pressure
 
 
 !-------------------------------------------------------------------------------
-! Compute the pressure in an inefficient way given only the velocity
+! Compute the pressure given the velocity field.
 !-------------------------------------------------------------------------------
-subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
+! Note the pressure is computed from the divergence of the RHS of Navier-Stokes.
+! This implies that you actually need to compute the RHS in order to compute
+! the pressure from it - thus, this is (almost) the price of a Navier-Stokes
+! step.
+! The good way to compute the pressure is to do it when you compute the RHS anyways
+! but in some situations, this is not possible:
+!   - in the semi-implicit FSI scheme (advance fluid, then get new pressure, then advance solid)
+!   - in postprocessing
+! For these reasons, this routine exists.
+! IMPORTANT: NOTE: the routine does *NOT* create mask and us fields. Why? Because in the FSI
+! semiimplicit scheme, we compute the new pressure using the OLD mask (since the beam is not
+! yet advanced to the new time level).
+! In postprocessing, be sure to create the mask before calling this routine!!
+!-------------------------------------------------------------------------------
+subroutine pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,press,Insect)
   use mpi
   use p3dfft_wrapper
   use vars
   use insect_module
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(in) :: time
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -357,17 +372,25 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
-  type(diptera) :: Insect_dummy
+  type(diptera),intent(inout)::Insect
 
-  ! this is a hack - we should not call this routine with insects
-  if (iMask=="Insect") then
-    call abort(99919,"do not call pressure_given_uk with iMask==insect!!!")
-  endif
+  ! first, compute the source terms: non-linear operator and penalization term.
+  ! NOTE: we do not create the mask here (nor in cal_nlk_fsi!) see note above!
+  ! This implies that if you do not have the mask at the right time or not set at
+  ! all, the result is wrong
+  call cal_nlk_fsi(time,0,nlk,uk,u,vort,work,workc,Insect)
 
-  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect_dummy)
+  ! compute the pressure from source-terms
   call pressure(nlk,workc(:,:,:,1))
+
+  ! transform pressure back to phys. space (NOTE: press is an ghost-point array,
+  ! therefore you need to copy only the ra:rb parts)
   call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
+  ! as we employ the rotational formulation for the nonlinear term, the pressure
+  ! is PI and not p. Return p by sustracting kinetic energy:
+  press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) &
+  - 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
 end subroutine
 
 
@@ -386,7 +409,6 @@ subroutine add_explicit_diffusion(uk,nlk)
   complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
-
 
   do iz=ca(1),cb(1)
     !-- wavenumber in z-direction
@@ -407,11 +429,13 @@ subroutine add_explicit_diffusion(uk,nlk)
 end subroutine add_explicit_diffusion
 
 
-
+! forcing terms for Homogeneous Isotropic Turbulence (HIT), added directly to NLK
+! The forcing injects energy into some wavenumbers, trying to keep the total
+! energy constant by compensating for viscous losses.
 subroutine add_forcing_term(time,uk,nlk)
-  use mpi
   use vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -432,7 +456,7 @@ subroutine add_forcing_term(time,uk,nlk)
 
     ! get spectrum (on all procs, MPI_ALLREDUCE)
     call compute_spectrum(time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
-    factor = eps_forcing / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+    factor = eps_forcing / (2.d0*(S_Ekin( int(kf) )+S_Ekin( int(kf)+1 )))
 
     ! force wavenumber shells
     do ix=ca(3),cb(3)
@@ -445,7 +469,7 @@ subroutine add_forcing_term(time,uk,nlk)
           kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
 
           ! forcing lives around this shell
-          if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
+          if ( (kreal>=kf-0.5d0) .and. (kreal<=kf+1.5d0) ) then
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
@@ -454,6 +478,7 @@ subroutine add_forcing_term(time,uk,nlk)
         enddo
       enddo
     enddo
+
   case ("kaneda")
     ! get spectrum (on all procs, MPI_ALLREDUCE)
     call compute_spectrum(time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
@@ -463,41 +488,13 @@ subroutine add_forcing_term(time,uk,nlk)
     ! stay with the velocity in k-space and integrate k^2 * E(k)
     ! However, this is exact only if E(k) is not averaged over the wavenumber shell
     ! as it is done when computing the spectrum.
-    epsilon_loc = 0.d0
-
-    do ix=ca(3),cb(3)
-      kx=wave_x(ix)
-      do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do iz=ca(1),cb(1)
-          kz=wave_z(iz)
-          k2 = (kx*kx)+(ky*ky)+(kz*kz)
-
-          if ( ix==0 .or. ix==nx/2 ) then
-            E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
-             +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
-             +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
-          else
-            E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
-             +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
-             +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
-          endif
-
-          epsilon_loc = epsilon_loc + k2 * E
-        enddo
-      enddo
-    enddo
-
-    epsilon_loc = 2.d0 * nu * epsilon_loc
-
-    call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-    MPI_COMM_WORLD,mpicode)
+    call dissipation_rate(uk, epsilon)
 
     ! The actual forcing term follows. We now have the current dissipation rate
     ! epsilon, which we would like to be balanced by the energy input through
     ! the forcing. The forcing is c*uk (where c="factor" here). Note the dissipation
     ! rate is divided by the energy of the first two wavenumber shells
-    factor = epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+    factor = epsilon / (2.d0*(S_Ekin( int(kf) )+S_Ekin( int(kf)+1 )))
 
     ! force wavenumber shells
     do ix=ca(3),cb(3)
@@ -510,7 +507,7 @@ subroutine add_forcing_term(time,uk,nlk)
           kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
 
           ! forcing lives around this shell
-          if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
+          if ( (kreal>=kf-0.5d0) .and. (kreal<=kf+1.5d0) ) then
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
@@ -521,8 +518,7 @@ subroutine add_forcing_term(time,uk,nlk)
     enddo
 
   case default
-    if (mpirank==0) write(*,*) "unknown forcing method.."
-    call abort(99929)
+    call abort(99929,"unknown HIT forcing method..")
   end select
 end subroutine add_forcing_term
 

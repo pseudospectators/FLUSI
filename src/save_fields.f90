@@ -26,8 +26,7 @@ subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Inse
   case("mhd")
     call save_fields_mhd(time,uk,u,vort,nlk)
   case default
-    if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
-    call abort(9)
+    call abort(9,"Error! Unknown method in save_fields")
   end select
 
   time_save=time_save + MPI_wtime() - t1 ! performance analysis

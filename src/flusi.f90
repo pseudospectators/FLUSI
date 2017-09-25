@@ -16,6 +16,13 @@ program FLUSI
 
   if (mpirank==0) root=.true.
 
+  ! this is a fallback:
+  ! the reason is that many routines take vector fields as input (either with neq or nd components)
+  ! but some postprocessing tools do not set these variables. they are overwritten in almost all
+  ! cases by the main programs.
+  neq = 3
+  nd = 3
+
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
 
@@ -346,7 +353,7 @@ program FLUSI
     if (mpirank==0) call initialize_runtime_control_file()
 
     ! Print domain decomposition
-    call print_domain_decomposition()
+    ! call print_domain_decomposition()
 
     if (use_slicing=="yes") then
       call slice_init(time)
@@ -616,13 +623,14 @@ if (mpirank/=0) return
 
 
 
-  subroutine print_domain_decomposition()
+  subroutine print_domain_decomposition(fname)
     use vars
     use mpi
     implicit none
+    character(len=*)::fname
     integer :: mpicode
 return
-    open  (14,file='mpi_distribution',status='replace')
+    ! open  (14,file=fname,status='replace')
 
     if (root) then
       write(14,'(A)') '--------------------------------------'

@@ -90,6 +90,8 @@ subroutine postprocessing()
     call turbulence_analysis(help)
   case ("--field-analysis")
     call field_analysis(help)
+  case ("--pressure")
+    call convert_pressure(help)
   case ("--TKE-mean")
     call tke_mean(help)
   case ("--max-over-x")
@@ -145,6 +147,7 @@ subroutine postprocessing()
       write(*,*) "--hdf2bin"
       write(*,*) "--bin2hdf"
       write(*,*) "--helicity"
+      write(*,*) "--pressure"
       write(*,*) "--stl2dist"
       write(*,*) "--dist2mask   --dist2chi"
       write(*,*) "--smooth-inverse-mask"

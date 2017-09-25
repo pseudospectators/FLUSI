@@ -995,7 +995,7 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
       ! now we theres an error...
       write (*,*) "Insect module: trying to set up fourier descriptors for wing&
                   & shape but the type Insect%WingShape is unknown! :: "// Insect%WingShape
-      call abort()
+      call abort(554329)
     end if
   end select
 

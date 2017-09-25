@@ -43,6 +43,7 @@ module vars
   integer,dimension (1:3),save :: ga,gb
   ! Local array bounds for real arrays for all MPI processes
   integer, dimension (:,:), allocatable, save :: ra_table, rb_table, yz_plane_ranks
+  integer, dimension (:,:), allocatable, save :: ca_table, cb_table
   ! for simplicity, store what decomposition we use
   character(len=strlen), save :: decomposition
 
@@ -77,7 +78,7 @@ module vars
   integer,save :: iDealias
 
   ! Isotropic Turbulence Forcing
-  character(len=strlen), save :: forcing_type
+  character(len=strlen), save :: forcing_type="none"
   real(kind=pr), save :: kf, eps_forcing
 
   ! Parameters to set which files are saved and how often:

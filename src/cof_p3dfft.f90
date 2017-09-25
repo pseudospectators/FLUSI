@@ -157,7 +157,7 @@ subroutine fft_initialize
 
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
-    call abort("wrong mpidims: change mpisize")
+    call abort(33340,"wrong mpidims: change mpisize")
   endif
 
   !-- Initialize P3DFFT
@@ -187,7 +187,7 @@ subroutine fft_initialize
   if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
     if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
     if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
-    call abort()
+    call abort(33341)
   endif
 
   !-- Allocate domain partitioning tables and gather sizes from all processes
@@ -195,6 +195,10 @@ subroutine fft_initialize
   allocate ( ra_table(1:3,0:mpisize-1), rb_table(1:3,0:mpisize-1) )
   call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
   call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
+  !-- cmplx arrays
+  allocate ( ca_table(1:3,0:mpisize-1), cb_table(1:3,0:mpisize-1) )
+  call MPI_ALLGATHER (ca, 3, MPI_INTEGER, ca_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
+  call MPI_ALLGATHER (cb, 3, MPI_INTEGER, cb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
 
   !-- create a 2D array of size ny*nz that holds the mpirank of every point
   !-- in the y-z plane
@@ -369,9 +373,10 @@ subroutine fft_free
   endif
 
   if (allocated(yz_plane_ranks)) deallocate(yz_plane_ranks)
-  if (allocated(ra_table)) deallocate(ra_table)
   if (allocated(rb_table)) deallocate(rb_table)
-
+  if (allocated(ra_table)) deallocate(ra_table)
+  if (allocated(cb_table)) deallocate(cb_table)
+  if (allocated(ca_table)) deallocate(ca_table)
 end subroutine fft_free
 
 
@@ -392,7 +397,7 @@ subroutine coftxyz(f,fk)
   integer(kind=8) :: npoints
 
   if (using_p3dfft .eqv. .false.) then
-    call abort('P3DFFT is not initialized, you cannot perform FFTs')
+    call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
   endif
 
 
@@ -427,7 +432,7 @@ subroutine cofitxyz(fk,f)
   t1 = MPI_wtime()
 
   if (using_p3dfft .eqv. .false.) then
-    call abort('P3DFFT is not initialized, you cannot perform FFTs')
+    call abort(33349,'P3DFFT is not initialized, you cannot perform FFTs')
   endif
 
   ! Compute backward FFT
@@ -584,8 +589,7 @@ subroutine subtr ( idir, n, ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpico
 
   !--Check direction
   if ( (idir/=1) .and. (idir/=2) ) then
-     print *, 'tr2dplus: illegal idir'
-     stop
+     call abort(3334333, 'tr2dplus: illegal idir')
   endif
 
   !--Allocate temporary array
@@ -743,8 +747,7 @@ subroutine decomposition_initialize
 
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
-     print *, 'wrong mpidims: change mpisize'
-     call abort()
+     call abort(3333334,'wrong mpidims: change mpisize')
   endif
 
   !-- Set subdomain bounds
@@ -767,7 +770,7 @@ subroutine decomposition_initialize
   if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
     if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
     if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
-    call abort()
+    call abort(3334509)
   endif
 
   !-- Allocate domain partitioning tables and gather sizes from all processes
@@ -802,7 +805,7 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
 
   if(nx .le. 0 .or. ny .le. 0 .or. nz .le. 0) then
      print *,'Invalid dimensions :',nx,ny,nz
-     call abort()
+     call abort(333952)
   endif
 
   mpicomm = mpi_comm_in
@@ -811,7 +814,7 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
 
   if(dims_in(1) .le. 0 .or. dims_in(2) .le. 0 .or.  dims_in(1)*dims_in(2) .ne. numtasks) then
      print *,'Invalid processor geometry: ',dims,' for ',numtasks, 'tasks'
-     call abort()
+     call abort(333456)
   endif
 
   if(taskid .eq. 0) then

@@ -90,39 +90,55 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
     workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case default
-    if (root) write(*,*) "Error! iTimeMethodFluid unknown. Abort."
-    call abort(10001)
+    call abort(10001, "Error! iTimeMethodFluid unknown. Abort.")
   end select
 
-  ! compute unsteady corrections in every time step
-  if(method=="fsi" .and. unst_corrections==1) then
-    call cal_unst_corrections ( time, dt0, Insect )
-  endif
-
-  ! Force zero mode for mean flow
-  if(method=="fsi") call set_mean_flow(uk,time)
-
-  ! save zero mode in global variables (useless if it is fixed, but useful if dynamic)
-  if(method=="fsi") call get_mean_flow(uk,uxmean,uymean,uzmean)
   ! Set the divergence of the magnetic field to zero to avoid drift.
-  if(method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
+  if (method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
 
-  ! compute running average, if used. applies to FSI only
-  if ((method=="fsi").and.(time_avg=="yes").and.(time>tstart_avg)) then
-    if (vel_avg=="yes") then
-      ! average the velocity
-      uk_avg = (uk*dt1  + (time-tstart_avg)*uk_avg) / ( (time-tstart_avg)+dt1 )
+
+  ! the following parts are FSI specfic and do not apply for MHD runs. The have to be
+  ! performed at the end of every time step, so it is useful to combine them here
+  ! and not in the individual time steppers, of which they are also independend
+  if ( method == "fsi" ) then
+
+    ! If you want to use the solid model, you have to use fluid time steppers that
+    ! call the solid routines. these start with FSI (FSI_AB2_semiimplicit etc)
+    ! The reason is that they are more expensive (since they have to compute the
+    ! pressure array! fluid-only solvers without flexibility do not need that.)
+    if (iTimeMethodFluid(1:4) /= 'FSI_' .and. use_solid_model=="yes" ) then
+      call abort(32156,'The solid model is in use, but the fluid time stepper is not adjusted!')
     endif
 
-    if (ekin_avg=="yes") then
-      ! average kinetic energy
-      e_avg = ( 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)*dt1  &
-      + (time-tstart_avg)*e_avg ) / ( (time-tstart_avg)+dt1 )
+    ! compute unsteady corrections in every time step
+    if (unst_corrections==1) then
+      call cal_unst_corrections ( time, dt0, Insect )
     endif
+
+    ! Force zero mode for mean flow
+    call set_mean_flow(uk,time)
+
+    ! save zero mode in global variables (useless if it is fixed, but useful if dynamic)
+    call get_mean_flow(uk,uxmean,uymean,uzmean)
+
+    ! compute running average, if used. applies to FSI only
+    if ((time_avg=="yes").and.(time>tstart_avg)) then
+      if (vel_avg=="yes") then
+        ! average the velocity
+        uk_avg = (uk*dt1  + (time-tstart_avg)*uk_avg) / ( (time-tstart_avg)+dt1 )
+      endif
+
+      if (ekin_avg=="yes") then
+        ! average kinetic energy
+        e_avg = ( 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)*dt1  &
+        + (time-tstart_avg)*e_avg ) / ( (time-tstart_avg)+dt1 )
+      endif
+    endif
+
+    ! write kinetic energy to disk
+    call output_kinetic_energy(time+dt1, uk)
+
   endif
-
-  ! write kinetic energy to disk
-  if(method=="fsi") call output_kinetic_energy(time+dt1, uk)
 
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
@@ -233,7 +249,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     ! get forces at new time level
     !---------------------------------------------------------------------------
     bpress_old_iterating = beams(1)%pressure_new(0:ns-1) ! exit of the old iteration
-    call pressure_given_uk(time,u,uk,nlk_tmp,vort,work,workc,press)
+    call pressure_from_uk_use_existing_mask(time,u,uk,nlk_tmp,vort,work,workc,press,Insect)
     call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
 
     !---------------------------------------------------------------------------
@@ -341,17 +357,17 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
 
   ! useful error messages
   if (use_solid_model/="yes") then
-    write(*,*) "using FSI_AB2_staggered without solid model?"
-    call abort(10003)
+    call abort(10003, "using FSI_AB2_staggered without solid model?")
   endif
 
   !---------------------------------------------------------------------------
-  ! create mask
-  !---------------------------------------------------------------------------
-  call create_mask(time,Insect, beams(1))
-
-  !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
+  !---------------------------------------------------------------------------
+  ! Note the subroutines call the right hand side, which in turn creates the
+  ! mask function. There is no need to create the mask function here. However,
+  ! note that this is a particularity of the Adams-Bashforth solver, which requires
+  ! the right hand side only at the old time level. For a RungeKutta type solver,
+  ! the mask has to be created at every sub-time step, the routine are more intertwined.
   !---------------------------------------------------------------------------
   if(it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
@@ -409,22 +425,25 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
 
   ! useful error messages
   if (use_solid_model/="yes") then
-    write(*,*) "using FSI_AB2_staggered without solid model?"
-    call abort(10004)
+    call abort(10004, "using FSI_AB2_semiimplicit without solid model?")
   endif
-
-  !---------------------------------------------------------------------------
-  ! create mask
-  !---------------------------------------------------------------------------
-  call create_mask(time,Insect_dummy, beams(1))
 
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
   !---------------------------------------------------------------------------
+  ! Note the subroutines call the right hand side, which in turn creates the
+  ! mask function. There is no need to create the mask function here. However,
+  ! note that this is a particularity of the Adams-Bashforth solver, which requires
+  ! the right hand side only at the old time level. For a RungeKutta type solver,
+  ! the mask has to be created at every sub-time step, the routine are more intertwined.
+  !---------------------------------------------------------------------------
   if(it == 0) then
+    ! very first time step is euler explicit, as the previous right hand side (n-1)
+    ! is not available
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
     work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   else
+    ! all other time steps use AB2
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
     work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   endif
@@ -432,10 +451,16 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   !---------------------------------------------------------------------------
   ! get forces at old/new time level
   !---------------------------------------------------------------------------
-  ! TODO: do we need that? not for BDF I think
-  call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
-  ! we can overwrite NLK(n1) since this is the one overwritten in the next call
-  call pressure_given_uk(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press)
+  ! getting the pressure at the old time level is not always required
+  ! if (TimeMethodSolid /= "BDF2") then
+    call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
+  ! endif
+
+  ! note the fluid solver advances only the velocity field in fourier space, uk
+  ! and not the pressure field. "press" is in fact at the old time level (n) at
+  ! this point. So now we update "press" to be at the new time level (n+1) as well
+  ! NOTE: we can overwrite NLK(n1) since this is the one overwritten in the next call
+  call pressure_from_uk_use_existing_mask(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press,Insect)
   call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
 
   !---------------------------------------------------------------------------
@@ -563,13 +588,11 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   integer::i
 
   if ((use_passive_scalar==1).and.(mpirank==0)) then
-    write(*,*) "RK4 is not equipped for passive scalars..."
-    call abort(10005)
+    call abort(10005, "RK4 is not equipped for passive scalars...")
   endif
 
   if ((method=="mhd").and.(mpirank==0)) then
-    write(*,*) "RK4 is not equipped for MHD..."
-    call abort(10006)
+    call abort(10006, "RK4 is not equipped for MHD...")
   endif
 
   if ((mpirank==0).and.(it==1)) then
@@ -718,13 +741,15 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,&
                scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
+  !-- calculate time step that will be made
   call adjust_dt(time,u,dt1)
+  !--conceptually, the next line
   if (dt1>tmax-time) dt1=tmax-time
 
   !-- Calculate velocity at new time step
   !-- (2nd order Adams-Bashforth with exact integration of diffusion term)
-  b10=dt1/dt0*(0.5d0*dt1 + dt0)
-  b11=-0.5d0*dt1*dt1/dt0
+  b10 = dt1/dt0*(0.5d0*dt1 + dt0)
+  b11 = -0.5d0*dt1*dt1/dt0
 
   !-- compute integrating factor, if necesssary
   if (dt1 .ne. dt0) then
@@ -797,15 +822,14 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
 
-  if ((Insect%BodyMotion/="free_flight").and.(root)) then
+  if ((Insect%BodyMotion/="free_flight").and.(mpirank==0)) then
     write(*,*) "ERROR AB2_rigid_solid and flag Insect%BodyMotion/=free_flight"
     write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
     call abort(10007)
   endif
 
   if ((method/="fsi").and.(mpirank==0)) then
-    write(*,*) "AB2_rigid_solid is an FSI method and not suitable for MHD"
-    call abort(10008)
+    call abort(10008, "AB2_rigid_solid is an FSI method and not suitable for MHD")
   endif
 
   !---------------------------------------------------------------------------
@@ -901,8 +925,9 @@ subroutine adjust_dt(time,u,dt1)
       !-- Round the time-step to one digit to reduce calls of cal_vis
       call truncate(dt1)
 
-      !-- impose max dt, if specified
+      !-- impose max dt, if specified in the parameter file
       if (dt_max>0.d0) dt1=min(dt1,dt_max)
+
       !-- Impose penalty stability condition: dt cannot be larger than eps
       if (iPenalization > 0) dt1=min(0.99d0*eps,dt1)
 
@@ -911,6 +936,7 @@ subroutine adjust_dt(time,u,dt1)
       if (iTimeMethodFluid=="RK4") then
         dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
       endif
+
 
       !*************************************************************************
       ! we respect all necessary restrictions, the following ones are optional
@@ -939,7 +965,7 @@ subroutine adjust_dt(time,u,dt1)
           dt1=t-time
         endif
 
-        if (time>=tslice_first) then
+        if ((time>=tslice_first).and.(method=="fsi").and.(use_slicing=="yes")) then
           ! Don't jump past save-points: if the time-step is larger than
           ! the time interval between outputs, decrease the time-step.
           dt1 = min(dt1,0.98d0*tslice)
@@ -949,6 +975,7 @@ subroutine adjust_dt(time,u,dt1)
           endif
         endif
 
+        ! do not jump past the final time "tmax" in the simulation
         t = tmax
         if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
           dt1 = tmax-time
@@ -1017,6 +1044,8 @@ subroutine set_mean_flow(uk,time)
     if (iMeanFlow_z=="sinusoidal") uk(0,0,0,3)=umean_amplitude(3)*dsin(2.d0*pi*time)
   endif
 end subroutine set_mean_flow
+
+
 !-------------------------------------------------------------------------------
 ! return zero mode for mean flow
 !-------------------------------------------------------------------------------
@@ -1047,8 +1076,6 @@ subroutine get_mean_flow(uk,u1,u2,u3)
   call MPI_ALLREDUCE ( u2l,u2,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
   call MPI_ALLREDUCE ( u3l,u3,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 end subroutine get_mean_flow
-
-
 
 
 !-------------------------------------------------------------------------------

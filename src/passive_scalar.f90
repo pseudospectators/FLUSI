@@ -256,12 +256,11 @@ contains
         ! in this case, we inject in a layer upstream x<x0 a randomized scalar
         ! with mean 0.5
 
-        
+
       case ("none","empty","no","without")
         ! simply do not do anything
       case default
-        if(mpirank==0) write(*,*) "Scalar: source term not defined"//scalar_props(j)%sourceterm
-        call abort()
+        call abort(0909090,'Passive scalar, source term undefined.')
       end select
     enddo
 

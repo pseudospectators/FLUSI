@@ -29,6 +29,8 @@ subroutine turbulence_analysis(help)
     return
   endif
 
+  neq = 3
+  nd = 3
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -40,12 +42,6 @@ subroutine turbulence_analysis(help)
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
-
-  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-    write (*,*) "Error in arguments, files do not start with ux uy and uz"
-    write (*,*) "note files have to be in the right order"
-    call abort()
-  endif
 
   if(mpirank==0) then
     write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
@@ -82,39 +78,10 @@ subroutine turbulence_analysis(help)
   !-----------------------------------------------------------------------------
   ! dissipation rate from velocity in Fourier space
   !-----------------------------------------------------------------------------
-  do iz=ca(1),cb(1)
-    kz=wave_z(iz)
-    do iy=ca(2),cb(2)
-      ky=wave_y(iy)
-      do ix=ca(3),cb(3)
-        kx=wave_x(ix)
-        kreal = ( (kx*kx)+(ky*ky)+(kz*kz) )
-
-        if ( ix==0 .or. ix==nx/2 ) then
-          E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
-          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
-          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
-        else
-          E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
-          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
-          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
-        endif
-
-        epsilon_loc = epsilon_loc + kreal * E
-      enddo
-    enddo
-  enddo
-
-  epsilon_loc = 2.d0 * nu * epsilon_loc
-
-  call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-  MPI_COMM_WORLD,mpicode)
-
+  call dissipation_rate(uk, epsilon)
   if (mpirank==0) then
     write(17,'(g15.8,5x,A)') epsilon, "Dissipation rate from velocity in Fourier space"
   endif
-
-
 
   !-----------------------------------------------------------------------------
   ! dissipation rate from vorticty

@@ -35,7 +35,6 @@ module basic_operators
 ! Given three components of an input fields in Fourier space, compute
 ! the curl in physical space.  Arrays are 3-dimensional.
 subroutine curl(out1,out2,out3,in1,in2,in3)
-  use mpi
   use p3dfft_wrapper
   use vars
   implicit none
@@ -773,6 +772,7 @@ subroutine helicity_norm(u,vor,hel)
 
 end subroutine helicity_norm
 
+
 ! gradient of a scalar field in fourier space
 subroutine gradient(uk,uk_dx,uk_dy,uk_dz)
   use mpi
@@ -802,5 +802,55 @@ subroutine gradient(uk,uk_dx,uk_dy,uk_dz)
 end subroutine gradient
 
 
+! compute current dissipation rate, i.e. the los of energy due to friction
+subroutine dissipation_rate( uk, epsilon )
+  use vars
+  use p3dfft_wrapper
+  implicit none
+  ! input: velocity vector in Fourier space
+  complex(kind=pr),dimension(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq),intent(inout):: uk
+  ! output: dissipation rate
+  real(kind=pr), intent(out)  :: epsilon
+  ! local variables
+  real(kind=pr) :: epsilon_loc, kx, ky, kz, k2, E
+  integer :: ix, iy, iz, mpicode
+
+  ! compute current dissipation rate. There are several ways to do this; one
+  ! is computing the enstrophy in x-space, using the vorticity, but we can also
+  ! stay with the velocity in k-space and integrate k^2 * E(k)
+  ! However, this is exact only if E(k) is not averaged over the wavenumber shell
+  ! as it is done when computing the spectrum.
+
+  epsilon_loc = 0.d0
+
+  do ix = ca(3),cb(3)
+    kx = wave_x(ix)
+    do iy = ca(2),cb(2)
+      ky = wave_y(iy)
+      do iz = ca(1),cb(1)
+        kz = wave_z(iz)
+        k2 = (kx*kx)+(ky*ky)+(kz*kz)
+
+        if ( ix==0 .or. ix==nx/2 ) then
+          E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
+           +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
+           +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
+        else
+          E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
+           +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
+           +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
+        endif
+
+        epsilon_loc = epsilon_loc + k2 * E
+      enddo
+    enddo
+  enddo
+
+  epsilon_loc = 2.d0 * nu * epsilon_loc
+
+  call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+
+end subroutine
 
 end module basic_operators

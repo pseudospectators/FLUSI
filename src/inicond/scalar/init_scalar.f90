@@ -124,7 +124,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
     case default
       if (mpirank==0) then
         write(*,*) "init_passive_scalar:: unknown inicond_scalar="//scalar_props(j)%inicond
-        call abort()
+        call abort(777811)
       endif
     end select
   end do

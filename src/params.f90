@@ -28,7 +28,7 @@ subroutine get_params(paramsfile,Insect,verbose)
     ! Get mhd-specific parameter values from PARAMS
     call get_params_mhd(PARAMS)
   case default
-    if(mpirank==0) call abort("Error! Unkonwn method in get_params; stopping.")
+    call abort(1,"Error! Unknown method in get_params; stopping.")
   end select
 
 
@@ -79,6 +79,8 @@ subroutine get_params_common(PARAMS)
   dy=yl/dble(ny)
   dz=zl/dble(nz)
 
+  ! 22 sep 2017: I think we do not need this anymore. the problem was that integrals
+  ! etc miultiply either nby dx*dy*dz or took the min(dx,dy,dz) in smoothing layers
   if (nx==1) then
     if (root) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"
     dx = 1.d0!max(dz,dy)
@@ -182,12 +184,6 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"Forcing","forcing_type",forcing_type, "none")
   call read_param_mpi(PARAMS,"Forcing","kf",kf, 0.d0)
   call read_param_mpi(PARAMS,"Forcing","eps_forcing",eps_forcing, 0.d0)
-
-  !-- dry run, just the mask function
-  call read_param_mpi(PARAMS,"DryRun","dry_run_without_fluid",dummy,"no")
-  if (dummy=="yes") then
-    call abort('dry_run_without_fluid is depecreated; run flusi with ./flusi --dry-run PARAMS.ini instead')
-  endif
 
   ! ----------------------------------------------------------------------------
   ! automatic backup resuming...
