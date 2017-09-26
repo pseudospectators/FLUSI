@@ -477,7 +477,7 @@ if (mpirank/=0) return
     write(*,8) (time_insect_eye),100.d0*(time_insect_eye)/t2, "insect::eyes"
     write(*,8) (time_insect_head),100.d0*(time_insect_head)/t2, "insect::head"
     write(*,8) (time_insect_wings),100.d0*(time_insect_wings)/t2,"insect::wings"
-    write(*,8) (time_insect_vel),100.d0*(time_insect_vel)/t2,"insect::roration"
+    write(*,8) (time_insect_vel),100.d0*(time_insect_vel)/t2,"insect::rotation"
     write(*,3)
     write(*,'("save fields:")')
     write(*,8) (time_hdf5), 100.d0*(time_hdf5)/t2, "hdf5 disk dumping"
