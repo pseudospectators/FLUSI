@@ -44,7 +44,7 @@ do
         # and compare them to the ones stored
         if [ -f $reffile ]; then
             ${mpi_serial} ./flusi --postprocess --compare-keys $keyfile $reffile
-            result=$?
+            result=$(cat return); rm return
             if [ $result == "0" ]; then
               echo -e ":) Happy, this looks okay! " $keyfile $reffile
               happy=$((happy+1))
@@ -79,7 +79,7 @@ file=kinematics.t
 
   ${mpi_serial} ./flusi --postprocess --compare-timeseries $file $dir/$file
 
-  result=$?
+  result=$(cat return); rm return
   if [ $result == "0" ]; then
     echo -e ":) Happy, time series: this looks okay! " $file
     happy=$((happy+1))

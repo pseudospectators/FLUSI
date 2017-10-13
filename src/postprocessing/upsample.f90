@@ -76,7 +76,7 @@ subroutine upsample(help)
   allocate(uk_org(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
 
   ! it is always a good idea to do this test
-  call fft_unit_test(u_org, uk_org)
+  ! call fft_unit_test(u_org, uk_org)
 
   ! read file from disk
   call read_single_file(fname_in, u_org)

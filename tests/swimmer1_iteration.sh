@@ -43,7 +43,7 @@ do
         # and compare them to the ones stored
         if [ -f $reffile ]; then        
             ${mpi_serial} ./flusi --postprocess --compare-keys $keyfile $reffile 
-            result=$?
+            result=$(cat return); rm return
             if [ $result == "0" ]; then
               echo -e ":) Happy, this looks okay! " $keyfile $reffile 
               summary[i]=${summary[i]}"Y "
@@ -93,7 +93,7 @@ do
   
   ${mpi_serial} ./flusi --postprocess --compare-timeseries $file swimmer1_iteration/$file
   
-  result=$?
+  result=$(cat return); rm return
   if [ $result == "0" ]; then
     echo -e ":) Happy, time series: this looks okay! " $file
     happy=$((happy+1))

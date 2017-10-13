@@ -71,11 +71,29 @@ subroutine compare_key(key1,key2)
   if ((e1<1.d-4) .and. (e2<1.d-4) .and. (e3<1.d-4) .and. (e4<1.d-4) .and. (e0<1.d-4) .and. (e5<1.d-4)) then
     ! all cool
     write (*,*) "OKAY..."
+
+    ! on some machines, returning an exit code (exit(1)) does not work
+    ! so write your exit code in a small txt file as well. this allows unit tests
+    ! on turing.
+    if (root) then
+      open (15, file='return', status='replace')
+      write(15,'(i1)') 0
+      close(15)
+    endif
     call MPI_FINALIZE(mpicode)
     call exit(0)
   else
     ! very bad
     write (*,*) "ERROR"
+
+    ! on some machines, returning an exit code (exit(1)) does not work
+    ! so write your exit code in a small txt file as well. this allows unit tests
+    ! on turing.
+    if (root) then
+      open (15, file='return', status='replace')
+      write(15,'(i1)') 1
+      close(15)
+    endif
     call MPI_FINALIZE(mpicode)
     call exit(1)
   endif

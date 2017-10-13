@@ -61,7 +61,16 @@ subroutine compare_timeseries(help)
   if(columns/=columns2) then
     write(*,*) "trying to compare two t files with different #columns..."
     call MPI_FINALIZE(mpicode)
-    call exit(666)
+
+    ! on some machines, returning an exit code (exit(1)) does not work
+    ! so write your exit code in a small txt file as well. this allows unit tests
+    ! on turing.
+    if (root) then
+      open (15, file='return', status='replace')
+      write(15,'(i1)') 1
+      close(15)
+    endif
+    call exit(1)
   endif
 
   write(format,'("(",i2.2,"(es15.8,1x))")') columns
@@ -99,10 +108,22 @@ subroutine compare_timeseries(help)
       write(*,format) values2
       write(*,format) error
       call MPI_FINALIZE(mpicode)
-      call exit(666)
+
+      ! on some machines, returning an exit code (exit(1)) does not work
+      ! so write your exit code in a small txt file as well. this allows unit tests
+      ! on turing.
+      if (root) then
+        open (15, file='return', status='replace')
+        write(15,'(i1)') 1
+        close(15)
+      endif
+
+      call exit(1)
     endif
   enddo
   close (20)
   close (30)
   deallocate (values1,values2,error)
+
+
 end subroutine compare_timeseries

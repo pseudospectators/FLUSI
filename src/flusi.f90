@@ -68,11 +68,20 @@ program FLUSI
       call SolidModelConvergenceTest()
     endif
 
-    else
-      if (mpirank==0) write(*,*) "nothing to do; the argument " // &
-      trim(adjustl(infile)) // " is unkown.."
-    endif
+  else
+    if (mpirank==0) write(*,*) "nothing to do; the argument " // &
+    trim(adjustl(infile)) // " is unkown.."
+  endif
 
+    ! write empty success file. this is useful for automatization purposes
+    if (mpirank==0) call init_empty_file("success")
+
+    ! normal exit
+    if (root) then
+      open (15, file='return', status='replace')
+      write(15,'(i1)') 0
+      close(15)
+    endif
 
     call MPI_FINALIZE(mpicode)
     call exit(0)
@@ -402,8 +411,7 @@ program FLUSI
     if (use_slicing=="yes") then
       call slice_free
     endif
-    ! write empty success file
-    if (root) call init_empty_file("success")
+
 
     ! release other memory
     call fft_free
