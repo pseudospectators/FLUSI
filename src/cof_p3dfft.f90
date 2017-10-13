@@ -27,15 +27,35 @@ module p3dfft_wrapper
 
   contains
 
+
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
 subroutine fft(outk,inx)
     use mpi
+    use p3dfft
     use vars ! For precision specficiation and array sizes
     real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+    real(kind=pr) :: t1
+    real(kind=pr) :: norm
+    integer(kind=8) :: npoints
 
-    call coftxyz(inx,outk)
+    if (using_p3dfft .eqv. .false.) then
+      call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
+    endif
+
+
+    t1 = MPI_wtime()
+    ! Compute forward FFT
+    call p3dfft_ftran_r2c( inx, outk, 'fff')
+
+    ! Normalize
+    !  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
+    npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
+    norm = 1.d0 / dble(npoints)
+    outk = outk * norm
+
+    time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
 end subroutine fft
 
 
@@ -43,11 +63,21 @@ end subroutine fft
 ! output in the real-valued 3D array outx.
 subroutine ifft(outx,ink)
     use mpi
+    use p3dfft
     use vars ! For precision specficiation and array sizes
     complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
     real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    real(kind=pr) :: t1
+    t1 = MPI_wtime()
 
-    call cofitxyz(ink,outx)
+    if (using_p3dfft .eqv. .false.) then
+      call abort(33349,'P3DFFT is not initialized, you cannot perform FFTs')
+    endif
+
+    ! Compute backward FFT
+    call p3dfft_btran_c2r(ink, outx, 'fff')
+
+    time_ifft  = time_ifft  + MPI_wtime() - t1
 end subroutine ifft
 
 
@@ -55,12 +85,30 @@ end subroutine ifft
 ! in the complex-valued 3D array outk.
 subroutine fft3(outk,inx)
     use mpi
+    use p3dfft
     use vars ! For precision specficiation and array sizes
     real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
     complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-    call coftxyz(inx(:,:,:,1),outk(:,:,:,1))
-    call coftxyz(inx(:,:,:,2),outk(:,:,:,2))
-    call coftxyz(inx(:,:,:,3),outk(:,:,:,3))
+
+    real(kind=pr) :: t1
+    real(kind=pr) :: norm
+    integer(kind=8) :: npoints
+
+    t1 = MPI_wtime()
+
+    if (using_p3dfft .eqv. .false.) then
+      call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
+    endif
+
+    call p3dfft_ftran_r2c_many( inx, rs(1)*rs(2)*rs(3), outk, cs(1)*cs(2)*cs(3), 3, 'fff')
+
+    ! Normalize
+    npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
+    norm = 1.d0 / dble(npoints)
+    outk = outk * norm
+
+    time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
+
 end subroutine fft3
 
 
@@ -68,13 +116,26 @@ end subroutine fft3
 ! output in the real-valued 3D array outx.
 subroutine ifft3(outx,ink)
     use mpi
+    use p3dfft
     use vars ! For precision specficiation and array sizes
     complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
     real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-    call cofitxyz(ink(:,:,:,1),outx(:,:,:,1))
-    call cofitxyz(ink(:,:,:,2),outx(:,:,:,2))
-    call cofitxyz(ink(:,:,:,3),outx(:,:,:,3))
+
+    real(kind=pr) :: t1
+    real(kind=pr) :: norm
+    integer(kind=8) :: npoints
+
+    t1 = MPI_wtime()
+
+    if (using_p3dfft .eqv. .false.) then
+      call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
+    endif
+
+    call p3dfft_btran_c2r_many( ink, cs(1)*cs(2)*cs(3), outx, rs(1)*rs(2)*rs(3), 3, 'fff')
+
+    time_ifft  = time_ifft  + MPI_wtime() - t1
 end subroutine ifft3
+
 
 subroutine fft_initialize
   !-----------------------------------------------------------------------------
@@ -378,69 +439,6 @@ subroutine fft_free
   if (allocated(cb_table)) deallocate(cb_table)
   if (allocated(ca_table)) deallocate(ca_table)
 end subroutine fft_free
-
-
-subroutine coftxyz(f,fk)
-  !====================================================================
-  !     Calculation of the Fourier-coefficients of a real function
-  !     along x(1st index),y(2nd index),and z(3rd index)
-  !====================================================================
-  use vars
-  use p3dfft
-  use mpi
-  implicit none
-
-  real(kind=pr),intent(in) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr),save :: t1
-  real(kind=pr) :: norm
-  integer(kind=8) :: npoints
-
-  if (using_p3dfft .eqv. .false.) then
-    call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
-  endif
-
-
-  t1 = MPI_wtime()
-  ! Compute forward FFT
-  call p3dfft_ftran_r2c(f,fk,'fff')
-
-  ! Normalize
-!  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
-  npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
-  norm = 1.d0 / dble(npoints)
-  fk(:,:,:) = fk(:,:,:) * norm
-
-  time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
-end subroutine coftxyz
-
-!-------------------------------------------------------------------------------
-
-subroutine cofitxyz(fk,f)
-  !====================================================================
-  !     Calculation of a real function from its Fourier coefficients
-  !     along x(1st index),y(2nd index),and z(3rd index)
-  !====================================================================
-  use vars
-  use p3dfft
-  use mpi
-  implicit none
-
-  complex(kind=pr),intent(in) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr),intent(out) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),save :: t1
-  t1 = MPI_wtime()
-
-  if (using_p3dfft .eqv. .false.) then
-    call abort(33349,'P3DFFT is not initialized, you cannot perform FFTs')
-  endif
-
-  ! Compute backward FFT
-  call p3dfft_btran_c2r(fk,f,'fff')
-
-
-  time_ifft  = time_ifft  + MPI_wtime() - t1
-end subroutine cofitxyz
 
 !-------------------------------------------------------------------------------
 
