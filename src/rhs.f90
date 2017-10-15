@@ -282,7 +282,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   ! Add forcing term for isotropic turbulence, if used
   !-----------------------------------------------------------------------------
   if (forcing_type/="none") then
-    call add_forcing_term(time,uk,nlk)
+    call add_forcing_term(time,uk,nlk,vort)
   endif
 
 
@@ -432,7 +432,7 @@ end subroutine add_explicit_diffusion
 ! forcing terms for Homogeneous Isotropic Turbulence (HIT), added directly to NLK
 ! The forcing injects energy into some wavenumbers, trying to keep the total
 ! energy constant by compensating for viscous losses.
-subroutine add_forcing_term(time,uk,nlk)
+subroutine add_forcing_term(time,uk,nlk,work)
   use vars
   use p3dfft_wrapper
   use basic_operators
@@ -441,6 +441,7 @@ subroutine add_forcing_term(time,uk,nlk)
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin, kvec
   real(kind=pr) :: kx,ky,kz,kreal,factor,epsilon,epsilon_loc,k2
@@ -520,6 +521,11 @@ subroutine add_forcing_term(time,uk,nlk)
   case default
     call abort(99929,"unknown HIT forcing method..")
   end select
+
+  ! enforce hermitian symmetry the lazy ways
+  call ifft3( ink=nlk, outx=work )
+  call fft3( inx=work, outk=nlk  )
+
 end subroutine add_forcing_term
 
 !-------------------------------------------------------------------------------
