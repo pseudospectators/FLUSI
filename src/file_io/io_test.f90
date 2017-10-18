@@ -1,8 +1,5 @@
 subroutine io_test
   use vars
-#ifndef NOHDF5
-  use hdf5_wrapper
-#endif
   use p3dfft_wrapper
   use insect_module
 
@@ -13,7 +10,6 @@ subroutine io_test
   character(len=strlen)  :: infile
   integer :: ix,iy,iz
 
-#ifndef NOHDF5
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
   nf=1    ! We are evolving one field (that means 1 integrating factor)
@@ -43,16 +39,8 @@ subroutine io_test
   end do
 
 
-  do max_chunk = 16, maxval((/nx,ny,nz/)), 4
-    if (root) write(*,*) "chunking:", max_chunk
-    do ix=1,5
-      call save_field_hdf5(0.d0,'test_00.h5',work)
-    enddo
-  enddo
+call save_field_hdf5(0.d0,'test_00.h5',work)
 
   deallocate(work)
-#else
-  ! TODO: IO test not yet implemented without HDF5
-#endif
 
 end subroutine
