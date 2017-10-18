@@ -68,16 +68,23 @@ ifeq ($(FC),sxf90)
 FC = sxmpif90
 endif
 
+#-------------------------------------------------------------------------------
 # SX compiler
+#-------------------------------------------------------------------------------
 ifeq ($(FC),sxmpif90)
 FFLAGS += -I$(OBJDIR)
 FFLAGS += -R0 -P stack -C hopt -pi nest=2 -pi exp="periodize_coordinate" expin="src/vars.f90" -f2003
 PPFLAG =
+ifdef NOHDF5
+PRE_FLAGS=-DNOHDF5
+endif
 
 # Note that shell $(FC) makes an error on FC system and should be bypassed
 else
 
+#-------------------------------------------------------------------------------
 # GNU compiler
+#-------------------------------------------------------------------------------
 ifeq ($(shell $(FC) --version 2>&1 | head -n 1 | head -c 3),GNU)
 # Specify directory for compiled modules:
 FFLAGS += -J$(OBJDIR) # specify directory for modules.
@@ -89,22 +96,35 @@ PPFLAG= -cpp #preprocessor flag
 FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
 FFLAGS += -O3
 #FFLAGS += -ffpe-trap=zero,overflow,underflow -ffree-line-length-none -fbacktrace
+ifdef NOHDF5
+PRE_FLAGS=-DNOHDF5
+endif
 endif
 
+#-------------------------------------------------------------------------------
 # Intel compiler
+#-------------------------------------------------------------------------------
 ifort:=$(shell $(FC) --version | head -c 5)
 ifeq ($(ifort),ifort)
 PPFLAG= -fpp #preprocessor flag
-DIFORT= -DIFORT # define the IFORT variable
+PRE_FLAGS= -DIFORT # define the IFORT variable
+ifdef NOHDF5
+PRE_FLAGS += -DNOHDF5
+endif
 FFLAGS += -module $(OBJDIR) # specify directory for modules.
 FFLAGS += -vec_report0
 endif
 
-#IBM compiler
+#-------------------------------------------------------------------------------
+# IBM compiler
+#-------------------------------------------------------------------------------
 ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 FFLAGS += -qmoddir=$(OBJDIR)
 FFLAGS += -I$(OBJDIR)
-DIFORT=-WF,-DTURING # this defines the TURING with the IBM compiler
+PRE_FLAGS=-WF,-DTURING # this defines the TURING with the IBM compiler
+ifdef NOHDF5
+PRE_FLAGS += -DNOHDF5
+endif
 PPFLAG=-qsuffix=cpp=f90  #preprocessor flag
 endif
 
@@ -131,6 +151,7 @@ LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB)
 LDFLAGS += -lhdf5_fortran -lhdf5
 endif
 LDFLAGS += -llapack
+
 # SX build flags
 ifeq ($(FC),sxmpif90)
 LDFLAGS += -L${ASL_ROOT} -laslf90 -lasl -lblas
@@ -140,13 +161,11 @@ endif
 LDFLAGS += -lm
 
 # Other common compile flags
-FFLAGS += -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
+FFLAGS += -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(PRE_FLAGS)
 
 # HDF5 compile flags
 ifndef NOHDF5
 FFLAGS += -I$(HDF_INC)
-else
-NOHDF5FLAG = -DNOHDF5
 endif
 
 
@@ -157,6 +176,7 @@ all: directories $(PROGRAMS)
 # Compile main programs, with dependencies.
 flusi: flusi.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
+
 mhd: mhd.f90 $(MOBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
@@ -200,11 +220,11 @@ $(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/helpers.o
 $(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o $(OBJDIR)/insects.o $(OBJDIR)/solid_solver.o
-	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o $(OBJDIR)/solid_solver.o
-	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o $(OBJDIR)/runtime_backuping.o
-	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o coherent_vortex_extraction.f90 FWT3_PO.f90 \
 	IWT3_PO.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
@@ -214,6 +234,7 @@ $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
+	@echo "flusiflusi"
 	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
 
 tidy:
