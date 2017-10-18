@@ -121,12 +121,14 @@ endif
 ifeq ($(shell $(FC) -qversion 2>&1 | head -c 3),IBM)
 FFLAGS += -qmoddir=$(OBJDIR)
 FFLAGS += -I$(OBJDIR)
-PRE_FLAGS=-WF,-DTURING # this defines the TURING with the IBM compiler
+PRE_FLAGS = -WF,-DTURING
+# this defines the TURING with the IBM compiler
 ifdef NOHDF5
-PRE_FLAGS += -DNOHDF5
+PRE_FLAGS:=$(PRE_FLAGS),-DNOHDF5
 endif
 PPFLAG=-qsuffix=cpp=f90  #preprocessor flag
 endif
+
 
 endif
 
@@ -234,7 +236,6 @@ $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	@echo "flusiflusi"
 	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
 
 tidy:
