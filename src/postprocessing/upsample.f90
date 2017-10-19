@@ -17,7 +17,7 @@ subroutine upsample(help)
   integer :: nx_new, ny_new, nz_new
   integer :: nx_org, ny_org, nz_org, ix_org,iy_org,iz_org, ix_new,iy_new,iz_new
   integer :: i,j,k, mpicode, q
-  real(kind=pr) :: time, kx_org,ky_org,kz_org, kx_new,ky_new,kz_new
+  real(kind=pr) :: time, kx_org,ky_org,kz_org, kx_new,ky_new,kz_new, E, E2
   complex(kind=pr),dimension(:,:,:),allocatable :: uk_org, uk_new, uk
   real(kind=pr),dimension(:,:,:),allocatable :: u_org, u_new
   integer, dimension(1:3) :: ra_org,rb_org,ca_org,cb_org,ra_new,rb_new,ca_new,cb_new
@@ -76,10 +76,14 @@ subroutine upsample(help)
   allocate(uk_org(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
 
   ! it is always a good idea to do this test
-  ! call fft_unit_test(u_org, uk_org)
+  call fft_unit_test(u_org, uk_org)
 
   ! read file from disk
   call read_single_file(fname_in, u_org)
+
+  E = sum(u_org**2)
+  E = mpisum(E) / dble(nx*ny*nz)
+  if (mpirank==0) write(*,*) "Input energy, x-space", E
 
   ! transform to fourier space
   call fft(inx=u_org, outk=uk_org)
@@ -120,7 +124,7 @@ subroutine upsample(help)
   uk_new = dcmplx(0.d0,0.d0)
 
   !------------------------------------------------------------------
-  do iz_org=ca_org(1),cb_org(1)
+  do iz_org = 0, nz_org-1
     nx=nx_org; ny=ny_org; nz=nz_org
     kz_org=wave_z(iz_org)
     ! find corresponding iz_new
@@ -131,7 +135,7 @@ subroutine upsample(help)
     enddo
     ! we now have the pair (iz_org, iz_new)
     !------------------------------------------------------------------
-    do iy_org=ca_org(2),cb_org(2)
+    do iy_org = 0, ny_org-1
       nx=nx_org; ny=ny_org; nz=nz_org
       ky_org=wave_y(iy_org)
       ! find corresponding iz_new
@@ -142,7 +146,7 @@ subroutine upsample(help)
       enddo
       ! we now have the pair (iy_org, iy_new)
       !------------------------------------------------------------------
-      do ix_org=ca_org(3),cb_org(3)
+      do ix_org = 0, nx_org/2
         nx=nx_org; ny=ny_org; nz=nz_org
         kx_org=wave_x(ix_org)
         ! find corresponding iz_new
@@ -171,18 +175,21 @@ subroutine upsample(help)
 
   ! this will be our final result in x-space:
   allocate(u_new(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  call fft_unit_test( u_new, uk_new )
 
   ! transform the zero-padded Fourier coefficients back to physical space. this
   ! is the upsampled (=interpolated) field.
   if (mpirank==0) write(*,*) "transforming zero-padded Fourier coefficients back to x-space"
   call ifft(ink=uk_new,outx=u_new)
 
+  E2 = sum(u_new**2)
+  E2 = mpisum(E2) / dble(nx_new*ny_new*nz_new)
+  if (mpirank==0) write(*,*) "Output energy, x-space", E2
+
   call fft_free()
   deallocate( uk_new )
 
   ! save the final result to the specified file
-  call save_field_hdf5(time,fname_out,u_new)
+  call save_field_hdf5(time, fname_out, u_new)
 
   deallocate( u_new )
 end subroutine upsample

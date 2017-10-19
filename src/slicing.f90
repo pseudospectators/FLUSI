@@ -286,7 +286,8 @@ subroutine gather_slice_yz_cmplx( uk, slice, ixslice )
   ! size of local subarrays (we take the biggest one, in case there's different)
   subsizes = (/maxval((cb_table(2,:)-ca_table(2,:)+1)),maxval((cb_table(3,:)-ca_table(3,:)+1))/)
   ! no offset
-  starts = (/minval(ca_table(:,2)), minval(ca_table(:,3))/)
+  ! starts = (/minval(ca_table(:,2)), minval(ca_table(:,3))/)
+  starts = (/minval(ca_table(2,:)), minval(ca_table(3,:))/)
   dims = 2 ! 2D array
   call MPI_Type_create_subarray(dims, sizes, subsizes, starts,            &
                                 MPI_ORDER_FORTRAN, MPI_DOUBLE_COMPLEX,  &
