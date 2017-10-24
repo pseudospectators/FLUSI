@@ -81,12 +81,16 @@ subroutine upsample(help)
   ! read file from disk
   call read_single_file(fname_in, u_org)
 
-  E = sum(u_org**2)
-  E = mpisum(E) / dble(nx*ny*nz)
+  E = sum(u_org**2) / 2.d0
+  E = mpisum(E) / (dble(nx_org)*dble(ny_org)*dble(nz_org))
   if (mpirank==0) write(*,*) "Input energy, x-space", E
 
   ! transform to fourier space
   call fft(inx=u_org, outk=uk_org)
+
+  call compute_energies1_k(uk_org,E)
+  if (mpirank==0) write(*,*) "Input energy, k-space", E / (xl*yl*zl)
+
 
   ! we don't need the original array anymore
   deallocate(u_org)
@@ -95,7 +99,6 @@ subroutine upsample(help)
   allocate(uk(minval(ca_table(1,:)):maxval(cb_table(1,:)),&
               minval(ca_table(2,:)):maxval(cb_table(2,:)),&
               minval(ca_table(3,:)):maxval(cb_table(3,:))))
-
   ! gather the entire 3D source (Fourier-transformed) field on root
   ! Note this limits parallelism im memory: This routine works only if you can fit
   ! the complete source data on each proc.
@@ -113,54 +116,54 @@ subroutine upsample(help)
   if (mpirank == 0) then
     write(*,*) "Initializing big FFT and copying source Fourier coefficients to target field in k-space"
   endif
-
   nx = nx_new;  ny = ny_new;  nz = nz_new
-  call fft_initialize
+  call fft_initialize()
   ra_new = ra;  rb_new = rb
   ca_new = ca;  cb_new = cb
   !-----------------------
+
 
   allocate(uk_new(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
   uk_new = dcmplx(0.d0,0.d0)
 
   !------------------------------------------------------------------
-  do iz_org = 0, nz_org-1
+  do iz_org = lbound(uk,1), ubound(uk,1)
     nx=nx_org; ny=ny_org; nz=nz_org
     kz_org=wave_z(iz_org)
     ! find corresponding iz_new
     do iz_new=ca_new(1),cb_new(1)
       nx=nx_new; ny=ny_new; nz=nz_new
       kz_new = wave_z(iz_new)
-      if (kz_new==kz_org) exit
+      if ( abs(kz_new-kz_org) <= 1.0d-7 ) exit
     enddo
     ! we now have the pair (iz_org, iz_new)
     !------------------------------------------------------------------
-    do iy_org = 0, ny_org-1
+    do iy_org = lbound(uk,2), ubound(uk,2)
       nx=nx_org; ny=ny_org; nz=nz_org
       ky_org=wave_y(iy_org)
       ! find corresponding iz_new
       do iy_new=ca_new(2),cb_new(2)
         nx=nx_new; ny=ny_new; nz=nz_new
         ky_new = wave_y(iy_new)
-        if (ky_new==ky_org) exit
+        if (abs(ky_new-ky_org) <= 1.0d-7) exit
       enddo
       ! we now have the pair (iy_org, iy_new)
       !------------------------------------------------------------------
-      do ix_org = 0, nx_org/2
+      do ix_org = lbound(uk,3), ubound(uk,3)
         nx=nx_org; ny=ny_org; nz=nz_org
         kx_org=wave_x(ix_org)
         ! find corresponding iz_new
         do ix_new=ca_new(3),cb_new(3)
           nx=nx_new; ny=ny_new; nz=nz_new
           kx_new = wave_x(ix_new)
-          if (kx_new==kx_org) exit
+          if (abs(kx_new-kx_org) <= 1.0d-7) exit
         enddo
         ! we now have the pair (ix_org, ix_new)
 
         ! copy the old Fourier coefficients to the new field
         if ( iz_new >= ca_new(1) .and. iz_new <= cb_new(1)) then
           if ( iy_new >= ca_new(2) .and. iy_new <= cb_new(2)) then
-              if ( ix_new >= ca_new(3) .and. ix_new <= cb_new(3)) then
+            if ( ix_new >= ca_new(3) .and. ix_new <= cb_new(3)) then
               uk_new(iz_new,iy_new,ix_new) = uk(iz_org,iy_org,ix_org)
             endif
           endif
@@ -169,6 +172,9 @@ subroutine upsample(help)
       enddo
     enddo
   enddo
+
+  call compute_energies1_k(uk_new,E2)
+  if (mpirank==0) write(*,*) "Output energy, k-space", E2 / (xl*yl*zl)
 
   ! as we have now zero-padded the original data, we can free that very large array:
   deallocate( uk )
@@ -181,9 +187,18 @@ subroutine upsample(help)
   if (mpirank==0) write(*,*) "transforming zero-padded Fourier coefficients back to x-space"
   call ifft(ink=uk_new,outx=u_new)
 
-  E2 = sum(u_new**2)
-  E2 = mpisum(E2) / dble(nx_new*ny_new*nz_new)
+  E2 = sum(u_new**2) / 2.d0
+  E2 = mpisum(E2) / (dble(nx_new)*dble(ny_new)*dble(nz_new))
   if (mpirank==0) write(*,*) "Output energy, x-space", E2
+  call compute_energies1(u_new,E2)
+  if (mpirank==0) write(*,*) "Output energy, x-space", E2 / (xl*yl*zl)
+
+  if ( abs(E2-E) > 1.0e-7) then
+    ! if this error occurs, it is likely a bug in gather_all. it happens if there
+    ! is some slight load imbalancing (eg n=64 ncpu=3)
+    ! I'm also not very sure what happens if nx /= ny /= nz
+    call abort(123,"During upsampling, energy changed, which is not right.")
+  endif
 
   call fft_free()
   deallocate( uk_new )

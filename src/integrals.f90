@@ -473,6 +473,42 @@ end subroutine compute_energies
 
 
 !-------------------------------------------------------------------------------
+! Compute the average total energy for a physical-space SCALAR fiels u, leaving the
+! input vector field untouched.
+!-------------------------------------------------------------------------------
+subroutine compute_energies1(u,E)
+  use mpi
+  use vars
+  implicit none
+
+  real(kind=pr),intent(in):: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(out) :: E
+  real(kind=pr) :: LE ! local quantities
+  real(kind=pr) :: ux
+  integer :: ix,iy,iz,mpicode
+
+  ! initialize local variables
+  LE=0.d0
+
+  ! Add contributions in physical space
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        ux=u(ix,iy,iz)
+        LE = LE + ux*ux
+      enddo
+    enddo
+  enddo
+
+  LE = 0.50d0*dx*dy*dz*LE
+
+  ! Sum over all MPI processes
+  call MPI_ALLREDUCE(LE,E,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+end subroutine compute_energies1
+
+
+!-------------------------------------------------------------------------------
 ! Compute the integral total energy for a input field given in Fourier space
 !-------------------------------------------------------------------------------
 subroutine compute_energies_k(uk,E)
@@ -507,6 +543,36 @@ subroutine compute_energies_k(uk,E)
     E = mpisum(e1)*xl*yl*zl
 end subroutine compute_energies_k
 
+!-------------------------------------------------------------------------------
+! Compute the integral total energy for a input field given in Fourier space
+!-------------------------------------------------------------------------------
+subroutine compute_energies1_k(uk,E)
+    use vars
+    use helpers
+    implicit none
+    complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+    integer :: ix,iy,iz
+    real(kind=pr) :: E,e1
+
+    ! compute total kinetic energy (including the solid domain) in Fourier space
+    ! using Parseval's identity
+    e1 = 0.d0
+    do iz=ca(1),cb(1)
+      do iy=ca(2),cb(2)
+        do ix=ca(3),cb(3)
+          if ( ix==0 .or. ix==nx/2 ) then
+            ! note zero mode and highest wavenumber is special
+            e1=e1+dble(real(uk(iz,iy,ix))**2+aimag(uk(iz,iy,ix))**2)/2.
+          else
+            e1=e1+dble(real(uk(iz,iy,ix))**2+aimag(uk(iz,iy,ix))**2)
+          endif
+        enddo
+      enddo
+    enddo
+
+    ! note the scaling factor for parsevals identity
+    E = mpisum(e1)*xl*yl*zl
+end subroutine compute_energies1_k
 
 ! Compute the average average component in each direction for a
 ! physical-space vector fields with components f1, f2, f3, leaving the
