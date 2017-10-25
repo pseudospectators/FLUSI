@@ -20,7 +20,7 @@ module insect_module
   ! this will hold the surface markers and their normals used for particles:
   real(kind=pr), allocatable, dimension(:,:) :: particle_points
   ! variables to decide whether to draw the body or not.
-  logical, save :: body_already_drawn = .false.
+  integer, save :: body_already_drawn = 1
   character(len=strlen), save :: body_moves="yes"
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
   ! elements in derived datatypes) this is their length:
@@ -160,14 +160,14 @@ contains
     ! We thus try to draw it only once and then simply not to erase it later.
     !-----------------------------------------------------------------------------
     if (body_moves=="no") then
-      if (body_already_drawn .eqv. .false.) then
+      if (body_already_drawn <= 4) then
         ! the body is at rest, but it is the first call to this routine, so
         ! draw it now.
         if (root) write(*,*) "Flag body_moves is no and we did not yet draw"
         if (root) write(*,*) "the body once: we do that now, and skip draw_body"
         if (root) write(*,*) "from now on."
         call draw_body( mask, mask_color, us, Insect, color_body, M_body)
-        body_already_drawn = .true.
+        body_already_drawn = body_already_drawn + 1
       endif
     else
       ! the body moves, draw it
@@ -686,21 +686,21 @@ contains
     color_body = Insect%color_body
     color_l = Insect%color_l
     color_r = Insect%color_r
-
+write(*,*) "deleting", body_moves
     !-----------------------------------------------------------------------------
     ! delete old mask
     !-----------------------------------------------------------------------------
     if (body_moves=="no") then
       ! the body is at rest, so we will not draw it. Delete everything EXCEPT the
       ! body, which is marked by its specific color
-      where (mask_color/=color_body)
+      where (mask_color/=1 .and.mask_color/=4 .and.mask_color/=7 .and.mask_color/=10)
         mask = 0.d0
         mask_color = 0
       end where
       ! the value in the mask array is divided by eps already and will be divided
       ! by eps again in the main mask wrapper. we thus multiply the existing body
       ! by eps.
-      where (mask_color==color_body)
+      where (mask_color==1 .or.mask_color==4 .or.mask_color==7 .or.mask_color==10)
         mask = mask*eps
       end where
       ! as the body rests it has no solid body velocity, which means we can safely

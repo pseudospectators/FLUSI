@@ -37,7 +37,7 @@ subroutine create_mask_fsi (time, Insect, beams )
       call turek_wan (time)
     case ("Insect","insect")
 
-      body_moves = "yes"
+      ! body_moves = "yes"
       Insect%x0 = (/2.0d0, 2.0d0, 2.d0/)
       Insect%color_body = 1
       Insect%color_l = 2
