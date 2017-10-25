@@ -71,6 +71,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec
   integer :: ix,iy,iz,mpicode,j
   character(len=9) scalarfile
+real(kind=pr),dimension(1:3,1:3) :: M_body
 
   ! fetch u in x-space at time t. note the output u of fluidtimestep is not
   ! nessesarily what we need, so we must ensure u=ifft(uk) here
@@ -87,7 +88,88 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
     ! have to reconstruct the mask now. solids are also at time t
     if(iMoving==1) call create_mask(time, Insect, beams)
-    call cal_drag (time, u, Insect)
+
+  !-----------------------------------------------------------------------------
+Insect%x0 = (/2.0d0, 2.0d0, 2.d0/)
+Insect%color_body = 1
+Insect%color_l = 2
+Insect%color_r = 3
+call BodyMotion (time, Insect)
+call FlappingMotion_right (time, Insect)
+call FlappingMotion_left (time, Insect)
+call StrokePlane (time, Insect)
+call body_rotation_matrix( Insect, M_body )
+! body angular velocity vector in b/g coordinate system
+call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g, M_body )
+! rel+abs wing angular velocities in the w/b/g coordinate system
+call wing_angular_velocities ( time, Insect, M_body )
+! angular acceleration for wings (required for inertial power)
+call wing_angular_accel( time, Insect )
+Insect%x_pivot_l_g = matmul(transpose(M_body), Insect%x_pivot_l)
+Insect%x_pivot_r_g = matmul(transpose(M_body), Insect%x_pivot_r)
+      call cal_drag (time, u, Insect)
+      
+  !-----------------------------------------------------------------------------
+Insect%x0 = (/2.0d0, 2.0d0, 2.d0/) + (/0.d0, 4.0d0, 0.0d0/)
+Insect%color_body = 4
+Insect%color_l = 5
+Insect%color_r = 6
+call BodyMotion (time, Insect)
+call FlappingMotion_right (time, Insect)
+call FlappingMotion_left (time, Insect)
+call StrokePlane (time, Insect)
+call body_rotation_matrix( Insect, M_body )
+! body angular velocity vector in b/g coordinate system
+call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g, M_body )
+! rel+abs wing angular velocities in the w/b/g coordinate system
+call wing_angular_velocities ( time, Insect, M_body )
+! angular acceleration for wings (required for inertial power)
+call wing_angular_accel( time, Insect )
+Insect%x_pivot_l_g = matmul(transpose(M_body), Insect%x_pivot_l)
+Insect%x_pivot_r_g = matmul(transpose(M_body), Insect%x_pivot_r)
+      call cal_drag (time, u, Insect)
+
+  !-----------------------------------------------------------------------------
+Insect%x0 = (/2.0d0, 2.0d0, 2.d0/) + (/0.d0, 0.0d0, 4.0d0/)
+Insect%color_body = 7
+Insect%color_l = 8
+Insect%color_r = 9
+call BodyMotion (time, Insect)
+call FlappingMotion_right (time, Insect)
+call FlappingMotion_left (time, Insect)
+call StrokePlane (time, Insect)
+call body_rotation_matrix( Insect, M_body )
+! body angular velocity vector in b/g coordinate system
+call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g, M_body )
+! rel+abs wing angular velocities in the w/b/g coordinate system
+call wing_angular_velocities ( time, Insect, M_body )
+! angular acceleration for wings (required for inertial power)
+call wing_angular_accel( time, Insect )
+Insect%x_pivot_l_g = matmul(transpose(M_body), Insect%x_pivot_l)
+Insect%x_pivot_r_g = matmul(transpose(M_body), Insect%x_pivot_r)
+      call cal_drag (time, u, Insect)
+
+  !-----------------------------------------------------------------------------
+Insect%x0 = (/2.0d0, 2.0d0, 2.d0/) + (/0.d0, 4.0d0, 4.0d0/)
+Insect%color_body = 10
+Insect%color_l = 11
+Insect%color_r = 12
+call BodyMotion (time, Insect)
+call FlappingMotion_right (time, Insect)
+call FlappingMotion_left (time, Insect)
+call StrokePlane (time, Insect)
+call body_rotation_matrix( Insect, M_body )
+! body angular velocity vector in b/g coordinate system
+call body_angular_velocity( Insect, Insect%rot_body_b, Insect%rot_body_g, M_body )
+! rel+abs wing angular velocities in the w/b/g coordinate system
+call wing_angular_velocities ( time, Insect, M_body )
+! angular acceleration for wings (required for inertial power)
+call wing_angular_accel( time, Insect )
+Insect%x_pivot_l_g = matmul(transpose(M_body), Insect%x_pivot_l)
+Insect%x_pivot_r_g = matmul(transpose(M_body), Insect%x_pivot_r)
+      call cal_drag (time, u, Insect)
+
+    ! call cal_drag (time, u, Insect)
     time_drag = time_drag + MPI_wtime() - t3
   endif
 

@@ -225,4 +225,6 @@ subroutine BodyMotion(time, Insect)
   y0 = xc(2)
   z0 = xc(3)
 
+body_moves = "yes"
+
 end subroutine BodyMotion

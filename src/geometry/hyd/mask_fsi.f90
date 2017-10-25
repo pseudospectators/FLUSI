@@ -36,7 +36,34 @@ subroutine create_mask_fsi (time, Insect, beams )
     case ("turek_wan")
       call turek_wan (time)
     case ("Insect","insect")
-      call Draw_Insect ( time, Insect, mask, mask_color, us)
+
+      body_moves = "yes"
+      Insect%x0 = (/2.0d0, 2.0d0, 2.d0/)
+      Insect%color_body = 1
+      Insect%color_l = 2
+      Insect%color_r = 3
+      call Draw_Insect ( time, Insect, mask, mask_color, us, .true.)
+
+      Insect%x0 = (/2.0d0, 2.0d0, 2.d0/) + (/0.d0, 4.0d0, 0.0d0/)
+      Insect%color_body = 4
+      Insect%color_l = 5
+      Insect%color_r = 6
+      call Draw_Insect ( time, Insect, mask, mask_color, us, .false.)
+
+
+      Insect%x0 = (/2.0d0, 2.0d0, 2.d0/) + (/0.d0, 0.0d0, 4.0d0/)
+      Insect%color_body = 7
+      Insect%color_l = 8
+      Insect%color_r = 9
+      call Draw_Insect ( time, Insect, mask, mask_color, us, .false.)
+
+
+      Insect%x0 = (/2.0d0, 2.0d0, 2.d0/) + (/0.d0, 4.0d0, 4.0d0/)
+      Insect%color_body = 10
+      Insect%color_l = 11
+      Insect%color_r = 12
+      call Draw_Insect ( time, Insect, mask, mask_color, us, .false.)
+
     case("Flexibility")
       call Draw_flexible_plate(time, beams(1))
     case ("plate","Plate")

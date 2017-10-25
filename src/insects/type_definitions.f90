@@ -56,6 +56,7 @@ type diptera
   real(kind=pr) :: Jroll_body=0.d0, Jyaw_body=0.d0, Jpitch_body=0.d0
   ! total mass of insect:
   real(kind=pr) :: mass, gravity=0.d0
+  integer(kind=2) :: color_body, color_r, color_l
   !-------------------------------------------------------------
   ! for free flight solver
   !-------------------------------------------------------------
@@ -140,7 +141,7 @@ type diptera
   ! parameter for hovering:
   real(kind=pr) :: distance_from_sponge=0.d0
   ! Wings and body forces (1:body,2:left wing,3:right wing)
-  type(Integrals), dimension(1:3) :: PartIntegrals
+  type(Integrals), dimension(1:12) :: PartIntegrals
 
 end type diptera
 !-----------------------------------------------------------------------------

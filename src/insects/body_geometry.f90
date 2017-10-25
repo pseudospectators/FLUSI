@@ -76,7 +76,7 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
   real(kind=pr) :: xl1(5),yl1(5),zl1(5),rl1(4),xl2(5),yl2(5),zl2(5),rl2(4),&
   xl3(5),yl3(5),zl3(5),rl3(4),xf(2),yf(2),zf(2),rf,xan(2),yan(2),zan(2),ran,&
   xmin_bbox,xmax_bbox,ymin_bbox,ymax_bbox,zmin_bbox,zmax_bbox
-
+if (root) write(*,*) Insect%xc_body_g
   !-----------------------------------------------------------------------------
   ! Body
   !-----------------------------------------------------------------------------
@@ -1975,4 +1975,3 @@ real(kind=pr) function pointTriangleDistance2(tri1,tri2,tri3,point,normal)
   endif
 
 end function
-

@@ -162,6 +162,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
     call save_field_hdf5(time,'mask_'//name,mask)
     ! call save_field_hdf5(time,'color_'//name,dble(mask_color))
     mask = mask/eps
+
   endif
 
   !-----------------------------------------------------------------------------

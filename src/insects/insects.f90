@@ -54,7 +54,7 @@ contains
   ! subroutines doing the actual job of defining the mask. Note all surfaces are
   ! smoothed.
   !-------------------------------------------------------------------------------
-  subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
+  subroutine Draw_Insect ( time, Insect, mask, mask_color, us, delmask)
     use vars
     implicit none
 
@@ -63,7 +63,7 @@ contains
     real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-
+    logical, intent(in) :: delmask
     real(kind=pr) :: t1
     real(kind=pr),dimension(1:3) :: x, x_body, v_tmp
     real(kind=pr),dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, M_body_inv
@@ -74,9 +74,9 @@ contains
     !-----------------------------------------------------------------------------
     ! colors for Diptera (one body, two wings)
     !-----------------------------------------------------------------------------
-    color_body = 1
-    color_l = 2
-    color_r = 3
+    color_body = Insect%color_body
+    color_l = Insect%color_l
+    color_r = Insect%color_r
 
     if ((dabs(Insect%time-time)>1.0d-10).and.(mpirank==0).and.(Insect%BodyMotion=="free_flight")) then
       write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
@@ -99,7 +99,7 @@ contains
 
 
     ! delete old mask
-    call delete_old_mask( time, mask, mask_color, us, Insect )
+    if (delmask) call delete_old_mask( time, mask, mask_color, us, Insect )
     !-----------------------------------------------------------------------------
     ! fetch current motion state
     !-----------------------------------------------------------------------------
@@ -107,7 +107,6 @@ contains
     call FlappingMotion_right (time, Insect)
     call FlappingMotion_left (time, Insect)
     call StrokePlane (time, Insect)
-
 
     !-----------------------------------------------------------------------------
     ! define the rotation matrices to change between coordinate systems
@@ -137,15 +136,17 @@ contains
     ! write kinematics to disk (Dmitry, 28 Oct 2013)
     ! do so only every itdrag time steps (Thomas, 8 Jul 2014)
     !-----------------------------------------------------------------------------
-    counter = counter + 1
-    if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
-      open  (17,file='kinematics.t',status='unknown',position='append')
-      write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
-      Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
-      Insect%theta_l, Insect%alpha_r, Insect%phi_r, Insect%theta_r, &
-      Insect%rot_rel_wing_l_w, Insect%rot_rel_wing_r_w, &
-      Insect%rot_dt_wing_l_w, Insect%rot_dt_wing_r_w
-      close (17)
+    if (delmask) then !only once per call
+      counter = counter + 1
+      if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
+        open  (17,file='kinematics.t',status='unknown',position='append')
+        write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
+        Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
+        Insect%theta_l, Insect%alpha_r, Insect%phi_r, Insect%theta_r, &
+        Insect%rot_rel_wing_l_w, Insect%rot_rel_wing_r_w, &
+        Insect%rot_dt_wing_l_w, Insect%rot_dt_wing_r_w
+        close (17)
+      endif
     endif
 
     !-----------------------------------------------------------------------------
@@ -201,6 +202,7 @@ contains
           ! add solid body rotation in the body-reference frame, if color
           ! indicates that this part of the mask belongs to the insect
           if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
+            if ( mask_color(ix,iy,iz)>=color_body .and. mask_color(ix,iy,iz)<=color_r) then
 
             ! translational part. we compute the rotational part in the body
             ! reference frame, therefore, we must transform the body translation
@@ -217,6 +219,7 @@ contains
             ! and they are also in the body refrence frame. However, us has to be
             ! in the global reference frame, so M_body_inverse is applied
             us(ix,iy,iz,1:3) = matmul( M_body_inv, us(ix,iy,iz,1:3)+v_tmp )
+          endif
           endif
         enddo
       enddo
@@ -300,9 +303,9 @@ contains
     type(diptera),intent(inout)::Insect
 
     ! colors for Diptera (one body, two wings)
-    color_body = 1
-    color_l = 2
-    color_r = 3
+    color_body = Insect%color_body
+    color_l = Insect%color_l
+    color_r = Insect%color_r
 
     ! body is not driven directly, therefore the power is set to zero
     Insect%PartIntegrals(color_body)%APow = 0.0d0
@@ -375,9 +378,9 @@ contains
     type(diptera),intent(inout)::Insect
 
     !-- colors for Diptera (one body, two wings)
-    color_body = 1
-    color_l = 2
-    color_r = 3
+    color_body = Insect%color_body
+    color_l = Insect%color_l
+    color_r = Insect%color_r
 
     !-- LEFT WING
     a(1) = Insect%Jxx * Insect%rot_dt_wing_l_w(1) + Insect%Jxy * Insect%rot_dt_wing_l_w(2)
@@ -680,9 +683,9 @@ contains
     integer(kind=2) :: color_body, color_l, color_r
 
     ! colors for Diptera (one body, two wings)
-    color_body = 1
-    color_l = 2
-    color_r = 3
+    color_body = Insect%color_body
+    color_l = Insect%color_l
+    color_r = Insect%color_r
 
     !-----------------------------------------------------------------------------
     ! delete old mask

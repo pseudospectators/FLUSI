@@ -283,11 +283,11 @@ subroutine gather_slice_yz_cmplx( uk, slice, ixslice )
   !-----------------------------------------------------------------------------
   ! size of global array
   sizes = (/ maxval(cb_table(2,:))-minval(ca_table(2,:))+1, maxval(cb_table(3,:))-minval(ca_table(3,:))+1/)
-  ! size of local subarrays (we take the biggest one, in case there's different)
-  subsizes = (/maxval((cb_table(2,:)-ca_table(2,:)+1)),maxval((cb_table(3,:)-ca_table(3,:)+1))/)
-  ! no offset
-  ! starts = (/minval(ca_table(:,2)), minval(ca_table(:,3))/)
-  starts = (/minval(ca_table(2,:)), minval(ca_table(3,:))/)
+  ! size of local subarrays
+  subsizes = (/ cb(2)-ca(2)+1,  cb(3)-ca(3)+1 /)
+  ! offset
+  starts = (/ ca(2), ca(3) /)
+  starts = (/ 0, 0 /)
   dims = 2 ! 2D array
   call MPI_Type_create_subarray(dims, sizes, subsizes, starts,            &
                                 MPI_ORDER_FORTRAN, MPI_DOUBLE_COMPLEX,  &
@@ -343,10 +343,10 @@ subroutine gather_all( uk_org, uk )
   implicit none
   complex(kind=pr),intent(inout) :: uk_org(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr),intent(inout) :: uk(0:,0:,0:)
-  integer :: ix
+  integer :: iz
 
-  do ix = 0, nx-1
-    call gather_slice_yz_cmplx( uk_org, uk(ix,:,:), ix)
+  do iz = minval(ca_table(1,:)), maxval(cb_table(1,:))
+    call gather_slice_yz_cmplx( uk_org, uk(iz,:,:), iz)
   enddo
 end subroutine
 
