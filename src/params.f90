@@ -506,6 +506,11 @@ subroutine get_params_insect( PARAMS,Insect )
   call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)
 
   Insect%smooth = 2.0d0*dz
+
+  ! default colors for body and wings
+  Insect%color_body=1
+  Insect%color_l=2
+  Insect%color_r=3
 end subroutine get_params_insect
 
 

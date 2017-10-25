@@ -142,5 +142,10 @@ type diptera
   ! Wings and body forces (1:body,2:left wing,3:right wing)
   type(Integrals), dimension(1:3) :: PartIntegrals
 
+  !-------------------------------------------------------------
+  ! parameters for mask coloring
+  !-------------------------------------------------------------
+  integer(kind=2) :: color_body=1, color_l=2, color_r=3
+
 end type diptera
 !-----------------------------------------------------------------------------

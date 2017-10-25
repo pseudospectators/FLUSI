@@ -110,11 +110,11 @@ subroutine cal_drag ( time, u, Insect )
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points
         if (iMask=="Insect") then
-          if (color==2) then
+          if (color==Insect%color_l) then
             xlev = xlev - Insect%x_pivot_l_g(1)
             ylev = ylev - Insect%x_pivot_l_g(2)
             zlev = zlev - Insect%x_pivot_l_g(3)
-          elseif (color==3) then
+          elseif (color==Insect%color_r) then
             xlev = xlev - Insect%x_pivot_r_g(1)
             ylev = ylev - Insect%x_pivot_r_g(2)
             zlev = zlev - Insect%x_pivot_r_g(3)
@@ -168,7 +168,7 @@ subroutine cal_drag ( time, u, Insect )
 
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
-    do color = 1,3
+    do color = Insect%color_body, Insect%color_r
       call MPI_ALLREDUCE (forcex(color),Insect%PartIntegrals(color)%Force(1),1,&
       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
       call MPI_ALLREDUCE (forcey(color),Insect%PartIntegrals(color)%Force(2),1,&
@@ -197,7 +197,7 @@ subroutine cal_drag ( time, u, Insect )
 
   ! the insects have torques on the wing and body separate
   if (iMask=="Insect") then
-    do color = 1,3
+    do color = Insect%color_body, Insect%color_r
       call MPI_ALLREDUCE (torquex(color),Insect%PartIntegrals(color)%Torque(1),1,&
       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
       call MPI_ALLREDUCE (torquey(color),Insect%PartIntegrals(color)%Torque(2),1,&
@@ -227,7 +227,7 @@ subroutine cal_drag ( time, u, Insect )
       GlobalIntegrals%Torque_unst, apowtotal, ipowtotal
       close(14)
       ! currently, only insects have different colors
-      do color=1,3
+      do color = Insect%color_body, Insect%color_r
         write (forcepartfilename, "(A11,I1,A2)") "forces_part", color, ".t"
         open(14,file=trim(forcepartfilename),status='unknown',position='append')
         write (14,'(15(es15.8,1x))') time, Insect%PartIntegrals(color)%Force, &
@@ -335,7 +335,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
 
     if (iMask=="Insect") then
       ! for the insects, we save separately the WINGs and the BODY
-      do color = 1,3
+      do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Force_unst(1) = force_newx(color)-force_oldx(color)
         Insect%PartIntegrals(color)%Force_unst(2) = force_newy(color)-force_oldy(color)
         Insect%PartIntegrals(color)%Force_unst(3) = force_newz(color)-force_oldz(color)
@@ -347,7 +347,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     ! integral. As a hack, return zero.
     GlobalIntegrals%Force_unst = 0.d0
     if (iMask=="Insect") then
-      do color = 1,3
+      do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Force_unst = 0.d0
       enddo
     endif
@@ -433,7 +433,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     GlobalIntegrals%Torque_unst = GlobalIntegrals%Torque_unst / dt
     if (iMask=="Insect") then
       ! for the insects, we save separately the WINGs and the BODY
-      do color = 1,3
+      do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Torque_unst(1) = torque_newx(color)-torque_oldx(color)
         Insect%PartIntegrals(color)%Torque_unst(2) = torque_newy(color)-torque_oldy(color)
         Insect%PartIntegrals(color)%Torque_unst(3) = torque_newz(color)-torque_oldz(color)
@@ -445,7 +445,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     ! integral. As a hack, return zero.
     GlobalIntegrals%Torque_unst = 0.d0
     if (iMask=="Insect") then
-      do color = 1,3
+      do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Torque_unst = 0.d0
       enddo
     endif

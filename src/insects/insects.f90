@@ -69,14 +69,7 @@ contains
     real(kind=pr),dimension(1:3,1:3) :: M_body, M_wing_l, M_wing_r, M_body_inv
     integer :: ix, iy, iz
     integer, save :: counter = 0
-    integer(kind=2) :: color_body, color_l, color_r
-
-    !-----------------------------------------------------------------------------
-    ! colors for Diptera (one body, two wings)
-    !-----------------------------------------------------------------------------
-    color_body = 1
-    color_l = 2
-    color_r = 3
+    integer(kind=2) :: c
 
     if ((dabs(Insect%time-time)>1.0d-10).and.(mpirank==0).and.(Insect%BodyMotion=="free_flight")) then
       write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
@@ -165,25 +158,25 @@ contains
         if (root) write(*,*) "Flag body_moves is no and we did not yet draw"
         if (root) write(*,*) "the body once: we do that now, and skip draw_body"
         if (root) write(*,*) "from now on."
-        call draw_body( mask, mask_color, us, Insect, color_body, M_body)
+        call draw_body( mask, mask_color, us, Insect, Insect%color_body, M_body)
         body_already_drawn = .true.
       endif
     else
       ! the body moves, draw it
-      call draw_body( mask, mask_color, us, Insect, color_body, M_body)
+      call draw_body( mask, mask_color, us, Insect, Insect%color_body, M_body)
     endif
 
     !-----------------------------------------------------------------------------
     ! Wings
     !-----------------------------------------------------------------------------
     if (Insect%RightWing == "yes") then
-      call draw_wing(mask,mask_color,us,Insect,color_r,M_body,M_wing_r,&
-      Insect%x_pivot_r,Insect%rot_rel_wing_r_w )
+      call draw_wing(mask, mask_color, us, Insect, Insect%color_r, M_body, M_wing_r, &
+      Insect%x_pivot_r, Insect%rot_rel_wing_r_w )
     endif
 
     if (Insect%LeftWing == "yes") then
-      call draw_wing(mask,mask_color,us,Insect,color_l,M_body,M_wing_l,&
-      Insect%x_pivot_l,Insect%rot_rel_wing_l_w )
+      call draw_wing(mask, mask_color, us, Insect, Insect%color_l, M_body, M_wing_l, &
+      Insect%x_pivot_l, Insect%rot_rel_wing_l_w )
     endif
 
     !-----------------------------------------------------------------------------
@@ -195,28 +188,32 @@ contains
     do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
-          x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-          x = periodize_coordinate(x - Insect%xc_body_g)
-          x_body = matmul(M_body,x)
-          ! add solid body rotation in the body-reference frame, if color
-          ! indicates that this part of the mask belongs to the insect
-          if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
+          c = mask_color(ix,iy,iz)
+          ! skip all parts that do not belong to the insect (ie they have a different color)
+          if (c==Insect%color_body .or. c==Insect%color_l .or. c==Insect%color_r ) then
+            x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+            x = periodize_coordinate(x - Insect%xc_body_g)
+            x_body = matmul(M_body,x)
+            ! add solid body rotation in the body-reference frame, if color
+            ! indicates that this part of the mask belongs to the insect
+            if ((mask(ix,iy,iz) > 0.d0).and.(mask_color(ix,iy,iz)>0)) then
 
-            ! translational part. we compute the rotational part in the body
-            ! reference frame, therefore, we must transform the body translation
-            ! velocity Insect%vc (which is in global coordinates) to the body frame
-            v_tmp = matmul(M_body,Insect%vc_body_g)
+              ! translational part. we compute the rotational part in the body
+              ! reference frame, therefore, we must transform the body translation
+              ! velocity Insect%vc (which is in global coordinates) to the body frame
+              v_tmp = matmul(M_body,Insect%vc_body_g)
 
-            ! add solid body rotation to the translational velocity field. Note
-            ! that rot_body_b and x_body are in the body reference frame
-            v_tmp(1) = v_tmp(1)+Insect%rot_body_b(2)*x_body(3)-Insect%rot_body_b(3)*x_body(2)
-            v_tmp(2) = v_tmp(2)+Insect%rot_body_b(3)*x_body(1)-Insect%rot_body_b(1)*x_body(3)
-            v_tmp(3) = v_tmp(3)+Insect%rot_body_b(1)*x_body(2)-Insect%rot_body_b(2)*x_body(1)
+              ! add solid body rotation to the translational velocity field. Note
+              ! that rot_body_b and x_body are in the body reference frame
+              v_tmp(1) = v_tmp(1)+Insect%rot_body_b(2)*x_body(3)-Insect%rot_body_b(3)*x_body(2)
+              v_tmp(2) = v_tmp(2)+Insect%rot_body_b(3)*x_body(1)-Insect%rot_body_b(1)*x_body(3)
+              v_tmp(3) = v_tmp(3)+Insect%rot_body_b(1)*x_body(2)-Insect%rot_body_b(2)*x_body(1)
 
-            ! the body motion is added to the wing motion, which is already in us
-            ! and they are also in the body refrence frame. However, us has to be
-            ! in the global reference frame, so M_body_inverse is applied
-            us(ix,iy,iz,1:3) = matmul( M_body_inv, us(ix,iy,iz,1:3)+v_tmp )
+              ! the body motion is added to the wing motion, which is already in us
+              ! and they are also in the body refrence frame. However, us has to be
+              ! in the global reference frame, so M_body_inverse is applied
+              us(ix,iy,iz,1:3) = matmul( M_body_inv, us(ix,iy,iz,1:3)+v_tmp )
+            endif
           endif
         enddo
       enddo
@@ -300,9 +297,9 @@ contains
     type(diptera),intent(inout)::Insect
 
     ! colors for Diptera (one body, two wings)
-    color_body = 1
-    color_l = 2
-    color_r = 3
+    color_body = Insect%color_body
+    color_l = Insect%color_l
+    color_r = Insect%color_r
 
     ! body is not driven directly, therefore the power is set to zero
     Insect%PartIntegrals(color_body)%APow = 0.0d0
@@ -374,10 +371,10 @@ contains
     integer(kind=2) :: color_body, color_l,color_r
     type(diptera),intent(inout)::Insect
 
-    !-- colors for Diptera (one body, two wings)
-    color_body = 1
-    color_l = 2
-    color_r = 3
+    ! colors for Diptera (one body, two wings)
+    color_body = Insect%color_body
+    color_l = Insect%color_l
+    color_r = Insect%color_r
 
     !-- LEFT WING
     a(1) = Insect%Jxx * Insect%rot_dt_wing_l_w(1) + Insect%Jxy * Insect%rot_dt_wing_l_w(2)
@@ -680,17 +677,16 @@ contains
     integer(kind=2) :: color_body, color_l, color_r
 
     ! colors for Diptera (one body, two wings)
-    color_body = 1
-    color_l = 2
-    color_r = 3
+    color_body = Insect%color_body
+    color_l = Insect%color_l
+    color_r = Insect%color_r
 
     !-----------------------------------------------------------------------------
     ! delete old mask
     !-----------------------------------------------------------------------------
     if (body_moves=="no") then
-      ! the body is at rest, so we will not draw it. Delete everything EXCEPT the
-      ! body, which is marked by its specific color
-      where (mask_color/=color_body)
+      ! the body is at rest, so we will not draw it. Delete the wings, as they move.
+      where (mask_color==color_l .or. mask_color==color_r)
         mask = 0.d0
         mask_color = 0
       end where
