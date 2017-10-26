@@ -215,6 +215,330 @@ subroutine curl3(ink,outk)
 end subroutine curl3
 
 
+! compute the curl of vector field u with PERIODIC Finite-differences of
+! 2nd or 4th order. no Fourier transform is used, the curl here is very fast
+! but may be ess precise than fourier.
+! Ghost nodes are used for intra-processor communication
+subroutine curl_FD( u, rotu, order )
+  use p3dfft_wrapper
+  use ghosts
+  implicit none
+
+  ! input/output field in x-space
+  ! NOTE ghost nodes are used!
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr),intent(inout)::rotu(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  character(len=*), intent(in) :: order
+
+  integer :: ix,iy,iz
+  real(kind=pr) :: dxinv,dyinv,dzinv,a1,a2,a4,a5
+  real(kind=pr) :: uxdy,uxdz,uydx,uydz,uzdx,uzdy
+
+  select case(order)
+  case('centered_2nd')
+      call synchronize_ghosts( u, 3 )
+      !-------------------------------------------------------------------------
+      ! compute curl(u) using second order centered period FD
+      !-------------------------------------------------------------------------
+      dxinv = 1.d0/(2.d0*dx)
+      dyinv = 1.d0/(2.d0*dy)
+      dzinv = 1.d0/(2.d0*dz)
+
+      if (nx>1) then
+        ! three-dimensional simulation
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+              uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
+              uxdz = (u(ix,iy,iz+1,1) - u(ix,iy,iz-1,1))*dzinv
+              uydx = (u(ix+1,iy,iz,2) - u(ix-1,iy,iz,2))*dxinv
+              uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
+              uzdx = (u(ix+1,iy,iz,3) - u(ix-1,iy,iz,3))*dxinv
+              uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
+
+              rotu(ix,iy,iz,1) = uzdy - uydz
+              rotu(ix,iy,iz,2) = uxdz - uzdx
+              rotu(ix,iy,iz,3) = uydx - uxdy
+            enddo
+          enddo
+        enddo
+      elseif (nx==1) then
+        ! two-dimensional simulation
+        ix=0
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+            uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
+            uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
+
+            rotu(ix,iy,iz,1) = uzdy - uydz
+            rotu(ix,iy,iz,2) = 0.d0
+            rotu(ix,iy,iz,3) = 0.d0
+          enddo
+        enddo
+      endif
+
+  case('centered_4th')
+      call synchronize_ghosts( u, 3 )
+      !-------------------------------------------------------------------------
+      ! compute curl(u) using second order centered period FD
+      !-------------------------------------------------------------------------
+      a1 = 1.d0/12.d0
+      a2 =-2.d0/3.d0
+      a4 = 2.d0/3.d0
+      a5 =-1.d0/12.d0
+
+      dxinv = 1.d0/dx
+      dyinv = 1.d0/dy
+      dzinv = 1.d0/dz
+
+      if (nx>1) then
+        ! three-dimensional simulation
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+              uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
+              uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
+              uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv
+              uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+              uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv
+              uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
+
+              rotu(ix,iy,iz,1) = uzdy - uydz
+              rotu(ix,iy,iz,2) = uxdz - uzdx
+              rotu(ix,iy,iz,3) = uydx - uxdy
+            enddo
+          enddo
+        enddo
+      elseif (nx==1) then
+        ! two-dimensional simulation
+        ix=0
+        do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+            uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+            uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
+
+            rotu(ix,iy,iz,1) = uzdy - uydz
+            rotu(ix,iy,iz,2) = 0.d0
+            rotu(ix,iy,iz,3) = 0.d0
+          enddo
+        enddo
+      endif
+
+  case default
+      call abort(5556,'invalid METHOD in curl_FD:'//order)
+  end select
+end subroutine curl_FD
+
+
+
+! Compute the curl of vector field u in physical space, using a u
+! discretization and Finite-differences. NOTE NO ghost nodes are used. The data
+! is transposed and the derivatives are always computed on the contiguous index
+! This is the same as we have in the wavelet transform.
+subroutine curl_FD_nonper( u, rotu, order )
+  use p3dfft_wrapper
+  implicit none
+
+  ! input/output field in x-space NOTE: no ghost nodes
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::rotu(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  character(len=*), intent(in) :: order
+
+  real(kind=pr), allocatable, dimension(:,:,:) :: uzdy, uydz, uxdz, uzdx, uydx, uxdy
+
+  allocate(uzdy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uydz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uxdz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uzdx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uydx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uxdy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+
+  call diffy_nonper(u(:,:,:,3),uzdy)
+  call diffz_nonper(u(:,:,:,2),uydz)
+  call diffz_nonper(u(:,:,:,1),uxdz)
+  call diffx_nonper(u(:,:,:,3),uzdx)
+  call diffx_nonper(u(:,:,:,2),uydx)
+  call diffy_nonper(u(:,:,:,1),uxdy)
+
+  rotu(:,:,:,1) = uzdy - uydz
+  rotu(:,:,:,2) = uxdz - uzdx
+  rotu(:,:,:,3) = uydx - uxdy
+
+  deallocate(uzdy, uydz, uxdz, uzdx, uydx, uxdy)
+end subroutine curl_FD_nonper
+
+
+! Compute derivative in x-direction of a scalar field using a non-periodic
+! discretization and Finite-differences. NOTE NO ghost nodes are used. The data
+! is transposed and the derivatives are always computed on the contiguous index
+! This is the same as we have in the wavelet transform.
+! As the x-index is always contiguous, this is the easiest case and no MPI communication
+! is involved.
+subroutine diffx_nonper( u, udx )
+  use vars
+  use p3dfft_wrapper
+  implicit none
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer :: ix,iy,iz
+  real(kind=pr), dimension(:,:), allocatable :: D1
+
+  allocate(D1(0:nx-1,0:nx-1))
+  call deriv_matrix_1d_nonper(D1, dx)
+
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      udx(:,iy,iz)= matmul(D1,u(:,iy,iz))
+    enddo
+  enddo
+
+  deallocate(D1)
+
+end subroutine
+
+
+
+! Compute derivative in y-direction of a scalar field using a non-periodic
+! discretization and Finite-differences. NOTE NO ghost nodes are used. The data
+! is transposed and the derivatives are always computed on the contiguous index
+! This is the same as we have in the wavelet transform.
+! NOTE the y-direction is sometimes contiguous, sometimes not.
+subroutine diffy_nonper( u, udx )
+  use vars
+  use p3dfft_wrapper
+  implicit none
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer :: ix,iy,iz,idir
+  real(kind=pr), dimension(:,:), allocatable :: D1
+  real(kind=pr), allocatable, dimension(:,:,:) :: work
+  integer, dimension(1:3) :: ka,kb,ks, kat, kbt, kst
+
+  allocate(D1(0:ny-1,0:ny-1))
+  call deriv_matrix_1d_nonper(D1, dy)
+
+
+  if (mpidims(2) == 1) then
+    ! CASE A): index 2 is contiguous and not split among procs.
+    do iz=ra(3),rb(3)
+      do ix=ra(1),rb(1)
+        udx(ix,:,iz)= matmul(D1,u(ix,:,iz))
+      enddo
+    enddo
+
+  else
+    ! transposition: exchange x-y data
+    ! idir = 1 - permute 1 and 2 indices
+    ! idir = 2 - permute 1 and 3 indices
+    idir = 1
+    call trextents(idir, (/nx,ny,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
+    allocate( work(kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)) )
+    work = 0.d0
+    call subtr ( idir, (/nx,ny,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
+                 MPI_DOUBLE_PRECISION, u, work )
+
+
+    ! at this point we have work(iy,ix,iz)
+    do iz=kat(3),kbt(3)
+      do ix=kat(2),kbt(2)
+        work(:,ix,iz)= matmul(D1,work(:,ix,iz))
+      enddo
+    enddo
+
+    ! transposition: exchange x-y data
+    ! idir = 1 - permute 1 and 2 indices
+    ! idir = 2 - permute 1 and 3 indices
+    idir = 1
+    call trextents(idir, (/ny,nx,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
+    call subtr ( idir, (/ny,nx,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
+                 MPI_DOUBLE_PRECISION, work, udx )
+    ! at this point we have again udx(ix,iy,iz), which is what we started with
+  endif
+  if(allocated(work)) deallocate(work)
+  deallocate(D1)
+end subroutine
+
+
+
+
+
+! Compute derivative in z-direction of a scalar field using a non-periodic
+! discretization and Finite-differences. NOTE NO ghost nodes are used. The data
+! is transposed and the derivatives are always computed on the contiguous index
+! This is the same as we have in the wavelet transform.
+! NOTE the z-direction is never contiguous, if more than 1CPU is used.
+subroutine diffz_nonper( u, udx )
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::udx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  integer :: ix,iy,iz,idir
+  real(kind=pr), dimension(:,:), allocatable :: D1
+  real(kind=pr), allocatable, dimension(:,:,:) :: work
+  integer, dimension(1:3) :: ka,kb,ks, kat, kbt, kst
+
+  allocate(D1(0:nz-1,0:nz-1))
+  call deriv_matrix_1d_nonper(D1, dz)
+
+  ! transposition: exchange x-y data
+  ! idir = 1 - permute 1 and 2 indices
+  ! idir = 2 - permute 1 and 3 indices
+  idir = 2
+  call trextents(idir, (/nx,ny,nz/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
+  allocate( work(kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)) )
+  call subtr ( idir, (/nx,ny,nz/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
+               MPI_DOUBLE_PRECISION, u, work )
+
+  ! --- z direction -----
+  ! at this point we have work(iz,iy,ix)
+  do iy=kat(2),kbt(2)
+    do ix=kat(3),kbt(3)
+      work(:,iy,ix)= matmul(D1,work(:,iy,ix))
+    enddo
+  enddo
+
+  ! final permutation back to the original dataset
+  idir = 2
+  call trextents(idir, (/nz,ny,nx/), mpidims, mpicoords, ka, kb, ks, kat, kbt, kst )
+  call subtr ( idir, (/nz,ny,nx/), ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, &
+               MPI_DOUBLE_PRECISION, work, udx )
+  if(allocated(work)) deallocate(work)
+  ! at this point we have wc(ix,iy,iz)
+  deallocate(D1)
+end subroutine
+
+
+! create a matrix to compute the first derivative, non-periodic
+subroutine deriv_matrix_1d_nonper(D1, h)
+  use vars, only : pr
+  implicit none
+  real(kind=pr), intent(inout) :: D1(0:,0:), h
+  integer :: nn,N,i
+
+  nn = size(D1,1)
+  D1=0.d0
+  do i=0,nn-1 !main diag
+    D1(i,i) = 0.d0 !main
+  enddo
+  do i=0,nn-2 !first upper/lower diag
+    D1(i,i+1) = 1.d0  !up1
+    D1(i+1,i) =-1.d0  !lo1
+  enddo
+  N = nn-1
+  D1(0,0)=  -3.d0
+  D1(0,1)=   4.d0
+  D1(0,2)=  -1.d0
+  D1(N,N-2)= 1.d0
+  D1(N,N-1)=-4.d0
+  D1(N,N)=   3.d0
+  D1 = D1/(2.0d0*h)
+
+end subroutine
+
+
 !-------------------------------------------------------------------------------
 ! compute divergence of vector valued field (ink, 4D array)
 ! and returns it in outk

@@ -66,12 +66,10 @@ subroutine postprocessing()
     call compare_key (key1,key2)
   case ("--compare-timeseries")
     call compare_timeseries(help)
-  case ("--vorticity","--vor")
+  case ("--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD")
     call convert_vorticity(help)
   case ("--vor2u")
     call convert_velocity(help)
-  case ("--vor_abs","--vor-abs")
-    call convert_abs_vorticity(help)
   case ("--hdf2bin")
     call convert_hdf2bin(help)
   case ("--bin2hdf")
@@ -141,7 +139,7 @@ subroutine postprocessing()
       write(*,*) "--keyvalues"
       write(*,*) "--compare-keys"
       write(*,*) "--compare-timeseries"
-      write(*,*) "--vorticity  --vor"
+      write(*,*) "--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD"
       write(*,*) "--vor2u"
       write(*,*) "--vor_abs --vor-abs"
       write(*,*) "--hdf2bin"

@@ -16,7 +16,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 ifndef NOHDF5
 # Case WITH HDF5 (all machines except earth simulator)
 FFILES += postprocessing.f90 \
-	bin2hdf.f90 compare_key.f90 compare_timeseries.f90 convert_abs_vorticity.f90 \
+	bin2hdf.f90 compare_key.f90 compare_timeseries.f90 \
 	convert_velocity.f90 convert_vorticity.f90 copy_hdf_file.f90 energy_post.f90 \
 	extract_subset.f90 field_analysis.f90 hdf2bin.f90 keyvalues.f90 \
 	magnitude_post.f90 mean_2d.f90 post_helicity.f90 \
@@ -93,7 +93,7 @@ FFLAGS += -J$(OBJDIR) # specify directory for modules.
 #FFLAGS += -pedantic
 PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
-FFLAGS += -Wuninitialized -O -fimplicit-none -fbounds-check -g -ggdb
+FFLAGS += -Wuninitialized -fimplicit-none -fbounds-check -g -ggdb -fbacktrace
 FFLAGS += -O3
 #FFLAGS += -ffpe-trap=zero,overflow,underflow -ffree-line-length-none -fbacktrace
 ifdef NOHDF5
@@ -201,7 +201,7 @@ $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o
+$(OBJDIR)/basic_operators.o: basic_operators.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/ghostpoints.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/turbulent_inlet.o: turbulent_inlet.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o $(OBJDIR)/basic_operators.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)

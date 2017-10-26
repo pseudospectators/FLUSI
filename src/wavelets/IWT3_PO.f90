@@ -44,14 +44,14 @@ subroutine IWT3_PO(wc, u, wavelet, Jmin)
       ! ---------------------
       ! Filters are applied in the first coordinate, as it is always contiguous in memory
       ! and not split among MPI processes
-      call WaveReconstruction_dim1( u, nc, wavelet, buffer1, buffer2, buffer3 )
+      call WaveReconstruction_dim1( u, ra, rb, nc, wavelet, buffer1, buffer2, buffer3 )
 
       ! ---------------------
       ! --- y direction -----
       ! ---------------------
       if (mpidims(2) == 1) then
         ! CASE A): index 2 is contiguous and not split among procs.
-        call WaveReconstruction_dim2( u, nc, wavelet, buffer1, buffer2, buffer3 )
+        call WaveReconstruction_dim2( u, ra, rb, nc, wavelet, buffer1, buffer2, buffer3 )
 
       else
         ! transposition: exchange x-y data
@@ -66,7 +66,7 @@ subroutine IWT3_PO(wc, u, wavelet, Jmin)
 
         ! at this point we have work(iy,ix,iz)
         ! again, the first dimension is filtered, but this now is the y-data
-        call WaveReconstruction_dim1( work, nc, wavelet, buffer1, buffer2, buffer3 )
+        call WaveReconstruction_dim1( work, kat, kbt, nc, wavelet, buffer1, buffer2, buffer3 )
 
         ! transposition: exchange x-y data
         ! idir = 1 - permute 1 and 2 indices
@@ -91,7 +91,7 @@ subroutine IWT3_PO(wc, u, wavelet, Jmin)
       ! ---------------------
       ! at this point we have work(iz,iy,ix)
       ! again, the first dimension is filtered, but this now is the z-data
-      call WaveReconstruction_dim1( work, nc, wavelet, buffer1, buffer2, buffer3 )
+      call WaveReconstruction_dim1( work, kat, kbt, nc, wavelet, buffer1, buffer2, buffer3 )
 
       ! final permutation back to the original dataset
       idir = 2
@@ -117,10 +117,12 @@ end subroutine IWT3_PO
 ! Input:  hhhhhhhhhhhhhhhhgggggggggggggggg
 ! Output: uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
 !-----------------------------------------------------------------------------
-subroutine WaveReconstruction_dim1( wc, nc, wavelet, buffer1, buffer2, buffer3 )
+subroutine WaveReconstruction_dim1( wc, qa, qb, nc, wavelet, buffer1, buffer2, buffer3 )
   implicit none
   integer, intent(in) :: nc
-  real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
+  ! note this routine is one of the few where the decomposition has to be general
+  integer, dimension(1:3), intent(in) :: qa, qb
+  real(kind=pr), dimension(qa(1):qb(1),qa(2):qb(2),qa(3):qb(3)), intent(inout) :: wc
   real(kind=pr), dimension(1:nc), intent(inout) :: buffer1, buffer2, buffer3
   type(orth_wavelet), intent(in) :: wavelet
   integer :: ix,iy,iz
@@ -130,7 +132,7 @@ subroutine WaveReconstruction_dim1( wc, nc, wavelet, buffer1, buffer2, buffer3 )
   do iy = 0, nc-1 ! note loop bounds 0,nc-1 (and not 0,ny-1)
     do iz = 0, nc-1
       ! is this on my local bounds? (MPI-sense, some procs may idle)
-      if (on_proc((/0,iy,iz/))) then
+      if (iy>=qa(2) .and. iy<=qb(2) .and. iz>=qa(3) .and. iz<=qb(3)) then
         ! bot: 0:nc/2-1 (zero-based)
         ! top: nc/2:nc-1 (zero-based)
 
@@ -163,10 +165,12 @@ end subroutine WaveReconstruction_dim1
 ! Input:  hhhhhhhhhhhhhhhhgggggggggggggggg
 ! Output: uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu
 !-----------------------------------------------------------------------------
-subroutine WaveReconstruction_dim2( wc, nc, wavelet, buffer1, buffer2, buffer3 )
+subroutine WaveReconstruction_dim2( wc, qa, qb, nc, wavelet, buffer1, buffer2, buffer3 )
   implicit none
   integer, intent(in) :: nc
-  real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
+  ! note this routine is one of the few where the decomposition has to be general
+  integer, dimension(1:3), intent(in) :: qa, qb
+  real(kind=pr), dimension(qa(1):qb(1),qa(2):qb(2),qa(3):qb(3)), intent(inout) :: wc
   real(kind=pr), dimension(1:nc), intent(inout) :: buffer1, buffer2, buffer3
   type(orth_wavelet), intent(in) :: wavelet
   integer :: ix,iy,iz
@@ -176,7 +180,7 @@ subroutine WaveReconstruction_dim2( wc, nc, wavelet, buffer1, buffer2, buffer3 )
   do ix = 0, nc-1 ! note loop bounds 0,nc-1 (and not 0,ny-1)
     do iz = 0, nc-1
       ! is this on my local bounds? (MPI-sense, some procs may idle)
-      if (on_proc((/0,0,iz/))) then
+      if (iy>=qa(2) .and. iy<=qb(2) .and. iz>=qa(3) .and. iz<=qb(3)) then
         ! bot: 0:nc/2-1 (zero-based)
         ! top: nc/2:nc-1 (zero-based)
 
