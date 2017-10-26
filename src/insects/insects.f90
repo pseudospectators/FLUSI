@@ -686,7 +686,7 @@ contains
     color_body = Insect%color_body
     color_l = Insect%color_l
     color_r = Insect%color_r
-write(*,*) "deleting", body_moves
+
     !-----------------------------------------------------------------------------
     ! delete old mask
     !-----------------------------------------------------------------------------
