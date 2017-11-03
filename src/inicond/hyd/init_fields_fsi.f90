@@ -24,11 +24,12 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
   real(kind=pr),dimension(:,:,:),allocatable::tmp
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  integer :: ix,iy,iz, nxs,nys,nzs, nxb,nyb,nzb
+  integer :: ix,iy,iz, nxs,nys,nzs, nxb,nyb,nzb,k
   real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega,viscosity_dummy
   real (kind=pr) :: uu,Ek,E,Ex,Ey,Ez,kx,ky,kz,theta1,theta2,phi,kabs,kh,kp,maxdiv
   complex(kind=pr) :: alpha,beta
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin, kvec
+  real(kind=pr), dimension(:,:), allocatable :: spec_array
 
   ! Assign zero values
   time = 0.0d0
@@ -79,6 +80,88 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     enddo
     call fft3 ( uk,vort )
 
+  case("random-given-spectrum")
+    if (root) write (*,*) "*** inicond: random field with given spectrum"
+
+    ! step 1
+    ! create a random vorticity field in phys space. there is no need to make it
+    ! div-free or regular or anything. even the energy does not matter - just some
+    ! noise.
+    call random_seed()
+    do iz=ra(3), rb(3)
+      do iy=ra(2), rb(2)
+        do ix=ra(1), rb(1)
+          vort(ix,iy,iz,1) = rand_nbr()
+          vort(ix,iy,iz,2) = rand_nbr()
+          vort(ix,iy,iz,3) = rand_nbr()
+        end do
+      end do
+    end do
+
+    ! step 2
+    ! bring this field to k-space an project it on the incompressible manifold.
+    ! we end up with a velocity field which is random and div-free, but other than
+    ! that has no remarkable property-
+    call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
+    call Vorticity2Velocity_old (uk, nlk(:,:,:,:,0), vort)
+
+    ! step 3
+    ! compute the spectrum of the new field, and define the spectrum that you want
+    ! to have.
+    call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+
+    ! read new spectrum from file.
+    call count_lines_in_ascii_file_mpi(inicond_spectrum_file, k, n_header=0)
+    ! read the array from file, two columns, one is k second is E(k)
+    allocate(spec_array(0:k-1,1:2))
+    call read_array_from_ascii_file_mpi(inicond_spectrum_file, spec_array, n_header=0)
+
+    ! step 4
+    ! in wavenumber space, multiply all fourier coeffs with the ratio of desired to
+    ! current spectrum (theres a sqrt in it). Now the field will still be div-free
+    ! but have the spectrum that you impose.
+    do iz=ca(1),cb(1)
+      kz = wave_z(iz)
+      do iy=ca(2),cb(2)
+        ky = wave_y(iy)
+        do ix=ca(3),cb(3)
+          kx = wave_x(ix)
+          ! compute magnitude of wavenumber vector
+          kabs = dsqrt(kx**2 + ky**2 + kz**2)
+          ! index of spectrum (just the rounded wavenumber, if domain is 2*pi ^3. if not
+          ! the routine will fail.)
+          k = nint(kabs)
+          ! scale spectrum. (avoid dividing by zero...)
+          if (S_Ekin(k) > 1.0d-13) then
+            uk(iz,iy,ix,1:3) = uk(iz,iy,ix,1:3) * dsqrt(spec_array(k,2) / S_Ekin(k))
+          else
+            uk(iz,iy,ix,1:3) = 0.0d0
+          endif
+        enddo
+      enddo
+    enddo
+
+    ! step 5
+    ! done. no some checks:
+    deallocate( spec_array )
+
+    ! check what mean energy we end up with
+    call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+
+    ! check if our initial condition is indeed divergence-free
+    call divergence( ink=uk, outk=workc(:,:,:,1) )
+    call ifft( ink=workc(:,:,:,1), outx=vort(:,:,:,1) )
+    ! vort(:,:,:,1) is now div in phys space
+    maxdiv = fieldmax(vort(:,:,:,1))
+
+    if(root) then
+      write(*,*) "Mean energy of field=", sum(S_Ekin)
+      write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
+      write(*,*) "because it is the volume integral and not the mean"
+      write(*,*) "Maximum divergence in field=", maxdiv
+      write(*,'(80("-"))')
+    endif
+
   case("turbulence_rogallo")
     !---------------------------------------------------------------------------
     ! randomized initial condition with given spectrum k^4*exp(-k^2 /2)
@@ -91,7 +174,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     ! if that is what you get in return
     !---------------------------------------------------------------------------
 
-    if (mpirank==0) then
+    if (root) then
       write(*,'(80("-"))')
       write(*,*) "Initial condition: turbulence_rogallo"
       write(*,*) "randomized divergence-free field with given spectum"
@@ -162,16 +245,16 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     ! which is set in the parameter file
     call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
     Ek = sum(S_Ekin)
-    if (mpirank==0) write(*,*) "MEAN Energy before normalization=" ,ek
+    if (root) write(*,*) "MEAN Energy before normalization=" ,ek
 
     ! actual normalization
     uk = uk * dsqrt(omega1/Ek)
 
     ! check if this really worked
     call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
-    if (mpirank==0) write(*,*) "MEAN Energy after normalization =" ,sum(S_Ekin)
-    if (mpirank==0) write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
-    if (mpirank==0) write(*,*) "because it is the volume integral and not the mean"
+    if (root) write(*,*) "MEAN Energy after normalization =" ,sum(S_Ekin)
+    if (root) write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
+    if (root) write(*,*) "because it is the volume integral and not the mean"
 
 
     ! check if our initial condition is indeed divergence-free
@@ -181,6 +264,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     maxdiv = fieldmax(vort(:,:,:,1))
     if(mpirank == 0) write(*,*) "Maximum divergence in field=", maxdiv
     if(mpirank == 0) write(*,'(80("-"))')
+
+
+
   case ("taylor_green_2d")
     !--------------------------------------------------
     ! taylor green vortices
@@ -208,7 +294,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
      call fft3 ( uk,vort )
      if (mpirank==0) write (*,*) "*** done reading infiles"
-     
+
   case("infile_inlet")
     ! read fields from file, but repeat it in the x-direction, since it is too short
     ! note that the resulting field is non-periodic (but the boundary conditions

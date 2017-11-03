@@ -121,6 +121,7 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"InitialCondition","file_bx",file_bx, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_by",file_by, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_bz",file_bz, "none")
+  call read_param_mpi(PARAMS,"InitialCondition","inicond_spectrum_file",inicond_spectrum_file, "none")
 
   ! Dealasing section
   call read_param_mpi(PARAMS,"Dealiasing","iDealias",iDealias, 1)

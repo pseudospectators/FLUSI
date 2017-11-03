@@ -1,18 +1,3 @@
-!-------------------------------------------------------------------------------
-! Read velocity components from file and compute their curl. Optionally second order
-!
-! You can write to standard output: (vorx_0000.h5 in the example:)
-! ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 [--second-order]
-!
-! Or specify a prefix for the output files: (writes to curl_0000.h5 in example:)
-! ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --outputprefix curl [--second-order]
-!
-! Or specifiy the ouput files directly:
-! ./flusi -p --vorticity ux_00000.h5 uy_00000.h5 uz_00000.h5 --outfiles vx_00.h5 vy_00.h5 vz_00.h5 [--second-order]
-!
-!-------------------------------------------------------------------------------
-! load the velocity components from file and compute & save the vorticity
-! can be done in parallel. the flag --second order can be used for filtering
 subroutine convert_vorticity(help)
   use vars
   use p3dfft_wrapper
@@ -31,9 +16,10 @@ subroutine convert_vorticity(help)
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p "
+    write(*,*) "./flusi -p [--vor-abs | --vor-abs-FD | --vorticity | --vorticity-FD]"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) " Read velocity components from file and compute their curl. Optionally second order"
+    write(*,*) " or non-periodic using finite differences."
     write(*,*) " "
     write(*,*) " Compute vorticity vector (fourier)"
     write(*,*) " ./flusi -p --vorticity ux_00.h5 uy_00.h5 uz_00.h5 vorx_00.h5 vory_00.h5 vorz_00.h5 [--second-order]"
@@ -41,12 +27,15 @@ subroutine convert_vorticity(help)
     write(*,*) " Directly compute vorticity magnitude: (fourier)"
     write(*,*) " ./flusi -p --vor-abs ux_00.h5 uy_00.h5 uz_00.h5 vorabs_00.h5 [--second-order]"
     write(*,*) " "
-    write(*,*) " Finite difference versions: (periodic, 2nd and 4th order)"
+    write(*,*) " Finite difference versions: (periodic, 2nd and 4th order or non-periodic 2nd order)"
     write(*,*) " ./flusi -p --vor-abs-FD ux_00.h5 uy_00.h5 uz_00.h5 vorabs_00.h5 [ORDER]"
     write(*,*) " ./flusi -p --vorticity-FD ux_00.h5 uy_00.h5 uz_00.h5 vorx_00.h5 vory_00.h5 vorz_00.h5 [ORDER]"
-    write(*,*) " where ORDER is one of --second-order --fourth-order --second-order-nonper"
+    write(*,*) " where ORDER is one of: "
+    write(*,*) " --second-order"
+    write(*,*) " --fourth-order"
+    write(*,*) " --second-order-nonper"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "Parallel: yes"
+    write(*,*) "Parallel: yes, fully"
     return
   endif
 
