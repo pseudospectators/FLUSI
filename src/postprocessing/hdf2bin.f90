@@ -64,14 +64,10 @@ subroutine convert_hdf2bin(help)
   ! set the output precision and write into a file
   if (pr_out_flag == "--double-precision") then
     write (12) ((( real(field(ix,iy,iz),kind=8), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
-    if (help.and.root) then
-      write(*,*) "DOUBLE PRECISION, LITTLE ENDIAN"
-    endif
+    write(*,*) "DOUBLE PRECISION, LITTLE ENDIAN"
   else 
     write (12) ((( real(field(ix,iy,iz),kind=4), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
-    if (help.and.root) then
-      write(*,*) "SINGLE PRECISION, LITTLE ENDIAN"
-    endif
+    write(*,*) "SINGLE PRECISION, LITTLE ENDIAN"
   endif
 
   close (12)
