@@ -24,7 +24,8 @@ FFILES += postprocessing.f90 \
 	simple_field_operation.f90 time_avg_HDF5.f90 tke_mean.f90 \
 	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90 \
 	extend_domain.f90 convert_to_wing_system.f90 convert_pressure.f90 \
-	pressure_force.f90 flusi_hdf5_interface.f90 post_CVE.f90 transpose_test.f90
+	pressure_force.f90 flusi_hdf5_interface.f90 post_CVE.f90 transpose_test.f90 \
+	post_grad.f90
 
 else
 # Case WITHOUT Hdf

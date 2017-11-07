@@ -47,7 +47,7 @@ subroutine post_helicity(help)
   if (mpirank==0) then
     write(*,'(80("-"))')
     write(*,*) "helicity computation"
-    write(*,*) "Computing helicit from velocity given in these files: "
+    write(*,*) "Computing helicity from velocity given in these files: "
     write(*,'(80("-"))')
     write(*,*) trim(adjustl(fname_ux))
     write(*,*) trim(adjustl(fname_uy))
