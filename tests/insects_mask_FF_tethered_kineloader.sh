@@ -73,7 +73,7 @@ rm data_kin.dat
 #                               time series
 #-------------------------------------------------------------------------------
 
-file=kinematics.t
+file=kinematics.dry-run.t
 
   echo comparing $file time series...
 

@@ -20,8 +20,13 @@ module insect_module
   ! this will hold the surface markers and their normals used for particles:
   real(kind=pr), allocatable, dimension(:,:) :: particle_points
   ! variables to decide whether to draw the body or not.
-  logical, save :: body_already_drawn = .false.
   character(len=strlen), save :: body_moves="yes"
+  logical, save :: body_already_drawn = .false.
+  ! the following flag makes the code write the kinematics log to either kinematics.t
+  ! (regular simulation) or kinematics.dry-run.t (for a dry run). The reason for this
+  ! is that during postprocessing of an existing run, the dry run would overwrite the
+  ! simulation data.
+  character(len=strlen), save :: kinematics_file = "kinematics.t"
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
   ! elements in derived datatypes) this is their length:
   integer, parameter :: nfft_max = 1024
@@ -29,6 +34,7 @@ module insect_module
   integer, parameter :: nhrmt_max = 10000
   ! only used in steps (to reduce number of arguments)
   real(kind=pr), save :: smoothing
+
 
   include "type_definitions.f90"
 
@@ -131,8 +137,8 @@ contains
     ! do so only every itdrag time steps (Thomas, 8 Jul 2014)
     !-----------------------------------------------------------------------------
     counter = counter + 1
-    if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
-      open  (17,file='kinematics.t',status='unknown',position='append')
+    if (root .and. (mod(counter,itdrag)==0)) then
+      open  (17,file= kinematics_file , status='unknown',position='append')
       write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
       Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
       Insect%theta_l, Insect%alpha_r, Insect%phi_r, Insect%theta_r, &
