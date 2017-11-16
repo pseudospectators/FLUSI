@@ -213,7 +213,7 @@ contains
     use vars
     implicit none
 
-    character(len=strlen), intent(in) :: array_name    
+    character(len=*), intent(in) :: array_name    
     integer, intent(in) :: a, b
     type(diptera), intent(inout) :: Insect
 

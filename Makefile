@@ -209,17 +209,17 @@ $(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o $(OBJDIR)/runtime_backuping.o
 	$(FC) $(FFLAGS) $(NOHDF5FLAG) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o coherent_vortex_extraction.f90 FWT3_PO.f90 \
 	IWT3_PO.f90
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) -Isrc/wavelets/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
 $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
+	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out
 
 tidy:
-	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
+	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out
 
 # If the object directory doesn't exist, create it.
 .PHONY: directories
