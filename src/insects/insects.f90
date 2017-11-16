@@ -150,14 +150,14 @@ module insect_module
     character(len=strlen) :: wing_thickness_distribution = "constant"
     ! a non-constant thickness is stored here:
 #ifdef OLDSTYLE
-    real(kind=pr), dimension(1000,1000) :: wing_thickness_profile
+    real(kind=pr), dimension(500,500) :: wing_thickness_profile
 #else
     real(kind=pr), allocatable, dimension(:,:) :: wing_thickness_profile
 #endif
     ! wing corrugation (i.e. the deviation from a flat wing)
     logical :: corrugated = .false.
 #ifdef OLDSTYLE
-    real(kind=pr), dimension(1000,1000) :: corrugation_profile
+    real(kind=pr), dimension(500,500) :: corrugation_profile
 #else
     real(kind=pr), allocatable, dimension(:,:) :: corrugation_profile
 #endif
