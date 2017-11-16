@@ -74,6 +74,7 @@ ifeq ($(FC),sxmpif90)
 FFLAGS += -I$(OBJDIR)
 FFLAGS += -R0 -P stack -C hopt -pi nest=2 -pi exp="periodize_coordinate" expin="src/vars.f90" -f2003
 PPFLAG =
+DOLDSTYLE = -DOLDSTYLE
 
 # Note that shell $(FC) makes an error on FC system and should be bypassed
 else
@@ -141,7 +142,7 @@ endif
 LDFLAGS += -lm
 
 # Other common compile flags
-FFLAGS += -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
+FFLAGS += -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT) $(DOLDSTYLE)
 
 # HDF5 compile flags
 ifndef NOHDF5
@@ -169,13 +170,13 @@ $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 \
-	wings_motion.f90 stroke_plane.f90 type_definitions.f90 \
+	wings_motion.f90 stroke_plane.f90 \
 	kineloader.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser_mpi.o $(OBJDIR)/interpolation.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) -Isrc/insects/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o $(OBJDIR)/helpers.o \
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
 	prescribed_beam.f90 solid_solver_wrapper.f90 $(OBJDIR)/ghostpoints.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) -Isrc/solid_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
