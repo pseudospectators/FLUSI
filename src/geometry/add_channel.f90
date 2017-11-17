@@ -102,8 +102,8 @@ subroutine add_channel()
 
           case ("cylinder")
             ! Vertical circular cylinder
-            r_cyl = 0.947d0
-            x_cyl = 1.5d0
+            r_cyl = thick_wall ! 0.947d0 in older versions
+            x_cyl = pos_wall ! 1.5d0 in older versions
             y_cyl = 0.5d0*yl
             x = dble(ix)*dx
             y = dble(iy)*dy
