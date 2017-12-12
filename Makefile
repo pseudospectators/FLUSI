@@ -76,8 +76,10 @@ ifeq ($(FC),sxmpif90)
 FFLAGS += -I$(OBJDIR)
 FFLAGS += -R0 -P stack -C hopt -pi nest=2 -pi exp="periodize_coordinate" expin="src/vars.f90" -f2003
 PPFLAG =
+# the DNOHDF5 flag disables all HDF5 compilation (if present)
+# the OLDSTYE flag removes dynamic allocated arrays from structs
 ifdef NOHDF5
-PRE_FLAGS=-DNOHDF5
+PRE_FLAGS=-DNOHDF5,-DOLDSTYLE
 endif
 
 # Note that shell $(FC) makes an error on FC system and should be bypassed
@@ -100,6 +102,7 @@ FFLAGS += -O3
 ifdef NOHDF5
 PRE_FLAGS=-DNOHDF5
 endif
+# PRE_FLAGS=-DOLDSTYLE
 endif
 
 #-------------------------------------------------------------------------------
