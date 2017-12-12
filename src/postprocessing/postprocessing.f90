@@ -112,6 +112,8 @@ subroutine postprocessing()
     call post_helicity(help)
   case ("--smooth-inverse-mask")
     call post_smooth_mask(help)
+  case ("--gradient")
+    call post_grad(help)
   case default
     if (root) then
       write(*,*) "Available Postprocessing tools are:"
@@ -152,6 +154,7 @@ subroutine postprocessing()
       write(*,*) "--extend-domain"
       write(*,*) "--convert-to-wing-system  // --convert-to-body-system"
       write(*,*) "--pressure-force"
+      write(*,*) "--gradient"
       write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))
       write(*,*) "But I don't know what to do with that"
     endif

@@ -1099,7 +1099,7 @@ subroutine Setup_Wing_from_inifile(Insect, fname)
 
       ! read matrix from ini file, see comments on SXF90 compiler
       call param_matrix_size_mpi(ifile,"Wing","wing_thickness_profile",a,b)
-      allocate(Insect%wing_thickness_profile(1:a,1:b))
+      call Allocate_Arrays(Insect,"wing_thickness_profile",a,b)
       call param_matrix_read_mpi(ifile,"Wing","wing_thickness_profile",Insect%wing_thickness_profile)
 
   else
@@ -1114,7 +1114,7 @@ subroutine Setup_Wing_from_inifile(Insect, fname)
       if (root) write(*,*) "wing is corrugated, z=z(x,y)"
       ! read matrix from ini file, see comments on SXF90 compiler
       call param_matrix_size_mpi(ifile,"Wing","corrugation_profile",a,b)
-      allocate(Insect%corrugation_profile(1:a,1:b))
+      call Allocate_Arrays(Insect,"corrugation_profile",a,b)
       call param_matrix_read_mpi(ifile,"Wing","corrugation_profile",Insect%corrugation_profile)
 
   else

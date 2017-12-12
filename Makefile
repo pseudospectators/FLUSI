@@ -24,7 +24,8 @@ FFILES += postprocessing.f90 \
 	simple_field_operation.f90 time_avg_HDF5.f90 tke_mean.f90 \
 	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90 \
 	extend_domain.f90 convert_to_wing_system.f90 convert_pressure.f90 \
-	pressure_force.f90 flusi_hdf5_interface.f90 post_CVE.f90 transpose_test.f90
+	pressure_force.f90 flusi_hdf5_interface.f90 post_CVE.f90 transpose_test.f90 \
+	post_grad.f90
 
 else
 # Case WITHOUT Hdf
@@ -190,7 +191,7 @@ $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 \
-	wings_motion.f90 stroke_plane.f90 type_definitions.f90 \
+	wings_motion.f90 stroke_plane.f90 \
 	kineloader.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser_mpi.o $(OBJDIR)/interpolation.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o $(OBJDIR)/helpers.o \
@@ -236,10 +237,10 @@ $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
+	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out
 
 tidy:
-	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod a.out
+	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out
 
 # If the object directory doesn't exist, create it.
 .PHONY: directories
