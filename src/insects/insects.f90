@@ -889,28 +889,30 @@ contains
     type(diptera),intent(inout) :: Insect
     integer :: num_lines, n_header = 1, i
     character(len=maxcolumns) :: dummy
-    real(kind=pr), allocatable :: data(:,:)
+    real(kind=pr), allocatable, save :: data1(:,:)
 
-    ! read rigidsolidsolver.t file
-    ! skip header, count lines, read
-    call count_lines_in_ascii_file_mpi('rigidsolidsolver.t', num_lines, n_header)
-    ! read contents of file
-    allocate( data(1:num_lines,1:14))
-    call read_array_from_ascii_file_mpi('rigidsolidsolver.t', data , n_header)
+    if ( .not. allocated(data1) ) then
+      ! read rigidsolidsolver.t file
+      ! skip header, count lines, read
+      call count_lines_in_ascii_file_mpi('rigidsolidsolver.t', num_lines, n_header)
+      ! read contents of file
+      allocate( data1(1:num_lines,1:14))
+      call read_array_from_ascii_file_mpi('rigidsolidsolver.t', data1 , n_header)
+    endif
 
     ! interpolate in time
-    i=1
-    do while (data(i,1) <= time .and. i<num_lines)
+    i = 1
+    do while (data1(i,1) <= time .and. i<size(data1,1)-1)
       i=i+1
     enddo
-    ! we now have data(i-1,1) <= time < data(i,1)
+    ! we now have data1(i-1,1) <= time < data1(i,1)
     ! use linear interpolation
     Insect%STATE = 0.d0
-    Insect%STATE(1:13) = data(i-1,2:14) + (time - data(i-1,1)) * (data(i,2:14)-data(i-1,2:14)) / (data(i,1)-data(i-1,1))
+    Insect%STATE(1:13) = data1(i-1,2:14) + (time - data1(i-1,1)) * (data1(i,2:14)-data1(i-1,2:14)) / (data1(i,1)-data1(i-1,1))
 
     if (root) write(*,*) "The extracted Insect%STATE vector is:"
-    if (root) write(*,'(21(es12.4,1x))') time,Insect%STATE
-    deallocate (data)
+    write(*,'(i1,1x,21(es12.4,1x))') mpirank,time, Insect%STATE(1:13)
+    ! deallocate (data)
   end subroutine
 
 

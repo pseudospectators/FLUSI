@@ -36,12 +36,6 @@ subroutine post_spectrum(help)
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-    write (*,*) "Error in arguments, files do not start with ux uy and uz"
-    write (*,*) "note files have to be in the right order"
-    ! call abort()
-  endif
-
   call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
@@ -88,7 +82,8 @@ subroutine post_spectrum(help)
     enddo
 
     write(10,*) '% parsevals identity:'
-    write(10,*) '% Energy integrated from spectrum: ',sum(S_ekin), 'Energy in phys. space:', E/(dble(nx)*dble(ny)*dble(nz))
+    write(10,*) '% Energy integrated from spectrum: ',sum(S_ekin)
+    write(10,*) '% Energy in phys. space:', E/(dble(nx)*dble(ny)*dble(nz))
     write(10,*) '% sum = ', sum(S_Ekin), sum(S_Ekinx), sum(S_Ekiny), sum(S_Ekinz)
     write(10,*) '% sum*dk = integral = ', sum(S_Ekin)*(kvec(2)-kvec(1))
     write(10,*) '% time = ',time
