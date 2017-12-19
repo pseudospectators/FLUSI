@@ -216,6 +216,12 @@ module vars
   real(kind=pr),save :: b0, bc ! Boundary condition parameters
   real(kind=pr),save :: ay ! x*x + ay*y*y -r1*r1 == 0 ?in boundary conditions
 
+  ! Allocatable arrays used in Insect object
+  ! this will hold the surface markers and their normals used for particles:
+  real(kind=pr), allocatable, dimension(:,:) :: particle_points
+  real(kind=pr), allocatable, dimension(:,:) :: wing_thickness_profile
+  real(kind=pr), allocatable, dimension(:,:) :: corrugation_profile
+
 
 !*****************************************************************************
 !*****************************************************************************
