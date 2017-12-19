@@ -100,7 +100,11 @@ subroutine fft3(outk,inx)
       call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
     endif
 
-    call p3dfft_ftran_r2c_many( inx, rs(1)*rs(2)*rs(3), outk, cs(1)*cs(2)*cs(3), 3, 'fff')
+!    call p3dfft_ftran_r2c_many( inx, rs(1)*rs(2)*rs(3), outk, cs(1)*cs(2)*cs(3), 3, 'fff')
+! FIXME: p3dfft_ftran_r2c_many is unstable, use p3dfft_ftran_r2c
+    call p3dfft_ftran_r2c(inx(:,:,:,1), outk(:,:,:,1), 'fff')
+    call p3dfft_ftran_r2c(inx(:,:,:,2), outk(:,:,:,2), 'fff')
+    call p3dfft_ftran_r2c(inx(:,:,:,3), outk(:,:,:,3), 'fff')
 
     ! Normalize
     npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
@@ -131,7 +135,11 @@ subroutine ifft3(outx,ink)
       call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
     endif
 
-    call p3dfft_btran_c2r_many( ink, cs(1)*cs(2)*cs(3), outx, rs(1)*rs(2)*rs(3), 3, 'fff')
+!    call p3dfft_btran_c2r_many( ink, cs(1)*cs(2)*cs(3), outx, rs(1)*rs(2)*rs(3), 3, 'fff')
+! FIXME: p3dfft_btran_c2r_many is unstable, use p3dfft_btran_c2r
+    call p3dfft_btran_c2r(ink(:,:,:,1), outx(:,:,:,1), 'fff')
+    call p3dfft_btran_c2r(ink(:,:,:,2), outx(:,:,:,2), 'fff')
+    call p3dfft_btran_c2r(ink(:,:,:,3), outx(:,:,:,3), 'fff')
 
     time_ifft  = time_ifft  + MPI_wtime() - t1
 end subroutine ifft3

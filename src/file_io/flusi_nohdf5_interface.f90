@@ -1,12 +1,12 @@
 
 ! Write the field field_out to file filename.
-! Replaces hdf5 wrapper routine with the same name,
+! Replaces hdf5 wrapper routine with the same name, 
 ! if compiled with HDF5FLAG = no
 subroutine save_field_hdf5(time,filename,field_out)
   use mpi
   use vars
   implicit none
-
+  
   ! The field to be written to disk:
   real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
@@ -17,15 +17,14 @@ subroutine save_field_hdf5(time,filename,field_out)
   character(len=5) :: suffix
   character(len=256) :: fullname
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
-  real(kind=pr) :: mbyte
   integer :: mpicode
 
   t1 = MPI_wtime()
-
+ 
   !--Set up file name
   write(suffix,'(i5.5)') mpirank
   suffix = trim(adjustl(suffix))
-  fullname = trim(adjustl(filename))//'.np'//suffix
+  fullname = trim(adjustl(filename))//'.np'//suffix 
 
   ! Array bounds and sizes
   sz_out(1) = rb(1)-ra(1) +1
@@ -33,40 +32,14 @@ subroutine save_field_hdf5(time,filename,field_out)
   sz_out(3) = rb(3)-ra(3) +1
 
   ! Write Fortran binary file
-  if (field_precision == "single") then
-    !---------------------------------------------------------------------------
-    ! Single precision
-    !---------------------------------------------------------------------------
-    if (sz_out(3) > 0) then ! fields with nz==1 are only allocated on some of the mpi ranks
-      open(10, file = trim(adjustl(fullname)), form='unformatted', access='direct', &
-               recl=sz_out(1)*sz_out(2)*sz_out(3)*4, status='replace')
-      write (10,rec=1) real(field_out, kind=4)
-      close (10)
-    endif
-
-    mbyte = dble(nx/striding)*dble(ny/striding)*dble(nz/striding)*4.d0/1024.0d0/1024.0d0
-  elseif (field_precision == "double") then
-    !---------------------------------------------------------------------------
-    ! double precision
-    !---------------------------------------------------------------------------
-    if (sz_out(3) > 0) then ! fields with nz==1 are only allocated on some of the mpi ranks
-      open(10, file = trim(adjustl(fullname)), form='unformatted', access='direct', &
-               recl=sz_out(1)*sz_out(2)*sz_out(3)*pr, status='replace')
-      write (10,rec=1) field_out
-      close (10)
-    endif
-
-    mbyte = dble(nx/striding)*dble(ny/striding)*dble(nz/striding)*8.d0/1024.0d0/1024.0d0
-  else
-    call abort(7776,'invalid value of field_precision')
+  if (sz_out(3) > 0) then ! fields with nz==1 are only allocated on some of the mpi ranks
+    open(10, file = trim(adjustl(fullname)), form='unformatted', access='direct', recl=sz_out(1)*sz_out(2)*sz_out(3)*pr)
+    write (10,rec=1) field_out
+    close (10)
   endif
 
   call MPI_barrier(MPI_COMM_WORLD,mpicode)
-
-  ! footer
-  t1 = MPI_wtime() - t1
-  if (root) write(*,'(".. wrote ",f9.2," MB in ",f9.2," s (",f9.2,"MB/s)")') mbyte, t1, mbyte/t1
-  time_hdf5=time_hdf5 + t1 ! performance analysis
+  time_hdf5=time_hdf5 + MPI_wtime() - t1 ! performance analysis
 end subroutine save_field_hdf5
 
 
@@ -82,8 +55,8 @@ subroutine Read_Single_File ( filename, field )
   real(kind=pr),&
   dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
   intent (out) :: field
-
-  integer, parameter :: rank = 3 ! data dimensionality (2D or 3D)
+  
+  integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
   integer :: sz_out(1:3) ! local array size
   character(len=5) :: suffix
   character(len=256) :: fullname
@@ -103,43 +76,26 @@ subroutine Read_Single_File ( filename, field )
   if (mpirank==0) then
     write (*,'("Reading file ",A,"  .....")',advance='no') trim(adjustl(filename))
   endif
-
+  
   !-----------------------------------------------------------------------------
   ! perform tests
   !-----------------------------------------------------------------------------
   call check_file_exists ( filename )
-
+  
   !-----------------------------------------------------------------------------
   ! load the file
-  !-----------------------------------------------------------------------------
-  if (field_precision == "single") then
-    !---------------------------------------------------------------------------
-    ! Single precision
-    !---------------------------------------------------------------------------
-    if (sz_out(3) > 0) then ! fields with nz==1 are only allocated on some of the mpi ranks
-      open(10, file = trim(adjustl(fullname)), form='unformatted', access='direct', recl=sz_out(1)*sz_out(2)*sz_out(3)*4)
-      read (10,rec=1) field
-      close (10)
-    endif
-  elseif (field_precision == "double") then
-    !---------------------------------------------------------------------------
-    ! double precision
-    !---------------------------------------------------------------------------
-    if (sz_out(3) > 0) then ! fields with nz==1 are only allocated on some of the mpi ranks
-      open(10, file = trim(adjustl(fullname)), form='unformatted', access='direct', recl=sz_out(1)*sz_out(2)*sz_out(3)*pr)
-      read (10,rec=1) field
-      close (10)
-    endif
-  else
-    call abort(7771,'invalid value of field_precision')
+  !-----------------------------------------------------------------------------  
+  if (sz_out(3) > 0) then
+    open(10, file = trim(adjustl(fullname)), form='unformatted', access='direct', recl=sz_out(1)*sz_out(2)*sz_out(3)*pr)
+    read (10,rec=1) field
+    close (10)
   endif
 
-
-  call MPI_barrier(MPI_COMM_WORLD,mpicode)
+  call MPI_barrier(MPI_COMM_WORLD,mpicode)  
   if (mpirank==0) then
     write (*,'("...DONE! ")',advance='yes')
   endif
-
+  
 end subroutine Read_Single_File
 
 
@@ -246,14 +202,17 @@ subroutine fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
   !call read_attribute( filename, get_dsetname(filename), "domain_size", attr_data2)
   !call read_attribute( filename, get_dsetname(filename), "nxyz", attr_data3)
 
-  if (mpirank==0) write(*,*) "WARNING(fetch_attributes): Function not implemented without HDF5 support"
+  if (mpirank==0) write(*,'(A)',advance='no') "WARNING(fetch_attributes): Function not implemented without HDF5 support"
 
-  time = 0
-  viscosity = 0
-  xl = 0
-  yl = 0
-  zl = 0
-  nx = 0
-  ny = 0
-  nz = 0
+  time = 0 
+  viscosity = 0 
+  xl = 0 
+  yl = 0 
+  zl = 0 
+  nx = 0 
+  ny = 0 
+  nz = 0 
 end subroutine Fetch_attributes
+
+
+
