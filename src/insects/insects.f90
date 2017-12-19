@@ -33,6 +33,13 @@ module insect_module
   ! only used in steps (to reduce number of arguments)
   real(kind=pr), save :: smoothing
 
+  ! Allocatable arrays used in Insect object
+  ! this will hold the surface markers and their normals used for particles:
+  real(kind=pr), allocatable, dimension(:,:) :: particle_points
+  ! wing thickness profile
+  real(kind=pr), allocatable, dimension(:,:) :: wing_thickness_profile
+  ! wing corrugation profile
+  real(kind=pr), allocatable, dimension(:,:) :: corrugation_profile
 
   !-----------------------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -206,7 +213,6 @@ contains
   ! as SX compiler only supports static arrays within structures
   !-------------------------------------------------------------------------------
   subroutine Allocate_Arrays ( Insect, array_name, a, b )
-    use vars
     implicit none
 
     character(len=*), intent(in) :: array_name
@@ -1033,7 +1039,6 @@ contains
 
 
   subroutine insect_clean(Insect)
-    use vars
     implicit none
     type(diptera),intent(inout)::Insect
 

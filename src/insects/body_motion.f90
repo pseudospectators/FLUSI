@@ -100,10 +100,12 @@ subroutine BodyMotion(time, Insect)
   case ("roll_param")
     ! Roll motion for aerodynamic power analysis
     ! Bumblebee model, wingbeat frequency 152 Hz, roll frequency 25 Hz, pitch angle 24.5 deg nose up
-    psi      = -10.d0  *pi/180.d0*sin(2.d0*pi*(25d0/152.d0)*time) ! roll
+!    psi      = -60.d0  *pi/180.d0*sin(2.d0*pi*(25d0/152.d0)*time) ! roll
+    psi      = -60.d0  *pi/180.d0*sin(2.d0*pi*(6.25d0/152.d0)*time) ! roll
     beta     = -24.5d0*pi/180.d0 ! pitch
     gamma    = 180.d0*pi/180.d0 ! yaw
-    psi_dt   = -10.d0  *pi/180.d0*cos(2.d0*pi*(25.d0/152.d0)*time)*2.d0*pi*(25.d0/152.d0)
+!    psi_dt   = -60.d0  *pi/180.d0*cos(2.d0*pi*(25.d0/152.d0)*time)*2.d0*pi*(25.d0/152.d0)
+    psi_dt   = -60.d0  *pi/180.d0*cos(2.d0*pi*(6.25d0/152.d0)*time)*2.d0*pi*(6.25d0/152.d0)
     beta_dt  = 0.d0
     gamma_dt = 0.d0
     xc = Insect%x0
