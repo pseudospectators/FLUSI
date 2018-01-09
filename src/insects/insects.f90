@@ -17,8 +17,6 @@ module insect_module
 
   implicit none
 
-  ! this will hold the surface markers and their normals used for particles:
-  real(kind=pr), allocatable, dimension(:,:) :: particle_points
   ! variables to decide whether to draw the body or not.
   character(len=strlen), save :: body_moves="yes"
   logical, save :: body_already_drawn = .false.
@@ -35,6 +33,13 @@ module insect_module
   ! only used in steps (to reduce number of arguments)
   real(kind=pr), save :: smoothing
 
+  ! Allocatable arrays used in Insect object
+  ! this will hold the surface markers and their normals used for particles:
+  real(kind=pr), allocatable, dimension(:,:) :: particle_points
+  ! wing thickness profile
+  real(kind=pr), allocatable, dimension(:,:) :: wing_thickness_profile
+  ! wing corrugation profile
+  real(kind=pr), allocatable, dimension(:,:) :: corrugation_profile
 
   !-----------------------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -153,19 +158,7 @@ module insect_module
     ! wing inertia
     real(kind=pr) :: Jxx=0.d0,Jyy=0.d0,Jzz=0.d0,Jxy=0.d0
     character(len=strlen) :: wing_thickness_distribution = "constant"
-    ! a non-constant thickness is stored here:
-#ifdef OLDSTYLE
-    real(kind=pr), dimension(100,100) :: wing_thickness_profile
-#else
-    real(kind=pr), allocatable, dimension(:,:) :: wing_thickness_profile
-#endif
-    ! wing corrugation (i.e. the deviation from a flat wing)
     logical :: corrugated = .false.
-#ifdef OLDSTYLE
-    real(kind=pr), dimension(100,100) :: corrugation_profile
-#else
-    real(kind=pr), allocatable, dimension(:,:) :: corrugation_profile
-#endif
 
     !--------------------------------------------------------------
     ! Wing kinematics
@@ -219,22 +212,19 @@ contains
   ! as SX compiler only supports static arrays within structures
   !-------------------------------------------------------------------------------
   subroutine Allocate_Arrays ( Insect, array_name, a, b )
-    use vars
     implicit none
 
     character(len=*), intent(in) :: array_name
     integer, intent(in) :: a, b
     type(diptera), intent(inout) :: Insect
 
-#ifndef OLDSTYLE
     select case ( array_name )
     case ("wing_thickness_profile")
-        allocate(Insect%wing_thickness_profile(1:a,1:b))
+        if (.not.allocated(wing_thickness_profile)) allocate(wing_thickness_profile(1:a,1:b))
     case ("corrugation_profile")
-        allocate(Insect%corrugation_profile(1:a,1:b))
+        if (.not.allocated(corrugation_profile)) allocate(corrugation_profile(1:a,1:b))
     case default
     endselect
-#endif
 
   end subroutine Allocate_Arrays
 
@@ -1048,11 +1038,13 @@ contains
 
 
   subroutine insect_clean(Insect)
-    use vars
     implicit none
     type(diptera),intent(inout)::Insect
 
     if (allocated(particle_points)) deallocate ( particle_points )
+    if (allocated(wing_thickness_profile)) deallocate ( wing_thickness_profile )
+    if (allocated(corrugation_profile)) deallocate ( corrugation_profile )
+
     call load_kine_clean( Insect%kine_wing_l )
     call load_kine_clean( Insect%kine_wing_r )
   end subroutine insect_clean

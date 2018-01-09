@@ -96,7 +96,7 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
           if ( Insect%corrugated ) then
             ! if the wing is corrugated, its height profile is read from ini file
             ! and interpolated at the position on the wing
-            zz0 = interp2_nonper( x_wing(1), x_wing(2), Insect%corrugation_profile, Insect%wing_bounding_box(1:4) )
+            zz0 = interp2_nonper( x_wing(1), x_wing(2), corrugation_profile, Insect%wing_bounding_box(1:4) )
           else
             ! no corrugation - the wing is a flat surface
             zz0 = 0.0_pr
@@ -106,7 +106,7 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,&
           if ( Insect%wing_thickness_distribution=="variable") then
               ! variable wing thickness is read from an array in the wing.ini file
               ! and interpolated linearly at the x_wing position.
-              t = interp2_nonper( x_wing(1), x_wing(2), Insect%wing_thickness_profile, Insect%wing_bounding_box(1:4) )
+              t = interp2_nonper( x_wing(1), x_wing(2), wing_thickness_profile, Insect%wing_bounding_box(1:4) )
           else
               ! constant thickness, read from main params.ini file
               t = Insect%WingThickness
@@ -1029,6 +1029,7 @@ end subroutine Setup_Wing_Fourier_coefficients
 !     - Wing corrugation profile (flat or corrugated)
 !-------------------------------------------------------------------------------
 subroutine Setup_Wing_from_inifile(Insect, fname)
+  use vars
   implicit none
   type(diptera),intent(inout) :: Insect
   character(len=*), intent(in) :: fname
@@ -1100,7 +1101,7 @@ subroutine Setup_Wing_from_inifile(Insect, fname)
       ! read matrix from ini file, see comments on SXF90 compiler
       call param_matrix_size_mpi(ifile,"Wing","wing_thickness_profile",a,b)
       call Allocate_Arrays(Insect,"wing_thickness_profile",a,b)
-      call param_matrix_read_mpi(ifile,"Wing","wing_thickness_profile",Insect%wing_thickness_profile)
+      call param_matrix_read_mpi(ifile,"Wing","wing_thickness_profile",wing_thickness_profile)
 
   else
       call abort(77623, " Insect wing thickness distribution is unknown (must be constant or variable)")
@@ -1115,7 +1116,7 @@ subroutine Setup_Wing_from_inifile(Insect, fname)
       ! read matrix from ini file, see comments on SXF90 compiler
       call param_matrix_size_mpi(ifile,"Wing","corrugation_profile",a,b)
       call Allocate_Arrays(Insect,"corrugation_profile",a,b)
-      call param_matrix_read_mpi(ifile,"Wing","corrugation_profile",Insect%corrugation_profile)
+      call param_matrix_read_mpi(ifile,"Wing","corrugation_profile",corrugation_profile)
 
   else
       if (root) write(*,*) "wing is flat (non-corrugated), z==0"
@@ -1133,6 +1134,7 @@ end subroutine Setup_Wing_from_inifile
 ! NOTE: This code is executed only once.
 !-------------------------------------------------------------------------------
 subroutine set_wing_bounding_box_fourier( Insect )
+  use vars
   implicit none
   type(diptera),intent(inout) :: Insect
   real(kind=pr) :: theta, xmin,xmax, ymin, ymax, R, x, y, theta_prime
@@ -1177,8 +1179,8 @@ subroutine set_wing_bounding_box_fourier( Insect )
   ! and the corrugation
   if ( Insect%wing_thickness_distribution == "constant" ) then
     if ( Insect%corrugated ) then
-      Insect%wing_bounding_box(5) = minval(Insect%corrugation_profile) - Insect%WingThickness / 2.0_pr
-      Insect%wing_bounding_box(6) = maxval(Insect%corrugation_profile) + Insect%WingThickness / 2.0_pr
+      Insect%wing_bounding_box(5) = minval(corrugation_profile) - Insect%WingThickness / 2.0_pr
+      Insect%wing_bounding_box(6) = maxval(corrugation_profile) + Insect%WingThickness / 2.0_pr
     else
       ! constant thickness, no corrugation is the classical flat case:
       Insect%wing_bounding_box(5) = -Insect%WingThickness / 2.0_pr
@@ -1187,13 +1189,13 @@ subroutine set_wing_bounding_box_fourier( Insect )
   else
     if ( Insect%corrugated ) then
       ! minimum of lower surface
-      Insect%wing_bounding_box(5) = minval(Insect%corrugation_profile-Insect%wing_thickness_profile/2.0_pr)
+      Insect%wing_bounding_box(5) = minval(corrugation_profile-wing_thickness_profile/2.0_pr)
       ! maximum of upper surface
-      Insect%wing_bounding_box(6) = maxval(Insect%corrugation_profile+Insect%wing_thickness_profile/2.0_pr)
+      Insect%wing_bounding_box(6) = maxval(corrugation_profile+wing_thickness_profile/2.0_pr)
     else
       ! bounding box is +- largest thickness  simply
-      Insect%wing_bounding_box(5) = -maxval(Insect%wing_thickness_profile / 2.0_pr)
-      Insect%wing_bounding_box(6) =  maxval(Insect%wing_thickness_profile / 2.0_pr)
+      Insect%wing_bounding_box(5) = -maxval(wing_thickness_profile / 2.0_pr)
+      Insect%wing_bounding_box(6) =  maxval(wing_thickness_profile / 2.0_pr)
     endif
   end if
 

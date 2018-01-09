@@ -77,9 +77,8 @@ FFLAGS += -I$(OBJDIR)
 FFLAGS += -R0 -P stack -C hopt -pi nest=2 -pi exp="periodize_coordinate" expin="src/vars.f90" -f2003
 PPFLAG =
 # the DNOHDF5 flag disables all HDF5 compilation (if present)
-# the OLDSTYE flag removes dynamic allocated arrays from structs
 ifdef NOHDF5
-PRE_FLAGS=-DNOHDF5,-DOLDSTYLE
+PRE_FLAGS=-DNOHDF5
 endif
 
 # Note that shell $(FC) makes an error on FC system and should be bypassed
@@ -102,7 +101,6 @@ FFLAGS += -O3
 ifdef NOHDF5
 PRE_FLAGS=-DNOHDF5
 endif
-PRE_FLAGS=-DOLDSTYLE
 endif
 
 #-------------------------------------------------------------------------------
@@ -196,11 +194,11 @@ $(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 \
 	wings_motion.f90 stroke_plane.f90 \
 	kineloader.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser_mpi.o $(OBJDIR)/interpolation.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) -Isrc/insects/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o $(OBJDIR)/helpers.o \
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
 	prescribed_beam.f90 solid_solver_wrapper.f90 $(OBJDIR)/ghostpoints.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) -Isrc/solid_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
@@ -233,7 +231,7 @@ $(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o $(OBJDIR)/runtime_backuping.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o coherent_vortex_extraction.f90 FWT3_PO.f90 \
 	IWT3_PO.f90
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+	$(FC) -Isrc/wavelets/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
 $(OBJDIR)/%.o: %.f90 $(MOBJS)
