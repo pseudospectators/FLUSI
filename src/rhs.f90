@@ -27,10 +27,11 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
   ! If the mask is time-dependend,we create it here
   ! 26/01/2015 Moved the mask routine here to RHS, since this is where it con-
   ! ceptually belongs. RK2 and RK4 need to create the mask several times per time
-  ! step
+  ! step.
   !-----------------------------------------------------------------------------
-  if ((iMoving==1).and.(iPenalization==1)) then
-    ! for FSI schemes, the mask is created in fluidtimestep
+  if ((iMoving==1).and.(iPenalization==1).and.(iTimeMethodFluid/="FSI_AB2_iteration")) then
+    ! for the iterative FSI schemes, the mask is created in fluidtimestep
+    ! (so iTimeMethodFluid==FSI_AB2_iteration skips mask generation)
     call create_mask( time, Insect, beams )
   endif
 
@@ -216,9 +217,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (iVorticitySponge == "yes") then
-    nlk(:,:,:,1) = nlk(:,:,:,1) + workc(:,:,:,1)
-    nlk(:,:,:,2) = nlk(:,:,:,2) + workc(:,:,:,2)
-    nlk(:,:,:,3) = nlk(:,:,:,3) + workc(:,:,:,3)
+    nlk(:,:,:,1:3) = nlk(:,:,:,1:3) + workc(:,:,:,1:3)
   endif
   time_sponge = time_sponge + MPI_wtime() - t1
 
@@ -300,7 +299,6 @@ end subroutine cal_nlk_fsi
 ! its sign is inversed when computing the pressure
 !-------------------------------------------------------------------------------
 subroutine pressure(nlk,pk)
-  use mpi
   use p3dfft_wrapper
   use vars
   implicit none
@@ -713,44 +711,16 @@ end subroutine cal_nlk_mhd
 
 
 ! Render the input field divergence-free via a Helmholtz
-! decomposition. The zero-mode is left untouched.
+! decomposition. The zero-mode is left untouched. Not this is exactly what is done
+! in add_grad_pressure, so this is just an alias.
 subroutine div_field_nul(fx,fy,fz)
-  use mpi
   use vars
-  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr), intent(inout) :: fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr), intent(inout) :: fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr), intent(inout) :: fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  integer :: ix, iy, iz
-  real(kind=pr) :: kx, ky, kz, k2
-  complex(kind=pr) :: val, vx,vy,vz
 
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3), cb(3)
-           kx=wave_x(ix)
-
-           k2=kx*kx +ky*ky +kz*kz
-
-           if(k2 /= 0.d0) then
-              ! val = (k \cdot{} f) / k^2
-              vx=fx(iz,iy,ix)
-              vy=fy(iz,iy,ix)
-              vz=fz(iz,iy,ix)
-
-              val=(kx*vx + ky*vy + kz*vz)/k2
-
-              ! f <- f - k \cdot{} val
-              fx(iz,iy,ix)=vx -kx*val
-              fy(iz,iy,ix)=vy -ky*val
-              fz(iz,iy,ix)=vz -kz*val
-           endif
-        enddo
-     enddo
-  enddo
+  call add_grad_pressure(fx,fy,fz)
 
 end subroutine div_field_nul

@@ -35,7 +35,9 @@ end subroutine create_mask
 
 
 
-! Wrapper to set imposed velocity
+! Wrapper to set imposed velocity. Note this routine is an historical artefact:
+! the sprit was to reset only the solid velocity fiel, while the mask function
+! itself remains untouched.
 subroutine update_us(ub)
   use mpi
   use vars
@@ -47,14 +49,11 @@ subroutine update_us(ub)
   if (iPenalization==1) then
     select case(method)
     case("fsi")
-        call update_us_fsi(ub)
+      call update_us_fsi(ub)
     case("mhd")
-        call update_us_mhd()
+      call update_us_mhd()
     case default
-        if(mpirank == 0) then
-          write (*,*) "Error: unkown method in update_us; stopping."
-          call abort(1)
-        endif
+      call abort(1,"Error: unkown method in update_us; stopping.")
     end select
   endif
 end subroutine update_us

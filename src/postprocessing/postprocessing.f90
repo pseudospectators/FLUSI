@@ -39,6 +39,8 @@ subroutine postprocessing()
   select case (postprocessing_mode)
   case ("--coherent-vortex-extraction","--coherent-scalar-extraction","--CVE","--CSE")
     call post_CVE(help)
+  case ("--uCT-assemble")
+    call uCT_assemble_HDF5(help)
   case ("--transpose-test")
     call transpose_test(help)
   case ("--pressure-force")
@@ -117,6 +119,7 @@ subroutine postprocessing()
   case default
     if (root) then
       write(*,*) "Available Postprocessing tools are:"
+      write(*,*) "--uCT-assemble"
       write(*,*) "--energy"
       write(*,*) "--coherent-vortex-extraction --coherent-scalar-extraction --CVE --CSE"
       write(*,*) "--tranpose-test"
