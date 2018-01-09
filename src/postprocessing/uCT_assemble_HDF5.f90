@@ -7,6 +7,7 @@ subroutine uCT_assemble_HDF5(help)
   use vars
   use p3dfft_wrapper
   use helpers
+  use ghosts
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname, fname_bin, fname_avg, fname_color
@@ -29,6 +30,9 @@ subroutine uCT_assemble_HDF5(help)
     write(*,*) "Parallel: yes"
     return
   endif
+
+  ! 1 ghost node
+  ng = 1
 
 
   call get_command_argument(3,fname)
@@ -62,29 +66,39 @@ subroutine uCT_assemble_HDF5(help)
       if ( .not. allocated(field_avg) ) then
         ! initialize code and domain decomposition, but do not use FFTs
         call decomposition_initialize()
+        call setup_cart_groups()
         ! allocate memory
-        allocate(field_avg(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-        allocate(field_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-        allocate(field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+        allocate(field_avg(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+        allocate(field_color(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+        allocate(field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
 
         field_avg = 0.d0
         field_color = 0.d0
       endif
 
       ! read the field from file
-      call read_single_file( fname_bin, field )
+      call read_single_file( fname_bin, field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+      call synchronize_ghosts( field )
 
       field_avg = field_avg + field
 
-      where ( field > 10.0)
-        field = dble(i)
+      where ( field > 1.0d0 )
+        field = 1.0d0
       end where
 
-      where ( field /= dble(i) )
+      where ( field /= 1.0d0 )
         field = 0.0d0
       end where
 
-      field_color = field_color + field
+      do iz=ra(3),rb(3)
+        do iy=ra(2),rb(2)
+          do ix=ra(1),rb(1)
+            if ( sum(field( ix-1:ix+1, iy-1:iy+1, iz-1:iz+1 )) >= 2.d0 ) then
+              field_color(ix,iy,iz) = dble(i+1)*4.0d0
+            endif
+          enddo
+        enddo
+      enddo
 
       i = i+1
     endif
@@ -92,8 +106,8 @@ subroutine uCT_assemble_HDF5(help)
   close (14)
 
 
-  call save_field_hdf5(0.d0, fname_avg, field_avg)
-  call save_field_hdf5(0.d0, fname_color, field_color)
+  call save_field_hdf5(0.d0, fname_avg, field_avg(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call save_field_hdf5(0.d0, fname_color, field_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
   deallocate(field_avg)
   deallocate(field)
