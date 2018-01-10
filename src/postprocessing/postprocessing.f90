@@ -39,6 +39,8 @@ subroutine postprocessing()
   select case (postprocessing_mode)
   case ("--coherent-vortex-extraction","--coherent-scalar-extraction","--CVE","--CSE")
     call post_CVE(help)
+  case ("--readwrite")
+    call readwrite(help)
   case ("--uCT-assemble")
     call uCT_assemble_HDF5(help)
   case ("--transpose-test")
@@ -124,6 +126,7 @@ subroutine postprocessing()
       write(*,*) "--coherent-vortex-extraction --coherent-scalar-extraction --CVE --CSE"
       write(*,*) "--tranpose-test"
       write(*,*) "--force-decomp"
+      write(*,*) "--readwrite"
       write(*,*) "--magnitude"
       write(*,*) "--check-params-file"
       write(*,*) "--ux-from-uyuz"
@@ -731,3 +734,38 @@ subroutine post_smooth_mask(help)
   call fft_free()
 
 end subroutine post_smooth_mask
+
+
+
+subroutine readwrite(help)
+  use vars
+  use p3dfft_wrapper
+
+  implicit none
+  logical, intent(in) :: help
+  character(len=strlen) :: fname
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --readwrite ux_00.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) " Read a file and directly write it to disk. Useful for converting precision."
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes, sure"
+    return
+  endif
+
+  call get_command_argument(2,fname)
+  call check_file_exists( fname )
+  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu )
+  ! initialize domain decomposition, but do not use FFTs
+  call decomposition_initialize()
+
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call read_single_file( fname, work )
+  call save_field_hdf5( time, fname, work )
+  deallocate(work)
+
+end subroutine readwrite
