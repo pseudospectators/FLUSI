@@ -757,7 +757,7 @@ subroutine readwrite(help)
     return
   endif
 
-  call get_command_argument(2,fname)
+  call get_command_argument(3,fname)
   call check_file_exists( fname )
   call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu )
   ! initialize domain decomposition, but do not use FFTs
