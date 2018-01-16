@@ -25,7 +25,7 @@ subroutine save_field_hdf5(time,filename,field_out)
   implicit none
 
   ! The field to be written to disk:
-  real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename
   character(len=strlen) :: fname,fname2

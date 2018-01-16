@@ -1,6 +1,6 @@
 !-------------------------------------------------------------------------------
 !-------------------------------------------------------------------------------
-subroutine extend_domain(help)
+subroutine post_zero_padd(help)
   use vars
   use p3dfft_wrapper
   implicit none
@@ -9,11 +9,11 @@ subroutine extend_domain(help)
   integer :: nx_new, ny_new, nz_new
   integer :: nx_org, ny_org, nz_org
   real(kind=pr) :: time
-  real(kind=pr),dimension(:,:,:),allocatable :: u_org, u_new
+  real(kind=pr),dimension(:,:,:),allocatable :: data
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p --extend-domain source.h5 target.h5 256 256 512"
+    write(*,*) "./flusi -p --zero-padd source.h5 target.h5 256 256 512"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "            Zero-padding in x-space"
     write(*,*) "Load an existing field with given resolution, then copy its content to the bottom lower"
@@ -23,16 +23,13 @@ subroutine extend_domain(help)
     write(*,*) "As a mpi-decomposed field cannot simply be copied locally, but instead involves communication"
     write(*,*) "this routine has to be run in serial, unfortunately. at least, it does not allocate any extra memory."
     write(*,*) ""
-    write(*,*) "Note: if the target field is smaller, then the source field is cropped. This functionality"
-    write(*,*) "is similar to extract-subset"
-    write(*,*) ""
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: nope"
     return
   endif
 
   if (mpisize/=1) then
-    call abort(9998, "./flusi --postprocess --extend-domain is a SERIAL routine, use 1CPU only")
+    call abort(9998, "./flusi --p --zero-padd is a SERIAL routine, use 1CPU only")
   endif
 
   ! get file to read pressure from and check if this is present
@@ -57,8 +54,11 @@ subroutine extend_domain(help)
   write(*,'("Source field size= ",3(i4,1x))') nx_org, ny_org, nz_org
   write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
+  if ((nx_new<nx_org).or.(ny_new<ny_org).or.(nz_new<nz_org)) then
+    write(*,*) "The new field is smaller than the source field - data cannot be cropped!"
+    call abort(99173,"Use extract subset for that")
+  endif
 
-  write(*,*) "Initializing SMALL field..."
   nx = nx_org
   ny = ny_org
   nz = nz_org
@@ -67,20 +67,10 @@ subroutine extend_domain(help)
   dz = zl/dble(nz)
   ra = (/0,0,0/)
   rb = (/nx-1,ny-1,nz-1/)
-  !-----------------------
 
-  allocate(u_org(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  call read_single_file(fname_in,u_org)
+  allocate(data(0:nx_new-1, 0:ny_new-1, 0:nz_new-1))
+  call read_single_file(fname_in, data(0:nx-1,0:ny-1,0:nz-1))
 
-  if ((nx_new<nx_org).or.(ny_new<ny_org).or.(nz_new<nz_org)) then
-    write(*,*) "The new field is smaller than the source field - data will be cropped!"
-    nx_org = min(nx_new, nx_org)
-    ny_org = min(ny_new, ny_org)
-    nz_org = min(nz_new, nz_org)
-  endif
-
-  !-----------------------
-  write(*,*) "Initializing BIG field..."
   nx = nx_new
   ny = ny_new
   nz = nz_new
@@ -90,16 +80,7 @@ subroutine extend_domain(help)
   ra = (/0,0,0/)
   rb = (/nx-1,ny-1,nz-1/)
 
-  !-----------------------
-  allocate(u_new(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call save_field_hdf5(time, fname_out, data)
 
-  write(*,*) "data allocated. we'll now copy the data from small to big field"
-  ! copy data to lower bottom corner
-  u_new(0:nx_org-1, 0:ny_org-1, 0:nz_org-1) = u_org(0:nx_org-1, 0:ny_org-1, 0:nz_org-1)
-  deallocate( u_org )
-
-  write(*,*) "Saving upsampled field to " // trim(adjustl(fname_out))
-  call save_field_hdf5(time,fname_out,u_new)
-
-  deallocate( u_new )
-end subroutine extend_domain
+  deallocate( data)
+end subroutine

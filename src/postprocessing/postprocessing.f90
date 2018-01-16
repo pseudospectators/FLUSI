@@ -49,8 +49,8 @@ subroutine postprocessing()
     call pressure_force(help)
   case ("--convert-to-wing-system","--convert-to-body-system")
     call convert_to_wing_system(help)
-  case ("--extend-domain")
-    call extend_domain(help)
+  case ("--zero-padd")
+    call post_zero_padd(help)
   case ("--force-decomp")
     call force_decomposition(help)
   case ("--stl2dist")
@@ -157,7 +157,7 @@ subroutine postprocessing()
       write(*,*) "--stl2dist"
       write(*,*) "--dist2mask   --dist2chi"
       write(*,*) "--smooth-inverse-mask"
-      write(*,*) "--extend-domain"
+      write(*,*) "--zero-padd"
       write(*,*) "--convert-to-wing-system  // --convert-to-body-system"
       write(*,*) "--pressure-force"
       write(*,*) "--gradient"

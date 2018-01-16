@@ -240,6 +240,12 @@ subroutine extract_subset(help)
   yl = dy + dble(ny1+(ny_red-1)*nys)*dy - dble(ny1)*dy
   zl = dz + dble(nz1+(nz_red-1)*nzs)*dz - dble(nz1)*dz
 
+  if ( dble(nx)*dble(ny)*dble(nz) > 500.0d6) then
+    write(*,*) "WARNING! The subset you ordered is rather larger (>500M points). The hdf wrapper"
+    write(*,*) "might crash during writing. If that happens, change max_chunk to say 256 in hdf5_wrapper.f90"
+    write(*,*) "then recompile and retry"
+  endif
+
   ! Done! Write extracted subset to disk and be happy with the result
   call save_field_hdf5 ( time, fname_out, field )
   call write_attrib_dble(fname_out, get_dsetname(fname_out), "origin", origin)
