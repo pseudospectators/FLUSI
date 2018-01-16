@@ -15,6 +15,7 @@ subroutine extend_domain(help)
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "./flusi -p --extend-domain source.h5 target.h5 256 256 512"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "            Zero-padding in x-space"
     write(*,*) "Load an existing field with given resolution, then copy its content to the bottom lower"
     write(*,*) "corner of a larger field with the given size. We keep the same resolution: that means,"
     write(*,*) "we are not doing upsampling, but we extend the domain."

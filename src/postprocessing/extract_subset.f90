@@ -20,6 +20,7 @@ subroutine extract_subset(help)
   use mpi
   use vars
   use hdf5
+  use hdf5_wrapper
   use basic_operators
   use helpers
   implicit none
@@ -34,6 +35,7 @@ subroutine extract_subset(help)
   integer :: nx_red, ny_red, nz_red, ix_red, iy_red, iz_red
   ! reduced domain extends
   real(kind=pr) :: xl1, yl1, zl1
+  real(kind=pr) :: origin(1:3)
   real(kind=pr), dimension(:,:,:), allocatable :: field
 
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
@@ -144,6 +146,7 @@ subroutine extract_subset(help)
 
   !-----------------------------------------------------------------------------
   ! compute dimensions of reduced subset:
+  origin = (/ dble(nx1)*xl/dble(nx), dble(ny1)*yl/dble(ny), dble(nz1)*zl/dble(nz) /)
   nx_red = nx1 + floor( dble(nx2-nx1)/dble(nxs) )  - nx1 + 1
   ny_red = ny1 + floor( dble(ny2-ny1)/dble(nys) )  - ny1 + 1
   nz_red = nz1 + floor( dble(nz2-nz1)/dble(nzs) )  - nz1 + 1
@@ -239,5 +242,6 @@ subroutine extract_subset(help)
 
   ! Done! Write extracted subset to disk and be happy with the result
   call save_field_hdf5 ( time, fname_out, field )
+  call write_attrib_dble(fname_out, get_dsetname(fname_out), "origin", origin)
 
 end subroutine extract_subset

@@ -36,6 +36,11 @@ subroutine upsample(help)
     write(*,*) "a performance critical part of the code. optimizing it is not worth the pain, as long as"
     write(*,*) "the memory restriction is not limiting us."
     write(*,*) ""
+    write(*,*) " Step 1: read data [PARALLEL]"
+    write(*,*) " Step 2: FFT (small) data [PARALLEL]"
+    write(*,*) " Step 3: gather & zero-padd [SERIAL]"
+    write(*,*) " Step 4: iFFT (big) data [PARALLEL]"
+    write(*,*) " Step 5: save (big) data [PARALLEL]"
     write(*,*) ""
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: in part"
@@ -197,7 +202,7 @@ subroutine upsample(help)
     ! if this error occurs, it is likely a bug in gather_all. it happens if there
     ! is some slight load imbalancing (eg n=64 ncpu=3)
     ! I'm also not very sure what happens if nx /= ny /= nz
-    call abort(123,"During upsampling, energy changed, which is not right.")
+    ! call abort(123,"During upsampling, energy changed, which is not right.")
   endif
 
   call fft_free()

@@ -270,6 +270,44 @@ subroutine gather_slice_yz_cmplx( uk, slice, ixslice )
   complex(kind=pr), allocatable ::local(:,:)
 
   !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! size of global array
+  sizes(1) = maxval(cb_table(2,:)) - minval(ca_table(2,:))+1
+  sizes(2) = maxval(cb_table(3,:)) - minval(ca_table(3,:))+1
+
+
+  allocate( local( minval(ca_table(2,:)):maxval(cb_table(2,:)), minval(ca_table(3,:)):maxval(cb_table(3,:)) ) )
+  local = 0.0d0
+  local(ca(2):cb(2),ca(3):cb(3)) = uk(ixslice,:,:)
+
+
+
+  call MPI_REDUCE( local, slice, sizes(1)*sizes(2), MPI_DOUBLE_COMPLEX, &
+                    MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+
+  ! cleanup
+  deallocate( local )
+end subroutine gather_slice_yz_cmplx
+
+! collect a yz-slice of data from all procs on the root rank.
+subroutine gather_slice_yz_cmplx2( uk, slice, ixslice )
+  use vars
+  implicit none
+  complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout) :: slice(0:,0:)
+  integer, intent(in) :: ixslice
+
+  integer :: mpierror,newtype,extent2
+  integer :: resizedtype, ierr, dims, iy
+  integer(8) :: begin, extent1
+  integer, dimension(2) :: sizes, subsizes, starts
+  integer, allocatable :: displs(:), counts(:)
+  complex(kind=pr), allocatable ::local(:,:)
+
+  !-----------------------------------------------------------------------------
   ! allocate storage for the local slice. This way we are sure about it's memory
   ! layout: it is FORTRAN column-major ordering, and the second index is slowest.
   !-----------------------------------------------------------------------------
@@ -282,9 +320,18 @@ subroutine gather_slice_yz_cmplx( uk, slice, ixslice )
   ! http://stackoverflow.com/questions/17508647/sending-2d-arrays-in-fortran-with-mpi-gather
   !-----------------------------------------------------------------------------
   ! size of global array
-  sizes = (/ maxval(cb_table(2,:))-minval(ca_table(2,:))+1, maxval(cb_table(3,:))-minval(ca_table(3,:))+1/)
+  sizes(1) = maxval(cb_table(2,:)) - minval(ca_table(2,:))+1
+  sizes(2) = maxval(cb_table(3,:)) - minval(ca_table(3,:))+1
+
   ! size of local subarrays (we take the biggest one, in case there's different)
   subsizes = (/maxval((cb_table(2,:)-ca_table(2,:)+1)),maxval((cb_table(3,:)-ca_table(3,:)+1))/)
+
+  if ( (maxval((cb_table(2,:)-ca_table(2,:)+1)) /= minval((cb_table(2,:)-ca_table(2,:)+1))) .or. &
+  (maxval((cb_table(3,:)-ca_table(3,:)+1)) /= minval((cb_table(3,:)-ca_table(3,:)+1))) ) then
+  write(*,*) subsizes
+    call abort(1439450, 'gather_slice: not all procs have same subset size.')
+  endif
+
   ! no offset
   ! starts = (/minval(ca_table(:,2)), minval(ca_table(:,3))/)
   starts = (/minval(ca_table(2,:)), minval(ca_table(3,:))/)
@@ -292,7 +339,8 @@ subroutine gather_slice_yz_cmplx( uk, slice, ixslice )
   call MPI_Type_create_subarray(dims, sizes, subsizes, starts,            &
                                 MPI_ORDER_FORTRAN, MPI_DOUBLE_COMPLEX,  &
                                 newtype, mpierror)
-  ! get the sice of a double
+
+  ! get the sice of a double complex
   call MPI_Type_size(MPI_DOUBLE_COMPLEX, extent2, ierr)
   extent1 = extent2
   begin    = 0
@@ -331,7 +379,7 @@ subroutine gather_slice_yz_cmplx( uk, slice, ixslice )
 
   ! cleanup
   deallocate( counts, displs, local )
-end subroutine gather_slice_yz_cmplx
+end subroutine gather_slice_yz_cmplx2
 
 
 ! this routine is a crime for efficiency. We take the mpi-distributed data array

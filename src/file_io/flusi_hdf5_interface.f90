@@ -255,6 +255,7 @@ subroutine Read_Single_File ( filename, field )
     endif
   endif
 
+
   ! actual reading of file
   call read_field_hdf5 ( filename, get_dsetname(filename), ra,rb, field)
   ! check if field contains NaN
@@ -273,6 +274,11 @@ subroutine Read_Single_File ( filename, field )
     write(*,'(40("~"))')
   endif
 
+
+  if ( mod(nxyz(1),2) /= 0 .or. mod(nxyz(2),2) /= 0 .or. mod(nxyz(2),2) /= 0 ) then
+    write(*,*) "Warning-Warning-Warning"
+    write(*,*) "WARNING UNEVEN NUMBER OF POINTS!! CODE MAY CRASH.", nxyz
+  endif
 
 end subroutine Read_Single_File
 
