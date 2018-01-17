@@ -22,7 +22,7 @@ subroutine coherent_scalar_extraction( wavelet, maxiter, u_tot, u_coh, u_inc )
   integer, intent(in) :: maxiter
   real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: u_tot, u_coh
   real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout), optional :: u_inc
-  integer :: i
+  integer :: i, Jmin, nc
   real(kind=pr) :: Z, threshold_this, threshold_old, rate
   real(kind=pr) :: Z_tot, Z_coh, Z_inc
   real(kind=pr), dimension(:,:,:), allocatable :: wc, wc_tmp
@@ -32,7 +32,10 @@ subroutine coherent_scalar_extraction( wavelet, maxiter, u_tot, u_coh, u_inc )
 
   ! forward wavelet transform, is executed only once
   if (mpirank==0) write(*,*) 'performing forward FWT of total field...'
-  call FWT3_PO(u_tot, wc, wavelet, 1)
+  ! we set the minimum level to 1, but if the grid becomes odd-sized, we stop
+  ! the wavelet transform, so Jmin is dictated also by FWT3_PO
+  Jmin = 1
+  call FWT3_PO(u_tot, wc, wavelet, Jmin, nc)
 
   ! the initial guess for the incoherent part is the entire signal itself
   ! (surely an overestimate)
@@ -64,7 +67,7 @@ subroutine coherent_scalar_extraction( wavelet, maxiter, u_tot, u_coh, u_inc )
       ! compute compression rate
       call compression_rate( wc_tmp, rate )
       ! coherent field is what remains after removing insignificant coeffs
-      call IWT3_PO(wc_tmp, u_coh, wavelet, 1)
+      call IWT3_PO(wc_tmp, u_coh, wavelet, Jmin, nc)
       u_inc = u_tot - u_coh
       i = i+1
 
@@ -117,7 +120,7 @@ subroutine coherent_vortex_extraction( wavelet, maxiter, vor_tot, vor_coh, vor_i
   type(orth_wavelet), intent(in) :: wavelet
   integer, intent(in) :: maxiter
   real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3), intent(inout) :: vor_tot, vor_coh, vor_inc
-  integer :: i, k
+  integer :: i, k, Jmin, nc
   real(kind=pr) :: Z, threshold_this, threshold_old, rate(1:3)
   real(kind=pr) :: Z_tot, Z_coh, Z_inc, t0
   real(kind=pr), dimension(:,:,:,:), allocatable :: wc
@@ -128,9 +131,13 @@ subroutine coherent_vortex_extraction( wavelet, maxiter, vor_tot, vor_coh, vor_i
 
   ! forward wavelet transform, is executed only once
   if (mpirank==0) write(*,*) 'performing forward FWT of all components of input field...'
+  ! we set the minimum level to 1, but if the grid becomes odd-sized, we stop
+  ! the wavelet transform, so Jmin is dictated also by FWT3_PO
+  Jmin = 1
+
   t0 = MPI_wtime()
   do k = 1,3
-    call FWT3_PO(vor_tot(:,:,:,k), wc(:,:,:,k), wavelet, 1)
+    call FWT3_PO(vor_tot(:,:,:,k), wc(:,:,:,k), wavelet, Jmin, nc)
   enddo
   if (mpirank==0) write(*,*) 'Done. Elapsed time: ', MPI_wtime()-t0
 
@@ -166,7 +173,7 @@ subroutine coherent_vortex_extraction( wavelet, maxiter, vor_tot, vor_coh, vor_i
         ! compute compression rate
         call compression_rate( wc_tmp, rate(k) )
         ! coherent field is what remains after removing insignificant coeffs
-        call IWT3_PO( wc_tmp, vor_coh(:,:,:,k), wavelet, 1 )
+        call IWT3_PO( wc_tmp, vor_coh(:,:,:,k), wavelet, Jmin, nc )
         ! compute incoherent part
         vor_inc(:,:,:,k) = vor_tot(:,:,:,k) - vor_coh(:,:,:,k)
       enddo

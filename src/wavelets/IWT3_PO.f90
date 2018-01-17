@@ -1,7 +1,7 @@
 !-----------------------------------------------------------------------------
 ! 3D fast wavelet transform, periodized, orthogonal
 !-----------------------------------------------------------------------------
-subroutine IWT3_PO(wc, u, wavelet, Jmin)
+subroutine IWT3_PO(wc, u, wavelet, Jmin, ncoarse)
   implicit none
   ! derived datatype containing the filters
   type(orth_wavelet),intent(in) :: wavelet
@@ -9,10 +9,10 @@ subroutine IWT3_PO(wc, u, wavelet, Jmin)
   real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
   ! output of reconstruction
   real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: u
-  ! coarse level
-  integer, intent(in) :: Jmin
+  ! coarse level and number of points on coarse level
+  integer, intent(inout) :: Jmin, ncoarse
   ! signal length
-  integer :: N, J0, nc, j, ix, iy, iz, idir, mpicode
+  integer :: N, J0, j, ix, iy, iz, idir, mpicode, nc
   ! buffer
   real(kind=pr), allocatable, dimension(:) :: buffer1, buffer2, buffer3
   real(kind=pr), allocatable, dimension(:,:,:) :: work
@@ -21,8 +21,11 @@ subroutine IWT3_PO(wc, u, wavelet, Jmin)
   N = nx ! this works currently only for nx = ny = nz
   J0 = ceiling( log(dble(N)) / log(2.d0) )
 
-  ! the first iteration acts on the coarest level
-  nc = 2**(Jmin+1)
+  ! the first iteration acts on the coarest level (given in argument, but do not
+  ! modify its value! copy here for case when several IFWT are performed and only
+  ! one FWT)
+  ! nc = 2**(Jmin+1)
+  nc = ncoarse
   ! initialize wavelet coefficients
   u(:,:,:) = wc(:,:,:)
 

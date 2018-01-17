@@ -1,7 +1,7 @@
 !-----------------------------------------------------------------------------
 ! 3D fast wavelet transform, periodized, orthogonal
 !-----------------------------------------------------------------------------
-subroutine FWT3_PO(u, wc, wavelet, Jmin)
+subroutine FWT3_PO(u, wc, wavelet, Jmin, nc)
   implicit none
   ! derived datatype containing the filters
   type(orth_wavelet),intent(in) :: wavelet
@@ -9,10 +9,10 @@ subroutine FWT3_PO(u, wc, wavelet, Jmin)
   real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: u
   ! resulting wavelet coefficients
   real(kind=pr), dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)), intent(inout) :: wc
-  ! coarse level
-  integer, intent(in) :: Jmin
+  ! coarse level and number of points on coarse level
+  integer, intent(inout) :: Jmin, nc
   ! signal length
-  integer :: N, J0, nc, j, ix,iy,iz, idir, mpicode
+  integer :: N, J0, j, ix,iy,iz, idir, mpicode
   ! buffer
   real(kind=pr), allocatable, dimension(:) :: buffer1, buffer2
   real(kind=pr), allocatable, dimension(:,:,:) :: work
@@ -101,10 +101,24 @@ subroutine FWT3_PO(u, wc, wavelet, Jmin)
       if(allocated(work)) deallocate(work)
       ! at this point we have wc(ix,iy,iz)
 
-      if ( modulo(nc,2) /= 0) then
-        write(*,*) "Wavelet warning: we encounter an odd number of grid points"
-      endif
       nc = nc / 2
+
+      ! if the number of points becomes odd, we've reached the end of possible
+      ! divisions by 2, so we stop here
+      if ( modulo(nc,2) /= 0 ) then
+
+        ! return minimum level (note this connotation of level is a bit strange
+        ! if you do not have a power-2 grid)
+        Jmin = j
+        ! the inverse transform needs to know how many points it starts with
+        ! which is the last division that gives an even number
+        nc = nc * 2
+        ! we still have to deallocate the buffers
+        deallocate(buffer1, buffer2)
+        ! break loop
+        exit
+      endif
+
       deallocate(buffer1, buffer2)
   enddo
 

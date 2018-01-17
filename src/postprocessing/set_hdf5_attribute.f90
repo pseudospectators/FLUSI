@@ -19,7 +19,7 @@ subroutine set_hdf5_attribute(help)
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p --set-hdf5-attrbute [FILE] [ATTRIBUTE_NAME] [N] [ATTRIBUTE_VALUE(S)]"
+    write(*,*) "./flusi -p --set-hdf5-attribute [FILE] [ATTRIBUTE_NAME] [N] [ATTRIBUTE_VALUE(S)]"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "! Add or modifiy an attribute to the dataset stored in a HDF5 file."
     write(*,*) "! This is useful for example if one creates stroke-averaged fields"
@@ -27,6 +27,10 @@ subroutine set_hdf5_attribute(help)
     write(*,*) "! We also want to use this to add new attributes to our data, namely the"
     write(*,*) "! viscosity"
     write(*,*) "! N: length, can be 1 for scalar attributes"
+    write(*,*) "! "
+    write(*,*) "! example: (3 component attribute)"
+    write(*,*) "! ./flusi -p --set-hdf5-attribute ux_0000.h5 origin 3 2.0,1.0,84.9"
+    write(*,*) "! "
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: no"
     return
