@@ -83,7 +83,13 @@ HDF_INC = $(HDF_ROOT)/include
 
 LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3 -lm
 LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB) -lhdf5_fortran -lhdf5 -lz -ldl
+ifdef MKLROOT
+# Use MKL lapack
+LDFLAGS += -I${MKLROOT}/include -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
+else
+# Use custom LAPACK installation
 LDFLAGS += -llapack
+endif
 FFLAGS += -I$(HDF_INC) -I$(P3DFFT_INC) -I$(FFT_INC) $(PPFLAG) $(DIFORT)
 
 
