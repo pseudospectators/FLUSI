@@ -154,7 +154,14 @@ ifndef NOHDF5
 LDFLAGS += $(HDF5_FLAGS) -L$(HDF_LIB)
 LDFLAGS += -lhdf5_fortran -lhdf5
 endif
+ifdef MKLROOT
+# Use MKL lapack
+LDFLAGS += -I${MKLROOT}/include -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
+else
+# Use custom LAPACK installation
 LDFLAGS += -llapack
+endif
+
 
 # SX build flags
 ifeq ($(FC),sxmpif90)
