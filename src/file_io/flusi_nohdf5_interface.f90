@@ -1,12 +1,12 @@
 
 ! Write the field field_out to file filename.
-! Replaces hdf5 wrapper routine with the same name, 
+! Replaces hdf5 wrapper routine with the same name,
 ! if compiled with HDF5FLAG = no
 subroutine save_field_hdf5(time,filename,field_out)
   use mpi
   use vars
   implicit none
-  
+
   ! The field to be written to disk:
   real(kind=pr),intent(in) :: field_out(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
@@ -20,11 +20,11 @@ subroutine save_field_hdf5(time,filename,field_out)
   integer :: mpicode
 
   t1 = MPI_wtime()
- 
+
   !--Set up file name
   write(suffix,'(i5.5)') mpirank
   suffix = trim(adjustl(suffix))
-  fullname = trim(adjustl(filename))//'.np'//suffix 
+  fullname = trim(adjustl(filename))//'.np'//suffix
 
   ! Array bounds and sizes
   sz_out(1) = rb(1)-ra(1) +1
@@ -55,7 +55,7 @@ subroutine Read_Single_File ( filename, field )
   real(kind=pr),&
   dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)),&
   intent (out) :: field
-  
+
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
   integer :: sz_out(1:3) ! local array size
   character(len=5) :: suffix
@@ -76,26 +76,26 @@ subroutine Read_Single_File ( filename, field )
   if (mpirank==0) then
     write (*,'("Reading file ",A,"  .....")',advance='no') trim(adjustl(filename))
   endif
-  
+
   !-----------------------------------------------------------------------------
   ! perform tests
   !-----------------------------------------------------------------------------
   call check_file_exists ( filename )
-  
+
   !-----------------------------------------------------------------------------
   ! load the file
-  !-----------------------------------------------------------------------------  
+  !-----------------------------------------------------------------------------
   if (sz_out(3) > 0) then
     open(10, file = trim(adjustl(fullname)), form='unformatted', access='direct', recl=sz_out(1)*sz_out(2)*sz_out(3)*pr)
     read (10,rec=1) field
     close (10)
   endif
 
-  call MPI_barrier(MPI_COMM_WORLD,mpicode)  
+  call MPI_barrier(MPI_COMM_WORLD,mpicode)
   if (mpirank==0) then
     write (*,'("...DONE! ")',advance='yes')
   endif
-  
+
 end subroutine Read_Single_File
 
 
@@ -182,7 +182,7 @@ end subroutine read_field_backup
 !           the file must contain the dataset
 !           but especially the attributes "nxyz", "time", "domain_size"
 !----------------------------------------------------
-subroutine fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
+subroutine fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity, origin )
   use helpers, only : get_dsetname
   use vars, only : pr,mpirank
   use mpi
@@ -190,7 +190,7 @@ subroutine fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
 
   character(len=*), intent(in) :: filename  ! file name
   integer, intent (out) :: nx, ny, nz
-  real (kind=pr), intent(out) :: xl,yl,zl, time, viscosity
+  real (kind=pr), intent(out) :: xl,yl,zl, time, viscosity, origin(1:3)
 
   real(kind=pr),dimension(1) :: attr_data1, attr_data0
   real(kind=pr),dimension(1:3) :: attr_data2
@@ -204,15 +204,12 @@ subroutine fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
 
   if (mpirank==0) write(*,'(A)',advance='no') "WARNING(fetch_attributes): Function not implemented without HDF5 support"
 
-  time = 0 
-  viscosity = 0 
-  xl = 0 
-  yl = 0 
-  zl = 0 
-  nx = 0 
-  ny = 0 
-  nz = 0 
+  time = 0
+  viscosity = 0
+  xl = 0
+  yl = 0
+  zl = 0
+  nx = 0
+  ny = 0
+  nz = 0
 end subroutine Fetch_attributes
-
-
-

@@ -53,8 +53,7 @@ subroutine time_avg_HDF5(help)
       write(*,*) "Processing file "//trim(adjustl(fname_bin))
 
       call check_file_exists ( fname_bin )
-      call fetch_attributes( fname_bin, nx, ny, nz, &
-      xl, yl, zl, time, nu )
+      call fetch_attributes( fname_bin, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
       ! first time? allocate then.
       if ( .not. allocated(field_avg) ) then

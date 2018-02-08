@@ -35,7 +35,6 @@ subroutine extract_subset(help)
   integer :: nx_red, ny_red, nz_red, ix_red, iy_red, iz_red
   ! reduced domain extends
   real(kind=pr) :: xl1, yl1, zl1
-  real(kind=pr) :: origin(1:3)
   real(kind=pr), dimension(:,:,:), allocatable :: field
 
   integer, parameter            :: rank = 3 ! data dimensionality (2D or 3D)
@@ -103,7 +102,8 @@ subroutine extract_subset(help)
 
   write(*,'("dsetname=",A,1x,A)') trim(adjustl(dsetname_in)),trim(adjustl(dsetname_out))
 
-  call fetch_attributes( fname_in, nx, ny, nz, xl, yl, zl, time, nu )
+  ! fetch attributes from source file
+  call fetch_attributes( fname_in, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   call get_command_argument(5,xset)
   call get_command_argument(6,yset)
@@ -146,7 +146,6 @@ subroutine extract_subset(help)
 
   !-----------------------------------------------------------------------------
   ! compute dimensions of reduced subset:
-  origin = (/ dble(nx1)*xl/dble(nx), dble(ny1)*yl/dble(ny), dble(nz1)*zl/dble(nz) /)
   nx_red = nx1 + floor( dble(nx2-nx1)/dble(nxs) )  - nx1 + 1
   ny_red = ny1 + floor( dble(ny2-ny1)/dble(nys) )  - ny1 + 1
   nz_red = nz1 + floor( dble(nz2-nz1)/dble(nzs) )  - nz1 + 1
@@ -157,9 +156,11 @@ subroutine extract_subset(help)
   allocate ( field(0:nx_red-1,0:ny_red-1,0:nz_red-1) )
 
 
-  call Fetch_attributes( fname_in, nx_file,ny_file,nz_file,&
-  xl_file,yl_file,zl_file,time, nu )
+  call Fetch_attributes( fname_in, nx_file,ny_file,nz_file,xl_file,yl_file,zl_file,time, nu, origin )
 
+  ! define new origin of grid
+  origin = (/ dble(nx1)*xl/dble(nx), dble(ny1)*yl/dble(ny), dble(nz1)*zl/dble(nz) /)
+  write(*,*) "New origin:", origin
   !-----------------------------------------------------------------------------
   ! load the file
   ! the basic idea is to just allocate the smaller field, and use hdf5

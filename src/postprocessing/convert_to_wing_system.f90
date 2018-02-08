@@ -127,7 +127,7 @@ subroutine convert_to_wing_system(help)
   enddo
   ! call fetch attributes (even though we knew the resolution in advance) since we
   ! want to know what time the data is at
-  call fetch_attributes(infile,nx,ny,nz,xl,yl,zl,time,nu)
+  call fetch_attributes(infile,nx,ny,nz,xl,yl,zl,time,nu,origin)
 
   ! synchronize ghosts (required for interpolation)
   u_interp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),:) = u_org

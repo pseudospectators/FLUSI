@@ -287,7 +287,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: reading infiles"
      ! fetch time from one file
-     call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy )
+     call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy, origin )
      ! read files
      call Read_Single_File ( file_ux, vort(:,:,:,1) )
      call Read_Single_File ( file_uy, vort(:,:,:,2) )
@@ -308,7 +308,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_uy
     if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_uz
 
-    call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy )
+    call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy, origin )
     time = 0.d0
     ra(1) = 0
     rb(1) = nxs-1

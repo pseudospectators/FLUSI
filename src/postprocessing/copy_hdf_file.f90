@@ -53,7 +53,7 @@ subroutine copy_hdf_file(help)
   ! get filename to save file to
   call get_command_argument(4,fname_out)
 
-  call fetch_attributes( fname_in, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_in, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ra=0
   rb=(/nx-1,ny-1,nz-1/)
   write(*,*) "copying ",trim(adjustl(fname_in)), " to ", trim(adjustl(fname_out))

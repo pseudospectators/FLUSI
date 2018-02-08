@@ -82,7 +82,7 @@ subroutine convert_vorticity(help)
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   !-----------------------------------------------------------------------------
   ! initialize code and scaling factors for derivatives, also domain decomposition

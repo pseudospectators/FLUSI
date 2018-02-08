@@ -52,7 +52,7 @@ subroutine mean_2d(help)
   write(*,*) "infile="//trim(adjustl(infile))
   write(*,*) "outfile="//trim(adjustl(outfile))
 
-  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
 

@@ -41,7 +41,7 @@ subroutine init_turbulent_inlet ( )
   ! first determine how many points in x-direction the file has, then allocate
   ! the field u_turb accordingly
   call fetch_attributes( "ux_turb.h5", nx_turb,ny_turb,nz_turb,&
-       xl_turb,yl_turb,zl_turb,time,viscosity_dummy)
+       xl_turb,yl_turb,zl_turb,time,viscosity_dummy, origin)
 
 
   if (mpirank==0) write(*,*) "inlet file resolution is ",nx_turb, ny_turb, nz_turb

@@ -46,7 +46,7 @@ subroutine post_zero_padd(help)
   call get_command_argument(7,tmp)
   read (tmp,*) nz_new
 
-  call fetch_attributes( fname_in, nx_org, ny_org, nz_org, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_in, nx_org, ny_org, nz_org, xl, yl, zl, time, nu, origin )
 
   write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   write(*,*) "reading file "//trim(adjustl(fname_in))//" and writing to "//trim(adjustl(fname_out))

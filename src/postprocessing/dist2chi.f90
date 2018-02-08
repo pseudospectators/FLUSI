@@ -40,7 +40,7 @@ subroutine dist2chi(help)
   endif
 
   call check_file_exists( distfile )
-  call fetch_attributes( distfile, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( distfile, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   ! initialize code and domain decomposition, but do not use FFTs
   call decomposition_initialize()

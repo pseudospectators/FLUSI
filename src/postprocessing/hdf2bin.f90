@@ -41,7 +41,7 @@ subroutine convert_hdf2bin(help)
     return
   endif
 
-  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   write (*,'("Converting ",A," to ",A," Resolution is",3(i4,1x))') &
   trim(fname), trim(fname_bin), nx,ny,nz
@@ -65,7 +65,7 @@ subroutine convert_hdf2bin(help)
   if (pr_out_flag == "--double-precision") then
     write (12) ((( real(field(ix,iy,iz),kind=8), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
     write(*,*) "DOUBLE PRECISION, LITTLE ENDIAN"
-  else 
+  else
     write (12) ((( real(field(ix,iy,iz),kind=4), ix=0, nx-1), iy=0, ny-1), iz=0, nz-1)
     write(*,*) "SINGLE PRECISION, LITTLE ENDIAN"
   endif

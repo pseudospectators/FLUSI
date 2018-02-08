@@ -187,7 +187,7 @@ end subroutine FWT3_PO
     do ix = 0, nc-1
       do iz = 0, nc-1
         ! is this on my local bounds? (MPI-sense, some procs may idle)
-        if (iy>=qa(2) .and. iy<=qb(2) .and. iz>=qa(3) .and. iz<=qb(3)) then
+        if (ix>=qa(1) .and. ix<=qb(1) .and. iz>=qa(3) .and. iz<=qb(3)) then
           ! low-pass filter
           call filter1P(wc(ix,0:nc-1,iz), buffer1, wavelet%HD, lbound(wavelet%HD,dim=1), ubound(wavelet%HD,dim=1))
           ! high-pass filter

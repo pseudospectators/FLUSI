@@ -54,7 +54,7 @@ subroutine turbulence_analysis(help)
     write(17,'(A)') "-----------------------------------"
   endif
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
 

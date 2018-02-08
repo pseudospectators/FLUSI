@@ -59,6 +59,7 @@ subroutine save_field_hdf5(time,filename,field_out)
     call write_attribute( fname, get_dsetname(fname), "viscosity",(/nu/))
     call write_attribute( fname, get_dsetname(fname), "epsi",(/eps/))
     call write_attribute( fname, get_dsetname(fname), "domain_size",(/xl,yl,zl/))
+    call write_attribute( fname, get_dsetname(fname), "origin",origin)
     call write_attribute( fname, get_dsetname(fname), "nxyz",(/nx,ny,nz/))
   else
     ! save strided field to disk
@@ -154,6 +155,7 @@ subroutine save_field_hdf5_strided(time,fname,field_out)
   call write_attribute( fname, get_dsetname(fname), "viscosity",(/nu/))
   call write_attribute( fname, get_dsetname(fname), "epsi",(/eps/))
   call write_attribute( fname, get_dsetname(fname), "domain_size",(/xl,yl,zl/))
+  call write_attribute( fname, get_dsetname(fname), "origin",origin)
   call write_attribute( fname, get_dsetname(fname), "nxyz", (/nx,ny,nz/) / striding )
 
   deallocate (field_red)
@@ -171,7 +173,7 @@ end subroutine save_field_hdf5_strided
 !           the file must contain the dataset
 !           but especially the attributes "nxyz", "time", "domain_size"
 !----------------------------------------------------
-subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
+subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity, origin )
   use hdf5_wrapper
   use helpers, only : get_dsetname
   use mpi
@@ -179,7 +181,7 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
 
   character(len=*), intent(in) :: filename  ! file name
   integer, intent (out) :: nx, ny, nz
-  real (kind=pr), intent(out) :: xl,yl,zl, time, viscosity
+  real(kind=pr), intent(out) :: xl,yl,zl, time, viscosity, origin(1:3)
 
   real(kind=pr),dimension(1) :: attr_data1, attr_data0
   real(kind=pr),dimension(1:3) :: attr_data2
@@ -189,6 +191,7 @@ subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity )
   call read_attribute( filename, get_dsetname(filename), "time", attr_data0)
   call read_attribute( filename, get_dsetname(filename), "viscosity", attr_data1)
   call read_attribute( filename, get_dsetname(filename), "domain_size", attr_data2)
+  call read_attribute( filename, get_dsetname(filename), "origin", origin)
   call read_attribute( filename, get_dsetname(filename), "nxyz", attr_data3)
 
   time = attr_data0(1)
@@ -229,6 +232,7 @@ subroutine Read_Single_File ( filename, field )
   call read_attribute( filename,get_dsetname(filename),"domain_size",domain)
   call read_attribute( filename,get_dsetname(filename),"time",ttime)
   call read_attribute( filename,get_dsetname(filename),"viscosity",viscosity_dummy)
+  call read_attribute( filename,get_dsetname(filename), "origin", origin)
 
   if (mpirank==0) then
     write(*,'(40("~"))')
@@ -236,6 +240,7 @@ subroutine Read_Single_File ( filename, field )
     write(*,'("dsetname=",A)') trim(adjustl(get_dsetname(filename)))
     write(*,'("nx=",i4," ny=",i4," nz=",i4," time=",g12.4," viscosity=",g16.4)') nxyz,ttime(1),viscosity_dummy(1)
     write(*,'("xl=",g12.4," yl=",g12.4," zl=",g12.4)') domain
+    write(*,'("x0=",g12.4," y0=",g12.4," z0=",g12.4," (origin)")') origin
 
     ! if the domain size doesn't match, proceed, but yell.
     if ((xl.ne.domain(1)).or.(yl.ne.domain(2)).or.(zl.ne.domain(3))) then

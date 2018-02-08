@@ -47,10 +47,10 @@ subroutine TKE_mean(help)
     &" "//trim(adjustl(fname_uz))//" and "//fname_ekin
   endif
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
-  
+
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(ekin(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 

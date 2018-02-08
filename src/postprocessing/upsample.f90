@@ -61,7 +61,7 @@ subroutine upsample(help)
   call get_command_argument(7,tmp)
   read (tmp,*) nz_new
 
-  call fetch_attributes( fname_in, nx_org, ny_org, nz_org, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_in, nx_org, ny_org, nz_org, xl, yl, zl, time, nu, origin )
 
   if (mpirank==0) then
     write(*,'("Target resolution= ",3(i4,1x))') nx_new, ny_new, nz_new

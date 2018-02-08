@@ -54,7 +54,7 @@ subroutine post_grad(help)
 
   call check_file_exists( fname )
 
-  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
 
@@ -85,7 +85,7 @@ subroutine post_grad(help)
     if (mpirank==0) then
       write(*,*) "DOUBLE PRECISION"
     endif
-  else 
+  else
     field_precision = "single"
     if (mpirank==0) then
       write(*,*) "SINGLE PRECISION"

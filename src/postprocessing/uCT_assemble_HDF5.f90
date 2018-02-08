@@ -57,7 +57,7 @@ subroutine uCT_assemble_HDF5(help)
       if (root) write(*,*) "read "//trim(adjustl(fname_bin))
 
       call check_file_exists ( fname_bin )
-      call fetch_attributes( fname_bin, nx, ny, nz, xl, yl, zl, time, nu )
+      call fetch_attributes( fname_bin, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
       !-------------------------
       ! initialization

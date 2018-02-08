@@ -585,8 +585,8 @@ subroutine subtr ( idir, n, ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpico
   integer, intent (in) :: idir, mpireal
   integer, dimension (1:3), intent (in) :: n, ka, kb, ks, kat, kbt, kst
   integer, dimension (2), intent (in) :: mpidims, mpicoords, mpicommslab
-  real (kind=pr), dimension (ka(1):kb(1),ka(2):kb(2),ka(3):kb(3)), intent (in) :: datain
-  real (kind=pr), dimension (kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)), intent (out) :: dataout
+  real (kind=pr), dimension (ka(1):kb(1),ka(2):kb(2),ka(3):kb(3)), intent (inout) :: datain
+  real (kind=pr), dimension (kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)), intent (inout) :: dataout
   integer :: jj, kk
   integer :: mpicode, mpirealsize, mpiblock
   integer, dimension(:), allocatable :: types, counts
@@ -690,7 +690,7 @@ end function
 ! data would imply using FFTs), that is, for all procs, the local bounds
 ! ra(1:3) and rb(1:3), as well as the communicators used for ghost node synchronizaiton
 !-------------------------------------------------------------------------------
-subroutine decomposition_initialize
+subroutine decomposition_initialize(force2D_decomp)
   use mpi ! Module incapsulates mpif.
   use vars
   implicit none
@@ -699,6 +699,7 @@ subroutine decomposition_initialize
   integer :: mpicode,idir,L,n
   integer,dimension(1:3) :: ka,kb,ks,kat,kbt,kst
   logical,dimension(2) :: subcart
+  logical, intent(in), optional :: force2D_decomp
   real(kind=pr),dimension(:,:),allocatable :: f,ft
 
   ! setup a few globals we need throughout the code. the most important information
@@ -733,19 +734,36 @@ subroutine decomposition_initialize
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
   ! along the z direction in real space.
-  if (nz>mpisize.and.nx==1) then
-     mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
-     mpidims(2) = mpisize       ! 3rd index in real space.
-     decomposition="1D"
+  if (present(force2D_decomp)) then
+      if ((nz>mpisize.or.nx==1).and.(force2D_decomp.eqv..false.)) then
+        mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+        mpidims(2) = mpisize       ! 3rd index in real space.
+        decomposition="1D"
+      else
+        ! unfortunately, 2D data decomposition does not work with 2D code (nx==1)
+        mpidims = 0
+        call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
+        if(mpidims(1) > mpidims(2)) then
+          mpidims(1) = mpidims(2)
+          mpidims(2) = mpisize / mpidims(1)
+        endif
+        decomposition="2D"
+      endif
   else
-     ! unfortunately, 2D data decomposition does not work with 2D code (nx==1)
-     mpidims = 0
-     call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
-     if(mpidims(1) > mpidims(2)) then
-        mpidims(1) = mpidims(2)
-        mpidims(2) = mpisize / mpidims(1)
-     endif
-     decomposition="2D"
+      if (nz>mpisize.or.nx==1) then
+        mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+        mpidims(2) = mpisize       ! 3rd index in real space.
+        decomposition="1D"
+      else
+        ! unfortunately, 2D data decomposition does not work with 2D code (nx==1)
+        mpidims = 0
+        call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
+        if(mpidims(1) > mpidims(2)) then
+          mpidims(1) = mpidims(2)
+          mpidims(2) = mpisize / mpidims(1)
+        endif
+        decomposition="2D"
+      endif
   endif
 
   if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims

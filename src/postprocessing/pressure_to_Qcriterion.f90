@@ -41,7 +41,7 @@ subroutine pressure_to_Qcriterion(help)
   call get_command_argument(4,fname_Q)
 
   ! read in information from the file
-  call fetch_attributes( fname_p, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_p, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   if (mpirank==0) then
     write(*,'("Computing Q criterion from  file ",A," saving to ",&

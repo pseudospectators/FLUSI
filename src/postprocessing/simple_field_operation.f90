@@ -42,7 +42,7 @@ subroutine simple_field_operation(help)
   if (mpirank==0) write(*,*) "Operation="//trim(adjustl(operation))
   if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(file_out))
 
-  call fetch_attributes( file1, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( file1, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   ! initialize code and domain decomposition, but do not use FFTs
   call decomposition_initialize()

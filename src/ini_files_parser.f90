@@ -75,7 +75,7 @@ contains
     ncols = size(array,2)
 
     write(*,'(80("-"))')
-    write(*,'("INFO: reading ",i5," lines with ",i3," colums from ",A)') nlines, ncols, file
+    write(*,'("INFO: reading ",i8," lines with ",i8," colums from ",A)') nlines, ncols, file
 
     ! set up format string
     write(ncols_str,'(i3.3)') ncols
@@ -128,6 +128,38 @@ contains
     num_lines = i - n_header
   end subroutine count_lines_in_ascii_file
 
+
+  subroutine count_cols_in_ascii_file(file, num_cols, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(out) :: num_cols
+    integer, intent(in) :: n_header
+    integer :: io_error, i
+    character(len=maxcolumns) :: dummy
+
+    ! check if the specified file exists
+    call check_file_exists( file )
+
+    ! count the lines
+    io_error = 0
+    i = 0
+
+    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+    do while (io_error==0)
+      read (14,'(A)',iostat=io_error) dummy
+      if (io_error==0 .and. i>n_header) exit
+      i=i+1
+    enddo
+    close (14)
+
+    num_cols = 1
+    do i = 1, len_trim(adjustl(dummy))
+      ! count elements in the line by counting the separating spaces
+      if ( dummy(i:i) == " " ) then
+        num_cols = num_cols + 1
+      end if
+    enddo
+  end subroutine count_cols_in_ascii_file
 
 
   !-------------------------------------------------------------------------------
@@ -625,7 +657,7 @@ contains
 
   ! in verbose mode, inform about what we did
   if (verbosity) then
-    write(*,'("Determined ",A,"::",A," as Matrix of size ",i4," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
+    write(*,'("Determined ",A,"::",A," as Matrix of size ",i6," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
   endif
 end subroutine param_matrix_size
 
@@ -720,7 +752,7 @@ subroutine param_matrix_read(PARAMS, section, keyword, matrix)
 
 ! in verbose mode, inform about what we did
 if (verbosity) then
-  write(*,'("Read ",A,"::",A," as Matrix of size ",i4," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
+  write(*,'("Read ",A,"::",A," as Matrix of size ",i6," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
 endif
 end subroutine param_matrix_read
 

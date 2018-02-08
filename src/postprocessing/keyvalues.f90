@@ -25,7 +25,7 @@ subroutine keyvalues(filename)
   ! namely the resolution is whats important
   ! this routine was created in the mpi2vis repo -> convert_hdf2xmf.f90
   !---------------------------------------------------------
-  call fetch_attributes( filename, nx, ny, nz, xl, yl, zl, time , nu )
+  call fetch_attributes( filename, nx, ny, nz, xl, yl, zl, time , nu, origin )
   ! initialize code and scaling factors for derivatives
   call decomposition_initialize()
   allocate(field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))

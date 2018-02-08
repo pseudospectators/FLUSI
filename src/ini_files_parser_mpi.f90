@@ -67,6 +67,22 @@ contains
   end subroutine count_lines_in_ascii_file_mpi
 
 
+  subroutine count_cols_in_ascii_file_mpi(file, num_cols, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(out) :: num_cols
+    integer, intent(in) :: n_header
+    integer :: mpicode, mpirank
+
+    ! fetch my process id
+    call MPI_Comm_rank(MPI_COMM_WORLD, mpirank, mpicode)
+
+    ! only root reads from file...
+    if (mpirank==0) call count_cols_in_ascii_file(file, num_cols, n_header)
+    ! ... then broadcast
+    call MPI_BCAST(num_cols,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
+  end subroutine count_cols_in_ascii_file_mpi
+
   !-------------------------------------------------------------------------------
   ! clean a previously read ini file, deallocate its string array, and reset
   ! verbosity to .true. (as a matter of precaution)

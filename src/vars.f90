@@ -168,7 +168,9 @@ module vars
   ! arrays (THIS IS A HACK - TO BE REMOVED)
   complex(kind=pr),allocatable,dimension(:,:,:,:)::nlk_tmp
   complex(kind=pr),dimension(:,:,:,:),allocatable:: uk_old ! TODO: allocate only once
+
   real(kind=pr),save :: x0,y0,z0 ! Parameters for logical centre of obstacle
+  real(kind=pr),save :: origin(1:3) = 0.0d0 ! origin of grid (only used in postprocessing, usually the grid starts at 0,0,0)
 
   ! mean flow control
   real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid, umean_amplitude(1:3)

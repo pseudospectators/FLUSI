@@ -96,6 +96,8 @@ subroutine postprocessing()
     call convert_pressure(help)
   case ("--TKE-mean")
     call tke_mean(help)
+  case ("--pointcloud2mask")
+    call pointcloud2mask(help)
   case ("--max-over-x")
     call max_over_x(help)
   case ("--mean-over-x-subdomain")
@@ -121,46 +123,49 @@ subroutine postprocessing()
   case default
     if (root) then
       write(*,*) "Available Postprocessing tools are:"
-      write(*,*) "--uCT-assemble"
-      write(*,*) "--energy"
-      write(*,*) "--coherent-vortex-extraction --coherent-scalar-extraction --CVE --CSE"
-      write(*,*) "--tranpose-test"
-      write(*,*) "--force-decomp"
-      write(*,*) "--readwrite"
-      write(*,*) "--magnitude"
+      write(*,'(80("~"))')
+      write(*,*) "--bin2hdf"
       write(*,*) "--check-params-file"
-      write(*,*) "--ux-from-uyuz"
-      write(*,*) "--set-hdf5-attribute"
-      write(*,*) "--mean-2D"
-      write(*,*) "--mean-over-x-subdomain"
-      write(*,*) "--max-over-x"
-      write(*,*) "--TKE-mean"
-      write(*,*) "--field-analysis"
-      write(*,*) "--turbulence-analysis"
-      write(*,*) "--spectrum"
-      write(*,*) "--upsample"
-      write(*,*) "--time-avg"
-      write(*,*) "--extract-subset"
-      write(*,*) "--p2Q"
-      write(*,*) "--simple-field-operation"
-      write(*,*) "--cp"
-      write(*,*) "--keyvalues"
+      write(*,*) "--coherent-vortex-extraction --coherent-scalar-extraction --CVE --CSE"
       write(*,*) "--compare-keys"
       write(*,*) "--compare-timeseries"
-      write(*,*) "--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD"
-      write(*,*) "--vor2u"
-      write(*,*) "--vor_abs --vor-abs"
-      write(*,*) "--hdf2bin"
-      write(*,*) "--bin2hdf"
-      write(*,*) "--helicity"
-      write(*,*) "--pressure"
-      write(*,*) "--stl2dist"
-      write(*,*) "--dist2mask   --dist2chi"
-      write(*,*) "--smooth-inverse-mask"
-      write(*,*) "--zero-padd"
       write(*,*) "--convert-to-wing-system  // --convert-to-body-system"
-      write(*,*) "--pressure-force"
+      write(*,*) "--cp"
+      write(*,*) "--dist2mask   --dist2chi"
+      write(*,*) "--energy"
+      write(*,*) "--extract-subset"
+      write(*,*) "--field-analysis"
+      write(*,*) "--force-decomp"
       write(*,*) "--gradient"
+      write(*,*) "--hdf2bin"
+      write(*,*) "--helicity"
+      write(*,*) "--keyvalues"
+      write(*,*) "--magnitude"
+      write(*,*) "--max-over-x"
+      write(*,*) "--mean-2D"
+      write(*,*) "--mean-over-x-subdomain"
+      write(*,*) "--p2Q"
+      write(*,*) "--pointcloud2mask"
+      write(*,*) "--pressure-force"
+      write(*,*) "--pressure"
+      write(*,*) "--readwrite"
+      write(*,*) "--set-hdf5-attribute"
+      write(*,*) "--simple-field-operation"
+      write(*,*) "--smooth-inverse-mask"
+      write(*,*) "--spectrum"
+      write(*,*) "--stl2dist"
+      write(*,*) "--time-avg"
+      write(*,*) "--TKE-mean"
+      write(*,*) "--tranpose-test"
+      write(*,*) "--turbulence-analysis"
+      write(*,*) "--upsample"
+      write(*,*) "--uCT-assemble"
+      write(*,*) "--ux-from-uyuz"
+      write(*,*) "--vor_abs --vor-abs"
+      write(*,*) "--vor2u"
+      write(*,*) "--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD"
+      write(*,*) "--zero-padd"
+      write(*,'(80("~"))')
       write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))
       write(*,*) "But I don't know what to do with that"
     endif
@@ -242,7 +247,7 @@ subroutine max_over_x(help)
   call get_command_argument(4,outfile)
   call check_file_exists( fname_ekin )
 
-  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
@@ -326,7 +331,7 @@ subroutine mean_over_x_subdomain(help)
   call get_command_argument(4,outfile)
   call check_file_exists( fname_ekin )
 
-  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
@@ -462,7 +467,7 @@ subroutine ux_from_uyuz(help)
     call abort()
   endif
 
-  call fetch_attributes( fname_uy, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_uy, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
@@ -649,7 +654,7 @@ subroutine post_smooth_mask(help)
   call get_command_argument(4,outfile)
 
   call check_file_exists( infile )
-  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
@@ -759,7 +764,7 @@ subroutine readwrite(help)
 
   call get_command_argument(3,fname)
   call check_file_exists( fname )
-  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize domain decomposition, but do not use FFTs
   call decomposition_initialize()
 
