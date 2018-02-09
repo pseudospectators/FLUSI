@@ -73,19 +73,16 @@ program FLUSI
     trim(adjustl(infile)) // " is unkown.."
   endif
 
-    ! write empty success file. this is useful for automatization purposes
-    if (mpirank==0) call init_empty_file("success")
+  ! normal exit
+  if (root) then
+    open (15, file='return', status='replace')
+    write(15,'(i1)') 0
+    close(15)
+  endif
 
-    ! normal exit
-    if (root) then
-      open (15, file='return', status='replace')
-      write(15,'(i1)') 0
-      close(15)
-    endif
-
-    call MPI_FINALIZE(mpicode)
-    call exit(0)
-  end program FLUSI
+  call MPI_FINALIZE(mpicode)
+  call exit(0)
+end program FLUSI
 
 
 
