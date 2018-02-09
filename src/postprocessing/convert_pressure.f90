@@ -104,14 +104,23 @@ subroutine convert_pressure(help)
   gb = rb
 
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  u = 0.0d0
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+  uk = 0.0d0
   allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  mask = 0.0d0
   allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  us = 0.0d0
   allocate(workr(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
+  workr = 0.0d0
   allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw))
+  workc = 0.0d0
   allocate(vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  vort = 0.0d0
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
+  nlk  = 0.0d0
   allocate(press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
+  press = 0.0d0
   allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   mask_color=0
 
