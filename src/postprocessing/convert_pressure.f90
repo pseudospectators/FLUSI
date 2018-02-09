@@ -10,6 +10,7 @@ subroutine convert_pressure(help)
   use penalization
   use insect_module
   use solid_model
+  use turbulent_inlet_module
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, fname_p, fname_ini
@@ -119,6 +120,11 @@ subroutine convert_pressure(help)
   call read_single_file( fname_uz, u(:,:,:,3) )
   ! to Fourier space
   call fft3 (inx=u, outk=uk)
+
+  ! read in turbulent inlet fields
+  if (use_turbulent_inlet=="yes") then
+    call init_turbulent_inlet ( )
+  endif
 
   ! create mask
   call create_mask( time, Insect, beams )
