@@ -535,39 +535,47 @@ subroutine read_attrib_int(filename,dsetname,aname,attribute)
   integer(hsize_t) :: adims(1)  ! Attribute dimension
   logical :: exists
 
-  ! convert input data for the attribute to the precision required by the HDF library
   dim = size(attribute)
-  adims(1) = int(dim, kind=hsize_t)
 
-  ! Initialize HDF5 library and Fortran interfaces.
-  call h5open_f(error)
+  ! only root reads attribute (Thomas, 13.02.2o18, as a consequence of a race-condition
+  ! bug in --io-test)
+  if (root) then
+    ! convert input data for the attribute to the precision required by the HDF library
+    adims(1) = int(dim, kind=hsize_t)
 
-  ! open the file (existing file)
-  call h5fopen_f(filename, H5F_ACC_RDONLY_F, file_id, error )
+    ! Initialize HDF5 library and Fortran interfaces.
+    call h5open_f(error)
 
-  ! open the dataset
-  call h5dopen_f(file_id, dsetname, dset_id, error)
+    ! open the file (existing file)
+    call h5fopen_f(filename, H5F_ACC_RDONLY_F, file_id, error )
 
-  ! check if attribute exists
-  call h5aexists_f(dset_id, aname, exists, error)
+    ! open the dataset
+    call h5dopen_f(file_id, dsetname, dset_id, error)
 
-  if (exists) then
-    ! open attribute
-    call h5aopen_f(dset_id, aname, attr_id, error)
-    ! Get dataspace for attribute
-    call h5aget_space_f(attr_id, aspace_id, error)
-    ! read attribute data
-    call h5aread_f( attr_id, H5T_NATIVE_INTEGER, attribute, adims, error)
-    ! close attribute
-    call h5aclose_f(attr_id,error) ! Close the attribute.
-    call h5sclose_f(aspace_id,error) ! Terminate access to the data space.
-  else
-    attribute = 0
+    ! check if attribute exists
+    call h5aexists_f(dset_id, aname, exists, error)
+
+    if (exists) then
+      ! open attribute
+      call h5aopen_f(dset_id, aname, attr_id, error)
+      ! Get dataspace for attribute
+      call h5aget_space_f(attr_id, aspace_id, error)
+      ! read attribute data
+      call h5aread_f( attr_id, H5T_NATIVE_INTEGER, attribute, adims, error)
+      ! close attribute
+      call h5aclose_f(attr_id,error) ! Close the attribute.
+      call h5sclose_f(aspace_id,error) ! Terminate access to the data space.
+    else
+      attribute = 0
+    endif
+
+    call h5dclose_f(dset_id,error)
+    call h5fclose_f(file_id,error)
+    call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
   endif
 
-  call h5dclose_f(dset_id,error)
-  call h5fclose_f(file_id,error)
-  call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
+
+  call MPI_BCAST( attribute, dim, MPI_INTEGER, 0, MPI_COMM_WORLD, error )
 end subroutine read_attrib_int
 
 
@@ -601,37 +609,42 @@ subroutine read_attrib_dble(filename,dsetname,aname,attribute)
 
   ! convert input data for the attribute to the precision required by the HDF library
   dim = size(attribute)
-  adims(1) = int(dim, kind=hsize_t)
 
-  ! Initialize HDF5 library and Fortran interfaces.
-  call h5open_f(error)
+  if (root) then
+    adims(1) = int(dim, kind=hsize_t)
 
-  ! open the file (existing file)
-  call h5fopen_f(filename, H5F_ACC_RDONLY_F, file_id, error )
+    ! Initialize HDF5 library and Fortran interfaces.
+    call h5open_f(error)
 
-  ! open the dataset
-  call h5dopen_f(file_id, dsetname, dset_id, error)
+    ! open the file (existing file)
+    call h5fopen_f(filename, H5F_ACC_RDONLY_F, file_id, error )
 
-  ! check if attribute exists
-  call h5aexists_f(dset_id, aname, exists, error)
+    ! open the dataset
+    call h5dopen_f(file_id, dsetname, dset_id, error)
 
-  if (exists) then
-    ! open attribute
-    call h5aopen_f(dset_id, aname, attr_id, error)
-    ! Get dataspace for attribute
-    call h5aget_space_f(attr_id, aspace_id, error)
-    ! read attribute data
-    call h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attribute, adims, error)
-    ! close attribute
-    call h5aclose_f(attr_id,error) ! Close the attribute.
-    call h5sclose_f(aspace_id,error) ! Terminate access to the data space.
-  else
-    attribute = 0.d0
+    ! check if attribute exists
+    call h5aexists_f(dset_id, aname, exists, error)
+
+    if (exists) then
+      ! open attribute
+      call h5aopen_f(dset_id, aname, attr_id, error)
+      ! Get dataspace for attribute
+      call h5aget_space_f(attr_id, aspace_id, error)
+      ! read attribute data
+      call h5aread_f( attr_id, H5T_NATIVE_DOUBLE, attribute, adims, error)
+      ! close attribute
+      call h5aclose_f(attr_id,error) ! Close the attribute.
+      call h5sclose_f(aspace_id,error) ! Terminate access to the data space.
+    else
+      attribute = 0.d0
+    endif
+
+    call h5dclose_f(dset_id,error)
+    call h5fclose_f(file_id,error)
+    call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
   endif
 
-  call h5dclose_f(dset_id,error)
-  call h5fclose_f(file_id,error)
-  call h5close_f(error) ! Close Fortran interfaces and HDF5 library.
+  call MPI_BCAST( attribute, dim, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, error )
 end subroutine read_attrib_dble
 
 

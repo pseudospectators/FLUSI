@@ -71,6 +71,7 @@ subroutine save_field_hdf5(time,filename,field_out)
   mbyte = dble(nx/striding)*dble(ny/striding)*dble(nz/striding)*4.d0/1024.0d0/1024.0d0
   if (root) write(*,'(".. wrote ",f9.2," MB in ",f9.2," s (",f9.2,"MB/s)")') &
   mbyte, t1, mbyte/t1
+
 end subroutine save_field_hdf5
 
 

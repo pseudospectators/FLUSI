@@ -160,7 +160,8 @@ subroutine extract_subset(help)
 
   ! define new origin of grid
   origin = (/ dble(nx1)*xl/dble(nx), dble(ny1)*yl/dble(ny), dble(nz1)*zl/dble(nz) /)
-  write(*,*) "New origin:", origin
+  write (*,'("New origin is ",3(g12.4,1x))') origin
+
   !-----------------------------------------------------------------------------
   ! load the file
   ! the basic idea is to just allocate the smaller field, and use hdf5
@@ -242,9 +243,9 @@ subroutine extract_subset(help)
   zl = dz + dble(nz1+(nz_red-1)*nzs)*dz - dble(nz1)*dz
 
   if ( dble(nx)*dble(ny)*dble(nz) > 500.0d6) then
-    write(*,*) "WARNING! The subset you ordered is rather larger (>500M points). The hdf wrapper"
-    write(*,*) "might crash during writing. If that happens, change max_chunk to say 256 in hdf5_wrapper.f90"
-    write(*,*) "then recompile and retry"
+    write(*,'(A)') "WARNING! The subset you ordered is rather larger (>500M points). The hdf wrapper"
+    write(*,'(A)') "might crash during writing. If that happens, change max_chunk to say 256 in hdf5_wrapper.f90"
+    write(*,'(A)') "then recompile and retry"
   endif
 
   ! Done! Write extracted subset to disk and be happy with the result
