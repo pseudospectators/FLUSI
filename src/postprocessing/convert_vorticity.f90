@@ -16,10 +16,10 @@ subroutine convert_vorticity(help)
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p [--vor-abs | --vor-abs-FD | --vorticity | --vorticity-FD]"
+    write(*,*) "./flusi -p [--vor-abs | --vor-abs-FD | --vorticity | --vorticity-FD | --Q | --Q-FD]"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) " Read velocity components from file and compute their curl. Optionally second order"
-    write(*,*) " or non-periodic using finite differences."
+    write(*,*) " Read velocity components from file and compute their curl or Q-criterion."
+    write(*,*) " Optionally second order or non-periodic using finite differences."
     write(*,*) " "
     write(*,*) " Compute vorticity vector (fourier)"
     write(*,*) " ./flusi -p --vorticity ux_00.h5 uy_00.h5 uz_00.h5 vorx_00.h5 vory_00.h5 vorz_00.h5 [--second-order]"
@@ -34,6 +34,10 @@ subroutine convert_vorticity(help)
     write(*,*) " --second-order"
     write(*,*) " --fourth-order"
     write(*,*) " --second-order-nonper"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "  Q-criterion"
+    write(*,*) " ./flusi -p --Q-FD ux_00.h5 uy_00.h5 uz_00.h5 Q_00.h5 [ORDER]"
+    write(*,*) ""
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: yes, fully"
     return
@@ -51,7 +55,7 @@ subroutine convert_vorticity(help)
     call get_command_argument(8,fname_outz)
     call get_command_argument(9,order)
 
-  case ("--vor-abs", "--vor-abs-FD")
+  case ("--vor-abs", "--vor-abs-FD", "--Q", "--Q-FD")
     call get_command_argument(6,fname_outx)
     call get_command_argument(7,order)
     fname_outy = ""
@@ -88,8 +92,8 @@ subroutine convert_vorticity(help)
   ! initialize code and scaling factors for derivatives, also domain decomposition
   !-----------------------------------------------------------------------------
   select case (mode)
-  !*** Fourier
-  case ("--vorticity","--vor-abs")
+    !*** Fourier
+  case ("--vorticity", "--vor-abs", "--Q")
     ! spectral version
     if (root) write(*,*) "using spectral code (FOURIER)"
 
@@ -99,8 +103,8 @@ subroutine convert_vorticity(help)
     ! alloc memory for fourier transform
     allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
 
-  !*** Finite-differences
-  case ("--vorticity-FD", "--vor-abs-FD")
+    !*** Finite-differences
+  case ("--vorticity-FD", "--vor-abs-FD", "--Q-FD")
     ng = 3
     if (order=="--fourth-order") order="centered_4th"
     if (order=="--second-order") order="centered_2nd"
@@ -133,10 +137,10 @@ subroutine convert_vorticity(help)
   ! compute curl, possibly with second order filter
   !-----------------------------------------------------------------------------
   select case (mode)
-  !*****************************************************************************
-  !*** Fourier
-  !*****************************************************************************
   case ("--vorticity","--vor-abs")
+    !*****************************************************************************
+    !*** Fourier
+    !*****************************************************************************
     ! to Fourier space
     call fft3 (inx=u, outk=uk)
 
@@ -172,10 +176,10 @@ subroutine convert_vorticity(help)
     ! bye bye
     call fft_free()
 
-  !*****************************************************************************
-  !*** Finite-differences
-  !*****************************************************************************
-  case ("--vorticity-FD", "--vor-abs-FD")
+  case ("--vorticity-FD", "--vor-abs-FD" )
+    !*****************************************************************************
+    !*** Finite-differences
+    !*****************************************************************************
     ! finite differences
     if (root) write(*,*) "using finite differences code"
 
@@ -213,6 +217,40 @@ subroutine convert_vorticity(help)
       call save_field_hdf5( time, fname_outy, workr2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),2) )
       call save_field_hdf5( time, fname_outz, workr2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),3) )
     endif
+
+    ! free memory
+    deallocate( workr2 )
+
+  case ("--Q-FD" )
+    !*****************************************************************************
+    !*** Finite-differences, Q-criterion
+    !*****************************************************************************
+    ! finite differences
+    if (root) write(*,*) "using finite differences code"
+
+    ! allocate work array WITH ghost nodes. Note in the case "order==--second-order-nonper"
+    ! ng=0 and thus ra=ga and rb=gb (no ghost nodes used, we use MPI_TRANSPOSES)
+    allocate(workr(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3))
+    allocate(workr2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1))
+
+    ! fill interior of work array wth input data. ghost node synching is done,
+    ! if the periodic case is used, in the curl-subroutine.
+    workr(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),:) = u
+    deallocate(u)
+
+    if (order=="--second-order-nonper") then
+      if (root) write(*,*) "NON-PERIODIC DISCRETIZATION USED"
+      call Q_FD_nonper( workr, workr2(:,:,:,1), order )
+    else
+      if (root) write(*,*) "PERIODIC DISCRETIZATION USED"
+      call Q_FD( workr, workr2(:,:,:,1), order )
+    endif
+
+    ! as we have the curl, we can free the data array
+    deallocate(workr)
+
+    ! save data
+    call save_field_hdf5( time, fname_outx, workr2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1) )
 
     ! free memory
     deallocate( workr2 )

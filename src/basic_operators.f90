@@ -369,6 +369,167 @@ subroutine curl_FD_nonper( u, rotu, order )
 end subroutine curl_FD_nonper
 
 
+! compute the curl of vector field u with PERIODIC Finite-differences of
+! 2nd or 4th order. no Fourier transform is used, the curl here is very fast
+! but may be ess precise than fourier.
+! Ghost nodes are used for intra-processor communication
+subroutine Q_FD( u, Q, order )
+  use p3dfft_wrapper
+  use ghosts
+  implicit none
+
+  ! input/output field in x-space
+  ! NOTE ghost nodes are used!
+  real(kind=pr),intent(inout)::u(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:3)
+  real(kind=pr),intent(inout)::Q(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  character(len=*), intent(in) :: order
+
+  integer :: ix,iy,iz
+  real(kind=pr) :: dxinv,dyinv,dzinv,a1,a2,a4,a5
+  real(kind=pr) :: uxdx,uxdy,uxdz,uydx,uydy,uydz,uzdx,uzdy,uzdz
+  real(kind=pr) :: A(1:3,1:3)
+
+  select case(order)
+  case('centered_2nd')
+    call synchronize_ghosts( u, 3 )
+    !-------------------------------------------------------------------------
+    ! compute Q(u) using second order centered period FD
+    !-------------------------------------------------------------------------
+    dxinv = 1.d0/(2.d0*dx)
+    dyinv = 1.d0/(2.d0*dy)
+    dzinv = 1.d0/(2.d0*dz)
+
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
+          uxdx = (u(ix+1,iy,iz,1) - u(ix-1,iy,iz,1))*dxinv
+          uxdy = (u(ix,iy+1,iz,1) - u(ix,iy-1,iz,1))*dyinv
+          uxdz = (u(ix,iy,iz+1,1) - u(ix,iy,iz-1,1))*dzinv
+
+          uydx = (u(ix+1,iy,iz,2) - u(ix-1,iy,iz,2))*dxinv
+          uydy = (u(ix,iy+1,iz,2) - u(ix,iy-1,iz,2))*dyinv
+          uydz = (u(ix,iy,iz+1,2) - u(ix,iy,iz-1,2))*dzinv
+
+          uzdx = (u(ix+1,iy,iz,3) - u(ix-1,iy,iz,3))*dxinv
+          uzdy = (u(ix,iy+1,iz,3) - u(ix,iy-1,iz,3))*dyinv
+          uzdz = (u(ix,iy,iz+1,3) - u(ix,iy,iz-1,3))*dzinv
+
+          A(1,:) =  (/ uxdx, uxdy, uxdz/)
+          A(2,:) =  (/ uydx, uydy, uydz/)
+          A(3,:) =  (/ uzdx, uzdy, uzdz/)
+
+          Q(ix,iy,iz) = -0.5d0*( sum( A*transpose(A) ) )
+        enddo
+      enddo
+    enddo
+
+  case('centered_4th')
+    call synchronize_ghosts( u, 3 )
+    !-------------------------------------------------------------------------
+    ! compute Q(u) using second order centered period FD
+    !-------------------------------------------------------------------------
+    a1 = 1.d0/12.d0
+    a2 =-2.d0/3.d0
+    a4 = 2.d0/3.d0
+    a5 =-1.d0/12.d0
+
+    dxinv = 1.d0/dx
+    dyinv = 1.d0/dy
+    dzinv = 1.d0/dz
+
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
+          uxdx = (a1*u(ix-2,iy,iz,1)+a2*u(ix-1,iy,iz,1)+a4*u(ix+1,iy,iz,1)+a5*u(ix+2,iy,iz,1))*dxinv
+          uxdy = (a1*u(ix,iy-2,iz,1)+a2*u(ix,iy-1,iz,1)+a4*u(ix,iy+1,iz,1)+a5*u(ix,iy+2,iz,1))*dyinv
+          uxdz = (a1*u(ix,iy,iz-2,1)+a2*u(ix,iy,iz-1,1)+a4*u(ix,iy,iz+1,1)+a5*u(ix,iy,iz+2,1))*dzinv
+
+          uydx = (a1*u(ix-2,iy,iz,2)+a2*u(ix-1,iy,iz,2)+a4*u(ix+1,iy,iz,2)+a5*u(ix+2,iy,iz,2))*dxinv
+          uydy = (a1*u(ix,iy-2,iz,2)+a2*u(ix,iy-1,iz,2)+a4*u(ix,iy+1,iz,2)+a5*u(ix,iy+2,iz,2))*dyinv
+          uydz = (a1*u(ix,iy,iz-2,2)+a2*u(ix,iy,iz-1,2)+a4*u(ix,iy,iz+1,2)+a5*u(ix,iy,iz+2,2))*dzinv
+
+          uzdx = (a1*u(ix-2,iy,iz,3)+a2*u(ix-1,iy,iz,3)+a4*u(ix+1,iy,iz,3)+a5*u(ix+2,iy,iz,3))*dxinv
+          uzdy = (a1*u(ix,iy-2,iz,3)+a2*u(ix,iy-1,iz,3)+a4*u(ix,iy+1,iz,3)+a5*u(ix,iy+2,iz,3))*dyinv
+          uzdz = (a1*u(ix,iy,iz-2,3)+a2*u(ix,iy,iz-1,3)+a4*u(ix,iy,iz+1,3)+a5*u(ix,iy,iz+2,3))*dzinv
+
+          A(1,:) =  (/ uxdx, uxdy, uxdz/)
+          A(2,:) =  (/ uydx, uydy, uydz/)
+          A(3,:) =  (/ uzdx, uzdy, uzdz/)
+
+          Q(ix,iy,iz) = -0.5d0*( sum( A*transpose(A) ) )
+        enddo
+      enddo
+    enddo
+
+  case default
+      call abort(5556,'invalid METHOD in curl_FD:'//order)
+  end select
+end subroutine Q_FD
+
+
+
+! Compute the Q-criterion of vector field u in physical space, using a u
+! discretization and Finite-differences. NOTE NO ghost nodes are used. The data
+! is transposed and the derivatives are always computed on the contiguous index
+! This is the same as we have in the wavelet transform.
+subroutine Q_FD_nonper( u, Q, order )
+  use p3dfft_wrapper
+  implicit none
+
+  ! input/output field in x-space NOTE: no ghost nodes
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
+  real(kind=pr),intent(inout)::Q(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  character(len=*), intent(in) :: order
+
+  real(kind=pr), allocatable, dimension(:,:,:) :: uxdx, uxdy, uxdz
+  real(kind=pr), allocatable, dimension(:,:,:) :: uydx, uydy, uydz
+  real(kind=pr), allocatable, dimension(:,:,:) :: uzdx, uzdy, uzdz
+  real(kind=pr) :: A(1:3,1:3)
+  integer :: ix, iy, iz
+
+  allocate(uxdx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uxdy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uxdz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uydx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uydy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uydz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uzdx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uzdy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(uzdz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+  call diffx_nonper(u(:,:,:,1),uxdx)
+  call diffy_nonper(u(:,:,:,1),uxdy)
+  call diffz_nonper(u(:,:,:,1),uxdz)
+
+  call diffx_nonper(u(:,:,:,2),uydx)
+  call diffy_nonper(u(:,:,:,2),uydy)
+  call diffz_nonper(u(:,:,:,2),uydz)
+
+  call diffx_nonper(u(:,:,:,3),uzdx)
+  call diffy_nonper(u(:,:,:,3),uzdy)
+  call diffz_nonper(u(:,:,:,3),uzdz)
+
+  ! source: https://github.com/ganglere/matlab/blob/master/VortexID.m
+
+  do iz = ra(3),rb(3)
+    do iy = ra(2),rb(2)
+      do ix = ra(1),rb(1)
+
+        A(1,:) =  (/ uxdx(ix,iy,iz), uxdy(ix,iy,iz), uxdz(ix,iy,iz)/)
+        A(2,:) =  (/ uydx(ix,iy,iz), uydy(ix,iy,iz), uydz(ix,iy,iz)/)
+        A(3,:) =  (/ uzdx(ix,iy,iz), uzdy(ix,iy,iz), uzdz(ix,iy,iz)/)
+
+        Q(ix,iy,iz) = -0.5d0*( sum( A*transpose(A) ) )
+      enddo
+    enddo
+  enddo
+
+  deallocate( uxdx, uxdy, uxdz)
+  deallocate( uydx, uydy, uydz)
+  deallocate( uzdx, uzdy, uzdz)
+end subroutine Q_FD_nonper
+
+
 ! Compute derivative in x-direction of a scalar field using a non-periodic
 ! discretization and Finite-differences. NOTE NO ghost nodes are used. The data
 ! is transposed and the derivatives are always computed on the contiguous index

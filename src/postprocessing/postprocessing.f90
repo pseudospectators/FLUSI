@@ -70,7 +70,7 @@ subroutine postprocessing()
     call compare_key (key1,key2)
   case ("--compare-timeseries")
     call compare_timeseries(help)
-  case ("--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD")
+  case ("--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD","--Q","--Q-FD")
     call convert_vorticity(help)
   case ("--vor2u")
     call convert_velocity(help)
@@ -164,6 +164,7 @@ subroutine postprocessing()
       write(*,*) "--vor_abs --vor-abs"
       write(*,*) "--vor2u"
       write(*,*) "--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD"
+      write(*,*) "--Q   --Q-FD"
       write(*,*) "--zero-padd"
       write(*,'(80("~"))')
       write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))

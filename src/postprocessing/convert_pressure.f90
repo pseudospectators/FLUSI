@@ -98,7 +98,7 @@ subroutine convert_pressure(help)
 
   neq = 3
   nd = 3
-  nrw = 0
+  nrw = 1
   ncw = 1 ! used in "pressure_from_uk_use_existing_mask"
   if (iVorticitySponge=="yes")  ncw=3
   ga = ra ! since we do not use ghosts nodes
