@@ -73,8 +73,7 @@ subroutine read_field_hdf5 ( filename, dsetname, lbounds, ubounds, field )
   ! what follows is for the attribute "time"
   integer, parameter :: arank = 1
 
-  ! determine size of memory (i.e. the entire array). note we assume the file
-  ! contains the right amount of data, which must be ensured outside of this function
+  ! determine size of memory (i.e. the entire array).
   call MPI_ALLREDUCE ( lbounds(1), mindim,1,MPI_INTEGER,MPI_MIN,MPI_COMM_WORLD,mpicode)
   call MPI_ALLREDUCE ( ubounds(1), maxdim,1,MPI_INTEGER,MPI_MAX,MPI_COMM_WORLD,mpicode)
   dims_global(1) = int( maxdim-mindim+1, kind=hsize_t)
@@ -116,8 +115,7 @@ subroutine read_field_hdf5 ( filename, dsetname, lbounds, ubounds, field )
 
   ! Each process knows how much data it has and where to store it.
   ! now, define the dataset chunking. Chunking is largest dimension in
-  ! each direction, but no more than 128 points (so biggest possible chunk is 128^3
-  ! which is about 16MB)
+  ! each direction, but no more than "max_chunk" points
   do i = 1, 3
     call MPI_ALLREDUCE ( dims_local(i),chunk_dims(i),1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpicode)
     chunk_dims(i) = min(chunk_dims(i), max_chunk )
@@ -143,8 +141,14 @@ subroutine read_field_hdf5 ( filename, dsetname, lbounds, ubounds, field )
   call h5sget_simple_extent_dims_f(filespace, dims_file, dims_dummy, error)
 
   if ( (dims_global(1)/=dims_file(1)).or.(dims_global(2)/=dims_file(2)).or.(dims_global(3)/=dims_file(3)) ) then
-    if (root) write(*,*) "read_hdf5 error: file dimensions do not match"
-    call MPI_ABORT(MPI_COMM_WORLD,10004,mpicode)
+    if (root) then
+      write(*,'(80("w"))')
+      write(*,'(A)') "WARNING read_field_hdf5: the dimension of the data in the file"
+      write(*,'(A)') "        and the global array definition do not match. This can cause a"
+      write(*,'(A)') "        problem if you try to read inexistent data, but for subsets its fine."
+      write(*,'("        in file: ",3(i5,1x)," in params: ",3(i5,1x))') dims_file, dims_global
+      write(*,'(80("w"))')
+    endif
   endif
 
   ! Select hyperslab in the file.

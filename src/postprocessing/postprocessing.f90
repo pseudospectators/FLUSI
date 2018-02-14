@@ -41,6 +41,8 @@ subroutine postprocessing()
     call post_CVE(help)
   case ("--readwrite")
     call readwrite(help)
+  case ("--crop")
+    call crop(help)
   case ("--uCT-assemble")
     call uCT_assemble_HDF5(help)
   case ("--transpose-test")
@@ -131,6 +133,7 @@ subroutine postprocessing()
       write(*,*) "--compare-timeseries"
       write(*,*) "--convert-to-wing-system  // --convert-to-body-system"
       write(*,*) "--cp"
+      write(*,*) "--crop"
       write(*,*) "--dist2mask   --dist2chi"
       write(*,*) "--energy"
       write(*,*) "--extract-subset"
