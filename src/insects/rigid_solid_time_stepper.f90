@@ -177,11 +177,11 @@ subroutine rigid_solid_rhs(time,it,Insect)
     ! the wing fsi model must assume resting body: if not, we have a more complicated
     ! multi-body problem to solve
     if (maxval(Insect%DoF_on_off) == 1) then
-      call abort("you must not use wing fsi AND body fsi at the same time")
+      call abort(1313,"you must not use wing fsi AND body fsi at the same time")
     endif
     ! for the model, we indeed need the wing inertia..
     if (maxval( (/Insect%Jxx,Insect%Jyy,Insect%Jzz,Insect%Jxy/) ) < 1.0d-8) then
-      call abort("you forgot to set wing inertia tensor...")
+      call abort(1314,"you forgot to set wing inertia tensor...")
     endif
 
 Insect%STATE(19:20) =Insect%STATE(19:20) *0.d0

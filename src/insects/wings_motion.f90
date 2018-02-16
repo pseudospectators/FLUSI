@@ -107,7 +107,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     ! (kinematics_fourier_example.ini) is in the git-repository
     !---------------------------------------------------------------------------
     if (index( kine%infile,".ini")==0) then
-      call abort("you're trying to load an old kinematics file,please convert it to &
+      call abort(2030,"you're trying to load an old kinematics file,please convert it to &
       &a new *.ini file (see src/insects/kinematics_example.ini&
       & the insects-tools repository can help you do that!")
     endif
@@ -176,7 +176,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       call hermite_eval(time,theta,theta_dt, kine%ai_theta(1:kine%nfft_theta), kine%bi_theta(1:kine%nfft_theta))
 
     case default
-      call abort("kinematics file does not appear to be valid, set type=fourier or type=hermite")
+      call abort(1717,"kinematics file does not appear to be valid, set type=fourier or type=hermite")
     end select
 
     !---------------------------------------------------------------------------
@@ -194,7 +194,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     case ("radiant","RADIANT","Radiant")
       ! if the file is already in radiants, do nothing and be happy!
     case default
-      call abort("kinematics file does not appear to be valid, set units=degree or units=radiant")
+      call abort(1718,"kinematics file does not appear to be valid, set units=degree or units=radiant")
     end select
 
     !---------------------------------------------------------------------------
@@ -212,7 +212,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       theta    = -theta
       theta_dt = -theta_dt
     case default
-      call abort("kinematics file does not appear to be valid, set convention=flusi or convention=sisc")
+      call abort(1719,"kinematics file does not appear to be valid, set convention=flusi or convention=sisc")
     end select
 
 

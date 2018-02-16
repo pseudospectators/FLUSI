@@ -120,7 +120,7 @@ contains
 
     ! check if on root, array is allocated, if not, yell
     if (.not. allocated(triangles) .and. mpirank==0) then
-      call abort("broadcast stl file but file not yet read?")
+      call abort(2020,"broadcast stl file but file not yet read?")
     endif
     ! broadcast number of triangles and allocate memory on ranks other
     ! than root
@@ -161,7 +161,7 @@ contains
     case ("--scale")
       ! do nothing, scale is given directly
     case default
-      call abort("normalize_stl_file: mode unkown.")
+      call abort(2018,"normalize_stl_file: mode unkown.")
     end select
 
     if (mpirank==0) then

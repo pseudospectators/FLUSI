@@ -117,12 +117,12 @@ subroutine wing_kine_interp(time, kine, phi_i, alpha_i, theta_i, phi_dt_i, alpha
   real(kind=pr), intent(out) :: phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i
 
   if (kine%initialized .eqv. .false.) then
-    call abort("kinematics_loader is not initialized but wing_kine_interp is called")
+    call abort(1515,"kinematics_loader is not initialized but wing_kine_interp is called")
   endif
 
   if ((time<0.d0).or.(time>kine%vec_t(kine%nk))) then
     if(root) write(*,'("time=",es15.8)') time
-    call abort("requested time in kineloader out of valid bounds")
+    call abort(1516,"requested time in kineloader out of valid bounds")
   endif
 
   call hermite1d(kine%nk,kine%vec_t,kine%vec_phi  ,kine%vec_phi_dt,  time,phi_i,phi_dt_i)

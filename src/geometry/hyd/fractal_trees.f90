@@ -30,7 +30,7 @@ subroutine draw_fractal_tree()
 
   ! error checks
   if (iMoving == 1) then
-    call abort("fractal trees do not move -- set iMoving=0 (avoid creating mask in every iteration)")
+    call abort(4417,"fractal trees do not move -- set iMoving=0 (avoid creating mask in every iteration)")
   endif
 
   !*****************************************************************************
