@@ -78,7 +78,7 @@ subroutine create_mask_fsi (time, Insect, beams )
       else
         ! no known case...
         write (*,*) "iMask="//iMask//" not properly set; stopping."
-        call abort(33, "create_mask_fsi(): unkown mask function iMask")
+        call abort(3333, "create_mask_fsi(): unkown mask function iMask")
       endif
     end select
   endif

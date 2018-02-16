@@ -724,7 +724,7 @@ subroutine Jacobi(time, dt, J, x, beam_solid)
         write(*,'(A)') "IBES error, mismatch in Jacobian (numeric vs analytic)"
         write (*,*) "time=", time
         close (14)
-        call abort(1231)
+        call abort(1231, "IBES error, mismatch in Jacobian (numeric vs analytic)")
     endif
     iCalls = 0
   endif

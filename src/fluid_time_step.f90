@@ -187,8 +187,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
 
   ! useful error messages
   if (use_solid_model/="yes") then
-    write(*,*) "using FSI_AB2_iteration without solid model?"
-    call abort(10002)
+    call abort(10002, "using FSI_AB2_iteration without solid model?")
   endif
 
   ! allocate extra space for velocity in Fourier space
@@ -503,8 +502,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   type(diptera),intent(inout)::Insect
 
   if ((use_passive_scalar==1).and.(mpirank==1)) then
-    write(*,*) "RK2 is not equipped for passive scalars..."
-    call abort(100051)
+    call abort(100051, "RK2 is not equipped for passive scalars...")
   endif
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
@@ -823,9 +821,9 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   type(diptera),intent(inout)::Insect
 
   if ((Insect%BodyMotion/="free_flight").and.(mpirank==0)) then
-    write(*,*) "ERROR AB2_rigid_solid and flag Insect%BodyMotion/=free_flight"
+    write(*,*) "AB2_rigid_solid and flag Insect%BodyMotion/=free_flight"
     write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
-    call abort(10007)
+    call abort(10007, "AB2_rigid_solid and flag Insect%BodyMotion/=free_flight")
   endif
 
   if ((method/="fsi").and.(mpirank==0)) then
@@ -900,13 +898,12 @@ subroutine adjust_dt(time,u,dt1)
     !-- Adjust time step at 0th process
     if(mpirank == 0) then
       if(is_nan(umax)) then
-        write(*,*) "Evolved field contains a NAN: aborting run."
-        call abort(100011)
+        call abort(100011, "Evolved field contains a NAN: aborting run.")
       endif
 
       if(umax>=1.0d3) then
         write(*,*) "Umax is very big, surely this is an error, ", umax
-        call abort(100012)
+        call abort(100012, "Umax is very big, surely this is an error")
       endif
       !-- Impose the CFL condition.
       if (umax >= 1.0d-8) then

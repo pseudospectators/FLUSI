@@ -48,7 +48,7 @@ subroutine save_field_hdf5(time,filename,field_out)
     trim(adjustl(fname)), trim(adjustl(get_dsetname(fname))), striding
   endif
 
-  if (striding<1) call abort("Striding value is bad, exit!")
+  if (striding<1) call abort(8881,"Striding value is bad, exit!")
 
   if (striding==1) then
     ! save the entire field to disk (no striding)

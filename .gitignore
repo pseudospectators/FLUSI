@@ -1,7 +1,5 @@
 *.o
 *.mod
-flusi
-mhd
 *~
 fields
 *.t

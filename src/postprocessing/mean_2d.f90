@@ -146,7 +146,7 @@ subroutine mean_2d(help)
       enddo
       close(17)
   case default
-      call abort("Bad choice for direction "//trim(adjustl(direction)) )
+      call abort(131013,"Bad choice for direction "//trim(adjustl(direction)) )
   end select
 
   deallocate (u)

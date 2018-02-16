@@ -17,9 +17,7 @@ subroutine create_mask_mhd()
         call smcnum_mask_mhd()
      case default
         if(mpirank == 0) then
-           write (*,*) &
-                "iMask not properly set for mhd in create_mask_mhd; stopping."
-           call abort()
+           call abort(12345, "iMask not properly set for mhd in create_mask_mhd; stopping.")
         endif
      end select
   endif
@@ -45,9 +43,7 @@ subroutine update_us_mhd()
         call smcnum_us_mhd()
      case default
         if(mpirank == 0) then
-           write (*,*) &
-                "iMask not properly set for mhd in update_us_mhd; stopping."
-           call abort()
+           call abort(12345, "iMask not properly set for mhd in update_us_mhd; stopping.")
         endif
      end select
   endif
@@ -653,13 +649,13 @@ subroutine smcnum_us_mhd()
            if(myi > 1000000) then ! we've gone too far: abort
               write(*,*) myi," is too many iterations."
               keeponkeepingon= .false.
-              call abort
+              call abort( 12345, "is too many iterations")
            endif
            if(myi > 10 .and. error > 100.d0) then
               ! convergence isn't happening: abort
               write(*,*) "error is greater than 100; aborting due to instability"
               keeponkeepingon= .false.
-              call abort
+              call abort( 12345, "error is greater than 100; aborting due to instability")
            endif
         endif
         call MPI_BCAST(pseudodt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)

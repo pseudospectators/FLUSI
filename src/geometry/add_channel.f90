@@ -120,7 +120,7 @@ subroutine add_channel()
             endif
 
           case default
-            call abort(12, "add_channel()::iChannel is not a known value")
+            call abort(121212, "add_channel()::iChannel is not a known value")
           end select
           !----------------
        enddo

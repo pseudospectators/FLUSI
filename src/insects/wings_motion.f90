@@ -133,7 +133,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       case ("Hermite","hermite","HERMITE")
         if (mpirank==0) write(*,*) "The input file is interpreted as HERMITE coefficients"
       case default
-        call abort(77771,   "kinematics file does not appear to be valid, set type=fourier or type=hermite")
+        call abort(77771, "kinematics file does not appear to be valid, set type=fourier or type=hermite")
       end select
 
       ! how many coefficients will be read

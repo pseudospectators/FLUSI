@@ -226,10 +226,6 @@ module vars
 !*****************************************************************************
 !*****************************************************************************
 !*****************************************************************************
-  interface abort
-    module procedure abort1, abort2, abort4, abort3
-  end interface
-
   interface in_domain
     module procedure in_domain1, in_domain2
   end interface
@@ -317,49 +313,18 @@ module vars
   end function per
 
   !---------------------------------------------------------------------------
-  ! abort run, with or without bye-bye message
+  ! abort run, with error code and abort-message
   !---------------------------------------------------------------------------
-  subroutine abort1
-    use mpi
-    implicit none
-    integer :: mpicode
-
-    write(*,*) "Killing run..."
-    call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-  end subroutine abort1
-  !---------------------------------------------------------------------------
-  subroutine abort2(msg)
-    use mpi
-    implicit none
-    integer :: mpicode
-    character(len=*), intent(in) :: msg
-
-    write(*,*) "Killing run..."
-    write(*,*) msg
-    call MPI_abort(MPI_COMM_WORLD,666,mpicode)
-  end subroutine abort2
-  !---------------------------------------------------------------------------
-  subroutine abort3(code)
-    use mpi
-    implicit none
-    integer, intent(in) :: code
-    integer :: mpicode
-
-    write(*,*) "Killing run..."
-    call MPI_abort(MPI_COMM_WORLD,code,mpicode)
-  end subroutine abort3
-  !---------------------------------------------------------------------------
-  subroutine abort4(code,msg)
+  subroutine abort(code,msg)
     use mpi
     implicit none
     integer :: mpicode
     integer, intent(in) :: code
     character(len=*), intent(in) :: msg
 
-    write(*,*) "Killing run..."
     write(*,*) msg
     call MPI_abort(MPI_COMM_WORLD,code,mpicode)
-  end subroutine abort4
+  end subroutine abort
 
   !---------------------------------------------------------------------------
   ! wrapper for NaN checking (this may be compiler dependent)

@@ -228,17 +228,14 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
     gamma_dt = 0.d0
 
   case default
-    if (mpirank==0) write(*,*) "plate_coordinate_system:: imposed_motion_leadingedge undefined"
-    if (mpirank==0) write(*,*) imposed_motion_leadingedge
-    call abort(19)
+    call abort(19,"plate_coordinate_system:: imposed_motion_leadingedge undefined"//trim(adjustl(imposed_motion_leadingedge)))
 
   end select
 
   if (mpirank==0) then
     if (maxval((/beta_dt,gamma_dt,psi_dt/))>0.d0) then
-      write(*,*) "thomas, please be sure to check if the angular velocities are okay here so that you don't do the&
-      & same mistake twice."
-       call abort(20)
+       call abort(20, "thomas, please be sure to check if the angular velocities are okay &
+       &here so that you don't do the same mistake twice.")
     endif
   endif
 

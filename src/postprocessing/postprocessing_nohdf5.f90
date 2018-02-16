@@ -3,5 +3,5 @@
 !-------------------------------------------------------------------------------
 subroutine postprocessing()
   use vars
-  call abort(761918881,'Postprocessing without HDF5 not implemented.')
+  call abort(76181,'Postprocessing without HDF5 not implemented.')
 end subroutine
