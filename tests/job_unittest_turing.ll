@@ -119,8 +119,8 @@ case $LOADL_STEP_NAME in
   pwd
   ls -l
 
-  export mpi_command="runjob --np $CPU --ranks-per-node $RANKS : "
-  export mpi_serial="runjob --np 1 --ranks-per-node $RANKS : "
+  export mpi_command="runjob --np $CPU --ranks-per-node $RANKS --envs BGLOCKLESSMPIO_F_TYPE="0x47504653" : "
+  export mpi_serial="runjob --np 1 --ranks-per-node $RANKS --envs BGLOCKLESSMPIO_F_TYPE="0x47504653" : "
 
   ./unittest.sh
 

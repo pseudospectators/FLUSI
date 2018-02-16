@@ -22,6 +22,7 @@ subroutine create_mask(time,Insect,beams)
     call create_mask_mhd()
   end select
 
+  if (eps<1.0d-11) call abort(77363800,"Value of eps is very small, maybe even zero.")
 
   ! Attention: division by eps is done here, not in subroutines.
   eps_inv = 1.d0/eps

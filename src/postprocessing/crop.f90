@@ -46,16 +46,16 @@ subroutine crop(help)
 
 
   if (help.and.root) then
-    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p --crop ux_00000.h5 sux_00000.h5 0:256 0::128 513:1024"
-    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "! crop field."
-    write(*,*) "! extracts a subset of a file to another file"
-    write(*,*) "!---"
-    write(*,*) "! Note: this routine is Parallel but does not allow striding. Use --extract-subset"
-    write(*,*) "! for a serial version that does support striding."
-    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "Parallel: yes"
+    write(*,'(A)') "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,'(A)') "./flusi -p --crop ux_00000.h5 sux_00000.h5 0:256 0::128 513:1024"
+    write(*,'(A)') "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,'(A)') "! crop field."
+    write(*,'(A)') "! extracts a subset of a file to another file. Of course, you can also overwrite the source file."
+    write(*,'(A)') "!---"
+    write(*,'(A)') "! Note: this routine is Parallel but does not allow striding. Use --extract-subset"
+    write(*,'(A)') "! for a serial version that does support striding."
+    write(*,'(A)') "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,'(A)') "Parallel: yes"
     return
   endif
 
@@ -68,8 +68,6 @@ subroutine crop(help)
 
   dsetname_in  = get_dsetname( fname_in )
   dsetname_out = get_dsetname( fname_out )
-
-  write(*,'("dsetname=",A,1x,A)') trim(adjustl(dsetname_in)),trim(adjustl(dsetname_out))
 
   ! fetch attributes from source file
   call Fetch_attributes( fname_in, nx_file, ny_file, nz_file, xl_file, yl_file, zl_file, time, nu, origin )

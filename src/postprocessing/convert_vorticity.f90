@@ -105,18 +105,26 @@ subroutine convert_vorticity(help)
 
     !*** Finite-differences
   case ("--vorticity-FD", "--vor-abs-FD", "--Q-FD")
-    ng = 3
+    ng = 2
     if (order=="--fourth-order") order="centered_4th"
     if (order=="--second-order") order="centered_2nd"
     ! in the non-periodic case, do not use ghost nodes at all (we use MPI_TRANSPOSES)
     if (order=="--second-order-nonper") ng = 0
     ! finite differences
-    if (root) write(*,*) "using finite differences code (NON-PERIODIC)"
+    if (root) write(*,*) "using finite differences code"
     ! set number of ghost points
     if (root) write(*,'("Set up ng=",i1," ghost points")') ng
 
     ! initialize domain decomposition, but do not use FFTs
-    call decomposition_initialize()
+    if (ng == 0) then
+      ! if non-periodic, 1d decomposition, if possible, is more efficient
+      call decomposition_initialize()
+    else
+      ! force code to use 2d decomposition if using ghost nodes -> higher
+      ! efficiency
+      call decomposition_initialize( .true. )
+    endif
+
     call setup_cart_groups()
 
   end select

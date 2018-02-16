@@ -5,11 +5,6 @@ module hdf5_wrapper
   use hdf5
   implicit none
 
-  ! maximum size of data chunks. HDF always writes chunks of data to the disk,
-  ! these are different from the domain decomposition and important for i/o performance
-  ! we limit their dimensions to max_chunk**3
-  integer(kind=hsize_t) :: max_chunk = 4096
-
   ! interface for writing attributes. an attribute is an object which is attached
   ! to a dataset, in our case a array saved in the file. we put useful information
   ! in attributes, for example the time, resolution and domain size
@@ -113,14 +108,6 @@ subroutine read_field_hdf5 ( filename, dsetname, lbounds, ubounds, field )
   offset(2) = lbounds(2)
   offset(3) = lbounds(3)
 
-  ! Each process knows how much data it has and where to store it.
-  ! now, define the dataset chunking. Chunking is largest dimension in
-  ! each direction, but no more than "max_chunk" points
-  do i = 1, 3
-    call MPI_ALLREDUCE ( dims_local(i),chunk_dims(i),1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpicode)
-    chunk_dims(i) = min(chunk_dims(i), max_chunk )
-  enddo
-
   !----------------------------------------------------------------------------
   ! Read actual field from file (dataset)
   !----------------------------------------------------------------------------
@@ -131,7 +118,6 @@ subroutine read_field_hdf5 ( filename, dsetname, lbounds, ubounds, field )
 
   ! Create chunked dataset
   call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunk_dims, error)
 
   ! Open an existing dataset.
   call h5dopen_f(file_id, dsetname, dset_id, error)
@@ -262,25 +248,6 @@ subroutine write_field_hdf5( filename, dsetname, lbounds, ubounds, field, overwr
   dims_local(2) = ubounds(2)-lbounds(2) + 1
   dims_local(3) = ubounds(3)-lbounds(3) + 1
 
-  ! if (mpirank==0) then
-  !   write(*,'("writing to file=",A," dset=",A," overwrite=",L1)') trim(adjustl(filename)), trim(adjustl(dsetname)), ovrwrte
-  ! endif
-
-  !-----------------------------------------------------------------------------
-  ! chunking.
-  ! HDF writes "chunks" of data at once, and their size can be used for tuning
-  ! i/o performance. For example, when chunks fit the cache of the HDD, the performance
-  ! may be better.
-  !-----------------------------------------------------------------------------
-  ! Each process knows how much data it has and where to store it.
-  ! now, define the dataset chunking. Chunking is largest dimension in
-  ! each direction, but no more than 128 points (so biggest possible chunk is 128^3
-  ! which is about 16MB)
-  do i = 1, 3
-    call MPI_ALLREDUCE ( dims_local(i),chunk_dims(i),1,MPI_INTEGER8,MPI_MAX,MPI_COMM_WORLD,mpicode)
-    chunk_dims(i) = min(chunk_dims(i), max_chunk )
-  enddo
-
 
   ! Initialize HDF5 library and Fortran interfaces.
   call h5open_f(error)
@@ -320,7 +287,6 @@ subroutine write_field_hdf5( filename, dsetname, lbounds, ubounds, field, overwr
 
   ! Create chunked dataset.
   call h5pcreate_f(H5P_DATASET_CREATE_F, plist_id, error)
-  call h5pset_chunk_f(plist_id, rank, chunk_dims, error)
 
   ! determine what precision to use when writing to disk
   if (field_precision=="double") then

@@ -131,13 +131,16 @@ subroutine convert_pressure(help)
   ! to Fourier space
   call fft3 (inx=u, outk=uk)
 
-  ! read in turbulent inlet fields
-  if (use_turbulent_inlet=="yes") then
-    call init_turbulent_inlet ( )
-  endif
+  ! create mask only if possible (i.e. if parameters are given.)
+  if (fname_ini /= "") then
+    ! read in turbulent inlet fields
+    if (use_turbulent_inlet=="yes") then
+      call init_turbulent_inlet ( )
+    endif
 
-  ! create mask
-  call create_mask( time, Insect, beams )
+    ! create mask
+    call create_mask( time, Insect, beams )
+  endif
 
   ! compute pressure
   call pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,workr,workc,press,Insect)
