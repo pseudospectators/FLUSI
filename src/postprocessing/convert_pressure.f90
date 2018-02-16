@@ -11,14 +11,17 @@ subroutine convert_pressure(help)
   use insect_module
   use solid_model
   use turbulent_inlet_module
+  use hdf5_wrapper
+
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, fname_p, fname_ini
+  character(len=strlen) :: fname_mask, fname_usx, fname_usy, fname_usz
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk,nlk
   complex(kind=pr),dimension(:,:,:,:),allocatable :: workc
   real(kind=pr),dimension(:,:,:,:),allocatable :: u, workr, vort
   real(kind=pr),dimension(:,:,:),allocatable :: press
-  real(kind=pr) :: time, divu_max
+  real(kind=pr) :: time, tmp(1)
   type(diptera) :: Insect
   type(solid), dimension(1) :: beams
 
@@ -28,6 +31,7 @@ subroutine convert_pressure(help)
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "./flusi -p --pressure ux uy uz p"
+    write(*,*) "./flusi -p --pressure ux uy uz p mask usx usy usz"
     write(*,*) "./flusi -p --pressure PARAMS.ini ux uy uz p"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) " Compute pressure from velocity."
@@ -52,12 +56,20 @@ subroutine convert_pressure(help)
     call get_command_argument(5, fname_uy)
     call get_command_argument(6, fname_uz)
     call get_command_argument(7, fname_p)
+    fname_mask = ""
+    fname_usx = ""
+    fname_usy = ""
+    fname_usz = ""
   else
     ! first argument is NOT an ini file
     call get_command_argument(3, fname_ux)
     call get_command_argument(4, fname_uy)
     call get_command_argument(5, fname_uz)
     call get_command_argument(6, fname_p)
+    call get_command_argument(7, fname_mask)
+    call get_command_argument(8, fname_usx)
+    call get_command_argument(9, fname_usy)
+    call get_command_argument(10, fname_usz)
     fname_ini = ""
   endif
 
@@ -69,6 +81,10 @@ subroutine convert_pressure(help)
     write(*,*) trim(adjustl(fname_ux))
     write(*,*) trim(adjustl(fname_uy))
     write(*,*) trim(adjustl(fname_uz))
+    write(*,*) trim(adjustl(fname_mask))
+    write(*,*) trim(adjustl(fname_usx))
+    write(*,*) trim(adjustl(fname_usy))
+    write(*,*) trim(adjustl(fname_usz))
     write(*,*) "Writing to:"
     write(*,*) trim(adjustl(fname_p))
     write(*,*) "Parameter file (may be empty):"
@@ -79,6 +95,13 @@ subroutine convert_pressure(help)
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
+
+  if (fname_mask /= "") then
+    call check_file_exists( fname_mask )
+    call check_file_exists( fname_usx )
+    call check_file_exists( fname_usy )
+    call check_file_exists( fname_usz )
+  endif
 
   if (fname_ini /= "") then
     call get_params(fname_ini, Insect, .true.)
@@ -140,6 +163,25 @@ subroutine convert_pressure(help)
 
     ! create mask
     call create_mask( time, Insect, beams )
+  endif
+
+  ! if files are specified, we read the mask function from file, as well as the solid
+  ! velocity field.
+  if (fname_mask /= "") then
+    call read_single_file( fname_mask, mask )
+    call read_single_file( fname_usx, us(:,:,:,1) )
+    call read_single_file( fname_usy, us(:,:,:,2) )
+    call read_single_file( fname_usz, us(:,:,:,3) )
+
+    ! fetch value of penalization parameter from mask file. It should be stored
+    ! there for every version of flusi. Note we need to divide by eps here, since
+    ! this is usually handled in the mask function. It is the first time we need
+    ! the epsi parameter since 2014 (now is 2018), so it was not included in
+    ! fetch_attributes
+    call read_attribute( fname_mask, "mask", "epsi", tmp)
+    eps = tmp(1)
+    mask = mask / eps
+    if (root) write(*,'("Value of eps=C_eta=",g15.8)') eps
   endif
 
   ! compute pressure
