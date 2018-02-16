@@ -121,8 +121,7 @@ subroutine delta_interpolation(x,field,value)
   N_support = 3
 
   if ( ng/=N_support ) then
-    write(*,*) "Error: number of ghostpoints not suitable for delta interp"
-    call abort(67)
+    call abort(67,"Error: number of ghostpoints not suitable for delta interp")
   endif
 
 

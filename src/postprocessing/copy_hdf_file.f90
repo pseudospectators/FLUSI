@@ -40,8 +40,8 @@ subroutine copy_hdf_file(help)
 
 
   if (mpisize/=1) then
-    write(*,*) "./flusi --postprocess --cp is a SERIAL routine, use 1CPU only"
-    call abort()
+    write(*,*)
+    call abort(111, "./flusi --postprocess --cp is a SERIAL routine, use 1CPU only")
   endif
 
 

@@ -258,8 +258,7 @@ contains
 
     ! some checks
     if ((mpirank==0).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
-      write (*,*) "insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong."
-      call abort(4453)
+      call abort(4453,"insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong.")
     endif
 
 

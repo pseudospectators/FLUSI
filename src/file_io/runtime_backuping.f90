@@ -257,7 +257,7 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
     write (*,'(A)') "ERROR! Resolution mismatch"
     write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
     write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nx_file,ny_file,nz_file
-    call abort(77776)
+    call abort(77776, "ERROR! read_runtime_backup(): Resolution mismatch")
   endif
   ! Read fluid backup field:
   call read_field_backup(filename,"ux",work)
@@ -348,4 +348,3 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   endif
 
 end subroutine read_runtime_backup
-

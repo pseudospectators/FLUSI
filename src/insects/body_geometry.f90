@@ -45,9 +45,7 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
   case ("birch_seed")
     call draw_birch_seed( mask, mask_color, us, Insect, color_body, M_body)
   case default
-    if(mpirank==0) write(*,*) "Insect::draw_body::Insect%BodyType unknown..."
-    if(mpirank==0) write(*,*) Insect%bodytype
-    call abort(10623)
+    call abort(10623, "Insect::draw_body::Insect%BodyType unknown..."//trim(adjustl(Insect%BodyType)))
   end select
 
   time_insect_body = time_insect_body + MPI_wtime() - t1
@@ -1975,4 +1973,3 @@ real(kind=pr) function pointTriangleDistance2(tri1,tri2,tri3,point,normal)
   endif
 
 end function
-

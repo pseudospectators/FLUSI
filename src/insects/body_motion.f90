@@ -195,7 +195,7 @@ subroutine BodyMotion(time, Insect)
     if (mpirank==0) then
       write(*,*) Insect%BodyMotion
       write(*,*) "body_motion.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
-      call abort(10621)
+      call abort(10621, "body_motion.f90::BodyMotion: motion case (Insect%BodyMotion) undefined")
     endif
   end select
 
@@ -206,7 +206,7 @@ subroutine BodyMotion(time, Insect)
     write(*,*) "error in body_motion.f90: I found maxval(vc)>0 but the body_moves"
     write(*,*) "flag is set to no, which means we will draw the body only once"
     write(*,*) "This is probably not intented - you should look into it."
-    call abort(10624)
+    call abort(10624, "error in body_motion.f90: I found maxval(vc)>0 but the body_moves")
   endif
 
 

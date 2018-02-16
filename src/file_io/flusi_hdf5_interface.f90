@@ -257,7 +257,7 @@ subroutine Read_Single_File ( filename, field )
       write (*,'(A)') "This happens if ra(:) and rb(:) are not properly initialized."
       write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
       write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nxyz
-      call abort(125)
+      call abort(125,"ERROR! Read_single_file: Resolution mismatch")
     endif
   endif
 

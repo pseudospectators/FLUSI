@@ -137,7 +137,7 @@ subroutine slice_init(time)
     do i=1,nslices
       if (slices_to_save(i)>=nx) then
         write(*,*) "Error: slicing index", slices_to_save(i), "out of bounds. stop."
-        call abort()
+        call abort(717171, 'Error: slicing index out of bounds. stop.')
       endif
     enddo
   endif
@@ -451,7 +451,7 @@ subroutine test_slices( u )
 
 
   call MPI_barrier (MPI_COMM_world, mpierror)
-  call abort()
+  call abort(7171771,"end of test-slices...")
 
 
 end subroutine

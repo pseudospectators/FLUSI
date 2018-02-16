@@ -465,11 +465,6 @@ subroutine ux_from_uyuz(help)
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-    write (*,*) "Error in arguments, files do not start with ux uy and uz"
-    write (*,*) "note files have to be in the right order"
-    call abort()
-  endif
 
   call fetch_attributes( fname_uy, nx, ny, nz, xl, yl, zl, time, nu, origin )
 

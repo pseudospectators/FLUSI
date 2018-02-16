@@ -30,10 +30,8 @@ subroutine init_turbulent_inlet ( )
 
   if (mpirank==0) write(*,*) "Initializing turbulent inlet..."
 
-  if (mpirank==0.and.iMoving==0) then
-    write(*,*) "Using turbulent inlet requires setting iMoving=1 since the us "
-    write(*,*) "field is not updated otherwise. stop."
-    call abort()
+  if (iMoving==0) then
+    call abort(100, "Using turbulent inlet requires setting iMoving=1 since the us field is not updated otherwise. ")
   endif
 
   ! The resolution in the inlet file and the resolution of our simulation do not
@@ -58,10 +56,8 @@ subroutine init_turbulent_inlet ( )
   ra(1) = 0
   rb(1) = nx_turb-1
   nx = nx_turb
-  if((mpirank==0).and.((ny_turb.ne.ny).or.(nz_turb.ne.nz))) then
-    write(*,*) "the turbulent inlet file resolution must match ny,nz"
-    write(*,*) "it doesn't: stop."
-    call abort()
+  if ((ny_turb.ne.ny).or.(nz_turb.ne.nz)) then
+    call abort(101, "the turbulent inlet file resolution must match ny,nz and it doesn't: stop.")
   endif
 
   ! allocate inlet velocity in physical space with the dimensions gathered from
@@ -128,7 +124,7 @@ subroutine turbulent_inlet( time )
 
     if ((i1<0 .or. i1>nx_turb-1).or.(i2<0 .or. i2>nx_turb-1)) then
       if(mpirank==0) write(*,*) "indices for inlet fail: ", i1,i2
-      call abort()
+      call abort(999991, "indices for inlet fail....")
     endif
 
     mask(ix,:,:) = 1.d0

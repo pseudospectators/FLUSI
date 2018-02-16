@@ -164,7 +164,7 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
      print *, "hermite1d: not a uniform grid"
      write(*,'("xi=",es12.4," dx=",es12.4)') xi,dx
      write(*,'("xphi(i0)=",es12.4," xphi(i1)=",es12.4)') xphi(i0),xphi(i1)
-     call abort(884)
+     call abort(884, "hermite1d: not a uniform grid")
   endif
 
   x = (xi-xphi(i0))/dx

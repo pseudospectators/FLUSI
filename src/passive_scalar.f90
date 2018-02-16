@@ -99,7 +99,7 @@ contains
             write(*,'("THIS MEANS WE WILL NO LONGER COMPUTE IT FROM NOW ON!!!")')
           endif
           !-- kill run if scalar is considered crutial for results
-          if (stop_on_fail=="yes") call abort()
+          if (stop_on_fail=="yes") call abort(8181, "PASSIVE SCALAR FAILED")
           !-- otherwise, warn and continue without scalar
           compute_scalar = .false. ! callees will skip
         endif
