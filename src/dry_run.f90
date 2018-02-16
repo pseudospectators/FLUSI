@@ -89,7 +89,7 @@ subroutine dry_run()
   !-----------------------------------------------------------------------------
   ! Initialize domain decomposition, but not FFT (we dont need thats)
   !-----------------------------------------------------------------------------
-  call decomposition_initialize
+  call decomposition_initialize()
 
   !-----------------------------------------------------------------------------
   ! Allocate memory:
@@ -163,7 +163,9 @@ subroutine dry_run()
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
-  time = 0.d0
+  ! tstart is read in parameter file and default value 0.0
+  ! this way you can have better control over dry-runs
+  time = tstart
   it = 0
   do while (time<=tmax)
 

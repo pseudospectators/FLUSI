@@ -185,9 +185,9 @@ end program FLUSI
     ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
     !-----------------------------------------------------------------------------
     ! Initialize p3dfft
-    call fft_initialize
+    call fft_initialize()
     ! Setup communicators used for ghost point update
-    call setup_cart_groups
+    call setup_cart_groups()
 
     !-----------------------------------------------------------------------------
     ! Allocate memory:
