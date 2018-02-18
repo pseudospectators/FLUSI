@@ -211,7 +211,7 @@ subroutine dry_run()
     endif
 
     it = it+1
-    time = dble(it)*tsave
+    time = tstart + dble(it)*tsave
   enddo
 
   if(mpirank==0) then

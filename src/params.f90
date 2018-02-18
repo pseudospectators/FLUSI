@@ -193,32 +193,27 @@ subroutine get_params_common(PARAMS)
   ! automatic file selection only implemented for HDF5 restart files
 #ifndef NOHDF5
   if (inicond == "backup") then
-    if (root) then
-      write(*,'(80("$"))')
-      write(*,*) "AUTOMATIC BACKUP RESUMING (FLOW FIELDS...)"
-      write(*,'(80("$"))')
+    if (root) write(*,'(80("$"))')
+    if (root) write(*,*) "AUTOMATIC BACKUP RESUMING (FLOW FIELDS...)"
+    if (root) write(*,'(80("$"))')
 
-      inquire ( file='runtime_backup0.h5', exist=exists )
-      if (exists) then
-        write(*,*) 'found: runtime_backup0.h5'
-        call read_attribute('runtime_backup0.h5','ux','bckp',bckp)
-        time1 = bckp(1)
-      else
-        time1 = -9.0d9
-      endif
-
-      inquire ( file='runtime_backup1.h5', exist=exists )
-      if (exists) then
-        write(*,*) 'found: runtime_backup1.h5'
-        call read_attribute('runtime_backup1.h5','ux','bckp',bckp)
-        time2 = bckp(1)
-      else
-        time2 = -9.0d9
-      endif
+    inquire ( file='runtime_backup0.h5', exist=exists )
+    if (exists) then
+      if (root) write(*,*) 'found: runtime_backup0.h5'
+      call read_attribute('runtime_backup0.h5','ux','bckp',bckp)
+      time1 = bckp(1)
+    else
+      time1 = -9.0d9
     endif
 
-    call MPI_BCAST(time1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
-    call MPI_BCAST(time2,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
+    inquire ( file='runtime_backup1.h5', exist=exists )
+    if (exists) then
+      if (root) write(*,*) 'found: runtime_backup1.h5'
+      call read_attribute('runtime_backup1.h5','ux','bckp',bckp)
+      time2 = bckp(1)
+    else
+      time2 = -9.0d9
+    endif
 
     if (time1>time2) then
       inicond = 'backup::runtime_backup0.h5'
@@ -231,6 +226,7 @@ subroutine get_params_common(PARAMS)
     if (root) write(*,*) "we decided which backup to resume..."
     if (root) write(*,*) "it is at time=", max(time1,time2)
     if (root) write(*,*) "resuming "//trim(adjustl(inicond))
+    if (root) write(*,'(80("$"))')
   endif
 #endif
 

@@ -24,7 +24,6 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   type(diptera),intent(inout)::Insect
 
   if (mpirank==0) write(*,*) "Set up initial conditions...."
-  tstart = 0.d0
 
   !-----------------------------------------------------------------------------
   ! initialize fields, possibly read in backup file
@@ -57,6 +56,8 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
     call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,&
          scalars_rhs,Insect,beams)
   endif
+
+  tstart = time
 end subroutine init_fields
 
 
