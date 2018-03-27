@@ -990,3 +990,110 @@ subroutine compute_spectrum(time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
   MPI_COMM_WORLD,mpicode)
 
 end subroutine compute_spectrum
+
+
+! ----------------------------------------------------------------------------
+! Compute the energy spectrum of a velocity field in in Fourier space
+! It is assumed that the x-direction is not split among processes, i.e. we
+! deal with a 2D data decomposition.
+!
+! This code also works for non-cubic data
+!
+! The returned array "kvec" contains the "scaled wavenumber" (on the actual,
+! physical domain and not the 2*pi interval)
+!
+! The wavenumber ordering is given by the wrapper is p3dfft_wrapper
+! Assumes using STRIDE-1 ordering: (ix,iy,iz) but (kz,ky,kx) and NOT (kz,kx,ky)
+! ----------------------------------------------------------------------------
+subroutine compute_spectrum_scalar(time,kvec,uk,S_Ekin)
+  use mpi
+  use vars
+  use p3dfft_wrapper
+  implicit none
+
+  real(kind=pr), intent(in) :: time
+  complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  ! NOTE: we assume the x-direction to be contiguous (i.e. it is NOT split among CPU)
+  real(kind=pr), dimension(0:nx-1), intent(inout) :: S_Ekin, kvec
+
+  real(kind=pr), dimension(0:nx-1) :: S_Ekin_loc
+  real(kind=pr) :: kx, ky, kz, kreal, kmax, dk
+  real(kind=pr) :: sum_u
+  integer :: ix, iy, iz, ik, mpicode, nk
+
+
+  ! initalize local and global arrays. note all CPU hold an (0:nx-1) array (since
+  ! in flusi, the x-direction is always local)
+  S_Ekin =0.0d0
+  S_Ekin_loc =0.0d0
+  kvec = 0.d0
+
+
+  ! there is 2 kinds of wavenumbers. The FFT assumes a domain length of 2*pi, then the k
+  ! are integers. How should the FFT know otherwise? it just gets a number of datapoints
+  ! To get the "real" wavenumber, for instance to compute a derivative, the k has to be scaled
+  ! by scalex = 2.d0*pi/xl
+
+  ! the very largest wavenumber occuring in the field is given by
+  ! kmax = norm2( (/scalex*nx/2,scaley*ny/2,scalez*nz/2/) )
+  ! and corresponds to the corner in wavenumber space. However, for a spectrum, we integrate
+  ! over wavenumber shells: therefore, the largest COMPLETE shell is given by the smallest maximum
+  ! wavenumber in one direction.
+  ! On the other hand, if we do that, \int E(k) does not equal the energy of the field..
+!  kmax = minval( (/scalex*dble(nx/2),scaley*dble(ny/2),scalez*dble(nz/2)/) )
+  kmax = norm2( (/scalex*dble(nx/2),scaley*dble(ny/2),scalez*dble(nz/2)/) )
+
+  ! spacing in wavenumber space oddly is the scale factors itself
+  dk = minval( (/scalex,scaley,scalez/) )
+
+  ! the number of bins for the spectrum: (note that due to symmetry, only half the
+  ! range is actually used) (we also return a spectrum array of size (0:nx-1), which contains
+  ! zeros out of the valid range)
+  nk = nint(kmax / dk)
+
+  if (nx <= nk) then
+    call abort(12,"for some reason, we have too many wavenumbers in spectrum..")
+  endif
+
+  sum_u = 0.0d0
+
+  do iz=ca(1),cb(1)
+    kz = wave_z(iz)
+    do iy=ca(2),cb(2)
+      ky = wave_y(iy)
+      do ix=ca(3),cb(3)
+        kx = wave_x(ix)
+        ! compute 2-norm of wavenumber, scaled to our actual domain size
+        kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz))
+        ! note spectrum omits parts of the data (circle in square problem)
+        if (kreal <= kmax) then
+
+          ! then round it so that we can fit it in the corresponding bin, i.e.
+          ! for example 0.5 <= k <= 1.5 is K=1 (this is a spherical wavenumber
+          ! shell in k-space). this operation can easily be achieved by rounding
+          ! kabs to the nearest integer
+          ik = nint( kreal/dk )
+
+          ! NOTE what we are computing here is the power spectrum, so a sine-wave 1*sin(x)
+          ! has the power 0.25 (or generall A*sin(x) has (A/2)^2 energy)
+          if ( ix==0 .or. ix==nx/2 ) then
+            sum_u = dble(real(uk(iz,iy,ix))**2+aimag(uk(iz,iy,ix))**2)/2.d0
+          else
+            sum_u = dble(real(uk(iz,iy,ix))**2+aimag(uk(iz,iy,ix))**2)
+          endif
+
+          S_Ekin_loc(ik)  = S_Ekin_loc(ik)  + sum_u
+        endif
+      enddo
+    enddo
+  enddo
+
+  ! the returned wavenumber is the middle of the bin: (and not kreal!)
+  do ik = 0, nk
+    kvec(ik) = dble(ik)*dk
+  enddo
+
+  call MPI_ALLREDUCE(S_Ekin_loc ,S_Ekin ,nx,MPI_DOUBLE_PRECISION,MPI_SUM,&
+  MPI_COMM_WORLD,mpicode)
+
+end subroutine compute_spectrum_scalar

@@ -47,7 +47,7 @@ subroutine crop(help)
 
   if (help.and.root) then
     write(*,'(A)') "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,'(A)') "./flusi -p --crop ux_00000.h5 sux_00000.h5 0:256 0::128 513:1024"
+    write(*,'(A)') "./flusi -p --crop ux_00000.h5 sux_00000.h5 0:256 0:128 513:1024"
     write(*,'(A)') "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,'(A)') "! crop field."
     write(*,'(A)') "! extracts a subset of a file to another file. Of course, you can also overwrite the source file."
