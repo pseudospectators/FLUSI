@@ -169,7 +169,7 @@ subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body
         x_glob = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
         x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
         x_body   = matmul(M_body,x_glob)
-        x_head   = x_body - Insect%x_head
+        x_head   = x_body
 
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_head(2)) <= dz_head + Insect%safety ) then
@@ -472,7 +472,7 @@ subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body,
         x_glob = periodize_coordinate(x_glob - Insect%xc_body_g)
         ! x_body is in the body coordinate system
         x_body = matmul(M_body,x_glob)
-        x_head   = x_body - Insect%x_head
+        x_head   = x_body
 
         ! check if inside the surrounding box (save comput. time)
         if ( dabs(x_head(2)) <= dz_head + Insect%safety ) then
@@ -597,8 +597,8 @@ subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
   ! values here. the advantage is that we can set   BodyType=jerry;  and voilà!
   Insect%R_head = 0.125d0
   Insect%R_eye = 0.0625d0
-  Insect%x_pivot_r =(/ 0.05d0, -0.2165d0, 0.d0 /)
-  Insect%x_pivot_l =(/ 0.05d0, +0.2165d0, 0.d0 /)
+  Insect%x_pivot_r_b =(/ 0.05d0, -0.2165d0, 0.d0 /)
+  Insect%x_pivot_l_b =(/ 0.05d0, +0.2165d0, 0.d0 /)
   Insect%b_body = 0.1d0
   Insect%L_body = 1.0d0
   Insect%x_head = (/0.5d0*Insect%L_body,0.d0,0.d0 /)
@@ -935,7 +935,7 @@ end subroutine draw_body_particle
 ! flapping motion in free flight. Therefore, the insect module contains nowadays
 ! also body shapes that are not related to insects. This one is a flat plate of
 ! size
-! Insect%L_span x Insect%L_chord x Insect%WingThickness
+! Insect%L_span x Insect%L_body x Insect%WingThickness
 !-------------------------------------------------------------------------------
 subroutine draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
   use vars
@@ -964,11 +964,11 @@ subroutine draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
 
         ! bounding box checks
         if (dabs(x_body(1)) <= Insect%L_span+Insect%safety) then
-          if (dabs(x_body(2)) <= Insect%L_chord+Insect%safety) then
+          if (dabs(x_body(2)) <= Insect%L_body+Insect%safety) then
             if (dabs(x_body(3)) <= Insect%WingThickness+Insect%safety) then
               ! signed distance:
               R = maxval( (/ dabs(x_body(3))-Insect%WingThickness/2.d0,&
-                             dabs(x_body(2))-Insect%L_chord/2.d0,&
+                             dabs(x_body(2))-Insect%L_body/2.d0,&
                              dabs(x_body(1))-Insect%L_span/2.d0 &
                           /) )
               mask(ix,iy,iz) = max(steps(R,0.d0),mask(ix,iy,iz))
@@ -1103,8 +1103,8 @@ subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
 
   Insect%R_head = 0.125d0
   Insect%R_eye = 0.0625d0
-  ! Insect%x_pivot_r =(/ 0.05d0, -0.2165d0, 0.d0 /)
-  ! Insect%x_pivot_l =(/ 0.05d0, +0.2165d0, 0.d0 /)
+  ! Insect%x_pivot_r_b =(/ 0.05d0, -0.2165d0, 0.d0 /)
+  ! Insect%x_pivot_l_b =(/ 0.05d0, +0.2165d0, 0.d0 /)
   Insect%b_body = 0.15d0
   Insect%L_body = 1.0d0
   Insect%x_head = (/0.5d0*Insect%L_body,0.d0,0.d0 /)

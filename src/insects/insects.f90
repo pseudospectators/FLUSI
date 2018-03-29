@@ -96,7 +96,7 @@ module insect_module
     real(kind=pr), dimension(1:3) :: x_pivot_l_g=0.d0, x_pivot_r_g=0.d0
     ! vectors desribing the positoions of insect's key elements
     ! in the body coordinate system
-    real(kind=pr), dimension(1:3) :: x_head=0.d0,x_eye_r=0.d0,x_eye_l=0.d0,x_pivot_l=0.d0,x_pivot_r=0.d0
+    real(kind=pr), dimension(1:3) :: x_head=0.d0,x_eye_r=0.d0,x_eye_l=0.d0,x_pivot_l_b=0.d0,x_pivot_r_b=0.d0
     ! moments of inertia in the body reference frame
     real(kind=pr) :: Jroll_body=0.d0, Jyaw_body=0.d0, Jpitch_body=0.d0
     ! total mass of insect:
@@ -158,6 +158,7 @@ module insect_module
     ! wing inertia
     real(kind=pr) :: Jxx=0.d0,Jyy=0.d0,Jzz=0.d0,Jxy=0.d0
     character(len=strlen) :: wing_thickness_distribution = "constant"
+    character(len=strlen) :: pointcloudfile = "none"
     logical :: corrugated = .false.
 
     !--------------------------------------------------------------
@@ -175,7 +176,7 @@ module insect_module
     ! parameters for body:
     real(kind=pr) :: L_body=0.d0, b_body=0.d0, R_head=0.d0, R_eye=0.d0
     ! parameters for wing shape:
-    real(kind=pr) :: b_top=0.d0, b_bot=0.d0, L_chord=0.d0, L_span=0.d0, WingThickness=0.d0
+    real(kind=pr) :: b_top=0.d0, b_bot=0.d0, L_span=0.d0, WingThickness=0.d0
     ! this is a safety distance for smoothing:
     real(kind=pr) :: safety=0.d0, smooth=0.d0
     ! parameter for hovering:
@@ -303,8 +304,8 @@ contains
     ! vector from body centre to left/right pivot point in global reference frame,
     ! for aerodynamic power
     !-----------------------------------------------------------------------------
-    Insect%x_pivot_l_g = matmul(M_body_inv, Insect%x_pivot_l)
-    Insect%x_pivot_r_g = matmul(M_body_inv, Insect%x_pivot_r)
+    Insect%x_pivot_l_g = matmul(M_body_inv, Insect%x_pivot_l_b)
+    Insect%x_pivot_r_g = matmul(M_body_inv, Insect%x_pivot_r_b)
 
     !-----------------------------------------------------------------------------
     ! write kinematics to disk (Dmitry, 28 Oct 2013)
@@ -351,12 +352,12 @@ contains
     !-----------------------------------------------------------------------------
     if (Insect%RightWing == "yes") then
       call draw_wing(mask, mask_color, us, Insect, Insect%color_r, M_body, M_wing_r, &
-      Insect%x_pivot_r, Insect%rot_rel_wing_r_w )
+      Insect%x_pivot_r_b, Insect%rot_rel_wing_r_w )
     endif
 
     if (Insect%LeftWing == "yes") then
       call draw_wing(mask, mask_color, us, Insect, Insect%color_l, M_body, M_wing_l, &
-      Insect%x_pivot_l, Insect%rot_rel_wing_l_w )
+      Insect%x_pivot_l_b, Insect%rot_rel_wing_l_w )
     endif
 
     !-----------------------------------------------------------------------------
@@ -1114,7 +1115,7 @@ contains
     call wing_angular_velocities ( time, Insect, M_body )
 
     x_tip_w = (/ 1.0d0, 1.0d0, 1.0d0 /)
-    x_tip_b = matmul( transpose(M_wing_r), x_tip_w ) + Insect%x_pivot_r
+    x_tip_b = matmul( transpose(M_wing_r), x_tip_w ) + Insect%x_pivot_r_b
     x_tip_g = matmul( transpose(M_body), x_tip_b ) + Insect%xc_body_g
 
     !-----------------------------------------------------------------------------

@@ -7,7 +7,7 @@ do
 	if [ -d $dir ]; then
 		echo "found directory" $dir
 		cd $dir
-		rm -f succ* *.rigidsolver decomp* divu.t mask_volume.t runtime_control.ini flusi *.h5 *.xmf
+		rm -f succ* *.rigidsolver decomp* divu.t mask_volume.t runtime_control.ini flusi *.h5 *.xmf return
 		cd ..
 	fi
 done

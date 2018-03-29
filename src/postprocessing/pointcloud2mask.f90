@@ -3,6 +3,7 @@ subroutine pointcloud2mask(help)
   use helpers
   use ini_files_parser_mpi
   use p3dfft_wrapper
+  use insect_module
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: cloudfile, outfile, mode, dummy
@@ -63,6 +64,7 @@ subroutine pointcloud2mask(help)
   call get_command_argument(13,dummy)
   read(dummy,*) nz
   call get_command_argument(14,dummy)
+  read(dummy,*) d0
 
   if (root) then
     write(*,'(80("~"))')
@@ -120,14 +122,23 @@ subroutine pointcloud2mask(help)
   ! we don't use ghost points right now, but maybe in the future if we want to fill
   ! the body interior with some algorithm
   ng = 0
+
   ! initialize code and domain decomposition, but do not use FFTs
   call decomposition_initialize()
+
+
+  ! smoothing for mask function:
+  if (nx/=1) then
+    smoothing = 1.5d0*max(dz,dy,dx)
+  else
+    smoothing = 1.5d0*max(dz,dy)
+  endif
 
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   work = 0.0d0
 
   if (root) write(*,*) "...computing distance only near fluid-solid interface"
-  call signed_distance_from_pointcloud(matrixlines, points, normals, work, safety, d0)
+  call mask_from_pointcloud(matrixlines, points, normals, work, safety, d0, int(0,kind=2) )
 
 
   ! save result to file
@@ -139,13 +150,15 @@ subroutine pointcloud2mask(help)
 end subroutine
 
 
-subroutine signed_distance_from_pointcloud(N, points, normals, work, safety, d0)
+subroutine mask_from_pointcloud(N, points, normals, work, safety, d0, color)
   use vars
+  use penalization
   use helpers
   use insect_module, only : steps
   use stl_file_reader ! for the function distance to triangle
   implicit none
   integer, intent(in) :: N,safety
+  integer(kind=2), intent(in) :: color
   real(kind=pr),dimension(1:N,1:3),intent(in):: points
   real(kind=pr),dimension(1:N,1:3),intent(in):: normals
   real(kind=pr),intent(in):: d0
@@ -154,7 +167,12 @@ subroutine signed_distance_from_pointcloud(N, points, normals, work, safety, d0)
   integer :: ix,iy,iz,i,xmin,xmax,ymin,ymax,zmin,zmax
   real(kind=pr) :: x,y,z,tmp, s
 
-  work = 9.0d4
+  work = 9.0d7
+
+  if (maxval(points(:,1))>xl .or. minval(points(:,1))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (x)"
+  if (maxval(points(:,2))>yl .or. minval(points(:,2))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (y)"
+  if (maxval(points(:,3))>zl .or. minval(points(:,3))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (z)"
+
 
   do i = 1, N
     ! bounding box of the vicinity of the langrangian makert point of the cloud.
@@ -176,14 +194,16 @@ subroutine signed_distance_from_pointcloud(N, points, normals, work, safety, d0)
             z = dz*dble(iz)
 
             ! the distance to the current point:
-            tmp = dsqrt( (x-points(i,1))**2 + (y-points(i,2))**2 + (z-points(i,3))**2 )
-            ! take care of sign: exterior / interior
-            if ((x-points(i,1))*normals(i,1) + (y-points(i,2))*normals(i,2) + (z-points(i,3))*normals(i,3) < 0.0) then
-              tmp = -tmp
-            endif
+            ! note this is the square of the distance (cheaper to take sqrt later!)
+            tmp = (x-points(i,1))**2 + (y-points(i,2))**2 + (z-points(i,3))**2
+
             ! if closer (in abs value!) then use this now
             if ( dabs(tmp) < dabs(work(ix,iy,iz) ) ) then
-              work(ix,iy,iz)  = tmp
+                ! take care of sign: exterior / interior
+                if ((x-points(i,1))*normals(i,1) + (y-points(i,2))*normals(i,2) + (z-points(i,3))*normals(i,3) < 0.0) then
+                  tmp = -tmp
+                endif
+                work(ix,iy,iz)  = tmp
             endif
 
           endif
@@ -199,9 +219,25 @@ subroutine signed_distance_from_pointcloud(N, points, normals, work, safety, d0)
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
-        work(ix,iy,iz) = steps( work(ix,iy,iz)-d0, 0.d0 )
+          tmp = work(ix,iy,iz)
+          if (tmp >= 0.0d0) then
+              tmp = sqrt(tmp)
+          else
+              tmp = -sqrt(-tmp)
+          endif
+        work(ix,iy,iz) = steps( tmp-d0, 0.d0 )
       enddo
     enddo
   enddo
 
-end subroutine signed_distance_from_pointcloud
+  if (allocated(mask_color)) then
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          if (work(ix,iy,iz)>0.0) mask_color(ix,iy,iz)=color
+        enddo
+      enddo
+    enddo
+  endif
+
+end subroutine mask_from_pointcloud

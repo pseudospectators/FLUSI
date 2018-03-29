@@ -371,7 +371,6 @@ subroutine get_params_insect( PARAMS,Insect )
   call read_param_mpi(PARAMS,"Insects","WingShape",Insect%WingShape,"none")
   call read_param_mpi(PARAMS,"Insects","b_top",Insect%b_top, 0.d0)
   call read_param_mpi(PARAMS,"Insects","b_bot",Insect%b_bot, 0.d0)
-  call read_param_mpi(PARAMS,"Insects","L_chord",Insect%L_chord, 0.d0)
   call read_param_mpi(PARAMS,"Insects","L_span",Insect%L_span, 0.d0)
   call read_param_mpi(PARAMS,"Insects","FlappingMotion_right",Insect%FlappingMotion_right,"none")
   call read_param_mpi(PARAMS,"Insects","FlappingMotion_left",Insect%FlappingMotion_left,"none")
@@ -458,6 +457,9 @@ subroutine get_params_insect( PARAMS,Insect )
   call read_param_mpi(PARAMS,"Insects","eta0",Insect%eta0, 0.0d0)
   Insect%eta0 = Insect%eta0*(pi/180.d0)
 
+  call read_param_mpi(PARAMS,"Insects","pointcloudfile",Insect%pointcloudfile,"none")
+
+
 
   ! degrees of freedom for free flight solver. The string from ini file contains
   ! 6 characters 1 or 0 that turn on/off x,y,z,yaw,pitch,roll degrees of freedom
@@ -498,10 +500,10 @@ subroutine get_params_insect( PARAMS,Insect )
 
   ! wing hinges (root points)
   defaultvec=(/0.d0, +Insect%b_body, 0.d0 /)
-  call read_param_mpi(PARAMS,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec)
+  call read_param_mpi(PARAMS,"Insects","x_pivot_l",Insect%x_pivot_l_b, defaultvec)
 
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
-  call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)
+  call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r_b, defaultvec)
 
   Insect%smooth = 2.0d0*dz
 
