@@ -149,10 +149,10 @@ subroutine turbulence_analysis(help)
     do ix = 1,nx-1
       lambda_macro = lambda_macro + pi/(2.d0*u_rms**2) * S_Ekin(ix) / dble(ix)
     enddo
-    write(17,'(g15.8,5x,A)') lambda_micro, "taylor micro scale"
-    write(17,'(g15.8,5x,A)') lambda_macro, "taylor macro scale"
-    write(17,'(g15.8,5x,A)') u_rms*lambda_macro/nu, "Renolds taylor macro scale"
-    write(17,'(g15.8,5x,A)') u_rms*lambda_micro/nu, "Renolds taylor micro scale"
+    write(17,'(g15.8,5x,A)') lambda_micro, "Taylor micro scale"
+    write(17,'(g15.8,5x,A)') lambda_macro, "Taylor macro scale"
+    write(17,'(g15.8,5x,A)') u_rms*lambda_macro/nu, "Reynolds Taylor macro scale"
+    write(17,'(g15.8,5x,A)') u_rms*lambda_micro/nu, "Reynolds Taylor micro scale"
     write(17,'(g15.8,5x,A)') lambda_macro/u_rms, "eddy turnover time"
     write(17,'(g15.8,5x,A)') (2./3.)*(dble(nx/2-1)), "kmax"
     write(17,'(g15.8,5x,A)') (2./3.)*(dble(nx/2-1))*(nu**3 / epsilon)**(0.25d0), "kmax*eta"
