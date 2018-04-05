@@ -3,6 +3,7 @@ subroutine pointcloud2mask(help)
   use helpers
   use ini_files_parser_mpi
   use p3dfft_wrapper
+  use penalization, only : mask_color
   use insect_module
   implicit none
   logical, intent(in) :: help
@@ -118,7 +119,7 @@ subroutine pointcloud2mask(help)
   time = 0.d0
   ! the safety integer defines how large the vicinity of each point is, i.e. it
   ! is mainly a computational cost parameter
-  safety = 5
+  safety = 4
   ! we don't use ghost points right now, but maybe in the future if we want to fill
   ! the body interior with some algorithm
   ng = 0
@@ -135,7 +136,9 @@ subroutine pointcloud2mask(help)
   endif
 
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
   work = 0.0d0
+  mask_color = int(0,kind=2)
 
   if (root) write(*,*) "...computing distance only near fluid-solid interface"
   call mask_from_pointcloud(matrixlines, points, normals, work, safety, d0, int(0,kind=2) )
@@ -145,7 +148,7 @@ subroutine pointcloud2mask(help)
   call save_field_hdf5 ( time, outfile, work )
 
   ! finalize
-  deallocate (work)
+  deallocate (work, mask_color)
   call fft_free()
 end subroutine
 
@@ -165,7 +168,9 @@ subroutine mask_from_pointcloud(N, points, normals, work, safety, d0, color)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   integer :: ix,iy,iz,i,xmin,xmax,ymin,ymax,zmin,zmax
-  real(kind=pr) :: x,y,z,tmp, s
+  real(kind=pr) :: x,y,z,tmp,t0,sign
+
+  t0 = MPI_wtime()
 
   work = 9.0d7
 
@@ -175,7 +180,7 @@ subroutine mask_from_pointcloud(N, points, normals, work, safety, d0, color)
 
 
   do i = 1, N
-    ! bounding box of the vicinity of the langrangian makert point of the cloud.
+    ! bounding box of the vicinity of the Lagrangian maker point of the cloud.
     xmin = nint(points(i,1)/dx)-safety
     xmax = nint(points(i,1)/dx)+safety
 
@@ -185,28 +190,34 @@ subroutine mask_from_pointcloud(N, points, normals, work, safety, d0, color)
     zmin = nint(points(i,3)/dz)-safety
     zmax = nint(points(i,3)/dz)+safety
 
-    do iz = zmin, zmax
-      do iy = ymin, ymax
-        do ix = xmin, xmax
-          if ( on_proc((/ix,iy,iz/)) ) then
-            x = dx*dble(ix)
-            y = dy*dble(iy)
-            z = dz*dble(iz)
+    do iz = max(zmin,ra(3)), min(zmax,rb(3))
+      z = dz*dble(iz)
+      do iy = max(ymin,ra(2)), min(ymax,rb(2))
+        y = dy*dble(iy)
+        do ix = max(xmin,ra(1)), min(xmax,rb(1))
+          x = dx*dble(ix)
 
-            ! the distance to the current point:
-            ! note this is the square of the distance (cheaper to take sqrt later!)
-            tmp = (x-points(i,1))**2 + (y-points(i,2))**2 + (z-points(i,3))**2
+          !-------------------------------------------------------------
+          ! the distance to the current point:
+          ! note this is the square of the distance (cheaper to take sqrt later!)
+          tmp = (x-points(i,1))*(x-points(i,1)) &
+              + (y-points(i,2))*(y-points(i,2)) &
+              + (z-points(i,3))*(z-points(i,3))
 
-            ! if closer (in abs value!) then use this now
-            if ( dabs(tmp) < dabs(work(ix,iy,iz) ) ) then
-                ! take care of sign: exterior / interior
-                if ((x-points(i,1))*normals(i,1) + (y-points(i,2))*normals(i,2) + (z-points(i,3))*normals(i,3) < 0.0) then
-                  tmp = -tmp
-                endif
-                work(ix,iy,iz)  = tmp
+          ! if closer (in abs value!) then use this now
+          if ( dabs(tmp) < dabs(work(ix,iy,iz)) ) then
+            ! take care of sign: exterior / interior
+            sign = (x-points(i,1))*normals(i,1) &
+                 + (y-points(i,2))*normals(i,2) &
+                 + (z-points(i,3))*normals(i,3)
+            ! is interior?
+            if (sign < 0.0d0) then
+              tmp = -tmp
             endif
-
+            ! use this value now
+            work(ix,iy,iz)  = tmp
           endif
+          !-------------------------------------------------------------
         enddo
       enddo
     enddo
@@ -220,16 +231,22 @@ subroutine mask_from_pointcloud(N, points, normals, work, safety, d0, color)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
           tmp = work(ix,iy,iz)
-          if (tmp >= 0.0d0) then
-              tmp = sqrt(tmp)
+          ! exclude area that has not been altered:
+          if (tmp<1.0d7) then
+              if (tmp >= 0.0d0) then
+                  tmp = dsqrt(tmp)
+              else
+                  tmp = -dsqrt(-tmp)
+              endif
+              work(ix,iy,iz) = steps( tmp-d0, 0.d0 )
           else
-              tmp = -sqrt(-tmp)
+              work(ix,iy,iz) = 0.0d0
           endif
-        work(ix,iy,iz) = steps( tmp-d0, 0.d0 )
       enddo
     enddo
   enddo
 
+  ! assign color, if that is used
   if (allocated(mask_color)) then
     do iz = ra(3), rb(3)
       do iy = ra(2), rb(2)
@@ -239,5 +256,10 @@ subroutine mask_from_pointcloud(N, points, normals, work, safety, d0, color)
       enddo
     enddo
   endif
+
+  t0 = MPI_wtime() -t0
+  t0 = mpisum(t0)
+
+  if (root) write(*,*) "elapsed time in pc2chi ", t0/dble(mpisize)
 
 end subroutine mask_from_pointcloud

@@ -210,7 +210,7 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
   ! ----------------------------------------------------------------------------
   ! 5: safety layer
   ! 0.0d0: do not thicken wing artificially
-  call mask_from_pointcloud(npoints, particle_points(:,7:9), particle_points(:,10:12), mask, 5, 0.0d0, color_wing)
+  call mask_from_pointcloud(npoints, particle_points(:,7:9), particle_points(:,10:12), mask, 4, 0.0d0, color_wing)
 
   if (root) then
     if (Insect%BodyType /= 'nobody'.or. Insect%LeftWing == "yes") then
