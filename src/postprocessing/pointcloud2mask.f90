@@ -17,7 +17,7 @@ subroutine pointcloud2mask(help)
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p --pointcloud2mask pointcloud.txt outfile_000.h5 x0 y0 z0 xl yl zl nx ny nz d0"
+    write(*,*) "./flusi -p --pointcloud2mask pointcloud.txt outfile_000.h5 x0 y0 z0 xl yl zl nx ny nz d0 [--minimal-domain]"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "! read an point cloud file, which basically contains a list of points and their normals,"
     write(*,*) "! and compute the mask function for it. "
@@ -66,6 +66,7 @@ subroutine pointcloud2mask(help)
   read(dummy,*) nz
   call get_command_argument(14,dummy)
   read(dummy,*) d0
+  call get_command_argument(15,mode)
 
   if (root) then
     write(*,'(80("~"))')
@@ -75,6 +76,7 @@ subroutine pointcloud2mask(help)
     write(*,'("xl=",g12.4," yl=",g12.4," zl=",g12.4)') xl,yl,zl
     write(*,'("x0=",g12.4," y0=",g12.4," z0=",g12.4)') x0,y0,z0
     write(*,'("d0=",g12.4)') d0
+    write(*,'("mode=",A)') mode
     write(*,'(80("~"))')
   endif
 
@@ -99,31 +101,64 @@ subroutine pointcloud2mask(help)
   points(:,1) = data_raw(:,1) + x0
   points(:,2) = data_raw(:,2) + y0
   points(:,3) = data_raw(:,3) + z0
+  deallocate( data_raw )
 
+  ! the safety integer defines how large the vicinity of each point is, i.e. it
+  ! is mainly a computational cost parameter
+  safety = 4
+
+  ! in most cases, the origin of the grid is zero
+  origin = 0.0d0
+
+  if (mode == "--minimal-domain") then
+    if (root) write(*,*) "As you set --minimal-domain, I will ignore xl,yl,zl and create"
+    if (root) write(*,*) "the smallest possible cube that contains your pointcloud. I will use"
+    if (root) write(*,*) "the same resolution you specified in the call."
+    ! the resolution in the call was:
+    dx = xl / dble(nx)
+
+    origin = (/minval(points(:,1)),minval(points(:,2)),minval(points(:,3))/) - dble(safety)*dx
+    xl = maxval(points(:,1))-origin(1) + dble(safety)*dx
+    yl = maxval(points(:,2))-origin(2) + dble(safety)*dx
+    zl = maxval(points(:,3))-origin(3) + dble(safety)*dx
+
+    nx = nint(xl/dx)
+    ny = nint(yl/dx)
+    nz = nint(zl/dx)
+
+    if (root) write(*,'("nx=",i5," ny=",i5," nz=",i5)') nx,ny,nz
+    if (root) write(*,'("xl=",g12.4," yl=",g12.4," zl=",g12.4)') xl,yl,zl
+    if (root) write(*,'("x0=",g12.4," y0=",g12.4," z0=",g12.4)') origin
+
+  endif
+
+  ! check if the grid is large enough for the data
   if (root) then
     write(*,'(80("~"))')
     write(*,'("max_x=",g12.4," max_y=",g12.4," max_z=",g12.4)') maxval(points(:,1)), maxval(points(:,2)), maxval(points(:,3))
     write(*,'("min_x=",g12.4," min_y=",g12.4," min_z=",g12.4)') minval(points(:,1)), minval(points(:,2)), minval(points(:,3))
     write(*,'(80("~"))')
 
-    if (maxval(points(:,1))>xl .or. minval(points(:,1))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (x)"
-    if (maxval(points(:,2))>yl .or. minval(points(:,2))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (y)"
-    if (maxval(points(:,3))>zl .or. minval(points(:,3))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (z)"
+    if (maxval(points(:,1))>xl+origin(1) .or. minval(points(:,1))<origin(1)) then
+      write(*,*) "WARNING: some points may be outside of the domain! (x)"
+    endif
+    if (maxval(points(:,2))>yl+origin(2) .or. minval(points(:,2))<origin(2)) then
+      write(*,*) "WARNING: some points may be outside of the domain! (y)"
+    endif
+    if (maxval(points(:,3))>zl+origin(3) .or. minval(points(:,3))<origin(3)) then
+      write(*,*) "WARNING: some points may be outside of the domain! (z)"
+    endif
   endif
 
-  deallocate( data_raw )
+
 
   !-----------------------------------------------------------------------------
   ! create mask
   !-----------------------------------------------------------------------------
   time = 0.d0
-  ! the safety integer defines how large the vicinity of each point is, i.e. it
-  ! is mainly a computational cost parameter
-  safety = 4
   ! we don't use ghost points right now, but maybe in the future if we want to fill
   ! the body interior with some algorithm
   ng = 0
-
   ! initialize code and domain decomposition, but do not use FFTs
   call decomposition_initialize()
 
@@ -174,28 +209,34 @@ subroutine mask_from_pointcloud(N, points, normals, work, safety, d0, color)
 
   work = 9.0d7
 
-  if (maxval(points(:,1))>xl .or. minval(points(:,1))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (x)"
-  if (maxval(points(:,2))>yl .or. minval(points(:,2))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (y)"
-  if (maxval(points(:,3))>zl .or. minval(points(:,3))<0.0d0) write(*,*) "WARNING: some points may be outside of the domain! (z)"
+  if (maxval(points(:,1))>xl+origin(1) .or. minval(points(:,1))<origin(1)) then
+    write(*,*) "WARNING: some points may be outside of the domain! (x)"
+  endif
+  if (maxval(points(:,2))>yl+origin(2) .or. minval(points(:,2))<origin(2)) then
+    write(*,*) "WARNING: some points may be outside of the domain! (y)"
+  endif
+  if (maxval(points(:,3))>zl+origin(3) .or. minval(points(:,3))<origin(3)) then
+    write(*,*) "WARNING: some points may be outside of the domain! (z)"
+  endif
 
 
   do i = 1, N
     ! bounding box of the vicinity of the Lagrangian maker point of the cloud.
-    xmin = nint(points(i,1)/dx)-safety
-    xmax = nint(points(i,1)/dx)+safety
+    xmin = nint((points(i,1)-origin(1))/dx)-safety
+    xmax = nint((points(i,1)-origin(1))/dx)+safety
 
-    ymin = nint(points(i,2)/dy)-safety
-    ymax = nint(points(i,2)/dy)+safety
+    ymin = nint((points(i,2)-origin(2))/dy)-safety
+    ymax = nint((points(i,2)-origin(2))/dy)+safety
 
-    zmin = nint(points(i,3)/dz)-safety
-    zmax = nint(points(i,3)/dz)+safety
+    zmin = nint((points(i,3)-origin(3))/dz)-safety
+    zmax = nint((points(i,3)-origin(3))/dz)+safety
 
     do iz = max(zmin,ra(3)), min(zmax,rb(3))
-      z = dz*dble(iz)
+      z = origin(3) + dz*dble(iz)
       do iy = max(ymin,ra(2)), min(ymax,rb(2))
-        y = dy*dble(iy)
+        y = origin(2) + dy*dble(iy)
         do ix = max(xmin,ra(1)), min(xmax,rb(1))
-          x = dx*dble(ix)
+          x = origin(1) + dx*dble(ix)
 
           !-------------------------------------------------------------
           ! the distance to the current point:
