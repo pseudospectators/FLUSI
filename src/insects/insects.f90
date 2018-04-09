@@ -41,6 +41,16 @@ module insect_module
   ! wing corrugation profile
   real(kind=pr), allocatable, dimension(:,:) :: corrugation_profile
 
+  ! wing signed distance function, if the 3d-interpolation approach is used.
+  ! This is useful for highly complex wings, where one generates the mask only once
+  ! and then interpolates the values to the global grid. note the data allocated
+  ! here is of course understood in the wing system, so the linear transformation
+  ! x_g -> x_w' is used, where x_w' is not a grid-aligned value x_w
+  real(kind=pr), allocatable, dimension(:,:,:), save :: mask_wing_complete
+  real(kind=pr), dimension(1:3), save :: mask_wing_xl, mask_wing_x0
+  integer, dimension(1:3), save :: mask_wing_nxyz
+  integer, save :: mask_wing_safety=4
+
   !-----------------------------------------------------------------------------
   ! TYPE DEFINITIONS
   ! datatype for wing kinematics, if described by a Fourier series or kineloader
@@ -204,6 +214,7 @@ contains
   include "wings_motion.f90"
   include "stroke_plane.f90"
   include "kineloader.f90"
+  include "pointcloud.f90"
   !---------------------------------------
 
 
@@ -1044,6 +1055,7 @@ contains
     if (allocated(particle_points)) deallocate ( particle_points )
     if (allocated(wing_thickness_profile)) deallocate ( wing_thickness_profile )
     if (allocated(corrugation_profile)) deallocate ( corrugation_profile )
+    if (allocated(mask_wing_complete)) deallocate(mask_wing_complete)
 
     call load_kine_clean( Insect%kine_wing_l )
     call load_kine_clean( Insect%kine_wing_r )

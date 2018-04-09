@@ -188,7 +188,8 @@ subroutine convert_to_wing_system(help)
 
         ! interpolate the value
         do i = 1,nd
-          call trilinear_interp_ghosts(x_glob,u_interp(:,:,:,i),u_buffer(ix,i))
+          u_buffer(ix,i) = trilinear_interp( (/dble(ga(1))*dx, dble(ga(2))*dy, dble(ga(3))*dz/), &
+          (/dx,dy,dz/),u_interp(:,:,:,i), x_glob, periodic=.false.  )
         enddo
       enddo
       ! at this point, all procs have interpolated a value in u_buffer. most of them

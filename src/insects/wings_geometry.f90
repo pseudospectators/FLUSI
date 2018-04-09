@@ -157,17 +157,17 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
   integer(kind=2),intent(in) :: color_wing
   real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
-  integer :: ix,iy,iz,npoints,matrixcols,i
-  real(kind=pr) :: x_glob(1:3),x_wing(1:3),x(1:3), n_wing(1:3), n_glob(1:3)
-  real(kind=pr) :: R, R0, R_tmp, zz0
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp, s, t
-  real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
+  integer :: ix,iy,iz,npoints,matrixcols
+  real(kind=pr) :: x_glob(1:3), x_wing(1:3), x(1:3), x_body(1:3)
+  real(kind=pr) :: v_tmp(1:3), mask_tmp
 
   ! ----------------------------------------------------------------------------
   ! Step 0.
-  ! initialization, read pointcloud from file.
+  ! initialization, read pointcloud from file. generate maks once, then later we
+  ! move it with interpolation
   ! ----------------------------------------------------------------------------
-  if ( .not. allocated(particle_points) ) then
+  if ( .not. allocated(mask_wing_complete) ) then
+    if (root) write(*,*) "----------------pointcloudwing initialization -------------------"
     if (root) write(*,*) "Reading pointcloud for wing from file="//trim(adjustl(Insect%pointcloudfile))
 
     call check_file_exists(Insect%pointcloudfile)
@@ -175,50 +175,74 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
     call count_lines_in_ascii_file_mpi(Insect%pointcloudfile, npoints, 1)
     call count_cols_in_ascii_file_mpi(Insect%pointcloudfile, matrixcols, 1)
 
-    ! note we require twice the storage: store the original points as read from
-    ! file, then the transformed copy. Both datasets have 6 components (x,y,z,nx,ny,nz)
-    allocate( particle_points(1:npoints, 1:2*matrixcols))
+    if (matrixcols /= 6) call abort(1230, "pointcloudwing: input file does not have 6 cols.")
 
-    particle_points = 0.0d0
+    ! allocate memory (x,y,z,nx,ny,nz)
+    allocate( particle_points(1:npoints, 1:matrixcols))
+
+    ! read the data from the ascii file. Here, we suppose it to have 6 columns (and
+    ! thus do not skip any garbage cols in between, e.g. for surface colors etc)
     call read_array_from_ascii_file_mpi(Insect%pointcloudfile, particle_points(:,1:matrixcols), 1)
+
+    if (root) write(*,*) "Internally creating the signed distance for your point cloud."
+    if (root) write(*,*) "This is done redundantly on all mpiranks, so each mpirank holds a complete copy."
+    if (root) write(*,*) "For the domain of this array, we choose the smallest possible."
+
+    mask_wing_x0 = (/minval(particle_points(:,1)),minval(particle_points(:,2)),minval(particle_points(:,3))/)&
+                 - dble(mask_wing_safety)*dx
+    mask_wing_xl = (/maxval(particle_points(:,1))-mask_wing_x0(1) + dble(mask_wing_safety)*dx, &
+                     maxval(particle_points(:,2))-mask_wing_x0(2) + dble(mask_wing_safety)*dx, &
+                     maxval(particle_points(:,3))-mask_wing_x0(3) + dble(mask_wing_safety)*dx/)
+    mask_wing_nxyz = nint(mask_wing_xl / dx)
+
+    ! note each mpirank holds one complete copy of the array (this is not very efficient)
+    allocate(mask_wing_complete(0:mask_wing_nxyz(1)-1,0:mask_wing_nxyz(2)-1,0:mask_wing_nxyz(3)-1))
+
+    ! create the mask, note we do not create color or us here.
+    call mask_from_pointcloud(particle_points(:,1:3), particle_points(:,4:6), &
+    mask_wing_x0, (/dx,dx,dx/), mask_wing_complete, mask_wing_safety, 0.0d0*dx)
+
+    ! after generating the mask function, we do not longer need the point cloud.
+    deallocate( particle_points )
+
+    if (root) write(*,*) "Pointcloudwing: resolution is", mask_wing_nxyz
+    if (root) write(*,*) "Pointcloudwing: origin is", mask_wing_x0
+    if (root) write(*,*) "Pointcloudwing: domain size is", mask_wing_xl
+    if (root) write(*,*) "----------------end pointcloudwing initialization ---------------"
   end if
 
-  ! ----------------------------------------------------------------------------
-  ! Step 1.
-  ! The point cloud, which is data understood in the wing system already, it
-  ! is transformed to the global system to be drawn.
-  ! ----------------------------------------------------------------------------
-  npoints = size(particle_points,1)
-  do i = 1, npoints
-    ! each point is understood in the wing system
-    x_wing = particle_points(i,1:3)
-    ! compute its coordinates in the global system
-    x_glob = Insect%xc_body_g + matmul(transpose(M_body), (matmul(transpose(M_wing),x_wing)+x_pivot_b) )
-    ! and save the result
-    particle_points(i,7:9) = x_glob
 
-    ! same for normals
-    n_wing = particle_points(i,4:6)
-    n_glob = matmul(transpose(M_body), (matmul(transpose(M_wing),n_wing)) )
-    particle_points(i,10:12) = n_glob
-  end do
+  do iz = ra(3), rb(3)
+    do iy = ra(2), rb(2)
+      do ix = ra(1), rb(1)
+        !-- define the various coordinate systems we are going to use
+        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
+        x = periodize_coordinate(x - Insect%xc_body_g)
+        x_body = matmul(M_body,x)
+        x_wing = matmul(M_wing,x_body-x_pivot_b)
 
+        if (x_wing(1)>mask_wing_x0(1) .and. x_wing(1)<mask_wing_x0(1)+mask_wing_xl(1)) then
+          if (x_wing(2)>mask_wing_x0(2) .and. x_wing(2)<mask_wing_x0(2)+mask_wing_xl(2)) then
+            if (x_wing(3)>mask_wing_x0(3) .and. x_wing(3)<mask_wing_x0(3)+mask_wing_xl(3)) then
+              ! use 3d interpolation
+              mask_tmp = trilinear_interp( mask_wing_x0, (/dx,dx,dx/), mask_wing_complete, x_wing, .false.)
 
-  ! ----------------------------------------------------------------------------
-  ! create chi function (this is an external routine first created for preprocessing
-  ! which should be moved inside the insect module)
-  ! ----------------------------------------------------------------------------
-  ! 5: safety layer
-  ! 0.0d0: do not thicken wing artificially
-  call mask_from_pointcloud(npoints, particle_points(:,7:9), particle_points(:,10:12), mask, 4, 0.0d0, color_wing)
+              ! this point was valid? (interpolation returns -9d10 to mark points outside valid
+              ! domain)
+              if (mask_tmp > -8.0d10 .and. mask_tmp>0.0d0) then
+                ! yo
+                mask(ix,iy,iz) = mask_tmp
+                ! it was valid -> assign color
+                mask_color(ix,iy,iz) = color_wing
+              endif
 
-  if (root) then
-    if (Insect%BodyType /= 'nobody'.or. Insect%LeftWing == "yes") then
-      write(*,*) "note the current version of pointcloudwing erases the entire"
-      write(*,*) "mask field every time - it would delete the body, inlet or other wings"
-      call abort(7764600,"TODO FIXME pointcloudwing erases mask..")
-    end if
-  endif
+            endif
+          endif
+        endif
+
+      enddo
+    enddo
+  enddo
 
   ! ----------------------------------------------------------------------------
   ! add velocity field, inside the wing.
