@@ -1,5 +1,4 @@
 subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -56,7 +55,6 @@ end subroutine
 
 ! Bumblebee body, BB1 in Dudley & Ellington JEB 1990
 subroutine draw_body_bumblebee( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -349,7 +347,6 @@ end subroutine draw_body_bumblebee
 
 ! Body adapted from Maeda & Liu. It assumes Insect%x_head=0.0
 subroutine draw_body_drosophila_maeda( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -505,7 +502,6 @@ end subroutine draw_body_drosophila_maeda
 ! undistorted), and its radius is a single function, defined in thorax
 ! abdomen and head
 subroutine draw_body_drosophila( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -575,7 +571,6 @@ end subroutine draw_body_drosophila
 
 !-------------------------------------------------------------------------------
 subroutine draw_body_jerry( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -657,7 +652,6 @@ end subroutine draw_body_jerry
 
 ! a body that is just a sphere of unit diameter. used for particles.
 subroutine draw_body_sphere( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -679,7 +673,6 @@ end subroutine draw_body_sphere
 
 ! draw a cylinder defined by points (x1,y1,z1), (x2,y2,z2) and radius R0
 subroutine draw_cylinder( xp,x1,y1,z1,x2,y2,z2,R0,mask_val,color_val,icolor,safety )
-  use vars
   implicit none
 
   real(kind=pr),intent(in)::xp(1:3),x1,x2,y1,y2,z1,z2,R0,safety
@@ -746,7 +739,6 @@ end subroutine
 
 !-------------------------------------------------------------------------------
 subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -938,7 +930,6 @@ end subroutine draw_body_particle
 ! Insect%L_span x Insect%L_body x Insect%WingThickness
 !-------------------------------------------------------------------------------
 subroutine draw_body_platicle( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -991,7 +982,6 @@ end subroutine draw_body_platicle
 ! also body shapes that are not related to insects. This one is a flat COIN (D=1)
 !-------------------------------------------------------------------------------
 subroutine draw_body_coin( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1041,7 +1031,6 @@ end subroutine draw_body_coin
 ! Thin rod-like body used in Suzuki et al. JFM 2015 to model a butterfly
 !-------------------------------------------------------------------------------
 subroutine draw_suzuki_thin_rod( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1086,7 +1075,6 @@ end subroutine draw_suzuki_thin_rod
 
 !-------------------------------------------------------------------------------
 subroutine draw_body_hawkmoth( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1180,7 +1168,6 @@ end subroutine draw_body_hawkmoth
 ! [1] Iams "Flight stability of mosquitos: A reduced model" SIAM J. Appl. Math. 74(5) 1535--1550 (2014)
 !-------------------------------------------------------------------------------
 subroutine draw_body_mosquito_iams( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1309,7 +1296,6 @@ end subroutine draw_body_mosquito_iams
 ! This is the conical version (so a pyramid with circular base area)
 !-------------------------------------------------------------------------------
 subroutine draw_body_cone( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1373,7 +1359,6 @@ end subroutine draw_body_cone
 
 
 subroutine draw_birch_seed( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1445,7 +1430,6 @@ end subroutine draw_birch_seed
 ! The SIDELENGTH is INsect%b_body
 !-------------------------------------------------------------------------------
 subroutine draw_body_pyramid( mask, mask_color, us, Insect, color_body, M_body)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -1529,7 +1513,6 @@ end subroutine draw_body_pyramid
 ! The color of the new cylinder will be what you pass in color_val
 !-------------------------------------------------------------------------------
 subroutine draw_cylinder_new( x1, x2, R0, mask, mask_color, us, Insect, color_val)
-  use vars
   implicit none
 
   real(kind=pr),dimension(1:3),intent(inout )::x1,x2
@@ -1616,12 +1599,11 @@ end subroutine draw_cylinder_new
 
 !-------------------------------------------------------------------------------
 ! draw a sphere with radius R0 centered at the point xc (GLOBAL SYSTEM)
-! This routiner's intended use is for drawing the insect's body, for example
+! This routine's intended use is for drawing the insect's body, for example
 ! the head and eyes of Jerry. The velocity field inside the body is added
 ! later, thus, the field us is untouched in this routines.
 !-------------------------------------------------------------------------------
 subroutine drawsphere( xc,R0,mask,mask_color,us,Insect,icolor )
-  use vars
   implicit none
 
   real(kind=pr),intent(inout)::xc(1:3)

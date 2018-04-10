@@ -6,11 +6,16 @@
 !-------------------------------------------------------------------------------
 
 module insect_module
-  use vars
+  use vars, only : pr, dx, dy, dz, xl, yl, zl, strlen, ra, rb, abort, rand_nbr, &
+  periodize_coordinate, cross, deg2rad, pi, rad2deg, nx, ny ,nz, neq, root, per, mpirank, &
+  x0,y0,z0,iPenalization, iMoving, ga, gb, mpisize, startup_conditioner, &
+  eps, itdrag, time_insect_vel, time_insect_wings, time_insect_body, on_proc, Integrals, nu, &
+  periodic, GlobalIntegrals, inicond, iTimeMethodFluid
+
   use helpers
   ! we need this only for the body shape "pyramid", where we use point-triangle-distance function
 !!  use stl_file_reader ! NOTE: for ES3 implementation, removed this module.
-  ! we need this to read from ini files
+  ! we need this to read from ini files (e.g. the wing kinematics or shape are read this way)
   use ini_files_parser_mpi
   ! we need this to interpolate wing thickness and corrugation
   use interpolation
@@ -248,7 +253,6 @@ contains
   ! smoothed.
   !-------------------------------------------------------------------------------
   subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
-    use vars
     implicit none
 
     real(kind=pr), intent(in) :: time
@@ -426,7 +430,6 @@ contains
   ! thickness (i.e., in the limit, steps=1 if x<t and steps=0 if x>t
   !-------------------------------------------------------
   real(kind=pr) function steps(x,t)
-    use vars
     implicit none
     real(kind=pr) :: f,x,t
     call smoothstep(f,x,t,smoothing)
@@ -438,7 +441,6 @@ contains
   ! Compute angle from coefficients provided by Maeda
   !-------------------------------------------------------
   subroutine get_dangle( angles, F, a, b, shift_phase, initial_phase, dangle, dangle_dt )
-    use vars
     implicit none
     integer, intent(in) :: F  ! wavenumber (Dmitry, 7 Nov 2013)
     real(kind=pr), intent(in) :: angles ! 2*pi*F*time (Dmitry, 7 Nov 2013)
@@ -480,7 +482,6 @@ contains
 
   ! Compute aerodynamic power
   subroutine aero_power(Insect,apowtotal)
-    use vars
     implicit none
 
     integer :: color_body, color_l, color_r
@@ -555,7 +556,6 @@ contains
   !       (JFM 582, 2007), eqn 2.22 (looks a bit different)
   !-------------------------------------------------------------------------------
   subroutine inert_power(Insect,ipowtotal)
-    use vars
     implicit none
 
     real(kind=pr), intent(out) :: ipowtotal
@@ -660,7 +660,6 @@ contains
   !    Insect%rot_abs_wing_r_g    absolute angular velocity of right wing (glob frame)
   !-------------------------------------------------------------------------------
   subroutine wing_angular_velocities ( time, Insect, M_body )
-    use vars
     implicit none
 
     real(kind=pr), intent(in) :: time
@@ -773,7 +772,6 @@ contains
   !       at arbitrary times.
   !-------------------------------------------------------------------------------
   subroutine wing_angular_accel( time, Insect )
-    use vars
     implicit none
     real(kind=pr), intent(in) :: time
     type(diptera), intent(inout) :: Insect
@@ -858,7 +856,6 @@ contains
 
 
   subroutine delete_old_mask( time, mask, mask_color, us, Insect )
-    use vars
     implicit none
 
     real(kind=pr), intent(in) :: time
@@ -1071,8 +1068,6 @@ contains
   ! and return Insect%STATE at the desired time (linear interpolation is used)
   !-----------------------------------------------------------------------------
   subroutine read_insect_STATE_from_file(time, Insect)
-    use vars
-    use ini_files_parser_mpi
     implicit none
     real(kind=pr), intent(in) :: time
     type(diptera),intent(inout) :: Insect

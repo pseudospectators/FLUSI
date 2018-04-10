@@ -3,7 +3,6 @@
 ! AB2 method with Euler startup
 !-------------------------------------------------------------------------------
 subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
-  use vars
   implicit none
 
   real (kind=pr),intent (in) :: time,dt1,dt0
@@ -70,8 +69,6 @@ end subroutine rigid_solid_time_step
 ! TASK: from INSECT%STATE_THIS compute INSECT%RHS_THIS
 !-------------------------------------------------------------------------------
 subroutine rigid_solid_rhs(time,it,Insect)
-  use mpi
-  use vars
   implicit none
 
   integer, intent(in) :: it
@@ -265,8 +262,6 @@ end subroutine rigid_solid_rhs
 ! STATE(20) : z-angular velocity of left wing
 !-------------------------------------------------------------------------------
 subroutine rigid_solid_init(time, Insect)
-  use mpi
-  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time

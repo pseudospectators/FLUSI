@@ -18,7 +18,6 @@
 ! datastructure, which is then the only output variable of this routine.
 !-------------------------------------------------------------------------------
 subroutine BodyMotion(time, Insect)
-  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time

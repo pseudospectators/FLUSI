@@ -2,7 +2,6 @@
 ! WRAPPER Motion protocoll wrapper left wing
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion_left ( time, Insect )
-  use vars
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -40,7 +39,6 @@ end subroutine FlappingMotion_left
 ! WARPPER Motion protocoll wrapper right wing
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion_right ( time, Insect )
-  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -74,7 +72,6 @@ end subroutine FlappingMotion_right
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
            alpha_dt, theta_dt, kine)
-  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time

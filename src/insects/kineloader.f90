@@ -1,6 +1,4 @@
 subroutine load_kine_init(kine)
-  use mpi
-  use vars
   implicit none
 
   type(wingkinematics), intent(inout) :: kine
@@ -88,7 +86,6 @@ end subroutine
 
 
 subroutine load_kine_clean(kine)
-  use vars
   implicit none
   type(wingkinematics), intent(inout) :: kine
 
@@ -109,7 +106,6 @@ end subroutine
 
 
 subroutine wing_kine_interp(time, kine, phi_i, alpha_i, theta_i, phi_dt_i, alpha_dt_i, theta_dt_i)
-  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time

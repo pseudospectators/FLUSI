@@ -398,7 +398,6 @@ end subroutine draw_wing_suzuki
 
 subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
            M_wing,x_pivot_b,rot_rel_wing_w)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
@@ -583,7 +582,6 @@ end subroutine draw_wing_twoellipses
 ! [1] Iams "Flight stability of mosquitos: A reduced model" SIAM J. Appl. Math. 74(5) 1535--1550 (2014)
 subroutine draw_wing_mosquito(mask,mask_color,us,Insect,color_wing,M_body,&
            M_wing,x_pivot_b,rot_rel_wing_w)
-  use vars
   implicit none
 
   type(diptera),intent(inout) :: Insect
