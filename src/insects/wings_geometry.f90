@@ -161,6 +161,10 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
   real(kind=pr) :: x_glob(1:3), x_wing(1:3), x(1:3), x_body(1:3)
   real(kind=pr) :: v_tmp(1:3), mask_tmp
 
+  real(kind=pr) :: xd, yd, zd, dxinv
+  real(kind=pr) :: c00, c10, c01, c11, c0, c1
+  integer :: iix, iiy, iiz
+
   ! ----------------------------------------------------------------------------
   ! Step 0.
   ! initialization, read pointcloud from file. generate maks once, then later we
@@ -211,6 +215,10 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
     if (root) write(*,*) "----------------end pointcloudwing initialization ---------------"
   end if
 
+  !-----------------------------------------------------------------------------
+  ! interpolation
+  !-----------------------------------------------------------------------------
+  dxinv = 1.0d0 / dx
 
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
@@ -221,15 +229,35 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot_b)
 
-        if (x_wing(1)>mask_wing_x0(1) .and. x_wing(1)<mask_wing_x0(1)+mask_wing_xl(1)) then
-          if (x_wing(2)>mask_wing_x0(2) .and. x_wing(2)<mask_wing_x0(2)+mask_wing_xl(2)) then
-            if (x_wing(3)>mask_wing_x0(3) .and. x_wing(3)<mask_wing_x0(3)+mask_wing_xl(3)) then
-              ! use 3d interpolation
-              mask_tmp = trilinear_interp( mask_wing_x0, (/dx,dx,dx/), mask_wing_complete, x_wing, .false.)
 
-              ! this point was valid? (interpolation returns -9d10 to mark points outside valid
-              ! domain)
-              if (mask_tmp > -8.0d10 .and. mask_tmp>0.0d0) then
+        if (x_wing(1)>mask_wing_x0(1)+2.0d0*dx .and. x_wing(1)<mask_wing_x0(1)+mask_wing_xl(1)-2.0d0*dx) then
+          if (x_wing(2)>mask_wing_x0(2)+2.0d0*dx .and. x_wing(2)<mask_wing_x0(2)+mask_wing_xl(2)-2.0d0*dx) then
+            if (x_wing(3)>mask_wing_x0(3)+2.0d0*dx .and. x_wing(3)<mask_wing_x0(3)+mask_wing_xl(3)-2.0d0*dx) then
+
+              ! use 3d interpolation
+              ! mask_tmp = trilinear_interp( mask_wing_x0, (/dx,dx,dx/), mask_wing_complete, x_wing, .false.)
+
+              ! indices of cube containing the target point, lower end
+              iix = floor( (x_wing(1)-mask_wing_x0(1))*dxinv )
+              iiy = floor( (x_wing(2)-mask_wing_x0(2))*dxinv )
+              iiz = floor( (x_wing(3)-mask_wing_x0(3))*dxinv )
+
+              ! distance to lower point, normalized (0..1)
+              xd = ( x_wing(1)-(dble(iix)*dx + mask_wing_x0(1)) ) *dxinv
+              yd = ( x_wing(2)-(dble(iiy)*dx + mask_wing_x0(2)) ) *dxinv
+              zd = ( x_wing(3)-(dble(iiz)*dx + mask_wing_x0(3)) ) *dxinv
+
+              c00 = mask_wing_complete(iix,iiy  ,iiz  )*(1.d0-xd)+mask_wing_complete(iix+1,iiy  ,iiz )*xd
+              c10 = mask_wing_complete(iix,iiy+1,iiz  )*(1.d0-xd)+mask_wing_complete(iix+1,iiy+1,iiz )*xd
+              c01 = mask_wing_complete(iix,iiy  ,iiz+1)*(1.d0-xd)+mask_wing_complete(iix+1,iiy  ,iiz+1)*xd
+              c11 = mask_wing_complete(iix,iiy+1,iiz+1)*(1.d0-xd)+mask_wing_complete(iix+1,iiy+1,iiz+1)*xd
+
+              c0 = c00*(1.d0-yd) + c10*yd
+              c1 = c01*(1.d0-yd) + c11*yd
+
+              mask_tmp = c0*(1.d0-zd) + c1*zd
+
+              if (mask_tmp>0.0d0) then
                 ! yo
                 mask(ix,iy,iz) = mask_tmp
                 ! it was valid -> assign color
