@@ -10,7 +10,7 @@ module insect_module
   periodize_coordinate, cross, deg2rad, pi, rad2deg, nx, ny ,nz, neq, root, per, mpirank, &
   x0,y0,z0,iPenalization, iMoving, ga, gb, mpisize, startup_conditioner, &
   eps, itdrag, time_insect_vel, time_insect_wings, time_insect_body, on_proc, Integrals, nu, &
-  periodic, GlobalIntegrals, inicond, iTimeMethodFluid
+  periodic, GlobalIntegrals, inicond, iTimeMethodFluid, norm2
 
   use helpers
   ! we need this only for the body shape "pyramid", where we use point-triangle-distance function
