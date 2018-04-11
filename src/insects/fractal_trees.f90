@@ -1,17 +1,15 @@
-! Spherical obstacle
-subroutine draw_fractal_tree()
-  use mpi
-  use vars
-  use ini_files_parser_mpi
-  use penalization ! mask array etc
-  use insect_module
+subroutine draw_fractal_tree(Insect, mask, mask_color, us)
   implicit none
+
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
   integer :: io_error, nlines, mpicode,i
   real (kind=pr) :: R, N_smooth, safety, x1(1:3),x2(1:3), t1
   character(len=2048) :: dummy
   character(len=strlen) :: file
-  type(diptera) :: dummyinsect
   real(kind=pr),allocatable,dimension(:,:) :: treedata
 
   ! reset everything
@@ -19,11 +17,13 @@ subroutine draw_fractal_tree()
   mask_color = 0
   us = 0.d0
 
-  N_smooth = 1.5d0
-  ! thickness of smoothing layer and safety distance
-  smoothing = N_smooth*max(dx,dy,dz)
-  safety = 2.d0*N_smooth*max(dx,dy,dz)
-  dummyinsect%safety = safety
+  if (smoothing == 0.d0) then
+    N_smooth = 1.5d0
+    ! thickness of smoothing layer and safety distance
+    smoothing = N_smooth*max(dx,dy,dz)
+    safety = 2.d0*N_smooth*max(dx,dy,dz)
+    Insect%safety = safety
+  endif
 
   file = 'tree_data.in'
   call check_file_exists( file )
@@ -70,7 +70,7 @@ subroutine draw_fractal_tree()
     x2 = treedata(i,4:6) + (/x0,y0,z0/)
     ! the file containes the radius of the cylinder
     R = treedata(i,7)
-    call draw_cylinder_new( x1, x2, R, mask, mask_color, us, dummyinsect, int(1,kind=2))
+    call draw_cylinder_new( x1, x2, R, mask, mask_color, us, Insect, int(1,kind=2))
   end do
 
   R = MPI_wtime() - t1

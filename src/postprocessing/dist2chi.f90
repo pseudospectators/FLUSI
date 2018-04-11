@@ -8,12 +8,11 @@ subroutine dist2chi(help)
   use basic_operators
   use p3dfft_wrapper
   use helpers
-  use insect_module, only : steps
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: distfile,maskfile,dummy
   real(kind=pr),dimension(:,:,:),allocatable :: work
-  real(kind=pr) :: time, sign
+  real(kind=pr) :: time, sign, tmp
   integer :: ix,iy,iz
 
   if (help.and.root) then
@@ -55,7 +54,8 @@ subroutine dist2chi(help)
   do iz = ra(3), rb(3)
     do iy = ra(2), rb(2)
       do ix = ra(1), rb(1)
-        work(ix,iy,iz) = steps( sign*work(ix,iy,iz), 0.d0 )
+        call smoothstep(tmp, sign*work(ix,iy,iz), 0.d0, 2.d0*dz)
+        work(ix,iy,iz) = tmp !steps( sign*work(ix,iy,iz), 0.d0 )
       enddo
     enddo
   enddo

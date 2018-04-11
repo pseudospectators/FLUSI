@@ -1,6 +1,5 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions
 subroutine create_mask_fsi (time, Insect, beams )
-  use mpi
   use vars
   use solid_model
   use insect_module
@@ -20,7 +19,7 @@ subroutine create_mask_fsi (time, Insect, beams )
     ! Actual mask functions:
     select case (iMask)
     case ("fractal_tree")
-      call Draw_fractal_tree()
+      call Draw_fractal_tree(Insect, mask, mask_color, us)
     case ("floor_yz","floor_zy","flooryz","floorzy")
       call Draw_floor_yz()
     case ("sphere","Sphere")

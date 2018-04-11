@@ -22,6 +22,8 @@ module insect_module
 
   implicit none
 
+  private :: steps
+
   ! variables to decide whether to draw the body or not.
   character(len=strlen), save :: body_moves="yes"
   logical, save :: body_already_drawn = .false.
@@ -30,13 +32,14 @@ module insect_module
   ! is that during postprocessing of an existing run, the dry run would overwrite the
   ! simulation data.
   character(len=strlen), save :: kinematics_file = "kinematics.t"
+
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
   ! elements in derived datatypes) this is their length:
-  integer, parameter :: nfft_max = 1024
+  integer, parameter, private :: nfft_max = 1024
   ! Maximum number of Hermite interpolation nodes (hardcoded because of sxf90 compiler requirements)
-  integer, parameter :: nhrmt_max = 10000
+  integer, parameter, private :: nhrmt_max = 10000
   ! only used in steps (to reduce number of arguments)
-  real(kind=pr), save :: smoothing
+  real(kind=pr), save  :: smoothing = 0.d0
 
   ! Allocatable arrays used in Insect object
   ! this will hold the surface markers and their normals used for particles:
@@ -220,6 +223,7 @@ contains
   include "stroke_plane.f90"
   include "kineloader.f90"
   include "pointcloud.f90"
+  include "fractal_trees.f90"
   !---------------------------------------
 
 
@@ -252,7 +256,7 @@ contains
   ! subroutines doing the actual job of defining the mask. Note all surfaces are
   ! smoothed.
   !-------------------------------------------------------------------------------
-  subroutine Draw_Insect ( time, Insect, mask, mask_color, us)
+  subroutine Draw_Insect( time, Insect, mask, mask_color, us)
     implicit none
 
     real(kind=pr), intent(in) :: time

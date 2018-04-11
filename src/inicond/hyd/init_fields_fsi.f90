@@ -1,7 +1,7 @@
 ! Set initial conditions for fsi code.
 subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
            press,scalars,scalars_rhs,Insect,beams)
-  use mpi
+  use ini_files_parser_mpi
   use vars
   use p3dfft_wrapper
   use solid_model
