@@ -324,17 +324,6 @@ end program FLUSI
     call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
 
     !-----------------------------------------------------------------------------
-    ! initalize some insect stuff, if used
-    !-----------------------------------------------------------------------------
-    ! If required, initialize rigid solid dynamics solver
-    if ((iMask=="Insect").and.(Insect%BodyMotion=="free_flight")) then
-      ! note we have to do that before init_fields as rigid_solid_init sets up
-      ! the state vector without which create_mask cannot know the position and velocity
-      ! of body and wings
-      call rigid_solid_init(time,Insect)
-    endif
-
-    !-----------------------------------------------------------------------------
     ! Initial condition
     !-----------------------------------------------------------------------------
     call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&

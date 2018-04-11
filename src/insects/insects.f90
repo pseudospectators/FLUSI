@@ -24,15 +24,6 @@ module insect_module
 
   private :: steps
 
-  ! variables to decide whether to draw the body or not.
-  character(len=strlen), save :: body_moves="yes"
-  logical, save :: body_already_drawn = .false.
-  ! the following flag makes the code write the kinematics log to either kinematics.t
-  ! (regular simulation) or kinematics.dry-run.t (for a dry run). The reason for this
-  ! is that during postprocessing of an existing run, the dry run would overwrite the
-  ! simulation data.
-  character(len=strlen), save :: kinematics_file = "kinematics.t"
-
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
   ! elements in derived datatypes) this is their length:
   integer, parameter, private :: nfft_max = 1024
@@ -43,21 +34,21 @@ module insect_module
 
   ! Allocatable arrays used in Insect object
   ! this will hold the surface markers and their normals used for particles:
-  real(kind=pr), allocatable, dimension(:,:) :: particle_points
+  real(kind=pr), allocatable, dimension(:,:), private :: particle_points
   ! wing thickness profile
-  real(kind=pr), allocatable, dimension(:,:) :: wing_thickness_profile
+  real(kind=pr), allocatable, dimension(:,:), private :: wing_thickness_profile
   ! wing corrugation profile
-  real(kind=pr), allocatable, dimension(:,:) :: corrugation_profile
+  real(kind=pr), allocatable, dimension(:,:), private :: corrugation_profile
 
   ! wing signed distance function, if the 3d-interpolation approach is used.
   ! This is useful for highly complex wings, where one generates the mask only once
   ! and then interpolates the values to the global grid. note the data allocated
   ! here is of course understood in the wing system, so the linear transformation
   ! x_g -> x_w' is used, where x_w' is not a grid-aligned value x_w
-  real(kind=pr), allocatable, dimension(:,:,:), save :: mask_wing_complete
-  real(kind=pr), dimension(1:3), save :: mask_wing_xl, mask_wing_x0
-  integer, dimension(1:3), save :: mask_wing_nxyz
-  integer, save :: mask_wing_safety=4
+  real(kind=pr), allocatable, dimension(:,:,:), save, private :: mask_wing_complete
+  real(kind=pr), dimension(1:3), save, private :: mask_wing_xl, mask_wing_x0
+  integer, dimension(1:3), save, private :: mask_wing_nxyz
+  integer, save, private :: mask_wing_safety=4
 
   !-----------------------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -119,6 +110,9 @@ module insect_module
     real(kind=pr) :: Jroll_body=0.d0, Jyaw_body=0.d0, Jpitch_body=0.d0
     ! total mass of insect:
     real(kind=pr) :: mass, gravity=0.d0
+    ! variables to decide whether to draw the body or not.
+    character(len=strlen) :: body_moves="yes"
+    logical :: body_already_drawn = .false.
     !-------------------------------------------------------------
     ! for free flight solver
     !-------------------------------------------------------------
@@ -184,6 +178,11 @@ module insect_module
     !--------------------------------------------------------------
     ! wing kinematics Fourier coefficients
     type(wingkinematics) :: kine_wing_l, kine_wing_r
+    ! the following flag makes the code write the kinematics log to either kinematics.t
+    ! (regular simulation) or kinematics.dry-run.t (for a dry run). The reason for this
+    ! is that during postprocessing of an existing run, the dry run would overwrite the
+    ! simulation data.
+    character(len=strlen) :: kinematics_file = "kinematics.t"
 
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion
@@ -215,6 +214,7 @@ contains
   !---------------------------------------
   ! note these include files also have to be specified as dependencies in the
   ! Makefile for make to check if one of them changed
+  include "insect_init_clean.f90"
   include "body_geometry.f90"
   include "body_motion.f90"
   include "rigid_solid_time_stepper.f90"
@@ -332,7 +332,7 @@ contains
     !-----------------------------------------------------------------------------
     counter = counter + 1
     if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
-      open  (17,file=kinematics_file,status='unknown',position='append')
+      open  (17,file=Insect%kinematics_file,status='unknown',position='append')
       write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
       Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
       Insect%theta_l, Insect%alpha_r, Insect%phi_r, Insect%theta_r, &
@@ -351,15 +351,15 @@ contains
     ! load balancing problems, since many cores do not draw the body at all.
     ! We thus try to draw it only once and then simply not to erase it later.
     !-----------------------------------------------------------------------------
-    if (body_moves=="no") then
-      if (body_already_drawn .eqv. .false.) then
+    if (Insect%body_moves=="no") then
+      if (Insect%body_already_drawn .eqv. .false.) then
         ! the body is at rest, but it is the first call to this routine, so
         ! draw it now.
-        if (root) write(*,*) "Flag body_moves is no and we did not yet draw"
+        if (root) write(*,*) "Flag Insect%body_moves is no and we did not yet draw"
         if (root) write(*,*) "the body once: we do that now, and skip draw_body"
         if (root) write(*,*) "from now on."
         call draw_body( mask, mask_color, us, Insect, Insect%color_body, M_body)
-        body_already_drawn = .true.
+        Insect%body_already_drawn = .true.
       endif
     else
       ! the body moves, draw it
@@ -877,7 +877,7 @@ contains
     !-----------------------------------------------------------------------------
     ! delete old mask
     !-----------------------------------------------------------------------------
-    if (body_moves=="no") then
+    if (Insect%body_moves=="no") then
       ! the body is at rest, so we will not draw it. Delete the wings, as they move.
       where (mask_color==color_l .or. mask_color==color_r)
         mask = 0.d0
@@ -1047,20 +1047,6 @@ contains
 
     first_call = .false.
   end subroutine print_insect_reynolds_numbers
-
-
-  subroutine insect_clean(Insect)
-    implicit none
-    type(diptera),intent(inout)::Insect
-
-    if (allocated(particle_points)) deallocate ( particle_points )
-    if (allocated(wing_thickness_profile)) deallocate ( wing_thickness_profile )
-    if (allocated(corrugation_profile)) deallocate ( corrugation_profile )
-    if (allocated(mask_wing_complete)) deallocate(mask_wing_complete)
-
-    call load_kine_clean( Insect%kine_wing_l )
-    call load_kine_clean( Insect%kine_wing_r )
-  end subroutine insect_clean
 
 
   !-----------------------------------------------------------------------------

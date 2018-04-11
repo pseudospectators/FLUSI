@@ -22,6 +22,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nBeams), intent(out) :: beams
   type(diptera),intent(inout)::Insect
+  character(len=strlen) :: infile
 
   if (mpirank==0) write(*,*) "Set up initial conditions...."
 
@@ -39,6 +40,16 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   end select
 
   n0 = 1-n1 !important to do this now in case we're retaking a backp
+
+  !-----------------------------------------------------------------------------
+  ! initalize some insect stuff, if used
+  !-----------------------------------------------------------------------------
+  if (iMask=="Insect") then
+    ! get filename of PARAMS file from command line
+    call get_command_argument(1,infile)
+    ! we need to do that now otherwise we cannot create the startup mask.
+    call insect_init(time, infile, Insect)
+  endif
 
   !-----------------------------------------------------------------------------
   ! create startup mask function

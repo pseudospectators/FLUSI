@@ -30,7 +30,7 @@ subroutine BodyMotion(time, Insect)
   ! the tag body_moves is used to draw the insect's body only once, if the body
   ! does not move (body_moves=="no"). For safety, we initialize the body as moving
   ! so if you forget to specify (body_moves=="no"), the body is drawn every time
-  body_moves = "yes"
+  Insect%body_moves = "yes"
 
 
   select case (Insect%BodyMotion)
@@ -52,7 +52,7 @@ subroutine BodyMotion(time, Insect)
     call get_command_argument(9,dummy)
     read (dummy,*) gamma
 
-    body_moves = "no"
+    Insect%body_moves = "no"
     psi_dt   = 0.d0
     beta_dt  = 0.d0
     gamma_dt = 0.d0
@@ -70,7 +70,7 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 30.d0*pi/180.d0*cos(2.d0*pi*time)*2.d0*pi
     xc = Insect%x0 + time*Insect%v0
     vc = Insect%v0
-    body_moves = "yes"
+    Insect%body_moves = "yes"
 
   case ("buffeting")
     psi      = -7.d0*pi/180.d0*sin(2.d0*pi*(23d0/152.d0)*time) ! roll
@@ -82,7 +82,7 @@ subroutine BodyMotion(time, Insect)
     xc = Insect%x0
     xc(2) = xc(2) - 0.45d0/13.2d0*sin(2.d0*pi*(23.d0/152.d0)*time)
     vc = (/0.0d0, -0.45d0/13.2d0*cos(2.d0*pi*(23.d0/152.d0)*time)*2.d0*pi*(23.d0/152.d0), 0.0d0/)
-    body_moves = "yes"
+    Insect%body_moves = "yes"
 
   case ("casting")
     psi      = -20.d0*pi/180.d0*sin(2.d0*pi*(2d0/152.d0)*time) ! roll
@@ -94,7 +94,7 @@ subroutine BodyMotion(time, Insect)
     xc = Insect%x0
     xc(2) = xc(2) + 22.d0/13.2d0*sin(2.d0*pi*(2.d0/152.d0)*time)
     vc = (/0.0d0, 22.d0/13.2d0*cos(2.d0*pi*(2.d0/152.d0)*time)*2.d0*pi*(2.d0/152.d0), 0.0d0/)
-    body_moves = "yes"
+    Insect%body_moves = "yes"
 
   case ("roll_param")
     ! Roll motion for aerodynamic power analysis
@@ -109,7 +109,7 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 0.d0
     xc = Insect%x0
     vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
-    body_moves = "yes"
+    Insect%body_moves = "yes"
 
   case ("roll")
     psi      = 30.d0*pi/180.d0*sin(2.d0*pi*time)
@@ -120,7 +120,7 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 0.d0
     xc = Insect%x0
     vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
-    body_moves = "yes"
+    Insect%body_moves = "yes"
 
   case ("pitch")
       psi      = 0.d0
@@ -131,7 +131,7 @@ subroutine BodyMotion(time, Insect)
       gamma_dt = 0.d0
       xc = Insect%x0
       vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
-      body_moves = "yes"
+      Insect%body_moves = "yes"
 
   case ("yaw")
     psi      = 0.d0
@@ -142,7 +142,7 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 30.d0*pi/180.d0*cos(2.d0*pi*time)*2.d0*pi
     xc = Insect%x0
     vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
-    body_moves = "yes"
+    Insect%body_moves = "yes"
 
   case ("tethered")
     psi      = Insect%yawpitchroll_0(3) ! roll
@@ -153,10 +153,10 @@ subroutine BodyMotion(time, Insect)
     gamma_dt = 0.d0
     xc = Insect%x0
     vc = (/0.0, 0.0, 0.0/) ! tethered: no velocity
-    body_moves = "no" ! tethered: body does not move
+    Insect%body_moves = "no" ! tethered: body does not move
 
     if (Insect%BodyType=="suzuki_thin_rod") then
-      body_moves = "yes"
+      Insect%body_moves = "yes"
     endif
 
   case ("free_flight")
@@ -164,7 +164,7 @@ subroutine BodyMotion(time, Insect)
     ! computes the current state of the insect in INSECT%STATE, which is a 13
     ! component vector (6 translation, 4 quaternions, 3 angular velocity)
     ! in this case, the position is dynamically computed, and quaternions are used
-    body_moves = "yes"
+    Insect%body_moves = "yes"
 
     ! copy data from insect state vector
     xc = Insect%STATE(1:3)
@@ -201,7 +201,7 @@ subroutine BodyMotion(time, Insect)
 
 
 
-  if ((mpirank==0).and.(maxval(vc)>0.0d0).and.(body_moves=="no")) then
+  if ((mpirank==0).and.(maxval(vc)>0.0d0).and.(Insect%body_moves=="no")) then
     write(*,*) "error in body_motion.f90: I found maxval(vc)>0 but the body_moves"
     write(*,*) "flag is set to no, which means we will draw the body only once"
     write(*,*) "This is probably not intented - you should look into it."
