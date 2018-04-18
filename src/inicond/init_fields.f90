@@ -44,7 +44,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   !-----------------------------------------------------------------------------
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
-  if (iMask=="Insect") then
+  if (iMask=="Insect".and.iPenalization==1) then
     ! get filename of PARAMS file from command line
     call get_command_argument(1,infile)
     ! we need to do that now otherwise we cannot create the startup mask.

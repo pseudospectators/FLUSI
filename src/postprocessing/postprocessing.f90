@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--remove-mean")
+    call remove_mean(help)
   case ("--coherent-vortex-extraction","--coherent-scalar-extraction","--CVE","--CSE")
     call post_CVE(help)
   case ("--readwrite")
@@ -152,6 +154,7 @@ subroutine postprocessing()
       write(*,*) "--pressure-force"
       write(*,*) "--pressure"
       write(*,*) "--readwrite"
+      write(*,*) "--remove-mean"
       write(*,*) "--set-hdf5-attribute"
       write(*,*) "--simple-field-operation"
       write(*,*) "--smooth-inverse-mask"
@@ -773,3 +776,44 @@ subroutine readwrite(help)
   deallocate(work)
 
 end subroutine readwrite
+
+
+subroutine remove_mean(help)
+  use vars
+  use p3dfft_wrapper
+  use basic_operators, only : fieldmean
+
+  implicit none
+  logical, intent(in) :: help
+  character(len=strlen) :: fname
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time, mean
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --remove-mean ux_00.h5 output_00.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) " Read a file, remove the mean value from the field, save."
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes, sure"
+    return
+  endif
+
+  call get_command_argument(3,fname)
+  call check_file_exists( fname )
+  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu, origin )
+  ! initialize domain decomposition, but do not use FFTs
+  call decomposition_initialize()
+
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call read_single_file( fname, work )
+
+  ! compute mean value
+  mean  = fieldmean(work)
+  ! remove it from datafield. it now has zero mean.
+  work = work - mean
+  call get_command_argument(4,fname)
+  call save_field_hdf5( time, fname, work )
+  deallocate(work)
+
+end subroutine remove_mean

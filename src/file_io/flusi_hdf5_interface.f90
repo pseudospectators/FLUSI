@@ -280,10 +280,18 @@ subroutine Read_Single_File ( filename, field )
     write(*,'(40("~"))')
   endif
 
-
-  if ( mod(nxyz(1),2) /= 0 .or. mod(nxyz(2),2) /= 0 .or. mod(nxyz(2),2) /= 0 ) then
-    write(*,*) "Warning-Warning-Warning"
-    write(*,*) "WARNING UNEVEN NUMBER OF POINTS!! CODE MAY CRASH.", nxyz
+  if (nxyz(1)>1) then
+    !3d run
+    if ( mod(nxyz(1),2) /= 0 .or. mod(nxyz(2),2) /= 0 .or. mod(nxyz(2),2) /= 0 ) then
+      write(*,*) "Warning-Warning-Warning"
+      write(*,*) "WARNING UNEVEN NUMBER OF POINTS!! CODE MAY CRASH.", nxyz
+    endif
+  else
+    ! 2d run
+    if (mod(nxyz(2),2) /= 0 .or. mod(nxyz(2),2) /= 0 ) then
+      write(*,*) "Warning-Warning-Warning"
+      write(*,*) "WARNING UNEVEN NUMBER OF POINTS!! CODE MAY CRASH.", nxyz
+    endif
   endif
 
 end subroutine Read_Single_File
