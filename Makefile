@@ -74,7 +74,10 @@ endif
 #-------------------------------------------------------------------------------
 ifeq ($(FC),sxmpif90)
 FFLAGS += -I$(OBJDIR)
-FFLAGS += -R0 -P stack -C hopt -pi nest=2 -pi exp="periodize_coordinate" expin="src/vars.f90" -f2003
+FFLAGS += -R0 -P stack -C hopt -pi nest=2 -pi exp="periodize_coordinate,wave_z,wave_y" expin="src/vars.f90,src/cof_p3dfft.f90" -f2003
+FFLAGS += -Wf,"-L fmtlist,summary,transform -pvctl fullmsg"
+FFLAGS += -gmalloc
+#FFLAGS += -ftrace
 PPFLAG =
 # the DNOHDF5 flag disables all HDF5 compilation (if present)
 ifdef NOHDF5
@@ -247,7 +250,7 @@ $(OBJDIR)/%.o: %.f90 $(MOBJS)
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 clean:
-	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out
+	rm -rf $(PROGRAMS) $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out *.L
 
 tidy:
 	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out
