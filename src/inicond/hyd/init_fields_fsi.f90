@@ -424,6 +424,29 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      ! add mean flow (note: any inverted curl always has zero mean flow)
      call set_mean_flow(uk,time)
 
+ case("blob")
+
+     ! define vorticity in phy space
+     do iz=ra(3), rb(3)
+       do iy=ra(2), rb(2)
+         do ix=ra(1), rb(1)
+           y = dble(iy)*dy -0.50d0
+           z = dble(iz)*dz -0.75d0
+
+           if (z<-zl/2.0) z = z + zl
+           if (z>zl/2.0) z = z - zl
+
+           if (y<-yl/2.0) y = y + yl
+           if (y>yl/2.0) y = y - yl
+
+           ! set actual inicond gauss blob
+           vort(ix,iy,iz,1) = dexp( -( (z)**2 + (y)**2 ) / 0.01d0 )
+         enddo
+       enddo
+     enddo
+     ! go to Fourier space
+     call fft3(inx=vort(:,:,:,1), outk=uk(:,:,:,1))
+
   case ("vortex")
      if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
      r00=yl/8.d0

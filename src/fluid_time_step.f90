@@ -93,52 +93,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     call abort(10001, "Error! iTimeMethodFluid unknown. Abort.")
   end select
 
-  ! Set the divergence of the magnetic field to zero to avoid drift.
-  if (method=="mhd") call div_field_nul(uk(:,:,:,4),uk(:,:,:,5),uk(:,:,:,6))
 
-
-  ! the following parts are FSI specfic and do not apply for MHD runs. The have to be
-  ! performed at the end of every time step, so it is useful to combine them here
-  ! and not in the individual time steppers, of which they are also independend
-  if ( method == "fsi" ) then
-
-    ! If you want to use the solid model, you have to use fluid time steppers that
-    ! call the solid routines. these start with FSI (FSI_AB2_semiimplicit etc)
-    ! The reason is that they are more expensive (since they have to compute the
-    ! pressure array! fluid-only solvers without flexibility do not need that.)
-    if (iTimeMethodFluid(1:4) /= 'FSI_' .and. use_solid_model=="yes" ) then
-      call abort(32156,'The solid model is in use, but the fluid time stepper is not adjusted!')
-    endif
-
-    ! compute unsteady corrections in every time step
-    if (unst_corrections==1) then
-      call cal_unst_corrections ( time, dt0, Insect )
-    endif
-
-    ! Force zero mode for mean flow
-    call set_mean_flow(uk,time)
-
-    ! save zero mode in global variables (useless if it is fixed, but useful if dynamic)
-    call get_mean_flow(uk,uxmean,uymean,uzmean)
-
-    ! compute running average, if used. applies to FSI only
-    if ((time_avg=="yes").and.(time>tstart_avg)) then
-      if (vel_avg=="yes") then
-        ! average the velocity
-        uk_avg = (uk*dt1  + (time-tstart_avg)*uk_avg) / ( (time-tstart_avg)+dt1 )
-      endif
-
-      if (ekin_avg=="yes") then
-        ! average kinetic energy
-        e_avg = ( 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)*dt1  &
-        + (time-tstart_avg)*e_avg ) / ( (time-tstart_avg)+dt1 )
-      endif
-    endif
-
-    ! write kinetic energy to disk
-    call output_kinetic_energy(time+dt1, uk)
-
-  endif
 
   time_fluid=time_fluid + MPI_wtime() - t1
 end subroutine FluidTimestep
@@ -585,18 +540,6 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   type(diptera),intent(inout)::Insect
   integer::i
 
-  if ((use_passive_scalar==1).and.(mpirank==0)) then
-    call abort(10005, "RK4 is not equipped for passive scalars...")
-  endif
-
-  if ((method=="mhd").and.(mpirank==0)) then
-    call abort(10006, "RK4 is not equipped for MHD...")
-  endif
-
-  if ((mpirank==0).and.(it==1)) then
-    write(*,'("RungeKutta treats diffusion explicitly, and this is the restriction: dt<",es12.4)') &
-    0.5d0*min(dx,dy,dz)**2 / nu
-  endif
   ! copy velocity at old time level
   nlk(:,:,:,:,4) = uk
 
@@ -887,13 +830,7 @@ subroutine adjust_dt(time,u,dt1)
     dt1=dt_fixed
   else
     !-- Determine the maximum velocity/magnetic field value
-    if (method=="mhd") then
-      !-- MHD needs to respect CFL for magnetic field as well
-      umax = max( field_max_magnitude(u(:,:,:,1:3)), field_max_magnitude(u(:,:,:,4:6)) )
-    else
-      !-- FSI runs just need to respect CFL for velocity
-      umax = field_max_magnitude(u(:,:,:,1:3))
-    endif
+  umax = cos((pi*time)/5.0d0)
 
     !-- Adjust time step at 0th process
     if(mpirank == 0) then
@@ -924,15 +861,6 @@ subroutine adjust_dt(time,u,dt1)
 
       !-- impose max dt, if specified in the parameter file
       if (dt_max>0.d0) dt1=min(dt1,dt_max)
-
-      !-- Impose penalty stability condition: dt cannot be larger than eps
-      if (iPenalization > 0) dt1=min(0.99d0*eps,dt1)
-
-      !-- RungeKutta4 treats diffusive terms explicitly, so there is a condition
-      !   for the viscosity as well.
-      if (iTimeMethodFluid=="RK4") then
-        dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
-      endif
 
 
       !*************************************************************************
