@@ -451,8 +451,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
              z0 = 1.00_pr*pi + pi/(2.0_pr*sqrt(2.0_pr)) ! in farge 1997, this is Y
              omega = omega + (gamma0/(pi*a**2))*dexp(-((y-y0)**2 + (z-z0)**2)/(a**2) )
 
-             vort(ix,iy,iz,1) = omega
-             vort(ix,iy,iz,2:3) = 0.0_pr
+             vort(:,iy,iz,1) = omega
+             vort(:,iy,iz,2:3) = 0.0_pr
          enddo
      enddo
 
