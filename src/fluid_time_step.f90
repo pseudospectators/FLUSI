@@ -830,7 +830,7 @@ subroutine adjust_dt(time,u,dt1)
     dt1=dt_fixed
   else
     !-- Determine the maximum velocity/magnetic field value
-  umax = cos((pi*time)/5.0d0)
+  umax = abs(cos((pi*time)/5.0d0))
 
     !-- Adjust time step at 0th process
     if(mpirank == 0) then

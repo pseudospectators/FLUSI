@@ -68,6 +68,8 @@ subroutine upsample(help)
     write(*,'("Origin resolution= ",3(i4,1x))') nx_org, ny_org, nz_org
   endif
 
+  field_precision="double"
+
 
   !-----------------------
   if (mpirank==0) write(*,*) "Initializing small FFT and transforming source field to k-space"
