@@ -424,6 +424,45 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      ! add mean flow (note: any inverted curl always has zero mean flow)
      call set_mean_flow(uk,time)
 
+ case ("three-vortices")
+     if (nx /= 1) call abort(13, "three-vortices is a 2d flow! set nx=1")
+
+     ! define vorticity in phy space
+     do iz=ra(3), rb(3)
+         do iy=ra(2), rb(2)
+             y = dble(iy)*dy
+             z = dble(iz)*dz
+
+             gamma0 = +1.0_pr
+             a = 1.0_pr/pi
+             y0 = 0.75_pr*pi ! in farge 1997, this is X
+             z0 = 1.00_pr*pi ! in farge 1997, this is Y
+             omega = (gamma0/(pi*a**2))*dexp(-((y-y0)**2 + (z-z0)**2)/(a**2) )
+
+             gamma0 = +1.0_pr
+             a = 1.0_pr/pi
+             y0 = 1.25_pr*pi ! in farge 1997, this is X
+             z0 = 1.00_pr*pi ! in farge 1997, this is Y
+             omega = omega + (gamma0/(pi*a**2))*dexp(-((y-y0)**2 + (z-z0)**2)/(a**2) )
+
+             gamma0 = -0.5_pr
+             a = 1.0_pr/pi
+             y0 = 1.25_pr*pi ! in farge 1997, this is X
+             z0 = 1.00_pr*pi + pi/(2.0_pr*sqrt(2.0_pr)) ! in farge 1997, this is Y
+             omega = omega + (gamma0/(pi*a**2))*dexp(-((y-y0)**2 + (z-z0)**2)/(a**2) )
+
+             vort(ix,iy,iz,1) = omega
+             vort(ix,iy,iz,2:3) = 0.0_pr
+         enddo
+     enddo
+
+
+     gamma0 = fieldmean(vort(:,:,:,1))
+     write(*,*) "mean vort", gamma0
+     vort(:,:,:,1) = vort(:,:,:,1) - gamma0
+
+     call Vorticity2Velocity_old(uk, nlk(:,:,:,:,0), vort)
+
   case ("vortex")
      if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
      r00=yl/8.d0
