@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--flexible-wing-mask")
+    call flexible_wing_mask(help)
   case ("--remove-mean")
     call remove_mean(help)
   case ("--coherent-vortex-extraction","--coherent-scalar-extraction","--CVE","--CSE")
@@ -141,6 +143,7 @@ subroutine postprocessing()
       write(*,*) "--extract-subset"
       write(*,*) "--field-analysis"
       write(*,*) "--force-decomp"
+      write(*,*) "--flexible-wing-mask"
       write(*,*) "--gradient"
       write(*,*) "--hdf2bin"
       write(*,*) "--helicity"

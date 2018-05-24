@@ -469,11 +469,13 @@ contains
   ! vector from target point to closest point on surface
   DD = point-DD
   t = dot_product(DD,normal)
-  if (t >= 0.d0) then
+
+  write(*,* "WARNING CHANGED TO UNSIGNED DISTANCE!!"
+  ! if (t >= 0.d0) then
     pointTriangleDistance = dsqrt(sqrDistance)
-  else
-    pointTriangleDistance = -dsqrt(sqrDistance)
-  endif
+  ! else
+  !   pointTriangleDistance = -dsqrt(sqrDistance)
+  ! endif
 
   end function
 
