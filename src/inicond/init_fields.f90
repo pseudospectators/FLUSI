@@ -63,9 +63,19 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   ! for artificial-compressibility we need to initialize the pressure as well.
   !-----------------------------------------------------------------------------
   if (equation=="artificial-compressibility") then
-    if (ng /= 0)  call abort(7726289,"acm no ghost nodes must be used (bounds compatibility!)!")
-    call pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,work(:,:,:,4),Insect)
-    call fft( inx=work(:,:,:,4), outk=uk(:,:,:,4) )
+    select case (acm_inipressure)
+    case('flusi-spectral')
+      if (ng /= 0)  call abort(7726289,"acm no ghost nodes must be used (bounds compatibility!)!")
+      call pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,work(:,:,:,4),Insect)
+      call fft( inx=work(:,:,:,4), outk=uk(:,:,:,4) )
+
+    case('zero')
+      uk(:,:,:,4) = 0.0_pr
+
+    case default
+      call abort(6629454, "acm-inipressure not known")
+
+    end select
   endif
 
   !-----------------------------------------------------------------------------

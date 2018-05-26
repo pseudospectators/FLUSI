@@ -95,7 +95,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   ! ensure that the mask function is at the right time, if it is not constant
   if (iMoving==1) call create_mask (time, Insect, beams)
   ! if we save the pressure, we must compute the right hand side now:
-  if (isavePress==1) then
+  if (isavePress==1 .and. equation/='artificial-compressibility') then
     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect)
   endif
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

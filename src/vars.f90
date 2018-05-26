@@ -116,6 +116,8 @@ module vars
 
   ! artificial-compressibility
   real(kind=pr),save :: c_0, gamma_p
+  integer, save :: acm_sponge
+  character(len=strlen) :: acm_inipressure
 
   ! Initial conditions:
   character(len=strlen),save :: inicond, file_ux, file_uy, file_uz

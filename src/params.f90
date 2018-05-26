@@ -284,6 +284,8 @@ subroutine get_params_fsi(PARAMS,Insect)
 
   call read_param_mpi(PARAMS,"artificial-compressibility","c_0",c_0, 20.0_pr)
   call read_param_mpi(PARAMS,"artificial-compressibility","gamma_p",gamma_p, 0.0_pr)
+  call read_param_mpi(PARAMS,"artificial-compressibility","acm_sponge",acm_sponge, 0)
+  call read_param_mpi(PARAMS,"artificial-compressibility","acm_inipressure", acm_inipressure, "flusi-spectral")
 
   ! ---------------------------------------------------
   ! Geometry section

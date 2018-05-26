@@ -759,14 +759,15 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   type(diptera),intent(inout) :: Insect
-  real(kind=pr) :: t0,t1,uy,uz,chi,usy,usz, uy_dy, uy_dz, uz_dy, uz_dz
+  real(kind=pr) :: t0,t1,uy,uz,chi,usy,usz, uy_dy, uy_dz, uz_dy, uz_dz, p
   real(kind=pr) :: kx, ky, kz, k2
   complex(kind=pr) :: imag   ! imaginary unit
   integer :: ix,iz,iy,mpicode
   t0 = MPI_wtime()
 
   nlk = 0.0_pr
-  uk(:,:,:,1)=0.0_pr
+  ! reset ux (we assume you deal with 2d flows...)
+  uk(:,:,:,1) = 0.0_pr
 
   if (nx/=1) call abort(33427, "artificial-compressibility only for 2d implemented")
   ! no integrating factor
@@ -782,7 +783,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
   call ifft(outx=u(:,:,:,2), ink=uk(:,:,:,2))
   call ifft(outx=u(:,:,:,3), ink=uk(:,:,:,3))
 
-  ! derivatives
+  ! derivatives (requires for non-linear term in convection formulation)
   imag = dcmplx(0.d0,1.d0)
   do ix=ca(3),cb(3)
      kx=wave_x(ix)
@@ -830,17 +831,37 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
         ! note this is indeed -(vor x u) (negative sign)
         vort(ix,iy,iz,2) = -uy*uy_dy -uz*uy_dz -chi*(uy-usy)
         vort(ix,iy,iz,3) = -uy*uz_dy -uz*uz_dz -chi*(uz-usz)
-
       enddo
     enddo
   enddo
+
+  if (acm_sponge==1) then
+    ! get pressure in x space
+    call ifft(ink=uk(:,:,:,4), outx=work(:,:,:,1) )
+
+    ! penalization term for pressure in sponge areas
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
+          ! local loop variables
+          p = work(ix,iy,iz,1)
+          chi = mask(ix,iy,iz)
+          ! color 0 is sponges
+          if (mask_color(ix,iy,iz)==0) work(ix,iy,iz,2) = -chi*p
+        enddo
+      enddo
+    enddo
+
+    ! to k-space
+    call fft( inx=work(:,:,:,2),outk=nlk(:,:,:,4) )
+  endif
+
   ! to Fourier space
   call fft( inx=vort(:,:,:,2),outk=nlk(:,:,:,2) )
   call fft( inx=vort(:,:,:,3),outk=nlk(:,:,:,3) )
   time_curl = time_curl + MPI_wtime() - t1
 
-
-  ! pressure rhs
+  ! add remaining terms in fourier space (divergence, grad, laplace)
   imag = dcmplx(0.d0, 1.d0)
   do ix=ca(3),cb(3)
      kx=wave_x(ix)
@@ -855,7 +876,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
            nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) - imag*kz*uk(iz,iy,ix,4) - nu*k2*uk(iz,iy,ix,3)
 
            ! rhs for pressure (divergence)
-           nlk(iz,iy,ix,4) = -(c_0**2)*imag*(ky*uk(iz,iy,ix,2) + kz*uk(iz,iy,ix,3)) -gamma_p*uk(iz,iy,ix,4)
+           nlk(iz,iy,ix,4) = nlk(iz,iy,ix,4) -(c_0**2)*imag*(ky*uk(iz,iy,ix,2) + kz*uk(iz,iy,ix,3)) -gamma_p*uk(iz,iy,ix,4)
        enddo
     enddo
   enddo
