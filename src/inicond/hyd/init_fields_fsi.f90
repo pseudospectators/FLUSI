@@ -294,7 +294,13 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      call Read_Single_File ( file_ux, vort(:,:,:,1) )
      call Read_Single_File ( file_uy, vort(:,:,:,2) )
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
-     call fft3 ( uk,vort )
+     call fft3 ( uk(:,:,:,1:3), vort(:,:,:,1:3) )
+
+     if (equation=='artificial-compressibility') then
+       call Read_Single_File ( file_p, vort(:,:,:,1) )
+       call fft( inx=vort(:,:,:,1), outk=uk(:,:,:,4) )
+     endif
+
      if (mpirank==0) write (*,*) "*** done reading infiles"
 
   case("infile_inlet")

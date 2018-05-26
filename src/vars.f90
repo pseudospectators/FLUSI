@@ -120,7 +120,7 @@ module vars
   character(len=strlen) :: acm_inipressure
 
   ! Initial conditions:
-  character(len=strlen),save :: inicond, file_ux, file_uy, file_uz
+  character(len=strlen),save :: inicond, file_ux, file_uy, file_uz, file_p
   character(len=strlen),save :: file_bx, file_by, file_bz, inicond_spectrum_file
   real(kind=pr),save :: omega1, nu_smoothing
 

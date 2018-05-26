@@ -62,7 +62,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   !-----------------------------------------------------------------------------
   ! for artificial-compressibility we need to initialize the pressure as well.
   !-----------------------------------------------------------------------------
-  if (equation=="artificial-compressibility") then
+  if (equation=="artificial-compressibility" .and. inicond/="infile") then
     select case (acm_inipressure)
     case('flusi-spectral')
       if (ng /= 0)  call abort(7726289,"acm no ghost nodes must be used (bounds compatibility!)!")

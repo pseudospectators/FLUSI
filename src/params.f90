@@ -118,6 +118,7 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"InitialCondition","file_ux",file_ux, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_uy",file_uy, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_uz",file_uz, "none")
+  call read_param_mpi(PARAMS,"InitialCondition","file_p",file_p, "none")
   ! if running in MHD mode, we also need the B-field initialized
   call read_param_mpi(PARAMS,"InitialCondition","file_bx",file_bx, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_by",file_by, "none")
