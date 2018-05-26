@@ -73,7 +73,7 @@ subroutine turbulence_analysis(help)
   call ifft3 (ink=vork,outx=vor)
 
   ! compute spectrum
-  call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+  call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
   !-----------------------------------------------------------------------------
   ! dissipation rate from velocity in Fourier space

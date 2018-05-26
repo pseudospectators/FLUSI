@@ -265,6 +265,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   call read_param_mpi(PARAMS,"Penalization","thick_wall",thick_wall,0.2d0)
   call read_param_mpi(PARAMS,"Penalization","pos_wall",pos_wall,0.3d0)
   call read_param_mpi(PARAMS,"Penalization","us_fixed",us_fixed,(/0.d0,0.d0,0.d0/))
+
   ! ---------------------------------------------------
   ! sponge
   ! ---------------------------------------------------
@@ -273,6 +274,16 @@ subroutine get_params_fsi(PARAMS,Insect)
   call read_param_mpi(PARAMS,"Sponge","eps_sponge",eps_sponge, 0.d0)
   call read_param_mpi(PARAMS,"Sponge","sponge_thickness",sponge_thickness,0)
 
+  ! ---------------------------------------------------
+  ! equation section
+  ! ---------------------------------------------------
+  ! the fluid-structure interaction module, the actual flusi code, can run on two equations
+  ! Navier-stokes incompressible or artificial compressibility. both are discretized with
+  ! Fourier. Default is Navier-Stokes. Does not affect MHD part of the code.
+  call read_param_mpi(PARAMS,"FSI-equation","equation",equation, "navier-stokes")
+
+  call read_param_mpi(PARAMS,"artificial-compressibility","c_0",c_0, 20.0_pr)
+  call read_param_mpi(PARAMS,"artificial-compressibility","gamma_p",gamma_p, 0.0_pr)
 
   ! ---------------------------------------------------
   ! Geometry section

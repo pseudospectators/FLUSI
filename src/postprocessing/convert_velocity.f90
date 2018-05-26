@@ -135,7 +135,7 @@ subroutine convert_velocity(help)
   ! compute velocity from vorticity
   !-----------------------------------------------------------------------------
   ! uk: vorticity; workc: velocity
-  call Vorticity2Velocity(uk,workc)
+  call Vorticity2Velocity(uk(:,:,:,1:3),workc(:,:,:,1:3))
   call ifft3 (ink=workc, outx=u)
   uk = workc ! uk: velocity in F-space
 

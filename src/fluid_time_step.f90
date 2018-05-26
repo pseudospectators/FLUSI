@@ -893,6 +893,7 @@ subroutine adjust_dt(time,u,dt1)
     else
       !-- FSI runs just need to respect CFL for velocity
       umax = field_max_magnitude(u(:,:,:,1:3))
+      if (equation=="artificial-compressibility") umax = umax+c_0
     endif
 
     !-- Adjust time step at 0th process
@@ -1092,7 +1093,7 @@ subroutine output_kinetic_energy(time, uk)
 
   ! compute total kinetic energy (including the solid domain) in Fourier space
   ! using Parseval's identity
-  call compute_energies_k(uk,E)
+  call compute_energies_k(uk(:,:,:,1:3),E)
 
   if (root) then
     open(14,file='ekin.t',status='unknown',position='append')

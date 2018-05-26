@@ -27,6 +27,7 @@ module vars
 
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
+  character(len=strlen),save :: equation ! navier-stokes; artificial-compressibility
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
   integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD)
@@ -112,6 +113,9 @@ module vars
 
   ! viscosity:
   real(kind=pr),save :: nu
+
+  ! artificial-compressibility
+  real(kind=pr),save :: c_0, gamma_p
 
   ! Initial conditions:
   character(len=strlen),save :: inicond, file_ux, file_uy, file_uz

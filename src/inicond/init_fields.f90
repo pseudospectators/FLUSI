@@ -32,7 +32,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   select case(method)
   case("fsi")
     call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
-    workc,press,scalars,scalars_rhs,Insect,beams)
+    workc,press,scalars,scalars_rhs,Insect,beams, work, u)
   case("mhd")
     call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
@@ -60,12 +60,20 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   endif
 
   !-----------------------------------------------------------------------------
+  ! for artificial-compressibility we need to initialize the pressure as well.
+  !-----------------------------------------------------------------------------
+  if (equation=="artificial-compressibility") then
+    if (ng /= 0)  call abort(7726289,"acm no ghost nodes must be used (bounds compatibility!)!")
+    call pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,work(:,:,:,4),Insect)
+    call fft( inx=work(:,:,:,4), outk=uk(:,:,:,4) )
+  endif
+
+  !-----------------------------------------------------------------------------
   ! save initial conditions (if not resuming a backup)
   !-----------------------------------------------------------------------------
   if (index(inicond,'backup::')==0 .and. (time>=tsave_first)) then
     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
-    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,&
-         scalars_rhs,Insect,beams)
+    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams)
   endif
 
   tstart = time

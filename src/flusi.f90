@@ -181,6 +181,10 @@ end program FLUSI
     if (iTimeMethodFluid=="RK4") nrhs=5
     if (root) write(*,'("Using nrhs=",i1," right hand side registers")') nrhs
 
+    ! the number of entries in the state vector depends on the equation we solve
+    if (equation=='navier-stokes') neq = nd ! 3 fields (velocity)
+    if (equation=='artificial-compressibility') neq = 4 ! 3 velocities + pressure
+
     !-----------------------------------------------------------------------------
     ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
     !-----------------------------------------------------------------------------
@@ -235,6 +239,7 @@ end program FLUSI
     ! real valued work array(s)
     ! allocate one work array
     nrw = 1
+    if (equation=="artificial-compressibility") nrw = 4
     allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
     memory = memory + dble(nrw)*mem_field
 
@@ -255,6 +260,7 @@ end program FLUSI
       ! one complex work array, if using scalar
       if (use_passive_scalar==1) ncw = 1
     endif
+    if (equation=="artificial-compressibility") ncw = 4
     allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
 
     ! reserve additional space for scalars?

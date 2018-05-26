@@ -1036,7 +1036,7 @@ subroutine dealias3(fk)
   implicit none
 
   integer :: ix,iy,iz
-  complex(kind=pr),intent(inout) :: fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
+  complex(kind=pr),intent(inout) :: fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   real(kind=pr) :: kxt2,kyt2,kzt2
   real(kind=pr) :: kx_trunc,ky_trunc,kz_trunc
 
@@ -1057,7 +1057,7 @@ subroutine dealias3(fk)
         kxt2=kxt2*kxt2
 
         if (kxt2 + kyt2 + kzt2  >= 1.d0) then
-          fk(iz,iy,ix,1:3)=0.d0
+          fk(iz,iy,ix,:)=0.d0
         endif
       enddo
     enddo
@@ -1078,7 +1078,7 @@ end subroutine dealias3
 !   In older versions, still (07/2015) present in inicond/fsi/init_fields_fsi.f90
 !   we include the FFT in the routine. that is not very nice.
 !-------------------------------------------------------------------------------
-subroutine Vorticity2Velocity(vork,uk)
+subroutine Vorticity2Velocity(vork, uk)
   use mpi
   use vars
   use p3dfft_wrapper

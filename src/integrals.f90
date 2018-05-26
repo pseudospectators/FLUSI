@@ -207,7 +207,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   ! Spectrum
   !-----------------------------------------------------------------------------
   if (iSaveSpectrae=="yes") then
-    call compute_spectrum(time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    call compute_spectrum(time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
     if(mpirank == 0) then
       open(14,file='spectrum_tot.t',status='unknown',position='append')
       write (14,'(4096(es15.8,1x))') time,S_Ekin
@@ -515,7 +515,7 @@ subroutine compute_energies_k(uk,E)
     use vars
     use helpers
     implicit none
-    complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+    complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
     integer :: ix,iy,iz
     real(kind=pr) :: E,e1
 

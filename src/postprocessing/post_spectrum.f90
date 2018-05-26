@@ -83,7 +83,7 @@ subroutine post_spectrum(help)
     call fft3( inx=u, outk=uk)
 
     ! compute the actual spectrum
-    call compute_spectrum( time,kvec,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+    call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
     ! compute energy in physical space (to check parsevals identity)
     u(:,:,:,1) = u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2

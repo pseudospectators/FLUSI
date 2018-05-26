@@ -470,7 +470,7 @@ contains
   DD = point-DD
   t = dot_product(DD,normal)
 
-  write(*,* "WARNING CHANGED TO UNSIGNED DISTANCE!!"
+  write(*,*) "WARNING CHANGED TO UNSIGNED DISTANCE!!"
   ! if (t >= 0.d0) then
     pointTriangleDistance = dsqrt(sqrDistance)
   ! else
