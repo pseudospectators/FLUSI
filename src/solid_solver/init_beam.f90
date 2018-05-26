@@ -15,8 +15,9 @@ subroutine init_beams ( beams )
 
   if (mpirank==0) then
     write (*,'("Initializing ",i1," beams")')  nBeams
-    write (*,'("Beam width (2*t_beam) covers ",(f4.1)," points")') &
-    2.0*t_beam/max(dy,dx)
+    write (*,'("Beam width (2*t_beam) is ",es12.4)') 2.0d0*t_beam
+    write (*,'("Beam width (2*t_beam) covers ",(es12.4)," points")') &
+    2.0d0*t_beam/max(dy,dz)
   endif
 
   call lapack_unit_test()

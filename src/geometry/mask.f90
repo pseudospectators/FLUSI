@@ -62,8 +62,6 @@ end subroutine update_us
 
 
 
-
-
 ! This subroutine returns the value f of a smooth step function
 ! The sharp step function would be 1 if x<=t and 0 if x>t
 ! h is the semi-size of the smoothing area, so
@@ -73,8 +71,9 @@ end subroutine update_us
 subroutine smoothstep(f,x,t,h)
   use vars
   implicit none
-  real (kind=pr), intent (out) :: f
-  real (kind=pr), intent (in)  :: x,t,h
+  real(kind=pr), intent (out) :: f
+  real(kind=pr), intent (in)  :: x,t,h
+  real(kind=pr) :: GradientERF, delta
 
   !-------------------------------------------------
   ! cos shaped smoothing (compact in phys.space)
@@ -86,6 +85,10 @@ subroutine smoothstep(f,x,t,h)
   else
     f = 0.d0
   endif
+
+  ! GradientERF = dabs( ( dexp(-(2.d0*1.d0)**2)  - 1.d0 )/dsqrt(pi) )
+  ! delta = h*GradientERF
+  ! f = 0.5d0*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
 
 end subroutine smoothstep
 

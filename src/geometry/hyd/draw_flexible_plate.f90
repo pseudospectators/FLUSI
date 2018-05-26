@@ -159,7 +159,7 @@ subroutine Draw_flexible_plate (time, beam)
 
       ! mask is now the distance function from the centerline
       ! convert distance function to mask function
-      call smoothstep( tmp, mask(ix,iy,iz)-t_beam, 0.d0, smoothing )
+      call smoothstep( tmp, mask(ix,iy,iz), t_beam, smoothing )
 
       !-------------------------------------------------------------------------
       !-- make plate finite in z-direction, possibly with non-rectangular shapes
@@ -173,7 +173,7 @@ subroutine Draw_flexible_plate (time, beam)
         ! plate is finite, we have to do something about the finite length
         if (x_plate(3)<0.d0) then
           call smoothstep( tmp2, -x_plate(3), z_bottom(s), smoothing )
-        else 
+        else
           call smoothstep( tmp2,  x_plate(3), z_top(s), smoothing )
         endif
       endif
