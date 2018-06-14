@@ -25,7 +25,7 @@ subroutine flexible_wing_mask(help)
       write(*,*) "Parallel: yes"
       return
     endif
-
+    ! Test github pull request
     ! first thing to do would be load ascii DAT files
     file = "points_coor.dat"
     call count_lines_in_ascii_file_mpi(file, npoints, n_header)
