@@ -13,7 +13,7 @@ subroutine flexible_wing_mask(help)
     real(kind=pr) :: x,y,z, d
     real(kind=pr), allocatable :: points_coordinates(:,:)
     real(kind=pr), allocatable :: triangle_indices(:,:)
-    real(kind=pr), allocatable :: work(:,:,:)
+    real(kind=pr), allocatable :: work(:,:,:), us(:,:,:)
 
 
     if (help.and.root) then
@@ -51,6 +51,7 @@ subroutine flexible_wing_mask(help)
     call decomposition_initialize()
     ! this will be our mask array
     allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+    allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
     ! initialize the array as very large distance
     ! in the first step, we use this array to create the DISTANCE function, later the MASK
     work = 9.9e9
