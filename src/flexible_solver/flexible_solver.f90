@@ -50,6 +50,7 @@ module flexible_model
     real(kind=pr),dimension(1:npmax) :: vx,vy,vz
     real(kind=pr),dimension(1:npmax) :: u_old, u_oldold
     integer,dimension(1:2*npmax,4) :: tri_elements
+    real(kind=pr),dimension(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) :: mask
     ! Matrix contains identification of vein points connected by bending springs
     ! and their initial and current bending angles on both directions y and z:
     real(kind=pr),dimension(1:nvmax,8,nVeins) :: Veins_bending
@@ -79,14 +80,14 @@ module flexible_model
     !real(kind=pr),dimension(0:nsmax) :: theta_dot_old, theta_dot_oldold
 
     ! real(kind=pr),dimension(0:nsmax,1:6) :: wing_oldold
-    real(kind=pr),dimension(1:2) :: Force, Force_unst, Force_press, Inertial_Force
-    real(kind=pr) :: E_kinetic, E_elastic
+    !real(kind=pr),dimension(1:2) :: Force, Force_unst, Force_press, Inertial_Force
+    !real(kind=pr) :: E_kinetic, E_elastic
     real(kind=pr) :: x0, y0, z0, Anglewing_y, Anglewing_z, phase
     ! we need the previous time step for the BDF solver
     real(kind=pr) :: dt_old
     ! these replace the save variables in the unst correction computation:
-    real(kind=pr) :: drag_unst_new, drag_unst_old, lift_unst_new, lift_unst_old
-    logical :: StartupStep, UnsteadyCorrectionsReady
+    !real(kind=pr) :: drag_unst_new, drag_unst_old, lift_unst_new, lift_unst_old
+    logical :: StartupStep!, UnsteadyCorrectionsReady
   end type wing
 
 

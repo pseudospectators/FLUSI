@@ -14,51 +14,50 @@ subroutine create_mask_from_triangular_mesh(wings)
     ! bounding box with the local CPUS part of the mask array
     do i = 1, nWings
 
-    do itri = 1, ntri
+      do itri = 1, ntri
 
-      ! determine bounding box for one triangle
-       do i = 2,4
-         do j = 3,5
-           if ( points_coordinates(triangle_indices(itri,j),i) == &
+        ! determine bounding box for one triangle
+        do i = 2,4
+          do j = 3,5
+            if ( points_coordinates(triangle_indices(itri,j),i) == &
             minval(points_coordinates(triangle_indices(itri,3:5),i))) then
 
-                 imin(i-1) = triangle_indices(itri,j)
-           endif
+            imin(i-1) = triangle_indices(itri,j)
+          endif
 
-           if ( points_coordinates(triangle_indices(itri,j),i) == &
-            maxval(points_coordinates(triangle_indices(itri,3:5),i))) then
+          if ( points_coordinates(triangle_indices(itri,j),i) == &
+          maxval(points_coordinates(triangle_indices(itri,3:5),i))) then
 
-                 imax(i-1) = triangle_indices(itri,j)
-           end if
-         end do
-       end do
-
-
-       xmin = floor((points_coordinates(imin(1),2) - tw - smoothing_wing)/dx) - safety
-       xmax = ceiling((points_coordinates(imax(1),2) + tw + smoothing_wing)/dx) + safety
-
-       ymin = floor((points_coordinates(imin(2),3) - tw - smoothing_wing)/dy) - safety
-       ymax = ceiling((points_coordinates(imax(2),3) + tw + smoothing_wing)/dy) + safety
-
-       zmin = floor((points_coordinates(imin(2),4) - tw - smoothing_wing)/dz) - safety
-       zmax = ceiling((points_coordinates(imax(2),4) + tw + smoothing_wing)/dz) + safety
-
-        do iz = ra(3),rb(3)
-            do iy = ra(2),rb(2)
-                do ix = ra(1),rb(1)
-                    x = dx*dble(ix)-xl/2.0
-                    y = dy*dble(iy)-xl/2.0
-                    z = dz*dble(iz)-xl/2.0
-
-                    d = pointTriangleDistance( points_coordinates( triangle_indices(itri,3),2:4), &
-                    points_coordinates( triangle_indices(itri,4),2:4), &
-                    points_coordinates( triangle_indices(itri,5),2:4), &
-                    (/x,y,z/), (/0.0_pr,0.0_pr,-1.0_pr/) )
-
-                    work(ix,iy,iz) = min( work(ix,iy,iz), d)
-                end do
-            end do
-        end do
+          imax(i-1) = triangle_indices(itri,j)
+        end if
+      end do
     end do
+
+    xmin = floor((points_coordinates(imin(1),2) - tw - smoothing_wing)/dx) - safety
+    xmax = ceiling((points_coordinates(imax(1),2) + tw + smoothing_wing)/dx) + safety
+
+    ymin = floor((points_coordinates(imin(2),3) - tw - smoothing_wing)/dy) - safety
+    ymax = ceiling((points_coordinates(imax(2),3) + tw + smoothing_wing)/dy) + safety
+
+    zmin = floor((points_coordinates(imin(2),4) - tw - smoothing_wing)/dz) - safety
+    zmax = ceiling((points_coordinates(imax(2),4) + tw + smoothing_wing)/dz) + safety
+
+    do iz = zmin,zmax
+      do iy = ymin,ymax
+        do ix = xmin,xmax
+          x = dx*dble(ix)-xl/2.0
+          y = dy*dble(iy)-xl/2.0
+          z = dz*dble(iz)-xl/2.0
+
+          d = pointTriangleDistance( points_coordinates( triangle_indices(itri,3),2:4), &
+          points_coordinates( triangle_indices(itri,4),2:4), &
+          points_coordinates( triangle_indices(itri,5),2:4), &
+          (/x,y,z/), (/0.0_pr,0.0_pr,-1.0_pr/) )
+
+          work(ix,iy,iz) = min( work(ix,iy,iz), d)
+        end do
+      end do
+    end do
+  end do
 
   end do
