@@ -53,6 +53,7 @@ subroutine init_wings ( wings )
     wings(i)%vz = 0.d0
     wings(i)%u_old = 0.d0
     wings(i)%u_oldold = 0.d0
+    wings(i)%mask = 0.d0
     wings(i)%Veins_bending = 0.d0
     wings(i)%Veins_extension = 0.d0
     wings(i)%Veins_bending_BC = 0.d0
@@ -62,34 +63,20 @@ subroutine init_wings ( wings )
     wings(i)%pressure_old = 0.d0
     wings(i)%pressure_new = 0.d0
     ! this is used for unst correction computation:
-    wings(i)%drag_unst_new = 0.d0
-    wings(i)%drag_unst_old = 0.d0
-    wings(i)%lift_unst_new = 0.d0
-    wings(i)%lift_unst_old = 0.d0
-    wings(i)%Force = 0.d0
-    wings(i)%Force_unst = 0.d0
-    wings(i)%Force_press = 0.d0
-    wings(i)%Inertial_Force = 0.d0
-    wings(i)%E_kinetic = 0.d0
-    wings(i)%E_elastic = 0.d0
-    wings(i)%E_tot = 0.d0
-    wings(i)%UnsteadyCorrectionsReady = .false.
+    !wings(i)%drag_unst_new = 0.d0
+    !wings(i)%drag_unst_old = 0.d0
+    !wings(i)%lift_unst_new = 0.d0
+    !wings(i)%lift_unst_old = 0.d0
+    !wings(i)%Force = 0.d0
+    !wings(i)%Force_unst = 0.d0
+    !wings(i)%Force_press = 0.d0
+    !wings(i)%Inertial_Force = 0.d0
+    !wings(i)%E_kinetic = 0.d0
+    !wings(i)%E_elastic = 0.d0
+    !wings(i)%E_tot = 0.d0
+    !wings(i)%UnsteadyCorrectionsReady = .false.
     wings(i)%StartupStep = .true.
     wings(i)%dt_old = 0.d0
-
-    ! remember that what follows is described in relative coordinates
-    do n = 0, ns-1
-      wings(i)%x(n) = LeadingEdge(1) + dble(n)*ds
-      wings(i)%y(n) = LeadingEdge(2)
-      wings(i)%vx(n)= 0.d0
-      wings(i)%vy(n)= 0.d0
-      wings(i)%ax(n)= 0.d0
-      wings(i)%ay(n)= 0.d0
-      ! the grid:
-      wings(i)%s(n) = dble(n)*ds
-      ! width in rigid (usually span) direction:
-      wings(i)%L_rigid(n) = z_top(wings(i)%s(n)) + z_bottom(wings(i)%s(n))
-    enddo
 
     !---------------------------------------------------------------------------
     ! set up material and derivatives
