@@ -3,6 +3,7 @@ program FLUSI
   use vars
   use solid_model
   use insect_module
+  use flexible_module
 
   implicit none
   integer                :: mpicode
@@ -64,6 +65,8 @@ program FLUSI
 
     if (infile=="--solid") then
       call OnlySolidSimulation()
+    elseif (infile=="--flexiblesolid") then
+      call OnlyFlexibleSolidSimulation()
     elseif (infile=="--solid-time-convergence") then
       call SolidModelConvergenceTest()
     endif
