@@ -53,6 +53,7 @@ subroutine init_wings ( wings )
     wings(i)%vz = 0.d0
     wings(i)%u_old = 0.d0
     wings(i)%u_oldold = 0.d0
+    wings(i)%tri_elements = 0
     wings(i)%mask = 0.d0
     wings(i)%Veins_bending = 0.d0
     wings(i)%Veins_extension = 0.d0
@@ -81,8 +82,20 @@ subroutine init_wings ( wings )
     !---------------------------------------------------------------------------
     ! set up material and derivatives
     !---------------------------------------------------------------------------
-    wings(i)%EIy
-
+    wings(i)%EIy = 0.d0
+    wings(i)%EIz = 0.d0
+    wings(i)%kby0 = 0.d0
+    wings(i)%kbz0 = 0.d0
+    wings(i)%EIy_BC = 0.d0
+    wings(i)%EIz_BC = 0.d0
+    wings(i)%kby0_BC = 0.d0
+    wings(i)%kbz0_BC = 0.d0
+    wings(i)%ke_v = 0.d0
+    wings(i)%kb_v = 0.d0
+    wings(i)%ke_vBC = 0.d0
+    wings(i)%kb_vBC = 0.d0
+    wings(i)%kb_m = 0.d0
+    wings(i)%kb_me = 0.d0
     wings(i)%zeta(0:ns-1) = eta0 * wings(i)%L_rigid(0:ns-1)
     wings(i)%mu(0:ns-1)   = mue0 * wings(i)%L_rigid(0:ns-1)
 
