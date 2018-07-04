@@ -3,7 +3,7 @@ program FLUSI
   use vars
   use solid_model
   use insect_module
-  use flexible_module
+  use flexible_model
 
   implicit none
   integer                :: mpicode
