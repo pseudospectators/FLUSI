@@ -18,10 +18,6 @@ module flexible_model
   integer,parameter :: nvmax = 2*npmax
   integer,parameter :: nmmax = 2*npmax
   ! TODO: move these into the solid model datastructure
-  real(kind=pr),save :: EIy
-  real(kind=pr),save :: EIz
-  real(kind=pr),save :: grav
-  real(kind=pr),save :: sigma
   real(kind=pr),save :: t_wing, L_vein, N_smooth
   real(kind=pr),save :: T_release
   real(kind=pr), parameter :: error_stop = 1.0e-6
