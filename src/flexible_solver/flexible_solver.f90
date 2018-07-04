@@ -67,11 +67,20 @@ module flexible_model
     real(kind=pr),dimension(0:nsmax) :: pressure_old, pressure_new
     ! material properties:
     real(kind=pr),dimension(1:nVeins) :: EIy, EIz, kby0, kbz0
-    real(kind=pr),dimension(-1:nVeins_BC) :: EIy_BC, EIz_BC, kby0_BC, kbz0_BC
+    real(kind=pr),dimension(1:nVeins_BC) :: EIy_BC, EIz_BC, kby0_BC, kbz0_BC
+    real(kind=pr),dimension(1:nVeins) :: rho_v
+    real(kind=pr),dimension(1:nVeins_BC) :: rho_vBC
+    real(kind=pr),dimension(1:nMembranes) :: rho_m
+    real(kind=pr) :: rho_me
+
     real(kind=pr),dimension(1:nvmax,1:nVeins) :: ke_v, kb_v
+    real(kind=pr),dimension(1:nvmax,1:nVeins) :: m_v
     real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: ke_vBC, kb_vBC
+    real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: m_vBC
     real(kind=pr),dimension(1:nvmax,1:nMembranes) :: kb_m
+    real(kind=pr),dimension(1:nvmax,1:nMembranes) :: m_m
     real(kind=pr),dimension(1:nvmax) :: kb_me
+    real(kind=pr),dimension(1:nvmax) :: m_me
 
     ! grid and width in rigid direction:
     real(kind=pr),dimension(1:nVeins+nBCs) :: L_veins

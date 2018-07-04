@@ -49,7 +49,8 @@ program FLUSI
   elseif ( infile == "--io-test" ) then
     call io_test()
 
-  elseif ( infile=="--solid" .or. infile=="--solid-time-convergence" ) then
+  elseif ( infile=="--solid" .or. infile=="--flexiblesolid" .or. &
+    infile=="--solid-time-convergence" ) then
     !-------------------------------------------------------------------------
     ! run solid model only
     !-------------------------------------------------------------------------
