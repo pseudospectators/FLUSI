@@ -38,7 +38,7 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 #--------------------------------------------------------------
 # Files that create modules:
 #--------------------------------------------------------------
-MFILES = vars.f90 helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
+MFILES = vars.f90 helpers.f90 cof_p3dfft.f90 solid_solver.f90 flexible_solver.f90\
 	interpolation.f90 basic_operators.f90 insects.f90 turbulent_inlet.f90 \
 	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
 	ini_files_parser_mpi.f90 wavelet_library.f90
@@ -57,6 +57,7 @@ VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
 VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd:src/wavelets
 VPATH += :src/insects:src/solid_solver:src/postprocessing:src/file_io
+VPATH += :src/flexible_solver
 
 # Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
@@ -211,6 +212,10 @@ $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpola
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
 	prescribed_beam.f90 solid_solver_wrapper.f90 $(OBJDIR)/ghostpoints.o
 	$(FC) -Isrc/solid_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/flexible_solver.o: flexible_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o $(OBJDIR)/helpers.o \
+	read_wing_mesh_data.f90 flexible_tri_mask.f90 \
+	init_wing.f90 flexible_solver_wrapper.f90 $(OBJDIR)/ini_files_parser_mpi.o $(OBJDIR)/stlreader.o
+	$(FC) -Isrc/flexible_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
