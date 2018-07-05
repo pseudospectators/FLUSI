@@ -13,12 +13,12 @@ subroutine init_wings ( wings )
   character(len=1)  :: wingstr
   character(len=16) :: frmt
 
-  if (mpirank==0) then
-    write (*,'("Initializing ",i1," wings")')  nWings
-    write (*,'("wing width (2*t_wing) is ",es12.4)') 2.0d0*t_wing
-    write (*,'("wing width (2*t_wing) covers ",(es12.4)," points")') &
-    2.0d0*t_wing/max(dy,dz)
-  endif
+  !if (mpirank==0) then
+  !  write (*,'("Initializing ",i1," wings")')  nWings
+  !  write (*,'("wing width (2*t_wing) is ",es12.4)') 2.0d0*t_wing
+  !  write (*,'("wing width (2*t_wing) covers ",(es12.4)," points")') &
+  !  2.0d0*t_wing/max(dy,dz)
+  !endif
 
   call lapack_unit_test()
 
@@ -36,8 +36,8 @@ subroutine init_wings ( wings )
     wings(i)%y0 = 0.d0
     wings(i)%z0 = 0.d0
     !rotation angles only used to determine the starting position of the wings
-    wings(i)%Anglewing_y = Anglewing_y
-    wings(i)%Anglewing_z = Anglewing_z
+    wings(i)%Anglewing_y = 0.d0
+    wings(i)%Anglewing_z = 0.d0
 
     !--------------------------------------
     !-- initialize wing
@@ -61,8 +61,8 @@ subroutine init_wings ( wings )
     wings(i)%Veins_extension_BC = 0.d0
     wings(i)%Membranes_extension = 0.d0
     wings(i)%Membrane_edge = 0.d0
-    wings(i)%pressure_old = 0.d0
-    wings(i)%pressure_new = 0.d0
+    !wings(i)%pressure_old = 0.d0
+    !wings(i)%pressure_new = 0.d0
     ! this is used for unst correction computation:
     !wings(i)%drag_unst_new = 0.d0
     !wings(i)%drag_unst_old = 0.d0
@@ -96,8 +96,8 @@ subroutine init_wings ( wings )
     wings(i)%kb_vBC = 0.d0
     wings(i)%kb_m = 0.d0
     wings(i)%kb_me = 0.d0
-    wings(i)%zeta(0:ns-1) = eta0 * wings(i)%L_rigid(0:ns-1)
-    wings(i)%mu(0:ns-1)   = mue0 * wings(i)%L_rigid(0:ns-1)
+    !wings(i)%zeta(0:ns-1) = eta0 * wings(i)%L_rigid(0:ns-1)
+    !wings(i)%mu(0:ns-1)   = mue0 * wings(i)%L_rigid(0:ns-1)
 
 
 
