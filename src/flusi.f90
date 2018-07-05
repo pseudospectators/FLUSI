@@ -46,6 +46,14 @@ program FLUSI
     !-------------------------------------------------------------------------
     call dry_run()
 
+  elseif ( infile == "--dry-run-flexible-wing" ) then
+    !-------------------------------------------------------------------------
+    ! dry run that only generates and dumps the mask function of flexible wing,
+    ! without allocating or computing the fluid.
+    !-------------------------------------------------------------------------
+    call dry_run_flexible_wing()
+
+
   elseif ( infile == "--io-test" ) then
     call io_test()
 
