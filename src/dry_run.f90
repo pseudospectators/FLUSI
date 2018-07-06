@@ -331,44 +331,15 @@ subroutine dry_run_flexible_wing()
   endif
 
   !-----------------------------------------------------------------------------
-  ! initalize some insect stuff, if used
+  ! initalize wings
   !-----------------------------------------------------------------------------
-  ! Load kinematics from file (Dmitry, 14 Nov 2013)
-  if (iMask=="Insect") then
-
-    call insect_init( 0.d0, infile, Insect)
-
-    ! If required, initialize rigid solid dynamics solver. Note that if the --post flag
-    ! is set, the insect state is read from file, so we skip the initialization .
-    if (Insect%BodyMotion=="free_flight" .and. mode/="--post") then
-      call rigid_solid_init(0.d0,Insect)
-      GlobalIntegrals%force = 0.d0
-      GlobalIntegrals%force_unst = 0.d0
-    endif
-
-    ! tell insect module not to write to kinematics.dry-run.t file, so content of
-    ! original file is not touched
-    Insect%kinematics_file = "kinematics.dry-run.t"
-
-    if (root) then
-      open  (14,file=Insect%kinematics_file, status='replace')
-      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
-      "psi","beta","gamma","eta_stroke",&
-      "alpha_l","phi_l","theta_l",&
-      "alpha_r","phi_r","theta_r",&
-      "rot_l_x","rot_l_y","rot_l_z",&
-      "rot_r_x","rot_r_y","rot_r_z",&
-      "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
-      "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
-      close (14)
-    endif
-  endif
+  call init_wing( Wings)
 
 
-  if (tsave == 0.d0) then
-    if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
-    tsave = 0.05d0
-  endif
+  !if (tsave == 0.d0) then
+  !  if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
+  !  tsave = 0.05d0
+  !endif
 
   !*****************************************************************************
   ! Step forward in time
@@ -379,30 +350,8 @@ subroutine dry_run_flexible_wing()
   it = 0
   !do while (time<=tmax)
 
-    ! if the motion is free_flight, dry run can still be used e.g. to integrate
-    ! a constant velocity which is set in the ini file. of course, a dry run cannot
-    ! take the FSI coupling into account.
-    ! sometimes, one wants to run a dry-run as postprocessing to an existing simulation
-    ! (to save HDD space and erase the mask), and if that run is free_flight than the code
-    ! should read the insect state from the rigidsolidsolver.t file (instead of simply
-    ! integrating the rigid solid time stepper.)
-    if (Insect%BodyMotion=="free_flight") then
-      inquire( file='rigidsolidsolver.t', exist=exists )
-      if (exists) then
-        ! in this case, we find the rigidsolidsolver file, and we assume the user
-        ! wants to reconstruct the mask from that file.
-        if (root) write(*,*) "DRY-RUN found rigidsolidsolver.t file and use that for mask generation!"
-        call read_insect_STATE_from_file(time, Insect)
-      else
-        ! use rigid solid solver to integrate the body motion state; this is useful only
-        ! if a constant velocity is set
-        call rigid_solid_time_step(time, tsave, tsave, it, Insect)
-      endif
-    endif
-
-
     ! create the mask
-    call create_mask(time, Insect, beams)
+    call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
 
 
     ! Save data
