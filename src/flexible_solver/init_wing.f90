@@ -54,7 +54,6 @@ subroutine init_wings ( wings )
     wings(i)%u_old = 0.d0
     wings(i)%u_oldold = 0.d0
     wings(i)%tri_elements = 0
-    wings(i)%mask = 0.d0
     wings(i)%Veins_bending = 0.d0
     wings(i)%Veins_extension = 0.d0
     wings(i)%Veins_bending_BC = 0.d0
@@ -99,7 +98,8 @@ subroutine init_wings ( wings )
     !wings(i)%zeta(0:ns-1) = eta0 * wings(i)%L_rigid(0:ns-1)
     !wings(i)%mu(0:ns-1)   = mue0 * wings(i)%L_rigid(0:ns-1)
 
-
+    ! Reading mesh data from ASCII files
+    call read_mesh_data(wings)
 
     !if (mpirank ==0) then
     !  write(*,'(80("-"))')
@@ -124,7 +124,6 @@ subroutine init_wings ( wings )
     !call integrate_position (0.d0, wings(i))
   enddo
 
-
   !-------------------------------------------
   ! If we resume a backup, read from file (all ranks do that)
   !-------------------------------------------
@@ -132,4 +131,64 @@ subroutine init_wings ( wings )
   !  fname = inicond(index(inicond,'::')+2:index(inicond,'.'))//'fsi_bckp'
   !  call read_solid_backup( wings, trim(adjustl(fname)) )
   !endif
+
+  if (root) then
+    write(*,'(80("<"))')
+    write(*,*) "Flexible wings initialization is complete."
+    write(*,'(80("<"))')
+  endif
+
 end subroutine init_wings
+
+subroutine read_mesh_data(wings)
+
+  use vars
+  implicit none
+  type (wing), dimension(1:nWings), intent (inout) :: wings
+  character(len=strlen) :: data_file
+  character(len=1)  :: wingstr
+  integer :: i, j
+  real(kind=pr), allocatable :: tmp(:,:)
+
+  do i=1, nWings
+
+    !-- for naming files..
+    write (wingstr,'(i1)') i
+
+    ! Read initial coordinates x,y,z of all points in 2nd,3rd,4th columms
+    ! respectively in the points_coor.t data file
+    data_file = 'points_coor'//wingstr//'.t'
+    call  read_mesh_data_2D_array(data_file, tmp)
+    do j=1, maxval(tmp(:,1))
+      wings(i)%x(j) = tmp(j,2)
+      wings(i)%y(j) = tmp(j,3)
+      wings(i)%z(j) = tmp(j,4)
+    end do
+
+    ! Read indices of three vertices (correnponding to 3rd, 4th and 5tn columms)
+    ! of all triangle elements of the mesh
+    data_file = 'mesh_triangle_elements'//wingstr//'.t'
+    call  read_mesh_data_2D_array(data_file, tmp)
+    do j=1, size(tmp,DIM=1)
+      wings(i)%tri_elements(j,1) = j
+      wings(i)%tri_elements(j,2) = int(tmp(j,3))
+      wings(i)%tri_elements(j,3) = int(tmp(j,4))
+      wings(i)%tri_elements(j,4) = int(tmp(j,5))
+    end do
+
+  end do
+
+end subroutine read_mesh_data
+
+subroutine read_mesh_data_2D_array(data_file, data_2D_array)
+
+character(len=strlen), intent(in) :: data_file
+real(kind=pr),allocatable,intent(inout) :: data_2D_array(:,:)
+integer :: num_lines, num_cols, n_header=0
+
+call count_lines_in_ascii_file_mpi(data_file, num_lines, n_header)
+call count_cols_in_ascii_file_mpi(data_file, num_cols, n_header)
+allocate(data_2D_array(1:num_lines, 1:num_cols) )
+call read_array_from_ascii_file_mpi(data_file, data_2D_array, n_header)
+
+end subroutine read_mesh_data_2D_array
