@@ -57,8 +57,6 @@
 subroutine OnlyFlexibleSolidSimulation()
   use vars
   use mpi
-  use stl_file_reader
-  use ini_files_parser_mpi
   implicit none
   type(wing), dimension(1:nWings) :: wings
   !real (kind=pr) :: time
@@ -77,9 +75,9 @@ subroutine OnlyFlexibleSolidSimulation()
   !-- initialization
   call init_wings(wings)
 
-  call read_wing_mesh_data(wings)
+  call read_mesh_data(wings)
 
-  
+
 
   !--loop over time steps
   !do while ((time<=tmax))

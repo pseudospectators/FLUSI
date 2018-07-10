@@ -212,9 +212,9 @@ $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpola
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
 	prescribed_beam.f90 solid_solver_wrapper.f90 $(OBJDIR)/ghostpoints.o
 	$(FC) -Isrc/solid_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/flexible_solver.o: flexible_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o $(OBJDIR)/helpers.o \
+$(OBJDIR)/flexible_solver.o: flexible_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/helpers.o \
 	read_wing_mesh_data.f90 flexible_tri_mask.f90 \
-	init_wing.f90 flexible_solver_wrapper.f90 $(OBJDIR)/ini_files_parser_mpi.o $(OBJDIR)/stlreader.o
+	init_wing.f90 flexible_solver_wrapper.f90
 	$(FC) -Isrc/flexible_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)

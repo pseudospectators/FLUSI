@@ -6,6 +6,7 @@ module penalization
   implicit none
   ! The mask array.  TODO: move out of shave_vars?
   real(kind=8),dimension (:,:,:),allocatable,save :: mask ! mask function
+  real(kind=8),dimension (:,:,:),allocatable,save :: unsigned_distance ! mask function
   integer(kind=2),dimension (:,:,:),allocatable,save :: mask_color ! mask color function
   ! Velocity field inside the solid.  TODO: move out of shave_vars?
   real(kind=8),allocatable,save :: us(:,:,:,:)  ! Velocity in solid

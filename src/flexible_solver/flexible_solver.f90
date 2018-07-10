@@ -4,6 +4,9 @@ module flexible_model
   ! we need the following line for presribed wings:
   use helpers
   use basic_operators
+  !use stl_file_reader
+  use helpers
+  use ini_files_parser_mpi
   implicit none
 
   !----------------------------------------------
@@ -45,7 +48,7 @@ module flexible_model
     real(kind=pr),dimension(1:npmax) :: vx,vy,vz
     real(kind=pr),dimension(1:npmax) :: u_old, u_oldold
     integer,dimension(1:nmmax,4) :: tri_elements
-    
+
     ! Matrix contains identification of vein points connected by bending springs
     ! and their initial and current bending angles on both directions y and z:
     real(kind=pr),dimension(1:nvmax,8,nVeins) :: Veins_bending
@@ -105,7 +108,7 @@ module flexible_model
 ! include "wingForces.f90"
 ! include "prescribed_wing.f90"
  include "flexible_solver_wrapper.f90"
- include "flexible_tri_mask.f90"
+ !include "flexible_tri_mask.f90"
 
 
 
