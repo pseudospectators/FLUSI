@@ -9,7 +9,8 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
     integer :: ixmin, ixmax, iymin, iymax, izmin, izmax
     integer :: xmin, xmax, ymin, ymax, zmin, zmax
     integer, parameter :: safety = 2
-    real(kind=pr) :: x,y,z, distance, velocity
+    real(kind=pr) :: x,y,z, distance
+    real(kind=pr),dimension(1:3) :: velocity
 
 
     do i = 1, nWings
@@ -20,7 +21,7 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
       do itri = 1, ntri
 
         ! determine bounding box for one triangle
-        do j = 3,5
+        do j = 2,4
             if ( wings(i)%x(wings(i)%tri_elements(itri,j)) == &
             minval(wings(i)%x(wings(i)%tri_elements(itri,2:4))) ) then
               ixmin = wings(i)%tri_elements(itri,j)
@@ -29,28 +30,28 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
             if ( wings(i)%x(wings(i)%tri_elements(itri,j)) == &
             maxval(wings(i)%x(wings(i)%tri_elements(itri,2:4)))) then
               ixmax = wings(i)%tri_elements(itri,j)
-            endif
+            end if
 
             if ( wings(i)%y(wings(i)%tri_elements(itri,j)) == &
             minval(wings(i)%y(wings(i)%tri_elements(itri,2:4)))) then
               iymin = wings(i)%tri_elements(itri,j)
-            endif
+            end if
 
             if ( wings(i)%y(wings(i)%tri_elements(itri,j)) == &
             maxval(wings(i)%y(wings(i)%tri_elements(itri,2:4)))) then
               iymax = wings(i)%tri_elements(itri,j)
-            endif
+            end if
 
             if ( wings(i)%z(wings(i)%tri_elements(itri,j)) == &
             minval(wings(i)%z(wings(i)%tri_elements(itri,2:4)))) then
               izmin = wings(i)%tri_elements(itri,j)
-            endif
+            end if
 
             if ( wings(i)%z(wings(i)%tri_elements(itri,j)) == &
             maxval(wings(i)%z(wings(i)%tri_elements(itri,2:4)))) then
               izmax = wings(i)%tri_elements(itri,j)
-            endif
-        end do
+            end if
+        enddo
 
         xmin = floor((wings(i)%x(ixmin) - wings(i)%t_wing &
                     - wings(i)%wing_smoothing)/dx) - safety
@@ -80,13 +81,13 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
               call calculate_unsigned_distance_and_us(distance, velocity, &
                   (/wings(i)%x(wings(i)%tri_elements(itri,2)),   &
                     wings(i)%y(wings(i)%tri_elements(itri,2)),   &
-                    wings(i)%x(wings(i)%tri_elements(itri,2))/), &
+                    wings(i)%z(wings(i)%tri_elements(itri,2))/), &
                   (/wings(i)%x(wings(i)%tri_elements(itri,3)),   &
                     wings(i)%y(wings(i)%tri_elements(itri,3)),   &
-                    wings(i)%x(wings(i)%tri_elements(itri,3))/), &
+                    wings(i)%z(wings(i)%tri_elements(itri,3))/), &
                   (/wings(i)%x(wings(i)%tri_elements(itri,4)),   &
                     wings(i)%y(wings(i)%tri_elements(itri,4)),   &
-                    wings(i)%x(wings(i)%tri_elements(itri,4))/), &
+                    wings(i)%z(wings(i)%tri_elements(itri,4))/), &
                   (/x,y,z/), (/0.0_pr,0.0_pr,-1.0_pr/))
 
               if (distance < unsigned_distance(ix,iy,iz)) then
@@ -94,9 +95,9 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
                   us(ix,iy,iz,1:3) = velocity
               endif
 
-            end do
-          end do
-        end do
+            enddo
+          enddo
+        enddo
 
         ! Then we calculate mask function from unsigned distance
         do iz = ra(3), rb(3)
@@ -114,9 +115,9 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
           enddo
         enddo
 
-      end do
+      enddo
 
-  end do
+  enddo
 
 end subroutine create_mask_from_triangular_mesh
 

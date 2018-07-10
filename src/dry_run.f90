@@ -14,7 +14,6 @@ subroutine dry_run()
   integer                :: it
   character(len=strlen)  :: infile, mode
   character(len=6) :: name
-  real(kind=pr),dimension (:,:,:),allocatable,save :: unsigned_distance
   ! this is the insect we're using (object oriented)
   type(diptera) :: Insect
   ! this is the solid model beams:
@@ -242,6 +241,9 @@ subroutine dry_run_flexible_wing()
   use p3dfft_wrapper
   use flexible_model
   use penalization ! mask array etc
+  use stl_file_reader
+  !use helpers
+  use ini_files_parser_mpi
   implicit none
   real(kind=pr)          :: time,memory,mem_field
   integer                :: it
@@ -333,7 +335,7 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   ! initalize wings
   !-----------------------------------------------------------------------------
-  call init_wing( Wings)
+  call init_wings( Wings)
 
 
   !if (tsave == 0.d0) then
@@ -351,7 +353,7 @@ subroutine dry_run_flexible_wing()
   !do while (time<=tmax)
 
     ! create the mask
-    call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
+    ! call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
 
 
     ! Save data
@@ -382,10 +384,10 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   deallocate(us, mask, mask_color, unsigned_distance)
 
-  if (iMask=="Insect") then
+  !if (iMask=="Insect") then
     ! Clean insect
-    call insect_clean(Insect)
-  endif
+  !  call insect_clean(Insect)
+  !endif
 
   ! release other memory
   call fft_free

@@ -20,7 +20,7 @@ subroutine init_wings ( wings )
   !  2.0d0*t_wing/max(dy,dz)
   !endif
 
-  call lapack_unit_test()
+  !call lapack_unit_test()
 
   !-------------------------------------------
   ! allocate wing storage for each wing
