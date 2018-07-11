@@ -289,7 +289,15 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   ! Read input parameters and mesh data
   !-----------------------------------------------------------------------------
+  allocate(lin(nf)) ! Set up the linear term
+  if (root) write(*,'(A)') '*** info: Reading input data...'
+  ! get filename of PARAMS file from command line
+  call get_command_argument(2,infile)
+  ! read all parameters from that file
+  call get_params(infile,Insect,.true.)
 
+  ! is the position of body and wings given by the command line?
+  call get_command_argument(3,mode)
 
   !-----------------------------------------------------------------------------
   ! Initialize domain decomposition, but not FFT (we dont need thats)
@@ -357,27 +365,27 @@ subroutine dry_run_flexible_wing()
 
 
     ! Save data
-    write(name,'(i6.6)') floor(time*1000.d0)
+    !write(name,'(i6.6)') floor(time*1000.d0)
 
-    if(mpirank==0) then
-      write(*,'("Dry run: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
-      time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
-    endif
+    !if(mpirank==0) then
+    !  write(*,'("Dry run: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
+    !  time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
+    !endif
 
     call save_field_hdf5(time,'mask_'//name,mask*eps)
-    if (isaveSolidVelocity == 1) then
-      call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
-      call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
-      call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
-    endif
+    !if (isaveSolidVelocity == 1) then
+    !  call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
+    !  call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
+    !  call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
+    !endif
 
   !  it = it+1
   !  time = tstart + dble(it)*tsave
   !enddo
 
-  if(mpirank==0) then
-    write(*,'("time for mask creation ",es12.4)') time_mask
-  endif
+  !if(mpirank==0) then
+  !  write(*,'("time for mask creation ",es12.4)') time_mask
+  !endif
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory
