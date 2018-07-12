@@ -1,6 +1,6 @@
 ! Wrapper to read parameters from an ini file for fsi.  Also reads
 ! parameters which are set in the vars module.
-subroutine get_params(paramsfile,Insect,verbose)
+subroutine get_params(paramsfile,verbose)
   use vars
   use ini_files_parser_mpi
   use insect_module
@@ -9,7 +9,7 @@ subroutine get_params(paramsfile,Insect,verbose)
   ! print a copy of the parameters read or not?
   logical, intent(in) :: verbose
   ! the insect we initialize here
-  type(diptera), intent(inout) :: Insect
+  !type(diptera), intent(inout) :: Insect
   ! this array contains the entire ascii-params file
   type(inifile) :: PARAMS
 
@@ -23,7 +23,7 @@ subroutine get_params(paramsfile,Insect,verbose)
   select case(method)
   case("fsi")
     ! Get fsi-specific parameter values from PARAMS
-    call get_params_fsi(PARAMS,Insect)
+    call get_params_fsi(PARAMS)
   case("mhd")
     ! Get mhd-specific parameter values from PARAMS
     call get_params_mhd(PARAMS)
@@ -241,7 +241,7 @@ end subroutine get_params_common
 
 
 ! Read individual parameter values from the PARAMS string for fsi.
-subroutine get_params_fsi(PARAMS,Insect)
+subroutine get_params_fsi(PARAMS)
   use ini_files_parser_mpi
   use vars
   use insect_module
@@ -250,7 +250,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   ! Contains the ascii-params file
   type(inifile), intent(inout) :: PARAMS
   ! the insect to initialize
-  type(diptera), intent(inout) :: Insect
+  !type(diptera), intent(inout) :: Insect
   real(kind=pr), dimension(1:3) :: defaultvec
   character(len=strlen) :: old_meanflow
   ! ---------------------------------------------------
