@@ -61,7 +61,7 @@ subroutine dry_run()
   ! get filename of PARAMS file from command line
   call get_command_argument(2,infile)
   ! read all parameters from that file
-  call get_params(infile,Insect,.true.)
+  call get_params(infile,.true.)
 
   ! is the position of body and wings given by the command line?
   call get_command_argument(3,mode)
@@ -294,7 +294,7 @@ subroutine dry_run_flexible_wing()
   ! get filename of PARAMS file from command line
   call get_command_argument(2,infile)
   ! read all parameters from that file
-  call get_params(infile,Insect,.true.)
+  call get_params(infile,.true.)
 
   ! is the position of body and wings given by the command line?
   call get_command_argument(3,mode)
