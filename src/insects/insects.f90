@@ -224,6 +224,7 @@ contains
   include "kineloader.f90"
   include "pointcloud.f90"
   include "fractal_trees.f90"
+  include "active_grid_winglets.f90"
   !---------------------------------------
 
 

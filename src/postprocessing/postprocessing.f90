@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--divergence")
+    call post_div(help)
   case ("--flexible-wing-mask")
     call flexible_wing_mask(help)
   case ("--remove-mean")
@@ -139,6 +141,7 @@ subroutine postprocessing()
       write(*,*) "--cp"
       write(*,*) "--crop"
       write(*,*) "--dist2mask   --dist2chi"
+      write(*,*) "--divergence"
       write(*,*) "--energy"
       write(*,*) "--extract-subset"
       write(*,*) "--field-analysis"

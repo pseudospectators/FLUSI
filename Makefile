@@ -25,7 +25,7 @@ FFILES += postprocessing.f90 \
 	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90 \
 	zero_padd.f90 convert_to_wing_system.f90 convert_pressure.f90 \
 	pressure_force.f90 flusi_hdf5_interface.f90 post_CVE.f90 transpose_test.f90 \
-	post_grad.f90 pointcloud2mask.f90 crop.f90 flexible_wing_mask.f90
+	post_grad.f90 pointcloud2mask.f90 crop.f90 flexible_wing_mask.f90 post_div.f90
 
 else
 # Case WITHOUT Hdf
@@ -202,7 +202,7 @@ $(OBJDIR)/vars.o: vars.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o \
+$(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o active_grid_winglets.f90 \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 \
 	wings_motion.f90 stroke_plane.f90 pointcloud.f90 fractal_trees.f90 insect_init_clean.f90 \
 	kineloader.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser_mpi.o $(OBJDIR)/interpolation.o
