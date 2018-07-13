@@ -343,13 +343,21 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   ! initalize wings
   !-----------------------------------------------------------------------------
-  call init_wings( Wings)
-
+  call init_wings( infile, Wings)
 
   !if (tsave == 0.d0) then
   !  if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
   !  tsave = 0.05d0
   !endif
+
+  if (root) then
+    write(*,*) dx*dble(ra(1))
+    write(*,*) dx*dble(rb(1))
+    write(*,*) dy*dble(ra(2))
+    write(*,*) dy*dble(rb(2))
+    write(*,*) dz*dble(ra(3))
+    write(*,*) dz*dble(rb(3))
+  endif
 
   !*****************************************************************************
   ! Step forward in time
@@ -361,18 +369,21 @@ subroutine dry_run_flexible_wing()
   !do while (time<=tmax)
 
     ! create the mask
-    ! call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
-
+    call Draw_flexible_wing(time, wings, mask, mask_color, us, unsigned_distance)
+    !call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
 
     ! Save data
-    !write(name,'(i6.6)') floor(time*1000.d0)
+    write(name,'(i6.6)') floor(time*1000.d0)
 
     !if(mpirank==0) then
     !  write(*,'("Dry run: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
     !  time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
     !endif
 
-    call save_field_hdf5(time,'mask_'//name,mask*eps)
+    write(*,*) eps
+
+    call save_field_hdf5(time,'mask_'//name,mask)
+    call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
     !if (isaveSolidVelocity == 1) then
     !  call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
     !  call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))

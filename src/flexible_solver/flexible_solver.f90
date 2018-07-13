@@ -89,7 +89,8 @@ module flexible_model
     ! real(kind=pr),dimension(0:nsmax,1:6) :: wing_oldold
     !real(kind=pr),dimension(1:2) :: Force, Force_unst, Force_press, Inertial_Force
     !real(kind=pr) :: E_kinetic, E_elastic
-    real(kind=pr) :: x0, y0, z0, Anglewing_y, Anglewing_z
+    real(kind=pr),dimension(1:3) :: x0, v0
+    real(kind=pr) :: Anglewing_y, Anglewing_z
     ! we need the previous time step for the BDF solver
     real(kind=pr) :: dt_old
     ! these replace the save variables in the unst correction computation:
@@ -103,12 +104,11 @@ module flexible_model
 
  !-----------------------------------------------------------------
  include "init_wing.f90"
- include "read_wing_mesh_data.f90"
 ! include "save_wing.f90"
 ! include "wingForces.f90"
 ! include "prescribed_wing.f90"
  include "flexible_solver_wrapper.f90"
- !include "flexible_tri_mask.f90"
+ include "flexible_tri_mask.f90"
 
 
 

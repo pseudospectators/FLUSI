@@ -73,9 +73,9 @@ subroutine OnlyFlexibleSolidSimulation()
   !call show_solid_model_information
 
   !-- initialization
-  call init_wings(wings)
+  !call init_wings(wings)
 
-  call read_mesh_data(wings)
+  !call read_mesh_data(wings)
 
 
 
