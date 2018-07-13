@@ -1,10 +1,35 @@
 ! TO DO migrate this one into create_mask_fsi subroutine
+subroutine Draw_flexible_wing(time, wings, mask, mask_color, us, unsigned_distance)
+
+  implicit none
+
+  real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  type(wing),dimension(1:nWings), intent(inout) :: wings
+
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+  unsigned_distance = 10.d0
+
+  ! Create mask function and us field from triangular mesh
+  call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
+
+
+end subroutine Draw_flexible_wing
+
 subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
 
     implicit none
-    real(kind=pr), intent(inout) :: mask,us,unsigned_distance
-    integer(kind=2), intent(inout) :: mask_color
-    type(wing), intent(inout) :: wings
+    real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    real(kind=pr),intent(inout)::unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+    integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    type(wing),dimension(1:nWings), intent(inout) :: wings
     integer :: ix, iy, iz, itri, i, j, ntri
     integer :: ixmin, ixmax, iymin, iymax, izmin, izmax
     integer :: xmin, xmax, ymin, ymax, zmin, zmax
@@ -15,7 +40,7 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
 
     do i = 1, nWings
 
-      ntri = size(wings(i)%tri_elements,DIM=1)
+      ntri = maxval(wings(i)%tri_elements(:,1))
       ! outer loop over triangles. in every triangle we loop over the union of its
       ! bounding box with the local CPUS part of the mask array
       do itri = 1, ntri
@@ -71,12 +96,13 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
         ! inner loops over all Eulerian grid nodes inside the bounding box
         ! containing the Lagrangian triangular element to calculate the unsigned
         ! distance between the fluid grid nodes and the solid grid nodes
-        do iz = zmin,zmax
-          do iy = ymin,ymax
-            do ix = xmin,xmax
-              x = dx*dble(ix)-xl/2.0
-              y = dy*dble(iy)-xl/2.0
-              z = dz*dble(iz)-xl/2.0
+        do iz = max(ra(3),zmin),min(rb(3),zmax)
+          do iy = max(ra(2),ymin),min(rb(2),ymax)
+            do ix = max(ra(1),xmin),min(rb(1),xmax)
+              x = dx*dble(ix)-xl/2
+              y = dy*dble(iy)-yl/2
+              z = dz*dble(iz)-zl/2
+
 
               call calculate_unsigned_distance_and_us(distance, velocity, &
                   (/wings(i)%x(wings(i)%tri_elements(itri,2)),   &
@@ -88,7 +114,20 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
                   (/wings(i)%x(wings(i)%tri_elements(itri,4)),   &
                     wings(i)%y(wings(i)%tri_elements(itri,4)),   &
                     wings(i)%z(wings(i)%tri_elements(itri,4))/), &
+                  (/wings(i)%vx(wings(i)%tri_elements(itri,2)),   &
+                    wings(i)%vy(wings(i)%tri_elements(itri,2)),   &
+                    wings(i)%vz(wings(i)%tri_elements(itri,2))/), &
+                  (/wings(i)%vx(wings(i)%tri_elements(itri,3)),   &
+                    wings(i)%vy(wings(i)%tri_elements(itri,3)),   &
+                    wings(i)%vz(wings(i)%tri_elements(itri,3))/), &
+                  (/wings(i)%vx(wings(i)%tri_elements(itri,4)),   &
+                    wings(i)%vy(wings(i)%tri_elements(itri,4)),   &
+                    wings(i)%vz(wings(i)%tri_elements(itri,4))/), &
                   (/x,y,z/), (/0.0_pr,0.0_pr,-1.0_pr/))
+
+              if (root) then
+                write(*,*) distance
+              end if
 
               if (distance < unsigned_distance(ix,iy,iz)) then
                   unsigned_distance(ix,iy,iz) = distance
