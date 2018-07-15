@@ -3,69 +3,61 @@
 ! extension and bending springs exerted to mass points
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-subroutine internal_forces_construction(x,y,z,ke_m,ke_me,ke_v,kby,kbz,ke_vBC,kby_BC,kbz_BC, &
-F_int,membranes_extension,membrane_edge,veins_bending,veins_extension, &
-veins_bending_BC,veins_extension_BC)
+subroutine internal_forces_construction(Wings)
 
-real(kind=pr), intent(in)  :: x, y, z
-real(kind=pr), intent(in)  :: ke_me,ke_v,kby,kbz,ke_vBC,kby_BC,kbz_BC
-real(kind=pr), intent(inout)  :: membranes_extension
-real(kind=pr), intent(inout)  :: membrane_edge
-real(kind=pr), intent(inout)  :: veins_bending
-real(kind=pr), intent(inout)  :: veins_extension
-real(kind=pr), intent(inout)  :: veins_bending_BC
-real(kind=pr), intent(inout)  :: veins_extension_BC
+type(Wing), dimension(1:nWings), intent(inout)  :: Wings
 real(kind=pr), allocatable, intent(out)  :: F_int
-integer :: j
+integer :: i,j
 
 allocate(F_int(1:3*np))
 
 !Calculate current lenghts and angles
 do j=1:nMembranes
-    call length_calculation(x,y,z,membranes_extension(:,:,j),membranes_extension(:,5,j))
+    call length_calculation(wings(i)%x,wings(i)%y,wings(i)%z,    &
+                            wings(i)%membranes_extension(:,:,j), &
+                            wings(i)%membranes_extension(:,5,j))
 enddo
 
-call length_calculation(x,y,z,membrane_edge,membrane_edge(:,5))
+call length_calculation(wings(i)%x,wings(i)%y,wings(i)%z, &
+                        wings(i)%membrane_edge,           &
+                        wings(i)%membrane_edge(:,5))
 
 do j=1:nVeins
-    call length_calculation(x,y,z,veins_extension(:,:,j),veins_extension(:,5,j))
-    call angle_calculation( x,y,z,veins_bending(:,:,j),veins_bending(:,7,j), veins_bending(:,8,j))
+
+    call length_calculation(wings(i)%x,wings(i)%y,wings(i)%z, &
+                            wings(i)%veins_extension(:,:,j),  &
+                            wings(i)%veins_extension(:,5,j))
+
+    call angle_calculation(wings(i)%x,wings(i)%y,wings(i)%z, &
+                           wings(i)%veins_bending(:,:,j),    &
+                           wings(i)%veins_bending(:,7,j),    &
+                           wings(i)%veins_bending(:,8,j))
 enddo
 
 do j=1:nVeins_BC
-    call length_calculation(x,y,z,veins_extension_BC(:,:,j),veins_extension_BC(:,5,j))
-    call angle_calculation( x,y,z,veins_bending_BC(:,:,j),&
+    call length_calculation(wings(i)%x,wings(i)%y,wings(i)%z,veins_extension_BC(:,:,j),veins_extension_BC(:,5,j))
+    call angle_calculation( wings(i)%x,wings(i)%y,wings(i)%z,veins_bending_BC(:,:,j),&
     veins_bending_BC(:,7,j), veins_bending_BC(:,8,j))
-end
+end do
 
 !Construct internal force vector
 do j=1:nMembranes
-     call internal_extension_force(F_int,x,y,z,np,membranes_extension(:,:,j),ke_m(:,j))
+     call internal_extension_force(F_int,wings(i)%x,wings(i)%y,wings(i)%z,np,membranes_extension(:,:,j),ke_m(:,j))
 enddo
 
-call internal_extension_force(F_int,x,y,z,np,membrane_edge,ke_me)
+call internal_extension_force(F_int,wings(i)%x,wings(i)%y,wings(i)%z,np,membrane_edge,ke_me)
 
 do j=1:nVeins
-    call internal_extension_force(F_int,x,y,z,np,veins_extension(:,:,j),ke_v(:,j))
-    call internal_bending_force(F_int,x,y,z,np,veins_bending(:,:,j),kby(:,j),kbz(:,j))
+    call internal_extension_force(F_int,wings(i)%x,wings(i)%y,wings(i)%z,np,veins_extension(:,:,j),ke_v(:,j))
+    call internal_bending_force(F_int,wings(i)%x,wings(i)%y,wings(i)%z,np,veins_bending(:,:,j),kby(:,j),kbz(:,j))
 enddo
 
 
 do j=1:nVeins_BC
-    call internal_extension_force_BC(F_int,x,y,z,np,veins_extension_BC(:,:,j),ke_vBC(:,j))
-    call internal_bending_force_BC(F_int,x,y,z,np,veins_bending_BC(:,:,j),kby_BC(:,j),kbz_BC(:,j))
-    ![alpha1(j),alpha2(j),beta1(j),beta2(j)] = angle_BC_calculation(...
-    !                             x1(j),x2(j),x(veins_bending_BC(1,2,j)),x(veins_bending_BC(1,3,j)),...
-  !                               y1(j),y2(j),y(veins_bending_BC(1,2,j)),y(veins_bending_BC(1,3,j)),...
-  !                               z1(j),z2(j),z(veins_bending_BC(1,2,j)),z(veins_bending_BC(1,3,j)))
-  !  l1(j) = sqrt((x(veins_bending_BC(1,2,j))-x2(j))^2+(y(veins_bending_BC(1,2,j))-y2(j))^2+(z(veins_bending_BC(1,2,j))-z2(j))^2)
+    call internal_extension_force_BC(F_int,wings(i)%x,wings(i)%y,wings(i)%z,np,veins_extension_BC(:,:,j),ke_vBC(:,j))
+    call internal_bending_force_BC(F_int,wings(i)%x,wings(i)%y,wings(i)%z,np,veins_bending_BC(:,:,j),kby_BC(:,j),kbz_BC(:,j))
 
-    !F_int = Fint_BC(F_int,x,y,z,np,veins_bending_BC(:,:,j),x2(j),y2(j),z2(j),...
-    !                    alpha2_0(j),beta2_0(j),alpha1(j),beta1(j),...
-    !                    alpha2(j),beta2(j),kby1(j),kbz1(j),kby2(j),...
-    !                    kbz2(j),l1_0(j),l1(j),ke1(j))
-enddo
-
+end do
 
 end subroutine
 
@@ -231,6 +223,6 @@ subroutine internal_bending_force_BC(F_int,x,y,z,bending_springs_BC,kby_BC,kbz_B
 
   enddo
 
-  
+
 
 end subroutine
