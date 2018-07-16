@@ -165,7 +165,7 @@ ifdef MKLROOT
 LDFLAGS += -I${MKLROOT}/include -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 else
 # Use custom LAPACK installation
-LDFLAGS += -llapack
+LDFLAGS += -llapack -lblas
 endif
 
 

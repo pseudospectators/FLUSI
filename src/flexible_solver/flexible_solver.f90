@@ -71,13 +71,13 @@ module flexible_model
     real(kind=pr),dimension(1:nMembranes) :: rho_m
     real(kind=pr) :: rho_me
 
-    real(kind=pr),dimension(1:nvmax,1:nVeins) :: ke_v, kb_v
+    real(kind=pr),dimension(1:nvmax,1:nVeins) :: ke_v, kby, kbz
     real(kind=pr),dimension(1:nvmax,1:nVeins) :: m_v
-    real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: ke_vBC, kb_vBC
+    real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: ke_vBC, kby_BC, kbz_BC
     real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: m_vBC
     real(kind=pr),dimension(1:nvmax,1:nMembranes) :: kb_m
     real(kind=pr),dimension(1:nvmax,1:nMembranes) :: m_m
-    real(kind=pr),dimension(1:nvmax) :: kb_me
+    real(kind=pr),dimension(1:nvmax) :: ke_me
     real(kind=pr),dimension(1:nvmax) :: m_me
 
     ! grid and width in rigid direction:
