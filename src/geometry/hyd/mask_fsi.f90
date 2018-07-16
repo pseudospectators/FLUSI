@@ -16,74 +16,70 @@ subroutine create_mask_fsi (time, Insect, beams )
   !-------------------------------------------------------------
   ! do not create any mask when not using penalization
   if (iPenalization==1) then
-    ! Actual mask functions:
-    select case (iMask)
-    case ("active_grid")
-      call draw_active_grid_winglets(time, mask, mask_color, us)
-    case ("fractal_tree")
-      call Draw_fractal_tree(Insect, mask, mask_color, us)
-    case ("floor_yz","floor_zy","flooryz","floorzy")
-      call Draw_floor_yz()
-    case ("sphere","Sphere")
-      call Draw_Sphere()
-    case ("cylinder","cylinder_x")
-      call Draw_cylinder_x()
-    case ("moving_cylinder","moving_cylinder_x")
-      call Draw_moving_cylinder_x(time)
-    case ("cylinder_asym_z")
-      call Draw_cylinder_asym_z()
-    case ("romain_open_cavity")
-      call romain_open_cavity()
-    case ("Flapper")
-      call Flapper (time)
-    case ("turek_wan")
-      call turek_wan (time)
-    case ("Insect","insect")
-      call Draw_Insect ( time, Insect, mask, mask_color, us)
-    case("Flexibility")
-      call Draw_flexible_plate(time, beams(1))
-    case ("plate","Plate")
-      call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
-    case ("noncircular_cylinder")
-      call noncircular_cylinder()
-    case ("couette")
-      call taylor_couette()
-    case("none","empty","no")
-      ! in this case, no extra mask is set, but you might have e.g. the turbulent
-      ! inlet or channel walls.
-    case default
-      ! is this case, we read the entire mask from a hdf5 file. Note the mask is not
-      ! time dependent; it is read only a single time. we allow it to have constant
-      ! non-zero, homogeneous us (solid velocity)
-      ! check if the string begins with from_file::
-      if ( iMask(1:11) == "from_file::" ) then
-        ! did we already read from file?
-        if (mask_already_read .eqv. .false.) then
-          ! no -> read now and skip in the future
-          mask_already_read = .true.
-          if (root) then
-            write(*,*) "reading mask from file "//iMask(12:strlen)
-            write(*,*) "solid velocity field will be ", us_fixed
+      ! Actual mask functions:
+      select case (iMask)
+      case ("active_grid")
+          call draw_active_grid_winglets(time, mask, mask_color, us)
+      case ("fractal_tree")
+          call Draw_fractal_tree(Insect, mask, mask_color, us)
+      case ("floor_yz","floor_zy","flooryz","floorzy")
+          call Draw_floor_yz()
+      case ("sphere","Sphere")
+          call Draw_Sphere()
+      case ("cylinder","cylinder_x")
+          call Draw_cylinder_x()
+      case ("moving_cylinder","moving_cylinder_x")
+          call Draw_moving_cylinder_x(time)
+      case ("cylinder_asym_z")
+          call Draw_cylinder_asym_z()
+      case ("romain_open_cavity")
+          call romain_open_cavity()
+      case ("Flapper")
+          call Flapper (time)
+      case ("turek_wan")
+          call turek_wan (time)
+      case ("Insect","insect")
+          call Draw_Insect ( time, Insect, mask, mask_color, us)
+      case("Flexibility")
+          call Draw_flexible_plate(time, beams(1))
+      case ("plate","Plate")
+          call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
+      case ("noncircular_cylinder")
+          call noncircular_cylinder()
+      case ("couette")
+          call taylor_couette()
+      case("none","empty","no")
+          ! in this case, no extra mask is set, but you might have e.g. the turbulent
+          ! inlet or channel walls.
+      case default
+          ! is this case, we read the entire mask from a hdf5 file. Note the mask is not
+          ! time dependent; it is read only a single time. we allow it to have constant
+          ! non-zero, homogeneous us (solid velocity)
+          ! check if the string begins with from_file::
+          if ( iMask(1:11) == "from_file::" ) then
+              ! did we already read from file?
+              if (mask_already_read .eqv. .false.) then
+                  ! no -> read now and skip in the future
+                  mask_already_read = .true.
+                  if (root) then
+                      write(*,*) "reading mask from file "//iMask(12:strlen)
+                      write(*,*) "solid velocity field will be ", us_fixed
+                  endif
+                  call Read_Single_File( iMask(12:strlen), mask )
+                  ! impose homogeneous, time-constant solid velocity. the value of us_fixed
+                  ! can be set in the parameter file
+                  us(:,:,:,1) = us_fixed(1)
+                  us(:,:,:,2) = us_fixed(2)
+                  us(:,:,:,3) = us_fixed(3)
+                  ! set color to 1
+                  mask_color = 1
+              endif
+          else
+              ! no known case...
+              write (*,*) "iMask="//iMask//" not properly set; stopping."
+              call abort(3333, "create_mask_fsi(): unkown mask function iMask")
           endif
-          call Read_Single_File( iMask(12:strlen), mask )
-          ! impose homogeneous, time-constant solid velocity. the value of us_fixed
-          ! can be set in the parameter file
-          us(:,:,:,1) = us_fixed(1)
-          us(:,:,:,2) = us_fixed(2)
-          us(:,:,:,3) = us_fixed(3)
-          ! set color to 1
-          mask_color = 1
-        else
-          ! since we divide by eps later, in the main wrapper for mask, we multiply
-          ! here first..
-          mask = mask * eps
-        endif
-      else
-        ! no known case...
-        write (*,*) "iMask="//iMask//" not properly set; stopping."
-        call abort(3333, "create_mask_fsi(): unkown mask function iMask")
-      endif
-    end select
+      end select
   endif
 
   !-------------------------------------------------------------

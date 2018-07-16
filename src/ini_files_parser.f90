@@ -11,9 +11,9 @@
 ! [Section]
 ! parameter=10;
 !-------------------------------------------------------------------------------
-! This module is not MPI-aware. use the mpi layer in ini_files_parser_mpi for this
+! This module is not MPI-aware. use the mpi layer in module_ini_files_parser_mpi for this
 !-------------------------------------------------------------------------------
-module ini_files_parser
+module module_ini_files_parser
   use vars, only : pr
 
   ! it sometimes is useful, for codes with equidistant resolution, to specify

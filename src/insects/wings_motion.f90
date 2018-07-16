@@ -126,9 +126,9 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       ! inform about your interpretation
       select case (kine%infile_type)
       case ("Fourier","fourier","FOURIER")
-        if (mpirank==0) write(*,*) "The input file is interpreted as FOURIER coefficients"
+        if (root) write(*,*) "The input file is interpreted as FOURIER coefficients"
       case ("Hermite","hermite","HERMITE")
-        if (mpirank==0) write(*,*) "The input file is interpreted as HERMITE coefficients"
+        if (root) write(*,*) "The input file is interpreted as HERMITE coefficients"
       case default
         call abort(77771, "kinematics file does not appear to be valid, set type=fourier or type=hermite")
       end select

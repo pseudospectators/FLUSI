@@ -8,7 +8,6 @@ subroutine create_mask(time,Insect,beams)
   implicit none
 
   real(kind=pr), intent(in) :: time
-  real(kind=pr) :: eps_inv
   type(solid), dimension(1:nbeams), intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1
@@ -21,14 +20,7 @@ subroutine create_mask(time,Insect,beams)
   case("mhd")
     call create_mask_mhd()
   end select
-
-  if (eps<1.0d-11) call abort(77363800,"Value of eps is very small, maybe even zero.")
-
-  ! Attention: division by eps is done here, not in subroutines.
-  eps_inv = 1.d0/eps
-  mask = mask*eps_inv
-
-
+  
   ! for global timing.
   time_mask = time_mask + MPI_wtime() - t1
 end subroutine create_mask

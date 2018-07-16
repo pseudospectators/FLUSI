@@ -59,7 +59,7 @@ contains
     ! we need to derive the mask function, but it has no ghost nodes. therefore,
     ! extend it to mask2 with ghosts and sync them
     allocate (mask2(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
-    mask2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask*eps
+    mask2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask
     call synchronize_ghosts(mask2)
 
     ! finite differences coefficients
@@ -119,7 +119,7 @@ contains
             usy = us(ix,iy,iz,2)
             usz = us(ix,iy,iz,3)
 
-            chi = mask2(ix,iy,iz)
+            chi = mask2(ix,iy,iz) 
 
             ! penalized diffusion coefficient
             D = scalar_props(j)%kappa*(1.d0-chi) + scalar_props(j)%eps*chi

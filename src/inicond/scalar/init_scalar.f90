@@ -71,7 +71,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
 
       !-- kill scalar inside obstacle
       scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = &
-      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) * (1.0-mask*eps)
+      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) * (1.0-mask)
 
     case ("right_left_smooth")
       !---------------------------------------------------------------------------
@@ -92,7 +92,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
       enddo
 
       !-- kill scalar inside obstacle
-      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) * (1.0-mask*eps)
+      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) * (1.0-mask)
 
     case ("right_left_smooth2")
       !---------------------------------------------------------------------------
@@ -113,7 +113,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
       enddo
 
       !-- kill scalar inside obstacle
-      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) * (1.0-mask*eps)
+      scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) = scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) * (1.0-mask)
 
     case ("empty")
       !---------------------------------------------------------------------------

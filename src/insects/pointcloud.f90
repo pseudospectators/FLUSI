@@ -11,7 +11,7 @@ subroutine mask_from_pointcloud(points, normals, xx0, ddx, mask, safety, d0, mas
   integer(kind=2),intent(inout), optional::mask_color(0:,0:,0:)
 
   integer, dimension(1:3) :: lbounds, ubounds
-  integer :: ix,iy,iz,i,xmin,xmax,ymin,ymax,zmin,zmax,N
+  integer :: ix,iy,iz,i,xmin,xmax,ymin,ymax,zmin,zmax,N, mpisize, mpicode
   real(kind=pr) :: x,y,z,tmp,t0,sign
 
   lbounds = 0
@@ -123,6 +123,7 @@ subroutine mask_from_pointcloud(points, normals, xx0, ddx, mask, safety, d0, mas
   t0 = MPI_wtime() -t0
   t0 = mpisum(t0)
 
+  call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
   if (root) write(*,*) "elapsed time in pc2chi ", t0/dble(mpisize)
 
 end subroutine mask_from_pointcloud

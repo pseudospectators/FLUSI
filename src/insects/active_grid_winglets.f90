@@ -74,8 +74,8 @@ subroutine draw_single_winglet(time, x0, omega, alpha0, orientation, color_val, 
 
                     H = abs(H) - (M-M*scaling_winglet)/2.0
 
-                    tmp = steps( abs(x_wing(2)), H) * steps( abs(x_wing(1)), t_winglet ) &
-                    + steps( sqrt(x_wing(2)**2+x_wing(1)**2), r_axis )
+                    tmp = max( steps( abs(x_wing(2)), H) * steps( abs(x_wing(1)), t_winglet ), &
+                    steps( sqrt(x_wing(2)**2+x_wing(1)**2), r_axis ) )
 
                     if (tmp >= mask(ix,iy,iz) .and. (tmp>1.0e-10) .and. &
                     (mask_color(ix,iy,iz)==0 .or. mask_color(ix,iy,iz)==color_val)) then
@@ -112,8 +112,8 @@ subroutine draw_single_winglet(time, x0, omega, alpha0, orientation, color_val, 
                     H = abs(H) - (M-M*scaling_winglet)/2.0
 
 
-                    tmp = steps( abs(x_wing(3)), H) * steps( abs(x_wing(1)), t_winglet ) &
-                    + steps( sqrt(x_wing(3)**2+x_wing(1)**2), r_axis )
+                    tmp = max( steps( abs(x_wing(3)), H) * steps( abs(x_wing(1)), t_winglet ), &
+                    steps( sqrt(x_wing(3)**2+x_wing(1)**2), r_axis ) )
 
                     if (tmp >= mask(ix,iy,iz) .and. (tmp>1.0e-10) .and. &
                     (mask_color(ix,iy,iz)==0 .or. mask_color(ix,iy,iz)==color_val) ) then

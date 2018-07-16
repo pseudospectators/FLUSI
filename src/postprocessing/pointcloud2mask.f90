@@ -1,7 +1,7 @@
 subroutine pointcloud2mask(help)
   use vars
   use helpers
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use p3dfft_wrapper
   use penalization, only : mask_color
   use insect_module

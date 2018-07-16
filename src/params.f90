@@ -2,7 +2,7 @@
 ! parameters which are set in the vars module.
 subroutine get_params(paramsfile,Insect,verbose)
   use vars
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use insect_module
   ! The file we read the PARAMS from
   character(len=strlen),intent(in) :: paramsfile
@@ -49,7 +49,7 @@ end subroutine get_params
 ! Read individual parameter values from the PARAMS string for the vars
 ! module.
 subroutine get_params_common(PARAMS)
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use vars
 #ifndef NOHDF5
   use hdf5_wrapper
@@ -242,7 +242,7 @@ end subroutine get_params_common
 
 ! Read individual parameter values from the PARAMS string for fsi.
 subroutine get_params_fsi(PARAMS,Insect)
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use vars
   use insect_module
   implicit none
@@ -361,7 +361,7 @@ end subroutine get_params_fsi
 ! Read individual parameter values that are specific to the solid model only
 !-------------------------------------------------------------------------------
 subroutine get_params_solid(PARAMS)
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use solid_model
   implicit none
 
@@ -425,7 +425,7 @@ end subroutine get_params_solid
 ! Read individual parameter values that are specific to passive scalars
 !-------------------------------------------------------------------------------
 subroutine get_params_scalars(PARAMS)
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use solid_model
   use passive_scalar_module
   implicit none
@@ -463,7 +463,7 @@ end subroutine get_params_scalars
 
 ! Read individual parameter values from the PARAMS string for fmhd
 subroutine get_params_mhd(PARAMS)
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use vars
   implicit none
 

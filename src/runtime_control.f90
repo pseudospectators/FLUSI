@@ -45,7 +45,7 @@ end subroutine Initialize_runtime_control_file
 subroutine runtime_control_command( command )
   ! reads runtime control command
   use vars
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use mpi
   implicit none
   character(len=strlen), intent(out)     :: command

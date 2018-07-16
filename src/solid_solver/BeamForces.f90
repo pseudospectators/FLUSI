@@ -71,34 +71,38 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   ! the value should be 0.5
   !-----------------------------------------------------------------------------
   if (present(testing)) then
-  if (((testing=="mask").or.(testing=="linear")).and.(root)) then
-    write(*,'(80("-"))')
-    write(*,*) testing//" Interpolation test, top surface:"
-    do ih=0,nh
-      do is=0,ns-1
-        if (testing=="mask") then
-          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)
-        elseif (testing=="linear") then
-          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)&
-          -sin(surfaces(is,ih,1,2))*cos(surfaces(is,ih,1,3))
-        endif
-      enddo
-      write(*,*) " "
-    enddo
-    write(*,*) testing//" Interpolation test, bottom surface:"
-    do ih=0,nh
-      do is=0,ns-1
-        if (testing=="mask") then
-          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)
-        elseif (testing=="linear") then
-          write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)&
-          -sin(surfaces(is,ih,2,2))*cos(surfaces(is,ih,2,3))
-        endif
-      enddo
-      write(*,*) " "
-    enddo
-    write(*,'(80("-"))  ')
-  endif
+      if (((testing=="mask").or.(testing=="linear")).and.(root)) then
+          write(*,'(80("-"))')
+
+          write(*,*) testing//" Interpolation test, top surface:"
+          
+          do ih=0,nh
+              do is=0,ns-1
+                  if (testing=="mask") then
+                      write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)
+                  elseif (testing=="linear") then
+                      write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,1)&
+                      -sin(surfaces(is,ih,1,2))*cos(surfaces(is,ih,1,3))
+                  endif
+              enddo
+              write(*,*) " "
+          enddo
+
+          write(*,*) testing//" Interpolation test, bottom surface:"
+
+          do ih=0,nh
+              do is=0,ns-1
+                  if (testing=="mask") then
+                      write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)
+                  elseif (testing=="linear") then
+                      write(*,'((f5.3,1x))',advance='no') p_surface(is,ih,2)&
+                      -sin(surfaces(is,ih,2,2))*cos(surfaces(is,ih,2,3))
+                  endif
+              enddo
+              write(*,*) " "
+          enddo
+          write(*,'(80("-"))  ')
+      endif
   endif
 
   !-----------------------------------------------------------------------------
@@ -167,72 +171,73 @@ end subroutine get_surface_pressure_jump
 !
 !-------------------------------------------------------------------------------
 subroutine surface_interpolation_testing( time, beams, work )
-  use mpi
-  use vars
-  use interpolation
-  use penalization
-  use insect_module
-  use penalization
-  use ghosts
-  implicit none
-  real(kind=pr),intent (in) :: time
-  type(solid),dimension(1:nbeams),intent (inout) :: beams
-  real(kind=pr),intent(inout):: work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  integer :: ix,iy,iz
-  real(kind=pr) :: x,y,z,fexact,fsync
-  type(diptera)::insectdummy
+    use mpi
+    use vars
+    use interpolation
+    use penalization
+    use insect_module
+    use penalization
+    use ghosts
+    implicit none
+    real(kind=pr),intent (in) :: time
+    type(solid),dimension(1:nbeams),intent (inout) :: beams
+    real(kind=pr),intent(inout):: work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+    integer :: ix,iy,iz
+    real(kind=pr) :: x,y,z,fexact,fsync
+    type(diptera)::insectdummy
 
-  !-- create mask
-  call create_mask(time,insectdummy,beams)
-  !-- copy mask in extended array (the one with ghost points)
-  work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask*eps
-  call synchronize_ghosts ( work )
-  !-- interpolate the mask at the beam surfaces
-  call get_surface_pressure_jump (time, beams(1), work, testing="mask")
+    !-- create mask
+    call create_mask(time,insectdummy,beams)
+    !-- copy mask in extended array (the one with ghost points)
+    work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask
 
-  work=0.d0
-  !-- the array "mask" with some values (analytic function defintion)
-  ! we fill only the interior points, then we synchronize, and check if this worked
-  do iz=ra(3),rb(3)
-    do iy=ra(2),rb(2)
-      do ix=ra(1),rb(1)
-        x=dble(ix)*dx
-        y=dble(iy)*dy
-        z=dble(iz)*dz
-        work(ix,iy,iz)=sin(y)*cos(z)
-      enddo
+    call synchronize_ghosts ( work )
+    !-- interpolate the mask at the beam surfaces
+    call get_surface_pressure_jump (time, beams(1), work, testing="mask")
+
+    work=0.d0
+    !-- the array "mask" with some values (analytic function defintion)
+    ! we fill only the interior points, then we synchronize, and check if this worked
+    do iz=ra(3),rb(3)
+        do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+                x=dble(ix)*dx
+                y=dble(iy)*dy
+                z=dble(iz)*dz
+                work(ix,iy,iz)=sin(y)*cos(z)
+            enddo
+        enddo
     enddo
-  enddo
 
-  call synchronize_ghosts ( work )
+    call synchronize_ghosts ( work )
 
-  if (root) write(*,*) "running ghost node synchronization unit test..."
+    if (root) write(*,*) "running ghost node synchronization unit test..."
 
-  ! we now have the ghost nodes synchronized, so why not testing if it worked?
-  do iz=ga(3),gb(3)
-    do iy=ga(2),gb(2)
-      do ix=ga(1),gb(1)
-        x = dble(per(ix,nx))*dx
-        y = dble(per(iy,ny))*dy
-        z = dble(per(iz,nz))*dz
-        fexact=sin(y)*cos(z)
-        fsync =work(ix,iy,iz)
+    ! we now have the ghost nodes synchronized, so why not testing if it worked?
+    do iz=ga(3),gb(3)
+        do iy=ga(2),gb(2)
+            do ix=ga(1),gb(1)
+                x = dble(per(ix,nx))*dx
+                y = dble(per(iy,ny))*dy
+                z = dble(per(iz,nz))*dz
+                fexact=sin(y)*cos(z)
+                fsync =work(ix,iy,iz)
 
-        if ( abs(fexact) > 1.0d-9 ) then
-          if ( abs((fexact-fsync)/fexact) >= 1.0d-13 ) then
-            write(*,*) "err=",abs((fexact-fsync)/fexact),ix,iy,iz
-            call abort(4456,"ghost node synchronization unit test failed")
-          endif
-        endif
+                if ( abs(fexact) > 1.0d-9 ) then
+                    if ( abs((fexact-fsync)/fexact) >= 1.0d-13 ) then
+                        write(*,*) "err=",abs((fexact-fsync)/fexact),ix,iy,iz
+                        call abort(4456,"ghost node synchronization unit test failed")
+                    endif
+                endif
 
-      enddo
+            enddo
+        enddo
     enddo
-  enddo
 
-  if (root) write(*,*) "ghost node test done."
+    if (root) write(*,*) "ghost node test done."
 
-  !-- interpolate these values on the surface and compare to exact solution
-  call get_surface_pressure_jump (time, beams(1), work, testing="linear")
+    !-- interpolate these values on the surface and compare to exact solution
+    call get_surface_pressure_jump (time, beams(1), work, testing="linear")
 
 
 end subroutine

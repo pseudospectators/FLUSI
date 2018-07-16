@@ -757,7 +757,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
   !-----------------------------------------------------------------------------
   if (.not.allocated(particle_points)) then
     ! initialization, this is the first call to the routine.
-    if (mpirank==0) then
+    if (root) then
       open(37, file='particle.in', form='formatted', status='old')
       read(37,*) npoints
       write(*,'("reading particle with ",i7," points")') npoints
@@ -765,7 +765,7 @@ subroutine draw_body_particle( mask, mask_color, us, Insect, color_body, M_body)
     call MPI_BCAST( npoints,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode )
     allocate ( particle_points(1:npoints,1:6) )
 
-    if (mpirank==0) then
+    if (root) then
       do ix = 1,npoints
         read(37,*) particle_points(ix,:)
       enddo

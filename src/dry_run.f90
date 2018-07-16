@@ -206,7 +206,7 @@ subroutine dry_run()
       time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
     endif
 
-    call save_field_hdf5(time,'mask_'//name,mask*eps)
+    call save_field_hdf5(time, 'mask_'//name, mask)
     if (isaveSolidVelocity == 1) then
       call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
       call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))

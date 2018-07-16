@@ -73,13 +73,10 @@ subroutine draw_fractal_tree(Insect, mask, mask_color, us)
     call draw_cylinder_new( x1, x2, R, mask, mask_color, us, Insect, int(1,kind=2))
   end do
 
-  R = MPI_wtime() - t1
-  R = mpisum(R)
   if (root) then
     write(*,'(80("-"))')
     write(*,'("done creating fractal tree mask of ",i4," branches")') nlines
     write(*,'("wtime on master process is ",es12.4," secs")') MPI_wtime()-t1
-    write(*,'("sum wtime on all cpu ",es12.4," secs (avg=",es12.4,")")') R, R/dble(mpisize)
     write(*,'(80("-"))')
   end if
 

@@ -6,7 +6,7 @@ subroutine load_kine_init(kine)
   real (kind=pr) :: t_period, r_wing
 
 
-  if (mpirank==0) then
+  if (root) then
     write(*,*) "Initializing kinematics loader for non-periodic kinematics"
     write(*,*) "file="//trim(adjustl(kine%infile))
     open (10, file = kine%infile, form='formatted', status='old')
@@ -34,7 +34,7 @@ subroutine load_kine_init(kine)
   kine%vec_vert_dt = 0.d0
   kine%vec_horz_dt = 0.d0
 
-  if (mpirank==0) then
+  if (root) then
     ! read data from file
     do j = 1, nk
       read (10, *) kine%vec_t(j), &

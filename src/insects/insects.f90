@@ -7,22 +7,34 @@
 
 module insect_module
   use vars, only : pr, dx, dy, dz, xl, yl, zl, strlen, ra, rb, abort, rand_nbr, &
-  periodize_coordinate, cross, deg2rad, pi, rad2deg, nx, ny ,nz, neq, root, per, mpirank, &
-  x0,y0,z0,iPenalization, iMoving, ga, gb, mpisize, startup_conditioner, &
-  eps, itdrag, time_insect_vel, time_insect_wings, time_insect_body, on_proc, Integrals, nu, &
+  periodize_coordinate, cross, deg2rad, pi, rad2deg, nx, ny, nz, neq, root, per, &
+  x0, y0, z0, iPenalization, iMoving, ga, gb, startup_conditioner, &
+  itdrag, time_insect_vel, time_insect_wings, time_insect_body, on_proc, Integrals, nu, &
   periodic, GlobalIntegrals, inicond, iTimeMethodFluid, norm2
 
-  use helpers
-  ! we need this only for the body shape "pyramid", where we use point-triangle-distance function
-!!  use stl_file_reader ! NOTE: for ES3 implementation, removed this module.
+  use helpers, only : fseries_eval, hermite_eval, mpisum
   ! we need this to read from ini files (e.g. the wing kinematics or shape are read this way)
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   ! we need this to interpolate wing thickness and corrugation
   use interpolation
 
   implicit none
 
-  private :: steps
+  ! I usually find it helpful to use the private keyword by itself initially, which specifies
+  ! that everything within the module is private unless explicitly marked public.
+  PRIVATE
+
+  ! functions
+  PUBLIC :: Draw_Insect, insect_init, insect_clean, draw_fractal_tree, draw_active_grid_winglets, &
+  aero_power, inert_power, read_insect_STATE_from_file, rigid_solid_init, rigid_solid_time_step, &
+  BodyMotion, FlappingMotion_right, FlappingMotion_left, StrokePlane, mask_from_pointcloud, &
+  body_rotation_matrix, wing_right_rotation_matrix, wing_left_rotation_matrix
+  ! type definitions
+  PUBLIC :: wingkinematics, diptera
+  ! globals
+  PUBLIC :: smoothing
+
+
 
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
   ! elements in derived datatypes) this is their length:
@@ -273,12 +285,12 @@ contains
     integer, save :: counter = 0
     integer(kind=2) :: c
 
-    if ((dabs(Insect%time-time)>1.0d-10).and.(mpirank==0).and.(Insect%BodyMotion=="free_flight")) then
+    if ((dabs(Insect%time-time)>1.0d-10).and.(root).and.(Insect%BodyMotion=="free_flight")) then
       write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
     endif
 
     ! some checks
-    if ((mpirank==0).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
+    if ((root).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
       call abort(4453,"insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong.")
     endif
 
@@ -332,7 +344,7 @@ contains
     ! do so only every itdrag time steps (Thomas, 8 Jul 2014)
     !-----------------------------------------------------------------------------
     counter = counter + 1
-    if ((mpirank == 0).and.(mod(counter,itdrag)==0)) then
+    if ((root).and.(mod(counter,itdrag)==0)) then
       open  (17,file=Insect%kinematics_file,status='unknown',position='append')
       write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
       Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
@@ -884,12 +896,6 @@ contains
         mask = 0.d0
         mask_color = 0
       end where
-      ! the value in the mask array is divided by eps already and will be divided
-      ! by eps again in the main mask wrapper. we thus multiply the existing body
-      ! by eps.
-      where (mask_color==color_body)
-        mask = mask*eps
-      end where
       ! as the body rests it has no solid body velocity, which means we can safely
       ! reset the velocity everywhere (this step is actually unnessesary, but for
       ! safety we do it as well)
@@ -1085,8 +1091,10 @@ contains
     Insect%STATE = 0.d0
     Insect%STATE(1:13) = data1(i-1,2:14) + (time - data1(i-1,1)) * (data1(i,2:14)-data1(i-1,2:14)) / (data1(i,1)-data1(i-1,1))
 
-    if (root) write(*,*) "The extracted Insect%STATE vector is:"
-    write(*,'(i1,1x,21(es12.4,1x))') mpirank,time, Insect%STATE(1:13)
+    if (root) then
+        write(*,*) "The extracted Insect%STATE vector is:"
+        write(*,'(21(es12.4,1x))') time, Insect%STATE(1:13)
+    endif
     ! deallocate (data)
   end subroutine
 

@@ -622,7 +622,7 @@ subroutine post_smooth_mask(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   use mpi
   implicit none
   logical, intent(in) :: help

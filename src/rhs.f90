@@ -144,10 +144,14 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   type(diptera),intent(inout) :: Insect
   real(kind=pr) :: t0,t1,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   real(kind=pr) :: fx,fy,fz,fx1,fy1,fz1
-  real(kind=pr) :: soft_startup, dt
+  real(kind=pr) :: soft_startup, dt, eps_inv
   integer :: ix,iz,iy,mpicode
   t0 = MPI_wtime()
   fx=0.d0; fy=0.d0; fz=0.d0
+
+  if (eps<1.0d-11) call abort(77363800, "Value of eps is very small, maybe even zero.")
+  eps_inv = 1.0_pr / eps
+
 
   !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
@@ -202,8 +206,10 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
         vory = vort(ix,iy,iz,2)
         vorz = vort(ix,iy,iz,3)
 
-        ! local variables for penalization
-        chi = mask(ix,iy,iz)
+        ! local variables for penalization. NEW: since 07/2018, we divide the mask
+        ! by eps here AND ONLY HERE! it is much easier to understand then. there may be
+        ! a very slight performance penalty if the obstacle does not move.
+        chi = mask(ix,iy,iz) * eps_inv
         usx = us(ix,iy,iz,1)
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
@@ -648,42 +654,42 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
 
   ! Put the x-space version of the nonlinear source term in wj.
   do iz=ra(3),rb(3)
-    do iy=ra(2),rb(2)
-  do ix=ra(1),rb(1)
-           ! Loop-local variables for velocity and magnetic field:
-           u1=ub(ix,iy,iz,1)
-           u2=ub(ix,iy,iz,2)
-           u3=ub(ix,iy,iz,3)
-           b1=ub(ix,iy,iz,4)
-           b2=ub(ix,iy,iz,5)
-           b3=ub(ix,iy,iz,6)
+      do iy=ra(2),rb(2)
+          do ix=ra(1),rb(1)
+              ! Loop-local variables for velocity and magnetic field:
+              u1=ub(ix,iy,iz,1)
+              u2=ub(ix,iy,iz,2)
+              u3=ub(ix,iy,iz,3)
+              b1=ub(ix,iy,iz,4)
+              b2=ub(ix,iy,iz,5)
+              b3=ub(ix,iy,iz,6)
 
-           ! Loop-local variables for vorticity and current density:
-           w1=wj(ix,iy,iz,1)
-           w2=wj(ix,iy,iz,2)
-           w3=wj(ix,iy,iz,3)
-           j1=wj(ix,iy,iz,4)
-           j2=wj(ix,iy,iz,5)
-           j3=wj(ix,iy,iz,6)
+              ! Loop-local variables for vorticity and current density:
+              w1=wj(ix,iy,iz,1)
+              w2=wj(ix,iy,iz,2)
+              w3=wj(ix,iy,iz,3)
+              j1=wj(ix,iy,iz,4)
+              j2=wj(ix,iy,iz,5)
+              j3=wj(ix,iy,iz,6)
 
-           ! Loop-local variables for mask and imposed velocity field:
-           m=mask(ix,iy,iz)
-           us1=us(ix,iy,iz,1)
-           us2=us(ix,iy,iz,2)
-           us3=us(ix,iy,iz,3)
+              ! Loop-local variables for mask and imposed velocity field:
+              m=mask(ix,iy,iz) / eps
+              us1=us(ix,iy,iz,1)
+              us2=us(ix,iy,iz,2)
+              us3=us(ix,iy,iz,3)
 
-            ! Nonlinear source term for fluid, including penalization:
-            wj(ix,iy,iz,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
-            wj(ix,iy,iz,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
-            wj(ix,iy,iz,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
+              ! Nonlinear source term for fluid, including penalization:
+              wj(ix,iy,iz,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
+              wj(ix,iy,iz,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
+              wj(ix,iy,iz,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
 
-            ! Nonlinear source term for magnetic field (missing the
-            ! curl and without penalization):
-            wj(ix,iy,iz,4)=u2*b3 - u3*b2
-            wj(ix,iy,iz,5)=u3*b1 - u1*b3
-            wj(ix,iy,iz,6)=u1*b2 - u2*b1
-        enddo
-     enddo
+              ! Nonlinear source term for magnetic field (missing the
+              ! curl and without penalization):
+              wj(ix,iy,iz,4)=u2*b3 - u3*b2
+              wj(ix,iy,iz,5)=u3*b1 - u1*b3
+              wj(ix,iy,iz,6)=u1*b2 - u2*b1
+          enddo
+      enddo
   enddo
 
   ! Transform B to Fourier space.  Keep the first three fields free so
@@ -700,7 +706,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! Penalization for B-field:
   if(iPenalization == 1) then
      do i=4,nd
-        wj(:,:,:,4)=-mask*(ub(:,:,:,i) - us(:,:,:,i))
+        wj(:,:,:,4)=-(mask/eps)*(ub(:,:,:,i) - us(:,:,:,i))
         call fft(nlk(:,:,:,1),wj(:,:,:,4))
         nlk(:,:,:,i)=nlk(:,:,:,i) + nlk(:,:,:,1)
      enddo
@@ -760,7 +766,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   type(diptera),intent(inout) :: Insect
   real(kind=pr) :: t0,t1,uy,uz,chi,usy,usz, uy_dy, uy_dz, uz_dy, uz_dz, p
-  real(kind=pr) :: kx, ky, kz, k2
+  real(kind=pr) :: kx, ky, kz, k2, eps_inv
   complex(kind=pr) :: imag   ! imaginary unit
   integer :: ix,iz,iy,mpicode
   t0 = MPI_wtime()
@@ -775,6 +781,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
   if (ncw<4) call abort(77283,"acm: not enough cmplx work arrays")
   if (nrw<4) call abort(77283,"acm: not enough real work arrays")
 
+  eps_inv = 1.0_pr / eps
 
   !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
@@ -823,7 +830,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
         uz_dz = work(ix,iy,iz,4)
 
         ! local variables for penalization
-        chi = mask(ix,iy,iz)
+        chi = mask(ix,iy,iz) * eps_inv
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
 
@@ -845,7 +852,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
         do ix=ra(1),rb(1)
           ! local loop variables
           p = work(ix,iy,iz,1)
-          chi = mask(ix,iy,iz)
+          chi = mask(ix,iy,iz) * eps_inv
           ! color 0 is sponges
           if (mask_color(ix,iy,iz)==0) work(ix,iy,iz,2) = -chi*p
         enddo

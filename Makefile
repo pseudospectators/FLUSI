@@ -255,6 +255,11 @@ clean:
 tidy:
 	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out
 
+.PHONY: test
+
+test:
+	@cd tests/; ./unittest.sh
+
 # If the object directory doesn't exist, create it.
 .PHONY: directories
 

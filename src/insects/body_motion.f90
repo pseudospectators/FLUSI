@@ -191,7 +191,7 @@ subroutine BodyMotion(time, Insect)
     if (iTimeMethodFluid /= "AB2_rigid_solid") call abort(99,"free flight requires AB2_rigid_solid")
 
   case default
-    if (mpirank==0) then
+    if (root) then
       write(*,*) Insect%BodyMotion
       write(*,*) "body_motion.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
       call abort(10621, "body_motion.f90::BodyMotion: motion case (Insect%BodyMotion) undefined")
@@ -201,7 +201,7 @@ subroutine BodyMotion(time, Insect)
 
 
 
-  if ((mpirank==0).and.(maxval(vc)>0.0d0).and.(Insect%body_moves=="no")) then
+  if ((root).and.(maxval(vc)>0.0d0).and.(Insect%body_moves=="no")) then
     write(*,*) "error in body_motion.f90: I found maxval(vc)>0 but the body_moves"
     write(*,*) "flag is set to no, which means we will draw the body only once"
     write(*,*) "This is probably not intented - you should look into it."

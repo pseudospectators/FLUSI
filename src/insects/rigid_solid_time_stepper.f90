@@ -47,7 +47,7 @@ subroutine rigid_solid_time_step(time,dt0,dt1,it,Insect)
     if (Insect%STATE(3)>=zl) Insect%STATE(3) = Insect%STATE(3) - zl
   endif
 
-  if (mpirank==0) then
+  if (root) then
     open  (17,file='rigidsolidsolver.t',status='unknown',position='append')
     write (17,'(14(es15.8,1x))') time, Insect%STATE(1:13)
     close (17)
@@ -277,11 +277,11 @@ subroutine rigid_solid_init(time, Insect)
   Insect%RHS_old = 0.d0
 
 
-  if (mpirank==0) write(*,*) "rigid solid init at time=", Insect%time
+  if (root) write(*,*) "rigid solid init at time=", Insect%time
 
   if (inicond(1:8)=="backup::") then
     ! resuming the rigid solid solver from a backup
-    if (mpirank==0) then
+    if (root) then
       write(*,*) "Rigid solid solver is resuming from backup..."
       ! File name can be either runtime_backup0 or runtime_backup1
       write(*,*) inicond(9:23)//".rigidsolver"
