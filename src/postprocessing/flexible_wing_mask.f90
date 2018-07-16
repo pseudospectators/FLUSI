@@ -27,14 +27,14 @@ subroutine flexible_wing_mask(help)
     endif
 
     ! first thing to do would be load ascii DAT files
-    file = "points_coor.dat"
+    file = "points_coor1.dat"
     call count_lines_in_ascii_file_mpi(file, npoints, n_header)
     call count_cols_in_ascii_file_mpi(file, num_cols, n_header)
     allocate( points_coordinates(1:npoints, 1:num_cols) )
     call read_array_from_ascii_file_mpi(file, points_coordinates, n_header)
 
 
-    file = "mesh_triangle_elements.dat"
+    file = "mesh_triangle_elements1.dat"
     call count_lines_in_ascii_file_mpi(file, ntri, n_header)
     call count_cols_in_ascii_file_mpi(file, num_cols, n_header)
     allocate( triangle_indices(1:ntri, 1:num_cols) )

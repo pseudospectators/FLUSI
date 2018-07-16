@@ -32,6 +32,8 @@ subroutine init_wings ( fname, wings )
 
   call read_param_mpi(PARAMS,"Flexible_wing","x0",wings(i)%x0, (/0.5d0*xl,0.5d0*yl,0.5d0*zl/))
   call read_param_mpi(PARAMS,"Flexible_wing","v0",wings(i)%v0, (/0.d0, 0.d0, 0.d0/))
+  call read_param_mpi(PARAMS,"Flexible_wing","t_wing",wings(i)%t_wing, 0.01d0)
+  call read_param_mpi(PARAMS,"Flexible_wing","wing_smoothing",wings(i)%wing_smoothing, 3*dz)
 
   ! clean ini file
   call clean_ini_file_mpi(PARAMS)
@@ -183,8 +185,8 @@ subroutine read_mesh_data(wings)
     data_file = 'points_coor'//wingstr//'.dat'
     call  read_mesh_data_2D_array(data_file, tmp1)
     do j=1, maxval(tmp1(:,1))
-      wings(i)%x(j) = tmp1(j,2)*2*pi/xl*5
-      wings(i)%y(j) = tmp1(j,3)*2*pi/yl*5
+      wings(i)%x(j) = tmp1(j,2)*2*pi/xl*20
+      wings(i)%y(j) = tmp1(j,3)*2*pi/yl*20
       wings(i)%z(j) = tmp1(j,4)*2*pi/zl
     end do
 
