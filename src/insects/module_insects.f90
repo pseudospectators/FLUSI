@@ -22,29 +22,36 @@ module module_insects
   integer, parameter :: rk = 8
   integer, parameter :: strlen = 120
 
+  logical :: root = .false.
+
+  ! size (global) of domain
+  real(kind=rk) :: xl, yl, zl
+  ! viscosity (just for Reynolds number)
+  real(kind=rk) :: nu
+
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable
   ! elements in derived datatypes) this is their length:
-  integer, parameter, private :: nfft_max = 1024
+  integer, parameter :: nfft_max = 1024
   ! Maximum number of Hermite interpolation nodes (hardcoded because of sxf90 compiler requirements)
-  integer, parameter, private :: nhrmt_max = 10000
+  integer, parameter :: nhrmt_max = 10000
 
   ! Allocatable arrays used in Insect object
   ! this will hold the surface markers and their normals used for particles:
-  real(kind=rk), allocatable, dimension(:,:), private :: particle_points
+  real(kind=rk), allocatable, dimension(:,:) :: particle_points
   ! wing thickness profile
-  real(kind=rk), allocatable, dimension(:,:), private :: wing_thickness_profile
+  real(kind=rk), allocatable, dimension(:,:) :: wing_thickness_profile
   ! wing corrugation profile
-  real(kind=rk), allocatable, dimension(:,:), private :: corrugation_profile
+  real(kind=rk), allocatable, dimension(:,:) :: corrugation_profile
 
   ! wing signed distance function, if the 3d-interpolation approach is used.
   ! This is useful for highly complex wings, where one generates the mask only once
   ! and then interpolates the values to the global grid. note the data allocated
   ! here is of course understood in the wing system, so the linear transformation
   ! x_g -> x_w' is used, where x_w' is not a grid-aligned value x_w
-  real(kind=rk), allocatable, dimension(:,:,:), save, private :: mask_wing_complete
-  real(kind=rk), dimension(1:3), save, private :: mask_wing_xl, mask_wing_x0
-  integer, dimension(1:3), save, private :: mask_wing_nxyz
-  integer, save, private :: mask_wing_safety=4
+  real(kind=rk), allocatable, dimension(:,:,:), save :: mask_wing_complete
+  real(kind=rk), dimension(1:3), save :: mask_wing_xl, mask_wing_x0
+  integer, dimension(1:3), save :: mask_wing_nxyz
+  integer, save :: mask_wing_safety=4
 
   !-----------------------------------------------------------------------------
   ! TYPE DEFINITIONS
@@ -179,6 +186,9 @@ module module_insects
     ! is that during postprocessing of an existing run, the dry run would overwrite the
     ! simulation data.
     character(len=strlen) :: kinematics_file = "kinematics.t"
+    ! save kinematics every itkine calls to the routine
+    integer :: itkine
+
 
     !-------------------------------------------------------------
     ! parameters that control shape of wings,body, and motion
@@ -316,11 +326,11 @@ contains
 
     !-----------------------------------------------------------------------------
     ! write kinematics to disk (Dmitry, 28 Oct 2013)
-    ! do so only every itdrag time steps (Thomas, 8 Jul 2014)
+    ! do so only every 5 time steps (Thomas, 8 Jul 2014)
     !-----------------------------------------------------------------------------
     counter = counter + 1
-    if ((root).and.(mod(counter,itdrag)==0)) then
-      open  (17,file=Insect%kinematics_file,status='unknown',position='append')
+    if ((root).and.(mod(counter,Insect%itkine)==0)) then
+      open  (17, file=Insect%kinematics_file, status='unknown', position='append')
       write (17,'(26(es15.8,1x))') time, Insect%xc_body_g, Insect%psi, Insect%beta, &
       Insect%gamma, Insect%eta_stroke, Insect%alpha_l, Insect%phi_l, &
       Insect%theta_l, Insect%alpha_r, Insect%phi_r, Insect%theta_r, &

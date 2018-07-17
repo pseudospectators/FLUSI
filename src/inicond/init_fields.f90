@@ -50,10 +50,10 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
     call get_command_argument(1,infile)
     if (index(inicond,'backup::') == 0) then
         ! we need to do that now otherwise we cannot create the startup mask.
-        call insect_init(time, infile, Insect, resume_backup=.false., fname_backup="")
+        call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu)
     else
-        call insect_init(time, infile, Insect, resume_backup=.true., &
-        fname_backup=inicond(9:23)//".rigidsolver")
+        call insect_init(time, infile, Insect, .true., &
+        inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu)
     endif
 
   endif

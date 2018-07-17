@@ -1,15 +1,16 @@
-subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup)
+subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box_domain, viscosity)
   implicit none
   real(kind=rk), intent(in) :: time
   character(len=*), intent(in) :: fname_ini
   type(diptera),intent(inout)::Insect
   logical, intent(in) :: resume_backup
   character(len=*), intent(in) :: fname_backup
+  real(kind=rk), intent(in) :: box_domain(1:3), viscosity
 
   type(inifile) :: PARAMS
   real(kind=rk),dimension(1:3)::defaultvec
   character(len=strlen) :: DoF_string, dummystr
-  integer :: j, tmp
+  integer :: j, tmp, mpirank, mpicode
 
   if (root) then
     write(*,'(80("<"))')
@@ -17,6 +18,15 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup)
     write(*,*) "*.ini file is: "//trim(adjustl(fname_ini))
     write(*,'(80("<"))')
   endif
+
+  ! copy parameters from the call:
+  xl = box_domain(1)
+  yl = box_domain(2)
+  zl = box_domain(3)
+  nu = viscosity
+
+  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
+  if (mpirank==0) root = .true.
 
   !-----------------------------------------------------------------------------
   ! read in parameters form ini file
@@ -157,6 +167,12 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup)
 
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
   call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r_b, defaultvec)
+
+  call read_param_mpi(PARAMS,"Insects","itkine",Insect%itkine, -1)
+  if (Insect%itkine == -1) then
+      ! try reading from the Saving section
+      call read_param_mpi(PARAMS,"Saving", "itdrag", Insect%itkine, 1)
+  endif
 
   ! default colors for body and wings
   Insect%color_body=1

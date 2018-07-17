@@ -128,12 +128,12 @@ subroutine dry_run()
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
 
-    call insect_init( 0.d0, infile, Insect, resume_backup=.false., fname_backup="")
+    call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu)
 
     ! If required, initialize rigid solid dynamics solver. Note that if the --post flag
     ! is set, the insect state is read from file, so we skip the initialization .
     if (Insect%BodyMotion=="free_flight" .and. mode/="--post") then
-      call rigid_solid_init(0.d0, Insect, resume_backup=.false., fname_backup="")
+      call rigid_solid_init(0.d0, Insect, .false., "")
     endif
 
     ! tell insect module not to write to kinematics.dry-run.t file, so content of
