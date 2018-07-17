@@ -5,7 +5,7 @@
 subroutine convert_pressure(help)
   use vars
   use p3dfft_wrapper
-  use helpers
+  use module_helpers
   use basic_operators
   use penalization
   use insect_module

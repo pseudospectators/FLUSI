@@ -5,7 +5,7 @@
 ! the original, larger files. For simplicity, ensure all files follow FLUSI
 ! naming convention.
 !---
-! Note: through using helpers.f90::get_dsetname, it is finally possible to write
+! Note: through using module_helpers.f90::get_dsetname, it is finally possible to write
 ! to a subfolder *.h5 file directly from flusi
 ! (Thomas, 03/2015)
 !---
@@ -22,7 +22,7 @@ subroutine extract_subset(help)
   use hdf5
   use hdf5_wrapper
   use basic_operators
-  use helpers
+  use module_helpers
   implicit none
 
   logical, intent(in) :: help
@@ -72,7 +72,7 @@ subroutine extract_subset(help)
     write(*,*) "! the original, larger files. For simplicity, ensure all files follow FLUSI"
     write(*,*) "! naming convention."
     write(*,*) "!---"
-    write(*,*) "! Note: through using helpers.f90::get_dsetname, it is finally possible to write"
+    write(*,*) "! Note: through using module_helpers.f90::get_dsetname, it is finally possible to write"
     write(*,*) "! to a subfolder *.h5 file directly from flusi"
     write(*,*) "! (Thomas, 03/2015)"
     write(*,*) "!---"

@@ -3,7 +3,7 @@ module passive_scalar_module
   use vars
   use penalization
   use basic_operators
-  use helpers
+  use module_helpers
   use ghosts
   implicit none
 

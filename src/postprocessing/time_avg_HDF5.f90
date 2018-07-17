@@ -7,7 +7,7 @@ subroutine time_avg_HDF5(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname, fname_this, fname_avg

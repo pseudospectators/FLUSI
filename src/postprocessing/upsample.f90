@@ -9,7 +9,7 @@ subroutine upsample(help)
   use vars
   use p3dfft_wrapper
   use hdf5_wrapper
-  use helpers
+  use module_helpers
   use slicing
   implicit none
   logical, intent(in) :: help

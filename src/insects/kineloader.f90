@@ -3,7 +3,7 @@ subroutine load_kine_init(kine)
 
   type(wingkinematics), intent(inout) :: kine
   integer :: j, mpicode, nk
-  real (kind=pr) :: t_period, r_wing
+  real (kind=rk) :: t_period, r_wing
 
 
   if (root) then
@@ -108,9 +108,9 @@ end subroutine
 subroutine wing_kine_interp(time, kine, phi_i, alpha_i, theta_i, phi_dt_i, alpha_dt_i, theta_dt_i)
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=rk), intent(in) :: time
   type(wingkinematics), intent(in) :: kine
-  real(kind=pr), intent(out) :: phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i
+  real(kind=rk), intent(out) :: phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i
 
   if (kine%initialized .eqv. .false.) then
     call abort(1515,"kinematics_loader is not initialized but wing_kine_interp is called")
@@ -131,8 +131,8 @@ end subroutine
 !   use kine
 !   implicit none
 !
-!   real(kind=pr), intent(in) :: t_i
-!   real(kind=pr), intent(out) :: pitch_i,vert_i,horz_i,pitch_dt_i,vert_dt_i,horz_dt_i
+!   real(kind=rk), intent(in) :: t_i
+!   real(kind=rk), intent(out) :: pitch_i,vert_i,horz_i,pitch_dt_i,vert_dt_i,horz_dt_i
 !
 !   call hermite1d(nk,vec_t,vec_pitch,vec_pitch_dt,t_i,pitch_i,pitch_dt_i)
 !   call hermite1d(nk,vec_t,vec_vert,vec_vert_dt,t_i,vert_i,vert_dt_i)
@@ -143,13 +143,13 @@ end subroutine
 subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
   implicit none
 
-  integer, parameter :: pr = 8
+  integer, parameter :: rk = 8
   integer :: i0,i1
   integer, intent(in) :: n
-  real(kind=pr) :: x,z,ap0,ap1,ax0,ax1,dx,d2pdx2_i0,d2pdx2_i1
-  real(kind=pr), intent(in) :: xi
-  real(kind=pr), intent(in) :: xphi(1:n),phi(1:n),dpdx(1:n)
-  real(kind=pr), intent(out) :: phi_interp,dpdx_interp
+  real(kind=rk) :: x,z,ap0,ap1,ax0,ax1,dx,d2pdx2_i0,d2pdx2_i1
+  real(kind=rk), intent(in) :: xi
+  real(kind=rk), intent(in) :: xphi(1:n),phi(1:n),dpdx(1:n)
+  real(kind=rk), intent(out) :: phi_interp,dpdx_interp
 
   dx = xphi(2) - xphi(1)
 

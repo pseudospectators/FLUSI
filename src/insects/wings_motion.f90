@@ -4,8 +4,8 @@
 subroutine FlappingMotion_left ( time, Insect )
   implicit none
 
-  real(kind=pr),intent(in) :: time
-  real(kind=pr),dimension(0:3)::ep
+  real(kind=rk),intent(in) :: time
+  real(kind=rk),dimension(0:3)::ep
   type(diptera) :: Insect
 
   if (Insect%wing_fsi == "yes") then
@@ -41,7 +41,7 @@ end subroutine FlappingMotion_left
 subroutine FlappingMotion_right ( time, Insect )
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=rk), intent(in) :: time
   type(diptera) :: Insect
 
   call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
@@ -74,22 +74,22 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
            alpha_dt, theta_dt, kine)
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=rk), intent(in) :: time
   type(diptera), intent(inout) :: Insect
-  real(kind=pr), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
+  real(kind=rk), intent(out) :: phi, alpha, theta, phi_dt, alpha_dt, theta_dt
   character (len=*), intent(in) :: protocoll
   type(wingkinematics), intent(inout) :: kine
-  real(kind=pr) :: phi_max,alpha_max, phase,f
-  real(kind=pr) :: bi_alpha_flapper(1:29) ! For comparison with Sane&Dickinson
-  real(kind=pr) :: ai_phi_flapper(1:31) ! For comparison with Sane&Dickinson
-  real(kind=pr) :: tadv,t0adv ! For comparison with Dickinson, Ramamurti
-  real(kind=pr) :: posi,elev,feth,posi_dt,elev_dt,feth_dt,angles ! Comp. w. Maeda
-  real(kind=pr) :: dangle_posi,dangle_elev,dangle_feth ! Comp. w. Maeda
-  real(kind=pr) :: dangle_posi_dt,dangle_elev_dt,dangle_feth_dt ! Comp. w. Maeda
-  real(kind=pr) :: a_posi(1:4),b_posi(1:4),a_elev(1:4),b_elev(1:4),a_feth(1:4),b_feth(1:4)
-  real(kind=pr) :: s,c,a0_phi
-  real(kind=pr) :: phicdeg
-  real(kind=pr) :: alphacdeg, ttau
+  real(kind=rk) :: phi_max,alpha_max, phase,f
+  real(kind=rk) :: bi_alpha_flapper(1:29) ! For comparison with Sane&Dickinson
+  real(kind=rk) :: ai_phi_flapper(1:31) ! For comparison with Sane&Dickinson
+  real(kind=rk) :: tadv,t0adv ! For comparison with Dickinson, Ramamurti
+  real(kind=rk) :: posi,elev,feth,posi_dt,elev_dt,feth_dt,angles ! Comp. w. Maeda
+  real(kind=rk) :: dangle_posi,dangle_elev,dangle_feth ! Comp. w. Maeda
+  real(kind=rk) :: dangle_posi_dt,dangle_elev_dt,dangle_feth_dt ! Comp. w. Maeda
+  real(kind=rk) :: a_posi(1:4),b_posi(1:4),a_elev(1:4),b_elev(1:4),a_feth(1:4),b_feth(1:4)
+  real(kind=rk) :: s,c,a0_phi
+  real(kind=rk) :: phicdeg
+  real(kind=rk) :: alphacdeg, ttau
   integer :: i,mpicode
   character(len=strlen) :: dummy
   type(inifile) :: kinefile

@@ -108,7 +108,7 @@ subroutine cal_drag ( time, u, Insect )
 
         ! is the obstacle is near the boundary, parts of it may cross the periodic
         ! boundary. therefore, ensure that xlev is periodized:
-        xc = periodize_coordinate((/xlev,ylev,zlev/))
+        xc = periodize_coordinate((/xlev,ylev,zlev/), (/xl,yl,zl/))
         xlev = xc(1)
         ylev = xc(2)
         zlev = xc(3)
@@ -135,7 +135,7 @@ subroutine cal_drag ( time, u, Insect )
             ylev = ylev - Insect%x_pivot_r_g(2)
             zlev = zlev - Insect%x_pivot_r_g(3)
           endif
-          xc = periodize_coordinate((/xlev,ylev,zlev/))
+          xc = periodize_coordinate((/xlev,ylev,zlev/), (/xl,yl,zl/))
           xlev = xc(1)
           ylev = xc(2)
           zlev = xc(3)
@@ -226,7 +226,7 @@ subroutine cal_drag ( time, u, Insect )
 
         ! is the obstacle is near the boundary, parts of it may cross the periodic
         ! boundary. therefore, ensure that xlev is periodized:
-        xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/))
+        xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/), (/xl,yl,zl/))
         xlev(i) = xc(1)
         ylev(i) = xc(2)
         zlev(i) = xc(3)
@@ -288,7 +288,7 @@ subroutine cal_drag ( time, u, Insect )
             ylev(i) = ylev(i) - Insect%x_pivot_r_g(2)
             zlev(i) = zlev(i) - Insect%x_pivot_r_g(3)
           endif
-          xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/))
+          xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/), (/xl,yl,zl/))
           xlev(i) = xc(1)
           ylev(i) = xc(2)
           zlev(i) = xc(3)

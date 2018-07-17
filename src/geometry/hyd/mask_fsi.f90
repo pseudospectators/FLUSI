@@ -10,6 +10,21 @@ subroutine create_mask_fsi (time, Insect, beams )
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   logical, save :: mask_already_read = .false.
+  real(kind=pr) :: ddx(1:3), xx0(1:3)
+
+  ! some checks
+  if ((iMask=="Insect").and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
+    call abort(4453,"insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong.")
+  endif
+
+  if ((iMask=="fractal_tree").and.(iMoving == 1)) then
+    call abort(4417,"fractal trees do not move -- set iMoving=0 (avoid creating mask in every iteration)")
+  endif
+
+  ddx = (/ dx, dy, dz /)
+  xx0 = (/ dble(ra(1))*dx, dble(ra(2))*dy, dble(ra(3))*dz /)
+
+  if (nx==1) ddx(1) = 0.0_pr
 
   !-------------------------------------------------------------
   ! create obstacle mask
@@ -19,9 +34,9 @@ subroutine create_mask_fsi (time, Insect, beams )
       ! Actual mask functions:
       select case (iMask)
       case ("active_grid")
-          call draw_active_grid_winglets(time, mask, mask_color, us)
+          call draw_active_grid_winglets(time, xx0, ddx, mask, mask_color, us)
       case ("fractal_tree")
-          call Draw_fractal_tree(Insect, mask, mask_color, us)
+          call Draw_fractal_tree(Insect, xx0, ddx, mask, mask_color, us)
       case ("floor_yz","floor_zy","flooryz","floorzy")
           call Draw_floor_yz()
       case ("sphere","Sphere")
@@ -39,7 +54,7 @@ subroutine create_mask_fsi (time, Insect, beams )
       case ("turek_wan")
           call turek_wan (time)
       case ("Insect","insect")
-          call Draw_Insect ( time, Insect, mask, mask_color, us)
+          call Draw_Insect ( time, Insect, xx0, ddx, mask, mask_color, us)
       case("Flexibility")
           call Draw_flexible_plate(time, beams(1))
       case ("plate","Plate")

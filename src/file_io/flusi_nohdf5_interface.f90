@@ -106,7 +106,7 @@ end subroutine Read_Single_File
 !-------------------------------------------------------------------------------
 subroutine dump_field_backup(filename,field,dsetname,time,dt0,dt1,n1,it)
   use vars
-  use helpers
+  use module_helpers
   implicit none
 
   integer,intent(in) :: n1,it
@@ -183,7 +183,7 @@ end subroutine read_field_backup
 !           but especially the attributes "nxyz", "time", "domain_size"
 !----------------------------------------------------
 subroutine fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity, origin )
-  use helpers, only : get_dsetname
+  use module_helpers, only : get_dsetname
   use vars, only : pr,mpirank
   use mpi
   implicit none

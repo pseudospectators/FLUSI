@@ -7,7 +7,7 @@ subroutine dist2chi(help)
   use vars
   use basic_operators
   use p3dfft_wrapper
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: distfile,maskfile,dummy

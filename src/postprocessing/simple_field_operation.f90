@@ -8,7 +8,7 @@ subroutine simple_field_operation(help)
   use vars
   use basic_operators
   use p3dfft_wrapper
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: file1, file2, file_out, operation

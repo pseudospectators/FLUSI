@@ -1,42 +1,40 @@
 ! Wing wrapper for different wing shapes
-subroutine draw_wing(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
+subroutine draw_wing(xx0, ddx, mask, mask_color, us, Insect, color_wing, M_body,&
+    M_wing, x_pivot_b, rot_rel_wing_w)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=rk),intent(in) :: xx0(1:3), ddx(1:3)
+  real(kind=rk),intent(inout) :: mask(0:,0:,0:)
+  real(kind=rk),intent(inout) :: us(0:,0:,0:,1:)
+  integer(kind=2),intent(inout) :: mask_color(0:,0:,0:)
   integer(kind=2),intent(in) :: color_wing
-  real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
-
-  real(kind=pr) :: t1
-  t1 = MPI_wtime()
+  real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
   select case(Insect%WingShape)
   case ("pointcloud")
-    call draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wing,&
+    call draw_wing_pointcloud(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,&
          x_pivot_b,rot_rel_wing_w)
   case ("mosquito_iams")
-    call draw_wing_mosquito(mask,mask_color,us,Insect,color_wing,M_body,&
+    call draw_wing_mosquito(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,&
          M_wing,x_pivot_b,rot_rel_wing_w)
   case ("rectangular")
-    call draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,&
+    call draw_wing_rectangular(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,&
          M_wing,x_pivot_b,rot_rel_wing_w)
   case ("suzuki")
     ! this wing has a finite thickness
-    call draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,&
+    call draw_wing_suzuki(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,&
          M_wing,x_pivot_b,rot_rel_wing_w)
   case ("TwoEllipses")
-    call draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,&
+    call draw_wing_twoellipses(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,&
          M_wing,x_pivot_b,rot_rel_wing_w)
   case default
     ! we assume the default to be defined in fourier coefficients, the subroutine
     ! yells if it does not recongnize the wing.
-    call draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,M_wing,&
+    call draw_wing_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,&
          x_pivot_b,rot_rel_wing_w)
   end select
 
-  time_insect_wings = time_insect_wings + MPI_wtime() - t1
 end subroutine draw_wing
 
 !-------------------------------------------------------------------------------
@@ -46,32 +44,33 @@ end subroutine draw_wing
 ! datastructure, so the function Set_Wing_Fourier_coefficients must be called
 ! before calling this subroutine. Fourier series is evaluated in
 ! Radius_Fourier
-subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
+subroutine draw_wing_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=rk),intent(in) :: xx0(1:3), ddx(1:3)
+  real(kind=rk),intent(inout) :: mask(0:,0:,0:)
+  real(kind=rk),intent(inout) :: us(0:,0:,0:,1:)
+  integer(kind=2),intent(inout) :: mask_color(0:,0:,0:)
   integer(kind=2),intent(in) :: color_wing
-  real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
+  real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
   integer :: ix,iy,iz
-  real(kind=pr) :: x_body(1:3),x_wing(1:3),x(1:3)
-  real(kind=pr) :: R, R0, R_tmp, zz0
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp, s, t
-  real(kind=pr) :: v_tmp(1:3), mask_tmp, theta
+  real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3)
+  real(kind=rk) :: R, R0, R_tmp, zz0
+  real(kind=rk) :: y_tmp, x_tmp, z_tmp, s, t
+  real(kind=rk) :: v_tmp(1:3), mask_tmp, theta
 
   !-- define the wings fourier coeffients, but do that only once
   call Setup_Wing_Fourier_coefficients(Insect)
 
   s = Insect%safety
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
+  do iz = 0, size(mask,3)-1
+    do iy = 0, size(mask,2)-1
+      do ix = 0, size(mask,1)-1
         !-- define the various coordinate systems we are going to use
-        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x - Insect%xc_body_g)
+        x = (/ xx0(1)+dble(ix)*ddx(1), xx0(2)+dble(iy)*ddx(2), xx0(3)+dble(iz)*ddx(3) /)
+        x = periodize_coordinate(x - Insect%xc_body_g, (/xl,yl,zl/))
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot_b)
 
@@ -90,7 +89,7 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,M_wing,
 
           !-- get smooth (radial) step function
           R = dsqrt ( (x_wing(1)-Insect%xc)**2 + (x_wing(2)-Insect%yc)**2 )
-          R_tmp = steps(R,R0)
+          R_tmp = steps(R,R0, Insect%smooth)
 
           ! wing corrugation (i.e. deviation from a flat plate)
           if ( Insect%corrugated ) then
@@ -112,7 +111,7 @@ subroutine draw_wing_fourier(mask,mask_color,us,Insect,color_wing,M_body,M_wing,
               t = Insect%WingThickness
           endif
 
-          z_tmp = steps( dabs(x_wing(3)-zz0), 0.5d0*t ) ! thickness
+          z_tmp = steps( dabs(x_wing(3)-zz0), 0.5d0*t, Insect%smooth ) ! thickness
           mask_tmp = z_tmp*R_tmp
 
           !-----------------------------------------
@@ -146,22 +145,23 @@ end subroutine draw_wing_fourier
 
 !-------------------------------------------------------------------------------
 ! Draw a wing from pointcloud
-subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
+subroutine draw_wing_pointcloud(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=rk),intent(in) :: xx0(1:3), ddx(1:3)
+  real(kind=rk),intent(inout) :: mask(0:,0:,0:)
+  real(kind=rk),intent(inout) :: us(0:,0:,0:,1:)
+  integer(kind=2),intent(inout) :: mask_color(0:,0:,0:)
   integer(kind=2),intent(in) :: color_wing
-  real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
+  real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
   integer :: ix,iy,iz,npoints,matrixcols
-  real(kind=pr) :: x_glob(1:3), x_wing(1:3), x(1:3), x_body(1:3)
-  real(kind=pr) :: v_tmp(1:3), mask_tmp
+  real(kind=rk) :: x_glob(1:3), x_wing(1:3), x(1:3), x_body(1:3)
+  real(kind=rk) :: v_tmp(1:3), mask_tmp
 
-  real(kind=pr) :: xd, yd, zd, dxinv
-  real(kind=pr) :: c00, c10, c01, c11, c0, c1
+  real(kind=rk) :: xd, yd, zd, dxinv
+  real(kind=rk) :: c00, c10, c01, c11, c0, c1
   integer :: iix, iiy, iiz
 
   ! ----------------------------------------------------------------------------
@@ -192,18 +192,18 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
     if (root) write(*,*) "For the domain of this array, we choose the smallest possible."
 
     mask_wing_x0 = (/minval(particle_points(:,1)),minval(particle_points(:,2)),minval(particle_points(:,3))/)&
-                 - dble(mask_wing_safety)*dx
-    mask_wing_xl = (/maxval(particle_points(:,1))-mask_wing_x0(1) + dble(mask_wing_safety)*dx, &
-                     maxval(particle_points(:,2))-mask_wing_x0(2) + dble(mask_wing_safety)*dx, &
-                     maxval(particle_points(:,3))-mask_wing_x0(3) + dble(mask_wing_safety)*dx/)
-    mask_wing_nxyz = nint(mask_wing_xl / dx)
+                 - dble(mask_wing_safety)*ddx
+    mask_wing_xl = (/maxval(particle_points(:,1))-mask_wing_x0(1) + dble(mask_wing_safety)*ddx(1), &
+                     maxval(particle_points(:,2))-mask_wing_x0(2) + dble(mask_wing_safety)*ddx(2), &
+                     maxval(particle_points(:,3))-mask_wing_x0(3) + dble(mask_wing_safety)*ddx(3)/)
+    mask_wing_nxyz = nint(mask_wing_xl / ddx)
 
     ! note each mpirank holds one complete copy of the array (this is not very efficient)
     allocate(mask_wing_complete(0:mask_wing_nxyz(1)-1,0:mask_wing_nxyz(2)-1,0:mask_wing_nxyz(3)-1))
 
     ! create the mask, note we do not create color or us here.
     call mask_from_pointcloud(particle_points(:,1:3), particle_points(:,4:6), &
-    mask_wing_x0, (/dx,dx,dx/), mask_wing_complete, mask_wing_safety, 0.0d0*dx)
+    mask_wing_x0, ddx, mask_wing_complete, mask_wing_safety, Insect%smooth, 0.0d0*ddx(1))
 
     ! after generating the mask function, we do not longer need the point cloud.
     deallocate( particle_points )
@@ -217,21 +217,21 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
   !-----------------------------------------------------------------------------
   ! interpolation
   !-----------------------------------------------------------------------------
-  dxinv = 1.0d0 / dx
+  dxinv = 1.0d0 / ddx(1)
 
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
+  do iz = 0, size(mask,3)-1
+    do iy = 0, size(mask,2)-1
+      do ix = 0, size(mask,1)-1
         !-- define the various coordinate systems we are going to use
-        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x - Insect%xc_body_g)
+        x = (/ xx0(1)+dble(ix)*ddx(1), xx0(2)+dble(iy)*ddx(2), xx0(3)+dble(iz)*ddx(3) /)
+        x = periodize_coordinate(x - Insect%xc_body_g, (/xl,yl,zl/))
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot_b)
 
 
-        if (x_wing(1)>mask_wing_x0(1)+2.0d0*dx .and. x_wing(1)<mask_wing_x0(1)+mask_wing_xl(1)-2.0d0*dx) then
-          if (x_wing(2)>mask_wing_x0(2)+2.0d0*dx .and. x_wing(2)<mask_wing_x0(2)+mask_wing_xl(2)-2.0d0*dx) then
-            if (x_wing(3)>mask_wing_x0(3)+2.0d0*dx .and. x_wing(3)<mask_wing_x0(3)+mask_wing_xl(3)-2.0d0*dx) then
+        if (x_wing(1)>mask_wing_x0(1)+2.0d0*ddx(1) .and. x_wing(1)<mask_wing_x0(1)+mask_wing_xl(1)-2.0d0*ddx(1)) then
+          if (x_wing(2)>mask_wing_x0(2)+2.0d0*ddx(2) .and. x_wing(2)<mask_wing_x0(2)+mask_wing_xl(2)-2.0d0*ddx(2)) then
+            if (x_wing(3)>mask_wing_x0(3)+2.0d0*ddx(3) .and. x_wing(3)<mask_wing_x0(3)+mask_wing_xl(3)-2.0d0*ddx(3)) then
 
               ! use 3d interpolation
               ! mask_tmp = trilinear_interp( mask_wing_x0, (/dx,dx,dx/), mask_wing_complete, x_wing, .false.)
@@ -242,9 +242,9 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
               iiz = floor( (x_wing(3)-mask_wing_x0(3))*dxinv )
 
               ! distance to lower point, normalized (0..1)
-              xd = ( x_wing(1)-(dble(iix)*dx + mask_wing_x0(1)) ) *dxinv
-              yd = ( x_wing(2)-(dble(iiy)*dx + mask_wing_x0(2)) ) *dxinv
-              zd = ( x_wing(3)-(dble(iiz)*dx + mask_wing_x0(3)) ) *dxinv
+              xd = ( x_wing(1)-(dble(iix)*ddx(1) + mask_wing_x0(1)) ) *dxinv
+              yd = ( x_wing(2)-(dble(iiy)*ddx(2) + mask_wing_x0(2)) ) *dxinv
+              zd = ( x_wing(3)-(dble(iiz)*ddx(3) + mask_wing_x0(3)) ) *dxinv
 
               c00 = mask_wing_complete(iix,iiy  ,iiz  )*(1.d0-xd)+mask_wing_complete(iix+1,iiy  ,iiz )*xd
               c10 = mask_wing_complete(iix,iiy+1,iiz  )*(1.d0-xd)+mask_wing_complete(iix+1,iiy+1,iiz )*xd
@@ -274,14 +274,14 @@ subroutine draw_wing_pointcloud(mask,mask_color,us,Insect,color_wing,M_body,M_wi
   ! ----------------------------------------------------------------------------
   ! add velocity field, inside the wing.
   ! ----------------------------------------------------------------------------
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
+  do iz = 0, size(mask,3)-1
+    do iy = 0, size(mask,2)-1
+      do ix = 0, size(mask,1)-1
         ! if this point belong to the wing we just created
         if (mask_color(ix,iy,iz)==color_wing) then
           !-- define the various coordinate systems we are going to use
-          x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-          x = periodize_coordinate(x - Insect%xc_body_g)
+          x = (/ xx0(1)+dble(ix)*ddx(1), xx0(2)+dble(iy)*ddx(2), xx0(3)+dble(iz)*ddx(3) /)
+          x = periodize_coordinate(x - Insect%xc_body_g, (/xl,yl,zl/))
           x_wing = matmul(M_wing, matmul(M_body,x)-x_pivot_b)
 
           !------------------------------------------------
@@ -308,21 +308,22 @@ end subroutine draw_wing_pointcloud
 ! "Numerical modeling of fluid-structure interaction in bio-inspired propulsion")
 ! This wing has finite thickness.
 !-------------------------------------------------------------------------------
-subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
+subroutine draw_wing_suzuki(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=rk),intent(in) :: xx0(1:3), ddx(1:3)
+  real(kind=rk),intent(inout) :: mask(0:,0:,0:)
+  real(kind=rk),intent(inout) :: us(0:,0:,0:,1:)
+  integer(kind=2),intent(inout) :: mask_color(0:,0:,0:)
   integer(kind=2),intent(in) :: color_wing
-  real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
+  real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
   integer :: ix,iy,iz
-  real(kind=pr) :: x_body(1:3),x_wing(1:3),x(1:3)
-  real(kind=pr) :: R, R0, R_tmp
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp, y_left, y_right
-  real(kind=pr) :: v_tmp(1:3), mask_tmp, theta, x_top, x_bot
+  real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3)
+  real(kind=rk) :: R, R0, R_tmp
+  real(kind=rk) :: y_tmp, x_tmp, z_tmp, y_left, y_right
+  real(kind=rk) :: v_tmp(1:3), mask_tmp, theta, x_top, x_bot
 
   ! wing shape (determine between which x-values (x_bot, x_top) the wing is
   ! these values depend on the spanwise direction (which is y)
@@ -332,12 +333,12 @@ subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x
   y_right = 1.0d0
   y_left = 0.1667d0
 
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
+  do iz = 0, size(mask,3)-1
+    do iy = 0, size(mask,2)-1
+      do ix = 0, size(mask,1)-1
         !-- define the various coordinate systems we are going to use
-        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x - Insect%xc_body_g)
+        x = (/ xx0(1)+dble(ix)*ddx(1), xx0(2)+dble(iy)*ddx(2), xx0(3)+dble(iz)*ddx(3) /)
+        x = periodize_coordinate(x - Insect%xc_body_g, (/xl,yl,zl/))
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot_b)
 
@@ -351,19 +352,19 @@ subroutine draw_wing_suzuki(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x
             if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then
               !-- smooth length
               if ((x_wing(2)-y_left)<0.d0) then ! xs is chordlength coordinate
-                y_tmp = steps(-(x_wing(2)-y_left),0.d0)
+                y_tmp = steps(-(x_wing(2)-y_left),0.d0, Insect%smooth)
               else
-                y_tmp = steps( (x_wing(2)-y_left),y_right-y_left)
+                y_tmp = steps( (x_wing(2)-y_left),y_right-y_left, Insect%smooth)
               endif
 
               !-- smooth height
-              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
+              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness, Insect%smooth) ! thickness
 
               !-- smooth shape
               if (x_wing(1)<0.d0) then
-                x_tmp = steps(-x_wing(1),-x_bot)
+                x_tmp = steps(-x_wing(1),-x_bot, Insect%smooth)
               else
-                x_tmp = steps( x_wing(1), x_top)
+                x_tmp = steps( x_wing(1), x_top, Insect%smooth)
               endif
 
               mask_tmp = z_tmp*y_tmp*x_tmp
@@ -394,29 +395,30 @@ end subroutine draw_wing_suzuki
 
 !-------------------------------------------------------------------------------
 
-subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
+subroutine draw_wing_rectangular(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=rk),intent(in) :: xx0(1:3), ddx(1:3)
+  real(kind=rk),intent(inout) :: mask(0:,0:,0:)
+  real(kind=rk),intent(inout) :: us(0:,0:,0:,1:)
+  integer(kind=2),intent(inout) :: mask_color(0:,0:,0:)
   integer(kind=2),intent(in) :: color_wing
-  real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
+  real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
   integer :: ix,iy,iz
-  real(kind=pr) :: x_body(1:3),x_wing(1:3),x(1:3)
-  real(kind=pr) :: R, R0, R_tmp
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp
-  real(kind=pr) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
+  real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3)
+  real(kind=rk) :: R, R0, R_tmp
+  real(kind=rk) :: y_tmp, x_tmp, z_tmp
+  real(kind=rk) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
 
 
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
+  do iz = 0, size(mask,3)-1
+    do iy = 0, size(mask,2)-1
+      do ix = 0, size(mask,1)-1
         !-- define the various coordinate systems we are going to use
-        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x - Insect%xc_body_g)
+        x = (/ xx0(1)+dble(ix)*ddx(1), xx0(2)+dble(iy)*ddx(2), xx0(3)+dble(iz)*ddx(3) /)
+        x = periodize_coordinate(x - Insect%xc_body_g, (/xl,yl,zl/))
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot_b)
 
@@ -433,19 +435,19 @@ subroutine draw_wing_rectangular(mask,mask_color,us,Insect,color_wing,M_body,M_w
             if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then
               !-- smooth length
               if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
-                y_tmp = steps(-x_wing(2),0.d0)
+                y_tmp = steps(-x_wing(2),0.d0, Insect%smooth)
               else
-                y_tmp = steps( x_wing(2),Insect%L_span)
+                y_tmp = steps( x_wing(2),Insect%L_span, Insect%smooth)
               endif
 
               !-- smooth height
-              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
+              z_tmp = steps(dabs(x_wing(3)), 0.5d0*Insect%WingThickness, Insect%smooth) ! thickness
 
               !-- smooth shape
               if (x_wing(1)<0.d0) then
-                x_tmp = steps(-x_wing(1),-x_bot)
+                x_tmp = steps(-x_wing(1),-x_bot, Insect%smooth)
               else
-                x_tmp = steps( x_wing(1), x_top)
+                x_tmp = steps( x_wing(1), x_top, Insect%smooth)
               endif
 
               mask_tmp = z_tmp*y_tmp*x_tmp
@@ -483,31 +485,32 @@ end subroutine draw_wing_rectangular
 ! note to save a bit of computing time, we first check the easy
 ! conditions (thickness and spanwise length) and then the shape
 ! function since this saves many evaluations of the shape.
-subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
+subroutine draw_wing_twoellipses(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=rk),intent(in) :: xx0(1:3), ddx(1:3)
+  real(kind=rk),intent(inout) :: mask(0:,0:,0:)
+  real(kind=rk),intent(inout) :: us(0:,0:,0:,1:)
+  integer(kind=2),intent(inout) :: mask_color(0:,0:,0:)
   integer(kind=2),intent(in) :: color_wing
-  real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
+  real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
 
   integer :: ix,iy,iz
-  real(kind=pr) :: x_body(1:3),x_wing(1:3),x(1:3)
-  real(kind=pr) :: R, R0, R_tmp,a_body
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp
-  real(kind=pr) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
+  real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3)
+  real(kind=rk) :: R, R0, R_tmp,a_body
+  real(kind=rk) :: y_tmp, x_tmp, z_tmp
+  real(kind=rk) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
 
   a_body = 0.5d0 * Insect%L_span
 
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
+  do iz = 0, size(mask,3)-1
+    do iy = 0, size(mask,2)-1
+      do ix = 0, size(mask,1)-1
         !-- define the various coordinate systems we are going to use
-        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x-Insect%xc_body_g)
+        x = (/ xx0(1)+dble(ix)*ddx(1), xx0(2)+dble(iy)*ddx(2), xx0(3)+dble(iz)*ddx(3) /)
+        x = periodize_coordinate(x-Insect%xc_body_g, (/xl,yl,zl/))
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot_b)
 
@@ -530,19 +533,19 @@ subroutine draw_wing_twoellipses(mask,mask_color,us,Insect,color_wing,M_body,M_w
             if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then
               !-- smooth length
               if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
-                y_tmp = steps(-x_wing(2),0.d0)
+                y_tmp = steps(-x_wing(2),0.d0, Insect%smooth)
               else
-                y_tmp = steps( x_wing(2),Insect%L_span)
+                y_tmp = steps( x_wing(2),Insect%L_span, Insect%smooth)
               endif
 
               !-- smooth height
-              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
+              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness, Insect%smooth) ! thickness
 
               !-- smooth shape
               if (x_wing(1)<0.d0) then
-                x_tmp = steps(-x_wing(1),-x_bot)
+                x_tmp = steps(-x_wing(1),-x_bot, Insect%smooth)
               else
-                x_tmp = steps( x_wing(1), x_top)
+                x_tmp = steps( x_wing(1), x_top, Insect%smooth)
               endif
 
               mask_tmp = z_tmp*y_tmp*x_tmp
@@ -576,32 +579,33 @@ end subroutine draw_wing_twoellipses
 !-------------------------------------------------------------------------------
 ! Draws a wing of a mosquito. it is a simple ellipse shape, as presented in
 ! [1] Iams "Flight stability of mosquitos: A reduced model" SIAM J. Appl. Math. 74(5) 1535--1550 (2014)
-subroutine draw_wing_mosquito(mask,mask_color,us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
+subroutine draw_wing_mosquito(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
   implicit none
 
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
-  integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+  real(kind=rk),intent(in) :: xx0(1:3), ddx(1:3)
+  real(kind=rk),intent(inout) :: mask(0:,0:,0:)
+  real(kind=rk),intent(inout) :: us(0:,0:,0:,1:)
+  integer(kind=2),intent(inout) :: mask_color(0:,0:,0:)
   integer(kind=2),intent(in) :: color_wing
-  real(kind=pr),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
+  real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
   integer :: ix,iy,iz
-  real(kind=pr) :: x_body(1:3),x_wing(1:3),x(1:3)
-  real(kind=pr) :: R, R0, R_tmp,a_wing
-  real(kind=pr) :: y_tmp, x_tmp, z_tmp
-  real(kind=pr) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
+  real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3)
+  real(kind=rk) :: R, R0, R_tmp,a_wing
+  real(kind=rk) :: y_tmp, x_tmp, z_tmp
+  real(kind=rk) :: v_tmp(1:3), mask_tmp, theta,x_top,x_bot
 
   a_wing = 0.5d0 * Insect%L_span
   Insect%b_top = 0.1474d0
   Insect%b_bot = 0.1474d0
 
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
+  do iz = 0, size(mask,3)-1
+    do iy = 0, size(mask,2)-1
+      do ix = 0, size(mask,1)-1
         !-- define the various coordinate systems we are going to use
-        x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /)
-        x = periodize_coordinate(x-Insect%xc_body_g)
+        x = (/ xx0(1)+dble(ix)*ddx(1), xx0(2)+dble(iy)*ddx(2), xx0(3)+dble(iz)*ddx(3) /)
+        x = periodize_coordinate(x-Insect%xc_body_g, (/xl,yl,zl/))
         x_body = matmul(M_body,x)
         x_wing = matmul(M_wing,x_body-x_pivot_b)
 
@@ -624,19 +628,19 @@ subroutine draw_wing_mosquito(mask,mask_color,us,Insect,color_wing,M_body,M_wing
             if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then
               !-- smooth length
               if (x_wing(2)<0.d0) then  ! xs is chordlength coordinate
-                y_tmp = steps(-x_wing(2),0.d0)
+                y_tmp = steps(-x_wing(2),0.d0, Insect%smooth)
               else
-                y_tmp = steps( x_wing(2),Insect%L_span)
+                y_tmp = steps( x_wing(2),Insect%L_span, Insect%smooth)
               endif
 
               !-- smooth height
-              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness) ! thickness
+              z_tmp = steps(dabs(x_wing(3)),0.5d0*Insect%WingThickness, Insect%smooth) ! thickness
 
               !-- smooth shape
               if (x_wing(1)<0.d0) then
-                x_tmp = steps(-x_wing(1),-x_bot)
+                x_tmp = steps(-x_wing(1),-x_bot, Insect%smooth)
               else
-                x_tmp = steps( x_wing(1), x_top)
+                x_tmp = steps( x_wing(1), x_top, Insect%smooth)
               endif
 
               mask_tmp = z_tmp*y_tmp*x_tmp
@@ -671,12 +675,12 @@ end subroutine draw_wing_mosquito
 ! evaluates the fourier series given in the ai, bi
 ! NOTE: angle theta is NORMALIZED!  theta = ( theta + pi ) / (2.d0*pi)
 !-------------------------------------------------------------------------------
-real(kind=pr) function Radius_Fourier(theta,Insect)
+real(kind=rk) function Radius_Fourier(theta,Insect)
   implicit none
   integer :: i,j, n_radius
-  real(kind=pr) :: R0, theta2, dphi, area
+  real(kind=rk) :: R0, theta2, dphi, area
   type(diptera),intent(inout)::Insect
-  real(kind=pr), intent(in) :: theta
+  real(kind=rk), intent(in) :: theta
 
   n_radius = 25000
   dphi = (2.d0*pi) / (dble(n_radius-1))
@@ -722,10 +726,10 @@ end function
 subroutine compute_wing_surface(Insect, area)
   implicit none
   type(diptera),intent(inout) :: Insect
-  real(kind=pr),intent(out) :: area
+  real(kind=rk),intent(out) :: area
 
-  real(kind=pr) :: dr, dtheta, r
-  real(kind=pr) :: R0, theta
+  real(kind=rk) :: dr, dtheta, r
+  real(kind=rk) :: R0, theta
 
   ! the numerical precision is a tad exagerated, but since this is cheap, we do
   ! not really care.
@@ -764,7 +768,7 @@ end subroutine
 !-------------------------------------------------------------------------------
 subroutine Setup_Wing_Fourier_coefficients(Insect)
   implicit none
-  real(kind=pr) :: xroot, yroot
+  real(kind=rk) :: xroot, yroot
   type(diptera),intent(inout)::Insect
 
   if (Insect%wingsetup_done) then
@@ -1186,7 +1190,7 @@ subroutine Setup_Wing_from_inifile(Insect, fname)
   character(len=*), intent(in) :: fname
 
   type(inifile) :: ifile
-  real(kind=pr), allocatable :: tmparray(:,:)
+  real(kind=rk), allocatable :: tmparray(:,:)
   character(len=strlen) :: type_str
   integer :: a,b
 
@@ -1244,7 +1248,7 @@ subroutine Setup_Wing_from_inifile(Insect, fname)
   if ( Insect%wing_thickness_distribution == "constant") then
       if (root) write(*,*) "Wing thickness is constant along the wing"
       ! wing thickness (NOTE: overwrites settings in other params file)
-      call read_param_mpi(ifile,"Wing","wing_thickness_value",Insect%WingThickness, 4.0d0*dy)
+      call read_param_mpi(ifile,"Wing","wing_thickness_value",Insect%WingThickness, 0.05d0)
 
   elseif ( Insect%wing_thickness_distribution == "variable") then
       if (root) write(*,*) "Wing thickness is variable, i.e. t = t(x,y)"
@@ -1287,7 +1291,7 @@ end subroutine Setup_Wing_from_inifile
 subroutine set_wing_bounding_box_fourier( Insect )
   implicit none
   type(diptera),intent(inout) :: Insect
-  real(kind=pr) :: theta, xmin,xmax, ymin, ymax, R, x, y, theta_prime
+  real(kind=rk) :: theta, xmin,xmax, ymin, ymax, R, x, y, theta_prime
 
   theta = 0.d0
   xmin = 999.d9

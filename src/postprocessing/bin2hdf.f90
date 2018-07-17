@@ -7,7 +7,7 @@ subroutine convert_bin2hdf(help)
   use vars
   use hdf5_wrapper
   use basic_operators
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_bin,fname_hdf,tmp, hack

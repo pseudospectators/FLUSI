@@ -7,7 +7,7 @@ subroutine energy_post(help)
   use vars
   use basic_operators
   use p3dfft_wrapper
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, outfile

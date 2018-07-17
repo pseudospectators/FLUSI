@@ -20,11 +20,11 @@
 subroutine BodyMotion(time, Insect)
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=rk), intent(in) :: time
   type(diptera), intent(inout) :: Insect
-  real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
-  real(kind=pr) :: xc(1:3), vc(1:3), ep(0:3)
-  real(kind=pr) :: T,R
+  real(kind=rk) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+  real(kind=rk) :: xc(1:3), vc(1:3), ep(0:3)
+  real(kind=rk) :: T,R
   character(len=strlen) :: dummy
 
   ! the tag body_moves is used to draw the insect's body only once, if the body
@@ -187,8 +187,6 @@ subroutine BodyMotion(time, Insect)
       ! output on screen
       if(root) write(*,'("free--flight: ",f12.4,2x,9(es12.4,1x))') time, xc,vc,Insect%rot_body_b
     endif
-
-    if (iTimeMethodFluid /= "AB2_rigid_solid") call abort(99,"free flight requires AB2_rigid_solid")
 
   case default
     if (root) then

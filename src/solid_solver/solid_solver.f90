@@ -2,7 +2,7 @@
 module solid_model
   use vars ! for the precision statement
   ! we need the following line for presribed beams:
-  use helpers
+  use module_helpers
   use basic_operators
   implicit none
 

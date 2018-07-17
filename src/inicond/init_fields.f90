@@ -45,10 +45,17 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
   if (iMask=="Insect".and.iPenalization==1) then
+
     ! get filename of PARAMS file from command line
     call get_command_argument(1,infile)
-    ! we need to do that now otherwise we cannot create the startup mask.
-    call insect_init(time, infile, Insect)
+    if (index(inicond,'backup::') == 0) then
+        ! we need to do that now otherwise we cannot create the startup mask.
+        call insect_init(time, infile, Insect, resume_backup=.false., fname_backup="")
+    else
+        call insect_init(time, infile, Insect, resume_backup=.true., &
+        fname_backup=inicond(9:23)//".rigidsolver")
+    endif
+
   endif
 
   !-----------------------------------------------------------------------------

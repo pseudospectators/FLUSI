@@ -511,7 +511,7 @@ end subroutine compute_energies1
 !-------------------------------------------------------------------------------
 subroutine compute_energies_k(uk,E)
     use vars
-    use helpers
+    use module_helpers
     implicit none
     complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
     integer :: ix,iy,iz
@@ -546,7 +546,7 @@ end subroutine compute_energies_k
 !-------------------------------------------------------------------------------
 subroutine compute_energies1_k(uk,E)
     use vars
-    use helpers
+    use module_helpers
     implicit none
     complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
     integer :: ix,iy,iz

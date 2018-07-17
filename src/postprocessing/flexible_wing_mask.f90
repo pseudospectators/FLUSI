@@ -1,7 +1,7 @@
 subroutine flexible_wing_mask(help)
     use vars
     use stl_file_reader
-    use helpers
+    use module_helpers
     use module_ini_files_parser_mpi
     use p3dfft_wrapper
     use penalization, only : mask_color

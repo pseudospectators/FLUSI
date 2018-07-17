@@ -1,18 +1,20 @@
-subroutine insect_init(time, fname, Insect)
+subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup)
   implicit none
-  real(kind=pr), intent(in) :: time
-  character(len=*), intent(in) :: fname
+  real(kind=rk), intent(in) :: time
+  character(len=*), intent(in) :: fname_ini
   type(diptera),intent(inout)::Insect
+  logical, intent(in) :: resume_backup
+  character(len=*), intent(in) :: fname_backup
 
   type(inifile) :: PARAMS
-  real(kind=pr),dimension(1:3)::defaultvec
+  real(kind=rk),dimension(1:3)::defaultvec
   character(len=strlen) :: DoF_string, dummystr
   integer :: j, tmp
 
   if (root) then
     write(*,'(80("<"))')
     write(*,*) "Initializing insect module!"
-    write(*,*) "*.ini file is: "//trim(adjustl(fname))
+    write(*,*) "*.ini file is: "//trim(adjustl(fname_ini))
     write(*,'(80("<"))')
   endif
 
@@ -21,7 +23,7 @@ subroutine insect_init(time, fname, Insect)
   !-----------------------------------------------------------------------------
 
   ! read in the complete ini file, from which we initialize the insect
-  call read_ini_file_mpi(PARAMS, fname, verbose=.true.)
+  call read_ini_file_mpi(PARAMS, fname_ini, verbose=.true.)
 
   call read_param_mpi(PARAMS,"Insects","WingShape",Insect%WingShape,"none")
   call read_param_mpi(PARAMS,"Insects","b_top",Insect%b_top, 0.d0)
@@ -94,7 +96,7 @@ subroutine insect_init(time, fname, Insect)
   call read_param_mpi(PARAMS,"Insects","R_eye",Insect%R_eye, 0.d1)
   call read_param_mpi(PARAMS,"Insects","mass",Insect%mass, 1.d0)
   call read_param_mpi(PARAMS,"Insects","gravity",Insect%gravity, 1.d0)
-  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx)
+  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 0.05d0)
   call read_param_mpi(PARAMS,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/))
   Insect%Jroll_body  = defaultvec(3)
   Insect%Jyaw_body   = defaultvec(1)
@@ -156,8 +158,6 @@ subroutine insect_init(time, fname, Insect)
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
   call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r_b, defaultvec)
 
-  Insect%smooth = 2.0d0*dz
-
   ! default colors for body and wings
   Insect%color_body=1
   Insect%color_l=2
@@ -175,7 +175,7 @@ subroutine insect_init(time, fname, Insect)
     ! note we have to do that before init_fields as rigid_solid_init sets up
     ! the state vector without which create_mask cannot know the position and velocity
     ! of body and wings
-    call rigid_solid_init( time, Insect)
+    call rigid_solid_init( time, Insect, resume_backup, fname_backup)
   endif
 
   if (root) then

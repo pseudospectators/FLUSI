@@ -446,7 +446,7 @@ subroutine ux_from_uyuz(help)
   use p3dfft_wrapper
   use basic_operators
   use mpi
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_ux, fname_uy, fname_uz
@@ -543,7 +543,7 @@ subroutine check_params_file(help)
   use vars
   use solid_model
   use insect_module
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: infile

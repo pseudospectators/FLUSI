@@ -14,7 +14,7 @@
 subroutine copy_hdf_file(help)
   use mpi
   use vars
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_in, fname_out
