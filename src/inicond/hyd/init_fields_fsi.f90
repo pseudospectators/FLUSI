@@ -5,7 +5,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use basic_operators
   implicit none
 

@@ -37,7 +37,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use p3dfft_wrapper
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   use basic_operators
   implicit none
 
@@ -156,7 +156,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -336,7 +336,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -403,7 +403,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -481,7 +481,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -564,7 +564,7 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use basic_operators
   implicit none
 
@@ -637,7 +637,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   use p3dfft_wrapper
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -713,7 +713,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -797,7 +797,7 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0

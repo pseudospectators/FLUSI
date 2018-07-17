@@ -4,7 +4,7 @@ subroutine pointcloud2mask(help)
   use module_ini_files_parser_mpi
   use p3dfft_wrapper
   use penalization, only : mask_color
-  use insect_module
+  use module_insects
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: cloudfile, outfile, mode, dummy

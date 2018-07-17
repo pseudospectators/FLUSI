@@ -22,7 +22,7 @@
 subroutine vorticity_sponge( vort, work1, workc, Insect )
   use mpi
   use p3dfft_wrapper
-  use insect_module
+  use module_insects
   use vars
   implicit none
   complex (kind=pr) :: im, spx,spy,spz
@@ -95,7 +95,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
   use mpi
   use vars
   use penalization ! mask array etc
-  use insect_module
+  use module_insects
   implicit none
   type(diptera),intent(inout) :: Insect
   ! input: vorticity in phys space

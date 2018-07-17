@@ -3,7 +3,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use passive_scalar_module
   implicit none
 
@@ -127,7 +127,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   use mpi
   use p3dfft_wrapper
   use vars
-  use insect_module
+  use module_insects
   use basic_operators
   use penalization ! mask array etc
 
@@ -378,7 +378,7 @@ subroutine pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,pres
   use mpi
   use p3dfft_wrapper
   use vars
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -750,7 +750,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
   use mpi
   use p3dfft_wrapper
   use vars
-  use insect_module
+  use module_insects
   use basic_operators
   use penalization ! mask array etc
 

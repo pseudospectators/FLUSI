@@ -175,7 +175,7 @@ subroutine surface_interpolation_testing( time, beams, work )
     use vars
     use interpolation
     use penalization
-    use insect_module
+    use module_insects
     use penalization
     use ghosts
     implicit none

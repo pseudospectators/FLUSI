@@ -8,7 +8,7 @@ subroutine convert_pressure(help)
   use module_helpers
   use basic_operators
   use penalization
-  use insect_module
+  use module_insects
   use solid_model
   use turbulent_inlet_module
   use hdf5_wrapper

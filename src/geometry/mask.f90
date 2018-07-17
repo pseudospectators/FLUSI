@@ -3,7 +3,7 @@ subroutine create_mask(time,Insect,beams)
   use mpi
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   use penalization ! mask array etc
   implicit none
 

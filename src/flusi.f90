@@ -2,7 +2,7 @@ program FLUSI
   use mpi
   use vars
   use solid_model
-  use insect_module
+  use module_insects
 
   implicit none
   integer                :: mpicode
@@ -92,7 +92,7 @@ end program FLUSI
     use vars
     use p3dfft_wrapper
     use solid_model
-    use insect_module
+    use module_insects
     use slicing
     use turbulent_inlet_module
     use penalization ! mask array etc

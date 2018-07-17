@@ -3,7 +3,7 @@
 subroutine get_params(paramsfile,Insect,verbose)
   use vars
   use module_ini_files_parser_mpi
-  use insect_module
+  use module_insects
   ! The file we read the PARAMS from
   character(len=strlen),intent(in) :: paramsfile
   ! print a copy of the parameters read or not?
@@ -244,7 +244,7 @@ end subroutine get_params_common
 subroutine get_params_fsi(PARAMS,Insect)
   use module_ini_files_parser_mpi
   use vars
-  use insect_module
+  use module_insects
   implicit none
 
   ! Contains the ascii-params file

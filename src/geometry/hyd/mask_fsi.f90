@@ -2,7 +2,7 @@
 subroutine create_mask_fsi (time, Insect, beams )
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   use turbulent_inlet_module
   use penalization ! mask array etc
   implicit none

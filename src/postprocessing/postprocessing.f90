@@ -542,7 +542,7 @@ end subroutine
 subroutine check_params_file(help)
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   use module_helpers
   implicit none
   logical, intent(in) :: help

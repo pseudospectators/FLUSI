@@ -3,7 +3,7 @@ subroutine convert_to_wing_system(help)
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use ghosts
   use interpolation
 

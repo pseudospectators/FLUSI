@@ -7,7 +7,7 @@ subroutine dry_run()
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use penalization ! mask array etc
   implicit none
   real(kind=pr)          :: time,memory,mem_field

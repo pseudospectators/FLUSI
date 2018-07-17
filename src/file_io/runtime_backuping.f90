@@ -6,7 +6,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0

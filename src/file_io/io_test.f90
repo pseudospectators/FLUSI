@@ -1,7 +1,7 @@
 subroutine io_test
   use vars
   use p3dfft_wrapper
-  use insect_module
+  use module_insects
 
   implicit none
 

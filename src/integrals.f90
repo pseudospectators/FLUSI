@@ -12,7 +12,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
   use mpi
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -48,7 +48,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   use p3dfft_wrapper
   use basic_operators
   use solid_model
-  use insect_module
+  use module_insects
   use penalization ! mask array etc
   implicit none
 

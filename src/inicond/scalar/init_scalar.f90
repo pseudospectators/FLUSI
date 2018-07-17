@@ -12,7 +12,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
   use vars
   use penalization ! mask array etc
   use solid_model
-  use insect_module
+  use module_insects
   use passive_scalar_module
   use basic_operators
   implicit none

@@ -2,7 +2,7 @@
 subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -44,7 +44,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   use p3dfft_wrapper
   use basic_operators
   use solid_model
-  use insect_module
+  use module_insects
   use penalization ! mask array etc
   implicit none
 

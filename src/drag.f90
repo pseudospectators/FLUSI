@@ -18,7 +18,7 @@ subroutine cal_drag ( time, u, Insect )
   use mpi
   use vars
   use penalization ! mask array etc
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -471,7 +471,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   use mpi
   use vars
   use penalization ! mask array etc
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(in) :: time, dt
