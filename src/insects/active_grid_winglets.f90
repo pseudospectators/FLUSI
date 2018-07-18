@@ -9,7 +9,7 @@ subroutine draw_active_grid_winglets(time, mask, mask_color, us)
     real(kind=pr), parameter :: offset = 4.0d0/20.0d0
     real(kind=pr), parameter :: omega(1:4) = (/1.0d0, -1.0d0, +1.0d0, -1.0d0/)
     real(kind=pr), parameter :: alpha0(1:4)=(/0.0d0, 0.0d0, pi/2.0d0, pi/2.0d0/)
-    integer(kind=1) :: color_val
+    integer(kind=2) :: color_val
 
 
     smoothing = 1.5d0*dz
@@ -37,7 +37,7 @@ subroutine draw_single_winglet(time, x0, omega, alpha0, orientation, color_val, 
     real(kind=pr), intent(in) :: time
     real(kind=pr), intent(in) :: x0(1:3), omega, alpha0
     character(len=*), intent(in) :: orientation
-    integer(kind=1), intent(in) :: color_val
+    integer(kind=2), intent(in) :: color_val
     real(kind=pr),intent(inout)  :: mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     real(kind=pr),intent(inout)  :: us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
     integer(kind=2),intent(inout) :: mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
