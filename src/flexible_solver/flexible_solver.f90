@@ -61,8 +61,10 @@ module flexible_model
     ! Membrane:
     real(kind=pr),dimension(1:nmmax,5,nMembranes) :: Membranes_extension
     real(kind=pr),dimension(1:nmmax,5) :: Membrane_edge
-    ! external forces:
-    !real(kind=pr),dimension(1:npmax) :: forces_ext
+    ! Internal and external forces:
+    real(kind=pr),dimension(1:3*npmax) :: F_int, F_ext
+    ! Internal force derivative matrix:
+    real(kind=pr),dimension(1:3*npmax,1:3*npmax) :: FJ
     ! material properties:
     real(kind=pr),dimension(1:nVeins) :: EIy, EIz, kby0, kbz0
     real(kind=pr),dimension(1:nVeins_BC) :: EIy_BC, EIz_BC, kby0_BC, kbz0_BC
@@ -75,7 +77,7 @@ module flexible_model
     real(kind=pr),dimension(1:nvmax,1:nVeins) :: m_v
     real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: ke_vBC, kby_BC, kbz_BC
     real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: m_vBC
-    real(kind=pr),dimension(1:nvmax,1:nMembranes) :: kb_m
+    real(kind=pr),dimension(1:nvmax,1:nMembranes) :: ke_m
     real(kind=pr),dimension(1:nvmax,1:nMembranes) :: m_m
     real(kind=pr),dimension(1:nvmax) :: ke_me
     real(kind=pr),dimension(1:nvmax) :: m_me
@@ -87,6 +89,7 @@ module flexible_model
     !real(kind=pr),dimension(0:nsmax) :: theta_dot_old, theta_dot_oldold
 
     ! real(kind=pr),dimension(0:nsmax,1:6) :: wing_oldold
+
     !real(kind=pr),dimension(1:2) :: Force, Force_unst, Force_press, Inertial_Force
     !real(kind=pr) :: E_kinetic, E_elastic
     real(kind=pr),dimension(1:3) :: x0, v0

@@ -105,17 +105,20 @@ subroutine init_wings ( fname, wings )
     wings(i)%kby0_BC = 0.d0
     wings(i)%kbz0_BC = 0.d0
     wings(i)%ke_v = 0.d0
-    wings(i)%kb_v = 0.d0
+    wings(i)%kby = 0.d0
+    wings(i)%kbz = 0.d0
     wings(i)%ke_vBC = 0.d0
-    wings(i)%kb_vBC = 0.d0
-    wings(i)%kb_m = 0.d0
-    wings(i)%kb_me = 0.d0
+    wings(i)%kby_BC = 0.d0
+    wings(i)%kbz_BC = 0.d0
+    wings(i)%ke_m = 0.d0
+    wings(i)%ke_me = 0.d0
     !wings(i)%zeta(0:ns-1) = eta0 * wings(i)%L_rigid(0:ns-1)
     !wings(i)%mu(0:ns-1)   = mue0 * wings(i)%L_rigid(0:ns-1)
 
     ! Reading mesh data from ASCII files
     call read_mesh_data(wings)
 
+    ! Move the wing to the desired position X0
     wings(i)%x = wings(i)%x + wings(i)%x0(1)
     wings(i)%y = wings(i)%y + wings(i)%x0(2)
     wings(i)%z = wings(i)%z + wings(i)%x0(3)
