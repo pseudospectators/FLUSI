@@ -25,6 +25,10 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   zl = box_domain(3)
   nu = viscosity
 
+  if (root) then
+      write(*,'("Lx=",g12.4," Ly=",g12.4," Lz=",g12.4," nu=",g12.4)') xl,yl,zl,nu
+  endif
+
   call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
   if (mpirank==0) root = .true.
 
@@ -167,12 +171,6 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
 
   defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
   call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r_b, defaultvec)
-
-  call read_param_mpi(PARAMS,"Insects","itkine",Insect%itkine, -1)
-  if (Insect%itkine == -1) then
-      ! try reading from the Saving section
-      call read_param_mpi(PARAMS,"Saving", "itdrag", Insect%itkine, 1)
-  endif
 
   ! default colors for body and wings
   Insect%color_body=1

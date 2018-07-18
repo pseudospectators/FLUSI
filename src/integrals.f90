@@ -72,6 +72,11 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   integer :: ix,iy,iz,mpicode,j
   character(len=9) scalarfile
 
+  if (iMask=="Insect") then
+      call write_kinematics_file( time, Insect )
+  endif
+
+
   ! fetch u in x-space at time t. note the output u of fluidtimestep is not
   ! nessesarily what we need, so we must ensure u=ifft(uk) here
   call ifft3 (ink=uk, outx=u)

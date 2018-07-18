@@ -194,6 +194,9 @@ subroutine dry_run()
     ! create the mask
     call create_mask(time, Insect, beams)
 
+    if (iMask=="Insect".and.modulo(it,itdrag)==0) then
+        call write_kinematics_file( time, Insect )
+    endif
 
     ! Save data
     write(name,'(i6.6)') floor(time*1000.d0)
