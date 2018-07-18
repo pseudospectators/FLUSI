@@ -2,7 +2,7 @@ module module_insects
   ! The following module includes required functions from FLUSI/WABBIT and hence
   ! makes this module here independent of that
   use module_insects_flusi
-  ! use module_insects_wabbit
+  !use module_insects_wabbit
 
   implicit none
 
@@ -331,7 +331,7 @@ contains
       if (.not. Insect%body_already_drawn .or. (abs(time-Insect%body_drawn_time)<1.0e-10)) then
         ! the body is at rest, but it is the first call to this routine, so
         ! draw it now.
-        if (root) then
+        if (root .and. (.not. Insect%body_already_drawn) ) then
             write(*,*) "Flag Insect%body_moves is no and we did not yet draw"
             write(*,*) "the body once: we do that now, and skip draw_body"
             write(*,*) "from now on. time=", time
