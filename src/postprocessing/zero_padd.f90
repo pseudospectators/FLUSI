@@ -3,6 +3,8 @@
 subroutine post_zero_padd(help)
   use vars
   use p3dfft_wrapper
+  use module_helpers
+  
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_in, fname_out, tmp

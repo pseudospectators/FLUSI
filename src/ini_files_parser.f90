@@ -15,6 +15,7 @@
 !-------------------------------------------------------------------------------
 module module_ini_files_parser
   use vars, only : pr
+  use module_helpers, only : check_file_exists
 
   ! it sometimes is useful, for codes with equidistant resolution, to specify
   ! values as multiples of grid spacing, mostly for convergence tests and the like

@@ -4,6 +4,7 @@
 subroutine compare_timeseries(help)
   use vars
   use mpi
+  use module_helpers
   implicit none
   character(len=strlen) :: file1,file2
   character(len=1024) :: header, line

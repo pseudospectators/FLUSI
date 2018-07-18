@@ -18,9 +18,6 @@ module module_insects
   ! type definitions
   PUBLIC :: wingkinematics, diptera
 
-  ! precision of doubles, inside the insect module
-  integer, parameter :: rk = 8
-  integer, parameter :: strlen = 120
 
   logical :: root = .false.
 

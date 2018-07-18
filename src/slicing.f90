@@ -1,5 +1,6 @@
 module slicing
   use vars
+  use module_helpers
   implicit none
 
   ! module global variables

@@ -3,6 +3,7 @@ program FLUSI
   use vars
   use solid_model
   use module_insects
+  use module_helpers
 
   implicit none
   integer                :: mpicode
@@ -501,6 +502,7 @@ if (mpirank/=0) return
 
   subroutine initialize_time_series_files()
     use vars
+    use module_helpers
     implicit none
 
     ! For insect wing/body forces

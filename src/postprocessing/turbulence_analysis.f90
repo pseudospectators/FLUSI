@@ -9,6 +9,8 @@ subroutine turbulence_analysis(help)
   use p3dfft_wrapper
   use basic_operators
   use mpi
+  use module_helpers
+  
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_ux, fname_uy, fname_uz, viscosity, outfile

@@ -176,7 +176,7 @@ end subroutine save_field_hdf5_strided
 !----------------------------------------------------
 subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity, origin )
   use hdf5_wrapper
-  use module_helpers, only : get_dsetname
+  use module_helpers
   use mpi
   implicit none
 
@@ -216,7 +216,7 @@ subroutine Read_Single_File ( filename, field )
   use vars
   use hdf5_wrapper
   use basic_operators, only : fieldmax, fieldmin, fieldmean, checknan
-  use module_helpers, only : get_dsetname
+  use module_helpers
   implicit none
 
   character(len=*),intent(in) :: filename

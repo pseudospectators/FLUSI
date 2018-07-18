@@ -7,6 +7,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   use p3dfft_wrapper
   use solid_model
   use module_insects
+  use module_helpers, only : check_file_exists
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -183,6 +184,7 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   use vars
   use mpi
   use p3dfft_wrapper
+  use module_helpers, only : check_file_exists
 #ifndef NOHDF5
   use hdf5_wrapper
 #endif

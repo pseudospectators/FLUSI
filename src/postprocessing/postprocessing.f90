@@ -235,6 +235,7 @@ subroutine max_over_x(help)
   use p3dfft_wrapper
   use basic_operators
   use mpi
+  use module_helpers, only : check_file_exists
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_ekin, outfile
@@ -321,6 +322,7 @@ subroutine mean_over_x_subdomain(help)
   use p3dfft_wrapper
   use basic_operators
   use mpi
+  use module_helpers, only : check_file_exists
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname_ekin, outfile
@@ -624,6 +626,7 @@ subroutine post_smooth_mask(help)
   use basic_operators
   use module_ini_files_parser_mpi
   use mpi
+  use module_helpers, only : check_file_exists
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: infile, outfile
@@ -753,6 +756,7 @@ end subroutine post_smooth_mask
 subroutine readwrite(help)
   use vars
   use p3dfft_wrapper
+  use module_helpers, only : check_file_exists
 
   implicit none
   logical, intent(in) :: help
@@ -788,6 +792,7 @@ subroutine remove_mean(help)
   use vars
   use p3dfft_wrapper
   use basic_operators, only : fieldmean
+  use module_helpers, only : check_file_exists
 
   implicit none
   logical, intent(in) :: help
