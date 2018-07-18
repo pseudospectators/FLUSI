@@ -14,12 +14,18 @@
 ! This module is not MPI-aware. use the mpi layer in ini_files_parser_mpi for this
 !-------------------------------------------------------------------------------
 module ini_files_parser
-  use vars, only : pr,dx,dy,dz
+  use vars, only : pr
+
+  ! it sometimes is useful, for codes with equidistant resolution, to specify
+  ! values as multiples of grid spacing, mostly for convergence tests and the like
+  ! the corresponding spacing would be this:
+  real(kind=pr), private, save :: dx
+  logical, private, save :: lattice_spacing_set = .false.
 
   ! maximum width of parameter file. note we have very long lines if we read long
   ! arrays, as it happens for example when we read fourier coefficients for insect
   ! kinematics
-  integer, parameter :: maxcolumns=1024
+  integer, parameter :: maxcolumns=16834
 
   ! is set to true, we'll produce some output on the screen (for documentation of runs)
   ! the flag is set with the read_ini_file routine
@@ -38,13 +44,122 @@ module ini_files_parser
   ! the generic call "read_param" redirects to these routines, depending on the data
   ! type and the dimensionality. vectors can be read without setting a default.
   interface read_param
-    module procedure param_sgl, param_dbl, param_int, param_vct, param_str, param_vct_nodefault
+    module procedure param_sgl, param_dbl, param_int, param_vct, param_str, param_bool
   end interface
 
 
 !!!!!!!!
 contains
 !!!!!!!!
+
+
+  !-----------------------------------------------------------------------------
+  ! read an array from an ascii file (SERIAL version, to be executed only on root)
+  ! note: array is assumed-shape and its size defines what we try to read
+  ! --> MPI wrapper in the MPI parser module
+  !-----------------------------------------------------------------------------
+  subroutine read_array_from_ascii_file(file, array, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(in) :: n_header
+    real(kind=pr), intent(inout) :: array (1:,1:)
+    integer :: nlines, ncols, i, io_error
+    character(len=maxcolumns) :: dummy
+    character(len=16) :: fmt
+    character(len=3) :: ncols_str
+
+    ! check if the specified file exists
+    call check_file_exists( file )
+
+    nlines = size(array,1)
+    ncols = size(array,2)
+
+    write(*,'(80("-"))')
+    write(*,'("INFO: reading ",i8," lines with ",i8," colums from ",A)') nlines, ncols, file
+
+    ! set up format string
+    write(ncols_str,'(i3.3)') ncols
+    fmt = '('//ncols_str//'(es12.4,1x))'
+
+    io_error = 0
+    i = 0
+
+    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+    do while (io_error==0)
+      ! read a line from file
+      read (14,'(A)',iostat=io_error) dummy
+      i = i + 1
+      ! if we're past the header AND the read worked (i.e. not end of file)
+      if (i > n_header .and. io_error==0) then
+        read(dummy,*) array(i-n_header,:)
+      endif
+    enddo
+    close (14)
+
+    write(*,'("Done reading.")')
+    write(*,'(80("-"))')
+  end subroutine read_array_from_ascii_file
+
+
+  !-----------------------------------------------------------------------------
+  ! count the number of lines in an ascii file, skip n_header lines
+  ! --> MPI wrapper in the MPI parser module
+  !-----------------------------------------------------------------------------
+  subroutine count_lines_in_ascii_file(file, num_lines, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(out) :: num_lines
+    integer, intent(in) :: n_header
+    integer :: io_error, i
+    character(len=maxcolumns) :: dummy
+
+    ! check if the specified file exists
+    call check_file_exists( file )
+
+    ! count the lines
+    io_error = 0
+    i = 0
+    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+    do while (io_error==0)
+      read (14,'(A)',iostat=io_error) dummy
+      if (io_error==0) i = i+1
+    enddo
+    close (14)
+    num_lines = i - n_header
+  end subroutine count_lines_in_ascii_file
+
+
+  subroutine count_cols_in_ascii_file(file, num_cols, n_header)
+    implicit none
+    character(len=*), intent(in) :: file
+    integer, intent(out) :: num_cols
+    integer, intent(in) :: n_header
+    integer :: io_error, i
+    character(len=maxcolumns) :: dummy
+
+    ! check if the specified file exists
+    call check_file_exists( file )
+
+    ! count the lines
+    io_error = 0
+    i = 0
+
+    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+    do while (io_error==0)
+      read (14,'(A)',iostat=io_error) dummy
+      if (io_error==0 .and. i>n_header) exit
+      i=i+1
+    enddo
+    close (14)
+
+    num_cols = 1
+    do i = 1, len_trim(adjustl(dummy))
+      ! count elements in the line by counting the separating spaces
+      if ( dummy(i:i) == " " ) then
+        num_cols = num_cols + 1
+      end if
+    enddo
+  end subroutine count_cols_in_ascii_file
 
 
   !-------------------------------------------------------------------------------
@@ -59,6 +174,21 @@ contains
     verbosity = .true.
   end subroutine clean_ini_file
 
+
+  !-----------------------------------------------------------------------------
+  ! sometimes, it turned out to be useful to provide some values as multiples of
+  ! dx, when performing convergence tests (eg thickness=5*dx;) the unit of dx is
+  ! set here:
+  !-----------------------------------------------------------------------------
+  subroutine set_lattice_spacing(dx_unit)
+    implicit none
+    real(kind=pr), intent(in) :: dx_unit
+
+    dx = dx_unit
+    lattice_spacing_set = .true.
+  end subroutine
+
+
   !-------------------------------------------------------------------------------
   ! Read the file paramsfile, count the lines and put the
   ! text in PARAMS.
@@ -69,15 +199,25 @@ contains
     type(inifile), intent(inout) :: PARAMS
     character(len=*) :: file ! this is the file we read the PARAMS from
     character(len=maxcolumns) :: dummy, line
-    logical, intent(in) :: verbose
+    logical, optional, intent(in) :: verbose
+
     integer :: io_error, i
+    logical :: exists
 
     ! check if the specified file exists
-    call check_file_exists( file )
+    inquire ( file=file, exist=exists )
+    if ( exists .eqv. .false.) then
+      write (*,'("ERROR! file: ",A," not found")') trim(adjustl(file))
+      stop
+    endif
 
     ! we set the module-global variable verbosity. if set to false, all routines
     ! will perform their task quietly.
-    verbosity = verbose
+    if (present(verbose)) then
+      verbosity = verbose
+    else
+      verbosity = .true.
+    endif
 
     if (verbosity) then
       write (*,*) "*************************************************"
@@ -88,16 +228,7 @@ contains
     !-----------------------------------------------------------------------------
     ! determine number of lines in file
     !-----------------------------------------------------------------------------
-    io_error = 0
-    i = 0
-    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
-    do while (io_error==0)
-      read (14,'(A)',iostat=io_error) dummy
-      i = i+1
-    enddo
-    close (14)
-    PARAMS%nlines = i
-
+    call count_lines_in_ascii_file( file, PARAMS%nlines, 0)
     allocate( PARAMS%PARAMS(1:PARAMS%nlines) )
 
     !-----------------------------------------------------------------------------
@@ -108,8 +239,28 @@ contains
     open(unit=14,file=trim(adjustl(file)),action='read',status='old')
     do while (io_error==0)
       read (14,'(A)',iostat=io_error) line
-      PARAMS%PARAMS(i) = adjustl(line)
-      i = i+1
+      ! if we're not yet at EoF
+      if (io_error == 0) then
+
+        !-----------------------------------------------------------------------
+        ! Preprocessing of ini file
+        !-----------------------------------------------------------------------
+        ! remove leading spaces
+        line = adjustl(line)
+
+        ! remove everthing after ";", if it occurs ( comments )
+        if (index(line,";") /= 0) then
+          line( index(line,";")+1:len_trim(line) ) = " "
+        endif
+
+        ! remove commented lines completely
+        if (line(1:1) == ";" .or. line(1:1) == "!" .or. line(1:1) == "#" .or. line(1:1) == "%") then
+          line = " "
+        endif
+
+        PARAMS%PARAMS(i) = line
+        i = i+1
+      endif
     enddo
     close (14)
   end subroutine read_ini_file
@@ -149,8 +300,12 @@ contains
       else
         !-- the value is given in gridpoints (e.g. thickness=5*dx)
         read (value(1:index(value,'*dx')-1),*) params_real
-        params_real = params_real*max(dy,dz)
-        write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/max(dy,dz)
+        params_real = params_real*dx
+        write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/dx
+        if ( lattice_spacing_set .eqv. .false.) then
+          write(*,*) "INI FILES PARSER ERROR: you try to read relative values without setting dx first."
+          stop
+        endif
       endif
     else
       ! no value red, use default value
@@ -195,8 +350,14 @@ contains
       else
         !-- the value is given in gridpoints (e.g. thickness=5*dx)
         read (value(1:index(value,'*dx')-1),*) params_real
-        params_real = params_real*max(dy,dz)
-        write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/max(dy,dz)
+        params_real = params_real*dx
+        write (value,'(g10.3,"(=",g10.3,"*dx)")') params_real, params_real/dx
+
+        if ( lattice_spacing_set .eqv. .false.) then
+          write(*,*) "INI FILES PARSER ERROR: you try to read relative values without setting dx first."
+          stop
+        endif
+
       endif
     else
       ! no value red, use default value
@@ -268,31 +429,43 @@ contains
     character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
     real(kind=pr) :: params_vector(1:)
-    real(kind=pr) :: defaultvalue(1:)
+    real(kind=pr), optional, intent(in) :: defaultvalue(1:)
 
     integer :: n,m
     character(len=maxcolumns) :: value
     character(len=14)::formatstring
 
     n = size(params_vector,1)
-    m = size(defaultvalue,1)
+    ! empty vector??
     if (n==0) return
 
-    if (n/=m) then
-      write(*,*) "error: vector and default value are not of the same length"
+    if ( present(defaultvalue) ) then
+      m = size(defaultvalue,1)
+      if (n/=m) then
+        write(*,*) "error: vector and default value are not of the same length"
+      endif
     endif
 
     write(formatstring,'("(",i2.2,"(g10.3,1x))")') n
 
     call GetValue(PARAMS, section, keyword, value)
+
     if (value .ne. '') then
-      ! read the three values from the vector string
+      ! read the n values from the vector string
       read (value, *) params_vector
       write (value,formatstring) params_vector
     else
-      write (value,formatstring) defaultvalue
-      value = trim(adjustl(value))//" (THIS IS THE DEFAULT VALUE!)"
-      params_vector = defaultvalue
+      if (present(defaultvalue)) then
+        ! return default
+        write (value,formatstring) defaultvalue
+        value = trim(adjustl(value))//" (THIS IS THE DEFAULT VALUE!)"
+        params_vector = defaultvalue
+      else
+        ! return zeros
+        params_vector = 0.d0
+        write (value,formatstring) params_vector
+        value = trim(adjustl(value))//" (RETURNING ZEROS - NO DEFAULT SET!)"
+      endif
     endif
 
     ! in verbose mode, inform about what we did
@@ -300,45 +473,6 @@ contains
       write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
     endif
   end subroutine param_vct
-
-
-  !-------------------------------------------------------------------------------
-  ! Fetches a VECTOR VALUED parameter from the PARAMS.ini file.
-  ! Displays what it does on stdout (so you can see whats going on)
-  ! Input:
-  !       PARAMS: the complete *.ini file
-  !       section: the section we're looking for
-  !       keyword: the keyword we're looking for
-  !       defaultvalue: if the we can't find a vector, we return this and warn
-  !       n: length of vector
-  ! Output:
-  !       params_vector: this is the parameter you were looking for
-  !-------------------------------------------------------------------------------
-  subroutine param_vct_nodefault (PARAMS, section, keyword, params_vector)
-    implicit none
-    ! Contains the ascii-params file
-    type(inifile), intent(inout) :: PARAMS
-    character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
-    character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
-    real(kind=pr) :: params_vector(1:)
-    real(kind=pr),dimension(:),allocatable :: defaultvalue
-    integer :: n
-
-    character(len=maxcolumns) :: value
-    character(len=14)::formatstring
-
-    n = size(params_vector,1)
-
-
-    ! just set the default vector to zero and pass to subroutines. we need
-    ! that sometimes if we look for vectors that do not have a reasonable default
-    ! anyways
-    allocate( defaultvalue(1:n) )
-    defaultvalue = 0.d0
-    call param_vct (PARAMS, section, keyword, params_vector, defaultvalue)
-
-    deallocate( defaultvalue )
-  end subroutine param_vct_nodefault
 
 
 
@@ -361,7 +495,6 @@ contains
     character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
     character(len=maxcolumns) ::  value    ! returns the value
     integer :: params_int, defaultvalue
-    integer :: mpicode
 
     call GetValue(PARAMS, section, keyword, value)
 
@@ -380,7 +513,248 @@ contains
   end subroutine param_int
 
 
+  !-------------------------------------------------------------------------------
+  ! Fetches a BOOLEAN VALUED parameter from the PARAMS.ini file.
+  ! Displays what it does on stdout (so you can see whats going on)
+  ! Input:
+  !       PARAMS: the complete *.ini file
+  !       section: the section we're looking for
+  !       keyword: the keyword we're looking for
+  !       defaultvalue: if the we can't find the parameter, we return this and warn
+  ! Output:
+  !       params_int: this is the parameter you were looking for
+  !-------------------------------------------------------------------------------
+  subroutine param_bool(PARAMS, section, keyword, params_bool, defaultvalue)
+    implicit none
+    ! Contains the ascii-params file
+    type(inifile), intent(inout) :: PARAMS
+    character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+    character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+    character(len=maxcolumns) ::  value    ! returns the value
+    logical :: params_bool
+    logical :: defaultvalue
 
+    call GetValue(PARAMS, section, keyword, value)
+
+    if (value .ne. '') then
+      select case (value)
+      case ("yes","1","true",".true.")
+        params_bool = .true.
+      case ("no","0","false",".false.")
+        params_bool = .false.
+      end select
+
+      write (value,'(L)') params_bool
+    else
+      write (value,'(L," (THIS IS THE DEFAULT VALUE!)")') defaultvalue
+      params_bool = defaultvalue
+    endif
+
+    ! in verbose mode, inform about what we did
+    if (verbosity) then
+      write (*,*) "read "//trim(section)//"::"//trim(keyword)//" = "//adjustl(trim(value))
+    endif
+  end subroutine param_bool
+
+
+  !-------------------------------------------------------------------------------
+  ! Fetches a MATRIX VALUED parameter from the PARAMS.ini file.
+  ! Displays what it does on stdout (so you can see whats going on)
+  ! Input:
+  !       PARAMS: the complete *.ini file
+  !       section: the section we're looking for
+  !       keyword: the keyword we're looking for
+  ! Output:
+  !       matrixlines, matrixcols are the dimensions of the matrix
+  !
+  ! NOTE: Annoyingly, the fujitsu SXF90 compiler cannot handle allocatable arrays
+  ! as arguments. so we have to split the routine in one part that returns the size
+  ! of the array, then let the caller allocate, then read the matrix. very tedious.
+  !
+  ! EXAMPLE:
+  !   call param_matrix_size_mpi(PARAMS,"Stuff","matrix",a,b)
+  !   allocate(matrix(1:a,1:b))
+  !   call param_matrix_read_mpi(PARAMS,"Stuff","matrix",matrix)
+  !-------------------------------------------------------------------------------
+  subroutine param_matrix_size(PARAMS, section, keyword, matrixlines, matrixcols)
+    implicit none
+    ! Contains the ascii-params file
+    type(inifile), intent(inout) :: PARAMS
+    character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+    character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+    integer, intent(out) :: matrixcols, matrixlines
+    character(len=maxcolumns) ::  value    ! returns the value
+    integer :: i, j
+    integer :: index1, index2
+    logical :: foundsection
+
+    foundsection = .false.
+    value = ''
+
+    !-- loop over the lines of PARAMS.ini file
+    do i = 1, PARAMS%nlines
+      !-- ignore commented lines completely, if first non-blank character is one of #,!,;,%
+      if ((PARAMS%PARAMS(i)(1:1).ne.'#').and.(PARAMS%PARAMS(i)(1:1).ne.';').and.&
+      (PARAMS%PARAMS(i)(1:1).ne.'!').and.(PARAMS%PARAMS(i)(1:1).ne.'%')) then
+
+      !-- does this line contain the "[section]" statement?
+      if (index(PARAMS%PARAMS(i),'['//section//']')==1) then
+        ! yes, it does
+        foundsection = .true.
+      elseif (PARAMS%PARAMS(i)(1:1) == '[') then
+        ! we're already at the next section mark, so we left the section we
+        ! were looking for again
+        foundsection = .false.
+      endif
+
+      !-- we're inside the section we want
+      if (foundsection) then
+        ! for a matrix, prototype is
+        ! [SECTION]
+        ! keyword=(/1 2 3 4
+        ! 4 5 6 7
+        ! 9 9 9 9/);
+
+        ! does this line contain the beginning of the keyword we're looking for ?
+        if (index(PARAMS%PARAMS(i),keyword//'=(/')==1) then
+          ! yes, it does.
+          index1 = index(PARAMS%PARAMS(i),'=(/')+3
+          ! remove trailing spaces.
+          index2 = len_trim( PARAMS%PARAMS(i) )
+          ! remove spaces between (/     and values
+          value = adjustl(PARAMS%PARAMS(i)(index1:index2))
+
+          ! first we check how many columns we have, by looping over the first line
+          ! containing the =(/ substring
+          matrixcols = 1
+          do j = 1, len_trim(value)
+            ! count elements in the line by counting the separating spaces
+            if ( value(j:j) == " " ) then
+              matrixcols = matrixcols + 1
+            end if
+          enddo
+
+          ! now count lines in array, loop until you find /) substring (or = substring)
+          matrixlines = 0
+          do j = i, PARAMS%nlines
+            matrixlines = matrixlines +1
+            if (index(PARAMS%PARAMS(j),"/)") /= 0) then
+              ! we found the terminal line of the matrix statement
+              exit
+            elseif (index(PARAMS%PARAMS(j),"=") /= 0 .and. j>i) then
+              ! a = would mean we skipped past the matrix definition to the next variable..
+              write(*,*) "INIFILES: ERROR: invalid ini matrix (code 767626201)"
+              stop
+            end if
+          end do
+
+          exit ! loop over lines
+        endif ! found first line
+      endif ! found section
+    end if
+    end do ! loop over lines
+
+
+  ! in verbose mode, inform about what we did
+  if (verbosity) then
+    write(*,'("Determined ",A,"::",A," as Matrix of size ",i6," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
+  endif
+end subroutine param_matrix_size
+
+
+!-------------------------------------------------------------------------------
+! Fetches a MATRIX VALUED parameter from the PARAMS.ini file.
+! Displays what it does on stdout (so you can see whats going on)
+! Input:
+!       PARAMS: the complete *.ini file
+!       section: the section we're looking for
+!       keyword: the keyword we're looking for
+! Output:
+!       matrixlines, matrixcols are the dimensions of the matrix
+!
+! NOTE: Annoyingly, the fujitsu SXF90 compiler cannot handle allocatable arrays
+! as arguments. so we have to split the routine in one part that returns the size
+! of the array, then let the caller allocate, then read the matrix. very tedious.
+!
+! EXAMPLE:
+!   call param_matrix_size_mpi(PARAMS,"Stuff","matrix",a,b)
+!   allocate(matrix(1:a,1:b))
+!   call param_matrix_read_mpi(PARAMS,"Stuff","matrix",matrix)
+!-------------------------------------------------------------------------------
+subroutine param_matrix_read(PARAMS, section, keyword, matrix)
+  implicit none
+  ! Contains the ascii-params file
+  type(inifile), intent(inout) :: PARAMS
+  character(len=*), intent(in) :: section ! What section do you look for? for example [Resolution]
+  character(len=*), intent(in) :: keyword ! what keyword do you look for? for example nx=128
+  real(kind=pr), intent(inout) :: matrix(1:,1:)
+  character(len=maxcolumns) ::  value    ! returns the value
+  integer :: i, j, matrixcols, matrixlines
+  integer :: index1, index2
+  logical :: foundsection
+
+  foundsection = .false.
+  value = ''
+
+  matrixlines = size(matrix,1)
+  matrixcols = size(matrix,2)
+
+  !-- loop over the lines of PARAMS.ini file
+  do i=1, PARAMS%nlines
+    !-- ignore commented lines completely, if first non-blank character is one of #,!,;,%
+    if ((PARAMS%PARAMS(i)(1:1).ne.'#').and.(PARAMS%PARAMS(i)(1:1).ne.';').and.&
+    (PARAMS%PARAMS(i)(1:1).ne.'!').and.(PARAMS%PARAMS(i)(1:1).ne.'%')) then
+
+    !-- does this line contain the "[section]" statement?
+    if (index(PARAMS%PARAMS(i),'['//section//']')==1) then
+      ! yes, it does
+      foundsection = .true.
+    elseif (PARAMS%PARAMS(i)(1:1) == '[') then
+      ! we're already at the next section mark, so we left the section we
+      ! were looking for again
+      foundsection = .false.
+    endif
+
+    !-- we're inside the section we want
+    if (foundsection) then
+      ! for a matrix, prototype is
+      ! [SECTION]
+      ! keyword=(/1 2 3 4
+      ! 4 5 6 7
+      ! 9 9 9 9/);
+
+      ! does this line contain the beginning of the keyword we're looking for ?
+      if (index(PARAMS%PARAMS(i),keyword//'=(/')==1) then
+        do j = i, i+matrixlines-1
+          if ( j == i ) then
+            ! first line
+            index1 = index(PARAMS%PARAMS(j),"(/")+2
+            index2 = len_trim(PARAMS%PARAMS(j))
+          elseif (j == i+matrixlines-1) then
+            ! last line
+            index1 = 1
+            index2 = index(PARAMS%PARAMS(j),"/)")-1
+          else
+            ! interior lines
+            index1 = 1
+            index2 = len_trim(PARAMS%PARAMS(j))
+          endif
+          ! remove leading spaces, then read
+          value = adjustl(PARAMS%PARAMS(j)(index1:index2))
+          read( value, * ) matrix(j-i+1,:)
+        enddo
+
+        exit ! loop over lines
+      endif ! found first line
+    endif ! found section
+  end if
+  end do ! loop over lines
+
+! in verbose mode, inform about what we did
+if (verbosity) then
+  write(*,'("Read ",A,"::",A," as Matrix of size ",i6," x ",i4)') trim(section), trim(keyword), matrixlines, matrixcols
+endif
+end subroutine param_matrix_read
 
 
   !-------------------------------------------------------------------------------
@@ -411,7 +785,9 @@ contains
 
     !-- loop over the lines of PARAMS.ini file
     do i=1, PARAMS%nlines
-      !-- ignore commented lines completely
+      !-- ignore commented lines completely, if first non-blank character is one of #,!,;,%
+      ! shouldn't happen anymore since inifile-preprocessing while reading should
+      ! directly skip these lines..
       if ((PARAMS%PARAMS(i)(1:1).ne.'#').and.(PARAMS%PARAMS(i)(1:1).ne.';').and.&
       (PARAMS%PARAMS(i)(1:1).ne.'!').and.(PARAMS%PARAMS(i)(1:1).ne.'%')) then
 
@@ -432,7 +808,7 @@ contains
             ! found "keyword=" in this line, as well as the delimiter ";"
             index1 = index(PARAMS%PARAMS(i),'=')+1
             index2 = index(PARAMS%PARAMS(i),';')-1
-            value = PARAMS%PARAMS(i)(index1:index2)
+            value = adjustl(PARAMS%PARAMS(i)(index1:index2))
             exit ! leave do loop
           else
             ! found "keyword=" in this line, but delimiter ";" is missing.

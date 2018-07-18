@@ -22,9 +22,9 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nBeams), intent(out) :: beams
   type(diptera),intent(inout)::Insect
+  character(len=strlen) :: infile
 
   if (mpirank==0) write(*,*) "Set up initial conditions...."
-  tstart = 0.d0
 
   !-----------------------------------------------------------------------------
   ! initialize fields, possibly read in backup file
@@ -32,30 +32,61 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   select case(method)
   case("fsi")
     call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
-    workc,press,scalars,scalars_rhs,Insect,beams)
+    workc,press,scalars,scalars_rhs,Insect,beams, work, u)
   case("mhd")
     call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
-    if (mpirank == 0) write(*,*) "Error! Unkonwn method in init_fields."
-    call abort(1)
+    call abort(1, "Error! Unknown method in init_fields.")
   end select
 
   n0 = 1-n1 !important to do this now in case we're retaking a backp
 
   !-----------------------------------------------------------------------------
+  ! initalize some insect stuff, if used
+  !-----------------------------------------------------------------------------
+  if (iMask=="Insect".and.iPenalization==1) then
+    ! get filename of PARAMS file from command line
+    call get_command_argument(1,infile)
+    ! we need to do that now otherwise we cannot create the startup mask.
+    call insect_init(time, infile, Insect)
+  endif
+
+  !-----------------------------------------------------------------------------
   ! create startup mask function
   !-----------------------------------------------------------------------------
-  if (mpirank==0) write(*,'("Creating startup mask...time=",es12.4)') time
-  call create_mask(time,Insect,beams)
+  if (iPenalization==1) then
+    if (mpirank==0) write(*,'("Creating startup mask...time=",es12.4)') time
+    call create_mask(time,Insect,beams)
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! for artificial-compressibility we need to initialize the pressure as well.
+  !-----------------------------------------------------------------------------
+  if (equation=="artificial-compressibility" .and. inicond/="infile") then
+    select case (acm_inipressure)
+    case('flusi-spectral')
+      if (ng /= 0)  call abort(7726289,"acm no ghost nodes must be used (bounds compatibility!)!")
+      call pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,work(:,:,:,4),Insect)
+      call fft( inx=work(:,:,:,4), outk=uk(:,:,:,4) )
+
+    case('zero')
+      uk(:,:,:,4) = 0.0_pr
+
+    case default
+      call abort(6629454, "acm-inipressure not known")
+
+    end select
+  endif
 
   !-----------------------------------------------------------------------------
   ! save initial conditions (if not resuming a backup)
   !-----------------------------------------------------------------------------
   if (index(inicond,'backup::')==0 .and. (time>=tsave_first)) then
     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
-    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,&
-         scalars_rhs,Insect,beams)
+    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams)
   endif
+
+  tstart = time
 end subroutine init_fields
 
 
@@ -246,8 +277,7 @@ subroutine init_taylorcouette_u(ubk,ub)
 
   if(mpirank == 0) then
     if(r1 >= r2) then
-      write (*,*) "r1 >= r2 is not allowed in Taylor-Coette flow; stopping."
-      call abort(112)
+      call abort(112, "r1 >= r2 is not allowed in Taylor-Coette flow; stopping.")
     endif
   endif
 

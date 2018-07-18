@@ -20,6 +20,14 @@ subroutine add_channel()
         do ix = ra(1), rb(1)
           !----------------
           select case (iChannel)
+          case ("inlet_x")
+              if ( dble(ix)*dx <= thick_wall ) then
+                mask(ix,iy,iz) = 1.d0
+                us(ix,iy,iz,:) = (/uxmean, uymean, uzmean/)
+                ! external boxes have color 0 (important for forces)
+                mask_color(ix,iy,iz) = 0
+              endif
+
           case ("xz")
             ! Floor - xz solid wall between y_wall-thick_wall and y_wall
             y = dble(iy)*dy
@@ -102,8 +110,8 @@ subroutine add_channel()
 
           case ("cylinder")
             ! Vertical circular cylinder
-            r_cyl = 0.947d0
-            x_cyl = 1.5d0
+            r_cyl = thick_wall ! 0.947d0 in older versions
+            x_cyl = pos_wall ! 1.5d0 in older versions
             y_cyl = 0.5d0*yl
             x = dble(ix)*dx
             y = dble(iy)*dy
@@ -120,8 +128,7 @@ subroutine add_channel()
             endif
 
           case default
-            write (*,*) "add_channel()::iChannel is not a known value"
-            call abort(12)
+            call abort(121212, "add_channel()::iChannel is not a known value")
           end select
           !----------------
        enddo

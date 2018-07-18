@@ -1,7 +1,7 @@
 ! Set initial conditions for fsi code.
 subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
-           press,scalars,scalars_rhs,Insect,beams)
-  use mpi
+           press,scalars,scalars_rhs,Insect,beams, work, u)
+  use ini_files_parser_mpi
   use vars
   use p3dfft_wrapper
   use solid_model
@@ -20,15 +20,18 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
   real(kind=pr),dimension(:,:,:),allocatable::tmp
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  integer :: ix,iy,iz, nxs,nys,nzs, nxb,nyb,nzb
+  integer :: ix,iy,iz, nxs,nys,nzs, nxb,nyb,nzb,k
   real (kind=pr) :: x,y,z,r,a,b,gamma0,x00,r00,omega,viscosity_dummy
   real (kind=pr) :: uu,Ek,E,Ex,Ey,Ez,kx,ky,kz,theta1,theta2,phi,kabs,kh,kp,maxdiv
   complex(kind=pr) :: alpha,beta
-  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin, kvec
+  real(kind=pr), dimension(:,:), allocatable :: spec_array
 
   ! Assign zero values
   time = 0.0d0
@@ -79,6 +82,88 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     enddo
     call fft3 ( uk,vort )
 
+  case("random-given-spectrum")
+    if (root) write (*,*) "*** inicond: random field with given spectrum"
+
+    ! step 1
+    ! create a random vorticity field in phys space. there is no need to make it
+    ! div-free or regular or anything. even the energy does not matter - just some
+    ! noise.
+    call random_seed()
+    do iz=ra(3), rb(3)
+      do iy=ra(2), rb(2)
+        do ix=ra(1), rb(1)
+          vort(ix,iy,iz,1) = rand_nbr()
+          vort(ix,iy,iz,2) = rand_nbr()
+          vort(ix,iy,iz,3) = rand_nbr()
+        end do
+      end do
+    end do
+
+    ! step 2
+    ! bring this field to k-space an project it on the incompressible manifold.
+    ! we end up with a velocity field which is random and div-free, but other than
+    ! that has no remarkable property-
+    call fft3(inx=vort, outk=nlk(:,:,:,:,0) )
+    call Vorticity2Velocity(nlk(:,:,:,1:3,0), uk(:,:,:,1:3))
+
+    ! step 3
+    ! compute the spectrum of the new field, and define the spectrum that you want
+    ! to have.
+    call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+
+    ! read dsired spectrum from file.
+    call count_lines_in_ascii_file_mpi(inicond_spectrum_file, k, n_header=0)
+    ! read the array from file, two columns, one is k second is E(k)
+    allocate(spec_array(0:k-1,1:2))
+    call read_array_from_ascii_file_mpi(inicond_spectrum_file, spec_array, n_header=0)
+
+    ! step 4
+    ! in wavenumber space, multiply all fourier coeffs with the ratio of desired to
+    ! current spectrum (theres a sqrt in it). Now the field will still be div-free
+    ! but have the spectrum that you impose.
+    do iz=ca(1),cb(1)
+      kz = wave_z(iz)
+      do iy=ca(2),cb(2)
+        ky = wave_y(iy)
+        do ix=ca(3),cb(3)
+          kx = wave_x(ix)
+          ! compute magnitude of wavenumber vector
+          kabs = dsqrt(kx**2 + ky**2 + kz**2)
+          ! index of spectrum (just the rounded wavenumber, if domain is 2*pi ^3. if not
+          ! the routine will fail.)
+          k = nint(kabs)
+          ! scale spectrum. (avoid dividing by zero...)
+          if (S_Ekin(k) > 1.0d-13) then
+            uk(iz,iy,ix,1:3) = uk(iz,iy,ix,1:3) * dsqrt(spec_array(k,2) / S_Ekin(k))
+          else
+            uk(iz,iy,ix,1:3) = 0.0d0
+          endif
+        enddo
+      enddo
+    enddo
+
+    ! step 5
+    ! done. no some checks:
+    deallocate( spec_array )
+
+    ! check what mean energy we end up with
+    call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+
+    ! check if our initial condition is indeed divergence-free
+    call divergence( ink=uk, outk=workc(:,:,:,1) )
+    call ifft( ink=workc(:,:,:,1), outx=vort(:,:,:,1) )
+    ! vort(:,:,:,1) is now div in phys space
+    maxdiv = fieldmax(vort(:,:,:,1))
+
+    if(root) then
+      write(*,*) "Mean energy of field=", sum(S_Ekin)
+      write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
+      write(*,*) "because it is the volume integral and not the mean"
+      write(*,*) "Maximum divergence in field=", maxdiv
+      write(*,'(80("-"))')
+    endif
+
   case("turbulence_rogallo")
     !---------------------------------------------------------------------------
     ! randomized initial condition with given spectrum k^4*exp(-k^2 /2)
@@ -91,7 +176,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     ! if that is what you get in return
     !---------------------------------------------------------------------------
 
-    if (mpirank==0) then
+    if (root) then
       write(*,'(80("-"))')
       write(*,*) "Initial condition: turbulence_rogallo"
       write(*,*) "randomized divergence-free field with given spectum"
@@ -160,18 +245,18 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
 
     ! we now renomalize the velocity, such that it has the given energy omega1
     ! which is set in the parameter file
-    call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+    call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
     Ek = sum(S_Ekin)
-    if (mpirank==0) write(*,*) "MEAN Energy before normalization=" ,ek
+    if (root) write(*,*) "MEAN Energy before normalization=" ,ek
 
     ! actual normalization
     uk = uk * dsqrt(omega1/Ek)
 
     ! check if this really worked
-    call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
-    if (mpirank==0) write(*,*) "MEAN Energy after normalization =" ,sum(S_Ekin)
-    if (mpirank==0) write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
-    if (mpirank==0) write(*,*) "because it is the volume integral and not the mean"
+    call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+    if (root) write(*,*) "MEAN Energy after normalization =" ,sum(S_Ekin)
+    if (root) write(*,*) "Please note that output of integrals is E=",sum(S_Ekin)*(2.d0*pi)**3
+    if (root) write(*,*) "because it is the volume integral and not the mean"
 
 
     ! check if our initial condition is indeed divergence-free
@@ -181,6 +266,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     maxdiv = fieldmax(vort(:,:,:,1))
     if(mpirank == 0) write(*,*) "Maximum divergence in field=", maxdiv
     if(mpirank == 0) write(*,'(80("-"))')
+
+
+
   case ("taylor_green_2d")
     !--------------------------------------------------
     ! taylor green vortices
@@ -200,11 +288,21 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      ! read HDF5 files
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: reading infiles"
+     ! fetch time from one file
+     call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy, origin )
+     ! read files
      call Read_Single_File ( file_ux, vort(:,:,:,1) )
      call Read_Single_File ( file_uy, vort(:,:,:,2) )
      call Read_Single_File ( file_uz, vort(:,:,:,3) )
-     call fft3 ( uk,vort )
+     call fft3 ( uk(:,:,:,1:3), vort(:,:,:,1:3) )
+
+     if (equation=='artificial-compressibility') then
+       call Read_Single_File ( file_p, vort(:,:,:,1) )
+       call fft( inx=vort(:,:,:,1), outk=uk(:,:,:,4) )
+     endif
+
      if (mpirank==0) write (*,*) "*** done reading infiles"
+
   case("infile_inlet")
     ! read fields from file, but repeat it in the x-direction, since it is too short
     ! note that the resulting field is non-periodic (but the boundary conditions
@@ -218,7 +316,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_uy
     if (mpirank==0) write(*,*) "Inicond infile_inlet "//file_uz
 
-    call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy )
+    call fetch_attributes( file_ux, nxs, nys, nzs, x, y, z, time, viscosity_dummy, origin )
     time = 0.d0
     ra(1) = 0
     rb(1) = nxs-1
@@ -276,7 +374,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
       end do
     end do
 
-    call Vorticity2Velocity_old (uk, nlk(:,:,:,:,0), vort)
+    call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
 
   case("VortexRing")
      !--------------------------------------------------
@@ -330,9 +428,48 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      ! go to Fourier space
      call fft3(inx=vort, outk=nlk(:,:,:,:,0))
      ! invert curl (Biot-Savart Operator)
-     call Vorticity2Velocity(nlk(:,:,:,:,0),uk)
+     call Vorticity2Velocity(nlk(:,:,:,1:3,0),uk(:,:,:,1:3))
      ! add mean flow (note: any inverted curl always has zero mean flow)
      call set_mean_flow(uk,time)
+
+ case ("three-vortices")
+     if (nx /= 1) call abort(13, "three-vortices is a 2d flow! set nx=1")
+
+     ! define vorticity in phy space
+     do iz=ra(3), rb(3)
+         do iy=ra(2), rb(2)
+             y = dble(iy)*dy
+             z = dble(iz)*dz
+
+             gamma0 = +1.0_pr
+             a = 1.0_pr/pi
+             y0 = 0.75_pr*pi ! in farge 1997, this is X
+             z0 = 1.00_pr*pi ! in farge 1997, this is Y
+             omega = (gamma0/(pi*a**2))*dexp(-((y-y0)**2 + (z-z0)**2)/(a**2) )
+
+             gamma0 = +1.0_pr
+             a = 1.0_pr/pi
+             y0 = 1.25_pr*pi ! in farge 1997, this is X
+             z0 = 1.00_pr*pi ! in farge 1997, this is Y
+             omega = omega + (gamma0/(pi*a**2))*dexp(-((y-y0)**2 + (z-z0)**2)/(a**2) )
+
+             gamma0 = -0.5_pr
+             a = 1.0_pr/pi
+             y0 = 1.25_pr*pi ! in farge 1997, this is X
+             z0 = 1.00_pr*pi + pi/(2.0_pr*sqrt(2.0_pr)) ! in farge 1997, this is Y
+             omega = omega + (gamma0/(pi*a**2))*dexp(-((y-y0)**2 + (z-z0)**2)/(a**2) )
+
+             vort(:,iy,iz,1) = omega
+             vort(:,iy,iz,2:3) = 0.0_pr
+         enddo
+     enddo
+
+
+     gamma0 = fieldmean(vort(:,:,:,1))
+     write(*,*) "mean vort", gamma0
+     vort(:,:,:,1) = vort(:,:,:,1) - gamma0
+
+     call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
 
   case ("vortex")
      if (mpirank==0) write (*,*) "*** inicond: vortex ring initial condition"
@@ -359,9 +496,10 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         enddo
      enddo
 
-     call Vorticity2Velocity_old(uk, nlk(:,:,:,:,0), vort)
+     call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
 
      call set_mean_flow(uk,time)
+
   case("turbulence")
      !--------------------------------------------------
      ! random vorticity
@@ -371,15 +509,25 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      !--------------------------------------------------
      if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
      call random_seed()
-     do iz=ra(3), rb(3)
-        do iy=ra(2), rb(2)
-           do ix=ra(1), rb(1)
-              vort (ix,iy,iz,1)=omega1*(2.0d0*rand_nbr() - 1.d0)
-              vort (ix,iy,iz,2)=omega1*(2.0d0*rand_nbr() - 1.d0)
-              vort (ix,iy,iz,3)=omega1*(2.0d0*rand_nbr() - 1.d0)
-           end do
-        end do
-     end do
+     if (nx>1) then
+       do iz=ra(3), rb(3)
+          do iy=ra(2), rb(2)
+             do ix=ra(1), rb(1)
+                vort(ix,iy,iz,1)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                vort(ix,iy,iz,2)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                vort(ix,iy,iz,3)=omega1*(2.0d0*rand_nbr() - 1.d0)
+             end do
+          end do
+       end do
+     else
+       do iz=ra(3), rb(3)
+          do iy=ra(2), rb(2)
+              vort(:,iy,iz,1)=omega1*(2.0d0*rand_nbr() - 1.d0)
+              vort(:,iy,iz,2)=0.0d0
+              vort(:,iy,iz,3)=0.0d0
+          end do
+       end do
+     end if
 
      call cal_vis( nu_smoothing/nu, explin(:,:,:,1))
      call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
@@ -387,7 +535,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      nlk(:,:,:,2,0)=nlk(:,:,:,2,0)*explin(:,:,:,1)
      nlk(:,:,:,3,0)=nlk(:,:,:,3,0)*explin(:,:,:,1)
      call ifft3( ink=nlk(:,:,:,:,0), outx=vort )
-     call Vorticity2Velocity_old (uk, nlk(:,:,:,:,0), vort)
+
+     call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
+
   case("half_HIT")
     ! this is a very specialized case. it reads a field from files, but the field
     ! is only half as long in the x-direction. it is then padded by itself (we
@@ -443,7 +593,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
       end do
     end do
 
-    call Vorticity2Velocity_old (uk, nlk(:,:,:,:,0), vort)
+    call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
 
   case("MeanFlow")
      !--------------------------------------------------
@@ -481,9 +631,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         !--------------------------------------------------
         ! unknown inicond : error
         !--------------------------------------------------
-        if (mpirank==0) write (*,*) inicond
-        if (mpirank==0) write (*,*) '??? ERROR: Invalid initial condition'
-        call abort(55523)
+        write (*,*) '??? ERROR: Invalid initial condition' // inicond
+        call abort(55523, '??? ERROR: Invalid initial condition')
      endif
   end select
 

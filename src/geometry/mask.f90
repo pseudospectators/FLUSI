@@ -22,6 +22,7 @@ subroutine create_mask(time,Insect,beams)
     call create_mask_mhd()
   end select
 
+  if (eps<1.0d-11) call abort(77363800,"Value of eps is very small, maybe even zero.")
 
   ! Attention: division by eps is done here, not in subroutines.
   eps_inv = 1.d0/eps
@@ -35,7 +36,9 @@ end subroutine create_mask
 
 
 
-! Wrapper to set imposed velocity
+! Wrapper to set imposed velocity. Note this routine is an historical artefact:
+! the sprit was to reset only the solid velocity fiel, while the mask function
+! itself remains untouched.
 subroutine update_us(ub)
   use mpi
   use vars
@@ -47,19 +50,14 @@ subroutine update_us(ub)
   if (iPenalization==1) then
     select case(method)
     case("fsi")
-        call update_us_fsi(ub)
+      call update_us_fsi(ub)
     case("mhd")
-        call update_us_mhd()
+      call update_us_mhd()
     case default
-        if(mpirank == 0) then
-          write (*,*) "Error: unkown method in update_us; stopping."
-          call abort(1)
-        endif
+      call abort(1,"Error: unkown method in update_us; stopping.")
     end select
   endif
 end subroutine update_us
-
-
 
 
 
@@ -73,8 +71,9 @@ end subroutine update_us
 subroutine smoothstep(f,x,t,h)
   use vars
   implicit none
-  real (kind=pr), intent (out) :: f
-  real (kind=pr), intent (in)  :: x,t,h
+  real(kind=pr), intent (out) :: f
+  real(kind=pr), intent (in)  :: x,t,h
+  real(kind=pr) :: GradientERF, delta
 
   !-------------------------------------------------
   ! cos shaped smoothing (compact in phys.space)
@@ -86,6 +85,10 @@ subroutine smoothstep(f,x,t,h)
   else
     f = 0.d0
   endif
+
+  ! GradientERF = dabs( ( dexp(-(2.d0*1.d0)**2)  - 1.d0 )/dsqrt(pi) )
+  ! delta = h*GradientERF
+  ! f = 0.5d0*( erf( (t-x)/delta ) + erf( (x+t)/delta )  )
 
 end subroutine smoothstep
 

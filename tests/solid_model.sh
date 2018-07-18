@@ -30,8 +30,8 @@ echo comparing $file time series...
 
 ${mpi_serial} ./flusi --postprocess --compare-timeseries $file solid_model/$file
 
-result=$?
-if [ $result == "0" ]; then
+result=$(cat return); rm -f return
+if [ "$result" == "0" ]; then
   echo -e ":) Happy, time series: this looks okay! " $file
   happy=$((happy+1))
 else

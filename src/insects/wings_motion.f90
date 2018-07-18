@@ -2,15 +2,36 @@
 ! WRAPPER Motion protocoll wrapper left wing
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion_left ( time, Insect )
-  use vars
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(in) :: time
+  real(kind=pr),dimension(0:3)::ep
   type(diptera) :: Insect
 
-  call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
-  Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
-  Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
+  if (Insect%wing_fsi == "yes") then
+    !**********************************
+    !** Wing fsi model               **
+    !**********************************
+    ! the angles that we return here as postprocessing quantities for better
+    ! interpretation of the output. they are NOT used to compute the wing rotation
+    ! matrix, which is instead computed from the wing quaternion
+    ep = Insect%STATE(14:17)
+    Insect%phi_l   = atan2( 2.d0*ep(2)*ep(3)+2.d0*ep(0)*ep(1), ep(2)**2-ep(3)**2+ep(0)**2-ep(1)**2)
+    Insect%alpha_l = atan2(2.d0*ep(1)*ep(3)+2.d0*ep(0)*ep(2) , ep(1)**2+ep(0)**2-ep(3)**2-ep(2)**2 )
+    Insect%theta_l = -asin(2.d0*(ep(1)*ep(2)-ep(0)*ep(3)))
+    ! the time derivatives are not necessary and set to zero (the angular velocity
+    ! is computed dynamically from the eqns of motion)
+    Insect%phi_dt_l = 0.d0
+    Insect%alpha_dt_l = 0.d0
+    Insect%theta_dt_l = 0.d0
+  else
+    ! conventional model: all angles are prescribed (by fourier/hermite or others)
+    ! and can be evaluated for any time t. here, we return the 3 angles as well
+    ! as their time derivatives
+    call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
+    Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
+    Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
+  endif
 end subroutine FlappingMotion_left
 
 
@@ -18,7 +39,6 @@ end subroutine FlappingMotion_left
 ! WARPPER Motion protocoll wrapper right wing
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion_right ( time, Insect )
-  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -52,8 +72,6 @@ end subroutine FlappingMotion_right
 !-------------------------------------------------------------------------------
 subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
            alpha_dt, theta_dt, kine)
-  use vars
-  use ini_files_parser_mpi
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -71,7 +89,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
   real(kind=pr) :: a_posi(1:4),b_posi(1:4),a_elev(1:4),b_elev(1:4),a_feth(1:4),b_feth(1:4)
   real(kind=pr) :: s,c,a0_phi
   real(kind=pr) :: phicdeg
-  real(kind=pr) :: alphacdeg
+  real(kind=pr) :: alphacdeg, ttau
   integer :: i,mpicode
   character(len=strlen) :: dummy
   type(inifile) :: kinefile
@@ -86,7 +104,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     ! (kinematics_fourier_example.ini) is in the git-repository
     !---------------------------------------------------------------------------
     if (index( kine%infile,".ini")==0) then
-      call abort("you're trying to load an old kinematics file,please convert it to &
+      call abort(2030,"you're trying to load an old kinematics file,please convert it to &
       &a new *.ini file (see src/insects/kinematics_example.ini&
       & the insects-tools repository can help you do that!")
     endif
@@ -112,7 +130,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       case ("Hermite","hermite","HERMITE")
         if (mpirank==0) write(*,*) "The input file is interpreted as HERMITE coefficients"
       case default
-        call abort("kinematics file does not appear to be valid, set type=fourier or type=hermite")
+        call abort(77771, "kinematics file does not appear to be valid, set type=fourier or type=hermite")
       end select
 
       ! how many coefficients will be read
@@ -155,7 +173,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       call hermite_eval(time,theta,theta_dt, kine%ai_theta(1:kine%nfft_theta), kine%bi_theta(1:kine%nfft_theta))
 
     case default
-      call abort("kinematics file does not appear to be valid, set type=fourier or type=hermite")
+      call abort(1717,"kinematics file does not appear to be valid, set type=fourier or type=hermite")
     end select
 
     !---------------------------------------------------------------------------
@@ -173,7 +191,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     case ("radiant","RADIANT","Radiant")
       ! if the file is already in radiants, do nothing and be happy!
     case default
-      call abort("kinematics file does not appear to be valid, set units=degree or units=radiant")
+      call abort(1718,"kinematics file does not appear to be valid, set units=degree or units=radiant")
     end select
 
     !---------------------------------------------------------------------------
@@ -191,7 +209,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       theta    = -theta
       theta_dt = -theta_dt
     case default
-      call abort("kinematics file does not appear to be valid, set convention=flusi or convention=sisc")
+      call abort(1719,"kinematics file does not appear to be valid, set convention=flusi or convention=sisc")
     end select
 
 
@@ -218,6 +236,22 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     theta = deg2rad(theta)
     theta_dt = deg2rad(theta_dt)
 
+  case ("revolving-set1")
+    ! revolving wing kinematics, pre-defined set. We fix alpha to 45deg and increase
+    ! phi linearily with a short startup conditioner as suggested in [1]. The startup
+    ! time is fixed to 0.4, which gives phi=31.35deg at the end of that interval
+    ! [3] D. Kolomenskiy, Y. Elimelech and K. Schneider. Leading-edge vortex shedding from rotating wings. Fluid Dyn. Res., 46, 031421, 2014.
+    ttau = 0.4
+    ! position angle (is directly given in radiant)
+    ! we use PHI_DOT = 1 as normalization as well (since we have no frequency in this case)
+    phi = 1.d0*( ttau*dexp(-time/ttau) + time)
+    phi_dt = 1.d0*(1.d0-dexp(-time/ttau))
+    ! feathering angle is constant
+    alpha = deg2rad(-45.d0)
+    alpha_dt = 0.d0
+    ! elevation angle is always zero
+    theta = 0.d0
+    theta_dt = 0.d0
 
   case ("Drosophila_hovering_fry")
     !---------------------------------------------------------------------------
@@ -742,6 +776,24 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     phi_dt   =-phi_max *f *dsin(f*time)
     alpha_dt = alpha_max*f*dcos(f*(time+phase))
     theta_dt = 0.0
+
+  case ("simplified2")
+    !---------------------------------------------------------------------------
+    ! simplified motion protocoll
+    !---------------------------------------------------------------------------
+    phi_max     = deg2rad(60.d0)  ! phi is up/down angle (flapping)
+    alpha_max   = deg2rad(0.d0)  ! alpha is tethering
+    phase       = 0.d0! 10.d0*pi/180.d0  ! phase shift between flapping and tethering
+    f = 1.d0*2.0*pi
+
+    phi      = phi_max  *dcos(f*time)
+    alpha    = alpha_max*dsin(f*(time+phase))
+    theta    = 0.0
+
+    phi_dt   =-phi_max *f *dsin(f*time)
+    alpha_dt = alpha_max*f*dcos(f*(time+phase))
+    theta_dt = 0.0
+
   case ("debug")
     phi      = 0.0
     alpha    = deg2rad(-45.d0)
@@ -803,11 +855,8 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     alpha_dt = 0.0
     theta_dt = 0.0
   case default
-    if (mpirank==0) then
-      write(*,*) "insects.f90::FlappingMotion: motion case (protocoll) undefined"
-      write(*,*) "value is: "//trim(adjustl(protocoll))
-      call abort()
-    endif
+    write(*,*) "value is: "//trim(adjustl(protocoll))
+    call abort(121212,"insects.f90::FlappingMotion: motion case (protocoll) undefined")
   end select
 
 end subroutine FlappingMotion

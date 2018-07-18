@@ -16,6 +16,13 @@ program FLUSI
 
   if (mpirank==0) root=.true.
 
+  ! this is a fallback:
+  ! the reason is that many routines take vector fields as input (either with neq or nd components)
+  ! but some postprocessing tools do not set these variables. they are overwritten in almost all
+  ! cases by the main programs.
+  neq = 3
+  nd = 3
+
   ! get filename of PARAMS file from command line
   call get_command_argument(1,infile)
 
@@ -38,6 +45,9 @@ program FLUSI
     !-------------------------------------------------------------------------
     call dry_run()
 
+  elseif ( infile == "--io-test" ) then
+    call io_test()
+
   elseif ( infile=="--solid" .or. infile=="--solid-time-convergence" ) then
     !-------------------------------------------------------------------------
     ! run solid model only
@@ -58,15 +68,21 @@ program FLUSI
       call SolidModelConvergenceTest()
     endif
 
-    else
-      if (mpirank==0) write(*,*) "nothing to do; the argument " // &
-      trim(adjustl(infile)) // " is unkown.."
-    endif
+  else
+    if (mpirank==0) write(*,*) "nothing to do; the argument " // &
+    trim(adjustl(infile)) // " is unkown.."
+  endif
 
+  ! normal exit
+  if (root) then
+    open (15, file='return', status='replace')
+    write(15,'(i1)') 0
+    close(15)
+  endif
 
-    call MPI_FINALIZE(mpicode)
-    call exit(0)
-  end program FLUSI
+  call MPI_FINALIZE(mpicode)
+  call exit(0)
+end program FLUSI
 
 
 
@@ -84,6 +100,7 @@ program FLUSI
     real(kind=pr)          :: t1,t2
     real(kind=pr)          :: time,dt0,dt1,memory, mem_field
     integer                :: n0=0,n1=1,it
+    integer                :: mpicode
     character (len=strlen)     :: infile
     ! Arrays needed for simulation
     real(kind=pr),dimension(:,:,:,:),allocatable :: explin
@@ -163,26 +180,18 @@ program FLUSI
     ! we need more memory for RK4:
     if (iTimeMethodFluid=="RK4") nrhs=5
     if (root) write(*,'("Using nrhs=",i1," right hand side registers")') nrhs
+
+    ! the number of entries in the state vector depends on the equation we solve
+    if (equation=='navier-stokes') neq = nd ! 3 fields (velocity)
+    if (equation=='artificial-compressibility') neq = 4 ! 3 velocities + pressure
+
     !-----------------------------------------------------------------------------
     ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
     !-----------------------------------------------------------------------------
     ! Initialize p3dfft
-    call fft_initialize
+    call fft_initialize()
     ! Setup communicators used for ghost point update
-    call setup_cart_groups
-
-    !-----------------------------------------------------------------------------
-    ! Initialize time series output files, if not resuming a backup
-    !-----------------------------------------------------------------------------
-    if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then
-      call initialize_time_series_files()
-    endif
-
-    ! initialize runtime control file
-    if (mpirank==0) call initialize_runtime_control_file()
-
-    ! Print domain decomposition
-    call print_domain_decomposition()
+    call setup_cart_groups()
 
     !-----------------------------------------------------------------------------
     ! Allocate memory:
@@ -230,6 +239,7 @@ program FLUSI
     ! real valued work array(s)
     ! allocate one work array
     nrw = 1
+    if (equation=="artificial-compressibility") nrw = 4
     allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
     memory = memory + dble(nrw)*mem_field
 
@@ -250,6 +260,7 @@ program FLUSI
       ! one complex work array, if using scalar
       if (use_passive_scalar==1) ncw = 1
     endif
+    if (equation=="artificial-compressibility") ncw = 4
     allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
 
     ! reserve additional space for scalars?
@@ -262,6 +273,19 @@ program FLUSI
       ! this logical "activates" the scalar. if, for example, a NaN in the scalar occurs,
       ! it is set to false and the scalar is skipped, since the fluid can still be okay
       compute_scalar = .true.
+
+    else
+      ! HACK HACK On newer intel compilers with array bounds checks (i.e. ifort -CB)
+      ! passing unallocated arrays to suborutines causes errors (although these
+      ! arrays are of course unused). So for the intel ifort compiler, we allocate
+      ! always one scalar.
+#ifdef IFORT
+      n_scalars = 1
+      if(mpirank==0) write(*,*) "scalar module is in use: allocate additional memory (IFORT EXCEPTION)"
+      allocate(scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars))
+      allocate(scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1))
+      memory = memory + dble((1+nrhs)*n_scalars)*mem_field
+#endif
     endif
 
     ! for time averaging
@@ -287,14 +311,6 @@ program FLUSI
       call init_turbulent_inlet ( )
     endif
 
-    ! unit testing for io writing. just write a file with a field to disk, the
-    ! code displays the i/o performance and you can decide if that is good or bad
-    call save_field_hdf5(0.d0,"test_ioperformance.h5",work(:,:,:,1))
-    if (mpirank==0) then
-      write(*,*) "deleting file test_ioperformance.h5"
-      call init_empty_file("test_ioperformance.h5")
-    endif
-
     !-----------------------------------------------------------------------------
     ! show memory consumption for information
     !-----------------------------------------------------------------------------
@@ -314,25 +330,31 @@ program FLUSI
     call fft_unit_test(work(:,:,:,1),uk(:,:,:,1))
 
     !-----------------------------------------------------------------------------
-    ! initalize some insect stuff, if used
-    !-----------------------------------------------------------------------------
-    ! Load kinematics from file (Dmitry, 14 Nov 2013)
-    if (iMask=="Insect") then
-      ! If required, initialize rigid solid dynamics solver
-      if (Insect%BodyMotion=="free_flight") then
-        call rigid_solid_init(0.d0,Insect)
-      endif
-    endif
-
-
-    !-----------------------------------------------------------------------------
     ! Initial condition
     !-----------------------------------------------------------------------------
     call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
-         press,scalars,scalars_rhs,Insect,beams)
+    press,scalars,scalars_rhs,Insect,beams)
 
+    !-----------------------------------------------------------------------------
+    ! Initialize time series output files, if not resuming a backup
+    !-----------------------------------------------------------------------------
+    if ((mpirank==0).and.(inicond(1:8).ne."backup::")) then
+      if (time == 0.d0) then
+        ! the inicond "infile" reads the time from the hdf5 files and is often used
+        ! if runtime backuping failed for some reason. therefore in that case, do not
+        ! delete existing time series files.
+        call initialize_time_series_files()
+      else
+        ! do nothing
+        write(*,*) "As initial condition set t/=0.d0, I do NOT reset the time series files."
+      endif
+    endif
 
+    ! initialize runtime control file
+    if (mpirank==0) call initialize_runtime_control_file()
 
+    ! Print domain decomposition
+    ! call print_domain_decomposition()
 
     if (use_slicing=="yes") then
       call slice_init(time)
@@ -354,6 +376,8 @@ program FLUSI
     !-----------------------------------------------------------------------------
     ! Deallocate memory
     !-----------------------------------------------------------------------------
+    ! All processes should reach this point before the arrays are deallocated
+    call MPI_barrier(MPI_COMM_WORLD,mpicode)
     deallocate(lin)
     deallocate(explin)
     deallocate(vort,work,workc)
@@ -379,8 +403,7 @@ program FLUSI
     if (use_slicing=="yes") then
       call slice_free
     endif
-    ! write empty success file
-    if (root) call init_empty_file("success")
+
 
     ! release other memory
     call fft_free
@@ -454,7 +477,7 @@ if (mpirank/=0) return
     write(*,8) (time_insect_eye),100.d0*(time_insect_eye)/t2, "insect::eyes"
     write(*,8) (time_insect_head),100.d0*(time_insect_head)/t2, "insect::head"
     write(*,8) (time_insect_wings),100.d0*(time_insect_wings)/t2,"insect::wings"
-    write(*,8) (time_insect_vel),100.d0*(time_insect_vel)/t2,"insect::roration"
+    write(*,8) (time_insect_vel),100.d0*(time_insect_vel)/t2,"insect::rotation"
     write(*,3)
     write(*,'("save fields:")')
     write(*,8) (time_hdf5), 100.d0*(time_hdf5)/t2, "hdf5 disk dumping"
@@ -470,7 +493,7 @@ if (mpirank/=0) return
     write(*,'("Fluid right hand side:")')
     write(*,8) (time_nlk2),100.d0*(time_nlk2/t2),"cal_nlk_fsi"
     write(*,8) (time_p),100.d0*(time_p/t2),"pressure"
-    write(*,8) (time_nlk_scalar),100.d0*(time_nlk_scalar/t2),"sclar rhs"
+    write(*,8) (time_nlk_scalar),100.d0*(time_nlk_scalar/t2),"scalar rhs"
     write(*,8) (time_scalar),100.d0*(time_scalar/t2),"passive scalar"
     write(*,3)
 
@@ -524,14 +547,18 @@ if (mpirank/=0) return
       "Aero_Power", "Inert power"
       close (14)
       open  (14,file='kinematics.t',status='replace')
-      write (14,'(26(A15,1x))') "%          time","xc_body","yc_body","zc_body",&
+      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body_g","zc_body_g",&
       "psi","beta","gamma","eta_stroke",&
       "alpha_l","phi_l","theta_l",&
       "alpha_r","phi_r","theta_r",&
-      "rot_l_x","rot_l_y","rot_l_z",&
-      "rot_r_x","rot_r_y","rot_r_z",&
-      "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
-      "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+      "rot_l_w_x","rot_l_w_y","rot_l_w_z",&
+      "rot_r_w_x","rot_r_w_y","rot_r_w_z",&
+      "rot_dt_l_w_x","rot_dt_l_w_y","rot_dt_l_w_z",&
+      "rot_dt_r_w_x","rot_dt_r_w_y","rot_dt_r_w_z"
+      close (14)
+      open  (14,file='muscle.t',status='replace')
+      close (14)
+      open  (14,file='insect_state.t',status='replace')
       close (14)
       ! If this is not an insect
     else
@@ -551,6 +578,11 @@ if (mpirank/=0) return
     write (14,'(2(A15,1x))') "%          time","E_kin_tot"
     close (14)
 
+    open  (14,file='u_residual.t',status='replace')
+    write (14,'(7(A15,1x))') "%          time","u_res_color0","u_res_color1",&
+    "u_res_color2","u_res_color3","u_res_color4","u_res_color5"
+    close (14)
+
     open  (14,file='energy.t',status='replace')
     write (14,'(21(A15,1x))') "%          time",&
     "E_kin_f","E_kin_x_f","E_kin_y_f","E_kin_z_f",&
@@ -565,7 +597,6 @@ if (mpirank/=0) return
     write (14,'(5(A15,1x))') "%            it","time","dt","avg sec/step", "sec/step"
     close (14)
 
-
     open  (14,file='dt.t',status='replace')
     write (14,'(5(A15,1x))') "%        time","dt","CFL","viscous", "penalization"
     close (14)
@@ -574,13 +605,15 @@ if (mpirank/=0) return
     write (14,'(4(A15,1x))') "%          time","mean_ux","mean_uy","mean_uz"
     close (14)
 
+    open  (14,file='mask_volume.t',status='replace')
+    write (14,'(5(A15,1x))') "%          time","volume","mask*usx","mask*usy","mask*usz"
+    close (14)
+
     call init_empty_file('iterations.t')
-    call init_empty_file('mask_volume.t')
-    call init_empty_file('rigidsolidsolver.t')
 
     open  (14,file='rigidsolidsolver.t',status='replace')
     write (14,'(14(A15,1x))') "%          time","x","y","z","vx","vy","vz",&
-    "eps0","eps1","eps2","eps3","rotx","roty","rotz"
+    "eps0","eps1","eps2","eps3","rot_body_b_x","rot_body_b_y","rot_body_b_z"
     close (14)
 
 
@@ -590,13 +623,14 @@ if (mpirank/=0) return
 
 
 
-  subroutine print_domain_decomposition()
+  subroutine print_domain_decomposition(fname)
     use vars
     use mpi
     implicit none
+    character(len=*)::fname
     integer :: mpicode
 return
-    open  (14,file='mpi_distribution',status='replace')
+    ! open  (14,file=fname,status='replace')
 
     if (root) then
       write(14,'(A)') '--------------------------------------'

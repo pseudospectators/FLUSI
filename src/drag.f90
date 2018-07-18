@@ -1,3 +1,4 @@
+!#define REPRODUCIBLE
 !-------------------------------------------------------------------------------
 ! Compute hydrodynamic forces and torque
 !-------------------------------------------------------------------------------
@@ -26,14 +27,28 @@ subroutine cal_drag ( time, u, Insect )
 
   integer :: ix,iy,iz,mpicode
   integer(kind=2) :: color
+#ifndef __SX__
   real(kind=pr) :: penalx,penaly,penalz,xlev,ylev,zlev,apowtotal,ipowtotal
+#endif
   ! we can choose up to 6 different colors
   real(kind=pr),dimension(0:5) :: torquex,torquey,torquez,forcex,forcey,forcez
   real(kind=pr),dimension(0:5) :: torquex0,torquey0,torquez0
   real(kind=pr) :: xc(1:3)
   ! power (flux of energy)
-  real(kind=pr) :: power,powerx,powery,powerz
+  real(kind=pr) :: power,powerx,powery,powerz, u_residual(0:5), u_residual_glob(0:5)
+  real(kind=pr) :: dux, duy, duz
   character(len=strlen) :: forcepartfilename
+#ifdef __SX__
+  integer, parameter :: blksz=256
+  integer :: ix_,i,ic
+
+  real(kind=pr) :: apowtotal,ipowtotal,t,tx,ty,tz
+  real(kind=pr), dimension(blksz) :: penalx,penaly,penalz,xlev,ylev,zlev,urtmp,tmpx,tmpy,tmpz
+  integer, dimension(blksz) :: color_
+#ifndef REPRODUCIBLE
+!cdir vreg(penalx,penaly,penalz,xlev,ylev,zlev,urtmp,tmpx,tmpy,tmpz,color_)
+#endif
+#endif
 
   if (iPenalization/=1) return
 
@@ -49,20 +64,36 @@ subroutine cal_drag ( time, u, Insect )
   powerx = 0.d0
   powery = 0.d0
   powerz = 0.d0
+  u_residual = 9.0d9
 
   !---------------------------------------------------------------------------
   ! loop over penalization term (this saves a work array)
   !---------------------------------------------------------------------------
+#ifndef __SX__
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
+        ! velocity difference
+        dux = u(ix,iy,iz,1)-us(ix,iy,iz,1)
+        duy = u(ix,iy,iz,2)-us(ix,iy,iz,2)
+        duz = u(ix,iy,iz,3)-us(ix,iy,iz,3)
+
         ! actual penalization term
-        penalx = -mask(ix,iy,iz)*(u(ix,iy,iz,1)-us(ix,iy,iz,1))
-        penaly = -mask(ix,iy,iz)*(u(ix,iy,iz,2)-us(ix,iy,iz,2))
-        penalz = -mask(ix,iy,iz)*(u(ix,iy,iz,3)-us(ix,iy,iz,3))
+        penalx = -mask(ix,iy,iz) * dux
+        penaly = -mask(ix,iy,iz) * duy
+        penalz = -mask(ix,iy,iz) * duz
 
         ! what color does the point have?
         color = mask_color(ix,iy,iz)
+
+        ! if we're inside the mask, we check the residual velocity, that means
+        ! the minimum of mag(u-us). It should be close to eps (penalization parameter)
+        ! if it is too large, it implies that penalization is too weak: either C_eta should
+        ! be decreased or the obstacle must be thicker. The latter is relevant for thin structures
+        ! like insect wings
+        if (mask(ix,iy,iz) > 0.d0) then
+          u_residual(color) = min( u_residual(color), dux**2 + duy**2 + duz**2)
+        endif
 
         ! integrate forces + torques (note sign inversion!)
         forcex(color) = forcex(color) - penalx
@@ -94,14 +125,14 @@ subroutine cal_drag ( time, u, Insect )
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points
         if (iMask=="Insect") then
-          if (color==2) then
-            xlev = xlev - Insect%x_pivot_l_glob(1)
-            ylev = ylev - Insect%x_pivot_l_glob(2)
-            zlev = zlev - Insect%x_pivot_l_glob(3)
-          elseif (color==3) then
-            xlev = xlev - Insect%x_pivot_r_glob(1)
-            ylev = ylev - Insect%x_pivot_r_glob(2)
-            zlev = zlev - Insect%x_pivot_r_glob(3)
+          if (color==Insect%color_l) then
+            xlev = xlev - Insect%x_pivot_l_g(1)
+            ylev = ylev - Insect%x_pivot_l_g(2)
+            zlev = zlev - Insect%x_pivot_l_g(3)
+          elseif (color==Insect%color_r) then
+            xlev = xlev - Insect%x_pivot_r_g(1)
+            ylev = ylev - Insect%x_pivot_r_g(2)
+            zlev = zlev - Insect%x_pivot_r_g(3)
           endif
           xc = periodize_coordinate((/xlev,ylev,zlev/))
           xlev = xc(1)
@@ -116,6 +147,190 @@ subroutine cal_drag ( time, u, Insect )
       enddo
     enddo
   enddo
+#else
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+! ==============================================================================
+      do ix_=ra(1),rb(1),blksz
+! ==============================================================================
+!cdir shortloop
+      do ix=ix_,min(ix_+blksz-1,rb(1))
+        i = ix-ix_+1
+
+        ! velocity difference
+        dux = u(ix,iy,iz,1)-us(ix,iy,iz,1)
+        duy = u(ix,iy,iz,2)-us(ix,iy,iz,2)
+        duz = u(ix,iy,iz,3)-us(ix,iy,iz,3)
+
+        ! actual penalization term
+        penalx(i) = -mask(ix,iy,iz) * dux
+        penaly(i) = -mask(ix,iy,iz) * duy
+        penalz(i) = -mask(ix,iy,iz) * duz
+
+        ! what color does the point have?
+        color_(i) = mask_color(ix,iy,iz)
+
+        t = dux**2 + duy**2 + duz**2
+        if(mask(ix,iy,iz) <= 0.d0) t = u_residual(color_(i))
+        urtmp(i) = t
+      enddo
+
+      do ic=0,5
+        t = u_residual(ic)
+!cdir shortloop
+        do ix=ix_,min(ix_+blksz-1,rb(1))
+          i = ix-ix_+1
+
+          ! if we're inside the mask, we check the residual velocity, that means
+          ! the minimum of mag(u-us). It should be close to eps (penalization parameter)
+          ! if it is too large, it implies that penalization is too weak: either C_eta should
+          ! be decreased or the obstacle must be thicker. The latter is relevant for thin structures
+          ! like insect wings
+          if(color_(i) == ic) t = min(t, urtmp(i))
+        enddo
+        u_residual(ic) = t
+      enddo
+
+      do ic=0,5
+        tx = forcex(ic)
+        ty = forcey(ic)
+        tz = forcez(ic)
+#ifdef REPRODUCIBLE
+!cdir novector
+#endif
+!cdir shortloop
+        do ix=ix_,min(ix_+blksz-1,rb(1))
+          i = ix-ix_+1
+
+          ! integrate forces + torques (note sign inversion!)
+          if(color_(i) == ic) then
+            tx = tx - penalx(i)
+            ty = ty - penaly(i)
+            tz = tz - penalz(i)
+          endif
+        enddo
+        forcex(ic) = tx
+        forcey(ic) = ty
+        forcez(ic) = tz
+      enddo
+
+!cdir shortloop
+      do ix=ix_,min(ix_+blksz-1,rb(1))
+        i = ix-ix_+1
+
+        ! for torque moment with respect to (x0,y0,z0)
+        xlev(i) = dble(ix)*dx - x0
+        ylev(i) = dble(iy)*dy - y0
+        zlev(i) = dble(iz)*dz - z0
+
+        ! is the obstacle is near the boundary, parts of it may cross the periodic
+        ! boundary. therefore, ensure that xlev is periodized:
+        xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/))
+        xlev(i) = xc(1)
+        ylev(i) = xc(2)
+        zlev(i) = xc(3)
+
+        tmpx(i) = - (ylev(i)*penalz(i) - zlev(i)*penaly(i))
+        tmpy(i) = - (zlev(i)*penalx(i) - xlev(i)*penalz(i))
+        tmpz(i) = - (xlev(i)*penaly(i) - ylev(i)*penalx(i))
+      enddo
+
+      do ic=0,5
+        tx = torquex0(ic)
+        ty = torquey0(ic)
+        tz = torquez0(ic)
+#ifdef REPRODUCIBLE
+!cdir novector
+#endif
+!cdir shortloop
+        do ix=ix_,min(ix_+blksz-1,rb(1))
+          i = ix-ix_+1
+
+          ! compute moment with respect to (x0,y0,z0)
+          if(color_(i) == ic) then
+            tx = tx + tmpx(i)
+            ty = ty + tmpy(i)
+            tz = tz + tmpz(i)
+          endif
+        enddo
+        torquex0(ic) = tx
+        torquey0(ic) = ty
+        torquez0(ic) = tz
+      enddo
+
+#ifdef REPRODUCIBLE
+!cdir novector
+#endif
+!cdir shortloop
+      do ix=ix_,min(ix_+blksz-1,rb(1))
+        i = ix-ix_+1
+
+        ! input power due to penalization term
+        powerx = powerx + us(ix,iy,iz,1)*penalx(i)
+        powery = powery + us(ix,iy,iz,2)*penaly(i)
+        powerz = powerz + us(ix,iy,iz,3)*penalz(i)
+      enddo
+
+      if (iMask=="Insect") then
+!cdir shortloop
+        do ix=ix_,min(ix_+blksz-1,rb(1))
+          i = ix-ix_+1
+
+          ! for insects, moment of the body is computed with respect to (x0,y0,z0)
+          ! but for the wings it is computed with respect tot the pivot points
+          if (color_(i)==Insect%color_l) then
+            xlev(i) = xlev(i) - Insect%x_pivot_l_g(1)
+            ylev(i) = ylev(i) - Insect%x_pivot_l_g(2)
+            zlev(i) = zlev(i) - Insect%x_pivot_l_g(3)
+          elseif (color_(i)==Insect%color_r) then
+            xlev(i) = xlev(i) - Insect%x_pivot_r_g(1)
+            ylev(i) = ylev(i) - Insect%x_pivot_r_g(2)
+            zlev(i) = zlev(i) - Insect%x_pivot_r_g(3)
+          endif
+          xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/))
+          xlev(i) = xc(1)
+          ylev(i) = xc(2)
+          zlev(i) = xc(3)
+        enddo
+      endif
+
+!cdir shortloop
+      do ix=ix_,min(ix_+blksz-1,rb(1))
+        i = ix-ix_+1
+
+        tmpx(i) = - (ylev(i)*penalz(i) - zlev(i)*penaly(i))
+        tmpy(i) = - (zlev(i)*penalx(i) - xlev(i)*penalz(i))
+        tmpz(i) = - (xlev(i)*penaly(i) - ylev(i)*penalx(i))
+      enddo
+
+      do ic=0,5
+        tx = torquex(ic)
+        ty = torquey(ic)
+        tz = torquez(ic)
+#ifdef REPRODUCIBLE
+!cdir novector
+#endif
+!cdir shortloop
+        do ix=ix_,min(ix_+blksz-1,rb(1))
+          i = ix-ix_+1
+          ! Compute moments relative to each part
+
+          if(color_(i) == ic) then
+            tx = tx + tmpx(i)
+            ty = ty + tmpy(i)
+            tz = tz + tmpz(i)
+          endif
+        enddo
+        torquex(ic) = tx
+        torquey(ic) = ty
+        torquez(ic) = tz
+      enddo
+! ==============================================================================
+      enddo
+! ==============================================================================
+    enddo
+  enddo
+#endif
 
   !---------------------------------------------------------------------------
   ! save global forces
@@ -148,10 +363,11 @@ subroutine cal_drag ( time, u, Insect )
   call MPI_ALLREDUCE ( powerz,GlobalIntegrals%penalization_power_z,1,&
   MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
+  call MPI_ALLREDUCE ( u_residual,u_residual_glob,6,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
 
   ! the insects have forces on the wing and body separate
   if (iMask=="Insect") then
-    do color = 1,3
+    do color = Insect%color_body, Insect%color_r
       call MPI_ALLREDUCE (forcex(color),Insect%PartIntegrals(color)%Force(1),1,&
       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
       call MPI_ALLREDUCE (forcey(color),Insect%PartIntegrals(color)%Force(2),1,&
@@ -180,7 +396,7 @@ subroutine cal_drag ( time, u, Insect )
 
   ! the insects have torques on the wing and body separate
   if (iMask=="Insect") then
-    do color = 1,3
+    do color = Insect%color_body, Insect%color_r
       call MPI_ALLREDUCE (torquex(color),Insect%PartIntegrals(color)%Torque(1),1,&
       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
       call MPI_ALLREDUCE (torquey(color),Insect%PartIntegrals(color)%Torque(2),1,&
@@ -210,7 +426,7 @@ subroutine cal_drag ( time, u, Insect )
       GlobalIntegrals%Torque_unst, apowtotal, ipowtotal
       close(14)
       ! currently, only insects have different colors
-      do color=1,3
+      do color = Insect%color_body, Insect%color_r
         write (forcepartfilename, "(A11,I1,A2)") "forces_part", color, ".t"
         open(14,file=trim(forcepartfilename),status='unknown',position='append')
         write (14,'(15(es15.8,1x))') time, Insect%PartIntegrals(color)%Force, &
@@ -227,6 +443,12 @@ subroutine cal_drag ( time, u, Insect )
       GlobalIntegrals%Torque_unst
       close(14)
     endif
+
+    ! save residual velocity, see above comment
+    open(14,file='u_residual.t',status='unknown',position='append')
+    write (14,'(7(es15.8,1x))') time, sqrt(u_residual_glob(0:5))
+    close(14)
+
   endif
 end subroutine cal_drag
 
@@ -277,6 +499,17 @@ subroutine cal_unst_corrections ( time, dt, Insect )
 
   integer :: mpicode, ix, iy, iz
   integer(kind=2) :: color
+#ifdef __SX__
+  integer, parameter :: blksz=256
+  integer :: ix_,i,ic
+
+  real(kind=pr) :: tx,ty,tz
+  real(kind=pr), dimension(blksz) :: tmpx,tmpy,tmpz
+  integer, dimension(blksz) :: color_
+#ifndef REPRODUCIBLE
+!cdir vreg(tmpx,tmpy,tmpz,color_)
+#endif
+#endif
 
   !-----------------------------------------------------------------------------
   ! force
@@ -287,6 +520,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
 
   norm = dx*dy*dz*eps
 
+#ifndef __SX__
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
@@ -298,6 +532,51 @@ subroutine cal_unst_corrections ( time, dt, Insect )
       enddo
     enddo
   enddo
+#else
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+! ==============================================================================
+      do ix_=ra(1),rb(1),blksz
+! ==============================================================================
+!cdir shortloop
+      do ix=ix_,min(ix_+blksz-1,rb(1))
+        i = ix-ix_+1
+
+        color_(i) = mask_color(ix,iy,iz)
+
+        tmpx(i) = mask(ix,iy,iz)*us(ix,iy,iz,1)*norm
+        tmpy(i) = mask(ix,iy,iz)*us(ix,iy,iz,2)*norm
+        tmpz(i) = mask(ix,iy,iz)*us(ix,iy,iz,3)*norm
+      enddo
+
+      do ic=0,5
+        tx = force_new_locx(ic)
+        ty = force_new_locy(ic)
+        tz = force_new_locz(ic)
+#ifdef REPRODUCIBLE
+!cdir novector
+#endif
+!cdir shortloop
+        do ix=ix_,min(ix_+blksz-1,rb(1))
+          i = ix-ix_+1
+
+          ! sum up new integral as a function of color
+          if(color_(i) == ic) then
+            tx = tx+tmpx(i)
+            ty = ty+tmpy(i)
+            tz = tz+tmpz(i)
+          endif
+        enddo
+        force_new_locx(ic) = tx
+        force_new_locy(ic) = ty
+        force_new_locz(ic) = tz
+      enddo
+! ==============================================================================
+      enddo
+! ==============================================================================
+    enddo
+  enddo
+#endif
 
   call MPI_ALLREDUCE(force_new_locx,force_newx,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
   call MPI_ALLREDUCE(force_new_locy,force_newy,6,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
@@ -312,7 +591,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
 
     if (iMask=="Insect") then
       ! for the insects, we save separately the WINGs and the BODY
-      do color = 1,3
+      do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Force_unst(1) = force_newx(color)-force_oldx(color)
         Insect%PartIntegrals(color)%Force_unst(2) = force_newy(color)-force_oldy(color)
         Insect%PartIntegrals(color)%Force_unst(3) = force_newz(color)-force_oldz(color)
@@ -324,7 +603,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     ! integral. As a hack, return zero.
     GlobalIntegrals%Force_unst = 0.d0
     if (iMask=="Insect") then
-      do color = 1,3
+      do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Force_unst = 0.d0
       enddo
     endif
@@ -345,6 +624,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   torque_new_locy0 = 0.d0
   torque_new_locz0 = 0.d0
 
+#ifndef __SX__
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
@@ -370,13 +650,13 @@ subroutine cal_unst_corrections ( time, dt, Insect )
         ! but for the wings it is computed with respect tot the pivot points
         if (iMask=="Insect") then
           if (color==2) then
-            xlev = xlev - Insect%x_pivot_l_glob(1)
-            ylev = ylev - Insect%x_pivot_l_glob(2)
-            zlev = zlev - Insect%x_pivot_l_glob(3)
+            xlev = xlev - Insect%x_pivot_l_g(1)
+            ylev = ylev - Insect%x_pivot_l_g(2)
+            zlev = zlev - Insect%x_pivot_l_g(3)
           elseif (color==3) then
-            xlev = xlev - Insect%x_pivot_r_glob(1)
-            ylev = ylev - Insect%x_pivot_r_glob(2)
-            zlev = zlev - Insect%x_pivot_r_glob(3)
+            xlev = xlev - Insect%x_pivot_r_g(1)
+            ylev = ylev - Insect%x_pivot_r_g(2)
+            zlev = zlev - Insect%x_pivot_r_g(3)
           endif
         endif
 
@@ -386,6 +666,80 @@ subroutine cal_unst_corrections ( time, dt, Insect )
       enddo
     enddo
   enddo
+#else
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+! ==============================================================================
+      do ix_=ra(1),rb(1),blksz
+! ==============================================================================
+!cdir shortloop
+      do ix=ix_,min(ix_+blksz-1,rb(1))
+        i = ix-ix_+1
+
+        ! for torque moment
+        xlev = dble(ix)*dx - x0
+        ylev = dble(iy)*dy - y0
+        zlev = dble(iz)*dz - z0
+
+        usx = us(ix,iy,iz,1)*mask(ix,iy,iz)*eps
+        usy = us(ix,iy,iz,2)*mask(ix,iy,iz)*eps
+        usz = us(ix,iy,iz,3)*mask(ix,iy,iz)*eps
+
+        color_(i) = mask_color(ix,iy,iz)
+        ! moment with respect to (x0,y0,z0)
+        if (color_(i)>0) then
+          torque_new_locx0 = torque_new_locx0 + (ylev*usz - zlev*usy)
+          torque_new_locy0 = torque_new_locy0 + (zlev*usx - xlev*usz)
+          torque_new_locz0 = torque_new_locz0 + (xlev*usy - ylev*usx)
+
+        endif
+
+        ! for insects, moment of the body is computed with respect to (x0,y0,z0)
+        ! but for the wings it is computed with respect tot the pivot points
+        if (iMask=="Insect") then
+          if (color_(i)==2) then
+            xlev = xlev - Insect%x_pivot_l_g(1)
+            ylev = ylev - Insect%x_pivot_l_g(2)
+            zlev = zlev - Insect%x_pivot_l_g(3)
+          elseif (color_(i)==3) then
+            xlev = xlev - Insect%x_pivot_r_g(1)
+            ylev = ylev - Insect%x_pivot_r_g(2)
+            zlev = zlev - Insect%x_pivot_r_g(3)
+          endif
+        endif
+
+        tmpx(i) = (ylev*usz - zlev*usy)
+        tmpy(i) = (zlev*usx - xlev*usz)
+        tmpz(i) = (xlev*usy - ylev*usx)
+      enddo
+
+      do ic=0,5
+        tx = torque_new_locx(ic)
+        ty = torque_new_locy(ic)
+        tz = torque_new_locz(ic)
+#ifdef REPRODUCIBLE
+!cdir novector
+#endif
+!cdir shortloop
+        do ix=ix_,min(ix_+blksz-1,rb(1))
+          i = ix-ix_+1
+
+          if(color_(i) == ic) then
+            tx = tx + tmpx(i)
+            ty = ty + tmpy(i)
+            tz = tz + tmpz(i)
+          endif
+        enddo
+        torque_new_locx(ic) = tx
+        torque_new_locy(ic) = ty
+        torque_new_locz(ic) = tz
+      enddo
+! ==============================================================================
+      enddo
+! ==============================================================================
+    enddo
+  enddo
+#endif
 
   torque_new_locx = torque_new_locx*dx*dy*dz
   torque_new_locy = torque_new_locy*dx*dy*dz
@@ -410,7 +764,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     GlobalIntegrals%Torque_unst = GlobalIntegrals%Torque_unst / dt
     if (iMask=="Insect") then
       ! for the insects, we save separately the WINGs and the BODY
-      do color = 1,3
+      do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Torque_unst(1) = torque_newx(color)-torque_oldx(color)
         Insect%PartIntegrals(color)%Torque_unst(2) = torque_newy(color)-torque_oldy(color)
         Insect%PartIntegrals(color)%Torque_unst(3) = torque_newz(color)-torque_oldz(color)
@@ -422,7 +776,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     ! integral. As a hack, return zero.
     GlobalIntegrals%Torque_unst = 0.d0
     if (iMask=="Insect") then
-      do color = 1,3
+      do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Torque_unst = 0.d0
       enddo
     endif

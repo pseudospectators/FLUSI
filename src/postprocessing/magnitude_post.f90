@@ -43,7 +43,7 @@ subroutine magnitude_post(help)
     write(*,*) "Outfile="//trim(adjustl(outfile))
   endif
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize code and domain decomposition, but do not use FFTs
   call decomposition_initialize()
 

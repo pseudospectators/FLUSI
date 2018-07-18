@@ -13,7 +13,7 @@ subroutine Draw_flexible_plate (time, beam)
   real(kind=pr), intent(in) :: time
   type(Solid), intent(inout) :: beam
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt
-  real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate,u_tmp,rot_body,v_tmp,v0_plate
+  real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate,u_tmp,rot_body_b,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   !-- for the triangles:
   real(kind=pr) :: a,b,c,alpha,beta,h,safety, s,s1,s2, ux,uy, R ,dmax, love
@@ -43,7 +43,7 @@ subroutine Draw_flexible_plate (time, beam)
   ! angular velocity of moving relative frame
   ! ISSUE #9: https://github.com/pseudospectators/FLUSI/issues/9
   ! FIXME: the following line IS WRONG and needs to be corrected
-  rot_body = (/psi_dt, beta_dt, gamma_dt/)
+  rot_body_b = (/psi_dt, beta_dt, gamma_dt/)
 
   ! reset everything
   mask = 0.d0
@@ -63,7 +63,6 @@ subroutine Draw_flexible_plate (time, beam)
       x = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz/)
       !-- in the plate system
       x_plate = matmul( M_plate, x-x0_plate )
-
 
       !-- check z-size in plate coordinate sytem (thus spanwise)
       if ((x_plate(3)>=-(0.5*L_span+t_beam+safety)).and.(x_plate(3)<=(0.5*L_span+t_beam+safety))) then
@@ -160,20 +159,24 @@ subroutine Draw_flexible_plate (time, beam)
 
       ! mask is now the distance function from the centerline
       ! convert distance function to mask function
-      call smoothstep( tmp, mask(ix,iy,iz)-t_beam, 0.d0, smoothing )
+      call smoothstep( tmp, mask(ix,iy,iz), t_beam, smoothing )
 
       !-------------------------------------------------------------------------
       !-- make plate finite in z-direction, possibly with non-rectangular shapes
       !-------------------------------------------------------------------------
-      if (x_plate(3)<0.d0) then
-        call smoothstep( tmp2, -x_plate(3), z_bottom(s), smoothing )
+      if (infinite=="yes" .or. nx==1) then
+        ! plate is very large - span is infinite, or flow is two-dimensional
+        ! in these cases, the rigid direction is constant (spanwise) and we do not
+        ! need to make the plate finite
+        tmp2 = 1.d0
       else
-        call smoothstep( tmp2,  x_plate(3), z_top(s), smoothing )
+        ! plate is finite, we have to do something about the finite length
+        if (x_plate(3)<0.d0) then
+          call smoothstep( tmp2, -x_plate(3), z_bottom(s), smoothing )
+        else
+          call smoothstep( tmp2,  x_plate(3), z_top(s), smoothing )
+        endif
       endif
-
-      ! plate is very large - span is infinite
-      if (infinite=="yes") tmp2 = 1.d0
-
 
       !-- final value of mask function at this point
       mask(ix,iy,iz) = tmp*tmp2
@@ -184,9 +187,9 @@ subroutine Draw_flexible_plate (time, beam)
       !-- this is the velocity in the relative system
       u_tmp = (/ux,uy,0.d0/)
       !-- add solid body rotation to the velocity field of the beam
-      v_tmp(1) = rot_body(2)*x_plate(3)-rot_body(3)*x_plate(2)
-      v_tmp(2) = rot_body(3)*x_plate(1)-rot_body(1)*x_plate(3)
-      v_tmp(3) = rot_body(1)*x_plate(2)-rot_body(2)*x_plate(1)
+      v_tmp(1) = rot_body_b(2)*x_plate(3)-rot_body_b(3)*x_plate(2)
+      v_tmp(2) = rot_body_b(3)*x_plate(1)-rot_body_b(1)*x_plate(3)
+      v_tmp(3) = rot_body_b(1)*x_plate(2)-rot_body_b(2)*x_plate(1)
 
       ! FIXME: make sure that upon correction above, you're sure that v_tmp
       ! at this point is in BODY reference frame

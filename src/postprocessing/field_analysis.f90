@@ -56,10 +56,10 @@ subroutine field_analysis(help)
     write(17,'(A)') "-----------------------------------"
   endif
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
-  
+
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
 

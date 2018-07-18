@@ -12,19 +12,21 @@ subroutine TKE_mean(help)
   use mpi
   implicit none
   logical, intent(in) :: help
-  character(len=strlen) :: fname_ux, fname_uy, fname_uz, fname_ekin, outfile
+  character(len=strlen) :: fname_ux, fname_uy, fname_uz, fname_ekin, outfile, mode
   real(kind=pr),dimension(:,:,: ),allocatable :: ekin
   real(kind=pr),dimension(:,:,:,:),allocatable :: u
   real(kind=pr) :: time
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "./flusi -p --TKE-mean ekinavg_00.h5 uavgx_00.h5 uavgy_00.h5 uavgz_00.h5 tkeavg_000.h5"
+    write(*,*) "./flusi -p --TKE-mean ekinavg_00.h5 uavgx_00.h5 uavgy_00.h5 uavgz_00.h5 tkeavg_000.h5 --urms"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "! From the time-avg kinetic energy field and the components of the time avg"
     write(*,*) "! velocity field, compute the time averaged turbulent kinetic energy."
     write(*,*) "! See TKE note 18 feb 2015 (Thomas) and 13 feb 2015 (Dmitry)"
-    write(*,*) "! TKE = ekin - 0.5d0*(ux^2 + uy^2 + uz^2)"
+    write(*,*) "! TKE_avg = ekin_avg - 0.5d0*(ux_avg^2 + uy_avg^2 + uz_avg^2)"
+    write(*,*) "! If the --urms switich is set, we save the RMS velocity instead"
+    write(*,*) "! URMS = sqrt(2*TKE/3)"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "Parallel: yes"
     return
@@ -36,6 +38,7 @@ subroutine TKE_mean(help)
   call get_command_argument(5,fname_uy)
   call get_command_argument(6,fname_uz)
   call get_command_argument(7,outfile)
+  call get_command_argument(8,mode)
 
   call check_file_exists( fname_ux )
   call check_file_exists( fname_uy )
@@ -47,10 +50,9 @@ subroutine TKE_mean(help)
     &" "//trim(adjustl(fname_uz))//" and "//fname_ekin
   endif
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
-  ! initialize code and scaling factors for derivatives, also domain decomposition
-  call fft_initialize()
-  
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
+  call decomposition_initialize()
+
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(ekin(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
@@ -60,12 +62,14 @@ subroutine TKE_mean(help)
   call read_single_file ( fname_ekin, ekin )
 
   ekin = ekin - 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
+  if ( mode == "--urms" ) then
+      if (root) write(*,*) "computing rms velocity instead of TKE"
+      ekin = dsqrt( 2.0d0*ekin/3.0d0)
+  endif
 
   if (mpirank==0) write(*,*) "Wrote to "//trim(adjustl(outfile))
   call save_field_hdf5 ( time,outfile,ekin)
 
 
   deallocate (u,ekin)
-  call fft_free()
-
 end subroutine tke_mean

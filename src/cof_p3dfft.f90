@@ -27,15 +27,35 @@ module p3dfft_wrapper
 
   contains
 
+
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
 subroutine fft(outk,inx)
     use mpi
+    use p3dfft
     use vars ! For precision specficiation and array sizes
     real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+    real(kind=pr) :: t1
+    real(kind=pr) :: norm
+    integer(kind=8) :: npoints
 
-    call coftxyz(inx,outk)
+    if (using_p3dfft .eqv. .false.) then
+      call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
+    endif
+
+
+    t1 = MPI_wtime()
+    ! Compute forward FFT
+    call p3dfft_ftran_r2c( inx, outk, 'fff')
+
+    ! Normalize
+    !  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
+    npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
+    norm = 1.d0 / dble(npoints)
+    outk = outk * norm
+
+    time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
 end subroutine fft
 
 
@@ -43,11 +63,21 @@ end subroutine fft
 ! output in the real-valued 3D array outx.
 subroutine ifft(outx,ink)
     use mpi
+    use p3dfft
     use vars ! For precision specficiation and array sizes
     complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
     real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    real(kind=pr) :: t1
+    t1 = MPI_wtime()
 
-    call cofitxyz(ink,outx)
+    if (using_p3dfft .eqv. .false.) then
+      call abort(33349,'P3DFFT is not initialized, you cannot perform FFTs')
+    endif
+
+    ! Compute backward FFT
+    call p3dfft_btran_c2r(ink, outx, 'fff')
+
+    time_ifft  = time_ifft  + MPI_wtime() - t1
 end subroutine ifft
 
 
@@ -55,12 +85,34 @@ end subroutine ifft
 ! in the complex-valued 3D array outk.
 subroutine fft3(outk,inx)
     use mpi
+    use p3dfft
     use vars ! For precision specficiation and array sizes
     real(kind=pr),intent(in)::inx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
     complex(kind=pr),intent(out)::outk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
-    call coftxyz(inx(:,:,:,1),outk(:,:,:,1))
-    call coftxyz(inx(:,:,:,2),outk(:,:,:,2))
-    call coftxyz(inx(:,:,:,3),outk(:,:,:,3))
+
+    real(kind=pr) :: t1
+    real(kind=pr) :: norm
+    integer(kind=8) :: npoints
+
+    t1 = MPI_wtime()
+
+    if (using_p3dfft .eqv. .false.) then
+      call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
+    endif
+
+!    call p3dfft_ftran_r2c_many( inx, rs(1)*rs(2)*rs(3), outk, cs(1)*cs(2)*cs(3), 3, 'fff')
+! FIXME: p3dfft_ftran_r2c_many is unstable, use p3dfft_ftran_r2c
+    call p3dfft_ftran_r2c(inx(:,:,:,1), outk(:,:,:,1), 'fff')
+    call p3dfft_ftran_r2c(inx(:,:,:,2), outk(:,:,:,2), 'fff')
+    call p3dfft_ftran_r2c(inx(:,:,:,3), outk(:,:,:,3), 'fff')
+
+    ! Normalize
+    npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
+    norm = 1.d0 / dble(npoints)
+    outk = outk * norm
+
+    time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
+
 end subroutine fft3
 
 
@@ -68,13 +120,30 @@ end subroutine fft3
 ! output in the real-valued 3D array outx.
 subroutine ifft3(outx,ink)
     use mpi
+    use p3dfft
     use vars ! For precision specficiation and array sizes
     complex(kind=pr),intent(in)::ink(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
     real(kind=pr),intent(out)::outx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3)
-    call cofitxyz(ink(:,:,:,1),outx(:,:,:,1))
-    call cofitxyz(ink(:,:,:,2),outx(:,:,:,2))
-    call cofitxyz(ink(:,:,:,3),outx(:,:,:,3))
+
+    real(kind=pr) :: t1
+    real(kind=pr) :: norm
+    integer(kind=8) :: npoints
+
+    t1 = MPI_wtime()
+
+    if (using_p3dfft .eqv. .false.) then
+      call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
+    endif
+
+!    call p3dfft_btran_c2r_many( ink, cs(1)*cs(2)*cs(3), outx, rs(1)*rs(2)*rs(3), 3, 'fff')
+! FIXME: p3dfft_btran_c2r_many is unstable, use p3dfft_btran_c2r
+    call p3dfft_btran_c2r(ink(:,:,:,1), outx(:,:,:,1), 'fff')
+    call p3dfft_btran_c2r(ink(:,:,:,2), outx(:,:,:,2), 'fff')
+    call p3dfft_btran_c2r(ink(:,:,:,3), outx(:,:,:,3), 'fff')
+
+    time_ifft  = time_ifft  + MPI_wtime() - t1
 end subroutine ifft3
+
 
 subroutine fft_initialize
   !-----------------------------------------------------------------------------
@@ -103,7 +172,6 @@ subroutine fft_initialize
 
   ! setup a few globals we need throughout the code. the most important information
   ! is the domain size
-  pi = 4.d0*datan(1.d0)
   ! the scaling factors are used to rescale the FFTs (which are defined on a 2*pi
   ! domain). this is important when computing derivatives.
   scalex = 2.d0*pi/xl
@@ -158,7 +226,7 @@ subroutine fft_initialize
 
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
-    call abort("wrong mpidims: change mpisize")
+    call abort(33340,"wrong mpidims: change mpisize")
   endif
 
   !-- Initialize P3DFFT
@@ -188,7 +256,7 @@ subroutine fft_initialize
   if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
     if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
     if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
-    call abort()
+    call abort(33341, "Too many CPUs: the ghosts span more than one CPU")
   endif
 
   !-- Allocate domain partitioning tables and gather sizes from all processes
@@ -196,6 +264,10 @@ subroutine fft_initialize
   allocate ( ra_table(1:3,0:mpisize-1), rb_table(1:3,0:mpisize-1) )
   call MPI_ALLGATHER (ra, 3, MPI_INTEGER, ra_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
   call MPI_ALLGATHER (rb, 3, MPI_INTEGER, rb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
+  !-- cmplx arrays
+  allocate ( ca_table(1:3,0:mpisize-1), cb_table(1:3,0:mpisize-1) )
+  call MPI_ALLGATHER (ca, 3, MPI_INTEGER, ca_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
+  call MPI_ALLGATHER (cb, 3, MPI_INTEGER, cb_table, 3, MPI_INTEGER, MPI_COMM_WORLD, mpicode)
 
   !-- create a 2D array of size ny*nz that holds the mpirank of every point
   !-- in the y-z plane
@@ -290,6 +362,7 @@ subroutine setup_cart_groups
   implicit none
   integer :: mpicolor,mpikey,mpicode
   integer :: mpicommtmp1,mpicommtmp2
+  logical, dimension(2) :: subcart
   logical :: mpiperiods(2),periods(1),reorder
 !  integer :: mpiperiods(2),periods(1),reorder
   integer :: one=1,two=2,dims(1) ! Required for MPI_CART_GET, MPI_CART_CREATE in openmpi
@@ -335,6 +408,9 @@ subroutine setup_cart_groups
   dims(1) = mpidims(2)
   call MPI_CART_CREATE(mpicommtmp2,one,dims,periods,reorder,mpicommy,mpicode)
 
+
+  mpicommslab = (/mpicommy,mpicommz/)
+
   if (mpirank==0) write(*,*) " done setting up cart_groups!"
 end subroutine setup_cart_groups
 
@@ -366,73 +442,11 @@ subroutine fft_free
   endif
 
   if (allocated(yz_plane_ranks)) deallocate(yz_plane_ranks)
-  if (allocated(ra_table)) deallocate(ra_table)
   if (allocated(rb_table)) deallocate(rb_table)
-
+  if (allocated(ra_table)) deallocate(ra_table)
+  if (allocated(cb_table)) deallocate(cb_table)
+  if (allocated(ca_table)) deallocate(ca_table)
 end subroutine fft_free
-
-
-subroutine coftxyz(f,fk)
-  !====================================================================
-  !     Calculation of the Fourier-coefficients of a real function
-  !     along x(1st index),y(2nd index),and z(3rd index)
-  !====================================================================
-  use vars
-  use p3dfft
-  use mpi
-  implicit none
-
-  real(kind=pr),intent(in) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  complex(kind=pr),intent(out) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr),save :: t1
-  real(kind=pr) :: norm
-  integer(kind=8) :: npoints
-
-  if (using_p3dfft .eqv. .false.) then
-    call abort('P3DFFT is not initialized, you cannot perform FFTs')
-  endif
-
-
-  t1 = MPI_wtime()
-  ! Compute forward FFT
-  call p3dfft_ftran_r2c(f,fk,'fff')
-
-  ! Normalize
-!  npoints = int(nx,kind=int64) * int(ny,kind=int64) * int(nz,kind=int64)
-  npoints = int(nx,kind=8) * int(ny,kind=8) * int(nz,kind=8)
-  norm = 1.d0 / dble(npoints)
-  fk(:,:,:) = fk(:,:,:) * norm
-
-  time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
-end subroutine coftxyz
-
-!-------------------------------------------------------------------------------
-
-subroutine cofitxyz(fk,f)
-  !====================================================================
-  !     Calculation of a real function from its Fourier coefficients
-  !     along x(1st index),y(2nd index),and z(3rd index)
-  !====================================================================
-  use vars
-  use p3dfft
-  use mpi
-  implicit none
-
-  complex(kind=pr),intent(in) ::  fk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  real(kind=pr),intent(out) ::  f(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),save :: t1
-  t1 = MPI_wtime()
-
-  if (using_p3dfft .eqv. .false.) then
-    call abort('P3DFFT is not initialized, you cannot perform FFTs')
-  endif
-
-  ! Compute backward FFT
-  call p3dfft_btran_c2r(fk,f,'fff')
-
-
-  time_ifft  = time_ifft  + MPI_wtime() - t1
-end subroutine cofitxyz
 
 !-------------------------------------------------------------------------------
 
@@ -533,6 +547,113 @@ subroutine trextents(idir,n,mpidims,mpicoords,ka,kb,ks,kat,kbt,kst )
 end subroutine trextents
 
 
+! ---------------------------------------------------------------
+! MPI three-dimensional array transpose
+! ---------------------------------------------------------------
+!
+! idir  - direction
+!    idir = 1 - permute 1 and 2 indices
+!    idir = 2 - permute 1 and 3 indices
+! n  - sizes
+! ka, kb, ks  - input extents and sizes
+!    ka(1) = 0
+!    kb(1) = n(1)-1
+!    ka(2) = mpicoords(2)*n(2)/mpidims(2)
+!    kb(2) = (mpicoords(2)+1)*n(2)/mpidims(2)-1
+!    ka(3) = mpicoords(1)*n(3)/mpidims(1)
+!    kb(3) = (mpicoords(1)+1)*n(3)/mpidims(1)-1
+!    ks(:) = kb(:)-ka(:)+1
+! kat, kbt, kst  - output extents and sizes
+!    kat(1) = 0
+!    kbt(1) = n(idir+1)-1
+!    kat(1+idir) = mpicoords(3-idir)*n(1)/mpidims(3-idir)
+!    kbt(1+idir) = (mpicoords(3-idir)+1)*n(1)/mpidims(3-idir)-1
+!    kat(4-idir) = ka(4-idir)
+!    kbt(4-idir) = kb(4-idir)
+!    kst(:) = kbt(:)-kat(:)+1
+! mpidims  - sizes of MPI Cartesian topology
+! mpicoords  - coordimates in the MPI Cartesian topology
+! mpicommslab  - communicators  of the MPI Cartesian sub-topologies
+! mpireal  - MPI real type, corresponding to datain and dataout
+! datain  - input array
+! dataout  - output array
+!
+subroutine subtr ( idir, n, ka, kb, ks, kat, kbt, kst, mpidims, mpicoords, mpicommslab, mpireal, datain, dataout )
+  use mpi
+  implicit none
+
+  integer, intent (in) :: idir, mpireal
+  integer, dimension (1:3), intent (in) :: n, ka, kb, ks, kat, kbt, kst
+  integer, dimension (2), intent (in) :: mpidims, mpicoords, mpicommslab
+  real (kind=pr), dimension (ka(1):kb(1),ka(2):kb(2),ka(3):kb(3)), intent (inout) :: datain
+  real (kind=pr), dimension (kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)), intent (inout) :: dataout
+  integer :: jj, kk
+  integer :: mpicode, mpirealsize, mpiblock
+  integer, dimension(:), allocatable :: types, counts
+  integer, dimension(:), allocatable :: displs
+  real (kind=pr), dimension (:,:,:), allocatable :: datatemp
+
+  !--Check direction
+  if ( (idir/=1) .and. (idir/=2) ) then
+     call abort(3334333, 'tr2dplus: illegal idir')
+  endif
+
+  !--Allocate temporary array
+  allocate ( datatemp(kat(1):kbt(1),kat(2):kbt(2),kat(3):kbt(3)) )
+
+  !--Transpose blocks locally
+  if ( idir == 1 ) then
+     do kk = ka(3), kb(3)
+        do jj = 0, mpidims(2)-1
+           dataout((jj*ks(2)):((jj+1)*ks(2)-1),:,kk) = transpose (datain((jj*kst(2)):((jj+1)*kst(2)-1),:,kk))
+        enddo
+     enddo
+  else   ! if idir == 2
+     do kk = ka(2), kb(2)
+        do jj = 0, mpidims(1)-1
+           dataout((jj*ks(3)):((jj+1)*ks(3)-1),kk,:) = transpose (datain((jj*kst(3)):((jj+1)*kst(3)-1),kk,:))
+        enddo
+     enddo
+  endif
+
+  !--Communications between processes are required when transpose plans are non-local
+  if ( mpidims(3-idir) > 1 ) then
+
+     !--Copy locally transposed blocks
+     datatemp(:,:,:) = dataout(:,:,:)
+
+     !--Create type for communication
+     call MPI_TYPE_VECTOR (kst(2)*kst(3),ks(1+idir),kst(1),mpireal,mpiblock,mpicode)
+     call MPI_TYPE_COMMIT (mpiblock,mpicode)
+
+     !--Compute sizes and displacements
+     allocate (counts(mpidims(3-idir)),displs(mpidims(3-idir)),types(mpidims(3-idir)))
+     call MPI_TYPE_SIZE (mpireal,mpirealsize,mpicode)
+     counts(:) = 1
+     displs(1) = 0
+     do jj = 2, mpidims(3-idir)
+        displs(jj) = displs(jj-1) + ks(idir+1)*mpirealsize
+     enddo
+     types(:) = mpiblock
+
+     !--Communicate
+     call MPI_ALLTOALLW (datatemp,counts,displs,types,dataout,counts,displs,types,mpicommslab(idir),mpicode)
+
+     !--Deallocate types, sizes and displacements
+     call MPI_TYPE_FREE(mpiblock,mpicode)
+     deallocate (counts,displs,types)
+
+  endif
+
+  !--Deallocate temporary array
+  deallocate (datatemp)
+
+end subroutine subtr
+
+
+
+
+
 !----------------------------------------------------------------
 ! wavenumber functions: return the kx,ky,kz wavenumbers
 ! as a function of the array index
@@ -569,7 +690,7 @@ end function
 ! data would imply using FFTs), that is, for all procs, the local bounds
 ! ra(1:3) and rb(1:3), as well as the communicators used for ghost node synchronizaiton
 !-------------------------------------------------------------------------------
-subroutine decomposition_initialize
+subroutine decomposition_initialize(force2D_decomp)
   use mpi ! Module incapsulates mpif.
   use vars
   implicit none
@@ -578,11 +699,11 @@ subroutine decomposition_initialize
   integer :: mpicode,idir,L,n
   integer,dimension(1:3) :: ka,kb,ks,kat,kbt,kst
   logical,dimension(2) :: subcart
+  logical, intent(in), optional :: force2D_decomp
   real(kind=pr),dimension(:,:),allocatable :: f,ft
 
   ! setup a few globals we need throughout the code. the most important information
   ! is the domain size
-  pi = 4.d0*datan(1.d0)
   ! the scaling factors are used to rescale the FFTs (which are defined on a 2*pi
   ! domain). this is important when computing derivatives.
   scalex = 2.d0*pi/xl
@@ -613,19 +734,36 @@ subroutine decomposition_initialize
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
   ! along the z direction in real space.
-  if (nz>mpisize.and.nx==1) then
-     mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
-     mpidims(2) = mpisize       ! 3rd index in real space.
-     decomposition="1D"
+  if (present(force2D_decomp)) then
+      if ((nz>mpisize.or.nx==1).and.(force2D_decomp.eqv..false.)) then
+        mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+        mpidims(2) = mpisize       ! 3rd index in real space.
+        decomposition="1D"
+      else
+        ! unfortunately, 2D data decomposition does not work with 2D code (nx==1)
+        mpidims = 0
+        call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
+        if(mpidims(1) > mpidims(2)) then
+          mpidims(1) = mpidims(2)
+          mpidims(2) = mpisize / mpidims(1)
+        endif
+        decomposition="2D"
+      endif
   else
-     ! unfortunately, 2D data decomposition does not work with 2D code (nx==1)
-     mpidims = 0
-     call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
-     if(mpidims(1) > mpidims(2)) then
-        mpidims(1) = mpidims(2)
-        mpidims(2) = mpisize / mpidims(1)
-     endif
-     decomposition="2D"
+      if (nz>mpisize.or.nx==1) then
+        mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+        mpidims(2) = mpisize       ! 3rd index in real space.
+        decomposition="1D"
+      else
+        ! unfortunately, 2D data decomposition does not work with 2D code (nx==1)
+        mpidims = 0
+        call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
+        if(mpidims(1) > mpidims(2)) then
+          mpidims(1) = mpidims(2)
+          mpidims(2) = mpisize / mpidims(1)
+        endif
+        decomposition="2D"
+      endif
   endif
 
   if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims
@@ -633,8 +771,7 @@ subroutine decomposition_initialize
 
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
-     print *, 'wrong mpidims: change mpisize'
-     call abort()
+     call abort(3333334,'wrong mpidims: change mpisize')
   endif
 
   !-- Set subdomain bounds
@@ -657,7 +794,7 @@ subroutine decomposition_initialize
   if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
     if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
     if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
-    call abort()
+    call abort(3334509, "Too many CPUs: the ghosts span more than one CPU")
   endif
 
   !-- Allocate domain partitioning tables and gather sizes from all processes
@@ -692,7 +829,7 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
 
   if(nx .le. 0 .or. ny .le. 0 .or. nz .le. 0) then
      print *,'Invalid dimensions :',nx,ny,nz
-     call abort()
+     call abort(333952, 'p3dfft_stub()::Invalid dimensions')
   endif
 
   mpicomm = mpi_comm_in
@@ -701,7 +838,7 @@ subroutine p3dfft_stub(dims_in,nx,ny,nz,mpi_comm_in,mpi_taskid,mpi_tasks,mpi_com
 
   if(dims_in(1) .le. 0 .or. dims_in(2) .le. 0 .or.  dims_in(1)*dims_in(2) .ne. numtasks) then
      print *,'Invalid processor geometry: ',dims,' for ',numtasks, 'tasks'
-     call abort()
+     call abort(333456, 'p3dfft_stub()::Invalid processor geometry')
   endif
 
   if(taskid .eq. 0) then

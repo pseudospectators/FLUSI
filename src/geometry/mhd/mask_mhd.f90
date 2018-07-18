@@ -17,9 +17,7 @@ subroutine create_mask_mhd()
         call smcnum_mask_mhd()
      case default
         if(mpirank == 0) then
-           write (*,*) &
-                "iMask not properly set for mhd in create_mask_mhd; stopping."
-           call abort()
+           call abort(12345, "iMask not properly set for mhd in create_mask_mhd; stopping.")
         endif
      end select
   endif
@@ -45,9 +43,7 @@ subroutine update_us_mhd()
         call smcnum_us_mhd()
      case default
         if(mpirank == 0) then
-           write (*,*) &
-                "iMask not properly set for mhd in update_us_mhd; stopping."
-           call abort()
+           call abort(12345, "iMask not properly set for mhd in update_us_mhd; stopping.")
         endif
      end select
   endif
@@ -553,25 +549,25 @@ subroutine smcnum_us_mhd()
 
      myi=0 ! iteration variable
 
-     call allocreal(usx)
-     call allocreal(usy)
-     call allocreal(usz)
+     allocate(usx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(usy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(usz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-     call allocreal(tusx)
-     call allocreal(tusy)
-     call allocreal(tusz)
+     allocate(tusx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(tusy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(tusz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-     call allocreal(s1x)
-     call allocreal(s1y)
-     call allocreal(s1z)
+     allocate(s1x(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(s1y(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(s1z(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-     call allocreal(s2x)
-     call allocreal(s2y)
-     call allocreal(s2z)
+     allocate(s2x(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(s2y(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+     allocate(s2z(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-     call alloccomplex(uskx)
-     call alloccomplex(usky)
-     call alloccomplex(uskz)
+     allocate(uskx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(usky(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
+     allocate(uskz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3)))
 
      keeponkeepingon=.true.
 
@@ -653,13 +649,13 @@ subroutine smcnum_us_mhd()
            if(myi > 1000000) then ! we've gone too far: abort
               write(*,*) myi," is too many iterations."
               keeponkeepingon= .false.
-              call abort
+              call abort( 12345, "is too many iterations")
            endif
            if(myi > 10 .and. error > 100.d0) then
               ! convergence isn't happening: abort
               write(*,*) "error is greater than 100; aborting due to instability"
               keeponkeepingon= .false.
-              call abort
+              call abort( 12345, "error is greater than 100; aborting due to instability")
            endif
         endif
         call MPI_BCAST(pseudodt,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)

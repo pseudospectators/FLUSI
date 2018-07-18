@@ -8,20 +8,24 @@
 #-------------------------------------------------------------------------------
 
 # what parameter file
-dir="fruitfly_mask_kineloader/"
-params="fruitfly_mask_kineloader/fruitfly_mask.ini"
-cp fruitfly_mask_kineloader/kinematics.ini ./
-cp fruitfly_mask_kineloader/data_kin.dat ./
+dir="insects_flow_FF_tethered/"
+params=${dir}"insect_test.ini"
+cp ${dir}kinematics.ini ./
 happy=0
 sad=0
 
 
 # list of prefixes the test generates
-prefixes=(mask usx usy usz)
+prefixes=(vorabs ux uy uz p mask usx usy usz)
 # list of possible times (no need to actually have them)
-times=(000000 000200 000400 000600 000800 001000 001200 001400 001600 001800 002000)
+times=(000000 000250 000500 000750 001000)
+
 # run actual test
-${mpi_command} ./flusi --dry-run ${params}
+${mpi_command} ./flusi ${params}
+
+rm kinematics.ini
+
+
 echo "============================"
 echo "run done, analyzing data now"
 echo "============================"
@@ -45,8 +49,8 @@ do
         # and compare them to the ones stored
         if [ -f $reffile ]; then
             ${mpi_serial} ./flusi --postprocess --compare-keys $keyfile $reffile
-            result=$?
-            if [ $result == "0" ]; then
+            result=$(cat return); rm -f return
+            if [ "$result" == "0" ]; then
               echo -e ":) Happy, this looks okay! " $keyfile $reffile
               happy=$((happy+1))
             else
@@ -67,10 +71,34 @@ do
   done
 done
 
-rm kinematics.ini data_kin.dat
+
+
+#-------------------------------------------------------------------------------
+#                               time series
+#-------------------------------------------------------------------------------
+
+files=(forces.t forces_part1.t forces_part2.t forces_part3.t kinematics.t energy.t)
+
+for file in ${files[@]}
+do
+  echo comparing $file time series...
+
+  ${mpi_serial} ./flusi --postprocess --compare-timeseries $file ${dir}/$file
+
+  result=$(cat return); rm -f return
+  if [ "$result" == "0" ]; then
+    echo -e ":) Happy, time series: this looks okay! " $file
+    happy=$((happy+1))
+  else
+    echo -e ":[ Sad, time series: this is failed! " $file
+    sad=$((sad+1))
+  fi
+done
+
 
 echo -e "\thappy tests: \t" $happy
 echo -e "\tsad tests: \t" $sad
+
 
 #-------------------------------------------------------------------------------
 #                               RETURN

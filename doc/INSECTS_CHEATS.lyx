@@ -1,0 +1,780 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\begin_preamble
+% the nextline provides the color Blue (Uppercase)
+% it is easier to read and less agressive
+\usepackage[usenames,dvipsnames]{xcolor}
+\usepackage{xcolor}         % Extended colors
+\usepackage{color}         % Color extended names
+
+
+\usepackage{etoolbox}
+\usepackage[numbers,sort&compress,square,comma]{natbib}
+\makeatletter
+\pretocmd{\NAT@open}{\begingroup\color{\@citecolor}}{}{}
+\apptocmd{\NAT@close}{\endgroup}{}{}
+\makeatother
+
+
+%http://www.tex.ac.uk/FAQ-floats.html
+\renewcommand{\topfraction}{.85}
+\renewcommand{\bottomfraction}{.7}
+\renewcommand{\textfraction}{.15}
+\renewcommand{\floatpagefraction}{.66}
+\renewcommand{\dbltopfraction}{.66}
+\renewcommand{\dblfloatpagefraction}{.66}
+\setcounter{topnumber}{9}
+\setcounter{bottomnumber}{9}
+\setcounter{totalnumber}{20}
+\setcounter{dbltopnumber}{9}
+\end_preamble
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing onehalf
+\use_hyperref true
+\pdf_bookmarks true
+\pdf_bookmarksnumbered false
+\pdf_bookmarksopen false
+\pdf_bookmarksopenlevel 1
+\pdf_breaklinks false
+\pdf_pdfborder true
+\pdf_colorlinks true
+\pdf_backref false
+\pdf_pdfusetitle true
+\pdf_quoted_options " linkcolor = blue,urlcolor  = blue,citecolor = blue,anchorcolor = blue,pdfauthor={Thomas Engels}"
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\topmargin 1.5cm
+\bottommargin 1.5cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation skip
+\defskip smallskip
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Insect Cheat Sheet
+\end_layout
+
+\begin_layout Standard
+\begin_inset Graphics
+	filename jerry_coordinate_systems.svg
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Angles:
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Tabular
+<lyxtabular version="3" rows="8" columns="2">
+<features booktabs="true" tabularvalignment="middle">
+<column alignment="center" valignment="top" width="0pt">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Symbol
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Name
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\alpha$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+wing feathering (Note this is NOT angle of attack)
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\theta$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+wing deviation
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\phi$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+wing flapping
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\eta$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+stroke plane angle, relative to body
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\beta$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+body pitch
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\gamma$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+body yaw
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+\begin_inset Formula $\psi$
+\end_inset
+
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+body roll
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Reynolds number:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+Re & =\frac{\bar{U}_{\mathrm{tip}}R}{\nu}=\frac{2\Phi fR\cdot c_{m}}{\nu}\\
+c_{m} & =A/R
+\end{align*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Rotation matrices
+\end_layout
+
+\begin_layout Standard
+For further reference, we use the following notation:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{eqnarray*}
+R_{x}\left(\xi\right)=\left(\begin{array}{ccc}
+1 & 0 & 0\\
+0 & \cos\xi & \sin\xi\\
+0 & -\sin\xi & \cos\xi
+\end{array}\right) & \quad & R_{y}\left(\xi\right)=\left(\begin{array}{ccc}
+\cos\xi & 0 & -\sin\xi\\
+0 & 1 & 0\\
+\sin\xi & 0 & \cos\xi
+\end{array}\right)\\
+R_{z}\left(\xi\right)=\left(\begin{array}{ccc}
+\cos\xi & \sin\xi & 0\\
+-\sin\xi & \cos\xi & 0\\
+0 & 0 & 1
+\end{array}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Body system
+\end_layout
+
+\begin_layout Standard
+We define the body system: the 
+\begin_inset Formula $x$
+\end_inset
+
+-axis points forward and the 
+\begin_inset Formula $z$
+\end_inset
+
+-axis points upward.
+ Therefore, in a right handed coordinate system, we have the 
+\begin_inset Formula $y$
+\end_inset
+
+-axis pointing to the left.
+ Therefore, as illustrated in the figure as well, note that positive rotation
+ results in:
+\end_layout
+
+\begin_layout Itemize
+around 
+\begin_inset Formula $x$
+\end_inset
+
+-axis (angle: 
+\begin_inset Formula $\psi$
+\end_inset
+
+) rolls to the right side
+\end_layout
+
+\begin_layout Itemize
+around 
+\begin_inset Formula $y$
+\end_inset
+
+-axis (angle: 
+\begin_inset Formula $\beta$
+\end_inset
+
+) pitches nose down
+\end_layout
+
+\begin_layout Itemize
+around 
+\begin_inset Formula $z$
+\end_inset
+
+-axis (angle: 
+\begin_inset Formula $\gamma$
+\end_inset
+
+) yaws to the right
+\end_layout
+
+\begin_layout Standard
+To get from global to body frame, we apply 
+\begin_inset Formula 
+\begin{align*}
+\underline{x}^{(b)} & =M_{\mathrm{body}}\left(\psi,\beta,\gamma\right)\left(\underline{x}^{(g)}-\underline{x}_{\mathrm{cntr}}^{(g)}\right)\\
+ & =R_{x}\left(\psi\right)R_{y}\left(\beta\right)R_{z}\left(\gamma\right)\underline{X}^{(g)}\\
+ & =\left(\begin{array}{ccc}
+1 & 0 & 0\\
+0 & \cos\psi & \sin\psi\\
+0 & -\sin\psi & \cos\psi
+\end{array}\right)\left(\begin{array}{ccc}
+\cos\beta & 0 & -\sin\beta\\
+0 & 1 & 0\\
+\sin\beta & 0 & \cos\beta
+\end{array}\right)\left(\begin{array}{ccc}
+\cos\gamma & \sin\gamma & 0\\
+-\sin\gamma & \cos\gamma & 0\\
+0 & 0 & 1
+\end{array}\right)\underline{X}^{(g)}\\
+ & =\left(\begin{array}{ccc}
+\cos(\beta)\cos(\gamma) & \cos(\beta)\sin(\gamma) & -\sin(\beta)\\
+\sin(\psi)\cos(\gamma)\sin(\beta)-\cos(\psi)\sin(\gamma) & \cos(\psi)\cos(\gamma)+\sin(\psi)\sin(\beta)\sin(\gamma) & \sin(\psi)\cos(\beta)\\
+\sin(\psi)\sin(\gamma)+\cos(\psi)\cos(\gamma)\sin(\beta) & \cos(\psi)\sin(\beta)\sin(\gamma)-\sin(\psi)\cos(\gamma) & \cos(\psi)\cos(\beta)
+\end{array}\right)\underline{X}^{(g)}
+\end{align*}
+
+\end_inset
+
+and the other way:
+\begin_inset Formula 
+\[
+\underline{x}^{(g)}=M_{body}^{-1}\underline{x}^{(b)}+\underline{x}_{cntr}^{(g)}
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+body angular velocity:
+\begin_inset Formula 
+\begin{eqnarray*}
+\underline{\Omega}_{b}^{(g)} & = & R_{z}^{-1}\left(\gamma\right)\left[\left(\begin{array}{c}
+0\\
+0\\
+\dot{\gamma}
+\end{array}\right)+R_{y}^{-1}\left(\beta\right)\left[\left(\begin{array}{c}
+0\\
+\dot{\beta}\\
+0
+\end{array}\right)+R_{x}^{-1}\left(\psi\right)\left(\begin{array}{c}
+\dot{\psi}\\
+0\\
+0
+\end{array}\right)\right]\right]=\left(\begin{array}{c}
+\dot{\psi}\cos(\beta)\cos(\gamma)-\dot{\beta}\sin(\gamma)\\
+\dot{\beta}\cos(\gamma)+\dot{\psi}\cos(\beta)\sin(\gamma)\\
+\dot{\gamma}-\dot{\psi}\sin(\beta)
+\end{array}\right)\\
+\underline{\Omega}_{b}^{(b)} & = & M_{\mathrm{body}}\:\Omega_{b}^{(g)}=\left(\begin{array}{c}
+\dot{\psi}-\dot{\gamma}\sin(\beta)\\
+\dot{\beta}\cos(\psi)+\dot{\gamma}\cos(\beta)\sin(\psi)\\
+\dot{\gamma}\cos(\beta)\cos(\psi)-\dot{\beta}\sin(\psi)
+\end{array}\right)
+\end{eqnarray*}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+body angular acceleration
+\begin_inset Formula 
+\[
+\frac{d}{dt}\underline{\Omega}_{b}^{(g)}=\left(\begin{array}{c}
+\cos(\beta)\cos(\gamma)\ddot{\psi}-\sin(\gamma)\ddot{\beta}-\dot{\beta}\dot{\gamma}\cos(\gamma)-\dot{\beta}\dot{\psi}\cos(\gamma)\sin(\beta)-\dot{\gamma}\dot{\psi}\cos(\beta)\sin(\gamma)\\
+\cos(\gamma)\ddot{\beta}+\cos(\beta)\sin(\gamma)\ddot{\psi}-\dot{\beta}\dot{\gamma}\sin(\gamma)+\dot{\gamma}\dot{\psi}\cos(\beta)\cos(\gamma)-\dot{\beta}\dot{\psi}\sin(\beta)\sin(\gamma)\\
+\ddot{\gamma}-\sin(\beta)\ddot{\psi}-\dot{\beta}\dot{\psi}\cos(\beta)
+\end{array}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+body velocity field
+\begin_inset Formula 
+\[
+\underline{u}_{b}^{(g)}=\underline{u}_{\mathrm{cntr}}^{(g)}+M_{\mathrm{body}}^{-1}\left(\underline{\Omega}_{b}^{(b)}\times\underline{x}^{(b)}\right)
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Stroke plane
+\end_layout
+
+\begin_layout Standard
+we use the anatomical stoke plane angle 
+\begin_inset Formula $\eta$
+\end_inset
+
+, thus the global (with respect to vertical) is 
+\begin_inset Formula $\eta_{0}=\eta+\beta$
+\end_inset
+
+ or the complement angle 
+\begin_inset Formula $\eta_{1}=90^{\circ}-\eta-\beta$
+\end_inset
+
+.
+ In hovering, where 
+\begin_inset Formula $\beta\neq0$
+\end_inset
+
+, and with a perfectly horizontal stroke plane we have 
+\begin_inset Formula $\eta_{1}=180^{\circ}$
+\end_inset
+
+ and thus 
+\begin_inset Formula $\eta=-\left(\beta+90^{\circ}\right)$
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Wing System
+\end_layout
+
+\begin_layout Standard
+We define the wing coordinate system: the 
+\begin_inset Formula $y$
+\end_inset
+
+-axis is the span and points root-tip.
+ The 
+\begin_inset Formula $x$
+\end_inset
+
+-axis is the chord and points forward.
+ Then, by consequence, 
+\begin_inset Formula $z$
+\end_inset
+
+-axis points down for right wing and up for left wing.
+\end_layout
+
+\begin_layout Standard
+Internally, flusi always uses mathematically positive rotation for ALL angles.
+ We can change the sign of the deviation angle, as given in the SISC paper,
+ in the wing kinematics INI file.
+\end_layout
+
+\begin_layout Standard
+To get to the wing system we have
+\begin_inset Formula 
+\begin{align*}
+\underline{x}^{(w)} & ={\color{red}M_{\mathrm{wing}}}M_{\mathrm{stroke}}\left(\underline{x}^{(b)}-\underline{x}_{\mathrm{pivot}}^{(b)}\right)\\
+ & ={\color{red}M_{\mathrm{wing}}}M_{\mathrm{stroke}}M_{body}\left(\underline{x}^{(g)}-\underline{x}_{pivot}^{(g)}\right)\\
+ & \overset{\mathrm{left}}{=}\left({\color{red}R_{y}\left(\alpha\right)R_{z}\left(+\theta\right)R_{x}\left(\phi\right)}R_{y}\left(\eta\right)R_{x}\left(\psi\right)R_{y}\left(\beta\right)R_{z}\left(\gamma\right)\right)\underline{X}^{(g)}\\
+ & \overset{\mathrm{right}}{=}\left({\color{red}R_{y}\left(-\alpha\right)R_{z}\left(+\theta\right)R_{x}\left(-\phi\right)}R_{x}\left(\pi\right)R_{y}\left(\eta\right)R_{x}\left(\psi\right)R_{y}\left(\beta\right)R_{z}\left(\gamma\right)\right)\underline{X}^{(g)}
+\end{align*}
+
+\end_inset
+
+thus
+\begin_inset Formula 
+\[
+\begin{aligned}M_{\mathrm{stroke,l}} & =R_{y}\left(\eta\right) & M_{\mathrm{stroke,r}} & =R_{x}\left(\pi\right)R_{y}\left(\eta\right)\\
+M_{\mathrm{wing,l}} & =R_{y}\left(\alpha\right)R_{z}\left(\pm\theta\right)R_{x}\left(\phi\right) & M_{\mathrm{wing,r}} & =R_{y}\left(-\alpha\right)R_{z}\left(\pm\theta\right)R_{x}\left(-\phi\right)
+\end{aligned}
+\]
+
+\end_inset
+
+The angular velocity was defined as 
+\begin_inset Formula 
+\begin{eqnarray*}
+\underline{\Omega}_{wr}^{(b)} & = & M_{\mathrm{stroke,r}}^{-1}\left(R_{x}^{-1}\left(\phi\right)\left[\left(\begin{array}{c}
+\dot{\phi}\\
+0\\
+0
+\end{array}\right)+R_{z}^{-1}\left(\theta\right)\left(\left(\begin{array}{c}
+0\\
+0\\
+\dot{\theta}
+\end{array}\right)+R_{y}^{-1}\left(\alpha\right)\left(\begin{array}{c}
+0\\
+\dot{\alpha}\\
+0
+\end{array}\right)\right)\right]\right)\\
+\underline{\Omega}_{wl}^{(b)} & = & M_{\mathrm{stroke,l}}^{-1}\left(R_{x}^{-1}\left(\phi\right)\left[\left(\begin{array}{c}
+-\dot{\phi}\\
+0\\
+0
+\end{array}\right)+R_{z}^{-1}\left(\theta\right)\left(\left(\begin{array}{c}
+0\\
+0\\
+\dot{\theta}
+\end{array}\right)+R_{y}^{-1}\left(\alpha\right)\left(\begin{array}{c}
+0\\
+-\dot{\alpha}\\
+0
+\end{array}\right)\right)\right]\right)\\
+\\
+\underline{\Omega}_{w}^{(w)} & = & M_{\mathrm{wing}}\:\underline{\Omega}_{w}^{(b)}
+\end{eqnarray*}
+
+\end_inset
+
+which simplifies to
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\begin{align*}
+\underline{\Omega}_{wl}^{(b)} & =\left(\begin{array}{c}
+\dot{\phi}\cos(\eta)-\dot{\alpha}\sin(\theta)\cos(\eta)+\dot{\theta}\cos(\phi)\sin(\eta)+\dot{\alpha}\cos(\theta)\sin(\phi)\sin(\eta)\\
+\dot{\alpha}\cos(\phi)\cos(\theta)-\dot{\theta}\sin(\phi)\\
+\dot{\theta}\cos(\phi)\cos(\eta)-\dot{\phi}\sin(\eta)+\dot{\alpha}\sin(\theta)\sin(\eta)+\dot{\alpha}\cos(\theta)\sin(\phi)\cos(\eta)
+\end{array}\right)\\
+\underline{\Omega}_{wl}^{(w)} & =\left(\begin{array}{c}
+\dot{\phi}\cos(\alpha)\cos(\theta)-\dot{\theta}\sin(\alpha)\\
+\dot{\alpha}-\dot{\phi}\sin(\theta)\\
+\dot{\theta}\cos(\alpha)+\dot{\phi}\sin(\alpha)\cos(\theta)
+\end{array}\right)
+\end{align*}
+
+\end_inset
+
+wing solid body velocity
+\begin_inset Formula 
+\begin{eqnarray}
+\underline{u}_{w}^{(w)} & = & \underline{\Omega}_{w}^{(w)}\times\underline{x}^{(w)}\nonumber \\
+\underline{u}_{w}^{(g)} & = & M_{\mathrm{body}}^{-1}\;M_{\mathrm{wing}}^{-1}\;M_{\mathrm{stroke}}^{-1}\;\underline{u}_{w}^{(w)}.\label{eq:wing_velocity_field}
+\end{eqnarray}
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section*
+Wing corrugation
+\end_layout
+
+\begin_layout Standard
+If the wing is corrugated (that means any deviation from a flat plate, 
+\begin_inset Formula $z=z(x^{(w)},y^{(w)})$
+\end_inset
+
+) or has variable thickness 
+\begin_inset Formula $t(x^{(w)},y^{(w)})$
+\end_inset
+
+, a matrix is read from the ini-file for the wing (this is a new feature!).
+ This matrix is interpreted as 
+\begin_inset Formula $x^{(w)}$
+\end_inset
+
+, 
+\begin_inset Formula $y^{(w)}$
+\end_inset
+
+ values, with its bounds inside the wing shape bounding box, which is the
+ dashed line below in the figure below
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align center
+\begin_inset Graphics
+	filename jerry_corrugation.svg
+	lyxscale 300
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The ini files parser reads from top to bottom and from right to left, e.g.
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+wing_thickness_profile=(/0.1 0.5
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+0.2 0.6
+\end_layout
+
+\begin_layout Standard
+
+\family typewriter
+0.3 0.7/);
+\end_layout
+
+\begin_layout Standard
+is indeed read into a matrix
+\begin_inset Formula 
+\[
+t=\left(\begin{array}{cc}
+0.1 & 0.5\\
+0.2 & 0.6\\
+0.3 & 0.7
+\end{array}\right)
+\]
+
+\end_inset
+
+Note the bounding box does not include the part at the wing root, where
+ no wing exists (in the gap), since we'd just set zeros anyways, which is
+ not incredible useful.
+ 
+\end_layout
+
+\begin_layout Standard
+The matrix is interpreted as 
+\begin_inset Formula $t(ix,iy)$
+\end_inset
+
+ data, so lines (1st index) are x-direction and columns (2nd index) are
+ y direction.
+\end_layout
+
+\end_body
+\end_document

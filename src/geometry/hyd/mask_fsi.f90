@@ -1,6 +1,5 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions
 subroutine create_mask_fsi (time, Insect, beams )
-  use mpi
   use vars
   use solid_model
   use insect_module
@@ -19,8 +18,10 @@ subroutine create_mask_fsi (time, Insect, beams )
   if (iPenalization==1) then
     ! Actual mask functions:
     select case (iMask)
+    case ("active_grid")
+      call draw_active_grid_winglets(time, mask, mask_color, us)
     case ("fractal_tree")
-      call Draw_fractal_tree()
+      call Draw_fractal_tree(Insect, mask, mask_color, us)
     case ("floor_yz","floor_zy","flooryz","floorzy")
       call Draw_floor_yz()
     case ("sphere","Sphere")
@@ -29,6 +30,8 @@ subroutine create_mask_fsi (time, Insect, beams )
       call Draw_cylinder_x()
     case ("moving_cylinder","moving_cylinder_x")
       call Draw_moving_cylinder_x(time)
+    case ("cylinder_asym_z")
+      call Draw_cylinder_asym_z()
     case ("romain_open_cavity")
       call romain_open_cavity()
     case ("Flapper")
@@ -68,6 +71,8 @@ subroutine create_mask_fsi (time, Insect, beams )
           us(:,:,:,1) = us_fixed(1)
           us(:,:,:,2) = us_fixed(2)
           us(:,:,:,3) = us_fixed(3)
+          ! set color to 1
+          mask_color = 1
         else
           ! since we divide by eps later, in the main wrapper for mask, we multiply
           ! here first..
@@ -76,7 +81,7 @@ subroutine create_mask_fsi (time, Insect, beams )
       else
         ! no known case...
         write (*,*) "iMask="//iMask//" not properly set; stopping."
-        call abort(33)
+        call abort(3333, "create_mask_fsi(): unkown mask function iMask")
       endif
     end select
   endif

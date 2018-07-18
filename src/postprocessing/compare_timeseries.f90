@@ -34,8 +34,10 @@ subroutine compare_timeseries(help)
   ! how many colums are in the *.t file?
   !-----------------------------------------------------------------------------
   open  (14, file = file1, status = 'unknown', action='read')
-  read (14,'(A)') header
-  read (14,'(A)') line
+  read (14,'(A)', iostat=io_error) header
+  read (14,'(A)', iostat=io_error) line
+  if (io_error /= 0) call abort(107712,'I/O error in ascii file (Maybe empty?)')
+
   columns=1
   do i=2,len_trim(line)
     if ((line(i:i)==" ").and.(line(i+1:i+1)/=" ")) columns=columns+1
@@ -45,9 +47,11 @@ subroutine compare_timeseries(help)
   !-----------------------------------------------------------------------------
   ! how many colums are in the second *.t file?
   !-----------------------------------------------------------------------------
-  open  (14, file = file1, status = 'unknown', action='read')
-  read (14,'(A)') header
-  read (14,'(A)') line
+  open  (14, file = file2, status = 'unknown', action='read')
+  read (14,'(A)', iostat=io_error) header
+  read (14,'(A)', iostat=io_error) line
+  if (io_error /= 0) call abort(107712,'I/O error in ascii file (Maybe empty?)')
+
   columns2=1
   do i=2,len_trim(line)
     if ((line(i:i)==" ").and.(line(i+1:i+1)/=" ")) columns2=columns2+1
@@ -57,7 +61,16 @@ subroutine compare_timeseries(help)
   if(columns/=columns2) then
     write(*,*) "trying to compare two t files with different #columns..."
     call MPI_FINALIZE(mpicode)
-    call exit(666)
+
+    ! on some machines, returning an exit code (exit(1)) does not work
+    ! so write your exit code in a small txt file as well. this allows unit tests
+    ! on turing.
+    if (root) then
+      open (15, file='return', status='replace')
+      write(15,'(i1)') 1
+      close(15)
+    endif
+    call exit(1)
   endif
 
   write(format,'("(",i2.2,"(es15.8,1x))")') columns
@@ -81,7 +94,7 @@ subroutine compare_timeseries(help)
     do i=1,columns
       diff = values1(i)-values2(i)
       ! ignore values smaller 1e-4 in ref file
-      if ((dabs(values2(i))>1.d-4).and.(diff>1.d-7)) then
+      if ((dabs(values2(i))>1.d-4).and.(dabs(diff)>1.d-7)) then
         error(i) = dabs(diff/values2(i))
       else
         error(i) = 0.0
@@ -90,14 +103,27 @@ subroutine compare_timeseries(help)
 
     if (maxval(error)>1.d-4) then
       write(*,*) "time series comparison failed..."
+      write(*,'(A)') header
       write(*,format) values1
       write(*,format) values2
       write(*,format) error
       call MPI_FINALIZE(mpicode)
-      call exit(666)
+
+      ! on some machines, returning an exit code (exit(1)) does not work
+      ! so write your exit code in a small txt file as well. this allows unit tests
+      ! on turing.
+      if (root) then
+        open (15, file='return', status='replace')
+        write(15,'(i1)') 1
+        close(15)
+      endif
+
+      call exit(1)
     endif
   enddo
   close (20)
   close (30)
   deallocate (values1,values2,error)
+
+
 end subroutine compare_timeseries

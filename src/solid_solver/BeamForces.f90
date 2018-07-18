@@ -12,7 +12,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
   real(kind=pr) :: psi,gamma,tmp,tmp2,psi_dt,beta_dt,gamma_dt,beta
 
   real(kind=pr),dimension(1:3) :: x, x_plate, x0_plate
-  real(kind=pr),dimension(1:3) :: u_tmp,rot_body,v_tmp,v0_plate
+  real(kind=pr),dimension(1:3) :: u_tmp,rot_body_b,v_tmp,v0_plate
   real(kind=pr),dimension(1:3,1:3) :: M_plate
   integer :: nh,is,ih,isurf,mpicode
   t0 = MPI_wtime()
@@ -46,7 +46,8 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
       do isurf=1,2
         x = surfaces(is,ih,isurf,1:3)
         if (interp=='linear') then
-          call trilinear_interp_ghosts( x, p, p_surface_local(is,ih,isurf))
+           p_surface_local(is,ih,isurf) = trilinear_interp((/dble(ga(1))*dx, dble(ga(2))*dy, dble(ga(3))*dz/), &
+           (/dx,dy,dz/), p, x, .false. )
         elseif (interp=='delta') then
           call delta_interpolation( x, p, p_surface_local(is,ih,isurf))
         endif

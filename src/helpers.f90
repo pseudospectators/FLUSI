@@ -1,5 +1,6 @@
 module helpers
-  use vars
+  use vars, only: strlen, pr
+  use mpi
   implicit none
 
   ! module global variables
@@ -62,7 +63,6 @@ contains
   ! a valid example is x=(0:N-1)/N
   !-------------------------------------------------------------------------------
   subroutine hermite_eval(time,u,u_dt,ai,bi)
-    use vars
     implicit none
 
     real(kind=pr), intent(in) :: time
@@ -104,8 +104,6 @@ contains
 
 
   function mpisum( a )
-    use mpi
-    use vars
     implicit none
     real(kind=pr) :: a_loc, mpisum
     real(kind=pr),intent(in) :: a
@@ -115,8 +113,6 @@ contains
   end function
 
   function mpimax( a )
-    use mpi
-    use vars
     implicit none
     real(kind=pr) :: a_loc, mpimax
     real(kind=pr),intent(in) :: a
@@ -126,8 +122,6 @@ contains
   end function
 
   function mpimin( a )
-    use mpi
-    use vars
     implicit none
     real(kind=pr) :: a_loc, mpimin
     real(kind=pr),intent(in) :: a

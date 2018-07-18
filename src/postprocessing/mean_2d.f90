@@ -40,7 +40,7 @@ subroutine mean_2d(help)
     ! the reason for this is simplicity. if the y-z direction is nonlocal in memory
     ! the avg is more complicated. only the x direction is always contiguous.
     ! Plus: this acts on one field only, and it usually fits in the memory.
-    call abort("./flusi --postprocess --mean-2D is a SERIAL routine, use 1CPU only")
+    call abort(4343,"./flusi --postprocess --mean-2D is a SERIAL routine, use 1CPU only")
   endif
 
   call get_command_argument(3,direction)
@@ -52,7 +52,7 @@ subroutine mean_2d(help)
   write(*,*) "infile="//trim(adjustl(infile))
   write(*,*) "outfile="//trim(adjustl(outfile))
 
-  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
 
@@ -146,7 +146,7 @@ subroutine mean_2d(help)
       enddo
       close(17)
   case default
-      call abort("Bad choice for direction "//trim(adjustl(direction)) )
+      call abort(131013,"Bad choice for direction "//trim(adjustl(direction)) )
   end select
 
   deallocate (u)

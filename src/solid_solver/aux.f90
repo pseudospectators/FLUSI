@@ -21,14 +21,14 @@ subroutine Solve_linear_system ( A, b, x )
   call dgetrf( nn, nn, A , nn, ipiv, error )
   if (error .ne. 0) then
     write(*,*) "!!! mmCrutial: dgetrf error.", error ,nn
-    call abort(92)
+    call abort(92, "Error in solve liner system (dgetrf)")
   endif
 
   x = b
   call dgetrs( 'N', nn, 1, A, nn, ipiv, x, nn, error )
   if (error .ne. 0) then
     write(*,*) "!!! mmCrutial: dgetrs error.", error ,nn
-    call abort(93)
+    call abort(93, "Error in solve liner system (dgetrs)")
   endif
 
   time_LAPACK = time_LAPACK + MPI_wtime() - t0
@@ -95,8 +95,7 @@ subroutine Differentiate1D (f, f_derivative, N, dx, order)
     case(4)
       f_derivative = matmul(D4,f)
     case default
-      if (root) write(*,*) "Differentiate1D wrong choice"
-      call abort(95)
+      call abort(95, "Differentiate1D wrong choice")
   end select
 
 end subroutine Differentiate1D
@@ -309,7 +308,7 @@ subroutine show_beam_on_error( beam )
      ) then
 
      call show_beam( beam )
-     call abort()
+     call abort(171717, "Show beam on error lets flusi quit here.")
   endif
 end subroutine show_beam_on_error
 
@@ -358,8 +357,7 @@ subroutine lapack_unit_test()
 
   err = maxval( x - b )
   if ( err>1.d-12 ) then
-    write (*,*) "LAPACK unit test failed"
-    call abort(96)
+    call abort(96, "LAPACK unit test failed" )
   endif
 
   if (root) write(*,'(" Done. err=",es15.8)') err
@@ -510,8 +508,7 @@ subroutine read_solid_backup_binary( beams, filename )
   if (root) write(*,'("(time=",e11.4,")")',advance='no') time
 
   if ((ns_file/=ns).or.(nBeams_file/=nBeams)) then
-    write(*,*) "Cant retake solid backup: resolution ns or beam number doesnt match"
-    call abort(98)
+    call abort(98, "Cant resume solid backup: resolution ns or beam number doesnt match")
   endif
 
   do i =1, nBeams

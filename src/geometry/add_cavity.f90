@@ -11,7 +11,7 @@ subroutine add_cavity()
   use penalization ! mask array etc
   implicit none
   integer :: ix,iy,iz
-  real(kind=pr) :: ux,uy,uz
+  real(kind=pr) :: ux,uy,uz, x,y,z, tmp
 
   ux = 0.d0
   uy = 0.d0
@@ -22,39 +22,90 @@ subroutine add_cavity()
     ux = 0.d0
     uy = 0.d0
     uz = 0.d0
-  elseif (iCavity=="freestream") then
+  elseif (iCavity=="freestream".or. iCavity=="freestream_smooth") then
     ! cavity to force free stream inflow
     ux = uxmean
     uy = uymean
     uz = uzmean
   endif
 
-  do iz = ra(3), rb(3)
-    do iy = ra(2), rb(2)
-      do ix = ra(1), rb(1)
-        if (nx>1) then
-          if ((ix<=cavity_size-1).or.(ix>=nx-1-cavity_size+1)) then
+  if (iCavity=="freestream_smooth") then
+    ! this is a smooth cavity, with a smoothing layer that is not small, but extends
+    ! over half the width "thick_wall" of the cavity. As for the other freestream cavity,
+    ! it is not really a cavity in the sense that it is surronded by solid walls, but rather
+    ! enforces the free-flow conditions "at infinity" which is just mean flow. Its particular
+    ! smooth shape is for comparison with the artificial compressibility method, where we use
+    ! this to minimize the reflection of pressure waves.
+    if (nx>1) then
+      !-----3D-----
+      do iz = ra(3), rb(3)
+        z = dble(iz) * zl / dble(nz)
+        do iy = ra(2), rb(2)
+          y = dble(iy) * yl / dble(ny)
+          do ix = ra(1), rb(1)
+            x = dble(ix) * xl / dble(nx)
+            ! distance to borders of domain
+            tmp = minval( (/x,y,z,-(x-xl),-(y-yl),-(z-zl)/) )
+            if (tmp < thick_wall) then
+              call smoothstep(mask(ix,iy,iz), tmp, 0.5_pr*thick_wall, 0.5_pr*thick_wall)
+              us(ix,iy,iz,1:3) = (/ux,uy,uz/)
+              ! external boxes have color 0 (important for forces)
+              mask_color(ix,iy,iz) = 0
+            endif
+          enddo
+        enddo
+      enddo
+    else
+      !-----2D-----
+      do iz = ra(3), rb(3)
+        z = dble(iz) * zl / dble(nz)
+        do iy = ra(2), rb(2)
+          y = dble(iy) * yl / dble(ny)
+          ! distance to borders of domain
+          tmp = minval( (/z,y,-(z-zl),-(y-yl)/) )
+          if (tmp < thick_wall) then
+            call smoothstep(mask(0,iy,iz), tmp, 0.5_pr*thick_wall, 0.5_pr*thick_wall)
+            us(0,iy,iz,1:3) = (/ux,uy,uz/)
+            ! external boxes have color 0 (important for forces)
+            mask_color(0,iy,iz) = 0
+          endif
+
+        enddo
+      enddo
+    endif
+
+  !!!!
+  else
+  !!!!
+
+    ! non-smooth cavity for free stream or solid walls.
+    do iz = ra(3), rb(3)
+      do iy = ra(2), rb(2)
+        do ix = ra(1), rb(1)
+          if (nx>1) then
+            if ((ix<=cavity_size-1).or.(ix>=nx-1-cavity_size+1)) then
+              mask(ix,iy,iz) = 1.d0
+              us(ix,iy,iz,:) = (/ux,uy,uz/)
+              ! external boxes have color 0 (important for forces)
+              mask_color(ix,iy,iz) = 0
+            endif
+          endif
+          if ((iy<=cavity_size-1).or.(iy>=ny-1-cavity_size+1)) then
             mask(ix,iy,iz) = 1.d0
             us(ix,iy,iz,:) = (/ux,uy,uz/)
             ! external boxes have color 0 (important for forces)
             mask_color(ix,iy,iz) = 0
           endif
-        endif
-        if ((iy<=cavity_size-1).or.(iy>=ny-1-cavity_size+1)) then
-          mask(ix,iy,iz) = 1.d0
-          us(ix,iy,iz,:) = (/ux,uy,uz/)
-          ! external boxes have color 0 (important for forces)
-          mask_color(ix,iy,iz) = 0
-        endif
 
-        if ((iz<=cavity_size-1).or.(iz>=nz-1-cavity_size+1)) then
-          mask(ix,iy,iz) = 1.d0
-          us(ix,iy,iz,:) = (/ux,uy,uz/)
-          ! external boxes have color 0 (important for forces)
-          mask_color(ix,iy,iz) = 0
-        endif
+          if ((iz<=cavity_size-1).or.(iz>=nz-1-cavity_size+1)) then
+            mask(ix,iy,iz) = 1.d0
+            us(ix,iy,iz,:) = (/ux,uy,uz/)
+            ! external boxes have color 0 (important for forces)
+            mask_color(ix,iy,iz) = 0
+          endif
+        enddo
       enddo
     enddo
-  enddo
+  endif
 
 end subroutine Add_Cavity

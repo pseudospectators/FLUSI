@@ -41,7 +41,7 @@ subroutine energy_post(help)
   if (mpirank==0) write(*,*) trim(adjustl(fname_ux))//" "//trim(adjustl(fname_uy))//" "//trim(adjustl(fname_uz))
   if (mpirank==0) write(*,*) "Outfile="//trim(adjustl(outfile))
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   ! initialize code and domain decomposition, but do not use FFTs
   call decomposition_initialize()

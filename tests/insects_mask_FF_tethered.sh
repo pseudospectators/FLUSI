@@ -8,8 +8,9 @@
 #-------------------------------------------------------------------------------
 
 # what parameter file
-dir="bumblebee_mask/"
-params="bumblebee_mask/fruitfly_mask.ini"
+dir="insects_mask_FF_tethered/"
+params=${dir}"insect_test.ini"
+cp ${dir}kinematics.ini ./
 happy=0
 sad=0
 
@@ -17,7 +18,7 @@ sad=0
 # list of prefixes the test generates
 prefixes=(mask usx usy usz)
 # list of possible times (no need to actually have them)
-times=(000000 000750 001500)
+times=(000000 000250 000500 000750 001000)
 # run actual test
 ${mpi_command} ./flusi --dry-run ${params}
 echo "============================"
@@ -43,8 +44,8 @@ do
         # and compare them to the ones stored
         if [ -f $reffile ]; then
             ${mpi_serial} ./flusi --postprocess --compare-keys $keyfile $reffile
-            result=$?
-            if [ $result == "0" ]; then
+            result=$(cat return); rm -f return
+            if [ "$result" == "0" ]; then
               echo -e ":) Happy, this looks okay! " $keyfile $reffile
               happy=$((happy+1))
             else
@@ -64,6 +65,29 @@ do
 
   done
 done
+
+rm kinematics.ini
+
+
+#-------------------------------------------------------------------------------
+#                               time series
+#-------------------------------------------------------------------------------
+
+file=kinematics.dry-run.t
+
+  echo comparing $file time series...
+
+  ${mpi_serial} ./flusi --postprocess --compare-timeseries $file $dir/$file
+
+  result=$(cat return); rm -f return
+  if [ "$result" == "0" ]; then
+    echo -e ":) Happy, time series: this looks okay! " $file
+    happy=$((happy+1))
+  else
+    echo -e ":[ Sad, time series: this is failed! " $file
+    sad=$((sad+1))
+  fi
+
 
 
 

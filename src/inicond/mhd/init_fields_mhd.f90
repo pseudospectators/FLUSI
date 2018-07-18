@@ -58,11 +58,7 @@ subroutine init_fields_mhd(time,it,dt0,dt1,n0,n1,ubk,nlk,wj,explin)
         call read_runtime_backup(inicond(9:len(inicond)),&
              time,dt0,dt1,n1,it,ubk,nlk,explin,wj(:,:,:,1))
      else
-        if (mpirank==0) then
-           write (*,*) inicond
-           write (*,*) '??? ERROR: Invalid initial condition'
-        endif
-        call abort
+        call abort(3345, 'ERROR: Invalid initial condition'//trim(adjustl(inicond)))
      endif
 end select
 

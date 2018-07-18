@@ -125,14 +125,25 @@ program mhd
 
   ! Allocate memory:
   allocate(ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq))
-  call allocrealnd(ub)
-  call allocrealnd(wj)
+  allocate(ub(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  allocate(wj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
   allocate(nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1))
   allocate(explin(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf))
   allocate(workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw))
   allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
-  call allocreal(mask)
-  call allocrealnd(us)
+  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+
+  ! HACK HACK On newer intel compilers with array bounds checks (i.e. ifort -CB)
+  ! passing unallocated arrays to suborutines causes errors (although these
+  ! arrays are of course unused). So for the intel ifort compiler, we allocate
+  ! always one scalar.
+#ifdef IFORT
+  n_scalars = 1
+  if(mpirank==0) write(*,*) "scalar module is in use: allocate additional memory (IFORT EXCEPTION)"
+  allocate(scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars))
+  allocate(scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1))
+#endif
 
   ! Check if at least FFT works okay
   call fft_unit_test(ub(:,:,:,1),ubk(:,:,:,1))

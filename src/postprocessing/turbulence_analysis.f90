@@ -15,7 +15,7 @@ subroutine turbulence_analysis(help)
   complex(kind=pr),dimension(:,:,:,:),allocatable :: uk,vork
   real(kind=pr),dimension(:,:,:,:),allocatable :: u, vor
   real(kind=pr) :: time, epsilon_loc, epsilon, fact, E, u_rms,lambda_macro,lambda_micro
-  real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(:), allocatable :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec
   integer :: ix,iy,iz, mpicode
   real(kind=pr)::kx,ky,kz,kreal
 
@@ -29,6 +29,8 @@ subroutine turbulence_analysis(help)
     return
   endif
 
+  neq = 3
+  nd = 3
 
   call get_command_argument(3,fname_ux)
   call get_command_argument(4,fname_uy)
@@ -41,12 +43,6 @@ subroutine turbulence_analysis(help)
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-    write (*,*) "Error in arguments, files do not start with ux uy and uz"
-    write (*,*) "note files have to be in the right order"
-    call abort()
-  endif
-
   if(mpirank==0) then
     write(*,*) " OUTPUT will be written to "//trim(adjustl(outfile))
     open(17,file=trim(adjustl(outfile)),status='replace')
@@ -58,15 +54,15 @@ subroutine turbulence_analysis(help)
     write(17,'(A)') "-----------------------------------"
   endif
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
-  
+
   allocate(u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
   allocate(vor(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:3))
   allocate(vork(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3))
-  allocate(S_Ekinx(0:nx-1),S_Ekiny(0:nx-1),S_Ekinz(0:nx-1),S_Ekin(0:nx-1))
+  allocate(S_Ekinx(0:nx-1),S_Ekiny(0:nx-1),S_Ekinz(0:nx-1),S_Ekin(0:nx-1),kvec(0:nx-1))
 
   call read_single_file ( fname_ux, u(:,:,:,1) )
   call read_single_file ( fname_uy, u(:,:,:,2) )
@@ -77,44 +73,15 @@ subroutine turbulence_analysis(help)
   call ifft3 (ink=vork,outx=vor)
 
   ! compute spectrum
-  call compute_spectrum( time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
+  call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
   !-----------------------------------------------------------------------------
   ! dissipation rate from velocity in Fourier space
   !-----------------------------------------------------------------------------
-  do iz=ca(1),cb(1)
-    kz=wave_z(iz)
-    do iy=ca(2),cb(2)
-      ky=wave_y(iy)
-      do ix=ca(3),cb(3)
-        kx=wave_x(ix)
-        kreal = ( (kx*kx)+(ky*ky)+(kz*kz) )
-
-        if ( ix==0 .or. ix==nx/2 ) then
-          E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
-          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
-          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
-        else
-          E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
-          +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
-          +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
-        endif
-
-        epsilon_loc = epsilon_loc + kreal * E
-      enddo
-    enddo
-  enddo
-
-  epsilon_loc = 2.d0 * nu * epsilon_loc
-
-  call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-  MPI_COMM_WORLD,mpicode)
-
+  call dissipation_rate(uk, epsilon)
   if (mpirank==0) then
     write(17,'(g15.8,5x,A)') epsilon, "Dissipation rate from velocity in Fourier space"
   endif
-
-
 
   !-----------------------------------------------------------------------------
   ! dissipation rate from vorticty
@@ -182,10 +149,10 @@ subroutine turbulence_analysis(help)
     do ix = 1,nx-1
       lambda_macro = lambda_macro + pi/(2.d0*u_rms**2) * S_Ekin(ix) / dble(ix)
     enddo
-    write(17,'(g15.8,5x,A)') lambda_micro, "taylor micro scale"
-    write(17,'(g15.8,5x,A)') lambda_macro, "taylor macro scale"
-    write(17,'(g15.8,5x,A)') u_rms*lambda_macro/nu, "Renolds taylor macro scale"
-    write(17,'(g15.8,5x,A)') u_rms*lambda_micro/nu, "Renolds taylor micro scale"
+    write(17,'(g15.8,5x,A)') lambda_micro, "Taylor micro scale"
+    write(17,'(g15.8,5x,A)') lambda_macro, "Taylor macro scale"
+    write(17,'(g15.8,5x,A)') u_rms*lambda_macro/nu, "Reynolds Taylor macro scale"
+    write(17,'(g15.8,5x,A)') u_rms*lambda_micro/nu, "Reynolds Taylor micro scale"
     write(17,'(g15.8,5x,A)') lambda_macro/u_rms, "eddy turnover time"
     write(17,'(g15.8,5x,A)') (2./3.)*(dble(nx/2-1)), "kmax"
     write(17,'(g15.8,5x,A)') (2./3.)*(dble(nx/2-1))*(nu**3 / epsilon)**(0.25d0), "kmax*eta"
@@ -195,7 +162,7 @@ subroutine turbulence_analysis(help)
 
   deallocate (u,vor,vork)
   deallocate (uk)
-  deallocate (S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+  deallocate (S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec)
   call fft_free()
 
 end subroutine turbulence_analysis

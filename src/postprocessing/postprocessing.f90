@@ -37,8 +37,28 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
-  case ("--extend-domain")
-    call extend_domain(help)
+  case ("--divergence")
+    call post_div(help)
+  case ("--flexible-wing-mask")
+    call flexible_wing_mask(help)
+  case ("--remove-mean")
+    call remove_mean(help)
+  case ("--coherent-vortex-extraction","--coherent-scalar-extraction","--CVE","--CSE")
+    call post_CVE(help)
+  case ("--readwrite")
+    call readwrite(help)
+  case ("--crop")
+    call crop(help)
+  case ("--uCT-assemble")
+    call uCT_assemble_HDF5(help)
+  case ("--transpose-test")
+    call transpose_test(help)
+  case ("--pressure-force")
+    call pressure_force(help)
+  case ("--convert-to-wing-system","--convert-to-body-system")
+    call convert_to_wing_system(help)
+  case ("--zero-padd")
+    call post_zero_padd(help)
   case ("--force-decomp")
     call force_decomposition(help)
   case ("--stl2dist")
@@ -58,12 +78,10 @@ subroutine postprocessing()
     call compare_key (key1,key2)
   case ("--compare-timeseries")
     call compare_timeseries(help)
-  case ("--vorticity","--vor")
+  case ("--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD","--Q","--Q-FD")
     call convert_vorticity(help)
   case ("--vor2u")
     call convert_velocity(help)
-  case ("--vor_abs","--vor-abs")
-    call convert_abs_vorticity(help)
   case ("--hdf2bin")
     call convert_hdf2bin(help)
   case ("--bin2hdf")
@@ -82,8 +100,12 @@ subroutine postprocessing()
     call turbulence_analysis(help)
   case ("--field-analysis")
     call field_analysis(help)
+  case ("--pressure")
+    call convert_pressure(help)
   case ("--TKE-mean")
     call tke_mean(help)
+  case ("--pointcloud2mask")
+    call pointcloud2mask(help)
   case ("--max-over-x")
     call max_over_x(help)
   case ("--mean-over-x-subdomain")
@@ -104,41 +126,59 @@ subroutine postprocessing()
     call post_helicity(help)
   case ("--smooth-inverse-mask")
     call post_smooth_mask(help)
+  case ("--gradient")
+    call post_grad(help)
   case default
     if (root) then
       write(*,*) "Available Postprocessing tools are:"
-      write(*,*) "--energy"
-      write(*,*) "--force-decomp"
-      write(*,*) "--magnitude"
+      write(*,'(80("~"))')
+      write(*,*) "--bin2hdf"
       write(*,*) "--check-params-file"
-      write(*,*) "--ux-from-uyuz"
-      write(*,*) "--set-hdf5-attribute"
-      write(*,*) "--mean-2D"
-      write(*,*) "--mean-over-x-subdomain"
-      write(*,*) "--max-over-x"
-      write(*,*) "--TKE-mean"
-      write(*,*) "--field-analysis"
-      write(*,*) "--turbulence-analysis"
-      write(*,*) "--spectrum"
-      write(*,*) "--upsample"
-      write(*,*) "--time-avg"
-      write(*,*) "--extract-subset"
-      write(*,*) "--p2Q"
-      write(*,*) "--simple-field-operation"
-      write(*,*) "--cp"
-      write(*,*) "--keyvalues"
+      write(*,*) "--coherent-vortex-extraction --coherent-scalar-extraction --CVE --CSE"
       write(*,*) "--compare-keys"
       write(*,*) "--compare-timeseries"
-      write(*,*) "--vorticity  --vor"
-      write(*,*) "--vor2u"
-      write(*,*) "--vor_abs --vor-abs"
-      write(*,*) "--hdf2bin"
-      write(*,*) "--bin2hdf"
-      write(*,*) "--helicity"
-      write(*,*) "--stl2dist"
+      write(*,*) "--convert-to-wing-system  // --convert-to-body-system"
+      write(*,*) "--cp"
+      write(*,*) "--crop"
       write(*,*) "--dist2mask   --dist2chi"
+      write(*,*) "--divergence"
+      write(*,*) "--energy"
+      write(*,*) "--extract-subset"
+      write(*,*) "--field-analysis"
+      write(*,*) "--force-decomp"
+      write(*,*) "--flexible-wing-mask"
+      write(*,*) "--gradient"
+      write(*,*) "--hdf2bin"
+      write(*,*) "--helicity"
+      write(*,*) "--keyvalues"
+      write(*,*) "--magnitude"
+      write(*,*) "--max-over-x"
+      write(*,*) "--mean-2D"
+      write(*,*) "--mean-over-x-subdomain"
+      write(*,*) "--p2Q"
+      write(*,*) "--pointcloud2mask"
+      write(*,*) "--pressure-force"
+      write(*,*) "--pressure"
+      write(*,*) "--readwrite"
+      write(*,*) "--remove-mean"
+      write(*,*) "--set-hdf5-attribute"
+      write(*,*) "--simple-field-operation"
       write(*,*) "--smooth-inverse-mask"
-      write(*,*) "--extend-domain"
+      write(*,*) "--spectrum"
+      write(*,*) "--stl2dist"
+      write(*,*) "--time-avg"
+      write(*,*) "--TKE-mean"
+      write(*,*) "--tranpose-test"
+      write(*,*) "--turbulence-analysis"
+      write(*,*) "--upsample"
+      write(*,*) "--uCT-assemble"
+      write(*,*) "--ux-from-uyuz"
+      write(*,*) "--vor_abs --vor-abs"
+      write(*,*) "--vor2u"
+      write(*,*) "--vorticity","--vor-abs","--vorticity-FD","--vor-abs-FD"
+      write(*,*) "--Q   --Q-FD"
+      write(*,*) "--zero-padd"
+      write(*,'(80("~"))')
       write(*,*) "Postprocessing option is "// trim(adjustl(postprocessing_mode))
       write(*,*) "But I don't know what to do with that"
     endif
@@ -220,9 +260,8 @@ subroutine max_over_x(help)
   call get_command_argument(4,outfile)
   call check_file_exists( fname_ekin )
 
-  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl
@@ -305,9 +344,8 @@ subroutine mean_over_x_subdomain(help)
   call get_command_argument(4,outfile)
   call check_file_exists( fname_ekin )
 
-  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ekin, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl
@@ -436,15 +474,9 @@ subroutine ux_from_uyuz(help)
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
-    write (*,*) "Error in arguments, files do not start with ux uy and uz"
-    write (*,*) "note files have to be in the right order"
-    call abort()
-  endif
 
-  call fetch_attributes( fname_uy, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_uy, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl
@@ -630,9 +662,8 @@ subroutine post_smooth_mask(help)
   call get_command_argument(4,outfile)
 
   call check_file_exists( infile )
-  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( infile, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
-  pi=4.d0 *datan(1.d0)
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
   scalez=2.d0*pi/zl
@@ -716,3 +747,79 @@ subroutine post_smooth_mask(help)
   call fft_free()
 
 end subroutine post_smooth_mask
+
+
+
+subroutine readwrite(help)
+  use vars
+  use p3dfft_wrapper
+
+  implicit none
+  logical, intent(in) :: help
+  character(len=strlen) :: fname
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --readwrite ux_00.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) " Read a file and directly write it to disk. Useful for converting precision."
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes, sure"
+    return
+  endif
+
+  call get_command_argument(3,fname)
+  call check_file_exists( fname )
+  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu, origin )
+  ! initialize domain decomposition, but do not use FFTs
+  call decomposition_initialize()
+
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call read_single_file( fname, work )
+  call save_field_hdf5( time, fname, work )
+  deallocate(work)
+
+end subroutine readwrite
+
+
+subroutine remove_mean(help)
+  use vars
+  use p3dfft_wrapper
+  use basic_operators, only : fieldmean
+
+  implicit none
+  logical, intent(in) :: help
+  character(len=strlen) :: fname
+  real(kind=pr),dimension(:,:,:),allocatable :: work
+  real(kind=pr) :: time, mean
+
+  if (help.and.root) then
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "./flusi -p --remove-mean ux_00.h5 output_00.h5"
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) " Read a file, remove the mean value from the field, save."
+    write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    write(*,*) "Parallel: yes, sure"
+    return
+  endif
+
+  call get_command_argument(3,fname)
+  call check_file_exists( fname )
+  call fetch_attributes( fname, nx, ny, nz, xl, yl, zl, time, nu, origin )
+  ! initialize domain decomposition, but do not use FFTs
+  call decomposition_initialize()
+
+  allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  call read_single_file( fname, work )
+
+  ! compute mean value
+  mean  = fieldmean(work)
+  ! remove it from datafield. it now has zero mean.
+  work = work - mean
+  call get_command_argument(4,fname)
+  call save_field_hdf5( time, fname, work )
+  deallocate(work)
+
+end subroutine remove_mean

@@ -28,7 +28,7 @@ subroutine get_params(paramsfile,Insect,verbose)
     ! Get mhd-specific parameter values from PARAMS
     call get_params_mhd(PARAMS)
   case default
-    if(mpirank==0) call abort("Error! Unkonwn method in get_params; stopping.")
+    call abort(1,"Error! Unknown method in get_params; stopping.")
   end select
 
 
@@ -51,12 +51,17 @@ end subroutine get_params
 subroutine get_params_common(PARAMS)
   use ini_files_parser_mpi
   use vars
+#ifndef NOHDF5
+  use hdf5_wrapper
+#endif
   implicit none
   character(len=strlen) :: dummystr
-
   ! Contains the ascii-params file
   type(inifile), intent(inout) :: PARAMS
   character(len=strlen) :: dummy
+  real(kind=pr) :: time1,time2,bckp(1:8)
+  logical :: exists
+  integer :: mpicode
 
   ! Resolution section
   call read_param_mpi(PARAMS,"Resolution","nx",nx, 4)
@@ -74,12 +79,16 @@ subroutine get_params_common(PARAMS)
   dy=yl/dble(ny)
   dz=zl/dble(nz)
 
+  ! 22 sep 2017: I think we do not need this anymore. the problem was that integrals
+  ! etc miultiply either nby dx*dy*dz or took the min(dx,dy,dz) in smoothing layers
   if (nx==1) then
     if (root) write(*,*) "2D run: setting x coordinate accordingly (OVERWRITE!!!)"
     dx = 1.d0!max(dz,dy)
     xl = 1.d0!dx
     if (root) write(*,'("xl=",es12.4," dx=",es12.4)') xl,dx
   endif
+
+  call set_lattice_spacing_mpi(dy)
 
   ! Geometry section
   call read_param_mpi(PARAMS,"Geometry","Size",length, 0.d0)
@@ -93,6 +102,7 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"Time","iTimeMethodFluid",iTimeMethodFluid,"AB2")
   call read_param_mpi(PARAMS,"Time","intelligent_dt",intelligent_dt,"no")
   call read_param_mpi(PARAMS,"Time","Tmax",Tmax,1.d9)
+  call read_param_mpi(PARAMS,"Time","tstart",tstart,0.0d0)
   call read_param_mpi(PARAMS,"Time","CFL",cfl,0.1d0)
   call read_param_mpi(PARAMS,"Time","dt_max",dt_max,0.d0)
   call read_param_mpi(PARAMS,"Time","dt_fixed",dt_fixed,0.d0)
@@ -108,10 +118,12 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"InitialCondition","file_ux",file_ux, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_uy",file_uy, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_uz",file_uz, "none")
+  call read_param_mpi(PARAMS,"InitialCondition","file_p",file_p, "none")
   ! if running in MHD mode, we also need the B-field initialized
   call read_param_mpi(PARAMS,"InitialCondition","file_bx",file_bx, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_by",file_by, "none")
   call read_param_mpi(PARAMS,"InitialCondition","file_bz",file_bz, "none")
+  call read_param_mpi(PARAMS,"InitialCondition","inicond_spectrum_file",inicond_spectrum_file, "none")
 
   ! Dealasing section
   call read_param_mpi(PARAMS,"Dealiasing","iDealias",iDealias, 1)
@@ -149,6 +161,7 @@ subroutine get_params_common(PARAMS)
   endif
   ! Saving section
   call read_param_mpi(PARAMS,"Saving","iDoBackup",iDoBackup, 1)
+  call read_param_mpi(PARAMS,"Saving","backup_type",backup_type,"one-file-backup")
   call read_param_mpi(PARAMS,"Saving","iSaveVelocity",iSaveVelocity, 0)
   call read_param_mpi(PARAMS,"Saving","iSavePress",iSavePress, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveVorticity",iSaveVorticity, 0)
@@ -175,15 +188,51 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"Forcing","kf",kf, 0.d0)
   call read_param_mpi(PARAMS,"Forcing","eps_forcing",eps_forcing, 0.d0)
 
-  !-- dry run, just the mask function
-  call read_param_mpi(PARAMS,"DryRun","dry_run_without_fluid",dummy,"no")
-  if (dummy=="yes") then
-    call abort('dry_run_without_fluid is depecreated; run flusi with ./flusi --dry-run PARAMS.ini instead')
+  ! ----------------------------------------------------------------------------
+  ! automatic backup resuming...
+  ! ----------------------------------------------------------------------------
+  ! automatic file selection only implemented for HDF5 restart files
+#ifndef NOHDF5
+  if (inicond == "backup") then
+    if (root) write(*,'(80("$"))')
+    if (root) write(*,*) "AUTOMATIC BACKUP RESUMING (FLOW FIELDS...)"
+    if (root) write(*,'(80("$"))')
+
+    inquire ( file='runtime_backup0.h5', exist=exists )
+    if (exists) then
+      if (root) write(*,*) 'found: runtime_backup0.h5'
+      call read_attribute('runtime_backup0.h5','ux','bckp',bckp)
+      time1 = bckp(1)
+    else
+      time1 = -9.0d9
+    endif
+
+    inquire ( file='runtime_backup1.h5', exist=exists )
+    if (exists) then
+      if (root) write(*,*) 'found: runtime_backup1.h5'
+      call read_attribute('runtime_backup1.h5','ux','bckp',bckp)
+      time2 = bckp(1)
+    else
+      time2 = -9.0d9
+    endif
+
+    if (time1>time2) then
+      inicond = 'backup::runtime_backup0.h5'
+    else
+      inicond = 'backup::runtime_backup1.h5'
+    endif
+
+    if ( max(time1,time2) <-1.d0) call abort(81,"no backup files found...")
+
+    if (root) write(*,*) "we decided which backup to resume..."
+    if (root) write(*,*) "it is at time=", max(time1,time2)
+    if (root) write(*,*) "resuming "//trim(adjustl(inicond))
+    if (root) write(*,'(80("$"))')
   endif
+#endif
 
 
   ! Set other parameters (all procs)
-  pi=4.d0 *datan(1.d0)
   ! scaling for FFTs
   scalex=2.d0*pi/xl
   scaley=2.d0*pi/yl
@@ -217,6 +266,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   call read_param_mpi(PARAMS,"Penalization","thick_wall",thick_wall,0.2d0)
   call read_param_mpi(PARAMS,"Penalization","pos_wall",pos_wall,0.3d0)
   call read_param_mpi(PARAMS,"Penalization","us_fixed",us_fixed,(/0.d0,0.d0,0.d0/))
+
   ! ---------------------------------------------------
   ! sponge
   ! ---------------------------------------------------
@@ -225,6 +275,18 @@ subroutine get_params_fsi(PARAMS,Insect)
   call read_param_mpi(PARAMS,"Sponge","eps_sponge",eps_sponge, 0.d0)
   call read_param_mpi(PARAMS,"Sponge","sponge_thickness",sponge_thickness,0)
 
+  ! ---------------------------------------------------
+  ! equation section
+  ! ---------------------------------------------------
+  ! the fluid-structure interaction module, the actual flusi code, can run on two equations
+  ! Navier-stokes incompressible or artificial compressibility. both are discretized with
+  ! Fourier. Default is Navier-Stokes. Does not affect MHD part of the code.
+  call read_param_mpi(PARAMS,"FSI-equation","equation",equation, "navier-stokes")
+
+  call read_param_mpi(PARAMS,"artificial-compressibility","c_0",c_0, 20.0_pr)
+  call read_param_mpi(PARAMS,"artificial-compressibility","gamma_p",gamma_p, 0.0_pr)
+  call read_param_mpi(PARAMS,"artificial-compressibility","acm_sponge",acm_sponge, 0)
+  call read_param_mpi(PARAMS,"artificial-compressibility","acm_inipressure", acm_inipressure, "flusi-spectral")
 
   ! ---------------------------------------------------
   ! Geometry section
@@ -254,19 +316,16 @@ subroutine get_params_fsi(PARAMS,Insect)
   iMeanFlowStartupConditioner,"no")
   call read_param_mpi(PARAMS,"MeanFlow","tau_meanflow",tau_meanflow, 0.d0)
   call read_param_mpi(PARAMS,"MeanFlow","T_release_meanflow",T_release_meanflow,0.d0)
+  ! for some reason we overwrite uxmean later b ythe actual, current meanflow
+  ! which means we cannot use uxmean for focing with sinusoidfal mean flow.
+  ! therefore, make a copy here.
+  umean_amplitude = (/ uxmean, uymean, uzmean /)
 
   ! for compatibility with old files:
   if (old_meanflow=="1") then
     iMeanFlow_x="fixed"
     iMeanFlow_y="fixed"
     iMeanFlow_z="fixed"
-  endif
-
-  ! ---------------------------------------------------
-  ! Insects section
-  ! ---------------------------------------------------
-  if (iMask=="Insect") then
-    call get_params_insect( PARAMS,Insect )
   endif
 
   ! ---------------------------------------------------
@@ -297,159 +356,6 @@ subroutine get_params_fsi(PARAMS,Insect)
 
   lin(1)=nu
 end subroutine get_params_fsi
-
-
-!-------------------------------------------------------------------------------
-! This routine reads in the parameters that describe the inscet from the
-! parameter.ini file. it is outsourced from params.f90
-!-------------------------------------------------------------------------------
-subroutine get_params_insect( PARAMS,Insect )
-  use vars
-  use insect_module
-  use ini_files_parser_mpi
-  implicit none
-
-  type(diptera),intent(inout) :: Insect
-  integer :: j, tmp
-  ! Contains the ascii-params file
-  type(inifile), intent(inout) :: PARAMS
-  real(kind=pr),dimension(1:3)::defaultvec
-  character(len=strlen) :: DoF_string, dummystr
-
-  call read_param_mpi(PARAMS,"Insects","WingShape",Insect%WingShape,"none")
-  call read_param_mpi(PARAMS,"Insects","b_top",Insect%b_top, 0.d0)
-  call read_param_mpi(PARAMS,"Insects","b_bot",Insect%b_bot, 0.d0)
-  call read_param_mpi(PARAMS,"Insects","L_chord",Insect%L_chord, 0.d0)
-  call read_param_mpi(PARAMS,"Insects","L_span",Insect%L_span, 0.d0)
-  call read_param_mpi(PARAMS,"Insects","FlappingMotion_right",Insect%FlappingMotion_right,"none")
-  call read_param_mpi(PARAMS,"Insects","FlappingMotion_left",Insect%FlappingMotion_left,"none")
-  ! this file is used in old syntax form for both wings:
-  call read_param_mpi(PARAMS,"Insects","infile",Insect%infile,"none.in")
-
-  !-----------------------------------------------------------------------------
-  ! compatibility for wingbeat kinematics read from file
-  !-----------------------------------------------------------------------------
-
-  if ( index(Insect%FlappingMotion_right,"from_file::") /= 0 ) then
-    ! new syntax, uses fourier/hermite periodic kinematics read from *.ini file
-    Insect%kine_wing_r%infile = Insect%FlappingMotion_right( 12:strlen  )
-    Insect%FlappingMotion_right = "from_file"
-
-  elseif ( index(Insect%FlappingMotion_right,"kinematics_loader::") /= 0 ) then
-    ! new syntax, uses the kinematics loader for non-periodic kinematics
-    Insect%kine_wing_r%infile = Insect%FlappingMotion_right( 20:strlen )
-    Insect%FlappingMotion_right = "kinematics_loader"
-
-  elseif ( Insect%FlappingMotion_right == "from_file" ) then
-    ! old syntax, implies symmetric periodic motion, read from *.ini file
-    Insect%kine_wing_r%infile = Insect%infile
-
-  elseif ( Insect%FlappingMotion_right == "kinematics_loader" ) then
-    ! old syntax, implies symmetric non-periodic motion, read from *.dat file
-    Insect%kine_wing_r%infile = Insect%infile
-  endif
-
-
-  if ( index(Insect%FlappingMotion_left,"from_file::") /= 0 ) then
-    ! new syntax, uses fourier/hermite periodic kinematics read from *.ini file
-    Insect%kine_wing_l%infile = Insect%FlappingMotion_left( 12:strlen  )
-    Insect%FlappingMotion_left = "from_file"
-
-  elseif ( index(Insect%FlappingMotion_left,"kinematics_loader::") /= 0 ) then
-    ! new syntax, uses the kinematics loader for non-periodic kinematics
-    Insect%kine_wing_l%infile = Insect%FlappingMotion_left( 20:strlen )
-    Insect%FlappingMotion_left = "kinematics_loader"
-
-  elseif ( Insect%FlappingMotion_left == "from_file" ) then
-    ! old syntax, implies symmetric periodic motion, read from *.ini file
-    Insect%kine_wing_l%infile = Insect%infile
-
-  elseif ( Insect%FlappingMotion_left == "kinematics_loader" ) then
-    ! old syntax, implies symmetric non-periodic motion, read from *.dat file
-    Insect%kine_wing_l%infile = Insect%infile
-  endif
-
-  if (root) then
-    write(*,*) "Left wing: "//trim(adjustl(Insect%FlappingMotion_left))
-    write(*,*) "Left wing: "//trim(adjustl(Insect%kine_wing_l%infile))
-    write(*,*) "Right wing: "//trim(adjustl(Insect%FlappingMotion_right))
-    write(*,*) "Right wing: "//trim(adjustl(Insect%kine_wing_r%infile))
-  endif
-
-  ! these flags trigger reading the kinematics from file when the Flapping
-  ! motion is first called
-  Insect%kine_wing_l%initialized = .false.
-  Insect%kine_wing_r%initialized = .false.
-
-  call read_param_mpi(PARAMS,"Insects","BodyType",Insect%BodyType,"ellipsoid")
-  call read_param_mpi(PARAMS,"Insects","HasDetails",Insect%HasDetails,"all")
-  call read_param_mpi(PARAMS,"Insects","BodyMotion",Insect%BodyMotion,"yes")
-  call read_param_mpi(PARAMS,"Insects","LeftWing",Insect%LeftWing,"yes")
-  call read_param_mpi(PARAMS,"Insects","RightWing",Insect%RightWing,"yes")
-  call read_param_mpi(PARAMS,"Insects","b_body",Insect%b_body, 0.1d0)
-  call read_param_mpi(PARAMS,"Insects","L_body",Insect%L_body, 1.d0)
-  call read_param_mpi(PARAMS,"Insects","R_head",Insect%R_head, 0.1d0)
-  call read_param_mpi(PARAMS,"Insects","R_eye",Insect%R_eye, 0.d1)
-  call read_param_mpi(PARAMS,"Insects","mass",Insect%mass, 1.d0)
-  call read_param_mpi(PARAMS,"Insects","gravity",Insect%gravity, 1.d0)
-  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx)
-  call read_param_mpi(PARAMS,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/))
-  Insect%Jroll_body  = defaultvec(3)
-  Insect%Jyaw_body   = defaultvec(1)
-  Insect%Jpitch_body = defaultvec(2)
-  call read_param_mpi(PARAMS,"Insects","x0",Insect%x0, (/0.5d0*xl,0.5d0*yl,0.5d0*zl/))
-  call read_param_mpi(PARAMS,"Insects","v0",Insect%v0, (/0.d0, 0.d0, 0.d0/))
-  call read_param_mpi(PARAMS,"Insects","yawpitchroll_0",Insect%yawpitchroll_0,&
-  (/0.d0, 0.d0, 0.d0/))
-  ! convert yawpitchroll to radiants
-  Insect%yawpitchroll_0 = Insect%yawpitchroll_0 * (pi/180.d0)
-  call read_param_mpi(PARAMS,"Insects","eta0",Insect%eta0, 0.0d0)
-  Insect%eta0 = Insect%eta0*(pi/180.d0)
-
-
-  ! degrees of freedom for free flight solver. The string from ini file contains
-  ! 6 characters 1 or 0 that turn on/off x,y,z,yaw,pitch,roll degrees of freedom
-  ! by multiplying the respective RHS by zero, keeping the value thus constant
-  call read_param_mpi(PARAMS,"Insects","DoF",DoF_string, "111111")
-  do j=1,6
-    read (DoF_string(j:j), '(i1)') tmp
-    Insect%DoF_on_off(j) = dble(tmp)
-  enddo
-  if (root) write(*,'(6(f4.2,1x))') Insect%DoF_on_off
-
-
-  ! wing inertia tensor (we currently assume two identical wings)
-  ! this allows computing inertial power
-  call read_param_mpi(PARAMS,"Insects","Jxx",Insect%Jxx,0.d0)
-  call read_param_mpi(PARAMS,"Insects","Jyy",Insect%Jyy,0.d0)
-  call read_param_mpi(PARAMS,"Insects","Jzz",Insect%Jzz,0.d0)
-  call read_param_mpi(PARAMS,"Insects","Jxy",Insect%Jxy,0.d0)
-
-  call read_param_mpi(PARAMS,"Insects","startup_conditioner",Insect%startup_conditioner,"no")
-
-  ! position vector of the head
-  call read_param_mpi(PARAMS,"Insects","x_head",&
-  Insect%x_head, (/0.5d0*Insect%L_body,0.d0,0.d0 /) )
-
-  ! eyes
-  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,+1.0d0,1.0d0/)
-  call read_param_mpi(PARAMS,"Insects","x_eye_r",Insect%x_eye_r, defaultvec)
-
-  defaultvec = Insect%x_head+sin(45.d0*pi/180.d0)*Insect%R_head*0.8d0*(/1.0d0,-1.0d0,1.0d0/)
-  call read_param_mpi(PARAMS,"Insects","x_eye_l",Insect%x_eye_l, defaultvec)
-
-  ! wing hinges (root points)
-  defaultvec=(/0.d0, +Insect%b_body, 0.d0 /)
-  call read_param_mpi(PARAMS,"Insects","x_pivot_l",Insect%x_pivot_l, defaultvec)
-
-  defaultvec=(/0.d0, -Insect%b_body, 0.d0 /)
-  call read_param_mpi(PARAMS,"Insects","x_pivot_r",Insect%x_pivot_r, defaultvec)
-
-  Insect%smooth = 2.0d0*dz
-end subroutine get_params_insect
-
-
-
 
 !-------------------------------------------------------------------------------
 ! Read individual parameter values that are specific to the solid model only

@@ -12,12 +12,13 @@ subroutine dry_run()
   implicit none
   real(kind=pr)          :: time,memory,mem_field
   integer                :: it
-  character(len=strlen)  :: infile
+  character(len=strlen)  :: infile, mode
   character(len=6) :: name
   ! this is the insect we're using (object oriented)
   type(diptera) :: Insect
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
+  logical :: exists
 
 
   ! Set method information in vars module.
@@ -27,13 +28,30 @@ subroutine dry_run()
   neq=nd  ! number of equations, can be higher than 3 if using passive scalar
 
 
+  ! initialize timing variables
+  time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
+  time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
+  time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
+  time_insect_head=0.d0; time_insect_body=0.d0; time_insect_eye=0.d0
+  time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
+  time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
+  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
+  tslices=0.d0
+
   if (root) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  FLUSI--dry run'
      write(*,'(A)') '--------------------------------------'
      write(*,'("Running on ",i5," CPUs")') mpisize
      write(*,'(A)') '--------------------------------------'
+     write(*,'(A)') 'Usage: ./flusi --dry-run PARAMS.ini [MODE]'
+     write(*,'(A)') 'where mode can be'
+     write(*,'(A)') ' --kinematics   specify insect mask parameters in command line'
+     write(*,'(A)') ' --post         reconstruct mask to an existing simulation, reading data from *.t files'
+     write(*,'(A)') '--------------------------------------'
   endif
+
+
 
   !-----------------------------------------------------------------------------
   ! Read input parameters
@@ -46,9 +64,10 @@ subroutine dry_run()
   call get_params(infile,Insect,.true.)
 
   ! is the position of body and wings given by the command line?
-  call get_command_argument(3,infile)
-  if (infile == "--kinematics") then
-    ! the flagg --kinematics can be used to construct a single mask function with
+  call get_command_argument(3,mode)
+  if (mode == "--kinematics") then
+    ! for insects:
+    ! the flag --kinematics can be used to construct a single mask function with
     ! position and angles (=12 parameters) given by the command line call
     if (root) then
       write(*,*) "parameters are given by command line call"
@@ -66,11 +85,11 @@ subroutine dry_run()
     ! save only one file
     tmax = 0.d0
   endif
+
   !-----------------------------------------------------------------------------
-  ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
+  ! Initialize domain decomposition, but not FFT (we dont need thats)
   !-----------------------------------------------------------------------------
-  ! call fft_initialize
-  call decomposition_initialize
+  call decomposition_initialize()
 
   !-----------------------------------------------------------------------------
   ! Allocate memory:
@@ -109,11 +128,32 @@ subroutine dry_run()
   !-----------------------------------------------------------------------------
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
-    ! If required, initialize rigid solid dynamics solver
-    if (Insect%BodyMotion=="free_flight") then
+
+    call insect_init( 0.d0, infile, Insect)
+
+    ! If required, initialize rigid solid dynamics solver. Note that if the --post flag
+    ! is set, the insect state is read from file, so we skip the initialization .
+    if (Insect%BodyMotion=="free_flight" .and. mode/="--post") then
       call rigid_solid_init(0.d0,Insect)
       GlobalIntegrals%force = 0.d0
       GlobalIntegrals%force_unst = 0.d0
+    endif
+
+    ! tell insect module not to write to kinematics.dry-run.t file, so content of
+    ! original file is not touched
+    Insect%kinematics_file = "kinematics.dry-run.t"
+
+    if (root) then
+      open  (14,file=Insect%kinematics_file, status='replace')
+      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
+      "psi","beta","gamma","eta_stroke",&
+      "alpha_l","phi_l","theta_l",&
+      "alpha_r","phi_r","theta_r",&
+      "rot_l_x","rot_l_y","rot_l_z",&
+      "rot_r_x","rot_r_y","rot_r_z",&
+      "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
+      "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+      close (14)
     endif
   endif
 
@@ -126,15 +166,37 @@ subroutine dry_run()
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
-  time = 0.d0
+  ! tstart is read in parameter file and default value 0.0
+  ! this way you can have better control over dry-runs
+  time = tstart
   it = 0
   do while (time<=tmax)
-    ! create the mask
-    call create_mask( time,Insect,beams )
 
+    ! if the motion is free_flight, dry run can still be used e.g. to integrate
+    ! a constant velocity which is set in the ini file. of course, a dry run cannot
+    ! take the FSI coupling into account.
+    ! sometimes, one wants to run a dry-run as postprocessing to an existing simulation
+    ! (to save HDD space and erase the mask), and if that run is free_flight than the code
+    ! should read the insect state from the rigidsolidsolver.t file (instead of simply
+    ! integrating the rigid solid time stepper.)
     if (Insect%BodyMotion=="free_flight") then
-      call rigid_solid_time_step(time,tsave,tsave,it,Insect)
+      inquire( file='rigidsolidsolver.t', exist=exists )
+      if (exists) then
+        ! in this case, we find the rigidsolidsolver file, and we assume the user
+        ! wants to reconstruct the mask from that file.
+        if (root) write(*,*) "DRY-RUN found rigidsolidsolver.t file and use that for mask generation!"
+        call read_insect_STATE_from_file(time, Insect)
+      else
+        ! use rigid solid solver to integrate the body motion state; this is useful only
+        ! if a constant velocity is set
+        call rigid_solid_time_step(time, tsave, tsave, it, Insect)
+      endif
     endif
+
+
+    ! create the mask
+    call create_mask(time, Insect, beams)
+
 
     ! Save data
     write(name,'(i6.6)') floor(time*1000.d0)
@@ -152,9 +214,12 @@ subroutine dry_run()
     endif
 
     it = it+1
-    time = dble(it)*tsave
+    time = tstart + dble(it)*tsave
   enddo
 
+  if(mpirank==0) then
+    write(*,'("time for mask creation ",es12.4)') time_mask
+  endif
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory

@@ -69,9 +69,8 @@ subroutine force_decomposition(help)
   call check_file_exists( fname_poty )
   call check_file_exists( fname_potz )
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
-  pi = 4.d0 *datan(1.d0)
   scalex = 2.d0*pi/xl
   scaley = 2.d0*pi/yl
   scalez = 2.d0*pi/zl

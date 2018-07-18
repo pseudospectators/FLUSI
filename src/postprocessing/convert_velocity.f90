@@ -99,7 +99,7 @@ subroutine convert_velocity(help)
   call check_file_exists( fname_uy )
   call check_file_exists( fname_uz )
 
-  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
+  call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   ! initialize code and scaling factors for derivatives, also domain decomposition
   call fft_initialize()
@@ -135,8 +135,12 @@ subroutine convert_velocity(help)
   ! compute velocity from vorticity
   !-----------------------------------------------------------------------------
   ! uk: vorticity; workc: velocity
-  call Vorticity2Velocity(uk,workc)
+  call Vorticity2Velocity(uk(:,:,:,1:3),workc(:,:,:,1:3))
   call ifft3 (ink=workc, outx=u)
+  Uxmean=0.0_pr
+  Uymean=0.0_pr
+  Uzmean=0.0_pr
+  call set_mean_flow(workc, time)
   uk = workc ! uk: velocity in F-space
 
   ! now u contains the velocity in physical space

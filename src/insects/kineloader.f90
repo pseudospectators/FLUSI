@@ -1,6 +1,4 @@
 subroutine load_kine_init(kine)
-  use mpi
-  use vars
   implicit none
 
   type(wingkinematics), intent(inout) :: kine
@@ -24,19 +22,17 @@ subroutine load_kine_init(kine)
 
   call MPI_BCAST(kine%nk,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
   nk = kine%nk
-  !allocate(kine%vec_t(nk))
-  !allocate(kine%vec_phi(nk))
-  !allocate(kine%vec_phi_dt(nk))
-  !allocate(kine%vec_alpha(nk))
-  !allocate(kine%vec_alpha_dt(nk))
-  !allocate(kine%vec_theta(nk))
-  !allocate(kine%vec_theta_dt(nk))
-  !allocate(kine%vec_pitch(nk))
-  !allocate(kine%vec_pitch_dt(nk))
-  !allocate(kine%vec_vert(nk))
-  !allocate(kine%vec_vert_dt(nk))
-  !allocate(kine%vec_horz(nk))
-  !allocate(kine%vec_horz_dt(nk))
+
+  ! intitalize vectors as zero (note: not all of the space is actually used)
+  kine%vec_t = 0.d0
+  kine%vec_vert = 0.d0
+  kine%vec_horz = 0.d0
+  kine%vec_phi_dt = 0.d0
+  kine%vec_alpha_dt = 0.d0
+  kine%vec_theta_dt = 0.d0
+  kine%vec_pitch_dt = 0.d0
+  kine%vec_vert_dt = 0.d0
+  kine%vec_horz_dt = 0.d0
 
   if (mpirank==0) then
     ! read data from file
@@ -59,30 +55,30 @@ subroutine load_kine_init(kine)
     print *, "load_kine_init: data read from file, nk=", nk
     print *, "non-dimensionalizing input data:"
     ! non-dimensionalize
-    kine%vec_t(:) = kine%vec_t(:) / t_period
-    kine%vec_vert(:) = kine%vec_vert(:) / r_wing
-    kine%vec_horz(:) = kine%vec_horz(:) / r_wing
-    kine%vec_phi_dt(:) = kine%vec_phi_dt(:) * t_period
-    kine%vec_alpha_dt(:) = kine%vec_alpha_dt(:) * t_period
-    kine%vec_theta_dt(:) = kine%vec_theta_dt(:) * t_period
-    kine%vec_pitch_dt(:) = kine%vec_pitch_dt(:) * t_period
-    kine%vec_vert_dt(:) = kine%vec_vert_dt(:) * t_period / r_wing
-    kine%vec_horz_dt(:) = kine%vec_horz_dt(:) * t_period / r_wing
+    kine%vec_t = kine%vec_t / t_period
+    kine%vec_vert = kine%vec_vert / r_wing
+    kine%vec_horz = kine%vec_horz / r_wing
+    kine%vec_phi_dt = kine%vec_phi_dt * t_period
+    kine%vec_alpha_dt = kine%vec_alpha_dt * t_period
+    kine%vec_theta_dt = kine%vec_theta_dt * t_period
+    kine%vec_pitch_dt = kine%vec_pitch_dt * t_period
+    kine%vec_vert_dt = kine%vec_vert_dt * t_period / r_wing
+    kine%vec_horz_dt = kine%vec_horz_dt * t_period / r_wing
   endif
 
-  call MPI_BCAST( kine%vec_t, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_phi, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_alpha, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_theta, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_pitch, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_vert, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_horz, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_phi_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_alpha_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_theta_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_pitch_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_vert_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-  call MPI_BCAST( kine%vec_horz_dt, nk, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_t, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_phi, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_alpha, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_theta, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_pitch, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_vert, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_horz, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_phi_dt, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_alpha_dt, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_theta_dt, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_pitch_dt, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_vert_dt, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+  call MPI_BCAST( kine%vec_horz_dt, nhrmt_max, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
 
   kine%initialized = .true.
   if (root) write(*,*) "done initializing kineoader!"
@@ -90,7 +86,6 @@ end subroutine
 
 
 subroutine load_kine_clean(kine)
-  use vars
   implicit none
   type(wingkinematics), intent(inout) :: kine
 
@@ -111,7 +106,6 @@ end subroutine
 
 
 subroutine wing_kine_interp(time, kine, phi_i, alpha_i, theta_i, phi_dt_i, alpha_dt_i, theta_dt_i)
-  use vars
   implicit none
 
   real(kind=pr), intent(in) :: time
@@ -119,12 +113,12 @@ subroutine wing_kine_interp(time, kine, phi_i, alpha_i, theta_i, phi_dt_i, alpha
   real(kind=pr), intent(out) :: phi_i,alpha_i,theta_i,phi_dt_i,alpha_dt_i,theta_dt_i
 
   if (kine%initialized .eqv. .false.) then
-    call abort("kinematics_loader is not initialized but wing_kine_interp is called")
+    call abort(1515,"kinematics_loader is not initialized but wing_kine_interp is called")
   endif
 
   if ((time<0.d0).or.(time>kine%vec_t(kine%nk))) then
     if(root) write(*,'("time=",es15.8)') time
-    call abort("requested time in kineloader out of valid bounds")
+    call abort(1516,"requested time in kineloader out of valid bounds")
   endif
 
   call hermite1d(kine%nk,kine%vec_t,kine%vec_phi  ,kine%vec_phi_dt,  time,phi_i,phi_dt_i)
@@ -166,7 +160,7 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
      print *, "hermite1d: not a uniform grid"
      write(*,'("xi=",es12.4," dx=",es12.4)') xi,dx
      write(*,'("xphi(i0)=",es12.4," xphi(i1)=",es12.4)') xphi(i0),xphi(i1)
-     call abort(884)
+     call abort(884, "hermite1d: not a uniform grid")
   endif
 
   x = (xi-xphi(i0))/dx
@@ -175,9 +169,9 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
   ! Phi
   ap0 = 2.0d0*x*x*x-3.0d0*x*x+1.0d0 ! f(x)
   ap1 = 2.0d0*z*z*z-3.0d0*z*z+1.0d0 ! f(1.0d0-x)
-  ax0 = x*x*x-2.0d0*x*x+x !g(x)
-  ax1 = -(z*z*z-2.0d0*z*z+z) !-g(1.0d0-x)
-  phi_interp=(phi(i0)*ap0+phi(i1)*ap1)+dx*(dpdx(i0)*ax0+dpdx(i1)*ax1)
+  ax0 = x*x*x  -2.0d0*x*x + x !g(x)
+  ax1 = -(z*z*z -2.0d0*z*z + z) !-g(1.0d0-x)
+  phi_interp = (phi(i0)*ap0+phi(i1)*ap1) + dx*(dpdx(i0)*ax0+dpdx(i1)*ax1)
 
   ! Phi_x
   if ((i0>1).and.(i1<n)) then
@@ -189,7 +183,7 @@ subroutine hermite1d(n, xphi, phi, dpdx, xi, phi_interp, dpdx_interp)
      ap1 = -(6.0d0*z*z-6.0d0*z) !-df(1.0d0-x)
      ax0 = 3.0d0*x*x-4.0d0*x+1.0d0 !dg(x)
      ax1 = 3.0d0*z*z-4.0d0*z+1.0d0 ! dg(1.0d0-x)
-     dpdx_interp=(phi(i0)*ap0+phi(i1)*ap1)/dx+(dpdx(i0)*ax0+dpdx(i1)*ax1)
+     dpdx_interp = (phi(i0)*ap0+phi(i1)*ap1)/dx+(dpdx(i0)*ax0+dpdx(i1)*ax1)
   endif
 
 end subroutine

@@ -24,6 +24,9 @@ subroutine cal_vis(dt,vis)
   ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
   kz_trunc=(2.d0/3.d0)*dble(nz/2-1)  
 
+#ifdef __SX__
+  do i=1,nf
+#endif
   do ix=ca(3),cb(3)
      kx2=wave_x(ix)**2
      kxt2=(wave_x(ix)/scalex) / kx_trunc
@@ -40,17 +43,24 @@ subroutine cal_vis(dt,vis)
            kzt2=kzt2*kzt2
 
            ! Dealiasing is done here for reasons of efficiency
+#ifndef __SX__
            do i=1,nf
+#endif
               if ((kxt2 + kyt2 + kzt2  .ge. 1.d0) .and. (iDealias==1)) then
                  vis(iz,iy,ix,i)=0.d0
               else
                  vis(iz,iy,ix,i)=dexp( -dt*lin(i)*(kx2 + ky2 + kz2) )
               endif
+#ifndef __SX__
            enddo
+#endif
 
         enddo
      enddo
   enddo
+#ifdef __SX__
+  enddo
+#endif
 
   time_vis=time_vis + MPI_wtime() - t1 
 end subroutine cal_vis

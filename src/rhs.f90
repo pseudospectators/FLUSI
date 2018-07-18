@@ -24,13 +24,14 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
   t0 = MPI_wtime()
 
   !-----------------------------------------------------------------------------
-  ! If the mask is time-dependend,we create it here
+  ! If the mask is time-dependend, we create it here
   ! 26/01/2015 Moved the mask routine here to RHS, since this is where it con-
   ! ceptually belongs. RK2 and RK4 need to create the mask several times per time
-  ! step
+  ! step.
   !-----------------------------------------------------------------------------
-  if ((iMoving==1).and.(iPenalization==1)) then
-    ! for FSI schemes, the mask is created in fluidtimestep
+  if ((iMoving==1).and.(iPenalization==1).and.(iTimeMethodFluid/="FSI_AB2_iteration")) then
+    ! for the iterative FSI schemes, the mask is created in fluidtimestep
+    ! (so iTimeMethodFluid==FSI_AB2_iteration skips mask generation)
     call create_mask( time, Insect, beams )
   endif
 
@@ -39,32 +40,45 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
     !---------------------------------------------------------------------------
     ! FSI case. note projection is outsourced and performed here.
     !---------------------------------------------------------------------------
-    ! compute source-terms, *not* divergence-free
-    t1 = MPI_wtime()
-    call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,Insect)
-    time_nlk2 = time_nlk2 + MPI_wtime() - t1
 
-    t1 = MPI_wtime()
-    ! if we compute active FSI (with flexible obstacles), we need the pressure
-    if (use_solid_model=="yes") then
-      call pressure( nlk,workc(:,:,:,1) )
-      ! transform it to phys space (note "press" has ghostpoints, cut them here)
-      call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
-    endif
-    ! project the right hand side to the incompressible manifold
-    call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-    ! for global performance measurement
-    time_p = time_p + MPI_wtime() - t1
+    select case (equation)
+    case ("navier-stokes")
+      ! compute source-terms, *not* divergence-free
+      t1 = MPI_wtime()
+      call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,Insect)
+      time_nlk2 = time_nlk2 + MPI_wtime() - t1
 
-    !---------------------------------------------------------------------------
-    ! passive scalar. the new module uses finite differences and evolves up to 9
-    ! different colors. for FD, no work arrays are required.
-    !---------------------------------------------------------------------------
-    t1 = MPI_wtime()
-    if ((use_passive_scalar==1).and.(compute_scalar)) then
-      call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
-    endif
-    time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
+      t1 = MPI_wtime()
+      ! if we compute active FSI (with flexible obstacles), we need the pressure
+      if (use_solid_model=="yes") then
+        call pressure( nlk,workc(:,:,:,1) )
+        ! transform it to phys space (note "press" has ghostpoints, cut them here)
+        call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+      endif
+      ! project the right hand side to the incompressible manifold
+      call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+      ! for global performance measurement
+      time_p = time_p + MPI_wtime() - t1
+
+      !---------------------------------------------------------------------------
+      ! passive scalar. the new module uses finite differences and evolves up to 9
+      ! different colors. for FD, no work arrays are required.
+      !---------------------------------------------------------------------------
+      t1 = MPI_wtime()
+      if ((use_passive_scalar==1).and.(compute_scalar)) then
+        call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
+      endif
+      time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
+
+    case ("artificial-compressibility")
+      t1 = MPI_wtime()
+      call rhs_acm(time,it,nlk,uk,u,vort,work,workc,Insect)
+      time_nlk2 = time_nlk2 + MPI_wtime() - t1
+
+    case default
+      call abort(129388,"For some reason, the equation is unkown. Set navier-stokes or artificial-compressibility")
+
+    end select
 
   case("mhd")
      !--------------------------------------------------------------------------
@@ -73,8 +87,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
      call cal_nlk_mhd(nlk,uk,u,vort)
 
   case default
-     if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
-     call abort()
+     call abort(1,"Error! Unknown method in cal_nlk")
   end select
 
   time_rhs = time_rhs + MPI_wtime() - t0
@@ -89,7 +102,7 @@ end subroutine cal_nlk
 ! Input:
 !       time: guess what!
 !       uk: vector field of velocity in Fourier space, holding the 3 velocity
-!           components and the passive scalar, if present
+!           components, if present
 ! Output:
 !       nlk:  The right hand side of penalized Navier-Stokes in Fourier space,
 !             ie the NL term, penalty term, sponge term (NOT THE PRESSURE)
@@ -150,7 +163,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   ! nlk is temporarily used for vortk
   call curl ( ink=uk, outk=nlk )
   ! transform it to physical space
-  call ifft3 ( ink=nlk, outx=vort)
+  call ifft3 ( ink=nlk, outx=vort )
   time_vor = time_vor + MPI_wtime() - t1
 
   !-----------------------------------------------------------------------------
@@ -169,7 +182,9 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   !-- vorticity sponge term
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  call vorticity_sponge( vort, work(:,:,:,1), workc, Insect )
+  if (iVorticitySponge == "yes") then
+    call vorticity_sponge( vort, work(:,:,:,1), workc, Insect )
+  endif
   time_sponge = time_sponge + MPI_wtime() - t1
 
   !-----------------------------------------------------------------------------
@@ -215,9 +230,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (iVorticitySponge == "yes") then
-    nlk(:,:,:,1) = nlk(:,:,:,1) + workc(:,:,:,1)
-    nlk(:,:,:,2) = nlk(:,:,:,2) + workc(:,:,:,2)
-    nlk(:,:,:,3) = nlk(:,:,:,3) + workc(:,:,:,3)
+    nlk(:,:,:,1:3) = nlk(:,:,:,1:3) + workc(:,:,:,1:3)
   endif
   time_sponge = time_sponge + MPI_wtime() - t1
 
@@ -281,7 +294,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   ! Add forcing term for isotropic turbulence, if used
   !-----------------------------------------------------------------------------
   if (forcing_type/="none") then
-    call add_forcing_term(time,uk,nlk)
+    call add_forcing_term(time,uk,nlk,vort)
   endif
 
 
@@ -299,7 +312,6 @@ end subroutine cal_nlk_fsi
 ! its sign is inversed when computing the pressure
 !-------------------------------------------------------------------------------
 subroutine pressure(nlk,pk)
-  use mpi
   use p3dfft_wrapper
   use vars
   implicit none
@@ -340,16 +352,30 @@ end subroutine pressure
 
 
 !-------------------------------------------------------------------------------
-! Compute the pressure in an inefficient way given only the velocity
+! Compute the pressure given the velocity field.
 !-------------------------------------------------------------------------------
-subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
+! Note the pressure is computed from the divergence of the RHS of Navier-Stokes.
+! This implies that you actually need to compute the RHS in order to compute
+! the pressure from it - thus, this is (almost) the price of a Navier-Stokes
+! step.
+! The good way to compute the pressure is to do it when you compute the RHS anyways
+! but in some situations, this is not possible:
+!   - in the semi-implicit FSI scheme (advance fluid, then get new pressure, then advance solid)
+!   - in postprocessing
+! For these reasons, this routine exists.
+! IMPORTANT: NOTE: the routine does *NOT* create mask and us fields. Why? Because in the FSI
+! semiimplicit scheme, we compute the new pressure using the OLD mask (since the beam is not
+! yet advanced to the new time level).
+! In postprocessing, be sure to create the mask before calling this routine!!
+!-------------------------------------------------------------------------------
+subroutine pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,press,Insect)
   use mpi
   use p3dfft_wrapper
   use vars
   use insect_module
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=pr),intent(in) :: time
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -357,17 +383,25 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
-  type(diptera) :: Insect_dummy
+  type(diptera),intent(inout)::Insect
 
-  ! this is a hack - we should not call this routine with insects
-  if (iMask=="Insect") then
-    call abort(99919,"do not call pressure_given_uk with iMask==insect!!!")
-  endif
+  ! first, compute the source terms: non-linear operator and penalization term.
+  ! NOTE: we do not create the mask here (nor in cal_nlk_fsi!) see note above!
+  ! This implies that if you do not have the mask at the right time or not set at
+  ! all, the result is wrong
+  call cal_nlk_fsi(time,0,nlk,uk,u,vort,work,workc,Insect)
 
-  call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect_dummy)
+  ! compute the pressure from source-terms
   call pressure(nlk,workc(:,:,:,1))
+
+  ! transform pressure back to phys. space (NOTE: press is an ghost-point array,
+  ! therefore you need to copy only the ra:rb parts)
   call ifft(ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
+  ! as we employ the rotational formulation for the nonlinear term, the pressure
+  ! is PI and not p. Return p by sustracting kinetic energy:
+  press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) &
+  - 0.5d0*(u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2)
 end subroutine
 
 
@@ -386,7 +420,6 @@ subroutine add_explicit_diffusion(uk,nlk)
   complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   integer :: ix,iy,iz
   real(kind=pr) :: kx,ky,kz,k2
-
 
   do iz=ca(1),cb(1)
     !-- wavenumber in z-direction
@@ -407,18 +440,21 @@ subroutine add_explicit_diffusion(uk,nlk)
 end subroutine add_explicit_diffusion
 
 
-
-subroutine add_forcing_term(time,uk,nlk)
-  use mpi
+! forcing terms for Homogeneous Isotropic Turbulence (HIT), added directly to NLK
+! The forcing injects energy into some wavenumbers, trying to keep the total
+! energy constant by compensating for viscous losses.
+subroutine add_forcing_term(time,uk,nlk,work)
   use vars
   use p3dfft_wrapper
+  use basic_operators
   implicit none
 
   real(kind=pr),intent(in) :: time
   complex(kind=pr),intent(inout):: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout):: uk (ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
-  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin
+  real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin, kvec
   real(kind=pr) :: kx,ky,kz,kreal,factor,epsilon,epsilon_loc,k2
   real(kind=pr) :: E
   integer :: ix,iy,iz, k, mpicode
@@ -431,8 +467,8 @@ subroutine add_forcing_term(time,uk,nlk)
     ! eps_forcing, which is read from the parameter file.
 
     ! get spectrum (on all procs, MPI_ALLREDUCE)
-    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
-    factor = eps_forcing / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+    call compute_spectrum(time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    factor = eps_forcing / (2.d0*(S_Ekin( int(kf) )+S_Ekin( int(kf)+1 )))
 
     ! force wavenumber shells
     do ix=ca(3),cb(3)
@@ -445,7 +481,7 @@ subroutine add_forcing_term(time,uk,nlk)
           kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
 
           ! forcing lives around this shell
-          if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
+          if ( (kreal>=kf-0.5d0) .and. (kreal<=kf+1.5d0) ) then
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
@@ -454,50 +490,23 @@ subroutine add_forcing_term(time,uk,nlk)
         enddo
       enddo
     enddo
+
   case ("kaneda")
     ! get spectrum (on all procs, MPI_ALLREDUCE)
-    call compute_spectrum(time,uk,S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
+    call compute_spectrum(time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin)
 
     ! compute current dissipation rate. There are several ways to do this; one
     ! is computing the enstrophy in x-space, using the vorticity, but we can also
     ! stay with the velocity in k-space and integrate k^2 * E(k)
     ! However, this is exact only if E(k) is not averaged over the wavenumber shell
     ! as it is done when computing the spectrum.
-    epsilon_loc = 0.d0
-
-    do ix=ca(3),cb(3)
-      kx=wave_x(ix)
-      do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do iz=ca(1),cb(1)
-          kz=wave_z(iz)
-          k2 = (kx*kx)+(ky*ky)+(kz*kz)
-
-          if ( ix==0 .or. ix==nx/2 ) then
-            E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2)/2. &
-             +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2)/2. &
-             +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)/2.
-          else
-            E=dble(real(uk(iz,iy,ix,1))**2+aimag(uk(iz,iy,ix,1))**2) &
-             +dble(real(uk(iz,iy,ix,2))**2+aimag(uk(iz,iy,ix,2))**2) &
-             +dble(real(uk(iz,iy,ix,3))**2+aimag(uk(iz,iy,ix,3))**2)
-          endif
-
-          epsilon_loc = epsilon_loc + k2 * E
-        enddo
-      enddo
-    enddo
-
-    epsilon_loc = 2.d0 * nu * epsilon_loc
-
-    call MPI_ALLREDUCE(epsilon_loc,epsilon,1,MPI_DOUBLE_PRECISION,MPI_SUM,&
-    MPI_COMM_WORLD,mpicode)
+    call dissipation_rate(uk, epsilon)
 
     ! The actual forcing term follows. We now have the current dissipation rate
     ! epsilon, which we would like to be balanced by the energy input through
     ! the forcing. The forcing is c*uk (where c="factor" here). Note the dissipation
     ! rate is divided by the energy of the first two wavenumber shells
-    factor = epsilon / (2.d0*(S_Ekin(1)+S_Ekin(2)))
+    factor = epsilon / (2.d0*(S_Ekin( int(kf) )+S_Ekin( int(kf)+1 )))
 
     ! force wavenumber shells
     do ix=ca(3),cb(3)
@@ -510,7 +519,7 @@ subroutine add_forcing_term(time,uk,nlk)
           kreal = dsqrt( (kx*kx)+(ky*ky)+(kz*kz) )
 
           ! forcing lives around this shell
-          if ( (kreal>=0.5d0) .and. (kreal<=2.5d0) ) then
+          if ( (kreal>=kf-0.5d0) .and. (kreal<=kf+1.5d0) ) then
             nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) + uk(iz,iy,ix,1)*factor
             nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) + uk(iz,iy,ix,2)*factor
             nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) + uk(iz,iy,ix,3)*factor
@@ -521,9 +530,13 @@ subroutine add_forcing_term(time,uk,nlk)
     enddo
 
   case default
-    if (mpirank==0) write(*,*) "unknown forcing method.."
-    call abort(99929)
+    call abort(99929,"unknown HIT forcing method..")
   end select
+
+  ! enforce hermitian symmetry the lazy ways
+  call ifft3( ink=nlk, outx=work )
+  call fft3( inx=work, outk=nlk  )
+
 end subroutine add_forcing_term
 
 !-------------------------------------------------------------------------------
@@ -711,44 +724,166 @@ end subroutine cal_nlk_mhd
 
 
 ! Render the input field divergence-free via a Helmholtz
-! decomposition. The zero-mode is left untouched.
+! decomposition. The zero-mode is left untouched. Not this is exactly what is done
+! in add_grad_pressure, so this is just an alias.
 subroutine div_field_nul(fx,fy,fz)
-  use mpi
   use vars
-  use p3dfft_wrapper
   implicit none
 
   complex(kind=pr), intent(inout) :: fx(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr), intent(inout) :: fy(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
   complex(kind=pr), intent(inout) :: fz(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
-  integer :: ix, iy, iz
-  real(kind=pr) :: kx, ky, kz, k2
-  complex(kind=pr) :: val, vx,vy,vz
 
-  do iz=ca(1),cb(1)
-     kz=wave_z(iz)
-     do iy=ca(2),cb(2)
-        ky=wave_y(iy)
-        do ix=ca(3), cb(3)
-           kx=wave_x(ix)
-
-           k2=kx*kx +ky*ky +kz*kz
-
-           if(k2 /= 0.d0) then
-              ! val = (k \cdot{} f) / k^2
-              vx=fx(iz,iy,ix)
-              vy=fy(iz,iy,ix)
-              vz=fz(iz,iy,ix)
-
-              val=(kx*vx + ky*vy + kz*vz)/k2
-
-              ! f <- f - k \cdot{} val
-              fx(iz,iy,ix)=vx -kx*val
-              fy(iz,iy,ix)=vy -ky*val
-              fz(iz,iy,ix)=vz -kz*val
-           endif
-        enddo
-     enddo
-  enddo
+  call add_grad_pressure(fx,fy,fz)
 
 end subroutine div_field_nul
+
+
+
+subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
+  use mpi
+  use p3dfft_wrapper
+  use vars
+  use insect_module
+  use basic_operators
+  use penalization ! mask array etc
+
+  implicit none
+
+  real(kind=pr),intent (in) :: time
+  integer, intent(in) :: it
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr) :: t0,t1,uy,uz,chi,usy,usz, uy_dy, uy_dz, uz_dy, uz_dz, p
+  real(kind=pr) :: kx, ky, kz, k2
+  complex(kind=pr) :: imag   ! imaginary unit
+  integer :: ix,iz,iy,mpicode
+  t0 = MPI_wtime()
+
+  nlk = 0.0_pr
+  ! reset ux (we assume you deal with 2d flows...)
+  uk(:,:,:,1) = 0.0_pr
+
+  if (nx/=1) call abort(33427, "artificial-compressibility only for 2d implemented")
+  ! no integrating factor
+  if (iTimeMethodFluid/="RK4")  call abort(33427, "artificial-compressibility only for RK4 implemented")
+  if (ncw<4) call abort(77283,"acm: not enough cmplx work arrays")
+  if (nrw<4) call abort(77283,"acm: not enough real work arrays")
+
+
+  !-----------------------------------------------------------------------------
+  !-- Calculate velocity in physical space
+  !-----------------------------------------------------------------------------
+  t1 = MPI_wtime()
+  call ifft(outx=u(:,:,:,2), ink=uk(:,:,:,2))
+  call ifft(outx=u(:,:,:,3), ink=uk(:,:,:,3))
+
+  ! derivatives (requires for non-linear term in convection formulation)
+  imag = dcmplx(0.d0,1.d0)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           workc(iz,iy,ix,1) = imag*ky*uk(iz,iy,ix,2) ! work1 = uy_dy
+           workc(iz,iy,ix,2) = imag*kz*uk(iz,iy,ix,2) ! work2 = uy_dz
+           workc(iz,iy,ix,3) = imag*ky*uk(iz,iy,ix,3) ! work3 = uz_dy
+           workc(iz,iy,ix,4) = imag*kz*uk(iz,iy,ix,3) ! work4 = uz_dz
+       enddo
+    enddo
+  enddo
+
+  call ifft(ink=workc(:,:,:,1), outx=work(:,:,:,1)) ! work1 = uy_dy
+  call ifft(ink=workc(:,:,:,2), outx=work(:,:,:,2)) ! work2 = uy_dz
+  call ifft(ink=workc(:,:,:,3), outx=work(:,:,:,3)) ! work3 = uz_dy
+  call ifft(ink=workc(:,:,:,4), outx=work(:,:,:,4)) ! work4 = uz_dz
+
+  time_u = time_u + MPI_wtime() - t1
+  !-----------------------------------------------------------------------------
+  !-- Non-Linear terms
+  !-----------------------------------------------------------------------------
+  t1 = MPI_wtime()
+  do iz=ra(3),rb(3)
+    do iy=ra(2),rb(2)
+      do ix=ra(1),rb(1)
+        ! local loop variables
+        uy = u(ix,iy,iz,2)
+        uz = u(ix,iy,iz,3)
+
+        ! derivatives
+        uy_dy = work(ix,iy,iz,1)
+        uy_dz = work(ix,iy,iz,2)
+        uz_dy = work(ix,iy,iz,3)
+        uz_dz = work(ix,iy,iz,4)
+
+        ! local variables for penalization
+        chi = mask(ix,iy,iz)
+        usy = us(ix,iy,iz,2)
+        usz = us(ix,iy,iz,3)
+
+        ! we overwrite the vorticity with the NL terms in phys space
+        ! note this is indeed -(vor x u) (negative sign)
+        vort(ix,iy,iz,2) = -uy*uy_dy -uz*uy_dz -chi*(uy-usy)
+        vort(ix,iy,iz,3) = -uy*uz_dy -uz*uz_dz -chi*(uz-usz)
+      enddo
+    enddo
+  enddo
+
+  if (acm_sponge==1) then
+    ! get pressure in x space
+    call ifft(ink=uk(:,:,:,4), outx=work(:,:,:,1) )
+
+    ! penalization term for pressure in sponge areas
+    do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+        do ix=ra(1),rb(1)
+          ! local loop variables
+          p = work(ix,iy,iz,1)
+          chi = mask(ix,iy,iz)
+          ! color 0 is sponges
+          if (mask_color(ix,iy,iz)==0) work(ix,iy,iz,2) = -chi*p
+        enddo
+      enddo
+    enddo
+
+    ! to k-space
+    call fft( inx=work(:,:,:,2),outk=nlk(:,:,:,4) )
+  endif
+
+  ! to Fourier space
+  call fft( inx=vort(:,:,:,2),outk=nlk(:,:,:,2) )
+  call fft( inx=vort(:,:,:,3),outk=nlk(:,:,:,3) )
+  time_curl = time_curl + MPI_wtime() - t1
+
+  ! add remaining terms in fourier space (divergence, grad, laplace)
+  imag = dcmplx(0.d0, 1.d0)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           k2 = kx*kx + ky*ky + kz*kz
+
+           ! add pressure gradient and laplace
+           nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) - imag*ky*uk(iz,iy,ix,4) - nu*k2*uk(iz,iy,ix,2)
+           nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) - imag*kz*uk(iz,iy,ix,4) - nu*k2*uk(iz,iy,ix,3)
+
+           ! rhs for pressure (divergence)
+           nlk(iz,iy,ix,4) = nlk(iz,iy,ix,4) -(c_0**2)*imag*(ky*uk(iz,iy,ix,2) + kz*uk(iz,iy,ix,3)) -gamma_p*uk(iz,iy,ix,4)
+       enddo
+    enddo
+  enddo
+
+  ! rhs(ix,iy,1) = -u(ix,iy)*u_dx - v(ix,iy)*u_dy - p_dx + nu*(u_dxdx + u_dydy) + penalx
+  ! rhs(ix,iy,2) = -u(ix,iy)*v_dx - v(ix,iy)*v_dy - p_dy + nu*(v_dxdx + v_dydy) + penaly
+  ! rhs(ix,iy,3) = -(c_0**2)*div_U - gamma*p(ix,iy)
+
+  time_nlk = time_nlk + MPI_wtime() - t0
+end subroutine rhs_acm

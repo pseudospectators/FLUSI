@@ -5,12 +5,12 @@
 !-------------------------------------------------------------------------------
 subroutine time_avg_HDF5(help)
   use vars
-  use mpi
+  use p3dfft_wrapper
   use basic_operators
   use helpers
   implicit none
   logical, intent(in) :: help
-  character(len=strlen) :: fname, fname_bin, fname_avg
+  character(len=strlen) :: fname, fname_this, fname_avg
   real(kind=pr), dimension(:,:,:), allocatable :: field_avg, field
   integer :: ix, iy ,iz, io_error=0, i=0
   real(kind=pr) :: time
@@ -22,10 +22,9 @@ subroutine time_avg_HDF5(help)
     write(*,*) " Reads in a list of files from a file, then loads one file after the other and"
     write(*,*) " computes the average field, which is then stored in the specified file."
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    write(*,*) "Parallel: NO"
+    write(*,*) "Parallel: Yes"
     return
   endif
-
 
   call get_command_argument(3,fname)
   call get_command_argument(4,fname_avg)
@@ -34,40 +33,36 @@ subroutine time_avg_HDF5(help)
   ! check if input file exists, the file contains the list of h5 files to be avg
   !-----------------------------------------------------------------------------
   call check_file_exists ( fname )
-  write(*,*) "Reading list of files from "//fname
-
-  if ( mpisize>1 ) then
-    write (*,*) "--time-avg is currently a serial version only, run it on 1CPU"
-    return
-  endif
+  if (root) write(*,*) "Reading list of files from "//fname
 
   !-----------------------------------------------------------------------------
   ! read in the file, loop over lines
   !-----------------------------------------------------------------------------
-  open( unit=14,file=fname, action='read', status='old')
+  open( unit=14, file=fname, action='read', status='old')
   do while (io_error==0)
     ! fetch current filename
-    read (14,'(A)', iostat=io_error) fname_bin
-    write(*,*) "read "//trim(adjustl(fname_bin))
+    read (14,'(A)', iostat=io_error) fname_this
+
     if (io_error == 0) then
-      write(*,*) "Processing file "//trim(adjustl(fname_bin))
+      call check_file_exists ( fname_this )
 
-      call check_file_exists ( fname_bin )
-      call fetch_attributes( fname_bin, nx, ny, nz, &
-      xl, yl, zl, time, nu )
+      ! initialization is done after first read.
+      if (i==0) then
+        ! get file size etc
+        call fetch_attributes( fname_this, nx, ny, nz, xl, yl, zl, time, nu, origin )
+        ! initialization parallel module (no FFTS)
+        call decomposition_initialize()
+        ! memory
+        allocate(field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+        allocate(field_avg(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
-      ! first time? allocate then.
-      if ( .not. allocated(field_avg) ) then
-        ra=(/0,0,0/)
-        rb=(/nx-1,ny-1,nz-1/)
-        allocate(field_avg(0:nx-1,0:ny-1,0:nz-1))
-        allocate(field(0:nx-1,0:ny-1,0:nz-1))
         field_avg = 0.d0
       endif
 
       ! read the field from file
-      call read_single_file( fname_bin, field )
+      call read_single_file( fname_this, field )
 
+      ! add it to the avg field
       field_avg = field_avg + field
 
       i = i+1
@@ -75,12 +70,14 @@ subroutine time_avg_HDF5(help)
   enddo
   close (14)
 
+  ! we're done an can free this array.
+  deallocate(field)
+
+  ! compute average
   field_avg = field_avg / dble(i)
 
+  ! save and exit
   call save_field_hdf5(0.d0, fname_avg, field_avg)
 
   deallocate(field_avg)
-  deallocate(field)
-
-
 end subroutine time_avg_HDF5

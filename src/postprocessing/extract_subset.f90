@@ -20,6 +20,7 @@ subroutine extract_subset(help)
   use mpi
   use vars
   use hdf5
+  use hdf5_wrapper
   use basic_operators
   use helpers
   implicit none
@@ -85,8 +86,7 @@ subroutine extract_subset(help)
 
 
   if (mpisize/=1) then
-    write(*,*) "./flusi --postprocess --extract-subset is a SERIAL routine, use 1CPU only"
-    call abort()
+    call abort(111, "./flusi --postprocess --extract-subset is a SERIAL routine, use 1CPU only")
   endif
 
   ! get file to read pressure from and check if this is present
@@ -101,7 +101,8 @@ subroutine extract_subset(help)
 
   write(*,'("dsetname=",A,1x,A)') trim(adjustl(dsetname_in)),trim(adjustl(dsetname_out))
 
-  call fetch_attributes( fname_in, nx, ny, nz, xl, yl, zl, time, nu )
+  ! fetch attributes from source file
+  call fetch_attributes( fname_in, nx, ny, nz, xl, yl, zl, time, nu, origin )
 
   call get_command_argument(5,xset)
   call get_command_argument(6,yset)
@@ -154,8 +155,11 @@ subroutine extract_subset(help)
   allocate ( field(0:nx_red-1,0:ny_red-1,0:nz_red-1) )
 
 
-  call Fetch_attributes( fname_in, nx_file,ny_file,nz_file,&
-  xl_file,yl_file,zl_file,time, nu )
+  call Fetch_attributes( fname_in, nx_file,ny_file,nz_file,xl_file,yl_file,zl_file,time, nu, origin )
+
+  ! define new origin of grid
+  origin = (/ dble(nx1)*xl/dble(nx), dble(ny1)*yl/dble(ny), dble(nz1)*zl/dble(nz) /)
+  write (*,'("New origin is ",3(g12.4,1x))') origin
 
   !-----------------------------------------------------------------------------
   ! load the file
@@ -237,7 +241,14 @@ subroutine extract_subset(help)
   yl = dy + dble(ny1+(ny_red-1)*nys)*dy - dble(ny1)*dy
   zl = dz + dble(nz1+(nz_red-1)*nzs)*dz - dble(nz1)*dz
 
+  if ( dble(nx)*dble(ny)*dble(nz) > 500.0d6) then
+    write(*,'(A)') "WARNING! The subset you ordered is rather larger (>500M points). The hdf wrapper"
+    write(*,'(A)') "might crash during writing. If that happens, change max_chunk to say 256 in hdf5_wrapper.f90"
+    write(*,'(A)') "then recompile and retry"
+  endif
+
   ! Done! Write extracted subset to disk and be happy with the result
   call save_field_hdf5 ( time, fname_out, field )
+  call write_attrib_dble(fname_out, get_dsetname(fname_out), "origin", origin)
 
 end subroutine extract_subset

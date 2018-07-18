@@ -137,7 +137,7 @@ subroutine slice_init(time)
     do i=1,nslices
       if (slices_to_save(i)>=nx) then
         write(*,*) "Error: slicing index", slices_to_save(i), "out of bounds. stop."
-        call abort()
+        call abort(717171, 'Error: slicing index out of bounds. stop.')
       endif
     enddo
   endif
@@ -254,7 +254,149 @@ end subroutine gather_slice_yz
 
 
 
+! collect a yz-slice of data from all procs on the root rank.
+subroutine gather_slice_yz_cmplx( uk, slice, ixslice )
+  use vars
+  implicit none
+  complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout) :: slice(0:,0:)
+  integer, intent(in) :: ixslice
 
+  integer :: mpierror,newtype,extent2
+  integer :: resizedtype, ierr, dims, iy
+  integer(8) :: begin, extent1
+  integer, dimension(2) :: sizes, subsizes, starts
+  integer, allocatable :: displs(:), counts(:)
+  complex(kind=pr), allocatable ::local(:,:)
+
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+  ! size of global array
+  sizes(1) = maxval(cb_table(2,:)) - minval(ca_table(2,:))+1
+  sizes(2) = maxval(cb_table(3,:)) - minval(ca_table(3,:))+1
+
+
+  allocate( local( minval(ca_table(2,:)):maxval(cb_table(2,:)), minval(ca_table(3,:)):maxval(cb_table(3,:)) ) )
+  local = 0.0d0
+  local(ca(2):cb(2),ca(3):cb(3)) = uk(ixslice,:,:)
+
+
+
+  call MPI_REDUCE( local, slice, sizes(1)*sizes(2), MPI_DOUBLE_COMPLEX, &
+                    MPI_SUM, 0, MPI_COMM_WORLD, ierr)
+
+  ! cleanup
+  deallocate( local )
+end subroutine gather_slice_yz_cmplx
+
+! collect a yz-slice of data from all procs on the root rank.
+subroutine gather_slice_yz_cmplx2( uk, slice, ixslice )
+  use vars
+  implicit none
+  complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout) :: slice(0:,0:)
+  integer, intent(in) :: ixslice
+
+  integer :: mpierror,newtype,extent2
+  integer :: resizedtype, ierr, dims, iy
+  integer(8) :: begin, extent1
+  integer, dimension(2) :: sizes, subsizes, starts
+  integer, allocatable :: displs(:), counts(:)
+  complex(kind=pr), allocatable ::local(:,:)
+
+  !-----------------------------------------------------------------------------
+  ! allocate storage for the local slice. This way we are sure about it's memory
+  ! layout: it is FORTRAN column-major ordering, and the second index is slowest.
+  !-----------------------------------------------------------------------------
+  allocate( local(ca(2):cb(2),ca(3):cb(3)) )
+  local = uk(ixslice,:,:)
+
+  !-----------------------------------------------------------------------------
+  ! create receiving datatype, relevant only on root. This datatype in non
+  ! contiguous in memory. A very good description of the problem is found in
+  ! http://stackoverflow.com/questions/17508647/sending-2d-arrays-in-fortran-with-mpi-gather
+  !-----------------------------------------------------------------------------
+  ! size of global array
+  sizes(1) = maxval(cb_table(2,:)) - minval(ca_table(2,:))+1
+  sizes(2) = maxval(cb_table(3,:)) - minval(ca_table(3,:))+1
+
+  ! size of local subarrays (we take the biggest one, in case there's different)
+  subsizes = (/maxval((cb_table(2,:)-ca_table(2,:)+1)),maxval((cb_table(3,:)-ca_table(3,:)+1))/)
+
+  if ( (maxval((cb_table(2,:)-ca_table(2,:)+1)) /= minval((cb_table(2,:)-ca_table(2,:)+1))) .or. &
+  (maxval((cb_table(3,:)-ca_table(3,:)+1)) /= minval((cb_table(3,:)-ca_table(3,:)+1))) ) then
+  write(*,*) subsizes
+    call abort(1439450, 'gather_slice: not all procs have same subset size.')
+  endif
+
+  ! no offset
+  ! starts = (/minval(ca_table(:,2)), minval(ca_table(:,3))/)
+  starts = (/minval(ca_table(2,:)), minval(ca_table(3,:))/)
+  dims = 2 ! 2D array
+  call MPI_Type_create_subarray(dims, sizes, subsizes, starts,            &
+                                MPI_ORDER_FORTRAN, MPI_DOUBLE_COMPLEX,  &
+                                newtype, mpierror)
+
+  ! get the sice of a double complex
+  call MPI_Type_size(MPI_DOUBLE_COMPLEX, extent2, ierr)
+  extent1 = extent2
+  begin    = 0
+  ! resize the datatype to the size of one double
+  call MPI_Type_create_resized(newtype, begin, extent1, resizedtype, ierr)
+  call MPI_Type_commit(resizedtype, ierr)
+
+
+
+  !-----------------------------------------------------------------------------
+  ! root has to know how much data it is going to receive (counts) and where to
+  ! put it in a 1D array in memory (displs). For each proc, we allow a different
+  ! count (and displacement of course)
+  !-----------------------------------------------------------------------------
+  allocate ( counts(0:mpisize-1),displs(0:mpisize-1) )
+  do iy = 0, mpisize-1
+    ! number of elements in local memory
+    counts(iy) = (cb_table(2,iy)-ca_table(2,iy)+1)*(cb_table(3,iy)-ca_table(3,iy)+1)
+    ! displacement on the 1D line on root
+    displs(iy) = ca_table(2,iy) + (nz/2+1)*(ca_table(3,iy))
+  enddo
+
+
+
+  !-----------------------------------------------------------------------------
+  ! Note different datatypes for sender and receiver. The sender can simple use
+  ! MPI_DOUBLE_PRECISION, since it is sending the entire slice, which is locally
+  ! contiguous in memory.
+  ! The situation on the receiver, root, is very different: the 2D data is not
+  ! at all contiguous, but it has holes in it, which is why we created the data-
+  ! type "resizedtype"
+  !-----------------------------------------------------------------------------
+  call MPI_Gatherv( local, (cb(2)-ca(2)+1)*(cb(3)-ca(3)+1), MPI_DOUBLE_COMPLEX, &
+                    slice, counts, displs, resizedtype, &
+                    0, MPI_COMM_WORLD, ierr)
+
+  ! cleanup
+  deallocate( counts, displs, local )
+end subroutine gather_slice_yz_cmplx2
+
+
+! this routine is a crime for efficiency. We take the mpi-distributed data array
+! u_org and collect, on root, the entire 3D array locally. This breaks the parallelization
+! of the code and it is a memory bottleneck.
+! We use this only for upsampling in postprocessing, see comments therein
+subroutine gather_all( uk_org, uk )
+  use vars
+  implicit none
+  complex(kind=pr),intent(inout) :: uk_org(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
+  complex(kind=pr),intent(inout) :: uk(0:,0:,0:)
+  integer :: ix
+
+  do ix = 0, nx-1
+    call gather_slice_yz_cmplx( uk_org, uk(ix,:,:), ix)
+  enddo
+end subroutine
 
 
 
@@ -309,10 +451,12 @@ subroutine test_slices( u )
 
 
   call MPI_barrier (MPI_COMM_world, mpierror)
-  call abort()
+  call abort(7171771,"end of test-slices...")
 
 
 end subroutine
+
+
 
 
 
