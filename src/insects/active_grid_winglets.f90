@@ -6,21 +6,27 @@ subroutine draw_active_grid_winglets(time, mask, mask_color, us)
     real(kind=pr),intent(inout)  :: us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
     integer(kind=2),intent(inout) :: mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
 
-    real(kind=pr), parameter :: offset = 4.0/20.0
-    real(kind=pr), parameter :: omega(1:4) = (/1.0_pr, -1.0_pr, +1.0_pr, -1.0_pr/)
-    real(kind=pr), parameter :: alpha0(1:4)=(/0.0_pr, 0.0_pr, pi/2.0_pr, pi/2.0_pr/)
+    real(kind=pr), parameter :: offset = 4.0d0/20.0d0
+    real(kind=pr), parameter :: omega(1:4) = (/1.0d0, -1.0d0, +1.0d0, -1.0d0/)
+    real(kind=pr), parameter :: alpha0(1:4)=(/0.0d0, 0.0d0, pi/2.0d0, pi/2.0d0/)
+    integer(kind=1) :: color_val
+
 
     smoothing = 1.5d0*dz
 
-    mask = 0.00_pr
-    mask_color = 0_1
-    us = 0.0_pr
+    mask = 0.00d0
+    mask_color = 0
+    us = 0.0d0
 
-    call draw_single_winglet( time, (/x0, 1.5_pr, 0.0_pr/), omega(1), alpha0(1), 'z', 1_1, mask, mask_color, us)
-    call draw_single_winglet( time, (/x0, 0.5_pr, 0.0_pr/), omega(2), alpha0(2), 'z', 2_1, mask, mask_color, us)
+    color_val = 1
+    call draw_single_winglet( time, (/x0, 1.5d0, 0.0d0/), omega(1), alpha0(1), 'z', color_val, mask, mask_color, us)
+    color_val = 2
+    call draw_single_winglet( time, (/x0, 0.5d0, 0.0d0/), omega(2), alpha0(2), 'z', color_val, mask, mask_color, us)
 
-    call draw_single_winglet( time, (/x0-offset, 0.0_pr, 1.5_pr/), omega(3), alpha0(3), 'y', 3_1, mask, mask_color, us)
-    call draw_single_winglet( time, (/x0-offset, 0.0_pr, 0.5_pr/), omega(4), alpha0(4), 'y', 4_1, mask, mask_color, us)
+    color_val = 3
+    call draw_single_winglet( time, (/x0-offset, 0.0d0, 1.5d0/), omega(3), alpha0(3), 'y', color_val, mask, mask_color, us)
+    color_val = 4
+    call draw_single_winglet( time, (/x0-offset, 0.0d0, 0.5d0/), omega(4), alpha0(4), 'y', color_val, mask, mask_color, us)
 
 
 end subroutine draw_active_grid_winglets
