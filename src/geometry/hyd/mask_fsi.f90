@@ -34,7 +34,7 @@ subroutine create_mask_fsi (time, Insect, beams )
       ! Actual mask functions:
       select case (iMask)
       case ("active_grid")
-          call draw_active_grid_winglets(time, xx0, ddx, mask, mask_color, us)
+          call draw_active_grid_winglets(time, Insect, xx0, ddx, mask, mask_color, us)
       case ("fractal_tree")
           call Draw_fractal_tree(Insect, xx0, ddx, mask, mask_color, us)
       case ("floor_yz","floor_zy","flooryz","floorzy")

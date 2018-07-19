@@ -1,7 +1,8 @@
-subroutine draw_active_grid_winglets(time, xx0, ddx, mask, mask_color, us)
+subroutine draw_active_grid_winglets(time, Insect, xx0, ddx, mask, mask_color, us)
     implicit none
 
     real(kind=rk), intent(in) :: time
+    type(diptera), intent(inout) :: Insect
     real(kind=rk),intent(in) :: xx0(1:3), ddx(1:3)
     real(kind=rk),intent(inout)  :: mask(0:,0:,0:)
     real(kind=rk),intent(inout)  :: us(0:,0:,0:,1:)
@@ -15,7 +16,7 @@ subroutine draw_active_grid_winglets(time, xx0, ddx, mask, mask_color, us)
 
     Insect%smooth = 1.0d0*maxval(ddx)
     Insect%safety = 3.5d0*Insect%smooth
-    
+
     mask = 0.00d0
     mask_color = 0
     us = 0.0d0
