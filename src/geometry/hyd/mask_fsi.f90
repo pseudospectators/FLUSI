@@ -35,36 +35,59 @@ subroutine create_mask_fsi (time, Insect, beams )
       select case (iMask)
       case ("active_grid")
           call draw_active_grid_winglets(time, Insect, xx0, ddx, mask, mask_color, us)
+
       case ("fractal_tree")
           call Draw_fractal_tree(Insect, xx0, ddx, mask, mask_color, us)
+
       case ("floor_yz","floor_zy","flooryz","floorzy")
           call Draw_floor_yz()
+
       case ("sphere","Sphere")
           call Draw_Sphere()
+
       case ("cylinder","cylinder_x")
           call Draw_cylinder_x()
+
       case ("moving_cylinder","moving_cylinder_x")
           call Draw_moving_cylinder_x(time)
+
       case ("cylinder_asym_z")
           call Draw_cylinder_asym_z()
+
       case ("romain_open_cavity")
           call romain_open_cavity()
+
       case ("Flapper")
           call Flapper (time)
+
       case ("turek_wan")
           call turek_wan (time)
+
       case ("Insect","insect")
+          ! Many parts of the insect mask generation are done only once per time step (i.e.
+          ! per mask generation). Now, the adaptive code calls Draw_Insect several times, on each
+          ! block of the grid. Draw_Insect is thus called SEVERAL times per mask generation.
+          ! Therefore, we outsource the parts that need to be done only once to this routine,
+          ! and call it BEFORE calling Draw_Insect. For FLUSI, this does not have any effect
+          ! other than having two routines.
+          call Update_Insect( time, Insect )
           call Draw_Insect ( time, Insect, xx0, ddx, mask, mask_color, us)
+
       case("Flexibility")
           call Draw_flexible_plate(time, beams(1))
+
       case ("plate","Plate")
           call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
+
       case ("noncircular_cylinder")
           call noncircular_cylinder()
+
       case ("couette")
           call taylor_couette()
+
       case("none","empty","no")
           ! in this case, no extra mask is set, but you might have e.g. the turbulent
+
           ! inlet or channel walls.
       case default
           ! is this case, we read the entire mask from a hdf5 file. Note the mask is not
