@@ -307,6 +307,11 @@ contains
             first_call = .false.
         endif
 
+        ! save time to insect, then we can check if the update routine has been called
+        ! or not (this is not necessary if Update_Insect is called, but helpful to prevent
+        ! human errors)
+        Insect%time = time
+
     end subroutine Update_Insect
 
   !-------------------------------------------------------------------------------
@@ -331,8 +336,9 @@ contains
       integer :: ix, iy, iz
       integer(kind=2) :: c
 
-      if ((dabs(Insect%time-time)>1.0d-10).and.(root).and.(Insect%BodyMotion=="free_flight")) then
-          write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
+      if ((dabs(Insect%time-time)>1.0d-10).and.root) then
+          write(*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
+          write(*,'("Did you call Update_Insect before Draw_Insect?")')
       endif
 
       Insect%smooth = 1.0d0*maxval(ddx)
