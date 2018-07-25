@@ -432,6 +432,59 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
      ! add mean flow (note: any inverted curl always has zero mean flow)
      call set_mean_flow(uk,time)
 
+ case("2VortexRings")
+    !--------------------------------------------------
+    ! radius of vortexring (set in params file)
+    r00 = length
+    a  = 0.2d0 * r00
+    ! strength (set in params file)
+    gamma0 = omega1
+
+    if (mpirank==0) then
+      write(*,'(80("*"))')
+      write(*,*) "*** inicond: two vortex rings initial condition"
+      write(*,'("r00=",g12.4," a=",g12.4," gamma0=",g12.4," RE=",g13.4)') r00,a,gamma0,gamma0/nu
+      write(*,'("center=",3(g12.4,1x))') x0,y0,z0
+      write(*,'(80("*"))')
+    endif
+
+    ! define vorticity in phy space
+    do iz=ra(3), rb(3)
+        do iy=ra(2), rb(2)
+            do ix=ra(1), rb(1)
+                x = dble(ix)*dx
+                y = dble(iy)*dy
+                z = dble(iz)*dz
+
+                ! radius in cylinder coordinates. note we do not need the polar
+                ! angle, luckily, as we can directly set their cosine/sine with
+                ! z/r and y/r. This is much cheaper.
+                r = dsqrt( (y-y0)**2 + (z-z0)**2 )
+
+                ! angular vorticity component. The vorticity vector in cylinder
+                ! coordinates is (r,theta,z) = (0,omega,0), see eg
+                ! Jause-Labert et al., "Numerical validation of the volume penalization method in three-dimensional
+                ! pseudo-spectral simulations" Computers & Fluids 2012
+                omega  = (gamma0/(pi*a**2))*dexp(-((x-x0)**2 + (r-r00)**2)/(a**2) )
+                omega1 = (gamma0/(pi*a**2))*dexp(-((x-x0-r00)**2 + (r-r00)**2)/(a**2) )
+
+
+                ! avoid division by zero if R is very small
+                if ( dabs(r)> 1.0d-12) then
+                    vort(ix,iy,iz,2) =-(omega+omega1) * ( (z-z0)/r) ! this is sin(theta)
+                    vort(ix,iy,iz,3) = (omega+omega1) * ( (y-y0)/r) ! this is cos(theta)
+                endif
+            enddo
+        enddo
+    enddo
+    ! go to Fourier space
+    call fft3(inx=vort, outk=nlk(:,:,:,:,0))
+    ! invert curl (Biot-Savart Operator)
+    call Vorticity2Velocity(nlk(:,:,:,1:3,0),uk(:,:,:,1:3))
+    ! add mean flow (note: any inverted curl always has zero mean flow)
+    call set_mean_flow(uk,time)
+
+
  case ("three-vortices")
      if (nx /= 1) call abort(13, "three-vortices is a 2d flow! set nx=1")
 
