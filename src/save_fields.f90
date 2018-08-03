@@ -127,7 +127,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
 
   elseif (isavePress == 1 .and. equation=="artificial-compressibility") then
     call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
-    call save_field_hdf5(time,"p_"//name,work(:,:,:,1))
+    call save_field_hdf5(time, "p_"//name, work(:,:,:,1))
 
   endif
 

@@ -239,7 +239,8 @@ end program FLUSI
     ! real valued work array(s)
     ! allocate one work array
     nrw = 1
-    if (equation=="artificial-compressibility") nrw = 4
+    if (equation=="artificial-compressibility" .and. nx==1) nrw = 4
+    if (equation=="artificial-compressibility" .and. nx/=1) nrw = 9
     allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
     memory = memory + dble(nrw)*mem_field
 
@@ -260,7 +261,8 @@ end program FLUSI
       ! one complex work array, if using scalar
       if (use_passive_scalar==1) ncw = 1
     endif
-    if (equation=="artificial-compressibility") ncw = 4
+    if (equation=="artificial-compressibility" .and. nx==1) ncw = 4
+    if (equation=="artificial-compressibility" .and. nx/=1) ncw = 9
     allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
 
     ! reserve additional space for scalars?
