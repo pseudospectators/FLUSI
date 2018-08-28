@@ -845,6 +845,9 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
       enddo
     enddo
   enddo
+  !-- at this point "work", "workc" are free
+
+
 
   if (acm_sponge==1) then
     ! get pressure in x space
@@ -994,7 +997,9 @@ subroutine rhs_acm_3D(time, it, nlk, uk, u, vort, work, workc, Insect)
               uz_dy = work(ix,iy,iz,8)
               uz_dz = work(ix,iy,iz,9)
 
-              ! local variables for penalization
+              ! local variables for penalization. Note that color=0 indicates sponge
+              ! masks. Those mask act on velocity and pressure. So in any case, we have to
+              ! add it here. If the sponging is active, we add the penalization for the pressure below.
               chi = mask(ix,iy,iz) * eps_inv
               usx = us(ix,iy,iz,1)
               usy = us(ix,iy,iz,2)

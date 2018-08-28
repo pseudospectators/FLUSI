@@ -33,6 +33,9 @@ subroutine create_mask_fsi (time, Insect, beams )
   if (iPenalization==1) then
       ! Actual mask functions:
       select case (iMask)
+      case ("oscillating_cylinder_2D")
+          call oscillating_cylinder_2D(time)
+
       case ("active_grid")
           call draw_active_grid_winglets(time, Insect, xx0, ddx, mask, mask_color, us)
 
@@ -399,6 +402,62 @@ subroutine taylor_couette()
   enddo
 
 end subroutine
+
+! ------------------------------------------------------------------------------
+! Draw an oscillating cylinder with UNIT DIAMETER, UNIT OSCILLATION FREQUENCY
+! amplitude is
+! x = x0 (const, but this is a 2D case anyways)
+! y = yl/2 + LENGTH*sin(2*pi*f_ext)
+! z = z0 (const)
+! ------------------------------------------------------------------------------
+! Source paper:
+! A NUMERICAL SIMULATION OF VORTEX SHEDDING FROM AN OSCILLATING CIRCULAR CYLINDER
+! (J. Fluids Struct. 2002)
+subroutine oscillating_cylinder_2D(time)
+  use vars
+  use penalization
+  implicit none
+
+  integer :: iy, iz
+  real(kind=pr),intent(in) :: time
+  real(kind=pr), parameter :: R0 = 0.5d0 , f_ext = 1.0d0
+  real(kind=pr) :: uu, tmp2, y, z, R, safety
+
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+
+  ! some checks
+  if (nx/=1) call abort(182820,"The oscillating_cylinder_2D is 2D hence set nx==1")
+  if (iMoving==0) call abort(182821,"The oscillating_cylinder_2D is moving, hence set iMoving=1")
+
+  ! safety zone to ensure encluding the smoothing layer completely
+  safety = 2.0d0 * 1.5d0 * dx
+
+  ! oscillating midpoint coordinate and velocity
+  y0 = 0.5d0*yl + length*sin(2.0d0*pi*f_ext*time)
+  uu = 2.0*pi*length*f_ext*cos(2.0d0*pi*f_ext*time)
+
+  do iz = ra(3),rb(3)
+      z = dble(iz)*dz
+
+      do iy = ra(2),rb(2)
+          y = dble(iy)*dy
+
+          R = sqrt( (z-z0)**2 + (y-y0)**2 )
+          if (R < R0+safety) then
+              call SmoothStep (tmp2, R, R0, 1.5*max(dy,dz))
+              mask(:,iy,iz) = tmp2
+              mask_color(:,iy,iz) = 1
+              us(:,iy,iz,2) = uu
+          endif
+      enddo
+  enddo
+
+end subroutine oscillating_cylinder_2D
+
+
 
 
 subroutine turek_wan(time)
