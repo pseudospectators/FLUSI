@@ -2,7 +2,7 @@
 subroutine create_mask_fsi (time, Insect, beams )
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   use turbulent_inlet_module
   use penalization ! mask array etc
   implicit none
@@ -10,76 +10,117 @@ subroutine create_mask_fsi (time, Insect, beams )
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   logical, save :: mask_already_read = .false.
+  real(kind=pr) :: ddx(1:3), xx0(1:3)
+
+  ! some checks
+  if ((iMask=="Insect").and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
+    call abort(4453,"insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong.")
+  endif
+
+  if ((iMask=="fractal_tree").and.(iMoving == 1)) then
+    call abort(4417,"fractal trees do not move -- set iMoving=0 (avoid creating mask in every iteration)")
+  endif
+
+  ddx = (/ dx, dy, dz /)
+  xx0 = (/ dble(ra(1))*dx, dble(ra(2))*dy, dble(ra(3))*dz /)
+
+  if (nx==1) ddx(1) = 0.0_pr
 
   !-------------------------------------------------------------
   ! create obstacle mask
   !-------------------------------------------------------------
   ! do not create any mask when not using penalization
   if (iPenalization==1) then
-    ! Actual mask functions:
-    select case (iMask)
-    case ("fractal_tree")
-      call Draw_fractal_tree(Insect, mask, mask_color, us)
-    case ("floor_yz","floor_zy","flooryz","floorzy")
-      call Draw_floor_yz()
-    case ("sphere","Sphere")
-      call Draw_Sphere()
-    case ("cylinder","cylinder_x")
-      call Draw_cylinder_x()
-    case ("moving_cylinder","moving_cylinder_x")
-      call Draw_moving_cylinder_x(time)
-    case ("romain_open_cavity")
-      call romain_open_cavity()
-    case ("Flapper")
-      call Flapper (time)
-    case ("turek_wan")
-      call turek_wan (time)
-    case ("Insect","insect")
-      call Draw_Insect ( time, Insect, mask, mask_color, us)
-    case("Flexibility")
-      call Draw_flexible_plate(time, beams(1))
-    case ("plate","Plate")
-      call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
-    case ("noncircular_cylinder")
-      call noncircular_cylinder()
-    case ("couette")
-      call taylor_couette()
-    case("none","empty","no")
-      ! in this case, no extra mask is set, but you might have e.g. the turbulent
-      ! inlet or channel walls.
-    case default
-      ! is this case, we read the entire mask from a hdf5 file. Note the mask is not
-      ! time dependent; it is read only a single time. we allow it to have constant
-      ! non-zero, homogeneous us (solid velocity)
-      ! check if the string begins with from_file::
-      if ( iMask(1:11) == "from_file::" ) then
-        ! did we already read from file?
-        if (mask_already_read .eqv. .false.) then
-          ! no -> read now and skip in the future
-          mask_already_read = .true.
-          if (root) then
-            write(*,*) "reading mask from file "//iMask(12:strlen)
-            write(*,*) "solid velocity field will be ", us_fixed
+      ! Actual mask functions:
+      select case (iMask)
+      case ("oscillating_cylinder_2D")
+          call oscillating_cylinder_2D(time)
+
+      case ("active_grid")
+          call draw_active_grid_winglets(time, Insect, xx0, ddx, mask, mask_color, us)
+
+      case ("fractal_tree")
+          call Draw_fractal_tree(Insect, xx0, ddx, mask, mask_color, us)
+
+      case ("floor_yz","floor_zy","flooryz","floorzy")
+          call Draw_floor_yz()
+
+      case ("sphere","Sphere")
+          call Draw_Sphere()
+
+      case ("cylinder","cylinder_x")
+          call Draw_cylinder_x()
+
+      case ("moving_cylinder","moving_cylinder_x")
+          call Draw_moving_cylinder_x(time)
+
+      case ("cylinder_asym_z")
+          call Draw_cylinder_asym_z()
+
+      case ("romain_open_cavity")
+          call romain_open_cavity()
+
+      case ("Flapper")
+          call Flapper (time)
+
+      case ("turek_wan")
+          call turek_wan (time)
+
+      case ("Insect","insect")
+          ! Many parts of the insect mask generation are done only once per time step (i.e.
+          ! per mask generation). Now, the adaptive code calls Draw_Insect several times, on each
+          ! block of the grid. Draw_Insect is thus called SEVERAL times per mask generation.
+          ! Therefore, we outsource the parts that need to be done only once to this routine,
+          ! and call it BEFORE calling Draw_Insect. For FLUSI, this does not have any effect
+          ! other than having two routines.
+          call Update_Insect( time, Insect )
+          call Draw_Insect ( time, Insect, xx0, ddx, mask, mask_color, us)
+
+      case("Flexibility")
+          call Draw_flexible_plate(time, beams(1))
+
+      case ("plate","Plate")
+          call Draw_Plate (time) ! 2d plate, etc (Dmitry, 25 Oct 2013)
+
+      case ("noncircular_cylinder")
+          call noncircular_cylinder()
+
+      case ("couette")
+          call taylor_couette()
+
+      case("none","empty","no")
+          ! in this case, no extra mask is set, but you might have e.g. the turbulent
+
+          ! inlet or channel walls.
+      case default
+          ! is this case, we read the entire mask from a hdf5 file. Note the mask is not
+          ! time dependent; it is read only a single time. we allow it to have constant
+          ! non-zero, homogeneous us (solid velocity)
+          ! check if the string begins with from_file::
+          if ( iMask(1:11) == "from_file::" ) then
+              ! did we already read from file?
+              if (mask_already_read .eqv. .false.) then
+                  ! no -> read now and skip in the future
+                  mask_already_read = .true.
+                  if (root) then
+                      write(*,*) "reading mask from file "//iMask(12:strlen)
+                      write(*,*) "solid velocity field will be ", us_fixed
+                  endif
+                  call Read_Single_File( iMask(12:strlen), mask )
+                  ! impose homogeneous, time-constant solid velocity. the value of us_fixed
+                  ! can be set in the parameter file
+                  us(:,:,:,1) = us_fixed(1)
+                  us(:,:,:,2) = us_fixed(2)
+                  us(:,:,:,3) = us_fixed(3)
+                  ! set color to 1
+                  mask_color = 1
+              endif
+          else
+              ! no known case...
+              write (*,*) "iMask="//iMask//" not properly set; stopping."
+              call abort(3333, "create_mask_fsi(): unkown mask function iMask")
           endif
-          call Read_Single_File( iMask(12:strlen), mask )
-          ! impose homogeneous, time-constant solid velocity. the value of us_fixed
-          ! can be set in the parameter file
-          us(:,:,:,1) = us_fixed(1)
-          us(:,:,:,2) = us_fixed(2)
-          us(:,:,:,3) = us_fixed(3)
-          ! set color to 1
-          mask_color = 1
-        else
-          ! since we divide by eps later, in the main wrapper for mask, we multiply
-          ! here first..
-          mask = mask * eps
-        endif
-      else
-        ! no known case...
-        write (*,*) "iMask="//iMask//" not properly set; stopping."
-        call abort(3333, "create_mask_fsi(): unkown mask function iMask")
-      endif
-    end select
+      end select
   endif
 
   !-------------------------------------------------------------
@@ -361,6 +402,62 @@ subroutine taylor_couette()
   enddo
 
 end subroutine
+
+! ------------------------------------------------------------------------------
+! Draw an oscillating cylinder with UNIT DIAMETER, UNIT OSCILLATION FREQUENCY
+! amplitude is
+! x = x0 (const, but this is a 2D case anyways)
+! y = yl/2 + LENGTH*sin(2*pi*f_ext)
+! z = z0 (const)
+! ------------------------------------------------------------------------------
+! Source paper:
+! A NUMERICAL SIMULATION OF VORTEX SHEDDING FROM AN OSCILLATING CIRCULAR CYLINDER
+! (J. Fluids Struct. 2002)
+subroutine oscillating_cylinder_2D(time)
+  use vars
+  use penalization
+  implicit none
+
+  integer :: iy, iz
+  real(kind=pr),intent(in) :: time
+  real(kind=pr), parameter :: R0 = 0.5d0 , f_ext = 1.0d0
+  real(kind=pr) :: uu, tmp2, y, z, R, safety
+
+  ! reset everything
+  mask = 0.d0
+  mask_color = 0
+  us = 0.d0
+
+  ! some checks
+  if (nx/=1) call abort(182820,"The oscillating_cylinder_2D is 2D hence set nx==1")
+  if (iMoving==0) call abort(182821,"The oscillating_cylinder_2D is moving, hence set iMoving=1")
+
+  ! safety zone to ensure encluding the smoothing layer completely
+  safety = 2.0d0 * 1.5d0 * dx
+
+  ! oscillating midpoint coordinate and velocity
+  y0 = 0.5d0*yl + length*sin(2.0d0*pi*f_ext*time)
+  uu = 2.0*pi*length*f_ext*cos(2.0d0*pi*f_ext*time)
+
+  do iz = ra(3),rb(3)
+      z = dble(iz)*dz
+
+      do iy = ra(2),rb(2)
+          y = dble(iy)*dy
+
+          R = sqrt( (z-z0)**2 + (y-y0)**2 )
+          if (R < R0+safety) then
+              call SmoothStep (tmp2, R, R0, 1.5*max(dy,dz))
+              mask(:,iy,iz) = tmp2
+              mask_color(:,iy,iz) = 1
+              us(:,iy,iz,2) = uu
+          endif
+      enddo
+  enddo
+
+end subroutine oscillating_cylinder_2D
+
+
 
 
 subroutine turek_wan(time)

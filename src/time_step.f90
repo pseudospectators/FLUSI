@@ -4,7 +4,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use slicing
   implicit none
 

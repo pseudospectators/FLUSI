@@ -5,7 +5,7 @@ subroutine force_decomposition(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
-  use helpers
+  use module_helpers
   use mpi
   implicit none
   logical, intent(in) :: help

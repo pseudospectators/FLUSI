@@ -1,11 +1,11 @@
 ! Ini files parser for MPI parallel codes
-! This module is just a layer that includes the serial ini_files_parser
+! This module is just a layer that includes the serial module_ini_files_parser
 ! if you read a parameter, only root rank extracts it from the file (which is also
 ! read by root only) and then broadcasts it to all other processes
-module ini_files_parser_mpi
+module module_ini_files_parser_mpi
   ! use the serial ini files parser. the present module is just a wrapper for mpi codes
   ! since the original ini files parser is serial
-  use ini_files_parser
+  use module_ini_files_parser
   use mpi
 
 

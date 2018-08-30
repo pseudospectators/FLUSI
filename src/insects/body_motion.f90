@@ -20,11 +20,11 @@
 subroutine BodyMotion(time, Insect)
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=rk), intent(in) :: time
   type(diptera), intent(inout) :: Insect
-  real(kind=pr) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
-  real(kind=pr) :: xc(1:3), vc(1:3), ep(0:3)
-  real(kind=pr) :: T,R
+  real(kind=rk) :: psi, beta, gamma, psi_dt, beta_dt, gamma_dt
+  real(kind=rk) :: xc(1:3), vc(1:3), ep(0:3)
+  real(kind=rk) :: T,R
   character(len=strlen) :: dummy
 
   ! the tag body_moves is used to draw the insect's body only once, if the body
@@ -188,10 +188,8 @@ subroutine BodyMotion(time, Insect)
       if(root) write(*,'("free--flight: ",f12.4,2x,9(es12.4,1x))') time, xc,vc,Insect%rot_body_b
     endif
 
-    if (iTimeMethodFluid /= "AB2_rigid_solid") call abort(99,"free flight requires AB2_rigid_solid")
-
   case default
-    if (mpirank==0) then
+    if (root) then
       write(*,*) Insect%BodyMotion
       write(*,*) "body_motion.f90::BodyMotion: motion case (Insect%BodyMotion) undefined"
       call abort(10621, "body_motion.f90::BodyMotion: motion case (Insect%BodyMotion) undefined")
@@ -201,7 +199,7 @@ subroutine BodyMotion(time, Insect)
 
 
 
-  if ((mpirank==0).and.(maxval(vc)>0.0d0).and.(Insect%body_moves=="no")) then
+  if ((root).and.(maxval(vc)>0.0d0).and.(Insect%body_moves=="no")) then
     write(*,*) "error in body_motion.f90: I found maxval(vc)>0 but the body_moves"
     write(*,*) "flag is set to no, which means we will draw the body only once"
     write(*,*) "This is probably not intented - you should look into it."
@@ -220,7 +218,7 @@ subroutine BodyMotion(time, Insect)
   Insect%vc_body_g  = vc
 
 
-  ! for compability, we update the x0,y0,z0 also
+  ! for compatibility, we update the x0,y0,z0 also
   ! this is used e.g. for torque computation
   x0 = xc(1)
   y0 = xc(2)

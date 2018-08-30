@@ -105,7 +105,7 @@ end program FLUSI
     use vars
     use p3dfft_wrapper
     use solid_model
-    use insect_module
+    use module_insects
     use slicing
     use turbulent_inlet_module
     use penalization ! mask array etc
@@ -146,8 +146,7 @@ end program FLUSI
     time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
     time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
     time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
-    time_insect_head=0.d0; time_insect_body=0.d0; time_insect_eye=0.d0
-    time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
+    time_scalar=0.d0
     time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
     time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
     tslices=0.d0
@@ -252,7 +251,8 @@ end program FLUSI
     ! real valued work array(s)
     ! allocate one work array
     nrw = 1
-    if (equation=="artificial-compressibility") nrw = 4
+    if (equation=="artificial-compressibility" .and. nx==1) nrw = 4
+    if (equation=="artificial-compressibility" .and. nx/=1) nrw = 9
     allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw))
     memory = memory + dble(nrw)*mem_field
 
@@ -273,7 +273,8 @@ end program FLUSI
       ! one complex work array, if using scalar
       if (use_passive_scalar==1) ncw = 1
     endif
-    if (equation=="artificial-compressibility") ncw = 4
+    if (equation=="artificial-compressibility" .and. nx==1) ncw = 4
+    if (equation=="artificial-compressibility" .and. nx/=1) ncw = 9
     allocate (workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw) )
 
     ! reserve additional space for scalars?
@@ -432,7 +433,7 @@ end program FLUSI
   ! Output information on where the algorithm spent the most time.
   subroutine show_timings(t2)
     use vars
-    use helpers
+    use module_helpers
     implicit none
     real (kind=pr) :: t2, t3
 
@@ -449,11 +450,6 @@ end program FLUSI
      time_save=mpisum(time_save)
      time_bckp=mpisum(time_bckp)
      tslices=mpisum(tslices)
-     time_insect_body=mpisum(time_insect_body)
-     time_insect_eye=mpisum(time_insect_eye)
-     time_insect_head=mpisum(time_insect_head)
-     time_insect_wings=mpisum(time_insect_wings)
-     time_insect_vel=mpisum(time_insect_vel)
      time_hdf5=mpisum(time_hdf5)
      time_vis=mpisum(time_vis)
      time_solid=mpisum(time_solid)
@@ -484,13 +480,6 @@ if (mpirank/=0) return
     write(*,8) (time_save), 100.d0*(time_save)/t2, "save fields"
     write(*,8) (time_bckp), 100.d0*(time_bckp)/t2, "backuping"
     write(*,8) (tslices), 100.d0*(tslices)/t2, "slicing"
-    write(*,3)
-    write(*,'("Create Mask:")')
-    write(*,8) (time_insect_body), 100.d0*(time_insect_body)/t2, "insect::body"
-    write(*,8) (time_insect_eye),100.d0*(time_insect_eye)/t2, "insect::eyes"
-    write(*,8) (time_insect_head),100.d0*(time_insect_head)/t2, "insect::head"
-    write(*,8) (time_insect_wings),100.d0*(time_insect_wings)/t2,"insect::wings"
-    write(*,8) (time_insect_vel),100.d0*(time_insect_vel)/t2,"insect::rotation"
     write(*,3)
     write(*,'("save fields:")')
     write(*,8) (time_hdf5), 100.d0*(time_hdf5)/t2, "hdf5 disk dumping"
@@ -527,6 +516,7 @@ if (mpirank/=0) return
 
   subroutine initialize_time_series_files()
     use vars
+    use module_helpers
     implicit none
 
     ! For insect wing/body forces

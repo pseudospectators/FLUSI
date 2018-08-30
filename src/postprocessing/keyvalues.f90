@@ -8,6 +8,8 @@ subroutine keyvalues(filename)
   use vars
   use mpi
   use p3dfft_wrapper
+  use module_helpers
+  
   implicit none
   character(len=*), intent(in) :: filename
   real(kind=pr) :: time, npoints, q, x,y,z

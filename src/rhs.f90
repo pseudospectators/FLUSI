@@ -3,7 +3,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use passive_scalar_module
   implicit none
 
@@ -72,7 +72,11 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
 
     case ("artificial-compressibility")
       t1 = MPI_wtime()
-      call rhs_acm(time,it,nlk,uk,u,vort,work,workc,Insect)
+      if (nx==1) then
+          call rhs_acm_2D(time,it,nlk,uk,u,vort,work,workc,Insect)
+      else
+          call rhs_acm_3D(time,it,nlk,uk,u,vort,work,workc,Insect)
+      endif
       time_nlk2 = time_nlk2 + MPI_wtime() - t1
 
     case default
@@ -127,7 +131,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   use mpi
   use p3dfft_wrapper
   use vars
-  use insect_module
+  use module_insects
   use basic_operators
   use penalization ! mask array etc
 
@@ -144,10 +148,14 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   type(diptera),intent(inout) :: Insect
   real(kind=pr) :: t0,t1,ux,uy,uz,vorx,vory,vorz,chi,usx,usy,usz
   real(kind=pr) :: fx,fy,fz,fx1,fy1,fz1
-  real(kind=pr) :: soft_startup, dt
+  real(kind=pr) :: soft_startup, dt, eps_inv
   integer :: ix,iz,iy,mpicode
   t0 = MPI_wtime()
   fx=0.d0; fy=0.d0; fz=0.d0
+
+  if (eps<1.0d-11) call abort(77363800, "Value of eps is very small, maybe even zero.")
+  eps_inv = 1.0_pr / eps
+
 
   !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
@@ -202,8 +210,10 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
         vory = vort(ix,iy,iz,2)
         vorz = vort(ix,iy,iz,3)
 
-        ! local variables for penalization
-        chi = mask(ix,iy,iz)
+        ! local variables for penalization. NEW: since 07/2018, we divide the mask
+        ! by eps here AND ONLY HERE! it is much easier to understand then. there may be
+        ! a very slight performance penalty if the obstacle does not move.
+        chi = mask(ix,iy,iz) * eps_inv
         usx = us(ix,iy,iz,1)
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
@@ -372,7 +382,7 @@ subroutine pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,pres
   use mpi
   use p3dfft_wrapper
   use vars
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -648,42 +658,42 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
 
   ! Put the x-space version of the nonlinear source term in wj.
   do iz=ra(3),rb(3)
-    do iy=ra(2),rb(2)
-  do ix=ra(1),rb(1)
-           ! Loop-local variables for velocity and magnetic field:
-           u1=ub(ix,iy,iz,1)
-           u2=ub(ix,iy,iz,2)
-           u3=ub(ix,iy,iz,3)
-           b1=ub(ix,iy,iz,4)
-           b2=ub(ix,iy,iz,5)
-           b3=ub(ix,iy,iz,6)
+      do iy=ra(2),rb(2)
+          do ix=ra(1),rb(1)
+              ! Loop-local variables for velocity and magnetic field:
+              u1=ub(ix,iy,iz,1)
+              u2=ub(ix,iy,iz,2)
+              u3=ub(ix,iy,iz,3)
+              b1=ub(ix,iy,iz,4)
+              b2=ub(ix,iy,iz,5)
+              b3=ub(ix,iy,iz,6)
 
-           ! Loop-local variables for vorticity and current density:
-           w1=wj(ix,iy,iz,1)
-           w2=wj(ix,iy,iz,2)
-           w3=wj(ix,iy,iz,3)
-           j1=wj(ix,iy,iz,4)
-           j2=wj(ix,iy,iz,5)
-           j3=wj(ix,iy,iz,6)
+              ! Loop-local variables for vorticity and current density:
+              w1=wj(ix,iy,iz,1)
+              w2=wj(ix,iy,iz,2)
+              w3=wj(ix,iy,iz,3)
+              j1=wj(ix,iy,iz,4)
+              j2=wj(ix,iy,iz,5)
+              j3=wj(ix,iy,iz,6)
 
-           ! Loop-local variables for mask and imposed velocity field:
-           m=mask(ix,iy,iz)
-           us1=us(ix,iy,iz,1)
-           us2=us(ix,iy,iz,2)
-           us3=us(ix,iy,iz,3)
+              ! Loop-local variables for mask and imposed velocity field:
+              m=mask(ix,iy,iz) / eps
+              us1=us(ix,iy,iz,1)
+              us2=us(ix,iy,iz,2)
+              us3=us(ix,iy,iz,3)
 
-            ! Nonlinear source term for fluid, including penalization:
-            wj(ix,iy,iz,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
-            wj(ix,iy,iz,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
-            wj(ix,iy,iz,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
+              ! Nonlinear source term for fluid, including penalization:
+              wj(ix,iy,iz,1)=u2*w3 - u3*w2 + j2*b3 - j3*b2 -m*(u1-us1)
+              wj(ix,iy,iz,2)=u3*w1 - u1*w3 + j3*b1 - j1*b3 -m*(u2-us2)
+              wj(ix,iy,iz,3)=u1*w2 - u2*w1 + j1*b2 - j2*b1 -m*(u3-us3)
 
-            ! Nonlinear source term for magnetic field (missing the
-            ! curl and without penalization):
-            wj(ix,iy,iz,4)=u2*b3 - u3*b2
-            wj(ix,iy,iz,5)=u3*b1 - u1*b3
-            wj(ix,iy,iz,6)=u1*b2 - u2*b1
-        enddo
-     enddo
+              ! Nonlinear source term for magnetic field (missing the
+              ! curl and without penalization):
+              wj(ix,iy,iz,4)=u2*b3 - u3*b2
+              wj(ix,iy,iz,5)=u3*b1 - u1*b3
+              wj(ix,iy,iz,6)=u1*b2 - u2*b1
+          enddo
+      enddo
   enddo
 
   ! Transform B to Fourier space.  Keep the first three fields free so
@@ -700,7 +710,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! Penalization for B-field:
   if(iPenalization == 1) then
      do i=4,nd
-        wj(:,:,:,4)=-mask*(ub(:,:,:,i) - us(:,:,:,i))
+        wj(:,:,:,4)=-(mask/eps)*(ub(:,:,:,i) - us(:,:,:,i))
         call fft(nlk(:,:,:,1),wj(:,:,:,4))
         nlk(:,:,:,i)=nlk(:,:,:,i) + nlk(:,:,:,1)
      enddo
@@ -740,11 +750,11 @@ end subroutine div_field_nul
 
 
 
-subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
+subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
   use mpi
   use p3dfft_wrapper
   use vars
-  use insect_module
+  use module_insects
   use basic_operators
   use penalization ! mask array etc
 
@@ -760,14 +770,14 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   type(diptera),intent(inout) :: Insect
   real(kind=pr) :: t0,t1,uy,uz,chi,usy,usz, uy_dy, uy_dz, uz_dy, uz_dz, p
-  real(kind=pr) :: kx, ky, kz, k2
+  real(kind=pr) :: kx, ky, kz, k2, eps_inv
   complex(kind=pr) :: imag   ! imaginary unit
   integer :: ix,iz,iy,mpicode
   t0 = MPI_wtime()
 
-  nlk = 0.0_pr
+  nlk = 0.0d0
   ! reset ux (we assume you deal with 2d flows...)
-  uk(:,:,:,1) = 0.0_pr
+  uk(:,:,:,1) = 0.0d0
 
   if (nx/=1) call abort(33427, "artificial-compressibility only for 2d implemented")
   ! no integrating factor
@@ -775,6 +785,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
   if (ncw<4) call abort(77283,"acm: not enough cmplx work arrays")
   if (nrw<4) call abort(77283,"acm: not enough real work arrays")
 
+  eps_inv = 1.0_pr / eps
 
   !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
@@ -823,7 +834,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
         uz_dz = work(ix,iy,iz,4)
 
         ! local variables for penalization
-        chi = mask(ix,iy,iz)
+        chi = mask(ix,iy,iz) * eps_inv
         usy = us(ix,iy,iz,2)
         usz = us(ix,iy,iz,3)
 
@@ -834,6 +845,9 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
       enddo
     enddo
   enddo
+  !-- at this point "work", "workc" are free
+
+
 
   if (acm_sponge==1) then
     ! get pressure in x space
@@ -845,7 +859,7 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
         do ix=ra(1),rb(1)
           ! local loop variables
           p = work(ix,iy,iz,1)
-          chi = mask(ix,iy,iz)
+          chi = mask(ix,iy,iz) * eps_inv
           ! color 0 is sponges
           if (mask_color(ix,iy,iz)==0) work(ix,iy,iz,2) = -chi*p
         enddo
@@ -881,9 +895,173 @@ subroutine rhs_acm(time, it, nlk, uk, u, vort, work, workc, Insect)
     enddo
   enddo
 
-  ! rhs(ix,iy,1) = -u(ix,iy)*u_dx - v(ix,iy)*u_dy - p_dx + nu*(u_dxdx + u_dydy) + penalx
-  ! rhs(ix,iy,2) = -u(ix,iy)*v_dx - v(ix,iy)*v_dy - p_dy + nu*(v_dxdx + v_dydy) + penaly
-  ! rhs(ix,iy,3) = -(c_0**2)*div_U - gamma*p(ix,iy)
 
   time_nlk = time_nlk + MPI_wtime() - t0
-end subroutine rhs_acm
+end subroutine rhs_acm_2D
+
+
+
+subroutine rhs_acm_3D(time, it, nlk, uk, u, vort, work, workc, Insect)
+  use mpi
+  use p3dfft_wrapper
+  use vars
+  use module_insects
+  use basic_operators
+  use penalization ! mask array etc
+
+  implicit none
+
+  real(kind=pr),intent (in) :: time
+  integer, intent(in) :: it
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
+  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  type(diptera),intent(inout) :: Insect
+  real(kind=pr) :: t0,t1,ux,uy,uz,chi,usx,usy,usz, p
+  real(kind=pr) :: ux_dx,ux_dy,ux_dz,uy_dx,uy_dy,uy_dz,uz_dx,uz_dy,uz_dz
+  real(kind=pr) :: kx, ky, kz, k2, eps_inv
+  complex(kind=pr) :: imag   ! imaginary unit
+  integer :: ix,iz,iy,mpicode, i
+  t0 = MPI_wtime()
+
+  nlk = 0.0d0
+
+  ! no integrating factor
+  if (iTimeMethodFluid/="RK4")  call abort(33427, "artificial-compressibility only for RK4 implemented")
+  if (ncw<9) call abort(77283,"acm: not enough cmplx work arrays")
+  if (nrw<9) call abort(77283,"acm: not enough real work arrays")
+
+  eps_inv = 1.0_pr / eps
+
+  !-----------------------------------------------------------------------------
+  !-- Calculate velocity in physical space
+  !-----------------------------------------------------------------------------
+  t1 = MPI_wtime()
+  call ifft(outx=u(:,:,:,1), ink=uk(:,:,:,1))
+  call ifft(outx=u(:,:,:,2), ink=uk(:,:,:,2))
+  call ifft(outx=u(:,:,:,3), ink=uk(:,:,:,3))
+
+  ! derivatives (requires for non-linear term in convection formulation)
+  imag = dcmplx(0.d0,1.d0)
+  do ix=ca(3),cb(3)
+      kx=wave_x(ix)
+      do iy=ca(2),cb(2)
+          ky=wave_y(iy)
+          do iz=ca(1),cb(1)
+              kz=wave_z(iz)
+              workc(iz,iy,ix,1) = imag*kx*uk(iz,iy,ix,1) ! work1 = ux_dx
+              workc(iz,iy,ix,2) = imag*ky*uk(iz,iy,ix,1) ! work2 = ux_dy
+              workc(iz,iy,ix,3) = imag*kz*uk(iz,iy,ix,1) ! work3 = ux_dz
+
+              workc(iz,iy,ix,4) = imag*kx*uk(iz,iy,ix,2) ! work4 = uy_dx
+              workc(iz,iy,ix,5) = imag*ky*uk(iz,iy,ix,2) ! work5 = uy_dy
+              workc(iz,iy,ix,6) = imag*kz*uk(iz,iy,ix,2) ! work6 = uy_dz
+
+              workc(iz,iy,ix,7) = imag*kx*uk(iz,iy,ix,3) ! work7 = uz_dx
+              workc(iz,iy,ix,8) = imag*ky*uk(iz,iy,ix,3) ! work8 = uz_dy
+              workc(iz,iy,ix,9) = imag*kz*uk(iz,iy,ix,3) ! work9 = uz_dz
+          enddo
+      enddo
+  enddo
+
+  do i = 1, 9
+      call ifft(ink=workc(:,:,:,i), outx=work(:,:,:,i))
+  enddo
+
+  time_u = time_u + MPI_wtime() - t1
+  !-----------------------------------------------------------------------------
+  !-- Non-Linear terms
+  !-----------------------------------------------------------------------------
+  t1 = MPI_wtime()
+  do iz=ra(3),rb(3)
+      do iy=ra(2),rb(2)
+          do ix=ra(1),rb(1)
+              ! local loop variables
+              ux = u(ix,iy,iz,1)
+              uy = u(ix,iy,iz,2)
+              uz = u(ix,iy,iz,3)
+
+              ! derivatives
+              ux_dx = work(ix,iy,iz,1)
+              ux_dy = work(ix,iy,iz,2)
+              ux_dz = work(ix,iy,iz,3)
+
+              uy_dx = work(ix,iy,iz,4)
+              uy_dy = work(ix,iy,iz,5)
+              uy_dz = work(ix,iy,iz,6)
+
+              uz_dx = work(ix,iy,iz,7)
+              uz_dy = work(ix,iy,iz,8)
+              uz_dz = work(ix,iy,iz,9)
+
+              ! local variables for penalization. Note that color=0 indicates sponge
+              ! masks. Those mask act on velocity and pressure. So in any case, we have to
+              ! add it here. If the sponging is active, we add the penalization for the pressure below.
+              chi = mask(ix,iy,iz) * eps_inv
+              usx = us(ix,iy,iz,1)
+              usy = us(ix,iy,iz,2)
+              usz = us(ix,iy,iz,3)
+
+              vort(ix,iy,iz,1) = (-ux*ux_dx - uy*ux_dy - uz*ux_dz) -chi*(ux-usx)
+              vort(ix,iy,iz,2) = (-ux*uy_dx - uy*uy_dy - uz*uy_dz) -chi*(uy-usy)
+              vort(ix,iy,iz,3) = (-ux*uz_dx - uy*uz_dy - uz*uz_dz) -chi*(uz-usz)
+          enddo
+      enddo
+  enddo
+
+  if (acm_sponge==1) then
+      ! get pressure in x space
+      call ifft(ink=uk(:,:,:,4), outx=work(:,:,:,1) )
+
+      ! penalization term for pressure in sponge areas
+      do iz=ra(3),rb(3)
+          do iy=ra(2),rb(2)
+              do ix=ra(1),rb(1)
+                  ! local loop variables
+                  p = work(ix,iy,iz,1)
+                  chi = mask(ix,iy,iz) * eps_inv
+                  ! color 0 is sponges
+                  if (mask_color(ix,iy,iz)==0) work(ix,iy,iz,2) = -chi*p
+              enddo
+          enddo
+      enddo
+
+      ! to k-space
+      call fft( inx=work(:,:,:,2),outk=nlk(:,:,:,4) )
+  endif
+
+  ! to Fourier space
+  call fft( inx=vort(:,:,:,1),outk=nlk(:,:,:,1) )
+  call fft( inx=vort(:,:,:,2),outk=nlk(:,:,:,2) )
+  call fft( inx=vort(:,:,:,3),outk=nlk(:,:,:,3) )
+
+
+  ! add remaining terms in fourier space (divergence, grad, laplace)
+  imag = dcmplx(0.d0, 1.d0)
+  do ix=ca(3),cb(3)
+      kx=wave_x(ix)
+      do iy=ca(2),cb(2)
+          ky=wave_y(iy)
+          do iz=ca(1),cb(1)
+              kz=wave_z(iz)
+              k2 = kx*kx + ky*ky + kz*kz
+
+              ! add pressure gradient and laplace
+              nlk(iz,iy,ix,1) = nlk(iz,iy,ix,1) - imag*kx*uk(iz,iy,ix,4) - nu*k2*uk(iz,iy,ix,1)
+              nlk(iz,iy,ix,2) = nlk(iz,iy,ix,2) - imag*ky*uk(iz,iy,ix,4) - nu*k2*uk(iz,iy,ix,2)
+              nlk(iz,iy,ix,3) = nlk(iz,iy,ix,3) - imag*kz*uk(iz,iy,ix,4) - nu*k2*uk(iz,iy,ix,3)
+
+              ! rhs for pressure (divergence)
+              nlk(iz,iy,ix,4) = nlk(iz,iy,ix,4) &
+              -(c_0**2)*imag*(kx*uk(iz,iy,ix,1) + ky*uk(iz,iy,ix,2) + kz*uk(iz,iy,ix,3)) &
+              -gamma_p*uk(iz,iy,ix,4)
+          enddo
+      enddo
+  enddo
+
+
+  time_nlk = time_nlk + MPI_wtime() - t0
+end subroutine rhs_acm_3D

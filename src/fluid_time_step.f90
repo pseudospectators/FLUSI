@@ -37,7 +37,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use p3dfft_wrapper
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   use basic_operators
   implicit none
 
@@ -156,7 +156,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -336,7 +336,7 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -403,7 +403,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout) :: time,dt1,dt0
@@ -481,7 +481,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -564,7 +564,7 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use basic_operators
   implicit none
 
@@ -637,7 +637,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   use p3dfft_wrapper
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -713,7 +713,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -797,43 +797,42 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
   integer,intent(in)::n0,n1,it
-  complex(kind=pr),intent(inout) ::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::&
-  nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
+  complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout) :: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
   ! the workc array is not always allocated, ensure allocation before using
-  complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
-  real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  complex(kind=pr),intent(inout) :: workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
+  real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+  real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
   ! pressure array. this is with ghost points for interpolation
-  real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
-  real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
-  real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  real(kind=pr),intent(inout) :: press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  real(kind=pr),intent(inout) :: scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+  real(kind=pr),intent(inout) :: scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   real(kind=pr)::b10,b11,t1
   integer::i
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
 
-  if ((Insect%BodyMotion/="free_flight").and.(mpirank==0)) then
+  if (Insect%BodyMotion/="free_flight") then
     write(*,*) "AB2_rigid_solid and flag Insect%BodyMotion/=free_flight"
     write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
     call abort(10007, "AB2_rigid_solid and flag Insect%BodyMotion/=free_flight")
   endif
 
-  if ((method/="fsi").and.(mpirank==0)) then
+  if (method/="fsi") then
     call abort(10008, "AB2_rigid_solid is an FSI method and not suitable for MHD")
   endif
 
   !---------------------------------------------------------------------------
   ! advance fluid to from (n) to (n+1)
   !---------------------------------------------------------------------------
-  if(it == 0) then
+  if (it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
     work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
   else
@@ -856,7 +855,8 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   !---------------------------------------------------------------------------
   ! note dt0 is OLD time step t(n)-t(n-1)
   ! advance in time ODEs that describe rigid solids
-  call rigid_solid_time_step(time,dt0,dt1,it,Insect)
+  call rigid_solid_time_step(time, dt0, dt1, it, Insect, GlobalIntegrals%Force + GlobalIntegrals%Force_unst, &
+  GlobalIntegrals%Torque + GlobalIntegrals%Torque_unst )
 
 
 end subroutine AB2_rigid_solid
@@ -1085,7 +1085,7 @@ end subroutine get_mean_flow
 !-------------------------------------------------------------------------------
 subroutine output_kinetic_energy(time, uk)
   use vars
-  use helpers
+  use module_helpers
   implicit none
   real(kind=pr), intent(in) :: time
   complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)

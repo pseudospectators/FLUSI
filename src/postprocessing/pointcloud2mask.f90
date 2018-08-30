@@ -1,16 +1,16 @@
 subroutine pointcloud2mask(help)
   use vars
-  use helpers
-  use ini_files_parser_mpi
+  use module_helpers
+  use module_ini_files_parser_mpi
   use p3dfft_wrapper
   use penalization, only : mask_color
-  use insect_module
+  use module_insects
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: cloudfile, outfile, mode, dummy
   real(kind=pr),dimension(:,:),allocatable :: data_raw, points, normals
   real(kind=pr),dimension(:,:,:),allocatable :: work
-  real(kind=pr) :: time, d0
+  real(kind=pr) :: time, d0, smoothing
   type(inifile) :: PARAMS
   integer :: ntri, matrixlines, matrixcols, safety
 
@@ -177,7 +177,7 @@ subroutine pointcloud2mask(help)
 
   if (root) write(*,*) "...computing distance only near fluid-solid interface"
   call mask_from_pointcloud(points, normals, origin+(/dble(ra(1))*dx, dble(ra(2))*dy, dble(ra(3))*dz/), &
-                            (/dx,dy,dz/), work, safety, d0, mask_color, 0_2)
+                            (/dx,dy,dz/), work, safety, smoothing, d0, mask_color, 0_2)
 
   ! save result to file
   call save_field_hdf5 ( time, outfile, work )

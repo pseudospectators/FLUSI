@@ -17,7 +17,7 @@ subroutine convert_velocity(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
-  use helpers
+  use module_helpers
   use mpi
   implicit none
   logical, intent(in) :: help
@@ -137,6 +137,10 @@ subroutine convert_velocity(help)
   ! uk: vorticity; workc: velocity
   call Vorticity2Velocity(uk(:,:,:,1:3),workc(:,:,:,1:3))
   call ifft3 (ink=workc, outx=u)
+  Uxmean=0.0_pr
+  Uymean=0.0_pr
+  Uzmean=0.0_pr
+  call set_mean_flow(workc, time)
   uk = workc ! uk: velocity in F-space
 
   ! now u contains the velocity in physical space

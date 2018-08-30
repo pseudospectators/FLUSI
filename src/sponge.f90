@@ -22,7 +22,7 @@
 subroutine vorticity_sponge( vort, work1, workc, Insect )
   use mpi
   use p3dfft_wrapper
-  use insect_module
+  use module_insects
   use vars
   implicit none
   complex (kind=pr) :: im, spx,spy,spz
@@ -95,7 +95,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
   use mpi
   use vars
   use penalization ! mask array etc
-  use insect_module
+  use module_insects
   implicit none
   type(diptera),intent(inout) :: Insect
   ! input: vorticity in phys space
@@ -122,7 +122,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           x = (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/) - Insect%xc_body_g
-          x = periodize_coordinate(x)
+          x = periodize_coordinate(x, (/xl,yl,zl/))
 
           if ( (x(1)>xl/2.d0-dble(sponge_thickness)*dx).or.(x(1)<-xl/2.d0+dble(sponge_thickness)*dx)  ) then
             vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
@@ -149,7 +149,7 @@ subroutine penalize_vort ( vort_penalized, vort, Insect )
       do iy = ra(2), rb(2)
         do ix = ra(1), rb(1)
           x = (/dble(ix)*dx,dble(iy)*dy,dble(iz)*dz/) - Insect%xc_body_g
-          x = periodize_coordinate(x)
+          x = periodize_coordinate(x, (/xl,yl,zl/))
           if ( (x(3)>zl/2.d0-dble(sponge_thickness)*dz).or.(x(3)<-zl/2.d0+dble(sponge_thickness)*dz)  ) then
             vort_penalized(ix,iy,iz) = -vort(ix,iy,iz)*eps_inv
           endif

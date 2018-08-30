@@ -12,7 +12,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
   use mpi
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -48,7 +48,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   use p3dfft_wrapper
   use basic_operators
   use solid_model
-  use insect_module
+  use module_insects
   use penalization ! mask array etc
   implicit none
 
@@ -71,6 +71,11 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   real(kind=pr), dimension(0:nx-1) :: S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin,kvec
   integer :: ix,iy,iz,mpicode,j
   character(len=9) scalarfile
+
+  if (iMask=="Insect") then
+      call write_kinematics_file( time, Insect )
+  endif
+
 
   ! fetch u in x-space at time t. note the output u of fluidtimestep is not
   ! nessesarily what we need, so we must ensure u=ifft(uk) here
@@ -98,7 +103,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   call ifft( ink=work3c(:,:,:,1), outx=work1 ) ! work1 is now div in phys space
 
   maxdiv = fieldmax(work1)
-  maxdiv_fluid = fieldmax(work1*(1.d0-mask*eps))
+  maxdiv_fluid = fieldmax(work1*(1.d0-mask))
   if(mpirank == 0) then
     open(14,file='divu.t',status='unknown',position='append')
     write (14,'(4(es15.8,1x))') time,maxdiv,maxdiv_fluid
@@ -111,9 +116,9 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   ! total kinetic energy (including solid)
   call compute_energies(u(:,:,:,1:3),ekin,ekinx,ekiny,ekinz)
   ! fluid kinetic energy (excluding solid)
-  u(:,:,:,1)=u(:,:,:,1)*(1.d0-mask*eps)
-  u(:,:,:,2)=u(:,:,:,2)*(1.d0-mask*eps)
-  u(:,:,:,3)=u(:,:,:,3)*(1.d0-mask*eps)
+  u(:,:,:,1)=u(:,:,:,1) * (1.d0-mask)
+  u(:,:,:,2)=u(:,:,:,2) * (1.d0-mask)
+  u(:,:,:,3)=u(:,:,:,3) * (1.d0-mask)
   call compute_energies(u(:,:,:,1:3),ekinf,ekinxf,ekinyf,ekinzf)
 
   ! compute dissipation rate
@@ -122,9 +127,9 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   ! dissipation in the whole domain:
   call compute_energies(work3r(:,:,:,1:3),diss,dissx,dissy,dissz)
   ! again consider only fluid domain
-  work3r(:,:,:,1)=work3r(:,:,:,1)*(1.d0-mask*eps)
-  work3r(:,:,:,2)=work3r(:,:,:,2)*(1.d0-mask*eps)
-  work3r(:,:,:,3)=work3r(:,:,:,3)*(1.d0-mask*eps)
+  work3r(:,:,:,1)=work3r(:,:,:,1) * (1.d0-mask)
+  work3r(:,:,:,2)=work3r(:,:,:,2) * (1.d0-mask)
+  work3r(:,:,:,3)=work3r(:,:,:,3) * (1.d0-mask)
   call compute_energies(work3r(:,:,:,1:3),dissf,dissxf,dissyf,disszf)
 
   ! add missing factor (from enstrophy to dissipation rate)
@@ -168,7 +173,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   if ((use_passive_scalar==1).and.(compute_scalar)) then
     do j=1,n_scalars
       ! exclude solid regions
-      work1 = scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j)*(1.d0-mask*eps)
+      work1 = scalars(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),j) * (1.d0-mask)
       conc = sum(work1)*dx*dy*dz
       call MPI_REDUCE(conc,concentration,1,MPI_DOUBLE_PRECISION,MPI_SUM,0,&
       MPI_COMM_WORLD,mpicode)
@@ -186,16 +191,14 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   !-----------------------------------------------------------------------------
   ! mask volume
   !-----------------------------------------------------------------------------
-  mask = mask*eps
-  ! the mask volume is useful for debugging, since we woul see some changes if occasionally
+  ! the mask volume is useful for debugging, since we would see some changes if occasionally
   ! the code does not set some values at some grid points
   call compute_mask_volume(volume)
-  mask = mask/eps
   ! the mask is not everything: the solid velocity has to be correct too, so here we
   ! compute another integral quantity:
-  kx = mpisum( sum(mask*us(:,:,:,1))*dx*dy*dz*eps )
-  ky = mpisum( sum(mask*us(:,:,:,2))*dx*dy*dz*eps )
-  kz = mpisum( sum(mask*us(:,:,:,3))*dx*dy*dz*eps )
+  kx = mpisum( sum(mask*us(:,:,:,1))*dx*dy*dz )
+  ky = mpisum( sum(mask*us(:,:,:,2))*dx*dy*dz )
+  kz = mpisum( sum(mask*us(:,:,:,3))*dx*dy*dz )
 
   if(mpirank == 0) then
     open(14,file='mask_volume.t',status='unknown',position='append')
@@ -513,7 +516,7 @@ end subroutine compute_energies1
 !-------------------------------------------------------------------------------
 subroutine compute_energies_k(uk,E)
     use vars
-    use helpers
+    use module_helpers
     implicit none
     complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:3)
     integer :: ix,iy,iz
@@ -548,7 +551,7 @@ end subroutine compute_energies_k
 !-------------------------------------------------------------------------------
 subroutine compute_energies1_k(uk,E)
     use vars
-    use helpers
+    use module_helpers
     implicit none
     complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3))
     integer :: ix,iy,iz

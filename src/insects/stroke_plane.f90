@@ -7,9 +7,9 @@
 subroutine StrokePlane ( time, Insect )
   implicit none
 
-  real(kind=pr), intent(in) :: time
+  real(kind=rk), intent(in) :: time
   type(diptera), intent(inout) :: Insect
-  real(kind=pr) :: eta_stroke
+  real(kind=rk) :: eta_stroke
   character(len=strlen) :: dummy
 
   select case (Insect%BodyMotion)

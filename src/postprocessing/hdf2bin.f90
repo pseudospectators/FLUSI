@@ -6,7 +6,7 @@ subroutine convert_hdf2bin(help)
   use vars
   use mpi
   use basic_operators
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname, fname_bin, pr_out_flag

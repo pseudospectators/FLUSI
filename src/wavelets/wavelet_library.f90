@@ -3,7 +3,7 @@ module flusi_wavelet_lib
   use vars, only : pr, ra, rb, nx, ny, nz, on_proc, mpidims, mpicoords, mpicommslab, abort, mpirank, root
   use mpi
   use p3dfft_wrapper
-  use helpers, only : mpisum
+  use module_helpers, only : mpisum
 
   implicit none
 

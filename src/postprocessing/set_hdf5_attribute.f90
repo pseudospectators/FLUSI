@@ -11,7 +11,7 @@ subroutine set_hdf5_attribute(help)
   use mpi
   use vars
   use hdf5_wrapper
-  use helpers
+  use module_helpers
   implicit none
   logical, intent(in) :: help
   character(len=strlen) :: fname, attribute_name, dsetname,tmp

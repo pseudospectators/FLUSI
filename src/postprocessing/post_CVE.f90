@@ -2,6 +2,7 @@ subroutine post_CVE(help)
   use vars
   use p3dfft_wrapper
   use flusi_wavelet_lib
+  use module_helpers
 
   implicit none
 

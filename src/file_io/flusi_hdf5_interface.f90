@@ -21,7 +21,7 @@
 subroutine save_field_hdf5(time,filename,field_out)
   use vars
   use hdf5_wrapper
-  use helpers
+  use module_helpers
   implicit none
 
   ! The field to be written to disk:
@@ -87,7 +87,7 @@ end subroutine save_field_hdf5
 ! wrapper and write it to disk
 !-------------------------------------------------------------------------------
 subroutine save_field_hdf5_strided(time,fname,field_out)
-  use helpers
+  use module_helpers
   use vars
   use hdf5_wrapper
   implicit none
@@ -176,7 +176,7 @@ end subroutine save_field_hdf5_strided
 !----------------------------------------------------
 subroutine Fetch_attributes( filename, nx, ny, nz, xl, yl ,zl, time, viscosity, origin )
   use hdf5_wrapper
-  use helpers, only : get_dsetname
+  use module_helpers
   use mpi
   implicit none
 
@@ -216,7 +216,7 @@ subroutine Read_Single_File ( filename, field )
   use vars
   use hdf5_wrapper
   use basic_operators, only : fieldmax, fieldmin, fieldmean, checknan
-  use helpers, only : get_dsetname
+  use module_helpers
   implicit none
 
   character(len=*),intent(in) :: filename
@@ -306,7 +306,7 @@ end subroutine Read_Single_File
 subroutine dump_field_backup(filename,field,dsetname,time,dt0,dt1,n1,it)
   use vars
   use hdf5_wrapper
-  use helpers
+  use module_helpers
   implicit none
 
   integer,intent(in) :: n1,it

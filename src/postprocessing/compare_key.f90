@@ -5,6 +5,7 @@
 subroutine compare_key(key1,key2)
   use vars
   use mpi
+  use module_helpers, only : check_file_exists
   implicit none
   character(len=*), intent(in) :: key1,key2
   real(kind=pr) :: a1,a2,b1,b2,c1,c2,d1,d2,t1,t2,q1,q2

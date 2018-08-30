@@ -5,7 +5,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   integer,intent (inout) :: n1,it,n0
@@ -45,10 +45,17 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
   if (iMask=="Insect".and.iPenalization==1) then
+
     ! get filename of PARAMS file from command line
     call get_command_argument(1,infile)
-    ! we need to do that now otherwise we cannot create the startup mask.
-    call insect_init(time, infile, Insect)
+    if (index(inicond,'backup::') == 0) then
+        ! we need to do that now otherwise we cannot create the startup mask.
+        call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu)
+    else
+        call insect_init(time, infile, Insect, .true., &
+        inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu)
+    endif
+
   endif
 
   !-----------------------------------------------------------------------------
@@ -63,19 +70,22 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   ! for artificial-compressibility we need to initialize the pressure as well.
   !-----------------------------------------------------------------------------
   if (equation=="artificial-compressibility" .and. inicond/="infile") then
-    select case (acm_inipressure)
-    case('flusi-spectral')
-      if (ng /= 0)  call abort(7726289,"acm no ghost nodes must be used (bounds compatibility!)!")
-      call pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,work(:,:,:,4),Insect)
-      call fft( inx=work(:,:,:,4), outk=uk(:,:,:,4) )
+      select case (acm_inipressure)
+      case('flusi-spectral')
+          if (ng /= 0)  call abort(7726289,"acm no ghost nodes must be used (bounds compatibility!)!")
+          call pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,work,workc,work(:,:,:,4),Insect)
+          call fft( inx=work(:,:,:,4), outk=uk(:,:,:,4) )
 
-    case('zero')
-      uk(:,:,:,4) = 0.0_pr
+      case('zero')
+          uk(:,:,:,4) = 0.0_pr
 
-    case default
-      call abort(6629454, "acm-inipressure not known")
+      case ('from-inicond')
+          ! do nothing
+          
+      case default
+          call abort(6629454, "acm-inipressure not known")
 
-    end select
+      end select
   endif
 
   !-----------------------------------------------------------------------------

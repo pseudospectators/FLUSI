@@ -2,7 +2,7 @@
 subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
   use vars
   use solid_model
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -44,7 +44,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   use p3dfft_wrapper
   use basic_operators
   use solid_model
-  use insect_module
+  use module_insects
   use penalization ! mask array etc
   implicit none
 
@@ -127,7 +127,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
 
   elseif (isavePress == 1 .and. equation=="artificial-compressibility") then
     call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
-    call save_field_hdf5(time,"p_"//name,work(:,:,:,1))
+    call save_field_hdf5(time, "p_"//name, work(:,:,:,1))
 
   endif
 
@@ -161,12 +161,10 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   ! Mask
   !-----------------------------------------------------------------------------
   if (isaveMask == 1 .and. iPenalization == 1) then
-    mask = mask*eps
     call compute_mask_volume(volume)
     if ((mpirank==0).and.(volume<1.0d-10)) write(*,*) "WARNING: saving empty mask"
-    call save_field_hdf5(time,'mask_'//name,mask)
+    call save_field_hdf5(time, 'mask_'//name, mask)
     ! call save_field_hdf5(time,'color_'//name,dble(mask_color))
-    mask = mask/eps
   endif
 
   !-----------------------------------------------------------------------------

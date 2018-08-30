@@ -6,7 +6,7 @@
 subroutine uCT_assemble_HDF5(help)
   use vars
   use p3dfft_wrapper
-  use helpers
+  use module_helpers
   use ghosts
   implicit none
   logical, intent(in) :: help

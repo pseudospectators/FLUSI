@@ -1,6 +1,6 @@
 subroutine stl2dist(help)
   use vars
-  use helpers
+  use module_helpers
   use stl_file_reader
   use p3dfft_wrapper
   implicit none
@@ -155,7 +155,7 @@ end subroutine signed_distance_from_triangles_everywhere
 ! for the eulerian grid. it does so everywhere without any consideration
 subroutine signed_distance_from_triangles_surface(ntri, triangles, normals, work)
   use vars
-  use helpers
+  use module_helpers
   use stl_file_reader ! for the function distance to triangle
   implicit none
   integer, intent(in) :: ntri

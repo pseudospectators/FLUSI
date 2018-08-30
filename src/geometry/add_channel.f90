@@ -20,6 +20,14 @@ subroutine add_channel()
         do ix = ra(1), rb(1)
           !----------------
           select case (iChannel)
+          case ("inlet_x")
+              if ( dble(ix)*dx <= thick_wall ) then
+                mask(ix,iy,iz) = 1.d0
+                us(ix,iy,iz,:) = (/uxmean, uymean, uzmean/)
+                ! external boxes have color 0 (important for forces)
+                mask_color(ix,iy,iz) = 0
+              endif
+
           case ("xz")
             ! Floor - xz solid wall between y_wall-thick_wall and y_wall
             y = dble(iy)*dy

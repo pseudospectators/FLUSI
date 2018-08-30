@@ -1,11 +1,11 @@
 subroutine flexible_wing_mask(help)
     use vars
     use stl_file_reader
-    use helpers
-    use ini_files_parser_mpi
+    use module_helpers
+    use module_ini_files_parser_mpi
     use p3dfft_wrapper
     use penalization, only : mask_color
-    use insect_module
+    use module_insects
     implicit none
     logical, intent(in) :: help
     character(len=strlen) :: file
@@ -13,7 +13,7 @@ subroutine flexible_wing_mask(help)
     real(kind=pr) :: x,y,z, d
     real(kind=pr), allocatable :: points_coordinates(:,:)
     real(kind=pr), allocatable :: triangle_indices(:,:)
-    real(kind=pr), allocatable :: work(:,:,:), us(:,:,:)
+    real(kind=pr), allocatable :: work(:,:,:)
 
 
     if (help.and.root) then
@@ -27,14 +27,14 @@ subroutine flexible_wing_mask(help)
     endif
 
     ! first thing to do would be load ascii DAT files
-    file = "points_coor1.dat"
+    file = "points_coor.dat"
     call count_lines_in_ascii_file_mpi(file, npoints, n_header)
     call count_cols_in_ascii_file_mpi(file, num_cols, n_header)
     allocate( points_coordinates(1:npoints, 1:num_cols) )
     call read_array_from_ascii_file_mpi(file, points_coordinates, n_header)
 
 
-    file = "mesh_triangle_elements1.dat"
+    file = "mesh_triangle_elements.dat"
     call count_lines_in_ascii_file_mpi(file, ntri, n_header)
     call count_cols_in_ascii_file_mpi(file, num_cols, n_header)
     allocate( triangle_indices(1:ntri, 1:num_cols) )
@@ -51,7 +51,6 @@ subroutine flexible_wing_mask(help)
     call decomposition_initialize()
     ! this will be our mask array
     allocate(work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-    allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
     ! initialize the array as very large distance
     ! in the first step, we use this array to create the DISTANCE function, later the MASK
     work = 9.9e9

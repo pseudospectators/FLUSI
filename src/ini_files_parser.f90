@@ -11,10 +11,11 @@
 ! [Section]
 ! parameter=10;
 !-------------------------------------------------------------------------------
-! This module is not MPI-aware. use the mpi layer in ini_files_parser_mpi for this
+! This module is not MPI-aware. use the mpi layer in module_ini_files_parser_mpi for this
 !-------------------------------------------------------------------------------
-module ini_files_parser
+module module_ini_files_parser
   use vars, only : pr
+  use module_helpers, only : check_file_exists
 
   ! it sometimes is useful, for codes with equidistant resolution, to specify
   ! values as multiples of grid spacing, mostly for convergence tests and the like

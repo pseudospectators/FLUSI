@@ -55,7 +55,7 @@ module vars
   ! only root rank has this true:
   logical, save :: root=.false.
 
-  real(kind=pr),parameter :: pi= 3.1415926535897932384626433832795028841971693993751058209749445923078164d0
+  real(kind=pr),parameter :: pi = 3.1415926535897932384626433832795028841971693993751058209749445923078164d0
 
   real(kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
 
@@ -63,8 +63,7 @@ module vars
   real(kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_nlk2
   real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u,tslices
   real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-  real(kind=pr),save :: time_sponge,time_insect_head,time_insect_body, time_scalar
-  real(kind=pr),save :: time_insect_eye,time_insect_wings, time_insect_vel
+  real(kind=pr),save :: time_sponge,time_scalar
   real(kind=pr),save :: time_solid, time_drag, time_surf, time_LAPACK
   real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar,tstart=0.0d0
 
@@ -286,7 +285,7 @@ module vars
     implicit none
     real(kind=pr),dimension(1:3),intent(in) :: a
     real(kind=pr) :: norm2
-    norm2 = dsqrt( a(1)*a(1) + a(2)*a(2) + a(3)*a(3) )
+    norm2 = sqrt( a(1)*a(1) + a(2)*a(2) + a(3)*a(3) )
   end function
 
   !---------------------------------------------------------------------------
@@ -463,20 +462,20 @@ module vars
   ! given a point x, check if it lies in the computational domain centered at zero
   ! (note: we assume [-xl/2...+xl/2] size this is useful for insects )
   !-----------------------------------------------------------------------------
-  function periodize_coordinate(x_glob)
-    real(kind=pr),intent(in) :: x_glob(1:3)
+  function periodize_coordinate(x_glob, box)
+    real(kind=pr),intent(in) :: x_glob(1:3), box(1:3)
     real(kind=pr),dimension(1:3) :: periodize_coordinate
 
     periodize_coordinate = x_glob
 
     if (periodic) then
-      if (x_glob(1)<-xl/2.0) periodize_coordinate(1)=x_glob(1)+xl
-      if (x_glob(2)<-yl/2.0) periodize_coordinate(2)=x_glob(2)+yl
-      if (x_glob(3)<-zl/2.0) periodize_coordinate(3)=x_glob(3)+zl
+      if (x_glob(1)<-box(1)/2.0) periodize_coordinate(1)=x_glob(1)+box(1)
+      if (x_glob(2)<-box(2)/2.0) periodize_coordinate(2)=x_glob(2)+box(2)
+      if (x_glob(3)<-box(3)/2.0) periodize_coordinate(3)=x_glob(3)+box(3)
 
-      if (x_glob(1)>xl/2.0) periodize_coordinate(1)=x_glob(1)-xl
-      if (x_glob(2)>yl/2.0) periodize_coordinate(2)=x_glob(2)-yl
-      if (x_glob(3)>zl/2.0) periodize_coordinate(3)=x_glob(3)-zl
+      if (x_glob(1)>box(1)/2.0) periodize_coordinate(1)=x_glob(1)-box(1)
+      if (x_glob(2)>box(2)/2.0) periodize_coordinate(2)=x_glob(2)-box(2)
+      if (x_glob(3)>box(3)/2.0) periodize_coordinate(3)=x_glob(3)-box(3)
     endif
 
   end function

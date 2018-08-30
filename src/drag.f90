@@ -18,7 +18,7 @@ subroutine cal_drag ( time, u, Insect )
   use mpi
   use vars
   use penalization ! mask array etc
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(in) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
@@ -36,7 +36,7 @@ subroutine cal_drag ( time, u, Insect )
   real(kind=pr) :: xc(1:3)
   ! power (flux of energy)
   real(kind=pr) :: power,powerx,powery,powerz, u_residual(0:5), u_residual_glob(0:5)
-  real(kind=pr) :: dux, duy, duz
+  real(kind=pr) :: dux, duy, duz, eps_inv
   character(len=strlen) :: forcepartfilename
 #ifdef __SX__
   integer, parameter :: blksz=256
@@ -52,6 +52,7 @@ subroutine cal_drag ( time, u, Insect )
 
   if (iPenalization/=1) return
 
+  eps_inv = 1.0_pr / eps
   forcex  = 0.d0
   forcey  = 0.d0
   forcez  = 0.d0
@@ -79,9 +80,9 @@ subroutine cal_drag ( time, u, Insect )
         duz = u(ix,iy,iz,3)-us(ix,iy,iz,3)
 
         ! actual penalization term
-        penalx = -mask(ix,iy,iz) * dux
-        penaly = -mask(ix,iy,iz) * duy
-        penalz = -mask(ix,iy,iz) * duz
+        penalx = -mask(ix,iy,iz) * dux * eps_inv
+        penaly = -mask(ix,iy,iz) * duy * eps_inv
+        penalz = -mask(ix,iy,iz) * duz * eps_inv
 
         ! what color does the point have?
         color = mask_color(ix,iy,iz)
@@ -107,7 +108,7 @@ subroutine cal_drag ( time, u, Insect )
 
         ! is the obstacle is near the boundary, parts of it may cross the periodic
         ! boundary. therefore, ensure that xlev is periodized:
-        xc = periodize_coordinate((/xlev,ylev,zlev/))
+        xc = periodize_coordinate((/xlev,ylev,zlev/), (/xl,yl,zl/))
         xlev = xc(1)
         ylev = xc(2)
         zlev = xc(3)
@@ -134,7 +135,7 @@ subroutine cal_drag ( time, u, Insect )
             ylev = ylev - Insect%x_pivot_r_g(2)
             zlev = zlev - Insect%x_pivot_r_g(3)
           endif
-          xc = periodize_coordinate((/xlev,ylev,zlev/))
+          xc = periodize_coordinate((/xlev,ylev,zlev/), (/xl,yl,zl/))
           xlev = xc(1)
           ylev = xc(2)
           zlev = xc(3)
@@ -163,9 +164,9 @@ subroutine cal_drag ( time, u, Insect )
         duz = u(ix,iy,iz,3)-us(ix,iy,iz,3)
 
         ! actual penalization term
-        penalx(i) = -mask(ix,iy,iz) * dux
-        penaly(i) = -mask(ix,iy,iz) * duy
-        penalz(i) = -mask(ix,iy,iz) * duz
+        penalx(i) = -mask(ix,iy,iz) * dux * eps_inv
+        penaly(i) = -mask(ix,iy,iz) * duy * eps_inv
+        penalz(i) = -mask(ix,iy,iz) * duz * eps_inv
 
         ! what color does the point have?
         color_(i) = mask_color(ix,iy,iz)
@@ -225,7 +226,7 @@ subroutine cal_drag ( time, u, Insect )
 
         ! is the obstacle is near the boundary, parts of it may cross the periodic
         ! boundary. therefore, ensure that xlev is periodized:
-        xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/))
+        xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/), (/xl,yl,zl/))
         xlev(i) = xc(1)
         ylev(i) = xc(2)
         zlev(i) = xc(3)
@@ -287,7 +288,7 @@ subroutine cal_drag ( time, u, Insect )
             ylev(i) = ylev(i) - Insect%x_pivot_r_g(2)
             zlev(i) = zlev(i) - Insect%x_pivot_r_g(3)
           endif
-          xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/))
+          xc = periodize_coordinate((/xlev(i),ylev(i),zlev(i)/), (/xl,yl,zl/))
           xlev(i) = xc(1)
           ylev(i) = xc(2)
           zlev(i) = xc(3)
@@ -470,7 +471,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   use mpi
   use vars
   use penalization ! mask array etc
-  use insect_module
+  use module_insects
   implicit none
 
   real(kind=pr),intent(in) :: time, dt
@@ -518,7 +519,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
   force_new_locy = 0.0d0
   force_new_locz = 0.0d0
 
-  norm = dx*dy*dz*eps
+  norm = dx*dy*dz
 
 #ifndef __SX__
   do iz=ra(3),rb(3)
@@ -633,9 +634,9 @@ subroutine cal_unst_corrections ( time, dt, Insect )
         ylev = dble(iy)*dy - y0
         zlev = dble(iz)*dz - z0
 
-        usx = us(ix,iy,iz,1)*mask(ix,iy,iz)*eps
-        usy = us(ix,iy,iz,2)*mask(ix,iy,iz)*eps
-        usz = us(ix,iy,iz,3)*mask(ix,iy,iz)*eps
+        usx = us(ix,iy,iz,1)*mask(ix,iy,iz)
+        usy = us(ix,iy,iz,2)*mask(ix,iy,iz)
+        usz = us(ix,iy,iz,3)*mask(ix,iy,iz)
 
         color = mask_color(ix,iy,iz)
         ! moment with respect to (x0,y0,z0)
@@ -681,9 +682,9 @@ subroutine cal_unst_corrections ( time, dt, Insect )
         ylev = dble(iy)*dy - y0
         zlev = dble(iz)*dz - z0
 
-        usx = us(ix,iy,iz,1)*mask(ix,iy,iz)*eps
-        usy = us(ix,iy,iz,2)*mask(ix,iy,iz)*eps
-        usz = us(ix,iy,iz,3)*mask(ix,iy,iz)*eps
+        usx = us(ix,iy,iz,1)*mask(ix,iy,iz)
+        usy = us(ix,iy,iz,2)*mask(ix,iy,iz)
+        usz = us(ix,iy,iz,3)*mask(ix,iy,iz)
 
         color_(i) = mask_color(ix,iy,iz)
         ! moment with respect to (x0,y0,z0)

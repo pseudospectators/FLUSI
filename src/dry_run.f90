@@ -7,7 +7,7 @@ subroutine dry_run()
   use vars
   use p3dfft_wrapper
   use solid_model
-  use insect_module
+  use module_insects
   use penalization ! mask array etc
   implicit none
   real(kind=pr)          :: time,memory,mem_field
@@ -32,8 +32,7 @@ subroutine dry_run()
   time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
   time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
   time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
-  time_insect_head=0.d0; time_insect_body=0.d0; time_insect_eye=0.d0
-  time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
+  time_scalar=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
   tslices=0.d0
@@ -61,7 +60,7 @@ subroutine dry_run()
   ! get filename of PARAMS file from command line
   call get_command_argument(2,infile)
   ! read all parameters from that file
-  call get_params(infile,.true.)
+  call get_params(infile,Insect,.true.)
 
   ! is the position of body and wings given by the command line?
   call get_command_argument(3,mode)
@@ -129,14 +128,12 @@ subroutine dry_run()
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
 
-    call insect_init( 0.d0, infile, Insect)
+    call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu)
 
     ! If required, initialize rigid solid dynamics solver. Note that if the --post flag
     ! is set, the insect state is read from file, so we skip the initialization .
     if (Insect%BodyMotion=="free_flight" .and. mode/="--post") then
-      call rigid_solid_init(0.d0,Insect)
-      GlobalIntegrals%force = 0.d0
-      GlobalIntegrals%force_unst = 0.d0
+      call rigid_solid_init(0.d0, Insect, .false., "")
     endif
 
     ! tell insect module not to write to kinematics.dry-run.t file, so content of
@@ -159,7 +156,7 @@ subroutine dry_run()
 
 
   if (tsave == 0.d0) then
-    if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
+    if (mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
     tsave = 0.05d0
   endif
 
@@ -189,7 +186,7 @@ subroutine dry_run()
       else
         ! use rigid solid solver to integrate the body motion state; this is useful only
         ! if a constant velocity is set
-        call rigid_solid_time_step(time, tsave, tsave, it, Insect)
+        call rigid_solid_time_step(time, tsave, tsave, it, Insect, (/0.0_pr, 0.0_pr, 0.0_pr/), (/0.0_pr, 0.0_pr, 0.0_pr/))
       endif
     endif
 
@@ -197,6 +194,9 @@ subroutine dry_run()
     ! create the mask
     call create_mask(time, Insect, beams)
 
+    if (iMask=="Insect".and.modulo(it,itdrag)==0) then
+        call write_kinematics_file( time, Insect )
+    endif
 
     ! Save data
     write(name,'(i6.6)') floor(time*1000.d0)
@@ -206,7 +206,7 @@ subroutine dry_run()
       time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
     endif
 
-    call save_field_hdf5(time,'mask_'//name,mask*eps)
+    call save_field_hdf5(time, 'mask_'//name, mask)
     if (isaveSolidVelocity == 1) then
       call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
       call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))

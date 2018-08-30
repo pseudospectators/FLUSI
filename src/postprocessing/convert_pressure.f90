@@ -5,10 +5,10 @@
 subroutine convert_pressure(help)
   use vars
   use p3dfft_wrapper
-  use helpers
+  use module_helpers
   use basic_operators
   use penalization
-  use insect_module
+  use module_insects
   use solid_model
   use turbulent_inlet_module
   use hdf5_wrapper
@@ -186,6 +186,9 @@ subroutine convert_pressure(help)
 
   ! compute pressure
   call pressure_from_uk_use_existing_mask(time,u,uk,nlk,vort,workr,workc,press,Insect)
+
+  ! remove mean
+  press = press - mpisum( sum(press) )/(dble(nx)*dble(ny)*dble(nz))
 
   ! now press contains the pressure (and we do not use ghost nodes, so ga=ra and gb=rb)
   call save_field_hdf5 ( time, fname_p, press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )

@@ -16,6 +16,8 @@ subroutine pressure_to_Qcriterion(help)
   use vars
   use basic_operators
   use p3dfft_wrapper
+  use module_helpers
+
   implicit none
   character(len=strlen) :: fname_p, fname_Q
   complex(kind=pr),dimension(:,:,:),allocatable :: pk

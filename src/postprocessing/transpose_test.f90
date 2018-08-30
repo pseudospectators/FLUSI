@@ -6,7 +6,7 @@ subroutine transpose_test(help)
   use vars
   use p3dfft_wrapper
   use basic_operators
-  use helpers
+  use module_helpers
   use hdf5_wrapper
   use mpi
   use flusi_wavelet_lib
