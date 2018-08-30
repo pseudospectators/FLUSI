@@ -2,7 +2,8 @@ program FLUSI
   use mpi
   use vars
   use solid_model
-  use insect_module
+  use module_insects
+  use module_helpers
   use flexible_model
 
   implicit none
