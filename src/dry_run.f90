@@ -242,13 +242,16 @@ subroutine dry_run_flexible_wing()
   use flexible_model
   use penalization ! mask array etc
   use stl_file_reader
+  use module_insects
   !use helpers
-  use ini_files_parser_mpi
+  !use module_ini_files_parser_mpi
   implicit none
   real(kind=pr)          :: time,memory,mem_field
   integer                :: it
   character(len=strlen)  :: infile, mode
   character(len=6) :: name
+  ! this is the insect we're using (object oriented)
+  type(diptera) :: Insect
   ! this is the wings we're using (object oriented)
   type(Wing),dimension(1:nWings) :: Wings
   logical :: exists
@@ -265,8 +268,7 @@ subroutine dry_run_flexible_wing()
   time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
   time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
   time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
-  time_insect_head=0.d0; time_insect_body=0.d0; time_insect_eye=0.d0
-  time_insect_wings=0.d0; time_insect_vel=0.d0; time_scalar=0.d0
+  time_scalar=0.d0
   time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
   tslices=0.d0
@@ -293,8 +295,11 @@ subroutine dry_run_flexible_wing()
   if (root) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
   call get_command_argument(2,infile)
+
+  write(*,*) infile
+
   ! read all parameters from that file
-  call get_params(infile,.true.)
+  call get_params(infile,Insect,.true.)
 
   ! is the position of body and wings given by the command line?
   call get_command_argument(3,mode)

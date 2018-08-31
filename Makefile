@@ -11,7 +11,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
 	rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
 	noncircular_cylinder.f90 draw_flexible_plate.f90 \
-	basic_file_routines.f90 runtime_backuping.f90 io_test.f90
+	runtime_backuping.f90 io_test.f90
 
 ifndef NOHDF5
 # Case WITH HDF5 (all machines except earth simulator)
@@ -25,7 +25,7 @@ FFILES += postprocessing.f90 \
 	turbulence_analysis.f90 upsample.f90 stl2dist.f90 dist2chi.f90 force_decomposition.f90 \
 	zero_padd.f90 convert_to_wing_system.f90 convert_pressure.f90 \
 	pressure_force.f90 flusi_hdf5_interface.f90 post_CVE.f90 transpose_test.f90 \
-	post_grad.f90 pointcloud2mask.f90 crop.f90 flexible_wing_mask.f90
+	post_grad.f90 pointcloud2mask.f90 crop.f90 flexible_wing_mask.f90 post_div.f90
 
 else
 # Case WITHOUT Hdf
@@ -38,10 +38,10 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 #--------------------------------------------------------------
 # Files that create modules:
 #--------------------------------------------------------------
-MFILES = vars.f90 module_helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
+MFILES = vars.f90 module_helpers.f90 cof_p3dfft.f90 solid_solver.f90 flexible_solver.f90\
 	interpolation.f90 basic_operators.f90 module_insects.f90 turbulent_inlet.f90 \
 	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
-	ini_files_parser_mpi.f90 wavelet_library.f90
+	ini_files_parser_mpi.f90 wavelet_library.f90 module_insects_integration_flusi_wabbit.f90
 ifndef NOHDF5
 MFILES += hdf5_wrapper.f90 slicing.f90 stlreader.f90
 else
@@ -203,16 +203,18 @@ $(OBJDIR)/vars.o: vars.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/insects.o: insects.f90 $(OBJDIR)/vars.o \
+$(OBJDIR)/module_insects.o: module_insects.f90 active_grid_winglets.f90 $(OBJDIR)/module_insects_integration_flusi_wabbit.o \
 	body_geometry.f90 body_motion.f90 rigid_solid_time_stepper.f90 wings_geometry.f90 \
 	wings_motion.f90 stroke_plane.f90 pointcloud.f90 fractal_trees.f90 insect_init_clean.f90 \
-	kineloader.f90 $(OBJDIR)/helpers.o $(OBJDIR)/ini_files_parser_mpi.o $(OBJDIR)/interpolation.o
+	kineloader.f90
 	$(FC) -Isrc/insects/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/insects.o $(OBJDIR)/helpers.o \
+$(OBJDIR)/module_insects_integration_flusi_wabbit.o: module_insects_integration_flusi_wabbit.f90 $(OBJDIR)/vars.o $(OBJDIR)/module_helpers.o $(OBJDIR)/ini_files_parser_mpi.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/module_insects.o $(OBJDIR)/module_helpers.o \
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
 	prescribed_beam.f90 solid_solver_wrapper.f90 $(OBJDIR)/ghostpoints.o
 	$(FC) -Isrc/solid_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/flexible_solver.o: flexible_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/helpers.o \
+$(OBJDIR)/flexible_solver.o: flexible_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/module_helpers.o \
 	flexible_tri_mask.f90 \
 	init_wing.f90 flexible_solver_wrapper.f90
 	$(FC) -Isrc/flexible_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
@@ -228,19 +230,19 @@ $(OBJDIR)/slicing.o: slicing.f90 $(OBJDIR)/vars.o $(OBJDIR)/hdf5_wrapper.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/slicing_nohdf5.o: slicing_nohdf5.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/helpers.o: helpers.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/module_helpers.o: module_helpers.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ini_files_parser_mpi.o: ini_files_parser_mpi.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o
+$(OBJDIR)/ini_files_parser.o: ini_files_parser.f90 $(OBJDIR)/vars.o $(OBJDIR)/module_helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/stlreader.o: stlreader.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/helpers.o
+$(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/module_helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/helpers.o
+$(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/module_helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o $(OBJDIR)/insects.o $(OBJDIR)/solid_solver.o
+$(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o $(OBJDIR)/module_insects.o $(OBJDIR)/solid_solver.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o $(OBJDIR)/solid_solver.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
@@ -259,6 +261,11 @@ clean:
 
 tidy:
 	rm -rf $(OBJDIR)/*.o $(OBJDIR)/*.mod *.mod *.o a.out
+
+.PHONY: test
+
+test:
+	@cd tests/; ./unittest.sh
 
 # If the object directory doesn't exist, create it.
 .PHONY: directories

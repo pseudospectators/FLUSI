@@ -2,11 +2,10 @@
 module flexible_model
   use vars ! for the precision statement
   ! we need the following line for presribed wings:
-  use helpers
+  use module_helpers
   use basic_operators
   !use stl_file_reader
-  use helpers
-  use ini_files_parser_mpi
+  use module_ini_files_parser_mpi
   implicit none
 
   !----------------------------------------------
