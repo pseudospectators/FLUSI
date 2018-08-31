@@ -187,7 +187,7 @@ subroutine read_mesh_data(wings)
     ! respectively in the points_coor.t data file
     data_file = 'points_coor'//wingstr//'.dat'
     call  read_mesh_data_2D_array(data_file, tmp1)
-    do j=1, maxval(tmp1(:,1))
+    do j=1, nint(maxval(tmp1(:,1)))
       wings(i)%x(j) = tmp1(j,2)*2*pi/xl*20
       wings(i)%y(j) = tmp1(j,3)*2*pi/yl*20
       wings(i)%z(j) = tmp1(j,4)*2*pi/zl

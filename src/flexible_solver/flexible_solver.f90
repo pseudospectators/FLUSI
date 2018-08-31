@@ -107,7 +107,8 @@ module flexible_model
  !-----------------------------------------------------------------
  include "init_wing.f90"
 ! include "save_wing.f90"
-! include "wingForces.f90"
+ include "internal_force.f90"
+ include "internal_force_derivative.f90"
 ! include "prescribed_wing.f90"
  include "flexible_solver_wrapper.f90"
  include "flexible_tri_mask.f90"

@@ -1,14 +1,14 @@
 subroutine length_calculation(x,y,z,springs,springs_length)
 
-real(kind=pr), intent(in) :: x,y,z
-real(kind=pr), intent(in) :: springs
-real(kind=pr), allocatable, intent(out) :: springs_length(:)
+real(kind=pr), intent(in) :: x(:),y(:),z(:)
+real(kind=pr), intent(in) :: springs(:,:)
+real(kind=pr), intent(inout) :: springs_length(:)
 integer :: ind
 
-do ind=1:nint(maxval(springs(:,1)))
-    springs_length(ind,1) = sqrt((x(nint(springs(ind,2)))-x(nint(springs(ind,3))))^2 + &
-                                 (y(nint(springs(ind,2)))-y(nint(springs(ind,3))))^2 + &
-                                 (z(nint(springs(ind,2)))-z(nint(springs(ind,3))))^2)
+do ind=1,nint(maxval(springs(:,1)))
+    springs_length(ind) = sqrt((x(nint(springs(ind,2)))-x(nint(springs(ind,3))))**2 + &
+                               (y(nint(springs(ind,2)))-y(nint(springs(ind,3))))**2 + &
+                               (z(nint(springs(ind,2)))-z(nint(springs(ind,3))))**2)
 enddo
 
 end subroutine
@@ -20,12 +20,13 @@ subroutine angle_calculation(x,y,z,vein,theta,phi)
 !                  X1                          X2
 !
 
-real(kind=pr), intent(in) :: x,y,z
-real(kind=pr), intent(in) :: vein
-real(kind=pr), allocatable, intent(inout) :: theta(:), phi(:)
+real(kind=pr), intent(in) :: x(:),y(:),z(:)
+real(kind=pr), intent(in) :: vein(:,:)
+real(kind=pr), intent(inout) :: theta(:), phi(:)
+real(kind=pr) :: x1,x2,y1,y2,z1,z2
 integer :: ind
 
-do ind=1:nint(maxval(vein(:,1)))
+do ind=1,nint(maxval(vein(:,1)))
     x1 = x(nint(vein(ind,3))) - x(nint(vein(ind,2)))
     y1 = y(nint(vein(ind,3))) - y(nint(vein(ind,2)))
     z1 = z(nint(vein(ind,3))) - z(nint(vein(ind,2)))
