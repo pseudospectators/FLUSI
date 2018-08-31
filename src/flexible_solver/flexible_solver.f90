@@ -111,6 +111,7 @@ module flexible_model
 ! include "prescribed_wing.f90"
  include "flexible_solver_wrapper.f90"
  include "flexible_tri_mask.f90"
+ include "supplementary_calc.f90"
 
 
 
