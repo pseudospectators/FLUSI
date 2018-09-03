@@ -9,7 +9,7 @@ type(Wing), dimension(1:nWings), intent(inout)  :: Wings
 integer :: i,j
 
 do i=1,nWings
-  !Calculate current lenghts and angles
+  !Calculate current lenghts and angles of extension and bending springs repsectively
   do j=1,nMembranes
       call length_calculation(wings(i)%x,wings(i)%y,wings(i)%z,    &
                               wings(i)%membranes_extension(:,:,j), &

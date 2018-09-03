@@ -1,6 +1,6 @@
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Construct Jacobian matrix of internal force vector for Newton-Raphson method
-! since we use implicit scheme for time advancement
+! since we use implicit scheme for time stepping
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 subroutine internal_forces_derivatives_construction(Wings)
@@ -11,7 +11,7 @@ integer :: i,j
 do i=1,nWings
 !Calculate current lenghts and angles
 
-  !Construct internal force derivative matrix
+  !Construct internal force derivative matrix aka Jacobian matrix
   do j=1,nMembranes
        call internal_extension_force_derivative(wings(i)%FJ, &
                                      wings(i)%x,wings(i)%y,wings(i)%z, &
@@ -191,6 +191,143 @@ enddo
 
 end subroutine
 
+subroutine internal_extension_force_BC_derivative(FJa,x,y,z,extension_springs,ke_BC)
+
+  real(kind=pr), intent(in)     :: x(:),y(:),z(:)
+  real(kind=pr), intent(in)     :: ke_BC(:)
+  real(kind=pr), intent(in)     :: extension_springs(:,:)
+  real(kind=pr), intent(inout)  :: FJa(:,:)
+  real(kind=pr) :: Fxx, Fyy, Fzz, Fxy, Fxz, Fyz
+  integer :: ind
+
+  do ind=-1,nint(maxval(extension_springs(:,1)))
+
+      call calculate_extension_spring_force_derivative(x(nint(extension_springs(ind,2))), x(nint(extension_springs(ind,3))), &
+                                                       y(nint(extension_springs(ind,2))), y(nint(extension_springs(ind,3))), &
+                                                       z(nint(extension_springs(ind,2))), z(nint(extension_springs(ind,3))), &
+                                                       extension_springs(ind,4), extension_springs(ind,5), ke_BC(ind), &
+                                                       Fxx, Fyy, Fzz, Fxy, Fxz, Fyz)
+
+
+      !First point with respect to first point
+                  FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,2))) = &
+                  FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,2))) + Fxx
+
+            FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,2)) + np) = &
+            FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,2)) + np) + Fxy
+
+          FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,2)) + 2*np) = &
+          FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,2)) + 2*np) + Fxz
+
+            FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,2))) = &
+            FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,2))) + Fxy
+
+      FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,2)) + np) = &
+      FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,2)) + np) + Fyy
+
+    FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,2)) + 2*np) = &
+    FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,2)) + 2*np) + Fyz
+
+          FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,2))) = &
+          FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,2))) + Fxz
+
+    FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,2)) + np) = &
+    FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,2)) + np) +  Fyz
+
+  FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,2)) + 2*np) = &
+  FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,2)) + 2*np) + Fzz
+
+      ! First point with respect to second point
+
+                  FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,3))) = &
+                  FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,3))) - Fxx
+
+            FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,3)) + np) = &
+            FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,3)) + np) - Fxy
+
+          FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,3)) + 2*np) = &
+          FJa(nint(extension_springs(ind,2)),nint(extension_springs(ind,3)) + 2*np) - Fxz
+
+            FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,3))) = &
+            FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,3))) - Fxy
+
+      FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,3)) + np) = &
+      FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,3)) + np) - Fyy
+
+    FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,3)) + 2*np) = &
+    FJa(nint(extension_springs(ind,2)) + np,nint(extension_springs(ind,3)) + 2*np) - Fyz
+
+          FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,3))) = &
+          FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,3))) - Fxz
+
+    FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,3)) + np) = &
+    FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,3)) + np) - Fyz
+
+  FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,3)) + 2*np) = &
+  FJa(nint(extension_springs(ind,2)) + 2*np,nint(extension_springs(ind,3)) + 2*np) - Fzz
+
+      ! Second point with respect to first point
+
+                  FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,2))) = &
+                  FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,2))) - Fxx
+
+            FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,2)) + np) = &
+            FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,2)) + np) - Fxy
+
+          FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,2)) + 2*np) = &
+          FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,2)) + 2*np) - Fxz
+
+            FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,2))) = &
+            FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,2))) - Fxy
+
+      FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,2)) + np) = &
+      FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,2)) + np) - Fyy
+
+    FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,2)) + 2*np) = &
+    FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,2)) + 2*np) - Fyz
+
+          FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,2))) = &
+          FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,2))) - Fxz
+
+    FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,2)) + np) = &
+    FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,2)) + np) - Fyz
+
+  FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,2)) + 2*np) = &
+  FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,2)) + 2*np) - Fzz
+
+      ! Second point with respect to second point
+
+                  FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,3))) = &
+                  FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,3))) + Fxx
+
+            FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,3)) + np) = &
+            FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,3)) + np) + Fxy
+
+          FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,3)) + 2*np) = &
+          FJa(nint(extension_springs(ind,3)),nint(extension_springs(ind,3)) + 2*np) + Fxz
+
+            FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,3))) = &
+            FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,3))) + Fxy
+
+      FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,3)) + np) = &
+      FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,3)) + np) + Fyy
+
+    FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,3)) + 2*np) = &
+    FJa(nint(extension_springs(ind,3)) + np,nint(extension_springs(ind,3)) + 2*np) + Fyz
+
+          FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,3))) = &
+          FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,3))) + Fxz
+
+    FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,3)) + np) = &
+    FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,3)) + np) + Fyz
+
+  FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,3)) + 2*np) = &
+  FJa(nint(extension_springs(ind,3)) + 2*np,nint(extension_springs(ind,3)) + 2*np) + Fzz
+
+  enddo
+
+end subroutine
+
 subroutine calculate_extension_spring_force_derivative(x1, x2, y1, y2, z1, z2, &
 l0, l, ke, Fxx, Fyy, Fzz, Fxy, Fxz, Fyz )
 
@@ -217,7 +354,488 @@ Fxz = ke*(xl*zl - dl*xl*zl)
 
 Fyz = ke*(yl*zl - dl*yl*zl)
 
-end subroutine
+end subroutine calculate_extension_spring_force_derivative
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+subroutine internal_bending_force_derivative(FJa,x,y,z,bending_springs,kby,kbz)
+
+  real(kind=pr), intent(in)     :: x(:),y(:),z(:)
+  real(kind=pr), intent(in)     :: kby(:), kbz(:)
+  real(kind=pr), intent(in)     :: bending_springs(:,:)
+  real(kind=pr), intent(inout)  :: FJa(:,:)
+  real(kind=pr) :: Fxx1,Fyy1,Fzz1,Fxy1,Fxz1,Fyx1,Fzx1
+  real(kind=pr) :: Fxx2,Fyy2,Fzz2,Fxy2,Fxz2,Fyx2,Fzx2
+  real(kind=pr) :: Fxx3,Fyy3,Fzz3,Fxy3,Fxz3,Fyx3,Fzx3
+  integer :: ind
+
+  do ind=1,nint(maxval(bending_springs(:,1)))
+
+      !left point
+      call calculate_bending_spring_force_derivative(&
+           x(nint(bending_springs(ind,2))),x(nint(bending_springs(ind,3))),x(nint(bending_springs(ind,4))),&
+           y(nint(bending_springs(ind,2))),y(nint(bending_springs(ind,3))),y(nint(bending_springs(ind,4))),&
+           z(nint(bending_springs(ind,2))),z(nint(bending_springs(ind,3))),z(nint(bending_springs(ind,4))),&
+           bending_springs(ind,5),bending_springs(ind,6),bending_springs(ind,7),bending_springs(ind,8),&
+           kby(ind), kbz(ind), 2, &
+           Fxx1,Fyy1,Fzz1,Fxy1,Fxz1,Fyx1,Fzx1, &
+           Fxx2,Fyy2,Fzz2,Fxy2,Fxz2,Fyx2,Fzx2, &
+           Fxx3,Fyy3,Fzz3,Fxy3,Fxz3,Fyx3,Fzx3)
+
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))) = &
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))) + Fxx1
+
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,2))+np) = &
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,2))+np) + Fyy1
+
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,2))+2*np) = &
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,2))+2*np) + Fzz1
+
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))+np) = &
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))+np) + Fxy1
+
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))+2*np) = &
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))+2*np) + Fxz1
+
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,2))) = &
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,2))) + Fyx1
+
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,2))) = &
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,2))) + Fzx1
+
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))) = &
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))) + Fxx2
+
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,3))+np) = &
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,3))+np) + Fyy2
+
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,3))+2*np) = &
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,3))+2*np) + Fzz2
+
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))+np) = &
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))+np) + Fxy2
+
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))+2*np) = &
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))+2*np) + Fxz2
+
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,3))) = &
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,3))) + Fyx2
+
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,3))) = &
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,3))) + Fzx2
+
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))) = &
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))) + Fxx3
+
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,4))+np) = &
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,4))+np) + Fyy3
+
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,4))+2*np) = &
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,4))+2*np) + Fzz3
+
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))+np) = &
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))+np) + Fxy3
+
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))+2*np) = &
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))+2*np) + Fxz3
+
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,4))) = &
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,4))) + Fyx3
+
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,4))) = &
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,4))) + Fzx3
+
+      !middle point
+      call calculate_bending_spring_force_derivative(&
+           x(nint(bending_springs(ind,2))),x(nint(bending_springs(ind,3))),x(nint(bending_springs(ind,4))),&
+           y(nint(bending_springs(ind,2))),y(nint(bending_springs(ind,3))),y(nint(bending_springs(ind,4))),&
+           z(nint(bending_springs(ind,2))),z(nint(bending_springs(ind,3))),z(nint(bending_springs(ind,4))),&
+           bending_springs(ind,5),bending_springs(ind,6),bending_springs(ind,7),bending_springs(ind,8),&
+           kby(ind), kbz(ind), 3, &
+           Fxx1,Fyy1,Fzz1,Fxy1,Fxz1,Fyx1,Fzx1, &
+           Fxx2,Fyy2,Fzz2,Fxy2,Fxz2,Fyx2,Fzx2, &
+           Fxx3,Fyy3,Fzz3,Fxy3,Fxz3,Fyx3,Fzx3)
+
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))) = &
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))) + Fxx1
+
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,2))+np) = &
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,2))+np) + Fyy1
+
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,2))+2*np) = &
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,2))+2*np) + Fzz1
+
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))+np) = &
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))+np) + Fxy1
+
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))+2*np) = &
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))+2*np) + Fxz1
+
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,2))) = &
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,2))) + Fyx1
+
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,2))) = &
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,2))) + Fzx1
+
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))) = &
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))) + Fxx2
+
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,3))+np) = &
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,3))+np) + Fyy2
+
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,3))+2*np) = &
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,3))+2*np) + Fzz2
+
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))+np) = &
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))+np) + Fxy2
+
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))+2*np) = &
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))+2*np) + Fxz2
+
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,3))) = &
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,3))) + Fyx2
+
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,3))) = &
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,3))) + Fzx2
+
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))) = &
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))) + Fxx3
+
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,4))+np) = &
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,4))+np) + Fyy3
+
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,4))+2*np) = &
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,4))+2*np) + Fzz3
+
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))+np) = &
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))+np) + Fxy3
+
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))+2*np) = &
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))+2*np) + Fxz3
+
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,4))) = &
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,4))) + Fyx3
+
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,4))) = &
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,4))) + Fzx3
+
+      !right point
+      call calculate_bending_spring_force_derivative(&
+           x(nint(bending_springs(ind,2))),x(nint(bending_springs(ind,3))),x(nint(bending_springs(ind,4))),&
+           y(nint(bending_springs(ind,2))),y(nint(bending_springs(ind,3))),y(nint(bending_springs(ind,4))),&
+           z(nint(bending_springs(ind,2))),z(nint(bending_springs(ind,3))),z(nint(bending_springs(ind,4))),&
+           bending_springs(ind,5),bending_springs(ind,6),bending_springs(ind,7),bending_springs(ind,8),&
+           kby(ind), kbz(ind), 4, &
+           Fxx1,Fyy1,Fzz1,Fxy1,Fxz1,Fyx1,Fzx1, &
+           Fxx2,Fyy2,Fzz2,Fxy2,Fxz2,Fyx2,Fzx2, &
+           Fxx3,Fyy3,Fzz3,Fxy3,Fxz3,Fyx3,Fzx3)
+
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))) = &
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))) + Fxx1
+
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,2))+np) = &
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,2))+np) + Fyy1
+
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,2))+2*np) = &
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,2))+2*np) + Fzz1
+
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))+np) = &
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))+np) + Fxy1
+
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))+2*np) = &
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))+2*np) + Fxz1
+
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,2))) = &
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,2))) + Fyx1
+
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,2))) = &
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,2))) + Fzx1
+
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))) = &
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))) + Fxx2
+
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,3))+np) = &
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,3))+np) + Fyy2
+
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,3))+2*np) = &
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,3))+2*np) + Fzz2
+
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))+np) = &
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))+np) + Fxy2
+
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))+2*np) = &
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))+2*np) + Fxz2
+
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,3))) = &
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,3))) + Fyx2
+
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,3))) = &
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,3))) + Fzx2
+
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))) = &
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))) + Fxx3
+
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,4))+np) = &
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,4))+np) + Fyy3
+
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,4))+2*np) = &
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,4))+2*np) + Fzz3
+
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))+np) = &
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))+np) + Fxy3
+
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))+2*np) = &
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))+2*np) + Fxz3
+
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,4))) = &
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,4))) + Fyx3
+
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,4))) = &
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,4))) + Fzx3
+  end do
+
+end subroutine internal_bending_force_derivative
+
+subroutine internal_bending_force_BC_derivative(FJa,x,y,z,bending_springs,kby_BC,kbz_BC)
+
+  real(kind=pr), intent(in)     :: x(:),y(:),z(:)
+  real(kind=pr), intent(in)     :: kby_BC(:), kbz_BC(:)
+  real(kind=pr), intent(in)     :: bending_springs(:,:)
+  real(kind=pr), intent(inout)  :: FJa(:,:)
+  real(kind=pr) :: Fxx1,Fyy1,Fzz1,Fxy1,Fxz1,Fyx1,Fzx1
+  real(kind=pr) :: Fxx2,Fyy2,Fzz2,Fxy2,Fxz2,Fyx2,Fzx2
+  real(kind=pr) :: Fxx3,Fyy3,Fzz3,Fxy3,Fxz3,Fyx3,Fzx3
+  integer :: ind
+
+  do ind=-1,nint(maxval(bending_springs(:,1)))
+
+      !left point
+      call calculate_bending_spring_force_derivative(&
+           x(nint(bending_springs(ind,2))),x(nint(bending_springs(ind,3))),x(nint(bending_springs(ind,4))),&
+           y(nint(bending_springs(ind,2))),y(nint(bending_springs(ind,3))),y(nint(bending_springs(ind,4))),&
+           z(nint(bending_springs(ind,2))),z(nint(bending_springs(ind,3))),z(nint(bending_springs(ind,4))),&
+           bending_springs(ind,5),bending_springs(ind,6),bending_springs(ind,7),bending_springs(ind,8),&
+           kby_BC(ind), kbz_BC(ind), 2, &
+           Fxx1,Fyy1,Fzz1,Fxy1,Fxz1,Fyx1,Fzx1, &
+           Fxx2,Fyy2,Fzz2,Fxy2,Fxz2,Fyx2,Fzx2, &
+           Fxx3,Fyy3,Fzz3,Fxy3,Fxz3,Fyx3,Fzx3)
+
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))) = &
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))) + Fxx1
+
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,2))+np) = &
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,2))+np) + Fyy1
+
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,2))+2*np) = &
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,2))+2*np) + Fzz1
+
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))+np) = &
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))+np) + Fxy1
+
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))+2*np) = &
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,2))+2*np) + Fxz1
+
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,2))) = &
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,2))) + Fyx1
+
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,2))) = &
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,2))) + Fzx1
+
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))) = &
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))) + Fxx2
+
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,3))+np) = &
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,3))+np) + Fyy2
+
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,3))+2*np) = &
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,3))+2*np) + Fzz2
+
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))+np) = &
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))+np) + Fxy2
+
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))+2*np) = &
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,3))+2*np) + Fxz2
+
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,3))) = &
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,3))) + Fyx2
+
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,3))) = &
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,3))) + Fzx2
+
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))) = &
+                  FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))) + Fxx3
+
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,4))+np) = &
+          FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,4))+np) + Fyy3
+
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,4))+2*np) = &
+      FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,4))+2*np) + Fzz3
+
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))+np) = &
+              FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))+np) + Fxy3
+
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))+2*np) = &
+            FJa(nint(bending_springs(ind,2)),nint(bending_springs(ind,4))+2*np) + Fxz3
+
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,4))) = &
+              FJa(nint(bending_springs(ind,2))+np,nint(bending_springs(ind,4))) + Fyx3
+
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,4))) = &
+            FJa(nint(bending_springs(ind,2))+2*np,nint(bending_springs(ind,4))) + Fzx3
+
+      !middle point
+      call calculate_bending_spring_force_derivative(&
+           x(nint(bending_springs(ind,2))),x(nint(bending_springs(ind,3))),x(nint(bending_springs(ind,4))),&
+           y(nint(bending_springs(ind,2))),y(nint(bending_springs(ind,3))),y(nint(bending_springs(ind,4))),&
+           z(nint(bending_springs(ind,2))),z(nint(bending_springs(ind,3))),z(nint(bending_springs(ind,4))),&
+           bending_springs(ind,5),bending_springs(ind,6),bending_springs(ind,7),bending_springs(ind,8),&
+           kby_BC(ind), kbz_BC(ind), 3, &
+           Fxx1,Fyy1,Fzz1,Fxy1,Fxz1,Fyx1,Fzx1, &
+           Fxx2,Fyy2,Fzz2,Fxy2,Fxz2,Fyx2,Fzx2, &
+           Fxx3,Fyy3,Fzz3,Fxy3,Fxz3,Fyx3,Fzx3)
+
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))) = &
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))) + Fxx1
+
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,2))+np) = &
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,2))+np) + Fyy1
+
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,2))+2*np) = &
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,2))+2*np) + Fzz1
+
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))+np) = &
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))+np) + Fxy1
+
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))+2*np) = &
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,2))+2*np) + Fxz1
+
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,2))) = &
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,2))) + Fyx1
+
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,2))) = &
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,2))) + Fzx1
+
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))) = &
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))) + Fxx2
+
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,3))+np) = &
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,3))+np) + Fyy2
+
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,3))+2*np) = &
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,3))+2*np) + Fzz2
+
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))+np) = &
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))+np) + Fxy2
+
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))+2*np) = &
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,3))+2*np) + Fxz2
+
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,3))) = &
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,3))) + Fyx2
+
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,3))) = &
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,3))) + Fzx2
+
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))) = &
+                  FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))) + Fxx3
+
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,4))+np) = &
+          FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,4))+np) + Fyy3
+
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,4))+2*np) = &
+      FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,4))+2*np) + Fzz3
+
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))+np) = &
+              FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))+np) + Fxy3
+
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))+2*np) = &
+            FJa(nint(bending_springs(ind,3)),nint(bending_springs(ind,4))+2*np) + Fxz3
+
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,4))) = &
+              FJa(nint(bending_springs(ind,3))+np,nint(bending_springs(ind,4))) + Fyx3
+
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,4))) = &
+            FJa(nint(bending_springs(ind,3))+2*np,nint(bending_springs(ind,4))) + Fzx3
+
+      !right point
+      call calculate_bending_spring_force_derivative(&
+           x(nint(bending_springs(ind,2))),x(nint(bending_springs(ind,3))),x(nint(bending_springs(ind,4))),&
+           y(nint(bending_springs(ind,2))),y(nint(bending_springs(ind,3))),y(nint(bending_springs(ind,4))),&
+           z(nint(bending_springs(ind,2))),z(nint(bending_springs(ind,3))),z(nint(bending_springs(ind,4))),&
+           bending_springs(ind,5),bending_springs(ind,6),bending_springs(ind,7),bending_springs(ind,8),&
+           kby_BC(ind), kbz_BC(ind), 4, &
+           Fxx1,Fyy1,Fzz1,Fxy1,Fxz1,Fyx1,Fzx1, &
+           Fxx2,Fyy2,Fzz2,Fxy2,Fxz2,Fyx2,Fzx2, &
+           Fxx3,Fyy3,Fzz3,Fxy3,Fxz3,Fyx3,Fzx3)
+
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))) = &
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))) + Fxx1
+
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,2))+np) = &
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,2))+np) + Fyy1
+
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,2))+2*np) = &
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,2))+2*np) + Fzz1
+
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))+np) = &
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))+np) + Fxy1
+
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))+2*np) = &
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,2))+2*np) + Fxz1
+
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,2))) = &
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,2))) + Fyx1
+
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,2))) = &
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,2))) + Fzx1
+
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))) = &
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))) + Fxx2
+
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,3))+np) = &
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,3))+np) + Fyy2
+
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,3))+2*np) = &
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,3))+2*np) + Fzz2
+
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))+np) = &
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))+np) + Fxy2
+
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))+2*np) = &
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,3))+2*np) + Fxz2
+
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,3))) = &
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,3))) + Fyx2
+
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,3))) = &
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,3))) + Fzx2
+
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))) = &
+                  FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))) + Fxx3
+
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,4))+np) = &
+          FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,4))+np) + Fyy3
+
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,4))+2*np) = &
+      FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,4))+2*np) + Fzz3
+
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))+np) = &
+              FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))+np) + Fxy3
+
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))+2*np) = &
+            FJa(nint(bending_springs(ind,4)),nint(bending_springs(ind,4))+2*np) + Fxz3
+
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,4))) = &
+              FJa(nint(bending_springs(ind,4))+np,nint(bending_springs(ind,4))) + Fyx3
+
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,4))) = &
+            FJa(nint(bending_springs(ind,4))+2*np,nint(bending_springs(ind,4))) + Fzx3
+  end do
+
+end subroutine internal_bending_force_BC_derivative
 
 subroutine calculate_bending_spring_force_derivative(x1, x2, x3, y1, y2, y3,&
 z1, z2, z3, theta0, phi0, theta, phi, kby, kbz, position, &
@@ -267,7 +885,7 @@ kbzP = kbz*(phi - phi0)
 select case (position)
   case (2) !left point
       !Derivative with respect to the left point X1
-        Fxx1 = kby*yxy1*((y3-y2)*Ay + (x3-x2)*By) - 2*kbyT*yxy1*xxy1 +&
+        Fxx1 = kby*yxy1*((y3-y2)*Ay + (x3-x2)*By) - 2*kbyT*yxy1*xxy1 + &
                kbz*zxz1*((z3-z2)*Az + (x3-x2)*Bz) - 2*kbzP*zxz1*xxz1
 
         Fyy1 = kby*xxy1*((x3-x2)*Ay - (y3-y2)*By) + 2*kbyT*yxy1*xxy1
