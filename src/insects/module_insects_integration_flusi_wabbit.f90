@@ -1,6 +1,6 @@
 module module_insects_integration_flusi_wabbit
   use vars, only : abort, periodize_coordinate, cross, deg2rad, pi, rad2deg, norm2, &
-  startup_conditioner, rand_nbr, Integrals, x0, y0, z0, rk => pr
+  startup_conditioner, rand_nbr, Integrals, x0, y0, z0, rk => pr, dx
 
   ! interp2_nonper: we need this to interpolate wing thickness and corrugation
   use module_helpers

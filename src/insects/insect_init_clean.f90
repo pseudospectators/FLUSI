@@ -110,7 +110,7 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   call read_param_mpi(PARAMS,"Insects","R_eye",Insect%R_eye, 0.d1)
   call read_param_mpi(PARAMS,"Insects","mass",Insect%mass, 1.d0)
   call read_param_mpi(PARAMS,"Insects","gravity",Insect%gravity, 1.d0)
-  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 0.05d0)
+  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx)
   call read_param_mpi(PARAMS,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/))
   Insect%Jroll_body  = defaultvec(3)
   Insect%Jyaw_body   = defaultvec(1)
