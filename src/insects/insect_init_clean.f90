@@ -1,23 +1,26 @@
-subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box_domain, viscosity)
+subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box_domain, viscosity, dx)
   implicit none
   real(kind=rk), intent(in) :: time
   character(len=*), intent(in) :: fname_ini
   type(diptera),intent(inout)::Insect
   logical, intent(in) :: resume_backup
   character(len=*), intent(in) :: fname_backup
+  ! why passing these parameters and not read them from the params file?? The answer is that we use this module
+  ! in different codes, hence we must be sure that properties like domain size and viscosity are found in the same
+  ! sections. this is not the case, so we give them to the insect module in the call here.
   real(kind=rk), intent(in) :: box_domain(1:3), viscosity
+  ! as the default wing thickness is 4*dx, pass lattice spacing here. In FLUSI, this is easy
+  ! but in WABBIT it requires some thought, because dx is not a constant.
+  real(kind=rk), intent(in) :: dx
 
   type(inifile) :: PARAMS
   real(kind=rk),dimension(1:3)::defaultvec
   character(len=strlen) :: DoF_string, dummystr
   integer :: j, tmp, mpirank, mpicode
 
-  if (root) then
-    write(*,'(80("<"))')
-    write(*,*) "Initializing insect module!"
-    write(*,*) "*.ini file is: "//trim(adjustl(fname_ini))
-    write(*,'(80("<"))')
-  endif
+  ! in this module, we use the logical ROOT to avoid the integer comparison mpirank==0
+  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
+  if (mpirank==0) root = .true.
 
   ! copy parameters from the call:
   xl = box_domain(1)
@@ -25,12 +28,15 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   zl = box_domain(3)
   nu = viscosity
 
+  ! header information
   if (root) then
-      write(*,'("Lx=",g12.4," Ly=",g12.4," Lz=",g12.4," nu=",g12.4)') xl,yl,zl,nu
+    write(*,'(80("<"))')
+    write(*,*) "Initializing insect module!"
+    write(*,*) "*.ini file is: "//trim(adjustl(fname_ini))
+    write(*,'(80("<"))')
+    write(*,'("Lx=",g12.4," Ly=",g12.4," Lz=",g12.4," nu=",g12.4)') xl, yl, zl, nu
+    write(*,'("dx=",g12.4," nx_equidistant=",i6)') dx, nint(xl/dx)
   endif
-
-  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
-  if (mpirank==0) root = .true.
 
   !-----------------------------------------------------------------------------
   ! read in parameters form ini file

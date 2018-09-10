@@ -23,7 +23,9 @@ module module_insects
 
   ! size (global) of domain
   real(kind=rk) :: xl, yl, zl
-  ! viscosity (just for Reynolds number)
+  ! spacing of grid (NOTE: in wabbit, we set minimum spacing, in flusi its just the spacing of the grid)
+  real(kind=rk) :: dx
+  ! viscosity (just for printing the Reynolds number)
   real(kind=rk) :: nu
 
   ! arrays for fourier coefficients are fixed size (avoiding issues with allocatable

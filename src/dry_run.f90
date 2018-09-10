@@ -128,7 +128,7 @@ subroutine dry_run()
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
 
-    call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu)
+    call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx)
 
     ! If required, initialize rigid solid dynamics solver. Note that if the --post flag
     ! is set, the insect state is read from file, so we skip the initialization .
