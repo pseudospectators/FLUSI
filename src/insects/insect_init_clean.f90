@@ -1,4 +1,4 @@
-subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box_domain, viscosity, dx)
+subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box_domain, viscosity, dx_reference)
   implicit none
   real(kind=rk), intent(in) :: time
   character(len=*), intent(in) :: fname_ini
@@ -11,7 +11,7 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   real(kind=rk), intent(in) :: box_domain(1:3), viscosity
   ! as the default wing thickness is 4*dx, pass lattice spacing here. In FLUSI, this is easy
   ! but in WABBIT it requires some thought, because dx is not a constant.
-  real(kind=rk), intent(in) :: dx
+  real(kind=rk), intent(in) :: dx_reference
 
   type(inifile) :: PARAMS
   real(kind=rk),dimension(1:3)::defaultvec
@@ -19,7 +19,7 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   integer :: j, tmp, mpirank, mpicode
 
   ! in this module, we use the logical ROOT to avoid the integer comparison mpirank==0
-  call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
+  call MPI_COMM_RANK (MPI_COMM_WORLD, mpirank, mpicode)
   if (mpirank==0) root = .true.
 
   ! copy parameters from the call:
@@ -29,14 +29,14 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   nu = viscosity
 
   ! header information
-  if (root) then
+ if (root) then
     write(*,'(80("<"))')
     write(*,*) "Initializing insect module!"
     write(*,*) "*.ini file is: "//trim(adjustl(fname_ini))
     write(*,'(80("<"))')
     write(*,'("Lx=",g12.4," Ly=",g12.4," Lz=",g12.4," nu=",g12.4)') xl, yl, zl, nu
-    write(*,'("dx=",g12.4," nx_equidistant=",i6)') dx, nint(xl/dx)
-  endif
+    write(*,'("dx=",g12.4," nx_equidistant=",i6)') dx_reference, nint(xl/dx_reference)
+ endif
 
   !-----------------------------------------------------------------------------
   ! read in parameters form ini file
@@ -116,7 +116,7 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   call read_param_mpi(PARAMS,"Insects","R_eye",Insect%R_eye, 0.d1)
   call read_param_mpi(PARAMS,"Insects","mass",Insect%mass, 1.d0)
   call read_param_mpi(PARAMS,"Insects","gravity",Insect%gravity, 1.d0)
-  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx)
+  call read_param_mpi(PARAMS,"Insects","WingThickness",Insect%WingThickness, 4.0d0*dx_reference)
   call read_param_mpi(PARAMS,"Insects","J_body_yawpitchroll",defaultvec, (/0.d0,0.d0,0.d0/))
   Insect%Jroll_body  = defaultvec(3)
   Insect%Jyaw_body   = defaultvec(1)
@@ -197,6 +197,11 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
     ! of body and wings
     call rigid_solid_init( time, Insect, resume_backup, fname_backup)
   endif
+
+  ! the update routine computes wing angles and so on, everything that is done only
+  ! once per time step. Do this here as well, so we can safely call draw_insect after
+  ! calling this routine.
+  call Update_Insect( time, Insect )
 
   if (root) then
     write(*,'(80("<"))')
