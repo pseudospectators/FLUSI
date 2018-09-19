@@ -8,6 +8,7 @@ subroutine dry_run()
   use p3dfft_wrapper
   use solid_model
   use module_insects
+  use turbulent_inlet_module
   use penalization ! mask array etc
   implicit none
   real(kind=pr)          :: time,memory,mem_field
@@ -158,6 +159,11 @@ subroutine dry_run()
   if (tsave == 0.d0) then
     if (mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
     tsave = 0.05d0
+  endif
+
+  ! read in turbulent inlet fields
+  if (use_turbulent_inlet=="yes") then
+    call init_turbulent_inlet ( )
   endif
 
   !*****************************************************************************

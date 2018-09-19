@@ -174,13 +174,12 @@ subroutine convert_pressure(help)
     call read_single_file( fname_usz, us(:,:,:,3) )
 
     ! fetch value of penalization parameter from mask file. It should be stored
-    ! there for every version of flusi. Note we need to divide by eps here, since
-    ! this is usually handled in the mask function. It is the first time we need
+    ! there for every version of flusi. Note we do not need to divide by eps here, since
+    ! this is done in RHS. It is the first time we need
     ! the epsi parameter since 2014 (now is 2018), so it was not included in
     ! fetch_attributes
     call read_attribute( fname_mask, "mask", "epsi", tmp)
     eps = tmp(1)
-    mask = mask / eps
     if (root) write(*,'("Value of eps=C_eta=",g15.8)') eps
   endif
 
