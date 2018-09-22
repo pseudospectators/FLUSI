@@ -111,7 +111,7 @@ endif
 #-------------------------------------------------------------------------------
 ifort:=$(shell $(FC) --version | head -c 5)
 ifeq ($(ifort),ifort)
-PPFLAG= -fpp #preprocessor flag
+PPFLAG= -fpp # preprocessor flag
 PRE_FLAGS= -DIFORT # define the IFORT variable
 ifdef NOHDF5
 PRE_FLAGS += -DNOHDF5

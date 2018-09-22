@@ -182,13 +182,13 @@ subroutine dry_run()
     ! (to save HDD space and erase the mask), and if that run is free_flight than the code
     ! should read the insect state from the rigidsolidsolver.t file (instead of simply
     ! integrating the rigid solid time stepper.)
-    if (Insect%BodyMotion=="free_flight") then
+    if (Insect%BodyMotion == "free_flight") then
       inquire( file='rigidsolidsolver.t', exist=exists )
       if (exists) then
         ! in this case, we find the rigidsolidsolver file, and we assume the user
         ! wants to reconstruct the mask from that file.
         if (root) write(*,*) "DRY-RUN found rigidsolidsolver.t file and use that for mask generation!"
-        call read_insect_STATE_from_file(time, Insect)
+        call read_insect_STATE_from_file(time, Insect, 'rigidsolidsolver.t', verbose=.true.)
       else
         ! use rigid solid solver to integrate the body motion state; this is useful only
         ! if a constant velocity is set
