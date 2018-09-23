@@ -17,7 +17,7 @@ subroutine FlappingMotion_left ( time, Insect )
   if (Insect%wing_fsi == "feathering") then
     ! Error check
     if (Insect%BodyMotion/="free_flight") &
-     call abort("Error: wing_fsi=feathering requires BodyMotion=free_flight");
+     call abort(9033,"Error: wing_fsi=feathering requires BodyMotion=free_flight");
     ! copy data from insect wing state vector
     Insect%alpha_l = Insect%WING_STATE(1)
     Insect%alpha_dt_l  = Insect%WING_STATE(2)
@@ -44,7 +44,7 @@ subroutine FlappingMotion_right ( time, Insect )
   if (Insect%wing_fsi == "feathering") then
     ! Error check
     if (Insect%BodyMotion/="free_flight") &
-     call abort("Error: wing_fsi=feathering requires BodyMotion=free_flight");
+     call abort(9034,"Error: wing_fsi=feathering requires BodyMotion=free_flight");
     ! copy data from insect wing state vector
     Insect%alpha_r = Insect%WING_STATE(3)
     Insect%alpha_dt_r  = Insect%WING_STATE(4)
@@ -108,7 +108,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     ! (kinematics_fourier_example.ini) is in the git-repository
     !---------------------------------------------------------------------------
     if (index( kine%infile,".ini")==0) then
-      call abort("you're trying to load an old kinematics file,please convert it to &
+      call abort(9035,"you're trying to load an old kinematics file,please convert it to &
       &a new *.ini file (see src/insects/kinematics_example.ini&
       & the insects-tools repository can help you do that!")
     endif
@@ -134,7 +134,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       case ("Hermite","hermite","HERMITE")
         if (mpirank==0) write(*,*) "The input file is interpreted as HERMITE coefficients"
       case default
-        call abort("kinematics file does not appear to be valid, set type=fourier or type=hermite")
+        call abort(9036,"kinematics file does not appear to be valid, set type=fourier or type=hermite")
       end select
 
       ! how many coefficients will be read
@@ -177,7 +177,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       call hermite_eval(time,theta,theta_dt, kine%ai_theta(1:kine%nfft_theta), kine%bi_theta(1:kine%nfft_theta))
 
     case default
-      call abort("kinematics file does not appear to be valid, set type=fourier or type=hermite")
+      call abort(9037,"kinematics file does not appear to be valid, set type=fourier or type=hermite")
     end select
 
     !---------------------------------------------------------------------------
@@ -195,7 +195,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     case ("radian","RADIAN","Radian","radiant","RADIANT","Radiant")
       ! if the file is already in radians, do nothing and be happy!
     case default
-      call abort("kinematics file does not appear to be valid, set units=degree or units=radian")
+      call abort(9038,"kinematics file does not appear to be valid, set units=degree or units=radian")
     end select
 
     !---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       theta    = -theta
       theta_dt = -theta_dt
     case default
-      call abort("kinematics file does not appear to be valid, set convention=flusi or convention=sisc")
+      call abort(9039,"kinematics file does not appear to be valid, set convention=flusi or convention=sisc")
     end select
 
 
@@ -826,7 +826,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     if (mpirank==0) then
       write(*,*) "insects.f90::FlappingMotion: motion case (protocoll) undefined"
       write(*,*) "value is: "//trim(adjustl(protocoll))
-      call abort()
+      call abort(9040)
     endif
   end select
 

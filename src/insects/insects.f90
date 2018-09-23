@@ -116,7 +116,7 @@ module insect_module
     ! wing dynamics model
     !-------------------------------------------------------------
     ! control parameter, "feathering" if passive feathering
-    character(len=strlen) :: wing_fsi 
+    character(len=strlen) :: wing_fsi
     ! ode variable and rhs
     real(kind=pr), dimension(1:4) :: WING_RHS_old, WING_RHS_this, WING_STATE
     ! hinge stifness and damping coefficients
@@ -199,7 +199,7 @@ contains
       write (*,'("error! time=",es15.8," but Insect%time=",es15.8)') time, Insect%time
     endif
     if ((Insect%BodyMotion=="free_flight").and.(iTimeMethodFluid/="AB2_rigid_solid")) &
-     call abort("Error: BodyMotion=free_flight only works with iTimeMethodFluid=AB2_rigid_solid");
+     call abort(9025,"Error: BodyMotion=free_flight only works with iTimeMethodFluid=AB2_rigid_solid");
 
     !-----------------------------------------------------------------------------
     ! delete old mask
@@ -241,7 +241,7 @@ contains
     ! some checks
     if ((mpirank==0).and.((iMoving.ne.1).or.(iPenalization.ne.1))) then
       write (*,*) "insects.f90::DrawInsect: the parameters iMoving or iPenalization are wrong."
-      call abort()
+      call abort(9026)
     endif
 
     !-----------------------------------------------------------------------------
@@ -713,7 +713,7 @@ contains
     rot_r_phi+matmul(transpose(M2_r),rot_r_theta+matmul(transpose(M1_r), &
     rot_r_alpha)))))
 
-    ! angular velocity of the wing root in the wing coordinate system 
+    ! angular velocity of the wing root in the wing coordinate system
     ! depends of the wing dynamics
     if (Insect%wing_fsi == "feathering") then
       ! if passive feathering, it does not include feathering velocity:
@@ -725,8 +725,8 @@ contains
       (/ 0.0d0, 0.0d0, 0.0d0 /))))))
     else
       ! the default case is all 3 angles are actuated
-      Insect%rot_root_l = Insect%rot_l 
-      Insect%rot_root_r = Insect%rot_r 
+      Insect%rot_root_l = Insect%rot_l
+      Insect%rot_root_r = Insect%rot_r
     endif
 
   end subroutine angular_velocities
@@ -808,7 +808,7 @@ contains
     type(diptera), intent(inout) :: Insect
     real(kind=pr), dimension(1:3), intent(out) :: mom_l_loc, mom_r_loc
 
-    integer(kind=2) :: color_body, color_l,color_r 
+    integer(kind=2) :: color_body, color_l,color_r
     real(kind=pr), dimension(1:3,1:3) :: M_wing_l, M_wing_r, &
     M1_tmp, M2_tmp, M1_l, M2_l, M3_l, M1_r, M2_r, M3_r, &
     M_stroke_l, M_stroke_r
@@ -827,7 +827,7 @@ contains
     M_stroke_r = matmul(M1_tmp,M2_tmp)
 
     call Ry(M1_l,Insect%alpha_l)
-    call Rz(M2_l,Insect%theta_l)   
+    call Rz(M2_l,Insect%theta_l)
     call Rx(M3_l,Insect%phi_l)
     M_wing_l = matmul(M1_l,matmul(M2_l,matmul(M3_l,M_stroke_l)))
 

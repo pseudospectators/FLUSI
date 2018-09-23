@@ -97,7 +97,7 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
   Insect%RHS_this=0.d0
 
   if ((root).and.(Insect%BodyMotion/="free_flight")) then
-    call abort("Insect%BodyMotion"//trim(adjustl(Insect%BodyMotion))//" but using free-flight?")
+    call abort(9030,"Insect%BodyMotion"//trim(adjustl(Insect%BodyMotion))//" but using free-flight?")
   endif
 
   ! copy some shortcuts (this is easier to code)
@@ -198,7 +198,7 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
     ang0_r = Insect%ang0
 
     ! Left wing
-    ! read phi_l, theta_l, phi_dt_l, theta_dt_l,  
+    ! read phi_l, theta_l, phi_dt_l, theta_dt_l,
     ! and data for evaluating phi_dt2_l numerically using FD2
     call FlappingMotion ( time+2.0d0*dt, Insect, Insect%FlappingMotion_left, &
     foo(1),foo(2),foo(3),phi_dt_i2,foo(4),theta_dt_i2,Insect%kine_wing_l )
@@ -209,9 +209,9 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
     ! second derivative of the positional angle, which is prescribed
     phi_dt2_l = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_l) / (2.0d0*dt)
     theta_dt2_l = (-theta_dt_i2+4.0d0*theta_dt_i1-3.0d0*theta_dt_l) / (2.0d0*dt)
- 
+
     ! Right wing
-    ! read phi_r, theta_r, phi_dt_r, theta_dt_r, 
+    ! read phi_r, theta_r, phi_dt_r, theta_dt_r,
     ! and data for evaluating phi_dt2_r numerically using FD2
     call FlappingMotion ( time+2.0d0*dt, Insect, Insect%FlappingMotion_right, &
     foo(1),foo(2),foo(3),phi_dt_i2,foo(4),theta_dt_i2,Insect%kine_wing_r )
@@ -220,7 +220,7 @@ subroutine rigid_solid_rhs(time,dt,it,Insect)
     call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
     phi_r,foo(2),theta_r,phi_dt_r,foo(4),theta_dt_r,Insect%kine_wing_r )
     ! second derivative of the positional angle, which is prescribed
-    phi_dt2_r = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_r) / (2.0d0*dt) 
+    phi_dt2_r = (-phi_dt_i2+4.0d0*phi_dt_i1-3.0d0*phi_dt_r) / (2.0d0*dt)
     theta_dt2_r = (-theta_dt_i2+4.0d0*theta_dt_i1-3.0d0*theta_dt_r) / (2.0d0*dt)
 
     ! Calculate aerodynamic torques of the wings, in the wing reference frames
@@ -373,7 +373,7 @@ subroutine rhs_alpha(Maero,Jyy,Jxy,stif,damp,ang0,phi,theta,phi_dt,theta_dt,phi_
           Jxy*( phi_dt2*dcos(theta)*dcos(u(1)) + theta_dt2*sin(u(1)) + &
                 0.5d0*phi_dt*phi_dt*dsin(2.0d0*theta)*dsin(u(1))-2.0d0*theta_dt*phi_dt*dsin(theta)*dcos(u(1)) )
 !  Miner = 0
-    
+
   ! rhs of the pitching equation
   du(1) = u(2)
   du(2) = (Miner+Maero-stif*(u(1)-ang0)-damp*u(2))/Jyy
@@ -382,4 +382,3 @@ subroutine rhs_alpha(Maero,Jyy,Jxy,stif,damp,ang0,phi,theta,phi_dt,theta_dt,phi_
 !du(2) = (Miner-stif*(u(1)-ang0)-damp*u(2))/Jyy
 
 end subroutine rhs_alpha
-

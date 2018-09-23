@@ -103,7 +103,7 @@ subroutine plate_geometry( beam, nh, M_plate, x0_plate )
       if (root) then
       if((x(1)<-dx).or.(x(1)>xl+dx).or.(x(2)<-dy).or.(x(2)>yl+dy).or.(x(3)<-dz).or.(x(3)>zl+dz)) then
         write(*,*) "ERROR: Surface constuction yielded values outside valid bound."
-        call abort()
+        call abort(9062)
       endif
       endif
     enddo
@@ -165,7 +165,7 @@ real(kind=pr) function z_top(s)
     endif
   case default
     if(root) write(*,*) "ERROR. plate_shape not defined.."//plate_shape
-    call abort()
+    call abort(9063)
   end select
 end function
 
@@ -216,6 +216,6 @@ real(kind=pr) function z_bottom(s)
 
   case default
     if(root) write(*,*) "ERROR. plate_shape not defined.."//plate_shape
-    call abort()
+    call abort(9064)
   end select
 end function

@@ -209,7 +209,7 @@ subroutine IBES_solver ( time, dt, beam )! note this is actuall only ONE beam!!
 
     ! emergency brake
     if (iter>1000) then
-      call abort("!!! ERROR: IBES performed like 1000 iterations. this is not normal")
+      call abort(8088,"ERROR: IBES performed like 1000 iterations. this is not normal")
     endif
   enddo
 
@@ -724,7 +724,7 @@ subroutine Jacobi(time, dt, J, x, beam_solid)
         write(*,'(A)') "IBES error, mismatch in Jacobian (numeric vs analytic)"
         write (*,*) "time=", time
         close (14)
-        call abort()
+        call abort(3003)
     endif
     iCalls = 0
   endif

@@ -74,7 +74,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
 
   case default
      if (mpirank == 0) write(*,*) "Error! Unkonwn method in cal_nlk"
-     call abort()
+     call abort(9048)
   end select
 
   time_rhs = time_rhs + MPI_wtime() - t0
@@ -361,7 +361,7 @@ subroutine pressure_given_uk(time,u,uk,nlk,vort,work,workc,press)
 
   ! this is a hack - we should not call this routine with insects
   if (iMask=="Insect") then
-    call abort("do not call pressure_given_uk with iMask==insect!!!")
+    call abort(9049,"do not call pressure_given_uk with iMask==insect!!!")
   endif
 
   call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect_dummy)
@@ -522,7 +522,7 @@ subroutine add_forcing_term(time,uk,nlk)
 
   case default
     if (mpirank==0) write(*,*) "unknown forcing method.."
-    call abort()
+    call abort(9050)
   end select
 end subroutine add_forcing_term
 

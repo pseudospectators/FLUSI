@@ -133,7 +133,7 @@ subroutine fft_initialize
 
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
-    call abort("wrong mpidims: change mpisize")
+    call abort(90001,"wrong mpidims: change mpisize")
   endif
 
   !-- Initialize P3DFFT
@@ -163,7 +163,7 @@ subroutine fft_initialize
   if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
     if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
     if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
-    call abort()
+    call abort(9002)
   endif
 
   !-- Allocate domain partitioning tables and gather sizes from all processes

@@ -182,6 +182,6 @@ subroutine FFT_unit_test ( u, uk )
       endif
     endif
   endif
-  if (fail) call abort("At least one FFT test failed!")
+  if (fail) call abort(9003,"At least one FFT test failed!")
   if (mpirank==0) write(*,*) "----------------------"
 end subroutine FFT_unit_test

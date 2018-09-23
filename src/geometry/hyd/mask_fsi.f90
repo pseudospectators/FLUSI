@@ -46,7 +46,7 @@ subroutine create_mask_fsi (time, Insect, beams )
       ! inlet or channel walls.
     case default
       write (*,*) "iMask="//iMask//" not properly set; stopping."
-      call abort()
+      call abort(9016)
     end select
   endif
 

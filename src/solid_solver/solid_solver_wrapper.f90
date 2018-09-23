@@ -32,7 +32,7 @@ subroutine SolidSolverWrapper ( time, dt, beams )
         call checknan( us(:,:,:,2), "usy")
         call checknan( us(:,:,:,3), "usz")
         ! time to go..
-        call abort("The input forces for the solid solver contain NaN..abort")
+        call abort(9066,"The input forces for the solid solver contain NaN..abort")
       endif
 
       if (time>=T_release) then
@@ -46,16 +46,16 @@ subroutine SolidSolverWrapper ( time, dt, beams )
           case ("RK4")
             ! note this solver may be very unstable:
             ! call RK4_wrapper (time, dt, beams(i))
-            call abort("RK4 for beam equation is not implemented")
+            call abort(9067,"RK4 for beam equation is not implemented")
           case ("EE1")
             ! note this solver may be very unstable:
             ! call EE1_wrapper (time, dt, beams(i))
-            call abort("EE1 for beam equation is not implemented")
+            call abort(9068,"EE1 for beam equation is not implemented")
           case ("prescribed")
             ! this is not a solver, but for passive FSI with prescribed deformation:
             call prescribed_beam (time, dt, beams(i))
           case default
-            call abort("SolidSolverWrapper::invalid value of TimeMethodSolid"//&
+            call abort(9069,"SolidSolverWrapper::invalid value of TimeMethodSolid"//&
                  trim(adjustl(TimeMethodSolid)))
         end select
       else

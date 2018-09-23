@@ -479,7 +479,7 @@ subroutine convert_abs_vorticity(help)
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
     write (*,*) "Error in arguments, files do not start with ux uy and uz"
     write (*,*) "note files have to be in the right order"
-    call abort()
+    call abort(9047)
   endif
 
 
@@ -935,7 +935,7 @@ subroutine keyvalues(filename)
 
   if (mpisize>1) then
     write (*,*) "--keyvalues is currently a serial version only, run it on 1CPU"
-    call abort()
+    call abort(7101)
   endif
 
   call check_file_exists( filename )
@@ -1351,7 +1351,7 @@ subroutine extract_subset(help)
 
   if (mpisize/=1) then
     write(*,*) "./flusi --postprocess --extract-subset is a SERIAL routine, use 1CPU only"
-    call abort()
+    call abort(7102)
   endif
 
   ! get file to read pressure from and check if this is present
@@ -1551,7 +1551,7 @@ subroutine copy_hdf_file(help)
 
   if (mpisize/=1) then
     write(*,*) "./flusi --postprocess --cp is a SERIAL routine, use 1CPU only"
-    call abort()
+    call abort(7103)
   endif
 
 
@@ -1728,7 +1728,7 @@ subroutine upsample(help)
 
   if (mpisize/=1) then
     write(*,*) "./flusi --postprocess --upsample is a SERIAL routine, use 1CPU only"
-    call abort()
+    call abort(7104)
   endif
 
   ! get file to read pressure from and check if this is present
@@ -1903,7 +1903,7 @@ subroutine post_spectrum(help)
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
     write (*,*) "Error in arguments, files do not start with ux uy and uz"
     write (*,*) "note files have to be in the right order"
-    call abort()
+    call abort(7105)
   endif
 
   call fetch_attributes( fname_ux, nx, ny, nz, xl, yl, zl, time, nu )
@@ -2020,7 +2020,7 @@ subroutine turbulence_analysis(help)
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
     write (*,*) "Error in arguments, files do not start with ux uy and uz"
     write (*,*) "note files have to be in the right order"
-    call abort()
+    call abort(7106)
   endif
 
   if(mpirank==0) then
@@ -2391,7 +2391,7 @@ subroutine mean_2d(help)
     ! the reason for this is simplicity. if the y-z direction is nonlocal in memory
     ! the avg is more complicated. only the x direction is always contiguous.
     ! Plus: this acts on one field only, and it usually fits in the memory.
-    call abort("./flusi --postprocess --mean-2D is a SERIAL routine, use 1CPU only")
+    call abort(7109,"./flusi --postprocess --mean-2D is a SERIAL routine, use 1CPU only")
   endif
 
   call get_command_argument(3,direction)
@@ -2505,7 +2505,7 @@ subroutine mean_2d(help)
       enddo
       close(17)
   case default
-      call abort("Bad choice for direction "//trim(adjustl(direction)) )
+      call abort(7199,"Bad choice for direction "//trim(adjustl(direction)) )
   end select
 
   deallocate (u)
@@ -2684,7 +2684,7 @@ subroutine ux_from_uyuz(help)
   if ((fname_ux(1:2).ne."ux").or.(fname_uy(1:2).ne."uy").or.(fname_uz(1:2).ne."uz")) then
     write (*,*) "Error in arguments, files do not start with ux uy and uz"
     write (*,*) "note files have to be in the right order"
-    call abort()
+    call abort(7200)
   endif
 
   call fetch_attributes( fname_uy, nx, ny, nz, xl, yl, zl, time, nu )

@@ -118,7 +118,7 @@ end subroutine flush_slices
 ! initialize the slicing module.
 subroutine slice_init(time)
   implicit none
-  real(kind=pr),intent(inout)::time  
+  real(kind=pr),intent(inout)::time
   integer :: i
 
   if (mpirank==0) write(*,'(A)',advance='no') "Initializing slicing module.."
@@ -134,7 +134,7 @@ subroutine slice_init(time)
     do i=1,nslices
       if (slices_to_save(i)>=nx) then
         write(*,*) "Error: slicing index", slices_to_save(i), "out of bounds. stop."
-        call abort()
+        call abort(9056)
       endif
     enddo
   endif
@@ -306,7 +306,7 @@ subroutine test_slices( u )
 
 
   call MPI_barrier (MPI_COMM_world, mpierror)
-  call abort()
+  call abort(9057)
 
 
 end subroutine

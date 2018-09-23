@@ -101,7 +101,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
     alpha_tt = 0.0
 
   case default
-    call abort("Mouvement.f90: imposed_motion_leadingedge="//trim(adjustl(imposed_motion_leadingedge))//" is unknown")
+    call abort(9058,"Mouvement.f90: imposed_motion_leadingedge="//trim(adjustl(imposed_motion_leadingedge))//" is unknown")
   end select
 
   if (maxval(LeadingEdge(1:4)) /= 0.d0) then
@@ -112,7 +112,7 @@ subroutine mouvement(time, alpha, alpha_t, alpha_tt, LeadingEdge, beam)
     ! are taken into account in plate_coordinate_system. However, it is important
     ! that the acceleraterion enters the BEQ solver, in the boundary condition.
     ! The acceleration is thus non-zero if the beam moves
-    call abort("Mouvement.f90: at least one entry LeadingEdge(1:4) is nonzero, but is shouldn't ")
+    call abort(9059,"Mouvement.f90: at least one entry LeadingEdge(1:4) is nonzero, but is shouldn't ")
   endif
 
 end subroutine mouvement
@@ -230,7 +230,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
   case default
     if (mpirank==0) write(*,*) "plate_coordinate_system:: imposed_motion_leadingedge undefined"
     if (mpirank==0) write(*,*) imposed_motion_leadingedge
-    call abort()
+    call abort(9060)
 
   end select
 
@@ -238,7 +238,7 @@ subroutine plate_coordinate_system( time, x0_plate,v0_plate, psi, beta, gamma, &
     if (maxval((/beta_dt,gamma_dt,psi_dt/))>0.d0) then
       write(*,*) "thomas, please be sure to check if the angular velocities are okay here so that you don't do the&
       & same mistake twice."
-       call abort()
+       call abort(9061)
     endif
   endif
 

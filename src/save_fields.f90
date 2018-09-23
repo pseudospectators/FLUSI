@@ -27,7 +27,7 @@ subroutine save_fields(time,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,
     call save_fields_mhd(time,uk,u,vort,nlk)
   case default
     if (mpirank == 0) write(*,*) "Error! Unkonwn method in save_fields"
-    call abort()
+    call abort(9051)
   end select
 
   time_save=time_save + MPI_wtime() - t1 ! performance analysis
@@ -227,7 +227,7 @@ subroutine save_field_hdf5(time,filename,field_out)
   real (kind=pr), intent (in) :: time
   character(len=*), intent (in) :: filename
 
-  if (striding<1) call abort("Striding value is bad, exit!")
+  if (striding<1) call abort(9052,"Striding value is bad, exit!")
 
   if (striding==1) then
     ! save the entire field to disk (no striding)
@@ -663,7 +663,7 @@ subroutine Read_Single_File ( filename, field )
       write (*,'(A)') "This happens if ra(:) and rb(:) are not properly initialized."
       write (*,'("in memory:   nx=",i4," ny=",i4," nz=",i4)') nx,ny,nz
       write (*,'("but in file: nx=",i4," ny=",i4," nz=",i4)') nx_file,ny_file,nz_file
-      call abort()
+      call abort(9053)
     endif
   endif
 
@@ -1004,7 +1004,7 @@ subroutine read_field_backup(field,dsetname,time,dt0,dt1,n1,it,file_id)
   if ( (nx_file.ne.nx).or.(nx_file.ne.nx).or.(nx_file.ne.nx)) then
     write (*,'(A)') "!!! Thats odd...the backup you're trying to resume doesn't have the same nx,ny,nz"
     write (*,'(A)') "I'll leave you crying and commit suicide here."
-    call abort()
+    call abort(9054)
   endif
 
   deallocate (attributes)
@@ -1316,7 +1316,7 @@ subroutine check_file_exists(fname)
   inquire ( file=fname, exist=exist1 )
   if ( exist1 .eqv. .false.) then
     if (root) write (*,'("ERROR! file: ",A," not found")') trim(adjustl(fname))
-    call abort("file not found")
+    call abort(9055,"file not found")
   endif
 
 end subroutine check_file_exists

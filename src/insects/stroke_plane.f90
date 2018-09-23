@@ -31,7 +31,7 @@ subroutine StrokePlane ( time, Insect )
   case default
     if (mpirank==0) then
     write (*,*) "insects.f90::StrokePlane: motion case (Insect%BodyMotion) undefined"
-    call abort()
+    call abort(9031)
     endif
   end select
 

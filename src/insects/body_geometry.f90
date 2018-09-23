@@ -37,7 +37,7 @@ subroutine draw_body( mask, mask_color, us, Insect, color_body, M_body)
   case default
     if(mpirank==0) write(*,*) "Insect::draw_body::Insect%BodyType unknown..."
     if(mpirank==0) write(*,*) Insect%bodytype
-    call abort()
+    call abort(9022)
   end select
 
   time_insect_body = time_insect_body + MPI_wtime() - t1

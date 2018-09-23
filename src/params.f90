@@ -27,7 +27,7 @@ subroutine get_params(paramsfile,Insect)
     ! Get mhd-specific parameter values from PARAMS
     call get_params_mhd(PARAMS)
   case default
-    if(mpirank==0) call abort("Error! Unkonwn method in get_params; stopping.")
+    if(mpirank==0) call abort(9043,"Error! Unkonwn method in get_params; stopping.")
   end select
 
   ! clean file
@@ -166,7 +166,7 @@ subroutine get_params_common(PARAMS)
   !-- dry run, just the mask function
   call read_param(PARAMS,"DryRun","dry_run_without_fluid",dummy,"no")
   if (dummy=="yes") then
-    call abort('dry_run_without_fluid is depecreated; run flusi with ./flusi --dry-run PARAMS.ini instead')
+    call abort(9044,'dry_run_without_fluid is depecreated; run flusi with ./flusi --dry-run PARAMS.ini instead')
   endif
 
 

@@ -32,7 +32,7 @@ subroutine prescribed_beam ( time, dt, beam_solid )! note this is actuall only O
       write(*,'("beam_theta_prescribed_bi.in: ns=",i3," nfft=",i3)') ns_file, nfft
 
       if (ns_file /= ns) then
-        call abort("beam resolution and prescribed.in resolution different")
+        call abort(9065,"beam resolution and prescribed.in resolution different")
       endif
     endif
 
