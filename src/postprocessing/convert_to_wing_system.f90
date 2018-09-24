@@ -151,7 +151,7 @@ subroutine convert_to_wing_system(help)
     if (root) write(*,*) "The insects body motion is free_flight, therefore we try to read the"
     if (root) write(*,*) "insect state vector from the file rigidsolidsolver.t"
     if (root) write(*,*) "from the state vector we can construct the body rotation matrix"
-    call read_insect_STATE_from_file(time, Insect)
+    call read_insect_STATE_from_file(time, Insect, 'rigidsolidsolver.t', .true.)
   endif
   call BodyMotion (time, Insect)
   call FlappingMotion_right (time, Insect)
