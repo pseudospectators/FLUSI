@@ -819,7 +819,7 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
 
-  if (Insect%BodyMotion/="free_flight") then
+  if (Insect%BodyMotion /= "free_flight") then
     write(*,*) "AB2_rigid_solid and flag Insect%BodyMotion/=free_flight"
     write(*,*) "it makes no sense to do that, change iFluidTimeMethod=AB2"
     call abort(10007, "AB2_rigid_solid and flag Insect%BodyMotion/=free_flight")

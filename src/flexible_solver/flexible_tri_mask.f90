@@ -30,7 +30,7 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
     real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     type(wing),dimension(1:nWings), intent(inout) :: wings
-    integer :: ix, iy, iz, itri, i, j, ntri
+    integer :: ix, iy, iz, itri, i, j
     integer :: ixmin, ixmax, iymin, iymax, izmin, izmax
     integer :: xmin, xmax, ymin, ymax, zmin, zmax
     integer, parameter :: safety = 2
@@ -40,15 +40,13 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
 
     do i = 1, nWings
 
-      ntri = maxval(wings(i)%tri_elements(:,1))
+      !ntri = maxval(wings(i)%tri_elements(:,1))
 
-      if (root) then
-        write(*,*) ntri
-      endif
+      write(*,*) wings(i)%ntri
 
       ! outer loop over triangles. in every triangle we loop over the union of its
       ! bounding box with the local CPUS part of the mask array
-      do itri = 1, ntri
+      do itri = 1, wings(i)%ntri
 
         ! determine bounding box for one triangle
         ixmin = wings(i)%tri_elements(itri,&

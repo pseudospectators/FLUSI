@@ -4,7 +4,6 @@ module flexible_model
   ! we need the following line for presribed wings:
   use module_helpers
   use basic_operators
-  !use stl_file_reader
   use module_ini_files_parser_mpi
   implicit none
 
@@ -12,17 +11,16 @@ module flexible_model
   ! module global variables
   !----------------------------------------------
   integer,parameter :: nWings = 1
-  integer,parameter :: nVeins = 5
-  integer,parameter :: nVeins_BC = 2
+  integer,parameter :: nVeins = 1
+  integer,parameter :: nVeins_BC = 1
   integer,parameter :: nMembranes = 1
-  integer,save :: np
   ! see "type solid" about nsmax 06 Aug 2014
   integer,parameter :: npmax = 1000
   integer,parameter :: nvmax = 2*npmax
   integer,parameter :: nmmax = 2*npmax
   ! TODO: move these into the solid model datastructure
 
-  !real(kind=pr),save :: T_release
+  real(kind=pr),dimension(1:3),save :: grav
   real(kind=pr), parameter :: error_stop = 1.0e-6
   !character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
 
@@ -45,41 +43,53 @@ module flexible_model
     ! coordinates, velocities and phase vector at time t^(n) and t^(n-1):
     real(kind=pr),dimension(1:npmax) :: x,y,z
     real(kind=pr),dimension(1:npmax) :: vx,vy,vz
-    real(kind=pr),dimension(1:npmax) :: u_old, u_oldold
+    real(kind=pr),dimension(1:6*npmax) :: du, u_new, u_old, u_oldold
+    real(kind=pr),dimension(-1:0,1:nVeins_BC) :: x_BC, y_BC, z_BC
     integer,dimension(1:nmmax,4) :: tri_elements
+    integer :: np, ntri
 
-    ! Matrix contains identification of vein points connected by bending springs
-    ! and their initial and current bending angles on both directions y and z:
-    real(kind=pr),dimension(1:nvmax,8,nVeins) :: Veins_bending
-    ! Matrix contains identification of vein points connected by extension
-    ! springs and their initial and current lengths:
-    real(kind=pr),dimension(1:nvmax,5,nVeins) :: Veins_extension
-    ! Veins with boundary conditions
-    real(kind=pr),dimension(-1:nvmax,8,nVeins_BC) :: Veins_bending_BC
-    real(kind=pr),dimension(-1:nvmax,5,nVeins_BC) :: Veins_extension_BC
+    ! Veins :
+      real(kind=pr),dimension(1:nvmax,2,nVeins) :: Veins
+      ! Matrix contains identification of vein points connected by bending springs
+      ! and their initial and current bending angles on both directions y and z:
+      real(kind=pr),dimension(1:nvmax,8,nVeins) :: Veins_bending
+      ! Matrix contains identification of vein points connected by extension
+      ! springs and their initial and current lengths:
+      real(kind=pr),dimension(1:nvmax,5,nVeins) :: Veins_extension
+      ! Veins with boundary conditions
+      real(kind=pr),dimension(1:nvmax,2,nVeins_BC) :: Veins_BC
+      real(kind=pr),dimension(-1:nvmax,8,nVeins_BC) :: Veins_bending_BC
+      real(kind=pr),dimension(0:nvmax,5,nVeins_BC) :: Veins_extension_BC
+
     ! Membrane:
-    real(kind=pr),dimension(1:nmmax,5,nMembranes) :: Membranes_extension
-    real(kind=pr),dimension(1:nmmax,5) :: Membrane_edge
+      real(kind=pr),dimension(1:nmmax,2,nMembranes) :: Membranes
+      real(kind=pr),dimension(1:nmmax,5,nMembranes) :: Membranes_extension
+      real(kind=pr),dimension(1:nmmax,5) :: Membrane_edge
     ! Internal and external forces:
-    real(kind=pr),dimension(1:3*npmax) :: F_int, F_ext
+    real(kind=pr),dimension(1:3*npmax) :: Fint, Fext !, Fint_old, Fext_old
     ! Internal force derivative matrix:
     real(kind=pr),dimension(1:3*npmax,1:3*npmax) :: FJ
     ! material properties:
-    real(kind=pr),dimension(1:nVeins) :: EIy, EIz, kby0, kbz0
-    real(kind=pr),dimension(1:nVeins_BC) :: EIy_BC, EIz_BC, kby0_BC, kbz0_BC
+    real(kind=pr),dimension(1:nVeins) :: EIy, EIz, kby0, kbz0, ke0_v
+    real(kind=pr),dimension(1:nVeins_BC) :: EIy_BC, EIz_BC, kby0_BC, kbz0_BC, ke0_vBC
     real(kind=pr),dimension(1:nVeins) :: rho_v
     real(kind=pr),dimension(1:nVeins_BC) :: rho_vBC
-    real(kind=pr),dimension(1:nMembranes) :: rho_m
+    real(kind=pr),dimension(1:nMembranes) :: rho_m, ke0_m
     real(kind=pr) :: rho_me
+    real(kind=pr) :: c0
 
     real(kind=pr),dimension(1:nvmax,1:nVeins) :: ke_v, kby, kbz
     real(kind=pr),dimension(1:nvmax,1:nVeins) :: m_v
     real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: ke_vBC, kby_BC, kbz_BC
     real(kind=pr),dimension(-1:nvmax,1:nVeins_BC) :: m_vBC
-    real(kind=pr),dimension(1:nvmax,1:nMembranes) :: ke_m
-    real(kind=pr),dimension(1:nvmax,1:nMembranes) :: m_m
-    real(kind=pr),dimension(1:nvmax) :: ke_me
-    real(kind=pr),dimension(1:nvmax) :: m_me
+    real(kind=pr),dimension(1:nmmax,1:nMembranes) :: ke_m
+    real(kind=pr),dimension(1:nmmax,1:nMembranes) :: m_m
+    real(kind=pr),dimension(1:nmmax) :: ke_me
+    real(kind=pr),dimension(1:nmmax) :: m_me
+    real(kind=pr),dimension(1:npmax) :: m, c
+
+    ! Boundary conditions
+    real(kind=pr) :: x0, y0, z0
 
     ! grid and width in rigid direction:
     real(kind=pr) :: t_wing, wing_smoothing
@@ -91,13 +101,18 @@ module flexible_model
 
     !real(kind=pr),dimension(1:2) :: Force, Force_unst, Force_press, Inertial_Force
     !real(kind=pr) :: E_kinetic, E_elastic
-    real(kind=pr),dimension(1:3) :: x0, v0
+
+
     real(kind=pr) :: Anglewing_y, Anglewing_z
     ! we need the previous time step for the BDF solver
     real(kind=pr) :: dt_old
+
     ! these replace the save variables in the unst correction computation:
     !real(kind=pr) :: drag_unst_new, drag_unst_old, lift_unst_new, lift_unst_old
     logical :: StartupStep!, UnsteadyCorrectionsReady
+    character(len=strlen) :: TimeMethodSolid
+    real(kind=pr),dimension(1:3*npmax) :: RHS_a, RHS_b
+
   end type wing
 
 
@@ -106,11 +121,13 @@ module flexible_model
 
  !-----------------------------------------------------------------
  include "init_wing.f90"
-! include "save_wing.f90"
+ !include "save_wing.f90"
  include "internal_force.f90"
+ include "external_force.f90"
  include "internal_force_derivative.f90"
 ! include "prescribed_wing.f90"
  include "flexible_solver_wrapper.f90"
+ include "flexible_solid_time_stepper.f90"
  include "flexible_tri_mask.f90"
  include "supplementary_calc.f90"
 

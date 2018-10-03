@@ -8,6 +8,7 @@ subroutine dry_run()
   use p3dfft_wrapper
   use solid_model
   use module_insects
+  use turbulent_inlet_module
   use penalization ! mask array etc
   implicit none
   real(kind=pr)          :: time,memory,mem_field
@@ -128,7 +129,7 @@ subroutine dry_run()
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
 
-    call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu)
+    call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx)
 
     ! If required, initialize rigid solid dynamics solver. Note that if the --post flag
     ! is set, the insect state is read from file, so we skip the initialization .
@@ -160,6 +161,11 @@ subroutine dry_run()
     tsave = 0.05d0
   endif
 
+  ! read in turbulent inlet fields
+  if (use_turbulent_inlet=="yes") then
+    call init_turbulent_inlet ( )
+  endif
+
   !*****************************************************************************
   ! Step forward in time
   !*****************************************************************************
@@ -176,13 +182,13 @@ subroutine dry_run()
     ! (to save HDD space and erase the mask), and if that run is free_flight than the code
     ! should read the insect state from the rigidsolidsolver.t file (instead of simply
     ! integrating the rigid solid time stepper.)
-    if (Insect%BodyMotion=="free_flight") then
+    if (Insect%BodyMotion == "free_flight") then
       inquire( file='rigidsolidsolver.t', exist=exists )
       if (exists) then
         ! in this case, we find the rigidsolidsolver file, and we assume the user
         ! wants to reconstruct the mask from that file.
         if (root) write(*,*) "DRY-RUN found rigidsolidsolver.t file and use that for mask generation!"
-        call read_insect_STATE_from_file(time, Insect)
+        call read_insect_STATE_from_file(time, Insect, 'rigidsolidsolver.t', verbose=.true.)
       else
         ! use rigid solid solver to integrate the body motion state; this is useful only
         ! if a constant velocity is set
@@ -247,7 +253,7 @@ subroutine dry_run_flexible_wing()
   !use module_ini_files_parser_mpi
   implicit none
   real(kind=pr)          :: time,memory,mem_field
-  integer                :: it
+  integer                :: it, i, j
   character(len=strlen)  :: infile, mode
   character(len=6) :: name
   ! this is the insect we're using (object oriented)
@@ -350,18 +356,9 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   call init_wings( infile, Wings)
 
-  !if (tsave == 0.d0) then
-  !  if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
-  !  tsave = 0.05d0
-  !endif
-
-  if (root) then
-    write(*,*) dx*dble(ra(1))
-    write(*,*) dx*dble(rb(1))
-    write(*,*) dy*dble(ra(2))
-    write(*,*) dy*dble(rb(2))
-    write(*,*) dz*dble(ra(3))
-    write(*,*) dz*dble(rb(3))
+  if (tsave == 0.d0) then
+    if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
+    tsave = 0.05d0
   endif
 
   !*****************************************************************************
@@ -371,11 +368,45 @@ subroutine dry_run_flexible_wing()
   ! this way you can have better control over dry-runs
   time = tstart
   it = 0
-  !do while (time<=tmax)
+
+  ! create the startup mask function
+  call Draw_flexible_wing(time, wings, mask, mask_color, us, unsigned_distance)
+
+  ! Save data
+  write(name,'(i6.6)') floor(time*1000.d0)
+
+  call save_field_hdf5(time,'mask_'//name,mask)
+  call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
+  if (isaveSolidVelocity == 1) then
+    call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
+    call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
+    call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
+  endif
+
+  do while (time<=tmax)
+
+    do i=1,nWings
+        do j=1,nVeins_BC
+
+          wings(i)%z_BC(-1,j) = wings(i)%z_BC(-1,j) + 0*5.0d-3
+          wings(i)%z_BC(0,j) = wings(i)%z_BC(-1,j)
+
+        enddo
+      enddo
+
+    !
+    call flexible_solid_time_step(time, tsave, tsave, it, wings)
 
     ! create the mask
     call Draw_flexible_wing(time, wings, mask, mask_color, us, unsigned_distance)
     !call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
+
+    !call Moving_boundary_point(wings)
+
+
+
+    it = it+1
+    time = tstart + dble(it)*tsave
 
     ! Save data
     write(name,'(i6.6)') floor(time*1000.d0)
@@ -393,9 +424,8 @@ subroutine dry_run_flexible_wing()
       call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
     endif
 
-  !  it = it+1
-  !  time = tstart + dble(it)*tsave
-  !enddo
+
+  enddo
 
   !if(mpirank==0) then
   !  write(*,'("time for mask creation ",es12.4)') time_mask

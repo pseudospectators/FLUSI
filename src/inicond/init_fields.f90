@@ -45,17 +45,18 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   ! initalize some insect stuff, if used
   !-----------------------------------------------------------------------------
   if (iMask=="Insect".and.iPenalization==1) then
-
     ! get filename of PARAMS file from command line
     call get_command_argument(1,infile)
+
     if (index(inicond,'backup::') == 0) then
-        ! we need to do that now otherwise we cannot create the startup mask.
-        call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu)
+        ! we need to do that now otherwise we cannot create the startup mask. it would be
+        ! nicer to initialize that in either in flusi.f90 or params.f90, but then it depends
+        ! on the backup resuming, which we do here.
+        call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx)
     else
         call insect_init(time, infile, Insect, .true., &
-        inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu)
+        inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu, dx)
     endif
-
   endif
 
   !-----------------------------------------------------------------------------
@@ -81,7 +82,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
 
       case ('from-inicond')
           ! do nothing
-          
+
       case default
           call abort(6629454, "acm-inipressure not known")
 

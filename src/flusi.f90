@@ -49,8 +49,8 @@ program FLUSI
 
   elseif ( infile == "--dry-run-flexible-wing" ) then
     !-------------------------------------------------------------------------
-    ! dry run that only generates and dumps the mask function of flexible wing,
-    ! without allocating or computing the fluid.
+    ! dry run that only generates and dumps the mask function for flexible wing
+    ! using mass-spring model, without allocating or computing the fluid.
     !-------------------------------------------------------------------------
     call dry_run_flexible_wing()
 
@@ -378,8 +378,9 @@ end program FLUSI
     ! Step forward in time
     !*****************************************************************************
     if (mpirank==0) then
-      write(*,'("Penalization parameter C_eta=",es12.4," and K_eta=",es12.4)') eps, &
-      sqrt(nu*eps)/dx
+        ! in 2D runs, dx==1 hence just use dy here
+        write(*,'("Penalization parameter C_eta=",es12.4," and K_eta=",es12.4)') eps, &
+        sqrt(nu*eps)/dy
     endif
 
     t1 = MPI_wtime()
