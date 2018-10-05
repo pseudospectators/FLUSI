@@ -42,7 +42,7 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
 
       !ntri = maxval(wings(i)%tri_elements(:,1))
 
-      write(*,*) wings(i)%ntri
+      !write(*,*) wings(i)%ntri
 
       ! outer loop over triangles. in every triangle we loop over the union of its
       ! bounding box with the local CPUS part of the mask array

@@ -93,11 +93,6 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
       ! Calculate the Jacobian matrix of the internal force vector
       call internal_forces_derivatives_construction(wings(i))
 
-      !write(*,*) 'Jacobian euler'
-      !do iJ=1,19
-    !    write(*,*) wings(i)%FJ(iJ,20:38)
-    !  enddo
-
       if (Matrix_isNAN(wings(i)%FJ(1:3*wings(i)%np,1:3*wings(i)%np),i_NAN, j_NAN)) then
         if (root) write(*,*) "FlexibleSolidSolver: Jacobian matrix contains NaNs"
         call abort(9835,"The Jacobian matrix for the solid solver contains NaN..abort")
@@ -108,22 +103,15 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
                                                  wings(i)%FJ, wings(i)%m, wings(i)%c, &
                                                  dt1, wings(i)%RHS_a, wings(i)%RHS_b, coef)
 
-     !write(*,*) 'du'
-     !write(*,*) wings(i)%du(58:76)
-     !write(*,*) 'u_new'
-     !write(*,*) wings(i)%u_new(58:76)
 
       wings(i)%u_new(1:6*wings(i)%np) = wings(i)%u_new(1:6*wings(i)%np) - wings(i)%du(1:6*wings(i)%np)
       err            = dsqrt(sum(wings(i)%du**2))
       err_rel        = abs(dsqrt(sum(wings(i)%du**2)) / dsqrt(sum(wings(i)%u_new**2)))
 
-      !write(*,*) 'u_new after'
-      !write(*,*) wings(i)%u_new(58:76)
 
       ! convergence test
       if ( (((err<error_stop) .or. (err_rel<error_stop)).and.(iter>2))) then
         iterate = .false.
-      !  write(*,*) err
       endif
 
       ! emergency brake
@@ -200,11 +188,11 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wings)
       ! convergence test
       if ( (((err<error_stop) .or. (err_rel<error_stop)).and.(iter>2))) then
         iterate = .false.
+        if (root) then
+          write(*,*) minval((/err, err_rel/))
+          write(*,*) iter
+        endif
       endif
-
-      !if (root) then
-        !write(*,*) iter
-      !endif
 
 
       ! emergency brake
@@ -242,10 +230,9 @@ subroutine RHS_for_NR_method(dt1, dt0, it, wings)
   real(kind=pr) :: c1, c2, c3, r
   integer :: np
 
+  !Get total number of points for the simplification of writing array bounds
   np = wings%np
 
-  !write(*,*) np
-  !write(*,*) maxval(wings%u_new), maxval(wings%u_old)
 
     if (it==0) then  ! this is the first time step
 
@@ -258,13 +245,6 @@ subroutine RHS_for_NR_method(dt1, dt0, it, wings)
         wings%RHS_b(1:3*np) = wings%u_new(1:3*np) - wings%u_old(1:3*np) - &
                       (wings%u_new(3*np+1:6*np))*dt1
 
-      !  write(*,*) 'wings%Fint(1:3*np)'
-      !write(*,*) dt1, dt0,  wings%Fint(1:3*np)
-      !  write(*,*) 'a'
-      !  write(*,*) wings%RHS_a(1:3*np)
-      !  write(*,*) 'b'
-      !  write(*,*) wings%RHS_b(1:3*np)
-
     else
 
       !Calculate scheme coefficients
@@ -274,7 +254,7 @@ subroutine RHS_for_NR_method(dt1, dt0, it, wings)
       c3=(1+r)/(1+2*r)
 
       wings%RHS_a(1:3*np) = (/wings%m(1:np), wings%m(1:np), &
-                    wings%m(1:np)/)*(wings%u_new(3*np+1:6*np) - c1*wings%u_old(3*np+1:6*np) + &
+                  wings%m(1:np)/)*(wings%u_new(3*np+1:6*np) - c1*wings%u_old(3*np+1:6*np) + &
                        c2*wings%u_oldold(3*np+1:6*np)) - &
                        c3*dt1*(wings%Fext(1:3*np) + wings%Fint(1:3*np) - &
                        (/wings%c(1:np), wings%c(1:np), &
@@ -342,7 +322,7 @@ do i=1,3*np
   du(i + 3*np) = (1/(coef*dt))*(du(i) - b(i))
 
 enddo
-!write(*,*) maxval(du)
+
 deallocate(y)
 deallocate(F)
 

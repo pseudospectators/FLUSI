@@ -55,10 +55,6 @@ wings%Fint = 0.d0
                              wings%veins_bending_BC(1:,:,j))
   end do
 
-  !write(*,*) 'F_int before membrane'
-  !write(*,*) wings%Fint(1:3*wings%np)
-  !write(*,'(80("<"))')
-
   !Construct internal force vector
   do j=1,nMembranes
        call internal_extension_force(wings%Fint, &
@@ -70,10 +66,6 @@ wings%Fint = 0.d0
                                      wings%ke_m(:,j))
   enddo
 
-  !write(*,*) 'F_int after membrane'
-  !write(*,*) wings%Fint(1:3*wings%np)
-  !write(*,'(80("<"))')
-
   call internal_extension_force(wings%Fint, &
                                 wings%u_new(1:np), &
                                 wings%u_new(np+1:2*np), &
@@ -81,10 +73,6 @@ wings%Fint = 0.d0
                                 wings%membrane_edge, &
                                 np, &
                                 wings%ke_me)
-
-!write(*,*) 'F_int after membrane edge'
-!write(*,*) wings%Fint(1:3*wings%np)
-!write(*,'(80("<"))')
 
   do j=1,nVeins
       call internal_extension_force(wings%Fint, &
@@ -99,10 +87,6 @@ wings%Fint = 0.d0
                                   wings%kby(:,j),wings%kbz(:,j))
   enddo
 
-  !write(*,*) 'F_int after veins'
-  !write(*,*) wings%Fint(1:3*wings%np)
-  !write(*,'(80("<"))')
-
   do j=1,nVeins_BC
 
       call internal_extension_force_BC(wings%Fint, &
@@ -112,10 +96,6 @@ wings%Fint = 0.d0
                                        wings%x_BC(0,j), wings%y_BC(0,j), wings%z_BC(0,j), &
                                        wings%veins_extension_BC(0:,:,j), np, &
                                        wings%ke_vBC(0:,j))
-
-                                       !write(*,*) 'F_int after veins BC extension'
-                                       !write(*,*) wings%Fint(1:3*wings%np)
-                                       !write(*,'(80("<"))')
 
       call internal_bending_force_BC(wings%Fint, &
                                      wings%u_new(1:np),&
@@ -127,12 +107,6 @@ wings%Fint = 0.d0
 
   end do
 
-  !write(*,*) 'F_int after veins BC bending'
-  !write(*,*) wings%Fint(1:3*wings%np)
-  !write(*,'(80("<"))')
-
-!  write(*,*) 'maximum value of Fint'
-!  write(*,*) maxval(wings%Fint)
 
 end subroutine
 
@@ -146,11 +120,6 @@ subroutine internal_extension_force(Fint,x,y,z,extension_springs,np,ke)
   real(kind=pr) :: Fx, Fy, Fz
   integer :: ind
 
-  !write(*,*) 'initial and current length'
-  !do ind=1,nint(maxval(extension_springs(:,1)))
-  !write(*,*) extension_springs(ind,4), extension_springs(ind,5)
-  !enddo
-  !write(*,'(80("<"))')
 
   do ind=1,nint(maxval(extension_springs(:,1)))
 
@@ -419,8 +388,6 @@ implicit none
                                           bending_springs_BC(-1,7),bending_springs_BC(-1,8), &
                                           kby_BC(-1), kbz_BC(-1), Fx, Fy, Fz)
 
-                                          !write(*,*) 'bending BC F3b1'
-                                          !write(*,*) Fx, Fy, Fz
 
           Fint(nint(bending_springs_BC(1,2))) = Fint(nint(bending_springs_BC(1,2))) + Fx
 

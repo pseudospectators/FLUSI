@@ -11,8 +11,8 @@ module flexible_model
   ! module global variables
   !----------------------------------------------
   integer,parameter :: nWings = 1
-  integer,parameter :: nVeins = 1
-  integer,parameter :: nVeins_BC = 1
+  integer,parameter :: nVeins = 5
+  integer,parameter :: nVeins_BC = 2
   integer,parameter :: nMembranes = 1
   ! see "type solid" about nsmax 06 Aug 2014
   integer,parameter :: npmax = 1000
@@ -121,7 +121,7 @@ module flexible_model
 
  !-----------------------------------------------------------------
  include "init_wing.f90"
- !include "save_wing.f90"
+ include "save_wing.f90"
  include "internal_force.f90"
  include "external_force.f90"
  include "internal_force_derivative.f90"

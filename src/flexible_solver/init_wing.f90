@@ -96,9 +96,9 @@ subroutine init_wings ( fname, wings )
     ! read in the complete ini file, from which we initialize the insect
     call read_ini_file_mpi(PARAMS, fname, verbose=.true.)
 
-    call read_param_mpi(PARAMS,"Flexible_wing","x0",wings(i)%x0, 0.d0)
-    call read_param_mpi(PARAMS,"Flexible_wing","y0",wings(i)%y0, 0.d0)
-    call read_param_mpi(PARAMS,"Flexible_wing","z0",wings(i)%z0, 0.d0)
+    call read_param_mpi(PARAMS,"Geometry","x0",wings(i)%x0, 0.d0)
+    call read_param_mpi(PARAMS,"Geometry","y0",wings(i)%y0, 0.d0)
+    call read_param_mpi(PARAMS,"Geometry","z0",wings(i)%z0, 0.d0)
     !call read_param_mpi(PARAMS,"Flexible_wing","v0",wings(i)%v0, (/0.d0, 0.d0, 0.d0/))
     call read_param_mpi(PARAMS,"Flexible_wing","t_wing",wings(i)%t_wing, 0.01d0)
     call read_param_mpi(PARAMS,"Flexible_wing","wing_smoothing",wings(i)%wing_smoothing, 3*dz)
@@ -227,31 +227,46 @@ subroutine init_wings ( fname, wings )
     !--------------------------------------------------------------------------
     ! Set up material properties
     !--------------------------------------------------------------------------
-    do j=1,nVeins
-    call convert_flexural_rigidity_into_spring_stiffness(wings(i)%EIy(j), wings(i)%EIz(j),  &
-                                                        wings(i)%kby0(j), wings(i)%kbz0(j), &
-                                                        wings(i)%veins_extension(:,:,j))
-
-    wings(i)%kby(:,j) = wings(i)%kby0(j)
-    wings(i)%kbz(:,j) = wings(i)%kbz0(j)
-    wings(i)%ke_v(:,j) = wings(i)%ke0_v(j)
-    enddo
-
-    do j=1,nVeins_BC
-    call convert_flexural_rigidity_into_spring_stiffness(wings(i)%EIy_BC(j), wings(i)%EIz_BC(j),  &
-                                                        wings(i)%kby0_BC(j), wings(i)%kbz0_BC(j), &
-                                                        wings(i)%veins_extension_BC(1:,:,j))
-
-    wings(i)%kby_BC(:,j) = wings(i)%kby0_BC(j)
-    wings(i)%kbz_BC(:,j) = wings(i)%kbz0_BC(j)
-    wings(i)%ke_vBC(:,j) = wings(i)%ke0_vBC(j)
-    enddo
 
     do j=1,nMembranes
     wings(i)%ke_m(:,j) = wings(i)%ke0_m(j)
+      do ind=1,nint(maxval(wings(i)%membranes(:,1,j)))
+          wings(i)%m(nint(wings(i)%membranes(ind,2,j))) = wings(i)%rho_m(j)
+      enddo
     enddo
 
     wings(i)%ke_me(:) = wings(i)%ke0_m(1)
+
+    do j=1,nVeins
+      call convert_flexural_rigidity_into_spring_stiffness(wings(i)%EIy(j), wings(i)%EIz(j),  &
+                                                          wings(i)%kby0(j), wings(i)%kbz0(j), &
+                                                          wings(i)%veins_extension(:,:,j))
+
+      wings(i)%kby(:,j) = wings(i)%kby0(j)
+      wings(i)%kbz(:,j) = wings(i)%kbz0(j)
+      wings(i)%ke_v(:,j) = wings(i)%ke0_v(j)
+
+      do ind=1,nint(maxval(wings(i)%veins(:,1,j)))
+          wings(i)%m(nint(wings(i)%veins(ind,2,j))) = wings(i)%rho_v(j)
+      enddo
+    enddo
+
+    do j=1,nVeins_BC
+      call convert_flexural_rigidity_into_spring_stiffness(wings(i)%EIy_BC(j), wings(i)%EIz_BC(j),  &
+                                                          wings(i)%kby0_BC(j), wings(i)%kbz0_BC(j), &
+                                                          wings(i)%veins_extension_BC(1:,:,j))
+
+      wings(i)%kby_BC(:,j) = wings(i)%kby0_BC(j)
+      wings(i)%kbz_BC(:,j) = wings(i)%kbz0_BC(j)
+      wings(i)%ke_vBC(:,j) = wings(i)%ke0_vBC(j)
+      do ind=1,nint(maxval(wings(i)%veins_BC(:,1,j)))
+          wings(i)%m(nint(wings(i)%veins_BC(ind,2,j))) = wings(i)%rho_vBC(j)
+      enddo
+    enddo
+
+
+
+
 
     if (mpirank ==0) then
       write(*,'(80("-"))')
@@ -261,7 +276,7 @@ subroutine init_wings ( fname, wings )
       write(*,frmt) wings(i)%m(1:wings(i)%np)
       do j=1,nVeins_BC
         write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%veins_bending_BC(:,1,j)))+2
-        write(*,'("bending stiffness of y-direction bending springs of the vein with BC number ",i2.2,":")') j
+        write(*,'("bending stiffness of y-direction bending springs of the vein with BC number ",i2.2,":")',advance='yes') j
         write(*,frmt) wings(i)%kby_BC(-1:nint(maxval(wings(i)%veins_bending_BC(:,1,j))),j)
         write(*,'("bending stiffness of z-direction bending springs of the vein with BC number ",i2.2,":")') j
         write(*,frmt) wings(i)%kbz_BC(-1:nint(maxval(wings(i)%veins_bending_BC(:,1,j))),j)
@@ -271,23 +286,22 @@ subroutine init_wings ( fname, wings )
       enddo
       do j=1,nVeins
         write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%veins_bending(:,1,j)))
-        write(*,'("bending stiffness of y-direction bending springs of the vein number ",i2.2,":")') j
+        write(*,'("bending stiffness of y-direction bending springs of the vein number ",i2.2,":")',advance='yes') j
         write(*,frmt) wings(i)%kby(1:nint(maxval(wings(i)%veins_bending(:,1,j))),j)
         write(*,'("bending stiffness of z-direction bending springs of the vein number ",i2.2,":")') j
         write(*,frmt) wings(i)%kbz(1:nint(maxval(wings(i)%veins_bending(:,1,j))),j)
         write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%veins_extension(:,1,j)))
-      write(*,'("extension stiffness of extension springs of the vein number ",i2.2,":")') j
+        write(*,'("extension stiffness of extension springs of the vein number ",i2.2,":")') j
         write(*,frmt) wings(i)%ke_v(1:nint(maxval(wings(i)%veins_extension(:,1,j))),j)
       enddo
       do j=1,nMembranes
         write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%membranes_extension(:,1,j)))
-        write(*,'("extension stiffness of extension springs of the membrane number ",i2.2,":")') j
+        write(*,'("extension stiffness of extension springs of the membrane number ",i2.2,":")',advance='yes') j
         write(*,frmt) wings(i)%ke_m(1:nint(maxval(wings(i)%membranes_extension(:,1,j))),j)
       enddo
-      !write(*,*) "stiffness coefficient eta:"
-      !write(*,frmt) wings(i)%zeta(0:ns-1)
-      !write(*,'(80("-"))')
+
     endif
+
 
 
     !if (TimeMethodSolid=="prescribed") then
@@ -339,9 +353,9 @@ subroutine read_wing_mesh_data(wings, i)
         wings%np = nint(maxval(tmp2D(:,1)))
 
         do j=1, nint(maxval(tmp2D(:,1)))
-          wings%x(j) = tmp2D(j,2)*2*pi/xl*20
-          wings%y(j) = tmp2D(j,3)*2*pi/yl*20
-          wings%z(j) = tmp2D(j,4)*2*pi/zl
+          wings%x(j) = tmp2D(j,2)!*2*pi/xl*20
+          wings%y(j) = tmp2D(j,3)!*2*pi/yl*20
+          wings%z(j) = tmp2D(j,4)!*2*pi/zl
         end do
 
         deallocate(tmp2D)
@@ -420,7 +434,10 @@ subroutine read_wing_mesh_data(wings, i)
          data_file = 'membranes'//wingstr//'.dat'
          call  read_mesh_data_1D_array(data_file, tmp1D)
 
-         wings%membranes(1:int((size(tmp1D))),2,1) = tmp1D(:,1)
+         do j=1,int((size(tmp1D)))
+         wings%membranes(j,2,1) = tmp1D(j,1)
+         wings%membranes(j,1,1) = j
+        enddo
 
          deallocate(tmp1D)
 
@@ -521,6 +538,15 @@ subroutine determine_boundary_points_from_origin(wings)
 
         ! Calculate initial lengths of springs connecting veins with the BC
         wings%veins_extension_BC(0,4,i) = sqrt((delta(1))**2 + (delta(2))**2 + (delta(3))**2)
+
+        ! Calculate initial angles
+        call angle_calculation(wings%x_BC(0,i),wings%x(nint(wings%veins_bending_BC(1,2,i))), &
+                               wings%x(nint(wings%veins_bending_BC(1,3,i))), wings%y_BC(0,i),&
+                               wings%y(nint(wings%veins_bending_BC(1,2,i))),wings%y(nint(wings%veins_bending_BC(1,3,i))), &
+                               wings%z_BC(0,i),wings%z(nint(wings%veins_bending_BC(1,2,i))), &
+                               wings%z(nint(wings%veins_bending_BC(1,3,i))), &
+                               wings%veins_bending_BC(0,5,i),wings%veins_bending_BC(0,6,i))
+
 
       enddo
 

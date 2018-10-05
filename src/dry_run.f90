@@ -383,12 +383,12 @@ subroutine dry_run_flexible_wing()
     call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
   endif
 
-  do while (time<=tmax)
+  do while (time<tmax)
 
     do i=1,nWings
         do j=1,nVeins_BC
 
-          wings(i)%z_BC(-1,j) = wings(i)%z_BC(-1,j) + 0*5.0d-3
+          wings(i)%z_BC(-1,j) = wings(i)%z0 + 0.075/10*sin(10*pi*time)
           wings(i)%z_BC(0,j) = wings(i)%z_BC(-1,j)
 
         enddo
@@ -424,6 +424,9 @@ subroutine dry_run_flexible_wing()
       call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
     endif
 
+    if (root) then
+      call SaveWingData( time, wings )
+    endif
 
   enddo
 

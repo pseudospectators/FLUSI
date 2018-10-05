@@ -124,8 +124,6 @@ subroutine solve_linear_system_wing ( A, b, x )
 
   time_LAPACK = time_LAPACK + MPI_wtime() - t0
 
-  write(*,*) maxval(x)
-
 end subroutine
 
 subroutine Moving_boundary_point(wings)
@@ -168,7 +166,7 @@ subroutine rotate_wing(wings)
     wings%y(i) = u(2)
     wings%z(i) = u(3)
   enddo
-  write(*,*) 'rotate'
+
   ! Rotate wing around z axis
   do i=1,wings%np
     u = matmul(mat_Rz,(/wings%x(i), wings%y(i), wings%z(i)/))
