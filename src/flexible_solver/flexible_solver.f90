@@ -11,8 +11,8 @@ module flexible_model
   ! module global variables
   !----------------------------------------------
   integer,parameter :: nWings = 1
-  integer,parameter :: nVeins = 5
-  integer,parameter :: nVeins_BC = 2
+  integer,parameter :: nVeins = 1
+  integer,parameter :: nVeins_BC = 1
   integer,parameter :: nMembranes = 1
   ! see "type solid" about nsmax 06 Aug 2014
   integer,parameter :: npmax = 1000
@@ -111,6 +111,7 @@ module flexible_model
     !real(kind=pr) :: drag_unst_new, drag_unst_old, lift_unst_new, lift_unst_old
     logical :: StartupStep!, UnsteadyCorrectionsReady
     character(len=strlen) :: TimeMethodSolid
+    character(len=strlen) :: Motion
     real(kind=pr),dimension(1:3*npmax) :: RHS_a, RHS_b
 
   end type wing
@@ -125,7 +126,7 @@ module flexible_model
  include "internal_force.f90"
  include "external_force.f90"
  include "internal_force_derivative.f90"
-! include "prescribed_wing.f90"
+ include "flexible_wing_motions.f90"
  include "flexible_solver_wrapper.f90"
  include "flexible_solid_time_stepper.f90"
  include "flexible_tri_mask.f90"

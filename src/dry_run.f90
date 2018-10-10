@@ -385,14 +385,8 @@ subroutine dry_run_flexible_wing()
 
   do while (time<tmax)
 
-    do i=1,nWings
-        do j=1,nVeins_BC
-
-          wings(i)%z_BC(-1,j) = wings(i)%z0 + 0.075/10*sin(10*pi*time)
-          wings(i)%z_BC(0,j) = wings(i)%z_BC(-1,j)
-
-        enddo
-      enddo
+    !
+    call flexible_wing_motions ( time, wings )
 
     !
     call flexible_solid_time_step(time, tsave, tsave, it, wings)

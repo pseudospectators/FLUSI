@@ -61,7 +61,7 @@ subroutine init_wings ( fname, wings )
     wings(i)%Veins_extension_BC = 0.d0
     wings(i)%Membranes_extension = 0.d0
     wings(i)%Membrane_edge = 0.d0
-    wings(i)%m=1.d-7
+    wings(i)%m=0.d0
     !wings(i)%pressure_old = 0.d0
     !wings(i)%pressure_new = 0.d0
     ! this is used for unst correction computation:
@@ -85,8 +85,7 @@ subroutine init_wings ( fname, wings )
 
     call rotate_wing(wings(i))
 
-      write(*,*) wings(i)%veins_bending_BC(1:nint(maxval(wings(i)%veins_bending_BC(:,1,1))),:,1)
-      write(*,*) '<<<<<<<<<<<<<<<'
+
     !  write(*,*) wings(i)%veins_bending_BC(1:nint(maxval(wings(i)%veins_bending_BC(:,1,2))),:,2)
 
     !-----------------------------------------------------------------------------
@@ -120,6 +119,8 @@ subroutine init_wings ( fname, wings )
 
     call read_param_mpi(PARAMS,"Flexible_wing","Rotation_angle_y",wings(i)%Anglewing_y, 0.d0)
     call read_param_mpi(PARAMS,"Flexible_wing","Rotation_angle_z",wings(i)%Anglewing_z, 0.d0)
+
+    call read_param_mpi(PARAMS,"Flexible_wing","Motion",wings(i)%Motion,"stationary")
 
     call read_param_mpi(PARAMS,"Flexible_wing","Gravity",grav, (/0.d0, 0.d0, -9.8d0/))
     ! clean ini file
