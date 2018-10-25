@@ -59,7 +59,7 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
     integer,intent (in) :: it
     type(wing), dimension(1:nWings), intent (inout) :: wings
     real(kind=pr) :: du, err, err_rel, coef=1.0
-    integer :: i, iter, i_NAN, j_NAN, iJ,jJ
+    integer :: i, iter, i_NAN, j_NAN, iJ,jJ,np
     logical :: iterate
 
   do i=1,nWings
@@ -78,6 +78,8 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
 
       iter = iter + 1
 
+      ! Get total number of mass points
+      np = wings(i)%np
 
       ! Calculate internal force vector from the new state vector u_new
       call internal_forces_construction(wings(i))
@@ -99,9 +101,10 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
       endif
 
       ! Solve for the step of NR method
-      call solve_linear_system_using_schur_complement(wings(i)%du, wings(i)%np, &
-                                                 wings(i)%FJ, wings(i)%m, wings(i)%c, &
-                                                 dt1, wings(i)%RHS_a, wings(i)%RHS_b, coef)
+      call solve_linear_system_using_schur_complement(wings(i)%du(1:6*np), np, &
+                                                      wings(i)%FJ(1:3*np,1:3*np), &
+                                                      wings(i)%m(1:np), wings(i)%c(1:np), &
+                                                      dt1, wings(i)%RHS_a(1:3*np), wings(i)%RHS_b(1:3*np), coef)
 
 
       wings(i)%u_new(1:6*wings(i)%np) = wings(i)%u_new(1:6*wings(i)%np) - wings(i)%du(1:6*wings(i)%np)
@@ -143,15 +146,17 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wings)
     type(Wing), dimension(1:nWings), intent (inout) :: wings
     real(kind=pr) :: r, coef
     real(kind=pr) :: du, err, err_rel
-    integer :: i, iter
+    integer :: i, iter, np
     logical :: iterate
 
     ! Calculate the coefficient for time stepping scheme
     r = dt1/dt0
     coef = (1+r)/(1+2*r)
 
-
   do i=1,nWings
+
+    ! Get total number of mass points
+    np = wings(i)%np
 
     iterate = .true.
     err     = 1.0d0
@@ -171,15 +176,16 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wings)
       call internal_forces_construction(wings(i))
 
       ! Calculate RHS vector
-      call RHS_for_NR_method(dt1, dt1, it, wings(i))
+      call RHS_for_NR_method(dt1, dt0, it, wings(i))
 
       ! Calculate the Jacobian matrix of the internal force vector
       call internal_forces_derivatives_construction(wings(i))
 
       ! Solve for the step of NR method
-      call solve_linear_system_using_schur_complement(wings(i)%du, wings(i)%np, &
-                                                 wings(i)%FJ, wings(i)%m, wings(i)%c, &
-                                                 dt1, wings(i)%RHS_a, wings(i)%RHS_b, coef)
+      call solve_linear_system_using_schur_complement(wings(i)%du(1:6*np), np, &
+                                                      wings(i)%FJ(1:3*np,1:3*np), &
+                                                      wings(i)%m(1:np), wings(i)%c(1:np), &
+                                                      dt1, wings(i)%RHS_a(1:3*np), wings(i)%RHS_b(1:3*np), coef)
 
       wings(i)%u_new = wings(i)%u_new - wings(i)%du
       err            = dsqrt(sum(wings(i)%du**2))
@@ -287,28 +293,33 @@ subroutine solve_linear_system_using_schur_complement(du,np,FJ,m,c,dt,a,b,coef)
 ! x and v and position and velocity vector respectively, and the phase vector is
 ! defined as u = [x ; v]^T
 !
-! (A-M*c**(-1))*dx = a - M*c**(-1)*b
+! (FJ-M*c**(-1))*dx = a - M*c**(-1)*b
 ! du = 1/(c*dt)*(dx - b)
 
 implicit none
 
 real(kind=pr), intent(in) :: dt, coef
-real(kind=pr), intent(in) :: m(:), c(:), a(:), b(:)
-real(kind=pr), intent(in) :: FJ(:,:)
+real(kind=pr), intent(in) :: m(1:), c(1:), a(1:), b(1:)
+real(kind=pr), intent(in) :: FJ(1:,1:)
 integer, intent(in) :: np
-real(kind=pr), intent(inout) :: du(:)
-real(kind=pr), allocatable :: y(:)
+real(kind=pr), intent(inout) :: du(1:)
+real(kind=pr), allocatable :: y(:), m_array3D(:), c_array3D(:)
 real(kind=pr), allocatable :: F(:,:)
 integer :: i, j
 
-allocate(y(1:3*np))
+allocate(y(1:3*np),m_array3D(1:3*np),c_array3D(1:3*np))
 allocate(F(1:3*np,1:3*np))
+
+! Transform the mass array m() into an array (/m,m,m/) corresponding to three dimensions
+! x,y and z
+m_array3D = (/m,m,m/)
+c_array3D = (/c,c,c/)
 
 do i=1,3*np
     do j=1,3*np
       if (i .eq. j) then
-        F(i,i) = coef*dt*FJ(i,i) + (1/(coef*dt))*m(i) + c(i)
-          y(i) = a(i) + ((1/(coef*dt))*m(i) + c(i))*b(i)
+        F(i,i) = coef*dt*FJ(i,i) + (1/(coef*dt))*m_array3D(i) + c_array3D(i)
+          y(i) = a(i) + ((1/(coef*dt))*m_array3D(i) + c_array3D(i))*b(i)
       else
         F(i,j) = coef*dt*FJ(i,j)
       endif
