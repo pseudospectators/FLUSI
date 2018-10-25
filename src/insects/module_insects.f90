@@ -176,6 +176,7 @@ module module_insects
     character(len=strlen) :: wing_thickness_distribution = "constant"
     character(len=strlen) :: pointcloudfile = "none"
     logical :: corrugated = .false.
+    real(kind=rk) :: corrugation_array_bbox(1:4)
 
     !--------------------------------------------------------------
     ! Wing kinematics

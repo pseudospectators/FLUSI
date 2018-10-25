@@ -95,7 +95,7 @@ subroutine draw_wing_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_
           if ( Insect%corrugated ) then
             ! if the wing is corrugated, its height profile is read from ini file
             ! and interpolated at the position on the wing
-            zz0 = interp2_nonper( x_wing(1), x_wing(2), corrugation_profile, Insect%wing_bounding_box(1:4) )
+            zz0 = interp2_nonper( x_wing(1), x_wing(2), corrugation_profile, Insect%corrugation_array_bbox(1:4) )
           else
             ! no corrugation - the wing is a flat surface
             zz0 = 0.0_pr
@@ -105,7 +105,7 @@ subroutine draw_wing_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_
           if ( Insect%wing_thickness_distribution=="variable") then
               ! variable wing thickness is read from an array in the wing.ini file
               ! and interpolated linearly at the x_wing position.
-              t = interp2_nonper( x_wing(1), x_wing(2), wing_thickness_profile, Insect%wing_bounding_box(1:4) )
+              t = interp2_nonper( x_wing(1), x_wing(2), wing_thickness_profile, Insect%corrugation_array_bbox(1:4) )
           else
               ! constant thickness, read from main params.ini file
               t = Insect%WingThickness
@@ -1164,6 +1164,10 @@ subroutine Setup_Wing_Fourier_coefficients(Insect)
   ! Therefore, we compute the max / min of x / y here and store the result
   call set_wing_bounding_box_fourier( Insect )
 
+  ! this is the old defaut value:
+  if (maxval(Insect%corrugation_array_bbox) == 0.0_rk) then
+      Insect%corrugation_array_bbox(1:4) = Insect%wing_bounding_box(1:4)
+  endif
 
   if (root) then
     write(*,'(30("-"))')
@@ -1276,6 +1280,8 @@ subroutine Setup_Wing_from_inifile(Insect, fname)
   else
       if (root) write(*,*) "wing is flat (non-corrugated), z==0"
   endif
+
+  call read_param_mpi(ifile,"Wing","corrugation_array_bbox",Insect%corrugation_array_bbox, (/0.0_rk,0.0_rk,0.0_rk,0.0_rk/))
 
 end subroutine Setup_Wing_from_inifile
 
