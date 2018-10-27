@@ -1,3 +1,283 @@
+module krylov_helper
+        use vars
+contains
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+function expM_pade(H) result(E)
+    implicit none
+    real(kind=pr),dimension(:,:),intent(in)                 :: H
+    real(kind=pr),dimension(size(H,1),size(H,2))            :: E
+
+    real(kind=pr),dimension(size(H,1),size(H,2))            :: expH
+    integer                                                 :: m,ideg,lwsp,iexph,ldh,i,j,ii,iflag,ns
+    real(kind=pr),allocatable,dimension(:)                  :: wsp
+    integer,allocatable,dimension(:)                        :: ipiv
+    integer::k
+
+    !*** Berechnung des Matrixexponenten **!
+    m     = size(H,1)
+    ideg  = 6
+    lwsp  = 4*m*m+ideg+1
+    iexph = 1
+    ldh   = m
+    allocate(ipiv(m))   ! integer
+    allocate(wsp(lwsp)) ! rk
+
+    !                  !1.0_pr!, da dt*H -> H uebergeben wird, sonst steht hier dt
+    call  DGPADM(ideg,m,1.0_pr,H,ldh,wsp,lwsp,ipiv,iexph,ns,iflag )
+    if(iflag.lt.0) stop "error in computing exp(t*H)"
+
+    do j=1,m
+        do i=1,m
+            ii = (i+iexph-1) + (j-1)*m
+            E(i,j) = wsp(ii)
+        end do
+    end do
+    !**************************************!
+
+end function expM_pade
+
+
+!  *----------------------------------------------------------------------|
+subroutine DGPADM( ideg,m,t,H,ldh,wsp,lwsp,ipiv,iexph,ns,iflag )
+    implicit none
+    integer ideg, m, ldh, lwsp, iexph, ns, iflag, ipiv(m)
+    double precision t, H(ldh,m), wsp(lwsp)
+
+    !    *-----Purpose----------------------------------------------------------|
+    !    *
+    !    *     Computes exp(t*H), the matrix exponential of a general matrix in
+    !    *     full, using the irreducible rational Pade approximation to the
+    !    *     exponential function exp(x) = r(x) = (+/-)( I + 2*(q(x)/p(x)) ),
+    !      *     combined with scaling-and-squaring.
+    !      *
+    !      *-----Arguments--------------------------------------------------------|
+    !      *
+    !      *     ideg      : (input) the degre of the diagonal Pade to be used.
+    !      *                 a value of 6 is generally satisfactory.
+    !      *
+    !      *     m         : (input) order of H.
+    !      *
+    !*     H(ldh,m)  : (input) argument matrix.
+    !*
+    !*     t         : (input) time-scale (can be < 0).
+    !*
+    !*     wsp(lwsp) : (workspace/output) lwsp .ge. 4*m*m+ideg+1.
+    !*
+    !*     ipiv(m)   : (workspace)
+    !*
+    !*>>>> iexph     : (output) number such that wsp(iexph) points to exp(tH)
+    !*                 i.e., exp(tH) is located at wsp(iexph ... iexph+m*m-1)
+    !*                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    !*                 NOTE: if the routine was called with wsp(iptr),
+    !*                       then exp(tH) will start at wsp(iptr+iexph-1).
+    !*
+    !*     ns        : (output) number of scaling-squaring used.
+    !*
+    !*     iflag     : (output) exit flag.
+    !*                      0 - no problem
+    !*                     <0 - problem
+    !*
+    !*----------------------------------------------------------------------|
+    !*     Roger B. Sidje (rbs@maths.uq.edu.au)
+    !*     EXPOKIT: Software Package for Computing Matrix Exponentials.
+    !*     ACM - Transactions On Mathematical Software, 24(1):130-156, 1998
+    !*----------------------------------------------------------------------|
+    !*
+    integer mm,i,j,k,ih2,ip,iq,iused,ifree,iodd,icoef,iput,iget
+    double precision hnorm,scale,scale2,cp,cq
+
+    intrinsic INT,ABS,DBLE,LOG,MAX
+
+    !*---  check restrictions on input parameters ...
+    mm = m*m
+    iflag = 0
+    if ( ldh.lt.m ) iflag = -1
+    if ( lwsp.lt.4*mm+ideg+1 ) iflag = -2
+    if ( iflag.ne.0 ) stop 'bad sizes (in input of DGPADM)'
+    !*
+    !*---  initialise pointers ...
+    !*
+    icoef = 1
+    ih2 = icoef + (ideg+1)
+    ip  = ih2 + mm
+    iq  = ip + mm
+    ifree = iq + mm
+    !*
+    !*---  scaling: seek ns such that ||t*H/2^ns|| < 1/2;
+    !*     and set scale = t/2^ns ...
+    !*
+    do i = 1,m
+        wsp(i) = 0.0d0
+    enddo
+    do j = 1,m
+        do i = 1,m
+            wsp(i) = wsp(i) + ABS( H(i,j) )
+        enddo
+    enddo
+    hnorm = 0.0d0
+    do i = 1,m
+        hnorm = MAX( hnorm,wsp(i) )
+    enddo
+    hnorm = ABS( t*hnorm )
+
+    ns = MAX( 0,INT(LOG(hnorm)/LOG(2.0d0))+2 )
+    scale = t / DBLE(2**ns)
+    scale2 = scale*scale
+    !*
+    !*---  compute Pade coefficients ...
+    !*
+    i = ideg+1
+    j = 2*ideg+1
+    wsp(icoef) = 1.0d0
+    do k = 1,ideg
+        wsp(icoef+k) = (wsp(icoef+k-1)*DBLE( i-k ))/DBLE( k*(j-k) )
+    enddo
+    !*
+    !*---  H2 = scale2*H*H ...
+    !*
+    call DGEMM( 'n','n',m,m,m,scale2,H,ldh,H,ldh,0.0d0,wsp(ih2),m )
+    !*
+    !*---  initialize p (numerator) and q (denominator) ...
+    !*
+    cp = wsp(icoef+ideg-1)
+    cq = wsp(icoef+ideg)
+    do j = 1,m
+        do i = 1,m
+            wsp(ip + (j-1)*m + i-1) = 0.0d0
+            wsp(iq + (j-1)*m + i-1) = 0.0d0
+        enddo
+        wsp(ip + (j-1)*(m+1)) = cp
+        wsp(iq + (j-1)*(m+1)) = cq
+    enddo
+    !*
+    !*---  Apply Horner rule ...
+    !*
+    iodd = 1
+    k = ideg - 1
+100  continue
+    iused = iodd*iq + (1-iodd)*ip
+    call DGEMM( 'n','n',m,m,m, 1.0d0,wsp(iused),m, &
+    wsp(ih2),m, 0.0d0,wsp(ifree),m )
+    do j = 1,m
+        wsp(ifree+(j-1)*(m+1)) = wsp(ifree+(j-1)*(m+1))+wsp(icoef+k-1)
+    enddo
+    ip = (1-iodd)*ifree + iodd*ip
+    iq = iodd*ifree + (1-iodd)*iq
+    ifree = iused
+    iodd = 1-iodd
+    k = k-1
+    if ( k.gt.0 )  goto 100
+    !*
+    !*---  Obtain (+/-)(I + 2*(p\q)) ...
+    !*
+    if ( iodd .eq. 1 ) then
+        call DGEMM( 'n','n',m,m,m, scale,wsp(iq),m, &
+        H,ldh, 0.0d0,wsp(ifree),m )
+        iq = ifree
+    else
+        call DGEMM( 'n','n',m,m,m, scale,wsp(ip),m, &
+        H,ldh, 0.0d0,wsp(ifree),m )
+        ip = ifree
+    endif
+    call DAXPY( mm, -1.0d0,wsp(ip),1, wsp(iq),1 )
+    call DGESV( m,m, wsp(iq),m, ipiv, wsp(ip),m, iflag )
+    if ( iflag.ne.0 ) stop 'Problem in DGESV (within DGPADM)'
+    call DSCAL( mm, 2.0d0, wsp(ip), 1 )
+    do j = 1,m
+        wsp(ip+(j-1)*(m+1)) = wsp(ip+(j-1)*(m+1)) + 1.0d0
+    enddo
+    iput = ip
+    if ( ns.eq.0 .and. iodd.eq.1 ) then
+        call DSCAL( mm, -1.0d0, wsp(ip), 1 )
+        goto 200
+    endif
+    !*
+    !*--   squaring : exp(t*H) = (exp(t*H))^(2^ns) ...
+    !*
+    iodd = 1
+    do k = 1,ns
+        iget = iodd*ip + (1-iodd)*iq
+        iput = (1-iodd)*ip + iodd*iq
+        call DGEMM( 'n','n',m,m,m, 1.0d0,wsp(iget),m, wsp(iget),m, &
+        0.0d0,wsp(iput),m )
+        iodd = 1-iodd
+    enddo
+200  continue
+    iexph = iput
+END subroutine DGPADM
+!*----------------------------------------------------------------------|
+
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+subroutine get_sum_all(inout,COMM)
+    use vars
+    implicit none
+    real(kind=pr),intent(inout)       :: inout
+    integer,optional                  :: COMM
+    !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    real(kind=pr)                     :: tmp
+    integer :: mpierr
+
+    if (present(COMM)) then
+        call MPI_ALLREDUCE(inout,tmp,1,MPI_DOUBLE_PRECISION,MPI_SUM,COMM,mpierr)
+    else
+        call MPI_ALLREDUCE(inout,tmp,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpierr)
+    end if
+    inout = tmp
+
+end subroutine get_sum_all
+
+
+subroutine kry_norm(field, norm)
+    use vars
+    implicit none
+    !> heavy data array - block data
+    real(kind=pr), intent(inout) :: field(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+    !> this is the output of the function:
+    real(kind=pr), intent(out)   :: norm
+
+    integer :: ix, iy, iz
+
+    norm = 0.0_pr
+
+    do iz=ra(3),rb(3)
+        do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+                norm = norm + sum( field(ix,iy,iz,:)**2 )
+            enddo
+        enddo
+    enddo
+    call get_sum_all(norm)
+    norm = sqrt(norm)
+
+end subroutine kry_norm
+
+subroutine scalarproduct(field1, field2, result)
+    use vars
+    implicit none
+    real(kind=pr), intent(inout)        :: field1(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+    real(kind=pr), intent(inout)        :: field2(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
+    real(kind=pr), intent(out)          :: result
+
+    integer :: ix, iy, iz, ieqn
+
+    result = 0.0_pr
+
+    do iz=ra(3),rb(3)
+        do iy=ra(2),rb(2)
+            do ix=ra(1),rb(1)
+                do ieqn = 1, neq
+                    result = result + field1(ix,iy,iz,ieqn)*field2(ix,iy,iz,ieqn)
+                enddo
+            enddo
+        enddo
+    enddo
+
+    call get_sum_all(result)
+end subroutine scalarproduct
+end module
+
 !-------------------------------------------------------------------------------
 !          MAIN WRAPPER FOR DIFFERENT TIME MARCHING METHODS
 !-------------------------------------------------------------------------------
@@ -63,11 +343,15 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
+
   case("RK2")
     call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,&
     workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("RK4")
     call RungeKutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,&
+    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+case("krylov")
+    call krylov(time,it,dt0,dt1,u,uk,nlk,vort,work,&
     workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("AB2")
     if(it == 0) then
@@ -871,127 +1155,127 @@ end subroutine AB2_rigid_solid
 ! 5 - dt is smaller than tsave and tintegral
 !-------------------------------------------------------------------------------
 subroutine adjust_dt(time,u,dt1)
-  use vars
-  use mpi
-  use basic_operators
-  implicit none
+    use vars
+    use mpi
+    use basic_operators
+    implicit none
 
-  real(kind=pr), intent(in) :: time
-  real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  integer::mpicode
-  real(kind=pr), intent(out)::dt1
-  real(kind=pr)::umax,t , t1,t2
+    real(kind=pr), intent(in) :: time
+    real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    integer::mpicode
+    real(kind=pr), intent(out)::dt1
+    real(kind=pr)::umax,t , t1,t2
 
-  if (dt_fixed>0.0d0) then
-    !-- fix the time step no matter what. the result may be unstable.
-    dt1=dt_fixed
-  else
-    !-- Determine the maximum velocity/magnetic field value
-    if (method=="mhd") then
-      !-- MHD needs to respect CFL for magnetic field as well
-      umax = max( field_max_magnitude(u(:,:,:,1:3)), field_max_magnitude(u(:,:,:,4:6)) )
+    if (dt_fixed>0.0d0) then
+        !-- fix the time step no matter what. the result may be unstable.
+        dt1=dt_fixed
     else
-      !-- FSI runs just need to respect CFL for velocity
-      umax = field_max_magnitude(u(:,:,:,1:3))
-      if (equation=="artificial-compressibility") umax = umax+c_0
-    endif
-
-    !-- Adjust time step at 0th process
-    if(mpirank == 0) then
-      if(is_nan(umax)) then
-        call abort(100011, "Evolved field contains a NAN: aborting run.")
-      endif
-
-      if(umax>=1.0d3) then
-        write(*,*) "Umax is very big, surely this is an error, ", umax
-        call abort(100012, "Umax is very big, surely this is an error")
-      endif
-      !-- Impose the CFL condition.
-      if (umax >= 1.0d-8) then
-        if (nx==1) then
-          ! 2D case
-          dt1=min(dy,dz)*cfl/umax
+        !-- Determine the maximum velocity/magnetic field value
+        if (method=="mhd") then
+            !-- MHD needs to respect CFL for magnetic field as well
+            umax = max( field_max_magnitude(u(:,:,:,1:3)), field_max_magnitude(u(:,:,:,4:6)) )
         else
-          ! 3D case
-          dt1=min(dx,dy,dz)*cfl/umax
-        endif
-      else
-        !-- umax is very very small
-        dt1=1.0d-3
-      endif
-
-      !-- Round the time-step to one digit to reduce calls of cal_vis
-      call truncate(dt1)
-
-      !-- impose max dt, if specified in the parameter file
-      if (dt_max>0.d0) dt1=min(dt1,dt_max)
-
-      !-- Impose penalty stability condition: dt cannot be larger than eps
-      if (iPenalization > 0) dt1=min(0.99d0*eps,dt1)
-
-      !-- RungeKutta4 treats diffusive terms explicitly, so there is a condition
-      !   for the viscosity as well.
-      if (iTimeMethodFluid=="RK4") then
-        dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
-      endif
-
-
-      !*************************************************************************
-      ! we respect all necessary restrictions, the following ones are optional
-      !*************************************************************************
-      if (intelligent_dt=="yes") then
-        ! intelligent dt means we make sure not to jump past multiples of tsave
-        ! tend tintegral tslice.
-        ! The AB2 scheme may have problems if the new time step is much smaller
-        ! then the new one, so it may be wiser not to use it in that case (it has
-        ! not been tested)
-        if (time>=tsave_first) then
-          ! Don't jump past save-points: if the time-step is larger than
-          ! the time interval between outputs, decrease the time-step.
-          dt1 = min(dt1,0.98d0*tsave)
-          t = dble(ceiling(time/tsave))*tsave
-          if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
-            dt1=t-time
-          endif
+            !-- FSI runs just need to respect CFL for velocity
+            umax = field_max_magnitude(u(:,:,:,1:3))
+            if (equation=="artificial-compressibility") umax = umax+c_0
         endif
 
-        ! Don't jump past save-points: if the time-step is larger than
-        ! the time interval between outputs, decrease the time-step.
-        dt1 = min(dt1,0.98d0*tintegral)
-        t = dble(ceiling(time/tintegral))*tintegral
-        if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
-          dt1=t-time
+        !-- Adjust time step at 0th process
+        if(mpirank == 0) then
+            if(is_nan(umax)) then
+                call abort(100011, "Evolved field contains a NAN: aborting run.")
+            endif
+
+            if(umax>=1.0d3) then
+                write(*,*) "Umax is very big, surely this is an error, ", umax
+                call abort(100012, "Umax is very big, surely this is an error")
+            endif
+            !-- Impose the CFL condition.
+            if (umax >= 1.0d-8) then
+                if (nx==1) then
+                    ! 2D case
+                    dt1=min(dy,dz)*cfl/umax
+                else
+                    ! 3D case
+                    dt1=min(dx,dy,dz)*cfl/umax
+                endif
+            else
+                !-- umax is very very small
+                dt1=1.0d-3
+            endif
+
+            !-- Round the time-step to one digit to reduce calls of cal_vis
+            call truncate(dt1)
+
+            !-- impose max dt, if specified in the parameter file
+            if (dt_max>0.d0) dt1=min(dt1,dt_max)
+
+            !-- Impose penalty stability condition: dt cannot be larger than eps
+            if (iPenalization > 0) dt1=min( CFL_eta*eps, dt1 )
+
+            !-- RungeKutta4 treats diffusive terms explicitly, so there is a condition
+            !   for the viscosity as well.
+            if (iTimeMethodFluid=="RK4") then
+                dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
+            endif
+
+
+            !*************************************************************************
+            ! we respect all necessary restrictions, the following ones are optional
+            !*************************************************************************
+            if (intelligent_dt=="yes") then
+                ! intelligent dt means we make sure not to jump past multiples of tsave
+                ! tend tintegral tslice.
+                ! The AB2 scheme may have problems if the new time step is much smaller
+                ! then the new one, so it may be wiser not to use it in that case (it has
+                ! not been tested)
+                if (time>=tsave_first) then
+                    ! Don't jump past save-points: if the time-step is larger than
+                    ! the time interval between outputs, decrease the time-step.
+                    dt1 = min(dt1,0.98d0*tsave)
+                    t = dble(ceiling(time/tsave))*tsave
+                    if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
+                        dt1=t-time
+                    endif
+                endif
+
+                ! Don't jump past save-points: if the time-step is larger than
+                ! the time interval between outputs, decrease the time-step.
+                dt1 = min(dt1,0.98d0*tintegral)
+                t = dble(ceiling(time/tintegral))*tintegral
+                if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
+                    dt1=t-time
+                endif
+
+                if ((time>=tslice_first).and.(method=="fsi").and.(use_slicing=="yes")) then
+                    ! Don't jump past save-points: if the time-step is larger than
+                    ! the time interval between outputs, decrease the time-step.
+                    dt1 = min(dt1,0.98d0*tslice)
+                    t = dble(ceiling(time/tslice))*tslice
+                    if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
+                        dt1=t-time
+                    endif
+                endif
+
+                ! do not jump past the final time "tmax" in the simulation
+                t = tmax
+                if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
+                    dt1 = tmax-time
+                endif
+            endif
         endif
 
-        if ((time>=tslice_first).and.(method=="fsi").and.(use_slicing=="yes")) then
-          ! Don't jump past save-points: if the time-step is larger than
-          ! the time interval between outputs, decrease the time-step.
-          dt1 = min(dt1,0.98d0*tslice)
-          t = dble(ceiling(time/tslice))*tslice
-          if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
-            dt1=t-time
-          endif
+        if(mpirank==0) then
+            open(14,file='dt.t',status='unknown',position='append')
+            write (14,'(5(g15.8,1x))') time, dt1, &
+            dt1*umax/min(dx,dy,dz),& ! currently valid CFL number
+            dt1*nu/min(dx,dy,dz)**2, & ! coefficient in front of viscous stability (below 0.5 for RK4)
+            dt1/eps ! penalization limit
+            close(14)
         endif
-
-        ! do not jump past the final time "tmax" in the simulation
-        t = tmax
-        if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
-          dt1 = tmax-time
-        endif
-      endif
+        ! Broadcast time step to all processes
+        call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
     endif
-
-    if(mpirank==0) then
-      open(14,file='dt.t',status='unknown',position='append')
-      write (14,'(5(g15.8,1x))') time, dt1, &
-      dt1*umax/min(dx,dy,dz),& ! currently valid CFL number
-      dt1*nu/min(dx,dy,dz)**2, & ! coefficient in front of viscous stability (below 0.5 for RK4)
-      dt1/eps ! penalization limit
-      close(14)
-    endif
-    ! Broadcast time step to all processes
-    call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
-  endif
 
 end subroutine adjust_dt
 
@@ -1102,3 +1386,169 @@ subroutine output_kinetic_energy(time, uk)
   endif
 
 end subroutine output_kinetic_energy
+
+
+
+
+subroutine krylov(time,it,dt0,dt,u,uk,nlk,vort,work,workc,expvis,press,&
+    scalars,scalars_rhs,Insect,beams)
+    use mpi
+    use vars
+    use p3dfft_wrapper
+    use solid_model
+    use module_insects
+    use basic_operators
+    use krylov_helper
+    implicit none
+
+    real(kind=pr),intent(inout) :: time,dt,dt0
+    integer,intent(in) :: it
+    complex(kind=pr),intent(inout) :: uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+    complex(kind=pr),intent(inout) :: nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
+    complex(kind=pr),intent(inout) :: workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
+    real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
+    real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    real(kind=pr),intent(inout) :: expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+    ! pressure array. this is with ghost points for interpolation
+    real(kind=pr),intent(inout) :: press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+    real(kind=pr),intent(inout) :: scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
+    real(kind=pr),intent(inout) :: scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+    type(solid),dimension(1:nbeams),intent(inout) :: beams
+    type(diptera),intent(inout) :: Insect
+
+    real(kind=pr), allocatable, save :: H(:,:), phiMat(:,:), H_tmp(:,:), rhs(:,:,:,:,:), uold(:,:,:,:)
+    complex(kind=pr), allocatable, save :: uktmp(:,:,:,:)
+    integer :: M_iter
+    integer :: i, j, k, l, iter
+    real(kind=pr) :: normv, eps2, beta
+    real(kind=pr) :: h_klein, err, t0
+
+
+    ! allocate matrices with largest admissible
+    if (.not. allocated(H)) then
+        allocate( H(M_max+2,M_max+2) )
+        allocate( H_tmp(M_max+2,M_max+2) )
+        allocate( phiMat(M_max+2,M_max+2) )
+    endif
+
+    if (.not.allocated(rhs)) allocate( rhs(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq,1:M_max+3) )
+    if (.not.allocated(uold)) allocate( uold(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq) )
+    if (.not.allocated(uktmp)) allocate( uktmp(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq) )
+
+    phiMat = 0.0_pr
+    H = 0.0_pr
+
+
+    call ifft3( ink=uk, outx=uold )
+    call adjust_dt(time, uold, dt)
+
+
+    ! compute norm "normv" of input state vector
+    call kry_norm( uold, normv )
+    eps2 = normv * sqrt(epsilon(1.0_pr))
+
+
+    ! the very last slot (M+3) is the "reference right hand side"
+    call cal_nlk( time, it, nlk(:,:,:,:,0), uk, u, vort, work, workc, press, scalars, scalars_rhs, Insect, beams)
+    call dealias( nlk(:,:,:,:,0) )
+    call ifft3( ink=nlk(:,:,:,:,0), outx=rhs(:,:,:,:,M_max+3) )
+
+
+
+    ! compute norm "beta", which is the norm of the reference RHS evaluation
+    ! NSF: this guy is called normuu
+    call kry_norm( rhs(:,:,:,:,M_max+3), beta )
+    if (beta < epsilon(1.0_pr)) beta = 1.0_pr
+
+
+    ! start iteration, fill first slot
+    rhs(:,:,:,:,1) = rhs(:,:,:,:,M_max+3) / beta
+
+    !**************************************!
+    !*** begin interations              ***!
+    !**************************************!
+    ! we loop over the full size of subspace, then exit prematurely
+    ! if possible.
+    do M_iter = 1, M_max
+
+        ! perturbed right hand side is first-to-last (M+2) slot
+        rhs(:,:,:,:,M_max+2) = uold(:,:,:,:) + eps2 * rhs(:,:,:,:,M_iter)
+
+        ! call RHS with perturbed state vector, stored in slot (M_max+1)
+        call fft3( inx=rhs(:,:,:,:,M_max+2), outk=uktmp )
+        call cal_nlk( time, it, nlk(:,:,:,:,0), uktmp, u, vort, work, workc, press, scalars, scalars_rhs, Insect, beams)
+        call dealias( nlk(:,:,:,:,0) )
+        call ifft3( ink=nlk(:,:,:,:,0), outx=rhs(:,:,:,:,M_max+1) )
+
+        ! linearization of RHS slot (M_max+1)
+        rhs(:,:,:,:,M_max+1) = ( rhs(:,:,:,:,M_max+1) - rhs(:,:,:,:,M_max+3) ) / eps2
+
+        ! --- inner loop ----
+        ! --- ARNOLDI ---
+        do iter = 1, M_iter
+            call scalarproduct( rhs(:,:,:,:,iter), rhs(:,:,:,:,M_max+1), H(iter, M_iter) )
+
+            rhs(:,:,:,:,M_max+1) = rhs(:,:,:,:,M_max+1) - H(iter,M_iter) * rhs(:,:,:,:,iter)
+        enddo
+        ! end of inner i =1:j loop
+        call kry_norm( rhs(:,:,:,:,M_max+1), H(M_iter+1,M_iter) )
+
+        rhs(:,:,:,:,M_iter+1) = rhs(:,:,:,:,M_max+1) / H(M_iter+1,M_iter)
+
+            ! if this is the last iteration, we compute the H matrix and the matrix exponential
+            ! and use it to get an error estimate. If the error seems okay, we are done and can
+            ! compute the new time step, otherwise we increase M by one and retry.
+            ! if we use the dynamic method, we evaluate the error after every iteration to see if
+            ! we're good to go.
+            h_klein    = H(M_iter+1,M_iter)
+
+            ! create a copy of the H matrix with the right dimension
+            H_tmp      = 0.0_pr
+            H_tmp(1:M_iter, 1:M_iter) = H(1:M_iter, 1:M_iter)
+            H_tmp(M_iter+1,M_iter)    = 0.0_pr
+            H_tmp(1,M_iter+1)         = 1.0_pr
+            H_tmp(M_iter+1,M_iter+2)  = 1.0_pr
+
+            ! compute matrix exponential
+            phiMat = 0.0_pr
+            phiMat(1:M_iter+2, 1:M_iter+2) = expM_pade( dt*H_tmp(1:M_iter+2, 1:M_iter+2) )
+            phiMat(M_iter+1, M_iter+1)     = h_klein*phiMat(M_iter, M_iter+2)
+
+
+            ! *** Error estimate ***!
+            err = abs( beta*phiMat(M_iter+1,M_iter+1) )
+
+            if ( M_iter == M_max .and. err > krylov_err_threshold) then
+                if(mpirank==0) write(*,'("Krylov: did M_iter=",i2," got err=",es12.4," which is larger than your &
+                &threshold. As no more iter possible, results may be inaccurate.")') M_iter, err
+            endif
+
+            if (err < krylov_err_threshold .or. M_iter == M_max) then
+                if(mpirank==0) write(*,*) "exit krylov err=", err, "t=", time, dt, M_iter
+                exit
+            endif
+    enddo
+    !**************************************!
+    !*** end of iterations             ****!
+    !**************************************!
+
+    ! compute final value of new state vector at new time level
+    ! result will be in hvy_block again (inout)
+    u = uold
+    do iter = 1, M_iter+1
+        ! call checknan_real( rhs(:,:,:,2,iter), "some rhs " )
+        u = u + beta * rhs(:,:,:,:,iter) * phiMat(iter,M_iter+1)
+    enddo
+
+    call fft3(inx=u, outk=uk)
+
+    ! call checknan_real( u(:,:,:,2), "did krylov " )
+
+    if (mpirank==0) then
+        open(14,file='krylov_err.t',status='unknown',position='append')
+        write (14,'(3(g15.8,1x),2(i3,1x))') time, dt, err, M_iter, M_max
+        close(14)
+    endif
+
+end subroutine krylov

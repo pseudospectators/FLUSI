@@ -22,7 +22,8 @@ module vars
   ! Used in params.f90
   integer,parameter :: strlen=120   ! standard string length
 
-  ! Precision of doubles
+
+ ! Precision of doubles
   integer,parameter :: pr = 8
   integer,parameter :: i8 = 8
 
@@ -71,6 +72,10 @@ module vars
   real(kind=pr),save :: length, alpha_generic
   real(kind=pr),dimension(1:3),save :: us_fixed
 
+  ! krylov
+  integer :: M_max = 20
+  real(kind=pr) :: krylov_err_threshold = 1.0e-4
+
   ! Domain size variables:
   integer,save :: nx,ny,nz
   real(kind=pr),save :: xl,yl,zl,dx,dy,dz,scalex,scaley,scalez
@@ -107,7 +112,7 @@ module vars
   real(kind=pr),save :: tmax
   real(kind=pr),save :: dt_fixed
   real(kind=pr),save :: dt_max=0.d0
-  real(kind=pr),save :: cfl
+  real(kind=pr),save :: cfl, CFL_eta=0.99d0
   integer,save :: nt
   character(len=strlen),save :: iTimeMethodFluid, intelligent_dt
 
