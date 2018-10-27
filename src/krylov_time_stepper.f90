@@ -57,6 +57,7 @@ contains
 
         ! compute norm "normv" of input state vector
         call kry_norm( uold, normv )
+        if (normv < epsilon(1.0_pr)) normv = 1.0_pr
         eps2 = normv * sqrt(epsilon(1.0_pr))
 
 
@@ -121,6 +122,7 @@ contains
             H_tmp(1,M_iter+1)         = 1.0_pr
             H_tmp(M_iter+1,M_iter+2)  = 1.0_pr
 
+
             ! compute matrix exponential
             phiMat = 0.0_pr
             phiMat(1:M_iter+2, 1:M_iter+2) = expM_pade( dt*H_tmp(1:M_iter+2, 1:M_iter+2) )
@@ -154,7 +156,7 @@ contains
 
         call fft3(inx=u, outk=uk)
 
-        ! call checknan_real( u(:,:,:,2), "did krylov " )
+        call checknan_real( u(:,:,:,2), "did krylov " )
 
         if (mpirank==0) then
             open(14,file='krylov_err.t',status='unknown',position='append')
