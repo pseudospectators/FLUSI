@@ -33,7 +33,7 @@ contains
         integer :: M_iter
         integer :: i, j, k, l, iter
         real(kind=pr) :: normv, eps2, beta
-        real(kind=pr) :: h_klein, err, t0
+        real(kind=pr) :: h_klein, err, t0, dt_original
 
 
         ! allocate matrices with largest admissible
@@ -53,7 +53,7 @@ contains
 
         call ifft3( ink=uk, outx=uold )
         call adjust_dt(time, uold, dt)
-
+        dt_original = dt
 
         ! compute norm "normv" of input state vector
         call kry_norm( uold, normv )
@@ -128,23 +128,40 @@ contains
             phiMat(1:M_iter+2, 1:M_iter+2) = expM_pade( dt*H_tmp(1:M_iter+2, 1:M_iter+2) )
             phiMat(M_iter+1, M_iter+1)     = h_klein*phiMat(M_iter, M_iter+2)
 
-
             ! *** Error estimate ***!
             err = abs( beta*phiMat(M_iter+1,M_iter+1) )
 
             if ( M_iter == M_max .and. err > krylov_err_threshold) then
-                if(mpirank==0) write(*,'("Krylov: did M_iter=",i2," got err=",es12.4," which is larger than your &
-                &threshold. As no more iter possible, results may be inaccurate.")') M_iter, err
+                ! we are at the last krylov subspace M and cannot increase the number any more.
+                ! But the error is still too large, hance we decrease the time step now.
+
+                do while (err > krylov_err_threshold)
+                    dt = 0.90_pr * dt
+
+                    ! compute matrix exponential
+                    phiMat = 0.0_pr
+                    phiMat(1:M_iter+2, 1:M_iter+2) = expM_pade( dt*H_tmp(1:M_iter+2, 1:M_iter+2) )
+                    phiMat(M_iter+1, M_iter+1)     = h_klein*phiMat(M_iter, M_iter+2)
+
+                    ! *** Error estimate ***!
+                    err = abs( beta*phiMat(M_iter+1,M_iter+1) )
+                enddo
+
+                ! if(mpirank==0) then
+                !     write(*,'("Krylov: decreased dt from dt=",es12.4," to dt=",es12.4," to match residual criterion")') &
+                !     dt_original, dt
+                ! endif
             endif
 
-            if (err < krylov_err_threshold .or. M_iter == M_max) then
-                if(mpirank==0) write(*,*) "exit krylov err=", err, "t=", time, dt, M_iter
+            if (err <= krylov_err_threshold .or. M_iter == M_max) then
                 exit
             endif
         enddo
         !**************************************!
         !*** end of iterations             ****!
         !**************************************!
+        if(mpirank==0) write(*,'("Krylov iter done. err=",es12.4," time=",g12.3," dt="es12.4," M=",i2)') &
+        err, time, dt, M_iter
 
         ! compute final value of new state vector at new time level
         ! result will be in hvy_block again (inout)
@@ -160,7 +177,7 @@ contains
 
         if (mpirank==0) then
             open(14,file='krylov_err.t',status='unknown',position='append')
-            write (14,'(3(g15.8,1x),2(i3,1x))') time, dt, err, M_iter, M_max
+            write (14,'(3(g15.8,1x),2(i3,1x),es12.4)') time, dt, err, M_iter, M_max, dt_original
             close(14)
         endif
 
