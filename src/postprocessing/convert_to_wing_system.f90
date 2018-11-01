@@ -117,6 +117,9 @@ subroutine convert_to_wing_system(help)
     call abort(7774,"transforming to wing system makes no sense if not applied to an insect")
   endif
 
+  ! initialize insect
+  call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx)
+
   !*****************************************************************************
   ! main (active) part of this postprocessing tool
   !*****************************************************************************
