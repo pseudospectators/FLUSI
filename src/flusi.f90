@@ -191,6 +191,7 @@ end program FLUSI
 
     ! we need more memory for RK4:
     if (iTimeMethodFluid=="RK4") nrhs=5
+    if (iTimeMethodFluid=="krylov") nrhs=2
     if (root) write(*,'("Using nrhs=",i1," right hand side registers")') nrhs
 
     ! the number of entries in the state vector depends on the equation we solve
@@ -613,6 +614,7 @@ if (mpirank/=0) return
     write (14,'(5(A15,1x))') "%          time","volume","mask*usx","mask*usy","mask*usz"
     close (14)
 
+    call init_empty_file('krylov_err.t')
     call init_empty_file('iterations.t')
 
     open  (14,file='rigidsolidsolver.t',status='replace')

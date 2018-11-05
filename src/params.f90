@@ -104,8 +104,11 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"Time","Tmax",Tmax,1.d9)
   call read_param_mpi(PARAMS,"Time","tstart",tstart,0.0d0)
   call read_param_mpi(PARAMS,"Time","CFL",cfl,0.1d0)
+  call read_param_mpi(PARAMS,"Time","CFL_eta",cfl_eta,0.99d0)
   call read_param_mpi(PARAMS,"Time","dt_max",dt_max,0.d0)
   call read_param_mpi(PARAMS,"Time","dt_fixed",dt_fixed,0.d0)
+  call read_param_mpi(PARAMS,"Time","M_krylov_max",M_max,20)
+  call read_param_mpi(PARAMS,"Time","krylov_err_threshold",krylov_err_threshold,1.0e-4_pr)
 
   ! Reynolds number section:
   call read_param_mpi(PARAMS,"ReynoldsNumber","nu",nu,1.d-2)
