@@ -11,8 +11,8 @@ module flexible_model
   ! module global variables
   !----------------------------------------------
   integer,parameter :: nWings = 1
-  integer,parameter :: nVeins = 1
-  integer,parameter :: nVeins_BC = 1
+  integer,parameter :: nVeins = 5
+  integer,parameter :: nVeins_BC = 2
   integer,parameter :: nMembranes = 1
   ! see "type solid" about nsmax 06 Aug 2014
   integer,parameter :: npmax = 1000
@@ -90,6 +90,9 @@ module flexible_model
 
     ! Boundary conditions
     real(kind=pr) :: x0, y0, z0
+
+    !
+    real(kind=pr),dimension(1:3) :: at_inertia 
 
     ! grid and width in rigid direction:
     real(kind=pr) :: t_wing, wing_smoothing

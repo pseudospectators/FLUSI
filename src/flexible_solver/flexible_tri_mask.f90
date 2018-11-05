@@ -1,11 +1,10 @@
 ! TO DO migrate this one into create_mask_fsi subroutine
-subroutine Draw_flexible_wing(time, wings, mask, mask_color, us, unsigned_distance)
+subroutine Draw_flexible_wing(time, wings, mask, mask_color, us)!, unsigned_distance)
 
   implicit none
 
   real(kind=pr), intent(in) :: time
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  real(kind=pr),intent(inout)::unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   type(wing),dimension(1:nWings), intent(inout) :: wings
@@ -14,19 +13,19 @@ subroutine Draw_flexible_wing(time, wings, mask, mask_color, us, unsigned_distan
   mask = 0.d0
   mask_color = 0
   us = 0.d0
-  unsigned_distance = 100.d0 !assign the distance to be really far away
 
   ! Create mask function and us field from triangular mesh
-  call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
+  call create_mask_from_triangular_mesh(wings,mask,us,mask_color)
 
+  !deallocate(unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
 
 end subroutine Draw_flexible_wing
 
-subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
+subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
 
     implicit none
     real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-    real(kind=pr),intent(inout)::unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
+    !real(kind=pr),intent(inout)::unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     type(wing),dimension(1:nWings), intent(inout) :: wings
@@ -36,7 +35,10 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
     integer, parameter :: safety = 2
     real(kind=pr) :: x,y,z, distance
     real(kind=pr),dimension(1:3) :: velocity
+    real(kind=pr),allocatable::unsigned_distance(:,:,:)
 
+    allocate(unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+    unsigned_distance = 100.d0 !assign the distance to be really far away
 
     do i = 1, nWings
 
@@ -141,6 +143,8 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_di
       enddo
 
   enddo
+
+  deallocate(unsigned_distance)
 
 end subroutine create_mask_from_triangular_mesh
 

@@ -1,12 +1,14 @@
 ! FSI wrapper for different (possibly time-dependend) mask functions
-subroutine create_mask_fsi (time, Insect, beams )
+subroutine create_mask_fsi (time, Insect, beams ,wings)
   use vars
   use solid_model
+  use flexible_model
   use module_insects
   use turbulent_inlet_module
   use penalization ! mask array etc
   implicit none
   real(kind=pr), intent(in) :: time
+  type(wing), dimension(1:nWings), intent (inout) :: wings
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   logical, save :: mask_already_read = .false.
@@ -75,6 +77,9 @@ subroutine create_mask_fsi (time, Insect, beams )
           ! other than having two routines.
           call Update_Insect( time, Insect )
           call Draw_Insect ( time, Insect, xx0, ddx, mask, mask_color, us)
+
+      case ("Flexible_wing")
+          call Draw_flexible_wing(time, wings, mask, mask_color, us)
 
       case("Flexibility")
           call Draw_flexible_plate(time, beams(1))

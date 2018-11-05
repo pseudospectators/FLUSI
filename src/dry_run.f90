@@ -245,6 +245,7 @@ end subroutine dry_run
 subroutine dry_run_flexible_wing()
   use vars
   use p3dfft_wrapper
+  use solid_model
   use flexible_model
   use penalization ! mask array etc
   use stl_file_reader
@@ -258,6 +259,8 @@ subroutine dry_run_flexible_wing()
   character(len=6) :: name
   ! this is the insect we're using (object oriented)
   type(diptera) :: Insect
+  ! this is the solid model beams:
+  type(solid), dimension(1:nBeams) :: beams
   ! this is the wings we're using (object oriented)
   type(Wing),dimension(1:nWings) :: Wings
   logical :: exists
@@ -311,6 +314,16 @@ subroutine dry_run_flexible_wing()
   call get_command_argument(3,mode)
 
   !-----------------------------------------------------------------------------
+  ! Checking
+  !-----------------------------------------------------------------------------
+  if (iMask/="Flexible_wing") then
+    call abort(476659, "dry-run-flexible-wing is used only for flexible wing model, &
+    change iMask into Flexible_wing to continue")
+  endif
+
+
+
+  !-----------------------------------------------------------------------------
   ! Initialize domain decomposition, but not FFT (we dont need thats)
   !-----------------------------------------------------------------------------
   call decomposition_initialize()
@@ -327,8 +340,8 @@ subroutine dry_run_flexible_wing()
   memory = memory + mem_field
 
   ! mask function (defines the geometry)
-  allocate(unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-  memory = memory + mem_field
+  !allocate(unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  !memory = memory + mem_field
 
   ! mask color function (distinguishes between different parts of the mask)
   allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
@@ -370,13 +383,13 @@ subroutine dry_run_flexible_wing()
   it = 0
 
   ! create the startup mask function
-  call Draw_flexible_wing(time, wings, mask, mask_color, us, unsigned_distance)
+  call create_mask(time,Insect,beams,wings)
 
   ! Save data
   write(name,'(i6.6)') floor(time*1000.d0)
 
   call save_field_hdf5(time,'mask_'//name,mask)
-  call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
+  !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
   if (isaveSolidVelocity == 1) then
     call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
     call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
@@ -392,11 +405,7 @@ subroutine dry_run_flexible_wing()
     call flexible_solid_time_step(time, tsave, tsave, it, wings)
 
     ! create the mask
-    call Draw_flexible_wing(time, wings, mask, mask_color, us, unsigned_distance)
-    !call create_mask_from_triangular_mesh(wings,mask,us,mask_color,unsigned_distance)
-
-    !call Moving_boundary_point(wings)
-
+    call create_mask(time,Insect,beams,wings)
 
 
     it = it+1
@@ -405,13 +414,13 @@ subroutine dry_run_flexible_wing()
     ! Save data
     write(name,'(i6.6)') floor(time*1000.d0)
 
-    !if(mpirank==0) then
-    !  write(*,'("Dry run: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
-    !  time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
-    !endif
+    if(mpirank==0) then
+      write(*,'("Dry run flexible wing: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
+      time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
+    endif
 
     call save_field_hdf5(time,'mask_'//name,mask)
-    call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
+    !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
     if (isaveSolidVelocity == 1) then
       call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
       call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
@@ -424,14 +433,15 @@ subroutine dry_run_flexible_wing()
 
   enddo
 
-  !if(mpirank==0) then
-  !  write(*,'("time for mask creation ",es12.4)') time_mask
-  !endif
+  if(mpirank==0) then
+    !write(*,'("total time ",es12.4)') time_total
+    write(*,'("time for mask creation ",es12.4)') time_mask
+  endif
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory
   !-----------------------------------------------------------------------------
-  deallocate(us, mask, mask_color, unsigned_distance)
+  deallocate(us, mask, mask_color)
 
   !if (iMask=="Insect") then
     ! Clean insect

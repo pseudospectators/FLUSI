@@ -15,21 +15,29 @@ subroutine flexible_solid_time_step(time, dt0, dt1, it, wings)
     ! select scheme
     if (it == 0) then
 
-        ! Construct the external force vector
-        call external_forces_construction(Wings)
+        call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
 
+        ! Construct the external force vector
+        write(*,*) wings(1)%at_inertia
+        call external_forces_construction(time,dt0,dt1, it,wings)
         ! EULER startup scheme
         ! compute position and velocity at new time step
         ! (updates wings%u_new using wings%u_old)
         call flexible_solid_solver_euler(time, dt1, it, wings)
+        !call moving_noninertial_frame_in_reference_frame(time,dt0,dt1, it,Wings)
     else
+
+        call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
+
+        write(*,*) wings(1)%at_inertia
         ! Construct the external force vector
-        call external_forces_construction(Wings)
+        call external_forces_construction(time,dt0,dt1, it,wings)
 
         ! BDF2 scheme
         ! compute position and velocity at new time step
         ! (updates wings%u_new using wings%u_old and wings%u_old)
         call flexible_solid_solver_BDF2(time, dt0, dt1, it, wings)
+        !call moving_noninertial_frame_in_reference_frame(time,dt0,dt1, it,Wings)
 
     endif
 

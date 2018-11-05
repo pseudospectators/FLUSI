@@ -62,21 +62,7 @@ subroutine init_wings ( fname, wings )
     wings(i)%Membranes_extension = 0.d0
     wings(i)%Membrane_edge = 0.d0
     wings(i)%m=0.d0
-    !wings(i)%pressure_old = 0.d0
-    !wings(i)%pressure_new = 0.d0
-    ! this is used for unst correction computation:
-    !wings(i)%drag_unst_new = 0.d0
-    !wings(i)%drag_unst_old = 0.d0
-    !wings(i)%lift_unst_new = 0.d0y
-    !wings(i)%lift_unst_old = 0.d0
-    !wings(i)%Force = 0.d0
-    !wings(i)%Force_unst = 0.d0
-    !wings(i)%Force_press = 0.d0
-    !wings(i)%Inertial_Force = 0.d0
-    !wings(i)%E_kinetic = 0.d0
-    !wings(i)%E_elastic = 0.d0
-    !wings(i)%E_tot = 0.d0
-    !wings(i)%UnsteadyCorrectionsReady = .false.
+    wings(i)%at_inertia=0.d0
     wings(i)%StartupStep = .true.
     wings(i)%dt_old = 0.d0
 
