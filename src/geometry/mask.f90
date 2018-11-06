@@ -4,12 +4,15 @@ subroutine create_mask(time,Insect,beams,wings)
   use vars
   use solid_model
   use flexible_model
+
   use module_insects
   use penalization ! mask array etc
   implicit none
 
   real(kind=pr), intent(in) :: time
+
   type(wing), dimension(1:nWings), intent (inout) :: wings
+
   type(solid), dimension(1:nbeams), intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1

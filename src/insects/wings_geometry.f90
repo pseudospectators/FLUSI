@@ -309,6 +309,7 @@ end subroutine draw_wing_pointcloud
 ! This wing has finite thickness.
 !-------------------------------------------------------------------------------
 subroutine draw_wing_suzuki(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,x_pivot_b,rot_rel_wing_w)
+
     implicit none
 
     type(diptera),intent(inout) :: Insect
@@ -391,6 +392,7 @@ subroutine draw_wing_suzuki(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_b
                 endif
             enddo
         enddo
+
     enddo
 end subroutine draw_wing_suzuki
 

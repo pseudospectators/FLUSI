@@ -3,6 +3,7 @@ subroutine create_mask_fsi (time, Insect, beams ,wings)
   use vars
   use solid_model
   use flexible_model
+
   use module_insects
   use turbulent_inlet_module
   use penalization ! mask array etc
@@ -80,7 +81,7 @@ subroutine create_mask_fsi (time, Insect, beams ,wings)
 
       case ("Flexible_wing")
           call Draw_flexible_wing(time, wings, mask, mask_color, us)
-
+          
       case("Flexibility")
           call Draw_flexible_plate(time, beams(1))
 

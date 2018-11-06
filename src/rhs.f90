@@ -79,6 +79,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
           endif
           time_nlk2 = time_nlk2 + MPI_wtime() - t1
 
+
       case default
           call abort(129388,"For some reason, the equation is unkown. Set navier-stokes or artificial-compressibility")
 
