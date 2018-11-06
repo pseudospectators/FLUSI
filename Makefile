@@ -38,10 +38,13 @@ OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
 #--------------------------------------------------------------
 # Files that create modules:
 #--------------------------------------------------------------
-MFILES = vars.f90 module_helpers.f90 cof_p3dfft.f90 solid_solver.f90 \
+
+MFILES = vars.f90 module_helpers.f90 cof_p3dfft.f90 solid_solver.f90 flexible_solver.f90\
 	interpolation.f90 basic_operators.f90 module_insects.f90 turbulent_inlet.f90 \
 	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
-	ini_files_parser_mpi.f90 wavelet_library.f90 module_insects_integration_flusi_wabbit.f90
+	ini_files_parser_mpi.f90 wavelet_library.f90 module_insects_integration_flusi_wabbit.f90 \
+	krylov_time_stepper.f90
+
 ifndef NOHDF5
 MFILES += hdf5_wrapper.f90 slicing.f90 stlreader.f90
 else
@@ -57,6 +60,7 @@ VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
 VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd:src/wavelets
 VPATH += :src/insects:src/solid_solver:src/postprocessing:src/file_io
+VPATH += :src/flexible_solver
 
 # Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
@@ -164,7 +168,7 @@ ifdef MKLROOT
 LDFLAGS += -I${MKLROOT}/include -L${MKLROOT}/lib/intel64 -lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl
 else
 # Use custom LAPACK installation
-LDFLAGS += -llapack
+LDFLAGS += -llapack -lblas
 endif
 
 
@@ -213,6 +217,10 @@ $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpola
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
 	prescribed_beam.f90 solid_solver_wrapper.f90 $(OBJDIR)/ghostpoints.o
 	$(FC) -Isrc/solid_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/flexible_solver.o: flexible_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/module_helpers.o \
+	flexible_tri_mask.f90 internal_force.f90 internal_force_derivative.f90 \
+	init_wing.f90 flexible_solver_wrapper.f90
+	$(FC) -Isrc/flexible_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
@@ -242,6 +250,8 @@ $(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o $(O
 $(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o $(OBJDIR)/solid_solver.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o $(OBJDIR)/runtime_backuping.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/krylov_time_stepper.o: krylov_time_stepper.f90 $(OBJDIR)/vars.o $(OBJDIR)/module_helpers.o $(OBJDIR)/module_insects_integration_flusi_wabbit.o $(OBJDIR)/solid_solver.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o coherent_vortex_extraction.f90 FWT3_PO.f90 \
 	IWT3_PO.f90

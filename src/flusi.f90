@@ -4,6 +4,8 @@ program FLUSI
   use solid_model
   use module_insects
   use module_helpers
+  use flexible_model
+
 
   implicit none
   integer                :: mpicode
@@ -46,10 +48,19 @@ program FLUSI
     !-------------------------------------------------------------------------
     call dry_run()
 
+  elseif ( infile == "--dry-run-flexible-wing" ) then
+    !-------------------------------------------------------------------------
+    ! dry run that only generates and dumps the mask function for flexible wing
+    ! using mass-spring model, without allocating or computing the fluid.
+    !-------------------------------------------------------------------------
+    call dry_run_flexible_wing()
+
+
   elseif ( infile == "--io-test" ) then
     call io_test()
 
-  elseif ( infile=="--solid" .or. infile=="--solid-time-convergence" ) then
+  elseif ( infile=="--solid" .or. infile=="--flexiblesolid" .or. &
+    infile=="--solid-time-convergence" ) then
     !-------------------------------------------------------------------------
     ! run solid model only
     !-------------------------------------------------------------------------
@@ -65,6 +76,8 @@ program FLUSI
 
     if (infile=="--solid") then
       call OnlySolidSimulation()
+    elseif (infile=="--flexiblesolid") then
+      call OnlyFlexibleSolidSimulation()
     elseif (infile=="--solid-time-convergence") then
       call SolidModelConvergenceTest()
     endif
@@ -179,6 +192,7 @@ end program FLUSI
 
     ! we need more memory for RK4:
     if (iTimeMethodFluid=="RK4") nrhs=5
+    if (iTimeMethodFluid=="krylov") nrhs=2
     if (root) write(*,'("Using nrhs=",i1," right hand side registers")') nrhs
 
     ! the number of entries in the state vector depends on the equation we solve
@@ -601,6 +615,7 @@ if (mpirank/=0) return
     write (14,'(5(A15,1x))') "%          time","volume","mask*usx","mask*usy","mask*usz"
     close (14)
 
+    call init_empty_file('krylov_err.t')
     call init_empty_file('iterations.t')
 
     open  (14,file='rigidsolidsolver.t',status='replace')

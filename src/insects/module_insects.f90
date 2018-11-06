@@ -176,6 +176,9 @@ module module_insects
     character(len=strlen) :: wing_thickness_distribution = "constant"
     character(len=strlen) :: pointcloudfile = "none"
     logical :: corrugated = .false.
+    
+    real(kind=rk) :: corrugation_array_bbox(1:4)
+
 
     !--------------------------------------------------------------
     ! Wing kinematics
@@ -444,10 +447,20 @@ contains
   ! thickness (i.e., in the limit, steps=1 if x<t and steps=0 if x>t
   !-------------------------------------------------------
   real(kind=rk) function steps(x, t, h)
-     implicit none
-    real(kind=rk) :: f,x,t, h
-    call smoothstep(f,x,t,h)
-    steps=f
+
+      implicit none
+      real(kind=rk) :: x, t, h
+      ! f is 1 if x<=t-h
+      ! f is 0 if x>t+h
+      ! f is variable (smooth) in between
+      if (x<=t-h) then
+          steps = 1.d0
+      elseif (((t-h)<x).and.(x<(t+h))) then
+          steps = 0.5d0*(1.d0+dcos((x-t+h)*pi/(2.d0*h)) )
+      else
+          steps = 0.d0
+      endif
+
   end function
 
 

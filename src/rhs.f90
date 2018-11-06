@@ -30,68 +30,69 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
   ! step.
   !-----------------------------------------------------------------------------
   if ((iMoving==1).and.(iPenalization==1).and.(iTimeMethodFluid/="FSI_AB2_iteration")) then
-    ! for the iterative FSI schemes, the mask is created in fluidtimestep
-    ! (so iTimeMethodFluid==FSI_AB2_iteration skips mask generation)
-    call create_mask( time, Insect, beams )
+      ! for the iterative FSI schemes, the mask is created in fluidtimestep
+      ! (so iTimeMethodFluid==FSI_AB2_iteration skips mask generation)
+      call create_mask( time, Insect, beams )
   endif
 
   select case(method)
   case("fsi")
-    !---------------------------------------------------------------------------
-    ! FSI case. note projection is outsourced and performed here.
-    !---------------------------------------------------------------------------
-
-    select case (equation)
-    case ("navier-stokes")
-      ! compute source-terms, *not* divergence-free
-      t1 = MPI_wtime()
-      call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,Insect)
-      time_nlk2 = time_nlk2 + MPI_wtime() - t1
-
-      t1 = MPI_wtime()
-      ! if we compute active FSI (with flexible obstacles), we need the pressure
-      if (use_solid_model=="yes") then
-        call pressure( nlk,workc(:,:,:,1) )
-        ! transform it to phys space (note "press" has ghostpoints, cut them here)
-        call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
-      endif
-      ! project the right hand side to the incompressible manifold
-      call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-      ! for global performance measurement
-      time_p = time_p + MPI_wtime() - t1
-
       !---------------------------------------------------------------------------
-      ! passive scalar. the new module uses finite differences and evolves up to 9
-      ! different colors. for FD, no work arrays are required.
+      ! FSI case. note projection is outsourced and performed here.
       !---------------------------------------------------------------------------
-      t1 = MPI_wtime()
-      if ((use_passive_scalar==1).and.(compute_scalar)) then
-        call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
-      endif
-      time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
 
-    case ("artificial-compressibility")
-      t1 = MPI_wtime()
-      if (nx==1) then
-          call rhs_acm_2D(time,it,nlk,uk,u,vort,work,workc,Insect)
-      else
-          call rhs_acm_3D(time,it,nlk,uk,u,vort,work,workc,Insect)
-      endif
-      time_nlk2 = time_nlk2 + MPI_wtime() - t1
+      select case (equation)
+      case ("navier-stokes")
+          ! compute source-terms, *not* divergence-free
+          t1 = MPI_wtime()
+          call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,Insect)
+          time_nlk2 = time_nlk2 + MPI_wtime() - t1
 
-    case default
-      call abort(129388,"For some reason, the equation is unkown. Set navier-stokes or artificial-compressibility")
+          t1 = MPI_wtime()
+          ! if we compute active FSI (with flexible obstacles), we need the pressure
+          if (use_solid_model=="yes") then
+              call pressure( nlk,workc(:,:,:,1) )
+              ! transform it to phys space (note "press" has ghostpoints, cut them here)
+              call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+          endif
+          ! project the right hand side to the incompressible manifold
+          call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
+          ! for global performance measurement
+          time_p = time_p + MPI_wtime() - t1
 
-    end select
+          !---------------------------------------------------------------------------
+          ! passive scalar. the new module uses finite differences and evolves up to 9
+          ! different colors. for FD, no work arrays are required.
+          !---------------------------------------------------------------------------
+          t1 = MPI_wtime()
+          if ((use_passive_scalar==1).and.(compute_scalar)) then
+              call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
+          endif
+          time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
+
+      case ("artificial-compressibility")
+          t1 = MPI_wtime()
+          if (nx==1) then
+              call rhs_acm_2D(time,it,nlk,uk,u,vort,work,workc,Insect)
+          else
+              call rhs_acm_3D(time,it,nlk,uk,u,vort,work,workc,Insect)
+          endif
+          time_nlk2 = time_nlk2 + MPI_wtime() - t1
+
+
+      case default
+          call abort(129388,"For some reason, the equation is unkown. Set navier-stokes or artificial-compressibility")
+
+      end select
 
   case("mhd")
-     !--------------------------------------------------------------------------
-     ! MHD case
-     !--------------------------------------------------------------------------
-     call cal_nlk_mhd(nlk,uk,u,vort)
+      !--------------------------------------------------------------------------
+      ! MHD case
+      !--------------------------------------------------------------------------
+      call cal_nlk_mhd(nlk,uk,u,vort)
 
   case default
-     call abort(1,"Error! Unknown method in cal_nlk")
+      call abort(1,"Error! Unknown method in cal_nlk")
   end select
 
   time_rhs = time_rhs + MPI_wtime() - t0
@@ -296,7 +297,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   ! Add explicit diffusion term here, if RK4 is used (other time steppers have
   ! integrating factors and thus implicit diffusion)
   !---------------------------------------------------------------------------
-  if (iTimeMethodFluid=="RK4") then
+  if (iTimeMethodFluid=="RK4" .or. iTimeMethodFluid=="krylov") then
     call add_explicit_diffusion(uk,nlk)
   endif
 

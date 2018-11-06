@@ -240,3 +240,214 @@ subroutine dry_run()
   ! release other memory
   call fft_free
 end subroutine dry_run
+
+! The same dry_run subroutine as above but modified for flexible wing model
+subroutine dry_run_flexible_wing()
+  use vars
+  use p3dfft_wrapper
+  use solid_model
+  use flexible_model
+  use penalization ! mask array etc
+  use stl_file_reader
+  use module_insects
+  !use helpers
+  !use module_ini_files_parser_mpi
+  implicit none
+  real(kind=pr)          :: time,memory,mem_field
+  integer                :: it, i, j
+  character(len=strlen)  :: infile, mode
+  character(len=6) :: name
+  ! this is the insect we're using (object oriented)
+  type(diptera) :: Insect
+  ! this is the solid model beams:
+  type(solid), dimension(1:nBeams) :: beams
+  ! this is the wings we're using (object oriented)
+  type(Wing),dimension(1:nWings) :: Wings
+  logical :: exists
+
+
+  ! Set method information in vars module.
+  method="fsi" ! We are doing PSEUDO fluid-structure interactions
+  nf=1    ! We are evolving one field (that means 1 integrating factor)
+  nd=3*nf ! The one field has three components.
+  neq=nd  ! number of equations, can be higher than 3 if using passive scalar
+
+
+  ! initialize timing variables
+  time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
+  time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
+  time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
+  time_scalar=0.d0
+  time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
+  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
+  tslices=0.d0
+
+  if (root) then
+     write(*,'(A)') '--------------------------------------'
+     write(*,'(A)') '  FLUSI--dry run flexible wing'
+     write(*,'(A)') '--------------------------------------'
+     write(*,'("Running on ",i5," CPUs")') mpisize
+     write(*,'(A)') '--------------------------------------'
+     write(*,'(A)') 'Usage: ./flusi --dry-run-flexible-wing PARAMS.ini [MODE]'
+     write(*,'(A)') 'where mode can be'
+     write(*,'(A)') ' --fixed   wings are fixed at the wingbases'
+     write(*,'(A)') ' --kinematics   specify wings mask parameters in command line'
+     write(*,'(A)') '--------------------------------------'
+  endif
+
+
+
+  !-----------------------------------------------------------------------------
+  ! Read input parameters and mesh data
+  !-----------------------------------------------------------------------------
+  allocate(lin(nf)) ! Set up the linear term
+  if (root) write(*,'(A)') '*** info: Reading input data...'
+  ! get filename of PARAMS file from command line
+  call get_command_argument(2,infile)
+
+  write(*,*) infile
+
+  ! read all parameters from that file
+  call get_params(infile,Insect,.true.)
+
+  ! is the position of body and wings given by the command line?
+  call get_command_argument(3,mode)
+
+  !-----------------------------------------------------------------------------
+  ! Checking
+  !-----------------------------------------------------------------------------
+  if (iMask/="Flexible_wing") then
+    call abort(476659, "dry-run-flexible-wing is used only for flexible wing model, &
+    change iMask into Flexible_wing to continue")
+  endif
+
+
+
+  !-----------------------------------------------------------------------------
+  ! Initialize domain decomposition, but not FFT (we dont need thats)
+  !-----------------------------------------------------------------------------
+  call decomposition_initialize()
+
+  !-----------------------------------------------------------------------------
+  ! Allocate memory:
+  !-----------------------------------------------------------------------------
+  ! size (in bytes) of one field
+  mem_field = dble(nx)*dble(ny)*dble(nz)*8.d0
+  memory = 0.0d0
+
+  ! mask function (defines the geometry)
+  allocate(mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  memory = memory + mem_field
+
+  ! mask function (defines the geometry)
+  !allocate(unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  !memory = memory + mem_field
+
+  ! mask color function (distinguishes between different parts of the mask)
+  allocate(mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  memory = memory + mem_field/4.d0
+
+  ! solid body velocities
+  allocate(us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+  memory = memory + dble(nd)*mem_field
+
+  !-----------------------------------------------------------------------------
+  ! show memory consumption for information
+  !-----------------------------------------------------------------------------
+  if (mpirank==0) then
+    write(*,'(80("-"))')
+    write(*,'("Allocated ",i1," real and ",i1," complex work arrays")') nrw,ncw
+    write(*,'("FLUSI allocated ",f7.1,"MB (",f5.1,"GB) of memory in total")')&
+    memory/(1.0d6),memory/(1.0d9)
+    write(*,'("which is ",f7.1,"MB (",f4.1,"GB) per CPU")') &
+    memory/(1.0d6)/dble(mpisize),memory/(1.0d9)/dble(mpisize)
+    write(*,'(80("-"))')
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! initalize wings
+  !-----------------------------------------------------------------------------
+  call init_wings( infile, Wings)
+
+  if (tsave == 0.d0) then
+    if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
+    tsave = 0.05d0
+  endif
+
+  !*****************************************************************************
+  ! Step forward in time
+  !*****************************************************************************
+  ! tstart is read in parameter file and default value 0.0
+  ! this way you can have better control over dry-runs
+  time = tstart
+  it = 0
+
+  ! create the startup mask function
+  call create_mask(time,Insect,beams,wings)
+
+  ! Save data
+  write(name,'(i6.6)') floor(time*1000.d0)
+
+  call save_field_hdf5(time,'mask_'//name,mask)
+  !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
+  if (isaveSolidVelocity == 1) then
+    call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
+    call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
+    call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
+  endif
+
+  do while (time<tmax)
+
+    !
+    call flexible_wing_motions ( time, wings )
+
+    !
+    call flexible_solid_time_step(time, tsave, tsave, it, wings)
+
+    ! create the mask
+    call create_mask(time,Insect,beams,wings)
+
+
+    it = it+1
+    time = tstart + dble(it)*tsave
+
+    ! Save data
+    write(name,'(i6.6)') floor(time*1000.d0)
+
+    if(mpirank==0) then
+      write(*,'("Dry run flexible wing: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
+      time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
+    endif
+
+    call save_field_hdf5(time,'mask_'//name,mask)
+    !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
+    if (isaveSolidVelocity == 1) then
+      call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
+      call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
+      call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
+    endif
+
+    if (root) then
+      call SaveWingData( time, wings )
+    endif
+
+  enddo
+
+  if(mpirank==0) then
+    !write(*,'("total time ",es12.4)') time_total
+    write(*,'("time for mask creation ",es12.4)') time_mask
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! Deallocate memory
+  !-----------------------------------------------------------------------------
+  deallocate(us, mask, mask_color)
+
+  !if (iMask=="Insect") then
+    ! Clean insect
+  !  call insect_clean(Insect)
+  !endif
+
+  ! release other memory
+  call fft_free
+end subroutine dry_run_flexible_wing

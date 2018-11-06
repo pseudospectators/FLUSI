@@ -39,6 +39,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use solid_model
   use module_insects
   use basic_operators
+  use krylov_module
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -64,33 +65,36 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
   case("RK2")
-    call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,&
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("RK4")
-    call RungeKutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      call RungeKutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,&
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+  case("krylov")
+      call krylov(time,it,dt0,dt1,u,uk,nlk,vort,work,&
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("AB2")
-    if(it == 0) then
-      call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
-    else
-      call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
-    endif
+      if(it == 0) then
+          call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,&
+          workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+      else
+          call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
+          workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+      endif
   case ("AB2_rigid_solid")
-    call AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      call AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("FSI_AB2_iteration")
-    call FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      call FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("FSI_AB2_staggered")
-    call FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      call FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case("FSI_AB2_semiimplicit")
-    call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-    workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
   case default
-    call abort(10001, "Error! iTimeMethodFluid unknown. Abort.")
+      call abort(10001, "Error! iTimeMethodFluid unknown. Abort.")
   end select
 
   ! Set the divergence of the magnetic field to zero to avoid drift.
@@ -871,127 +875,127 @@ end subroutine AB2_rigid_solid
 ! 5 - dt is smaller than tsave and tintegral
 !-------------------------------------------------------------------------------
 subroutine adjust_dt(time,u,dt1)
-  use vars
-  use mpi
-  use basic_operators
-  implicit none
+    use vars
+    use mpi
+    use basic_operators
+    implicit none
 
-  real(kind=pr), intent(in) :: time
-  real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  integer::mpicode
-  real(kind=pr), intent(out)::dt1
-  real(kind=pr)::umax,t , t1,t2
+    real(kind=pr), intent(in) :: time
+    real(kind=pr), intent(in)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    integer::mpicode
+    real(kind=pr), intent(out)::dt1
+    real(kind=pr)::umax,t , t1,t2
 
-  if (dt_fixed>0.0d0) then
-    !-- fix the time step no matter what. the result may be unstable.
-    dt1=dt_fixed
-  else
-    !-- Determine the maximum velocity/magnetic field value
-    if (method=="mhd") then
-      !-- MHD needs to respect CFL for magnetic field as well
-      umax = max( field_max_magnitude(u(:,:,:,1:3)), field_max_magnitude(u(:,:,:,4:6)) )
+    if (dt_fixed>0.0d0) then
+        !-- fix the time step no matter what. the result may be unstable.
+        dt1=dt_fixed
     else
-      !-- FSI runs just need to respect CFL for velocity
-      umax = field_max_magnitude(u(:,:,:,1:3))
-      if (equation=="artificial-compressibility") umax = umax+c_0
-    endif
-
-    !-- Adjust time step at 0th process
-    if(mpirank == 0) then
-      if(is_nan(umax)) then
-        call abort(100011, "Evolved field contains a NAN: aborting run.")
-      endif
-
-      if(umax>=1.0d3) then
-        write(*,*) "Umax is very big, surely this is an error, ", umax
-        call abort(100012, "Umax is very big, surely this is an error")
-      endif
-      !-- Impose the CFL condition.
-      if (umax >= 1.0d-8) then
-        if (nx==1) then
-          ! 2D case
-          dt1=min(dy,dz)*cfl/umax
+        !-- Determine the maximum velocity/magnetic field value
+        if (method=="mhd") then
+            !-- MHD needs to respect CFL for magnetic field as well
+            umax = max( field_max_magnitude(u(:,:,:,1:3)), field_max_magnitude(u(:,:,:,4:6)) )
         else
-          ! 3D case
-          dt1=min(dx,dy,dz)*cfl/umax
-        endif
-      else
-        !-- umax is very very small
-        dt1=1.0d-3
-      endif
-
-      !-- Round the time-step to one digit to reduce calls of cal_vis
-      call truncate(dt1)
-
-      !-- impose max dt, if specified in the parameter file
-      if (dt_max>0.d0) dt1=min(dt1,dt_max)
-
-      !-- Impose penalty stability condition: dt cannot be larger than eps
-      if (iPenalization > 0) dt1=min(0.99d0*eps,dt1)
-
-      !-- RungeKutta4 treats diffusive terms explicitly, so there is a condition
-      !   for the viscosity as well.
-      if (iTimeMethodFluid=="RK4") then
-        dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
-      endif
-
-
-      !*************************************************************************
-      ! we respect all necessary restrictions, the following ones are optional
-      !*************************************************************************
-      if (intelligent_dt=="yes") then
-        ! intelligent dt means we make sure not to jump past multiples of tsave
-        ! tend tintegral tslice.
-        ! The AB2 scheme may have problems if the new time step is much smaller
-        ! then the new one, so it may be wiser not to use it in that case (it has
-        ! not been tested)
-        if (time>=tsave_first) then
-          ! Don't jump past save-points: if the time-step is larger than
-          ! the time interval between outputs, decrease the time-step.
-          dt1 = min(dt1,0.98d0*tsave)
-          t = dble(ceiling(time/tsave))*tsave
-          if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
-            dt1=t-time
-          endif
+            !-- FSI runs just need to respect CFL for velocity
+            umax = field_max_magnitude(u(:,:,:,1:3))
+            if (equation=="artificial-compressibility") umax = umax+c_0
         endif
 
-        ! Don't jump past save-points: if the time-step is larger than
-        ! the time interval between outputs, decrease the time-step.
-        dt1 = min(dt1,0.98d0*tintegral)
-        t = dble(ceiling(time/tintegral))*tintegral
-        if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
-          dt1=t-time
+        !-- Adjust time step at 0th process
+        if(mpirank == 0) then
+            if(is_nan(umax)) then
+                call abort(100011, "Evolved field contains a NAN: aborting run.")
+            endif
+
+            if(umax>=1.0d3) then
+                write(*,*) "Umax is very big, surely this is an error, ", umax
+                call abort(100012, "Umax is very big, surely this is an error")
+            endif
+            !-- Impose the CFL condition.
+            if (umax >= 1.0d-8) then
+                if (nx==1) then
+                    ! 2D case
+                    dt1=min(dy,dz)*cfl/umax
+                else
+                    ! 3D case
+                    dt1=min(dx,dy,dz)*cfl/umax
+                endif
+            else
+                !-- umax is very very small
+                dt1=1.0d-3
+            endif
+
+            !-- Round the time-step to one digit to reduce calls of cal_vis
+            call truncate(dt1)
+
+            !-- impose max dt, if specified in the parameter file
+            if (dt_max>0.d0) dt1=min(dt1,dt_max)
+
+            !-- Impose penalty stability condition: dt cannot be larger than eps
+            if (iPenalization > 0) dt1=min( CFL_eta*eps, dt1 )
+
+            !-- RungeKutta4 treats diffusive terms explicitly, so there is a condition
+            !   for the viscosity as well.
+            if (iTimeMethodFluid=="RK4") then
+                dt1=min( dt1, 0.5d0*min(dx,dy,dz)**2 / nu )
+            endif
+
+
+            !*************************************************************************
+            ! we respect all necessary restrictions, the following ones are optional
+            !*************************************************************************
+            if (intelligent_dt=="yes") then
+                ! intelligent dt means we make sure not to jump past multiples of tsave
+                ! tend tintegral tslice.
+                ! The AB2 scheme may have problems if the new time step is much smaller
+                ! then the new one, so it may be wiser not to use it in that case (it has
+                ! not been tested)
+                if (time>=tsave_first) then
+                    ! Don't jump past save-points: if the time-step is larger than
+                    ! the time interval between outputs, decrease the time-step.
+                    dt1 = min(dt1,0.98d0*tsave)
+                    t = dble(ceiling(time/tsave))*tsave
+                    if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
+                        dt1=t-time
+                    endif
+                endif
+
+                ! Don't jump past save-points: if the time-step is larger than
+                ! the time interval between outputs, decrease the time-step.
+                dt1 = min(dt1,0.98d0*tintegral)
+                t = dble(ceiling(time/tintegral))*tintegral
+                if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
+                    dt1=t-time
+                endif
+
+                if ((time>=tslice_first).and.(method=="fsi").and.(use_slicing=="yes")) then
+                    ! Don't jump past save-points: if the time-step is larger than
+                    ! the time interval between outputs, decrease the time-step.
+                    dt1 = min(dt1,0.98d0*tslice)
+                    t = dble(ceiling(time/tslice))*tslice
+                    if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
+                        dt1=t-time
+                    endif
+                endif
+
+                ! do not jump past the final time "tmax" in the simulation
+                t = tmax
+                if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
+                    dt1 = tmax-time
+                endif
+            endif
         endif
 
-        if ((time>=tslice_first).and.(method=="fsi").and.(use_slicing=="yes")) then
-          ! Don't jump past save-points: if the time-step is larger than
-          ! the time interval between outputs, decrease the time-step.
-          dt1 = min(dt1,0.98d0*tslice)
-          t = dble(ceiling(time/tslice))*tslice
-          if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
-            dt1=t-time
-          endif
+        if(mpirank==0) then
+            open(14,file='dt.t',status='unknown',position='append')
+            write (14,'(5(g15.8,1x))') time, dt1, &
+            dt1*umax/min(dx,dy,dz),& ! currently valid CFL number
+            dt1*nu/min(dx,dy,dz)**2, & ! coefficient in front of viscous stability (below 0.5 for RK4)
+            dt1/eps ! penalization limit
+            close(14)
         endif
-
-        ! do not jump past the final time "tmax" in the simulation
-        t = tmax
-        if ((time+dt1>t).and.(abs(time-t)>=1.0d-6)) then
-          dt1 = tmax-time
-        endif
-      endif
+        ! Broadcast time step to all processes
+        call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
     endif
-
-    if(mpirank==0) then
-      open(14,file='dt.t',status='unknown',position='append')
-      write (14,'(5(g15.8,1x))') time, dt1, &
-      dt1*umax/min(dx,dy,dz),& ! currently valid CFL number
-      dt1*nu/min(dx,dy,dz)**2, & ! coefficient in front of viscous stability (below 0.5 for RK4)
-      dt1/eps ! penalization limit
-      close(14)
-    endif
-    ! Broadcast time step to all processes
-    call MPI_BCAST(dt1,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
-  endif
 
 end subroutine adjust_dt
 
