@@ -262,7 +262,7 @@ subroutine dry_run_flexible_wing()
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
   ! this is the wings we're using (object oriented)
-  type(Wing),dimension(1:nWings) :: Wings
+  type(flexible_wing),dimension(1:nWings) :: Wings
   logical :: exists
 
 

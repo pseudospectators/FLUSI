@@ -8,10 +8,11 @@
 ! Output:
 !       all output is done directly to hard disk in the *.t files
 !-------------------------------------------------------------------------------
-subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
+subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams,Wings)
   use mpi
   use vars
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -22,6 +23,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(in):: time
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1
@@ -30,7 +32,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
 
   select case(method)
   case("fsi")
-    call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),scalars,Insect,beams)
+    call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),scalars,Insect,beams,Wings)
   case("mhd")
     call write_integrals_mhd(time,uk,u,vort,nlk,work(:,:,:,1))
   case default
@@ -42,12 +44,13 @@ end subroutine write_integrals
 
 
 ! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beams)
+subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beams,Wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use basic_operators
   use solid_model
+  use flexible_model
   use module_insects
   use penalization ! mask array etc
   implicit none
@@ -59,6 +62,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
@@ -91,7 +95,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
     ! to compute the forces, we need the mask at time t. not we cannot suppose
     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
     ! have to reconstruct the mask now. solids are also at time t
-    if(iMoving==1) call create_mask(time, Insect, beams)
+    if(iMoving==1) call create_mask(time, Insect, beams, Wings)
     call cal_drag (time, u, Insect)
     time_drag = time_drag + MPI_wtime() - t3
   endif

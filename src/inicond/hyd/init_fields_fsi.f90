@@ -1,10 +1,11 @@
 ! Set initial conditions for fsi code.
 subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
-    press,scalars,scalars_rhs,Insect,beams, work, u)
+    press,scalars,scalars_rhs,Insect,beams,wings, work, u)
     use module_ini_files_parser_mpi
     use vars
     use p3dfft_wrapper
     use solid_model
+    use flexible_model
     use module_insects
     use basic_operators
     implicit none
@@ -24,6 +25,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
     real(kind=pr),dimension(:,:,:),allocatable::tmp
+    type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
     type(solid),dimension(1:nBeams), intent(inout) :: beams
     type(diptera),intent(inout)::Insect
     integer :: ix,iy,iz, nxs,nys,nzs, nxb,nyb,nzb,k
@@ -721,8 +723,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     !-----------------------------------------------------------------------------
     if ((use_passive_scalar==1).and.(index(inicond,"backup::")==0)) then
         ! only if not resuming a backup
-        call init_passive_scalar(scalars,scalars_rhs,Insect,beams)
+        call init_passive_scalar(scalars,scalars_rhs,Insect,beams,wings)
     endif
+
 
     !-----------------------------------------------------------------------------
     ! when computing running time avg, initialize (note that if we're resuming

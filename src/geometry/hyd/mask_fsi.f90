@@ -9,7 +9,7 @@ subroutine create_mask_fsi (time, Insect, beams ,wings)
   use penalization ! mask array etc
   implicit none
   real(kind=pr), intent(in) :: time
-  type(wing), dimension(1:nWings), intent (inout) :: wings
+  type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   logical, save :: mask_already_read = .false.

@@ -2,7 +2,7 @@ subroutine SaveWingData( time, wings )
   use vars
   implicit none
   real (kind=pr), intent (in) :: time
-  type (wing), dimension(1:nWings), intent (inout) :: wings
+  type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
   character(len=16) :: format_ns1
   character(len=3)  :: ns1_string
   character(len=1)  :: wingstr

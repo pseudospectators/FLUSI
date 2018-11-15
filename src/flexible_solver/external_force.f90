@@ -9,7 +9,7 @@ implicit none
 
 real(kind=pr),intent(in) :: time,dt0,dt1
 integer,intent(in) :: it
-type(Wing),dimension(1:nWings), intent(inout)  :: Wings
+type(flexible_wing),dimension(1:nWings), intent(inout)  :: Wings
 integer :: i, j, np
 
 do i=1,nWings
@@ -33,7 +33,7 @@ subroutine gravitational_forces (wings)
 
 implicit none
 
-type(wing), intent (inout) :: wings
+type(flexible_wing), intent (inout) :: wings
 integer :: j, np
 
   np = wings%np
@@ -52,7 +52,7 @@ implicit none
 
 real(kind=pr),intent(in) :: time,dt0,dt1
 integer,intent(in) :: it
-type(wing), intent (inout) :: wings
+type(flexible_wing), intent (inout) :: wings
 integer :: i,j, np
 
   np = wings%np

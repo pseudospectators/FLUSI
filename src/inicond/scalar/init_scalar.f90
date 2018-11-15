@@ -7,11 +7,12 @@
 !   scalars: the actual passive scalar (odor) fields
 !   scalars_rhs: their right hand sides (set to zero here)
 !-------------------------------------------------------------------------------
-subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
+subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams,Wings)
   use mpi
   use vars
   use penalization ! mask array etc
   use solid_model
+  use flexible_model
   use module_insects
   use passive_scalar_module
   use basic_operators
@@ -22,6 +23,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
 
   integer :: ix,iy,iz,j
   real (kind=pr) :: x,y,z
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nBeams), intent(inout) :: beams
   type(diptera),intent(inout)::Insect
 
@@ -53,7 +55,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
       ! no scalar inside mask (we build this here since FLUSI first loads inicond,
       ! then creates the mask!)
       !---------------------------------------------------------------------------
-      call create_mask( 0.d0, Insect,beams )
+      call create_mask( 0.d0, Insect,beams,Wings )
 
       !-- set half the domain to one
       do iz=ra(3), rb(3)
@@ -77,7 +79,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
       !---------------------------------------------------------------------------
       ! smoothed heaviside function, covering approx. half the domain
       !---------------------------------------------------------------------------
-      call create_mask( 0.d0, Insect,beams )
+      call create_mask( 0.d0, Insect,beams,Wings )
 
       !-- set half the domain to one
       do iz=ra(3), rb(3)
@@ -98,7 +100,7 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams)
       !---------------------------------------------------------------------------
       ! smoothed heaviside function, covering approx. half the domain
       !---------------------------------------------------------------------------
-      call create_mask( 0.d0, Insect,beams )
+      call create_mask( 0.d0, Insect,beams,Wings )
 
       !-- set half the domain to one
       do iz=ra(3), rb(3)

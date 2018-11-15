@@ -1,8 +1,9 @@
 ! Wrapper for computing the nonlinear source term for Navier-Stokes/MHD
-subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   use passive_scalar_module
   implicit none
@@ -17,6 +18,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(in) :: time
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1,t0
@@ -32,7 +34,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
   if ((iMoving==1).and.(iPenalization==1).and.(iTimeMethodFluid/="FSI_AB2_iteration")) then
       ! for the iterative FSI schemes, the mask is created in fluidtimestep
       ! (so iTimeMethodFluid==FSI_AB2_iteration skips mask generation)
-      call create_mask( time, Insect, beams )
+      call create_mask( time, Insect, beams, wings )
   endif
 
   select case(method)

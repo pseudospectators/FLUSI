@@ -22,7 +22,7 @@ module flexible_model
 
   real(kind=pr),dimension(1:3),save :: grav
   real(kind=pr), parameter :: error_stop = 1.0e-6
-  !character(len=strlen),save :: imposed_motion_leadingedge, TimeMethodSolid
+  character(len=strlen),save :: use_flexible_wing_model, TimeMethodFlexibleSolid
 
 
   ! this is a hack to avoid allocating/deallacting these arrays in every time
@@ -35,7 +35,7 @@ module flexible_model
   !----------------------------------------------
   ! Wing datatype
   !----------------------------------------------
-  type Wing
+  type Flexible_wing
     ! These arrays are statically allocated (they lie thus on
     ! the stack), since on turing we had problems with memory fragmentation. It
     ! is still possible to use np<npmax via the params file, but not np>npmax.
@@ -92,7 +92,7 @@ module flexible_model
     real(kind=pr) :: x0, y0, z0
 
     !
-    real(kind=pr),dimension(1:3) :: at_inertia 
+    real(kind=pr),dimension(1:3) :: at_inertia
 
     ! grid and width in rigid direction:
     real(kind=pr) :: t_wing, wing_smoothing
@@ -117,7 +117,7 @@ module flexible_model
     character(len=strlen) :: Motion
     real(kind=pr),dimension(1:3*npmax) :: RHS_a, RHS_b
 
-  end type wing
+  end type flexible_wing
 
 
  contains
@@ -143,7 +143,7 @@ module flexible_model
 subroutine InitializeFlexibleSolidSolver( wings )
   implicit none
   integer :: i
-  type(wing), dimension(1:nWings), intent (inout) :: wings
+  type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
 
   ! marks all wings to be in the very first time step
   ! the solver then uses CN2 instead of BDF2, because the old old time level
@@ -159,7 +159,7 @@ end subroutine InitializeFlexibleSolidSolver
 !-------------------------------------------------------------------------------
 !subroutine MassSpringEnergies( wing )
 !  implicit none
-!  type(wing), intent (inout) :: wing
+!  type(flexible_wing), intent (inout) :: wing
 
 !  wing%E_kinetic = 0.5d0*ds*sum( wing%mu(0:ns-1) * (wing%vx(0:ns-1)**2 + wing%vy(0:ns-1)**2) )
 !  wing%E_pot     = grav*ds *sum( wing%mu(0:ns-1) * (wing%y(0:ns-1)-wing%y0) )
