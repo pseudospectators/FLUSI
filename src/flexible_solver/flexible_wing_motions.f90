@@ -5,7 +5,7 @@ subroutine flexible_wing_motions ( time, wings )
   implicit none
 
   real(kind=pr),intent(in) :: time
-  type(wing), dimension (1:nWings), intent (inout) :: wings
+  type(flexible_wing), dimension (1:nWings), intent (inout) :: wings
   integer :: i
 
   do i=1,nWings
@@ -24,7 +24,7 @@ subroutine simple_harmonic_motion (time, wings)
   implicit none
 
   real(kind=pr),intent(in) :: time
-  type(wing), intent (inout) :: wings
+  type(flexible_wing), intent (inout) :: wings
   integer :: j
 
     do j=1,nVeins_BC
@@ -40,7 +40,7 @@ implicit none
 
 real(kind=pr),intent(in) :: time,dt0,dt1
 integer,intent(in) :: it
-type(wing), dimension (1:nWings), intent(inout) :: wings
+type(flexible_wing), dimension (1:nWings), intent(inout) :: wings
 integer :: i
 
 do i=1,nWings
@@ -57,7 +57,7 @@ implicit none
 
 real(kind=pr),intent(in) :: time,dt0,dt1
 integer,intent(in) :: it
-type(wing), intent(inout) :: wings
+type(flexible_wing), intent(inout) :: wings
 real(kind=pr) :: c1, c2, c3, r
 integer :: np
 

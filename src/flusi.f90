@@ -106,6 +106,7 @@ end program FLUSI
     use vars
     use p3dfft_wrapper
     use solid_model
+    use flexible_model
     use module_insects
     use slicing
     use turbulent_inlet_module
@@ -131,6 +132,8 @@ end program FLUSI
     real(kind=pr),dimension(:,:,:,:,:),allocatable :: scalars_rhs
     ! this is the insect we're using (object oriented)
     type(diptera) :: Insect
+    ! this is the flexible wings we're using (object oriented)
+    type(flexible_wing),dimension(1:nWings) :: Wings
     ! this is the solid model beams:
     type(solid), dimension(1:nBeams) :: beams
 
@@ -349,7 +352,7 @@ end program FLUSI
     ! Initial condition
     !-----------------------------------------------------------------------------
     call init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
-    press,scalars,scalars_rhs,Insect,beams)
+    press,scalars,scalars_rhs,Insect,beams,wings)
 
     !-----------------------------------------------------------------------------
     ! Initialize time series output files, if not resuming a backup
@@ -387,7 +390,7 @@ end program FLUSI
 
     t1 = MPI_wtime()
     call time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
-    press,scalars,scalars_rhs,infile,Insect,beams )
+    press,scalars,scalars_rhs,infile,Insect,beams,wings )
     t2 = MPI_wtime() - t1
 
     !-----------------------------------------------------------------------------

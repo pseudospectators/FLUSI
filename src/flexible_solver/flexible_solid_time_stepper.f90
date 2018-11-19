@@ -8,7 +8,7 @@ subroutine flexible_solid_time_step(time, dt0, dt1, it, wings)
 
     real(kind=pr),intent(in) :: time, dt1, dt0
     integer,intent (in) :: it
-    type(wing), dimension(1:nWings), intent (inout) :: wings
+    type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
     real(kind=pr) :: c1, c2, c3
     integer :: i
 
@@ -65,7 +65,7 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
 
     real(kind=pr),intent(in) :: time, dt1
     integer,intent (in) :: it
-    type(wing), dimension(1:nWings), intent (inout) :: wings
+    type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
     real(kind=pr) :: du, err, err_rel, coef=1.0
     integer :: i, iter, i_NAN, j_NAN, iJ,jJ,np
     logical :: iterate
@@ -151,7 +151,7 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wings)
 
     real(kind=pr),intent(in) :: time, dt1, dt0
     integer,intent (in) :: it
-    type(Wing), dimension(1:nWings), intent (inout) :: wings
+    type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
     real(kind=pr) :: r, coef
     real(kind=pr) :: du, err, err_rel
     integer :: i, iter, np
@@ -240,7 +240,7 @@ subroutine RHS_for_NR_method(dt1, dt0, it, wings)
   implicit none
   integer, intent(in) :: it
   real(kind=pr),intent(in) :: dt1, dt0
-  type(wing), intent (inout) :: wings
+  type(flexible_wing), intent (inout) :: wings
   real(kind=pr) :: c1, c2, c3, r
   integer :: np
 

@@ -5,8 +5,8 @@ subroutine init_wings ( fname, wings )
   !---------------------------------------------------
   implicit none
   integer :: n, i, a,j, ind
-  character(len=*), intent(in) :: fname
-  type(wing), dimension (1:nWings), intent (inout) :: wings
+  character(len=strlen), intent(in) :: fname
+  type(flexible_wing), dimension (1:nWings), intent (inout) :: Wings
   real(kind=pr) :: alpha
   real(kind=pr) :: delta(1:3)
 
@@ -78,7 +78,7 @@ subroutine init_wings ( fname, wings )
     ! read in parameters form ini file
     !-----------------------------------------------------------------------------
 
-    ! read in the complete ini file, from which we initialize the insect
+    ! read in the complete ini file, from which we initialize the flexible wings
     call read_ini_file_mpi(PARAMS, fname, verbose=.true.)
 
     call read_param_mpi(PARAMS,"Geometry","x0",wings(i)%x0, 0.d0)
@@ -109,6 +109,8 @@ subroutine init_wings ( fname, wings )
     call read_param_mpi(PARAMS,"Flexible_wing","Motion",wings(i)%Motion,"stationary")
 
     call read_param_mpi(PARAMS,"Flexible_wing","Gravity",grav, (/0.d0, 0.d0, -9.8d0/))
+    call read_param_mpi(PARAMS,"Flexible_wing","use_flexible_wing_model",use_flexible_wing_model,"no")
+    call read_param_mpi(PARAMS,"Flexible_wing","TimeMethodFlexibleSolid",TimeMethodFlexibleSolid,"BDF2")
     ! clean ini file
     call clean_ini_file_mpi(PARAMS)
 
@@ -321,7 +323,7 @@ subroutine read_wing_mesh_data(wings, i)
   use vars
   implicit none
   integer, intent(in) :: i !ordinal number of the current wing
-  type (wing), intent (inout) :: wings !for the ith wing
+  type(flexible_wing), intent (inout) :: wings !for the ith wing
   character(len=strlen) :: data_file
   character(len=1)  :: wingstr
   integer :: j
@@ -477,7 +479,7 @@ end subroutine read_mesh_data_2D_array
 subroutine determine_boundary_points_from_origin(wings)
 
   implicit none
-  type (wing), intent (inout) :: wings
+  type(flexible_wing), intent (inout) :: wings
   integer :: i
   real(kind=pr), dimension(1:3) :: delta
 

@@ -7,7 +7,7 @@ subroutine Draw_flexible_wing(time, wings, mask, mask_color, us)!, unsigned_dist
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  type(wing),dimension(1:nWings), intent(inout) :: wings
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: wings
 
   ! initialize everything
   mask = 0.d0
@@ -28,7 +28,7 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
     !real(kind=pr),intent(inout)::unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-    type(wing),dimension(1:nWings), intent(inout) :: wings
+    type(flexible_wing),dimension(1:nWings), intent(inout) :: wings
     integer :: ix, iy, iz, itri, i, j
     integer :: ixmin, ixmax, iymin, iymax, izmin, izmax
     integer :: xmin, xmax, ymin, ymax, zmin, zmax

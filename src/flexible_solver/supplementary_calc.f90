@@ -130,7 +130,7 @@ subroutine Moving_boundary_point(wings)
 
 
     implicit none
-    type(wing), dimension(1:nWings), intent(inout) :: wings
+    type(flexible_wing), dimension(1:nWings), intent(inout) :: wings
     integer :: i,j
 
     do i=1,nWings
@@ -151,7 +151,7 @@ end subroutine
 subroutine rotate_wing(wings)
 
   implicit none
-  type(wing), intent(inout) :: wings
+  type(flexible_wing), intent(inout) :: wings
   real(kind=pr), dimension(1:3,1:3) :: mat_Ry, mat_Rz
   integer :: i
   real(kind=pr), dimension(1:3) :: u

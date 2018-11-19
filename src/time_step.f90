@@ -1,9 +1,10 @@
 subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
-  press,scalars,scalars_rhs,params_file,Insect,beams)
+  press,scalars,scalars_rhs,params_file,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   use slicing
   implicit none
@@ -29,6 +30,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
 
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   logical :: continue_timestepping
@@ -43,7 +45,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
   if (index(inicond,'backup::')==0) then
     if (root) write(*,*) "Initial output of integral quantities...."
-    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams)
+    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams,Wings)
   endif
 
 
@@ -61,7 +63,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! note: the array "vort" is a real work array and has neither input nor
     ! output values after fluid time stepper
     call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,explin,&
-         press,scalars,scalars_rhs,Insect,beams)
+         press,scalars,scalars_rhs,Insect,beams,Wings)
 
     !---------------------------------------------------------------------------
     ! time step done: advance iteration + time
@@ -75,7 +77,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! Output of INTEGRALS after every tintegral time units or itdrag time steps
     !---------------------------------------------------------------------------
     if (time_for_output(time, dt1, it, tintegral, itdrag, tmax, 0.d0)) then
-      call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams)
+      call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams,Wings)
     endif
 
     !---------------------------------------------------------------------------
@@ -92,7 +94,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
       ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it never matters,
       ! and for AB2 this is the one to be overwritten in the next step. This frees
       ! 3 complex arrays, which are then used in Dump_Runtime_Backup.
-      call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams)
+      call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams,wings)
       call are_we_there_yet(time,t1,dt1)
     endif
 

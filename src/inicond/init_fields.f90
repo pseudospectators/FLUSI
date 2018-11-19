@@ -1,10 +1,11 @@
 ! Wrapper for init_fields
 subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
-           press,scalars,scalars_rhs,Insect,beams)
+           press,scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -20,6 +21,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nBeams), intent(out) :: beams
   type(diptera),intent(inout)::Insect
   character(len=strlen) :: infile
@@ -32,7 +34,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   select case(method)
   case("fsi")
     call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
-    workc,press,scalars,scalars_rhs,Insect,beams, work, u)
+    workc,press,scalars,scalars_rhs,Insect,beams,wings, work, u)
   case("mhd")
     call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
@@ -60,11 +62,24 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   endif
 
   !-----------------------------------------------------------------------------
+  ! If module is in use, initialize also the flexible-wing solver
+  !-----------------------------------------------------------------------------
+  if (iMask=="Flexible_wing".and.iPenalization==1) then
+    ! get filename of PARAMS file from command line
+    call get_command_argument(1,infile)
+
+    if(mpirank==0) write(*,*) "Initializing flexible-wing solver and testing..."
+    call init_wings( infile,wings )
+      !call surface_interpolation_testing( time, beams(1), press )
+      !call init_beams( beams )
+  endif
+
+  !-----------------------------------------------------------------------------
   ! create startup mask function
   !-----------------------------------------------------------------------------
   if (iPenalization==1) then
     if (mpirank==0) write(*,'("Creating startup mask...time=",es12.4)') time
-    call create_mask(time,Insect,beams)
+    call create_mask(time,Insect,beams,wings)
   endif
 
   !-----------------------------------------------------------------------------

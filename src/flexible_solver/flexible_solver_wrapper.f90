@@ -1,5 +1,5 @@
 !-------------------------------------------------------------------------------
-!   FLEXIBLE SOLID SOLVER WRAPPER
+!   FLEXIBLE WING SOLVER WRAPPER
 ! Input:
 !   time: current time level (t^n)
 !   dt: time step for new level (t^n+1 - t^n)
@@ -7,31 +7,35 @@
 ! Output:
 !   wings: array of wings, all at the new time level t^n+1
 !-------------------------------------------------------------------------------
-!subroutine FlexibleSolidSolverWrapper ( time, dt, wings )
-!  use penalization ! mask array etc
-!  implicit none
-!  real(kind=pr), intent (in) ::  dt, time
-!  real(kind=pr) :: t0
-!  type(wing), dimension(1:nWings), intent (inout) ::    wings
-!  integer :: i
-!  t0 = MPI_wtime()
+subroutine FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
 
-!  do i = 1, nWings
-!      if (time>=T_release) then
+  use penalization ! mask array etc
+
+  implicit none
+  real(kind=pr), intent (in) ::  dt0, dt1, time
+  integer, intent (in) :: it
+  real(kind=pr) :: t0
+  type(flexible_wing), dimension(1:nWings), intent (inout) ::    wings
+  integer :: i
+  t0 = MPI_wtime()
+
+  do i = 1, nWings
+      !if (time>=T_release) then
         !-------------------------------------------
         ! the wings are released (now: active FSI), call IBES solvers
         !-------------------------------------------
-!        select case (TimeMethodFlexibleSolid)
-!            ! all implicit solvers are in one subroutine
-!            call IBES_solver (time, dt, wings(i))
-          !case ("prescribed")
+        select case (TimeMethodFlexibleSolid)
+        case ("BDF2")
+            ! all implicit solvers are in one subroutine
+            call Flexible_solid_time_step(time, dt0, dt1, it, wings)
+!          case ("prescribed")
             ! this is not a solver, but for passive FSI with prescribed deformation:
-          !  call prescribed_beam (time, dt, wings(i))
-!          case default
-!            call abort(723763,"FlexibleSolidSolver::invalid value of TimeMethodFlexibleSolid"//&
-!                 trim(adjustl(TimeMethodSolid)))
-!        end select
-!      else
+!          call prescribed_beam (time, dt, wings(i))
+          case default
+            call abort(723763,"FlexibleSolidSolver::invalid value of TimeMethodFlexibleSolid"//&
+                 trim(adjustl(TimeMethodFlexibleSolid)))
+        end select
+      !else
         !-------------------------------------------
         ! the wings are not yet released, but their leading edges may move
         ! (passive FSI)
@@ -46,9 +50,9 @@
 
       !-- check if everything seems okay, if not show beam and abort
       !call show_beam_on_error( wings(i) )
-!  enddo
-!  time_solid = time_solid + MPI_wtime() - t0
-!end subroutine FlexibleSolidSolverWrapper
+  enddo
+  time_solid = time_solid + MPI_wtime() - t0
+end subroutine FlexibleSolidSolverWrapper
 
 
 !-------------------------------------------------------------------------------
@@ -58,7 +62,7 @@ subroutine OnlyFlexibleSolidSimulation()
   use vars
   use mpi
   implicit none
-  type(wing), dimension(1:nWings) :: wings
+  type(flexible_wing), dimension(1:nWings) :: wings
   !real (kind=pr) :: time
   !integer :: it!,nsave
 

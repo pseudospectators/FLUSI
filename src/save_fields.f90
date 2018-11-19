@@ -1,7 +1,8 @@
 ! Wrapper for saving fields routine
-subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams,wings)
   use vars
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -15,6 +16,7 @@ subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Inse
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
@@ -22,7 +24,7 @@ subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Inse
 
   select case(method)
   case("fsi")
-    call save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+    call save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams,wings)
   case("mhd")
     call save_fields_mhd(time,uk,u,vort,nlk)
   case default
@@ -39,11 +41,12 @@ end subroutine save_fields
 ! files.
 ! The latest version calls cal_nlk_fsi to avoid redudant code.
 !-------------------------------------------------------------------------------
-subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams,wings)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use solid_model
+  use flexible_model
   use module_insects
   use penalization ! mask array etc
   implicit none
@@ -62,6 +65,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   character(len=6) :: name
   character(len=7) :: scalar_name
   integer :: j
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
@@ -93,7 +97,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! ensure that the mask function is at the right time, if it is not constant
-  if (iMoving==1) call create_mask (time, Insect, beams)
+  if (iMoving==1) call create_mask (time, Insect, beams, wings)
   ! if we save the pressure, we must compute the right hand side now:
   if (isavePress==1 .and. equation/='artificial-compressibility') then
     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect)

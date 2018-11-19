@@ -8,7 +8,7 @@ subroutine internal_forces_construction(Wings)
 
 implicit none
 
-type(Wing), intent(inout)  :: Wings
+type(flexible_wing), intent(inout)  :: Wings
 integer :: j, np, ind
 
 ! Get the number of mass points for the sake of simplicity in coding
