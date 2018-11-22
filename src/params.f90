@@ -315,6 +315,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   call read_param_mpi(PARAMS,"MeanFlow","ux",uxmean, 1.d0)
   call read_param_mpi(PARAMS,"MeanFlow","uy",uymean, 1.d0)
   call read_param_mpi(PARAMS,"MeanFlow","uz",uzmean, 1.d0)
+  call read_param_mpi(PARAMS,"MeanFlow","umean_freq",umean_freq, 0.d0)
   call read_param_mpi(PARAMS,"MeanFlow","iMeanFlowStartupConditioner",&
   iMeanFlowStartupConditioner,"no")
   call read_param_mpi(PARAMS,"MeanFlow","tau_meanflow",tau_meanflow, 0.d0)

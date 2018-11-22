@@ -1059,9 +1059,9 @@ subroutine set_mean_flow(uk,time)
     ! sinusoidal forcing uses f=unity
     ! for some reason we overwrite uxmean later by the actual, current meanflow
     ! which means we cannot use uxmean for focing with sinusoidfal mean flow.
-    if (iMeanFlow_x=="sinusoidal") uk(0,0,0,1)=umean_amplitude(1)*dsin(2.d0*pi*time)
-    if (iMeanFlow_y=="sinusoidal") uk(0,0,0,2)=umean_amplitude(2)*dsin(2.d0*pi*time)
-    if (iMeanFlow_z=="sinusoidal") uk(0,0,0,3)=umean_amplitude(3)*dsin(2.d0*pi*time)
+    if (iMeanFlow_x=="sinusoidal") uk(0,0,0,1)=umean_amplitude(1)*dsin(2.d0*pi*umean_freq*time)
+    if (iMeanFlow_y=="sinusoidal") uk(0,0,0,2)=umean_amplitude(2)*dsin(2.d0*pi*umean_freq*time)
+    if (iMeanFlow_z=="sinusoidal") uk(0,0,0,3)=umean_amplitude(3)*dsin(2.d0*pi*umean_freq*time)
   endif
 end subroutine set_mean_flow
 
