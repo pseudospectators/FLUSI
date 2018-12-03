@@ -9,6 +9,7 @@ subroutine init_wings ( fname, wings )
   type(flexible_wing), dimension (1:nWings), intent (inout) :: Wings
   real(kind=pr) :: alpha
   real(kind=pr) :: delta(1:3)
+  real(kind=pr), allocatable :: normal(:,:)
 
   type(inifile) :: PARAMS
   ! LeadingEdge: x, y, vx, vy, ax, ay (Array)
@@ -146,6 +147,7 @@ subroutine init_wings ( fname, wings )
     ! Determine initial geometrical properties of the wings: initial lengths,
     !  angles of springs and orientation of the wings
     !--------------------------------------------------------------------------
+    allocate(normal(1:wings(i)%ntri,1:3))
     do itri=1,wings(i)%ntri
         ! Calculate the normal vector of one triangle
         normal(itri,1:3) = cross((/wings(i)%x(wings(i)%tri_elements(itri,2)) - &
@@ -180,7 +182,7 @@ subroutine init_wings ( fname, wings )
                               The wing should be placed on the Oxy plane for the best performance of the solver.")
         endif
     enddo
-
+    deallocate(normal)
 
     ! Update position and phase vector
     wings(i)%u_old(1:wings(i)%np)                 = wings(i)%x(1:wings(i)%np)
