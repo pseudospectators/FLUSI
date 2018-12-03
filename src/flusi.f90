@@ -181,6 +181,9 @@ end program FLUSI
     if (use_solid_model=="yes") then
       if (interp=='linear') ng=1 ! one ghost point
       if (interp=='delta')  ng=3 ! three ghost points
+    elseif (use_flexible_wing_model=="yes") then
+      if (wing_interp=='linear') ng=1 ! one ghost point
+      if (wing_interp=='delta')  ng=3 ! three ghost points
     else
       ! we dont need ghosts when not solving the solid model
       ng=0 ! zero ghost points
@@ -262,7 +265,7 @@ end program FLUSI
     memory = memory + dble(nrw)*mem_field
 
     ! pressure array. this is with ghost points for interpolation
-    if (use_solid_model=="yes") then
+    if (use_solid_model=="yes" .or. use_flexible_wing_model=="yes") then
       allocate(press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))
       if(mpirank==0) write(*,*) "press array is allocated"
       memory = memory + mem_field

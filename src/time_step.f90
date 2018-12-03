@@ -94,7 +94,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
       ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it never matters,
       ! and for AB2 this is the one to be overwritten in the next step. This frees
       ! 3 complex arrays, which are then used in Dump_Runtime_Backup.
-      call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams,wings)
+      call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
       call are_we_there_yet(time,t1,dt1)
     endif
 
