@@ -321,8 +321,8 @@ subroutine draw_wing_suzuki(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_b
     real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
     integer :: ix,iy,iz
-    real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3)
-    real(kind=rk) :: R, R0, R_tmp
+    real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3), xx_tmp(1:3), xx_tmp2(1:3)
+    real(kind=rk) :: R, R0, R_tmp, dist, s
     real(kind=rk) :: y_tmp, x_tmp, z_tmp, y_left, y_right
     real(kind=rk) :: v_tmp(1:3), mask_tmp, theta, x_top, x_bot
 
@@ -343,6 +343,7 @@ subroutine draw_wing_suzuki(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_b
                 x_body = matmul(M_body,x)
                 x_wing = matmul(M_wing,x_body-x_pivot_b)
 
+
                 ! spanwise length:
                 if ((x_wing(2)>=y_left-Insect%safety).and.(x_wing(2)<=y_right+Insect%safety)) then
                     ! thickness: (note left and right wing have a different orientation of the z-axis
@@ -351,6 +352,25 @@ subroutine draw_wing_suzuki(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_b
 
                         ! in the x-direction, the actual wing shape plays.
                         if ((x_wing(1)>x_bot-Insect%safety).and.(x_wing(1)<x_top+Insect%safety)) then
+                            ! -- new ---
+                            ! x_tmp = (x_wing(1) -0.5d0*(x_top+x_bot))
+                            ! y_tmp = (x_wing(2) -0.5d0*(y_right+y_left))
+                            ! z_tmp = x_wing(3)
+                            !
+                            ! xx_tmp(1:3) = abs( (/x_tmp,y_tmp,z_tmp/) ) - &
+                            ! (/0.5d0*(x_top-x_bot),0.5d0*(y_right-y_left),0.5d0*Insect%WingThickness/)
+                            !
+                            ! xx_tmp2(1) = max(xx_tmp(1), 0.0d0)
+                            ! xx_tmp2(2) = max(xx_tmp(2), 0.0d0)
+                            ! xx_tmp2(3) = max(xx_tmp(3), 0.0d0)
+                            !
+                            ! dist = min( max(xx_tmp(1), max(xx_tmp(2),xx_tmp(3))), 0.0d0) + sqrt( sum(xx_tmp2**2) )
+                            !
+                            ! mask(ix,iy,iz) = steps( dist, 0.0d0, Insect%smooth )
+                            ! mask_color(ix,iy,iz) = color_wing
+
+                            ! -- old --
+
                             !-- smooth length
                             if ( x_wing(2) < 0.5d0*(y_left+y_right) ) then
                                 y_tmp = steps(-(x_wing(2)-y_left), 0.d0, Insect%smooth)
@@ -386,13 +406,11 @@ subroutine draw_wing_suzuki(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_b
                                 ! note we set this only if it is a part of the wing
                                 us(ix,iy,iz,1:3) = matmul(transpose(M_wing), v_tmp)
                             endif
-
                         endif
                     endif
                 endif
             enddo
         enddo
-
     enddo
 end subroutine draw_wing_suzuki
 
