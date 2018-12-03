@@ -247,6 +247,7 @@ end subroutine get_params_common
 subroutine get_params_fsi(PARAMS,Insect)
   use module_ini_files_parser_mpi
   use vars
+  use flexible_model
   use module_insects
   implicit none
 
@@ -336,6 +337,13 @@ subroutine get_params_fsi(PARAMS,Insect)
   ! ---------------------------------------------------
   call get_params_solid( PARAMS )
   call get_params_scalars( PARAMS )
+
+  ! ---------------------------------------------------
+  ! Activate the solver for flexible wings
+  ! ---------------------------------------------------
+  call read_param_mpi(PARAMS,"Flexible_wing","use_flexible_wing_model",use_flexible_wing_model,"no")
+  call read_param_mpi(PARAMS,"Flexible_wing","wing_interp",wing_interp,"delta")
+  call read_param_mpi(PARAMS,"Flexible_wing","activate_press_force",activate_press_force,"yes")
 
   ! ----------------------------------------------------
   ! slice extraction

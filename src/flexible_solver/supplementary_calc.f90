@@ -207,3 +207,155 @@ logical function Matrix_isNAN(f,i,j)
     enddo
   enddo
 end function
+
+subroutine truncated_triangular_prism_centroid(centroid,tri1,tri2,tri3,press_tri1,press_tri2,press_tri3)
+!This function calculates the centroid of a truncated triangular prism by simple
+!barycentric interpolation
+! NOTICE: this can also be done by calculating directly the centroid of the truncated
+! formed by the triangle and the pressure at the three vertices by deviding it
+! into an ordinary triangular prism "minus" a pyramid
+
+  implicit none
+  real(kind=pr), dimension(1:3), intent(inout) :: centroid
+  real(kind=pr), dimension(1:3), intent(in) :: tri1,tri2,tri3
+  !array contains the pressure at the three vertices of the triangle tri1, tri2, tri3
+  real(kind=pr), intent(in) :: press_tri1,press_tri2,press_tri3
+  !the normal vector of the triangle
+!  real(kind=pr), dimension(1:3), intent(in) :: normal
+
+  centroid(1:3) =(press_tri1*tri1(1:3) + &
+                                             press_tri2*tri2(1:3) + &
+                                             press_tri3*tri3(1:3))/ &
+                                            (press_tri1 + press_tri2 + press_tri3)
+
+end subroutine
+
+real(kind=pr) function pressure_trilinear_interp(x0, dx, field, x_target, periodic)
+  use vars, only: pr, abort, mpirank, ga, gb
+  use mpi
+  implicit none
+  ! origin of array grid. Note this is a compatibility issue with WABBIT. In FLUSI
+  ! we usually have only one grid start starts at 0,0,0 and then the variables ra(:) and rb(:)
+  ! inidicate which part is on the mpirank. In WABBIT we have bocks, always 1:n,1:n,1:n but
+  ! each with its own origin and spacing. For transferability, this routine is written in the
+  ! general style. In FLUSI:
+  !     x0=(/dble(ra(1))*dx, dble(ra(2))*dy, dble(ra(3))*dz/) and dx=(/dx,dy,dz/)
+  ! or, with ghost nodes:
+  !     x0=(/dble(ga(1))*dx, dble(ga(2))*dy, dble(ga(3))*dz/) and dx=(/dx,dy,dz/)
+  real(kind=pr),dimension(1:3),intent(in) :: x0
+  ! spacing of array grid
+  real(kind=pr),dimension(1:3),intent(in) :: dx
+  ! the point at which we wish to interpolate
+  real(kind=pr),dimension(1:3),intent(in) :: x_target
+  ! actual field. zero-based indexing.
+  real(kind=pr),intent(inout) :: field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
+  ! assume periodicity of field or not?
+  ! ATTENTION: this means we suppose the array FIELDS to be PERIODIC ON ITS OWN
+  ! the global field may well be PERIODIC, but if you pass mpi-chunks to this routine
+  ! you MUST set periodic=.false. even if the global field is periodic.
+  logical, intent(in) :: periodic
+
+  ! array bounds of the field array
+  integer,dimension(1:3) :: lbounds, ubounds
+  real(kind=pr) :: xd, yd, zd
+  real(kind=pr) :: c00, c10, c01, c11, c0, c1
+  integer :: ix, iy, iz, ix1, iy1, iz1
+
+  if (ga(1)==0) then
+    lbounds(1) = ga(1)
+  else
+    lbounds(1) = ga(1) - 1
+  endif
+
+  if (ga(2)==0) then
+    lbounds(2) = ga(2)
+  else
+    lbounds(2) = ga(2) - 1
+  endif
+
+  if (ga(3)==0) then
+    lbounds(3) = ga(3)
+  else
+    lbounds(3) = ga(3) - 1
+  endif
+
+  ubounds = gb(1:3)!(/size(field,1), size(field,2), size(field,3)/) - 1
+
+  ! indices of cube containing the target point, lower end
+  ix = floor( (x_target(1)-x0(1))/dx(1) ) + ga(1)
+  iy = floor( (x_target(2)-x0(2))/dx(2) ) + ga(2)
+  iz = floor( (x_target(3)-x0(3))/dx(3) ) + ga(3)
+
+  ! distance to lower point, normalized (0..1)
+  xd = ( x_target(1)-(dble(ix)*dx(1)+x0(1)) ) / dx(1)
+  yd = ( x_target(2)-(dble(iy)*dx(2)+x0(2)) ) / dx(2)
+  zd = ( x_target(3)-(dble(iz)*dx(3)+x0(3)) ) / dx(3)
+
+  ! if the point is not on the grid, return a very large, negative value
+  pressure_trilinear_interp = -9.9d10
+
+  if (periodic) then
+    ! *** periodic case ***
+    if ( (ix>=lbounds(1)).and.(ix<=ubounds(1)) ) then
+      if ( (iy>=lbounds(2)).and.(iy<=ubounds(2)) ) then
+        if ( (iz>=lbounds(3)).and.(iz<=ubounds(3)) ) then
+          ix1 = ix+1
+          iy1 = iy+1
+          iz1 = iz+1
+
+          ! periodization. note ix,iy,iz can be ubounds at most, so the next point
+          ! ix+1 would be the first point again.
+          if (ix1>ubounds(1)) ix1 = lbounds(1)
+          if (iy1>ubounds(2)) iy1 = lbounds(2)
+          if (iz1>ubounds(3)) iz1 = lbounds(3)
+
+          c00 = field(ix,iy  ,iz )*(1.d0-xd)+field(ix1 ,iy  ,iz )*xd
+          c10 = field(ix,iy1 ,iz )*(1.d0-xd)+field(ix1 ,iy1 ,iz )*xd
+          c01 = field(ix,iy  ,iz1)*(1.d0-xd)+field(ix1 ,iy  ,iz1)*xd
+          c11 = field(ix,iy1 ,iz1)*(1.d0-xd)+field(ix1 ,iy1 ,iz1)*xd
+
+          c0 = c00*(1.d0-yd) + c10*yd
+          c1 = c01*(1.d0-yd) + c11*yd
+
+          pressure_trilinear_interp = c0*(1.d0-zd)+c1*zd
+        endif
+      endif
+    endif
+  else
+
+    ! *** non-periodic case ***
+    if ( (ix>=lbounds(1)).and.(ix<ubounds(1)) ) then
+      if ( (iy>=lbounds(2)).and.(iy<ubounds(2)) ) then
+        if ( (iz>=lbounds(3)).and.(iz<ubounds(3)) ) then
+          ix1 = ix+1
+          iy1 = iy+1
+          iz1 = iz+1
+
+          c00 = field(ix,iy  ,iz )*(1.d0-xd)+field(ix1 ,iy  ,iz )*xd
+          c10 = field(ix,iy1 ,iz )*(1.d0-xd)+field(ix1 ,iy1 ,iz )*xd
+          c01 = field(ix,iy  ,iz1)*(1.d0-xd)+field(ix1 ,iy  ,iz1)*xd
+          c11 = field(ix,iy1 ,iz1)*(1.d0-xd)+field(ix1 ,iy1 ,iz1)*xd
+
+          c0 = c00*(1.d0-yd) + c10*yd
+          c1 = c01*(1.d0-yd) + c11*yd
+
+          pressure_trilinear_interp = c0*(1.d0-zd)+c1*zd
+        endif
+      endif
+    endif
+
+    !if (pressure_trilinear_interp==-9.9d10) then
+    !write(*,'("I am ",i5," CPU in interp")') mpirank
+    !write(*,*) "bounds"
+    !write(*,*) lbounds(1), ix, ubounds(1), lbounds(2), iy, ubounds(2), lbounds(3), iz, ubounds(3)
+    !write(*,*) dx(3), x0(3), x_target(3)
+    !endif
+    !write(*,*) "Interpolated pressure before"
+    !write(*,*) pressure_trilinear_interp
+  endif
+
+  ! with periodic it can work, but non-periodic not
+  if (size(field,1)<=1) then
+    call abort(9997111,"linear interpolation for 2d simulations currently not implemented...have fun")
+  end if
+end function pressure_trilinear_interp

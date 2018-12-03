@@ -4,33 +4,37 @@
 !-------------------------------------------------------------------------------
 
 subroutine flexible_solid_time_step(time, dt0, dt1, it, wings)
+    use mpi
     implicit none
 
     real(kind=pr),intent(in) :: time, dt1, dt0
     integer,intent (in) :: it
     type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
     real(kind=pr) :: c1, c2, c3
-    integer :: i
+    integer :: i,itri
 
     ! select scheme
     if (it == 0) then
 
-        call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
+        !call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
+        call flexible_wing_motions ( time, wings )
 
         ! Construct the external force vector
-        write(*,*) wings(1)%at_inertia
         call external_forces_construction(time,dt0,dt1, it,wings)
+
         ! EULER startup scheme
         ! compute position and velocity at new time step
         ! (updates wings%u_new using wings%u_old)
         call flexible_solid_solver_euler(time, dt1, it, wings)
         !call moving_noninertial_frame_in_reference_frame(time,dt0,dt1, it,Wings)
+
     else
 
-        call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
+        !call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
+        call flexible_wing_motions ( time, wings )
 
-        write(*,*) wings(1)%at_inertia
         ! Construct the external force vector
+        !call calculate_normal_vectors_of_wing(it,wings)
         call external_forces_construction(time,dt0,dt1, it,wings)
 
         ! BDF2 scheme

@@ -26,10 +26,12 @@ wings%Fint = 0.d0
 
   enddo
 
-  call length_calculation_wrapper(wings%u_new(1:np), &
-                          wings%u_new(np+1:2*np), &
-                          wings%u_new(2*np+1:3*np), &
-                          wings%membrane_edge(:,:))
+  do j=1,nMembrane_edges
+      call length_calculation_wrapper(wings%u_new(1:np), &
+                              wings%u_new(np+1:2*np), &
+                              wings%u_new(2*np+1:3*np), &
+                              wings%membrane_edge(:,:,j))
+  enddo
 
   do j=1,nVeins
 
@@ -66,13 +68,15 @@ wings%Fint = 0.d0
                                      wings%ke_m(:,j))
   enddo
 
+  do j=1,nMembrane_edges
   call internal_extension_force(wings%Fint, &
                                 wings%u_new(1:np), &
                                 wings%u_new(np+1:2*np), &
                                 wings%u_new(2*np+1:3*np), &
-                                wings%membrane_edge, &
+                                wings%membrane_edge(:,:,j), &
                                 np, &
                                 wings%ke_me)
+  enddo
 
   do j=1,nVeins
       call internal_extension_force(wings%Fint, &

@@ -4,6 +4,7 @@ module flexible_model
   ! we need the following line for presribed wings:
   use module_helpers
   use basic_operators
+  use interpolation
   use module_ini_files_parser_mpi
   implicit none
 
@@ -14,6 +15,7 @@ module flexible_model
   integer,parameter :: nVeins = 5
   integer,parameter :: nVeins_BC = 2
   integer,parameter :: nMembranes = 1
+  integer,parameter :: nMembrane_edges = 1
   ! see "type solid" about nsmax 06 Aug 2014
   integer,parameter :: npmax = 1000
   integer,parameter :: nvmax = 2*npmax
@@ -21,8 +23,10 @@ module flexible_model
   ! TODO: move these into the solid model datastructure
 
   real(kind=pr),dimension(1:3),save :: grav
+  real(kind=pr),save :: T_release, tau
   real(kind=pr), parameter :: error_stop = 1.0e-6
   character(len=strlen),save :: use_flexible_wing_model, TimeMethodFlexibleSolid
+  character(len=strlen),save :: activate_press_force, wing_interp
 
 
   ! this is a hack to avoid allocating/deallacting these arrays in every time
@@ -46,6 +50,8 @@ module flexible_model
     real(kind=pr),dimension(1:6*npmax) :: du, u_new, u_old, u_oldold
     real(kind=pr),dimension(-1:0,1:nVeins_BC) :: x_BC, y_BC, z_BC
     integer,dimension(1:nmmax,4) :: tri_elements
+    real(kind=pr),dimension(1:nmmax) :: tri_element_areas
+    real(kind=pr),dimension(1:nmmax,4) :: tri_element_normals
     integer :: np, ntri
 
     ! Veins :
@@ -64,9 +70,10 @@ module flexible_model
     ! Membrane:
       real(kind=pr),dimension(1:nmmax,2,nMembranes) :: Membranes
       real(kind=pr),dimension(1:nmmax,5,nMembranes) :: Membranes_extension
-      real(kind=pr),dimension(1:nmmax,5) :: Membrane_edge
+      real(kind=pr),dimension(1:nmmax,5,nMembrane_edges) :: Membrane_edge
     ! Internal and external forces:
     real(kind=pr),dimension(1:3*npmax) :: Fint, Fext !, Fint_old, Fext_old
+    real(kind=pr),dimension(1:nmmax,3) :: press_upside, press_downside
     ! Internal force derivative matrix:
     real(kind=pr),dimension(1:3*npmax,1:3*npmax) :: FJ
     ! material properties:
