@@ -4,7 +4,7 @@ subroutine init_wings ( fname, wings )
   ! straight lines, possible oriented with different angles, at rest.
   !---------------------------------------------------
   implicit none
-  integer :: n, i, a,j, ind
+  integer :: n, i, a, j, ind, itri
   character(len=strlen), intent(in) :: fname
   type(flexible_wing), dimension (1:nWings), intent (inout) :: Wings
   real(kind=pr) :: alpha
