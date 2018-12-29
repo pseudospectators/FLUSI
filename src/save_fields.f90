@@ -1,5 +1,5 @@
 ! Wrapper for saving fields routine
-subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams,wings)
+subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   use vars
   use solid_model
   use flexible_model
@@ -14,6 +14,7 @@ subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Inse
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
@@ -24,7 +25,7 @@ subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Inse
 
   select case(method)
   case("fsi")
-    call save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams,wings)
+    call save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   case("mhd")
     call save_fields_mhd(time,uk,u,vort,nlk)
   case default
@@ -41,7 +42,7 @@ end subroutine save_fields
 ! files.
 ! The latest version calls cal_nlk_fsi to avoid redudant code.
 !-------------------------------------------------------------------------------
-subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams,wings)
+subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   use vars
   use p3dfft_wrapper
   use basic_operators
@@ -59,6 +60,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   real(kind=pr):: volume, t
@@ -121,13 +123,22 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   ! Pressure
   !-----------------------------------------------------------------------------
   if (isavePress == 1 .and. equation/="artificial-compressibility") then
-    ! compute pressure (remember NLK is *not* divergence free)
-    call pressure( nlk,workc(:,:,:,1) )
-    ! total pressure in x-space
-    call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
-    ! get actuall pressure (we're in the rotational formulation)
-    work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-    call save_field_hdf5(time,'p_'//name,work(:,:,:,1))
+
+    if (use_solid_model=="yes" .or. use_flexible_wing_model=="yes") then
+
+      ! pressure field is already calculated for active FSI, we only need to save it here
+      call save_field_hdf5(time,'p_'//name,press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+
+    else
+
+      ! compute pressure (remember NLK is *not* divergence free)
+      call pressure( nlk,workc(:,:,:,1) )
+      ! total pressure in x-space
+      call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
+      ! get actuall pressure (we're in the rotational formulation)
+      work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+      call save_field_hdf5(time,'p_'//name,work(:,:,:,1))
+    endif
 
   elseif (isavePress == 1 .and. equation=="artificial-compressibility") then
     call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )

@@ -25,15 +25,15 @@ wings%FJ = 0.d0
                                      wings%ke_m(:,j))
   enddo
 
-
-  call internal_extension_force_derivative(wings%FJ, &
-                                wings%u_new(1:np), &
-                                wings%u_new(np+1:2*np), &
-                                wings%u_new(2*np+1:3*np), &
-                                wings%membrane_edge, &
-                                wings%np, &
-                                wings%ke_me)
-
+  do j=1,nMembrane_edges
+    call internal_extension_force_derivative(wings%FJ, &
+                                  wings%u_new(1:np), &
+                                  wings%u_new(np+1:2*np), &
+                                  wings%u_new(2*np+1:3*np), &
+                                  wings%membrane_edge(:,:,j), &
+                                  wings%np, &
+                                  wings%ke_me)
+  enddo
 
   do j=1,nVeins
 

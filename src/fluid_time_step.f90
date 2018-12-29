@@ -230,7 +230,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! create mask
     !---------------------------------------------------------------------------
-    call create_mask(time, Insect_dummy, beams)
+    call create_mask(time, Insect_dummy, beams,wings)
 
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
@@ -395,10 +395,17 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   endif
 
   !---------------------------------------------------------------------------
+  ! get external forces at new time level
+  !---------------------------------------------------------------------------
+  if (use_flexible_wing_model=="yes") then
+    call get_pressure_on_wing_surfaces(wings,press)
+  endif
+
+  !---------------------------------------------------------------------------
   ! advance solid model from (n) to (n+1)
   !---------------------------------------------------------------------------
-  if (use_solid_model=="yes")  call SolidSolverWrapper( time, dt1, beams )
-  if (use_flexible_wing_model=="yes")  call FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
+  if (use_solid_model=="yes")  call SolidSolverWrapper(time, dt1, beams)
+  if (use_flexible_wing_model=="yes")  call FlexibleSolidSolverWrapper (time, dt0, dt1, it, wings)
 
 end subroutine FSI_AB2_staggered
 
@@ -480,8 +487,18 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   endif
 
   !---------------------------------------------------------------------------
+  ! get external forces at new time level
+  !
+  !---------------------------------------------------------------------------
+
+  if (use_flexible_wing_model=="yes") then
+    call get_pressure_on_wing_surfaces(wings,press)
+  endif
+
+  !---------------------------------------------------------------------------
   ! advance solid model from (n) to (n+1)
   !---------------------------------------------------------------------------
+
   if (use_solid_model=="yes")  call SolidSolverWrapper( time, dt1, beams )
   if (use_flexible_wing_model=="yes")  call FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
 
@@ -683,6 +700,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,&
                scalars,scalars_rhs(:,:,:,:,n0),Insect,beams,wings)
+
   call adjust_dt(time,u,dt1)
 
   !-- Compute integrating factor, if necesssary
@@ -814,11 +832,12 @@ end subroutine adamsbashforth
 
 ! time stepper for rigid soldi FSI, for example insect takeoff or falling sphere
 subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-  expvis,press,scalars,scalars_rhs,Insect,beams)
+  expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -838,6 +857,7 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   real(kind=pr),intent(inout) :: scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   real(kind=pr)::b10,b11,t1
   integer::i
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
 
@@ -856,10 +876,10 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   !---------------------------------------------------------------------------
   if (it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,wings)
   else
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,wings)
   endif
 
   !---------------------------------------------------------------------------
@@ -903,6 +923,8 @@ subroutine adjust_dt(time,u,dt1)
     integer::mpicode
     real(kind=pr), intent(out)::dt1
     real(kind=pr)::umax,t , t1,t2
+
+
 
     if (dt_fixed>0.0d0) then
         !-- fix the time step no matter what. the result may be unstable.
@@ -1059,9 +1081,9 @@ subroutine set_mean_flow(uk,time)
     ! sinusoidal forcing uses f=unity
     ! for some reason we overwrite uxmean later by the actual, current meanflow
     ! which means we cannot use uxmean for focing with sinusoidfal mean flow.
-    if (iMeanFlow_x=="sinusoidal") uk(0,0,0,1)=umean_amplitude(1)*dsin(2.d0*pi*time)
-    if (iMeanFlow_y=="sinusoidal") uk(0,0,0,2)=umean_amplitude(2)*dsin(2.d0*pi*time)
-    if (iMeanFlow_z=="sinusoidal") uk(0,0,0,3)=umean_amplitude(3)*dsin(2.d0*pi*time)
+    if (iMeanFlow_x=="sinusoidal") uk(0,0,0,1)=umean_amplitude(1)*dsin(2.d0*pi*umean_freq*time)
+    if (iMeanFlow_y=="sinusoidal") uk(0,0,0,2)=umean_amplitude(2)*dsin(2.d0*pi*umean_freq*time)
+    if (iMeanFlow_z=="sinusoidal") uk(0,0,0,3)=umean_amplitude(3)*dsin(2.d0*pi*umean_freq*time)
   endif
 end subroutine set_mean_flow
 

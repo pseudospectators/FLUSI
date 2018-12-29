@@ -25,9 +25,9 @@ subroutine delta_interpolation(x,field,value)
 
 
   !-- note border are ra/rb and not ga/gb
-  if ((((ix0>=ra(1)).and.(ix0<=rb(1))).or.(nx==1)).and.&
-        (iy0>=ra(2)).and.(iy0<=rb(2)).and.&
-        (iz0>=ra(3)).and.(iz0<=rb(3))) then
+  if (  ( ((ix0>=ra(1)).and.(ix0<=rb(1))) .or. (nx==1) ) .and. &
+           (iy0>=ra(2)).and.(iy0<=rb(2)) .and.&
+           (iz0>=ra(3)).and.(iz0<=rb(3)) ) then
 
       value = 0.d0
 

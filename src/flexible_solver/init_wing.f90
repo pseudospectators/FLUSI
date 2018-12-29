@@ -4,11 +4,12 @@ subroutine init_wings ( fname, wings )
   ! straight lines, possible oriented with different angles, at rest.
   !---------------------------------------------------
   implicit none
-  integer :: n, i, a,j, ind
+  integer :: n, i, a, j, ind, itri
   character(len=strlen), intent(in) :: fname
   type(flexible_wing), dimension (1:nWings), intent (inout) :: Wings
   real(kind=pr) :: alpha
   real(kind=pr) :: delta(1:3)
+  real(kind=pr), allocatable :: normal(:,:)
 
   type(inifile) :: PARAMS
   ! LeadingEdge: x, y, vx, vy, ax, ay (Array)
@@ -24,7 +25,6 @@ subroutine init_wings ( fname, wings )
     write(*,'(80("<"))')
   endif
 
-  !call lapack_unit_test()
 
   !-------------------------------------------
   ! allocate wing storage for each wing
@@ -55,6 +55,8 @@ subroutine init_wings ( fname, wings )
     wings(i)%u_old = 0.d0
     wings(i)%u_oldold = 0.d0
     wings(i)%tri_elements = 0
+    wings(i)%tri_element_areas = 0.d0
+    wings(i)%tri_element_normals = 0.d0
     wings(i)%Veins_bending = 0.d0
     wings(i)%Veins_extension = 0.d0
     wings(i)%Veins_bending_BC = 0.d0
@@ -65,6 +67,8 @@ subroutine init_wings ( fname, wings )
     wings(i)%at_inertia=0.d0
     wings(i)%StartupStep = .true.
     wings(i)%dt_old = 0.d0
+    wings(i)%press_upside = 0.d0
+    wings(i)%press_downside = 0.d0
 
     ! Reading mesh data from ASCII files
     call read_wing_mesh_data(wings(i), i)
@@ -72,12 +76,9 @@ subroutine init_wings ( fname, wings )
     call rotate_wing(wings(i))
 
 
-    !  write(*,*) wings(i)%veins_bending_BC(1:nint(maxval(wings(i)%veins_bending_BC(:,1,2))),:,2)
-
     !-----------------------------------------------------------------------------
     ! read in parameters form ini file
     !-----------------------------------------------------------------------------
-
     ! read in the complete ini file, from which we initialize the flexible wings
     call read_ini_file_mpi(PARAMS, fname, verbose=.true.)
 
@@ -111,6 +112,9 @@ subroutine init_wings ( fname, wings )
     call read_param_mpi(PARAMS,"Flexible_wing","Gravity",grav, (/0.d0, 0.d0, -9.8d0/))
     call read_param_mpi(PARAMS,"Flexible_wing","use_flexible_wing_model",use_flexible_wing_model,"no")
     call read_param_mpi(PARAMS,"Flexible_wing","TimeMethodFlexibleSolid",TimeMethodFlexibleSolid,"BDF2")
+
+    call read_param_mpi(PARAMS,"Flexible_wing","T_release",T_release,0.0d0)
+    call read_param_mpi(PARAMS,"Flexible_wing","tau",tau,0.0d0)
     ! clean ini file
     call clean_ini_file_mpi(PARAMS)
 
@@ -126,9 +130,6 @@ subroutine init_wings ( fname, wings )
     !               x-----x----......
     !
 
-    write(*,*) wings(i)%x(nint(wings(i)%veins_bending_BC(1,2,1))), wings(i)%x(nint(wings(i)%veins_bending_BC(1,3,1)))
-
-
     delta(1) = abs(wings(i)%x(nint(wings(i)%veins_bending_BC(1,3,1))) - &
                    wings(i)%x(nint(wings(i)%veins_bending_BC(1,2,1))))
     delta(2) = abs(wings(i)%y(nint(wings(i)%veins_bending_BC(1,3,1))) - &
@@ -142,20 +143,48 @@ subroutine init_wings ( fname, wings )
 
     call determine_boundary_points_from_origin(wings(i))
 
+    !--------------------------------------------------------------------------
+    ! Determine initial geometrical properties of the wings: initial lengths,
+    !  angles of springs and orientation of the wings
+    !--------------------------------------------------------------------------
+    allocate(normal(1:wings(i)%ntri,1:3))
+    do itri=1,wings(i)%ntri
+        ! Calculate the normal vector of one triangle
+        normal(itri,1:3) = cross((/wings(i)%x(wings(i)%tri_elements(itri,2)) - &
+                                   wings(i)%x(wings(i)%tri_elements(itri,3)),  &
+                                   wings(i)%y(wings(i)%tri_elements(itri,2)) - &
+                                   wings(i)%y(wings(i)%tri_elements(itri,3)),  &
+                                   wings(i)%z(wings(i)%tri_elements(itri,2)) - &
+                                   wings(i)%z(wings(i)%tri_elements(itri,3))/),&
+                                 (/wings(i)%x(wings(i)%tri_elements(itri,3)) - &
+                                   wings(i)%x(wings(i)%tri_elements(itri,4)),  &
+                                   wings(i)%y(wings(i)%tri_elements(itri,3)) - &
+                                   wings(i)%y(wings(i)%tri_elements(itri,4)),  &
+                                   wings(i)%z(wings(i)%tri_elements(itri,3)) - &
+                                   wings(i)%z(wings(i)%tri_elements(itri,4))/))
+
+        ! dimentionalized to get a unit vector
+        wings(i)%tri_element_normals(itri,1) = normal(itri,1)/norm2(normal(itri,1:3))
+        wings(i)%tri_element_normals(itri,2) = normal(itri,2)/norm2(normal(itri,1:3))
+        wings(i)%tri_element_normals(itri,3) = normal(itri,3)/norm2(normal(itri,1:3))
+
+        !Calculate area of triangle elements
+        wings(i)%tri_element_areas(itri) = 0.5*norm2(normal(itri,1:3))
+
+        ! Check the orientation of the normal vectors comparing with Oz axis. This is
+        ! done only at the first time step of the simulation.
+        if (dot_product(wings(i)%tri_element_normals(itri,1:3),(/0.0d0,0.0d0,1.0d0/))<-1.0d-10) then
+            wings(i)%tri_element_normals(itri,4) = -1
+        elseif (dot_product(wings(i)%tri_element_normals(itri,1:3),(/0.0d0,0.0d0,1.0d0/))>1.0d-10) then
+            wings(i)%tri_element_normals(itri,4) =  1
+        else
+            call abort(1412, "Wing normal vector is perpendicular with the Oz axis. &
+                              The wing should be placed on the Oxy plane for the best performance of the solver.")
+        endif
+    enddo
+    deallocate(normal)
 
     ! Update position and phase vector
-
-    if (root) then
-      write(*,*) maxval(wings(i)%x), minval(wings(i)%x)
-      write(*,*) maxval(wings(i)%y), minval(wings(i)%y)
-      write(*,*) maxval(wings(i)%z), minval(wings(i)%z)
-      do j=1,nVeins_BC
-        write(*,*) wings(i)%x_BC(-1,j), wings(i)%x_BC(0,j)
-        write(*,*) wings(i)%y_BC(-1,j), wings(i)%y_BC(0,j)
-        write(*,*) wings(i)%z_BC(-1,j), wings(i)%z_BC(0,j)
-      enddo
-    endif
-
     wings(i)%u_old(1:wings(i)%np)                 = wings(i)%x(1:wings(i)%np)
     wings(i)%u_old(wings(i)%np+1:2*wings(i)%np)   = wings(i)%y(1:wings(i)%np)
     wings(i)%u_old(2*wings(i)%np+1:3*wings(i)%np) = wings(i)%z(1:wings(i)%np)
@@ -171,12 +200,14 @@ subroutine init_wings ( fname, wings )
 
     enddo
 
+    do j=1,nMembrane_edges
     call length_calculation_wrapper(wings(i)%u_old(1:wings(i)%np), &
                             wings(i)%u_old(wings(i)%np+1:2*wings(i)%np), &
                             wings(i)%u_old(2*wings(i)%np+1:3*wings(i)%np), &
-                            wings(i)%membrane_edge(:,:))
+                            wings(i)%membrane_edge(:,:,j))
 
-            wings(i)%membrane_edge(:,4) = wings(i)%membrane_edge(:,5)
+            wings(i)%membrane_edge(:,4,j) = wings(i)%membrane_edge(:,5,j)
+    enddo
 
     do j=1,nVeins
 
@@ -255,8 +286,6 @@ subroutine init_wings ( fname, wings )
 
 
 
-
-
     if (mpirank ==0) then
       write(*,'(80("-"))')
       write(*,'("Setting up material properties for the wing number ",i2.2," with")') i
@@ -298,8 +327,6 @@ subroutine init_wings ( fname, wings )
     !  call prescribed_wing ( 0.d0, 0.d0, wings(i) )
     !endif
 
-     ! to take static angle into account
-    !call integrate_position (0.d0, wings(i))
   enddo
 
   !-------------------------------------------
@@ -443,8 +470,8 @@ subroutine read_wing_mesh_data(wings, i)
         data_file = 'membrane_edge'//wingstr//'.dat'
         call  read_mesh_data_2D_array(data_file, tmp2D)
 
-        wings%membrane_edge(1:(size(tmp2D,DIM=1)),1:5) = &
-        reshape(tmp2D,(/(size(tmp2D,DIM=1)),5/))
+        wings%membrane_edge(1:int((size(tmp2D,DIM=1))*(1.0/nMembrane_edges)),1:5,1:nMembrane_edges) = &
+        reshape(tmp2D,(/int((size(tmp2D,DIM=1))*(1.0/nMembrane_edges)),5,nMembrane_edges/))
 
         deallocate(tmp2D)
 

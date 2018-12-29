@@ -183,7 +183,8 @@ module vars
   real(kind=pr),save :: origin(1:3) = 0.0d0 ! origin of grid (only used in postprocessing, usually the grid starts at 0,0,0)
 
   ! mean flow control
-  real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid, umean_amplitude(1:3)
+  real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid, umean_amplitude(1:3) 
+  real(kind=pr),save :: umean_freq
   character(len=strlen),save :: iMeanFlow_x,iMeanFlow_y,iMeanFlow_z
   ! mean flow startup conditioner (if "dynamic" and mean flow at t=0 is not zero
   ! the forces are singular at the beginning. use the startup conditioner to

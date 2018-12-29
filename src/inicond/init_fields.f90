@@ -70,8 +70,6 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
 
     if(mpirank==0) write(*,*) "Initializing flexible-wing solver and testing..."
     call init_wings( infile,wings )
-      !call surface_interpolation_testing( time, beams(1), press )
-      !call init_beams( beams )
   endif
 
   !-----------------------------------------------------------------------------
@@ -109,7 +107,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   !-----------------------------------------------------------------------------
   if (index(inicond,'backup::')==0 .and. (time>=tsave_first)) then
     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
-    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams)
+    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   endif
 
   tstart = time

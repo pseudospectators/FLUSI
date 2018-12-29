@@ -53,10 +53,22 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
           t1 = MPI_wtime()
           ! if we compute active FSI (with flexible obstacles), we need the pressure
           if (use_solid_model=="yes") then
+
               call pressure( nlk,workc(:,:,:,1) )
               ! transform it to phys space (note "press" has ghostpoints, cut them here)
               call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+
           endif
+
+          ! if we compute active FSI (with flexible obstacles), we need the pressure
+          if (use_flexible_wing_model=="yes") then
+
+              call pressure( nlk,workc(:,:,:,1) )
+              ! transform it to phys space (note "press" has ghostpoints, cut them here)
+              call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+
+          endif
+          
           ! project the right hand side to the incompressible manifold
           call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
           ! for global performance measurement
@@ -593,6 +605,7 @@ subroutine add_grad_pressure(nlk1,nlk2,nlk3)
               nlk2(iz,iy,ix)=nly - ky*qk
               nlk3(iz,iy,ix)=nlz - kz*qk
            endif
+
         enddo
      enddo
   enddo
