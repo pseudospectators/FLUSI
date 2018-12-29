@@ -609,6 +609,53 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
 
         call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
 
+    case("turbulence-meanflow")
+        !--------------------------------------------------
+        ! random vorticity with mean flow
+        ! This case has two parameters read from ini file:
+        ! the maximum vorticity in each direction and the
+        ! smoothing parameter
+        !--------------------------------------------------
+        if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
+        call random_seed()
+        if (nx>1) then
+            do iz=ra(3), rb(3)
+                do iy=ra(2), rb(2)
+                    do ix=ra(1), rb(1)
+                        vort(ix,iy,iz,1)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                        vort(ix,iy,iz,2)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                        vort(ix,iy,iz,3)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                    end do
+                end do
+            end do
+        else
+            do iz=ra(3), rb(3)
+                do iy=ra(2), rb(2)
+                    vort(:,iy,iz,1)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                    vort(:,iy,iz,2)=0.0d0
+                    vort(:,iy,iz,3)=0.0d0
+                end do
+            end do
+        end if
+
+        call cal_vis( nu_smoothing/nu, explin(:,:,:,1))
+        call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
+        nlk(:,:,:,1,0)=nlk(:,:,:,1,0)*explin(:,:,:,1)
+        nlk(:,:,:,2,0)=nlk(:,:,:,2,0)*explin(:,:,:,1)
+        nlk(:,:,:,3,0)=nlk(:,:,:,3,0)*explin(:,:,:,1)
+        call ifft3( ink=nlk(:,:,:,:,0), outx=vort )
+
+        call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
+
+        ! append mean FLOW
+        if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+          ! set mean flow to desired value
+          uk(0,0,0,1)=Uxmean
+          uk(0,0,0,2)=Uymean
+          uk(0,0,0,3)=Uzmean
+      endif
+
+
     case("half_HIT")
         ! this is a very specialized case. it reads a field from files, but the field
         ! is only half as long in the x-direction. it is then padded by itself (we

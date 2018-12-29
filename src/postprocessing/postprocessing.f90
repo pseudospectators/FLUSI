@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--POD")
+      call POD(help)
   case ("--divergence")
     call post_div(help)
   case ("--flexible-wing-mask")
@@ -156,6 +158,7 @@ subroutine postprocessing()
       write(*,*) "--mean-2D"
       write(*,*) "--mean-over-x-subdomain"
       write(*,*) "--p2Q"
+      write(*,*) "--POD"
       write(*,*) "--pointcloud2mask"
       write(*,*) "--pressure-force"
       write(*,*) "--pressure"
