@@ -103,7 +103,7 @@ subroutine POD(help)
         open( unit=15, file=fnamey_list, action='read', status='old' )
     endif
     if (vector .and. dim==3) then
-        open( unit=16, file=fnamey_list, action='read', status='old' )
+        open( unit=16, file=fnamez_list, action='read', status='old' )
     endif
 
     io_error = 0
