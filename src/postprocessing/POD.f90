@@ -13,18 +13,20 @@ subroutine POD(help)
     logical, intent(in) :: help
     character(len=strlen) :: fnamex_list, fname_this, fnamey_list, fnamez_list, dummy
     character(len=strlen) :: fnamex, fnamey, fnamez
+    character(len=strlen) :: fname_list(1:3)
     real(kind=pr), dimension(:,:,:), allocatable :: field_avg, field
     real(kind=pr), dimension(:,:), allocatable :: X_data, POD_modes, a_coefs
     real(kind=pr), dimension(:), allocatable :: X_mean
     DOUBLE PRECISION, dimension(:,:), allocatable :: C, V, D
     DOUBLE PRECISION, dimension(:), allocatable :: eigenvalues, work
     integer :: ix, iy ,iz, io_error, i,j, N_modes, N_snapshots, info, it, dim, npoints
+    integer :: ncomponents
     real(kind=pr) :: time, a, norm
     LOGICAL :: vector
 
     if (help.and.root) then
         write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-        write(*,*) "./flusi -p --POD [--vector] [--2D | --3D] --list file_list.txt [list_uy.txt] [list_uz.txt] --modes 10"
+        write(*,*) "./flusi -p --POD --components 3 --list file_list.txt [list_uy.txt] [list_uz.txt] --modes 10"
         write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         write(*,*) " --list: a TXT file which simply contains the list of snapshots to read, one file per line"
         write(*,*) " "
@@ -34,40 +36,26 @@ subroutine POD(help)
     endif
 
     ! defaults:
-    vector = .false.
-    dim = 2
+    ncomponents = 1
 
     ! fetch parameters from command line call
     do i = 1, COMMAND_ARGUMENT_COUNT()
         call get_command_argument(i,dummy)
         select case (dummy)
         case ("--list")
-            if (vector) then
-                ! vector
-                call get_command_argument(i+1,fnamex_list)
-                call get_command_argument(i+2,fnamey_list)
-                call get_command_argument(i+3,fnamez_list)
-            else
-                ! scalar
-                call get_command_argument(i+1,fnamex_list)
-            endif
+            do j = 1, ncomponents
+                call get_command_argument(i+j, fname_list(j))
+            enddo
 
         case ("--modes")
             call get_command_argument(i+1,dummy)
             read(dummy,*) N_modes
             if (root) write(*,*) "Will save N_modes=", N_modes
 
-        case ("--vector")
-            vector = .true.
-
-        case ("--scalar")
-            vector = .false.
-
-        case ("--2D")
-            dim = 2
-
-        case ("--3D")
-            dim = 3
+        case ("--components")
+            call get_command_argument(i+1,dummy)
+            read(dummy,*) ncomponents
+            if (root) write(*,*) "Expect ncomponents=", ncomponents
 
         end select
     enddo
@@ -75,20 +63,18 @@ subroutine POD(help)
     !-----------------------------------------------------------------------------
     ! check if input file exists, the file contains the list of h5 files to be avg
     !-----------------------------------------------------------------------------
-    call check_file_exists ( fnamex_list )
-    if (vector) call check_file_exists ( fnamey_list )
-    if (vector .and. dim==3) call check_file_exists ( fnamez_list )
+    do j = 1, ncomponents
+        call check_file_exists ( fname_list(j) )
+        if (root) write(*,*) "Reading list of files from "//fname_list(j)
+    enddo
 
-    if (root) write(*,*) "Reading list of files from "//fnamex_list
-    if (root) write(*,*) fnamex_list, fnamey_list, fnamez_list, vector, dim, N_modes
 
     !-----------------------------------------------------------------------------
     ! read in the file, loop over lines
     !-----------------------------------------------------------------------------
-    call count_lines_in_ascii_file_mpi(fnamex_list, N_snapshots, n_header=0)
+    call count_lines_in_ascii_file_mpi(fname_list(1), N_snapshots, n_header=0)
 
     if (root) write(*,*) "Reading N_snapshots=", N_snapshots
-
 
     allocate( C(1:N_snapshots,1:N_snapshots) )
     allocate( D(1:N_snapshots,1:N_snapshots) )
@@ -97,89 +83,50 @@ subroutine POD(help)
     allocate( a_coefs(1:N_snapshots,1:N_snapshots) )
     allocate( work(1:5*N_snapshots) )
 
-
-    open( unit=14, file=fnamex_list, action='read', status='old' )
-    if (vector) then
-        open( unit=15, file=fnamey_list, action='read', status='old' )
-    endif
-    if (vector .and. dim==3) then
-        open( unit=16, file=fnamez_list, action='read', status='old' )
-    endif
+    do j = 1, ncomponents
+        open( unit=10+j, file=fname_list(j), action='read', status='old' )
+    enddo
 
     io_error = 0
     i = 1
     do while (i <= N_snapshots)
-        read (14,'(A)', iostat=io_error) fnamex
-        call check_file_exists ( fnamex )
+        do j = 1, ncomponents
+            read (10+j, '(A)', iostat=io_error) fnamex
+            call check_file_exists ( fnamex )
 
-        if (vector) then
-            read (15,'(A)', iostat=io_error) fnamey
-            call check_file_exists ( fnamey )
-        endif
+            ! initialization is done after first read.
+            if ( i == 1 .and. j == 1 ) then
+                ! get file size etc
+                call fetch_attributes( fnamex, nx, ny, nz, xl, yl, zl, time, nu, origin )
+                ! initialization parallel module (no FFTS)
+                call decomposition_initialize()
 
-        if (vector .and. dim==3) then
-            read (16,'(A)', iostat=io_error) fnamez
-            call check_file_exists ( fnamez )
-        endif
+                ! size of a flattened snapshot
+                npoints = (rb(1)-ra(1)+1) * (rb(2)-ra(2)+1) * (rb(3)-ra(3)+1)
 
-        ! initialization is done after first read.
-        if ( i == 1 ) then
-            ! get file size etc
-            call fetch_attributes( fnamex, nx, ny, nz, xl, yl, zl, time, nu, origin )
-            ! initialization parallel module (no FFTS)
-            call decomposition_initialize()
+                if (decomposition /= "1D") call abort(28122018,"I think this module works only for 1D MPI decomp (scalar products)")
 
-            ! size of a flattened snapshot
-            npoints = (rb(1)-ra(1)+1) * (rb(2)-ra(2)+1) * (rb(3)-ra(3)+1)
+                ! memory for one field
+                allocate( field( ra(1):rb(1),ra(2):rb(2),ra(3):rb(3) ) )
 
-            if (decomposition /= "1D") call abort(28122018,"I think this module works only for 1D MPI decomp (scalar products)")
-
-            ! memory
-            allocate( field( ra(1):rb(1),ra(2):rb(2),ra(3):rb(3) ) )
-
-            if (vector) then
-                allocate( X_data( npoints * dim, 1:N_snapshots) )
-                allocate( POD_modes( npoints * dim, 1:N_snapshots) )
-                allocate( X_mean( npoints * dim ) )
-
-            else
-                allocate( X_data( npoints, 1:N_snapshots) )
-                allocate( POD_modes( npoints, 1:N_snapshots) )
-                allocate( X_mean( npoints ) )
-
+                allocate( X_data( 1:npoints * ncomponents, 1:N_snapshots) )
+                allocate( POD_modes( 1:npoints * ncomponents, 1:N_snapshots) )
+                allocate( X_mean( 1:npoints * ncomponents ) )
             endif
 
-        endif
-
-        ! read the field from file
-        call read_single_file( fnamex, field )
-
-        ! add it to the data array
-        X_data(1:npoints,i) = reshape(field, (/npoints/) )
-
-        if (vector) then
             ! read the field from file
-            call read_single_file( fnamey, field )
+            call read_single_file( fnamex, field )
 
             ! add it to the data array
-            X_data(npoints+1:2*npoints,i) = reshape(field, (/npoints/) )
-        endif
-
-        if (vector .and. dim==3) then
-            ! read the field from file
-            call read_single_file( fnamez, field )
-
-            ! add it to the data array
-            X_data(2*npoints+1:3*npoints,i) = reshape(field, (/npoints/) )
-        endif
-
+            X_data( 1+(j-1)*npoints:(j)*npoints, i) = reshape(field, (/npoints/) )
+        enddo
         if (root) write(*,*) "filled snapshot slot", i
         i = i+1
     enddo
 
-    close (14)
-    if (vector) close (15)
-    if (vector .and. dim==3) close (16)
+    do j = 1, ncomponents
+        close(10+j)
+    enddo
 
     !---------------------------------------------------------------------------
     ! compute fluctuations (remove mean)
@@ -258,20 +205,20 @@ subroutine POD(help)
     ! enddo
 
     do i = 1, N_snapshots
-        ! ! note the division by sqrt(lambda) might cause numerical instabilities
-        ! ! if the eigenvalue is close to zero
-        ! if ( eigenvalues(i) > 1.0e-9_pr ) then
-        !     POD_modes(:,i) = POD_modes(:,i) / sqrt(eigenvalues(i))
-        ! endif
-
-        ! for some reason the modes are not normalized here, so we take care of that
-        ! I think the reason is the scalar product, which needs to be scaled by nx*ny*nz (and NOT npoints)
-        norm = sqrt( sum(POD_modes(:,i)**2) )
-        call MPI_ALLREDUCE(MPI_IN_PLACE, norm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
-
-        if (norm > 1.0e-8_pr) then
-            POD_modes(:,i) = POD_modes(:,i) / norm
+        ! note the division by sqrt(lambda) might cause numerical instabilities
+        ! if the eigenvalue is close to zero
+        if ( eigenvalues(i) > 1.0e-9_pr ) then
+            POD_modes(:,i) = POD_modes(:,i) / sqrt(eigenvalues(i))
         endif
+
+        ! ! for some reason the modes are not normalized here, so we take care of that
+        ! ! I think the reason is the scalar product, which needs to be scaled by nx*ny*nz (and NOT npoints)
+        ! norm = sqrt( sum(POD_modes(:,i)**2) / dble(nx*ny*nz) )
+        ! call MPI_ALLREDUCE(MPI_IN_PLACE, norm, 1, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+        ! if(root) write(*,*) i, norm
+        ! if (norm > 1.0e-8_pr) then
+        !     POD_modes(:,i) = POD_modes(:,i) / norm
+        ! endif
 
     enddo
 
@@ -279,39 +226,16 @@ subroutine POD(help)
     ! save modes to disk
     !---------------------------------------------------------------------------
     do i = 1, N_modes
-        field = reshape( POD_modes(1:npoints,N_snapshots-i+1), &
-        (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
+        do j = 1, ncomponents
+            field = reshape( POD_modes(1+(j-1)*npoints:(j)*npoints, N_snapshots-i+1), &
+            (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
 
-        ! create filename
-        write(fname_this,'("modex_",i3.3,".h5")') i
+            ! create filename
+            write(fname_this, '("mode",i1,"_",i3.3,".h5")') j, i
 
-        call save_field_hdf5 ( dble(i), fname_this, field )
+            call save_field_hdf5 ( dble(i), fname_this, field )
+        enddo
     enddo
-
-    if (vector) then
-        do i = 1, N_modes
-            field = reshape( POD_modes(npoints+1:2*npoints,N_snapshots-i+1), &
-            (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
-
-            ! create filename
-            write(fname_this,'("modey_",i3.3,".h5")') i
-
-            call save_field_hdf5 ( dble(i), fname_this, field )
-        enddo
-    endif
-
-    if (vector .and. dim==3) then
-        do i = 1, N_modes
-            field = reshape( POD_modes(2*npoints+1:3*npoints,N_snapshots-i+1), &
-            (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
-
-            ! create filename
-            write(fname_this,'("modez_",i3.3,".h5")') i
-
-            call save_field_hdf5 ( dble(i), fname_this, field )
-        enddo
-    endif
-
 
     !---------------------------------------------------------------------------
     ! temporal coefficients
@@ -324,12 +248,15 @@ subroutine POD(help)
         enddo
     enddo
     call MPI_ALLREDUCE(MPI_IN_PLACE, a_coefs, N_snapshots**2, MPI_DOUBLE_PRECISION, MPI_SUM, MPI_COMM_WORLD, info)
+    a_coefs = a_coefs / dble(nx*ny*nz)!*ncomponents)
+    ! a_coefs = a_coefs * dble(ncomponents)
+
 
     if (root) then
         write(*,*) 'writing temporal coefficients a_coefs.txt'
         open(14, file='a_coefs.txt', status='replace')
         do i = 1, N_snapshots
-            write(14,'(400(es15.8,1x))') a_coefs(i,1:N_modes)
+            write(14,'(400(es15.8,1x))') a_coefs(i, 1:N_modes)
         enddo
         close(14)
     end if
@@ -337,67 +264,27 @@ subroutine POD(help)
     !---------------------------------------------------------------------------
     ! reconstruction using N_modes
     !---------------------------------------------------------------------------
+    ! which time step to reconstruct at
     it = 1
 
-    ! ------------------ x-component ---------------------
-    field = 0.0_pr
-    do i = 1, N_modes
-        field = field + a_coefs(it,i) * reshape( POD_modes(1:npoints, N_snapshots-i+1), &
-        (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
+    do j = 1, ncomponents
+        field = 0.0_pr
+
+        do i = 1, N_modes
+            field = field + a_coefs(it,i) * reshape( POD_modes(1+(j-1)*npoints:(j)*npoints, N_snapshots-i+1), &
+            (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
+        enddo
+
+        ! create filename
+        write(fname_this,'("reconstruction",i1,"_",i3.3,".h5")') j, N_modes
+        call save_field_hdf5 ( dble(it), fname_this, field )
+
+        ! for comparison, also save original data (which is of course only the fluctuating
+        ! part of the solution)
+        field = reshape( X_data(1+(j-1)*npoints:(j)*npoints, it), (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
+
+        write(fname_this,'("original",i1,"_",i3.3,".h5")') j, N_modes
+        call save_field_hdf5 ( dble(it), fname_this, field )
+
     enddo
-
-    ! create filename
-    write(fname_this,'("reconstructionx_",i3.3,".h5")') N_modes
-    call save_field_hdf5 ( dble(it), fname_this, field )
-
-    ! for comparison, also save original data (which is of course only the fluctuating
-    ! part of the solution)
-    field = reshape( X_data(1:npoints, it), (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
-
-    write(fname_this,'("originalx_",i3.3,".h5")') N_modes
-    call save_field_hdf5 ( dble(it), fname_this, field )
-
-
-    ! ------------------ y-component ---------------------
-    if (vector) then
-        field = 0.0_pr
-        do i = 1, N_modes
-            field = field + a_coefs(it,i) * reshape( POD_modes(npoints+1:2*npoints, N_snapshots-i+1), &
-            (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
-        enddo
-
-        ! create filename
-        write(fname_this,'("reconstructiony_",i3.3,".h5")') N_modes
-        call save_field_hdf5 ( dble(it), fname_this, field )
-
-        ! for comparison, also save original data (which is of course only the fluctuating
-        ! part of the solution)
-        field = reshape( X_data(npoints+1:2*npoints, it), (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
-
-        write(fname_this,'("originaly_",i3.3,".h5")') N_modes
-        call save_field_hdf5 ( dble(it), fname_this, field )
-    endif
-
-
-    ! ------------------ z-component ---------------------
-    if (vector .and. dim==3) then
-        field = 0.0_pr
-        do i = 1, N_modes
-            field = field + a_coefs(it,i) * reshape( POD_modes(2*npoints+1:3*npoints, N_snapshots-i+1), &
-            (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
-        enddo
-
-        ! create filename
-        write(fname_this,'("reconstructionz_",i3.3,".h5")') N_modes
-        call save_field_hdf5 ( dble(it), fname_this, field )
-
-        ! for comparison, also save original data (which is of course only the fluctuating
-        ! part of the solution)
-        field = reshape( X_data(2*npoints+1:3*npoints, it), (/(rb(1)-ra(1)+1), (rb(2)-ra(2)+1), (rb(3)-ra(3)+1)/) )
-
-        write(fname_this,'("originalz_",i3.3,".h5")') N_modes
-        call save_field_hdf5 ( dble(it), fname_this, field )
-    endif
-
-
 end subroutine POD
