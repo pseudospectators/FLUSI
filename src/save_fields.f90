@@ -123,14 +123,6 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalar
   ! Pressure
   !-----------------------------------------------------------------------------
   if (isavePress == 1 .and. equation/="artificial-compressibility") then
-
-    if (use_solid_model=="yes" .or. use_flexible_wing_model=="yes") then
-
-      ! pressure field is already calculated for active FSI, we only need to save it here
-      call save_field_hdf5(time,'p_'//name,press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-
-    else
-
       ! compute pressure (remember NLK is *not* divergence free)
       call pressure( nlk,workc(:,:,:,1) )
       ! total pressure in x-space
@@ -138,7 +130,6 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalar
       ! get actuall pressure (we're in the rotational formulation)
       work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
       call save_field_hdf5(time,'p_'//name,work(:,:,:,1))
-    endif
 
   elseif (isavePress == 1 .and. equation=="artificial-compressibility") then
     call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
