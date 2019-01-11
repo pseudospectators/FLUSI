@@ -7,7 +7,7 @@ subroutine POD(help)
     implicit none
     logical, intent(in) :: help
     character(len=strlen) :: fnamex_list, fname_this, fnamey_list, fnamez_list, dummy
-    character(len=strlen) :: fnamex, fnamey, fnamez, timesteps_list
+    character(len=strlen) :: fnamex, fnamey, fnamez, timesteps_list, fname_reconst_base
     character(len=strlen) :: fname_list(1:3), fname_acoefs
     real(kind=pr), dimension(:,:,:), allocatable :: field_avg, field
     real(kind=pr), dimension(:,:), allocatable :: X_data, POD_modes, a_coefs
@@ -18,11 +18,14 @@ subroutine POD(help)
     integer :: ncomponents, nmodes_to_read, nmodes_file
     real(kind=pr) :: time, a, norm
     LOGICAL :: vector, reconstruct_all_time_steps, reconstruct_list, only_recon, total_not_fluctuations, only_modes
+    logical :: save_original
 
     if (help.and.root) then
         write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         write(*,*) "./flusi -p --POD --components 3 --list file_list.txt [list_uy.txt] [list_uz.txt] "
         write(*,*) "--modes 10 --reconstruct-all-time-steps --total-not-fluctuations"
+        write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        write(*,*) " Snapshot POD of flow data (vorticity, velocity, etc.) "
         write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         write(*,*) " --list: a TXT file which simply contains the list of snapshots to read, one file per line"
         write(*,*) " --reconstruct-all-time-steps"
@@ -30,7 +33,17 @@ subroutine POD(help)
         write(*,*) " --only-modes"
         write(*,*) " --only-reconstruction a_coefs.txt (reconstruction from 34 modes, read from HDD)"
         write(*,*) " --modes 10"
+        write(*,*) " --save-original"
+        write(*,*) "    if specified, code also stores original fluctuations (e.g. input data) at reconstruction"
+        write(*,*) "    time steps. In the case of --total-not-fluctuations, this would be useless"
         write(*,*) " --total-not-fluctuations"
+        write(*,*) "    do not remove mean from data if this flag is set. in the literature, POD always removes the"
+        write(*,*) "    ensemble average."
+        write(*,*) " --reconstruction-name vel-fluct"
+        write(*,*) "    If the code is reconstructing the field from POD modes (i.e. not running --only-modes)"
+        write(*,*) "    then you can choose the filename for reconstructions here. Naming scheme is"
+        write(*,*) "    [NAME]-[MODES]-[COMPONENT]_[TIMESTEP].h5"
+        write(*,*) "    so e.g. vel-fluct-30-1_000.h5 if name='vel-fluct' "
         write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         write(*,*) "Parallel: Yes"
         return
@@ -43,14 +56,24 @@ subroutine POD(help)
     only_recon = .false.
     total_not_fluctuations = .false.
     only_modes = .false.
+    save_original = .false.
+    fname_reconst_base = "reconstruction"
 
     ! fetch parameters from command line call
     do i = 1, COMMAND_ARGUMENT_COUNT()
         call get_command_argument(i,dummy)
         select case (dummy)
+        case ("--save-original")
+            save_original = .true.
+            if (root) write(*,*) "We do save original data."
+
         case ("--total-not-fluctuations")
             total_not_fluctuations = .true.
             if (root) write(*,*) "We do NOT remove the mean and work on TOTAL field"
+
+        case ("--reconstruction-name")
+            call get_command_argument(i+1,fname_reconst_base)
+            if (root) write(*,*) "Basename for reconstruction is", fname_reconst_base
 
         case ("--only-modes")
             only_modes = .true.
@@ -395,10 +418,10 @@ subroutine POD(help)
                 enddo
 
                 ! create filename
-                write(fname_this,'("reconstruction",i2.2,"-",i1,"_",i3.3,".h5")') N_modes, j, it
+                write(fname_this,'(A,"-",i2.2,"-",i1,"_",i3.3,".h5")') trim(adjustl(fname_reconst_base)), N_modes, j, it
                 call save_field_hdf5 ( dble(it), fname_this, field )
 
-                if (.not. only_recon) then
+                if (.not. only_recon .and. save_original) then
                     ! for comparison, also save original data (which is of course only the fluctuating
                     ! part of the solution). can only be done when computing POD, not on reconstruction
                     field = reshape( X_data(1+(j-1)*npoints:(j)*npoints, it), &
@@ -440,10 +463,10 @@ subroutine POD(help)
                     enddo
 
                     ! create filename
-                    write(fname_this,'("reconstruction",i2.2,"-",i1,"_",i3.3,".h5")') N_modes, j, it
+                    write(fname_this,'(A,"-",i2.2,"-",i1,"_",i3.3,".h5")') trim(adjustl(fname_reconst_base)), N_modes, j, it
                     call save_field_hdf5 ( dble(it), fname_this, field )
 
-                    if (.not. only_recon) then
+                    if (.not. only_recon .and. save_original) then
                         ! for comparison, also save original data (which is of course only the fluctuating
                         ! part of the solution). can only be done when computing POD, not on reconstruction
                         field = reshape( X_data(1+(j-1)*npoints:(j)*npoints, it), &
