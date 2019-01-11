@@ -37,6 +37,8 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--force")
+      call post_force(help)
   case ("--POD")
       call POD(help)
   case ("--divergence")
@@ -148,6 +150,7 @@ subroutine postprocessing()
       write(*,*) "--extract-subset"
       write(*,*) "--field-analysis"
       write(*,*) "--force-decomp"
+      write(*,*) "--force"
       write(*,*) "--flexible-wing-mask"
       write(*,*) "--gradient"
       write(*,*) "--hdf2bin"

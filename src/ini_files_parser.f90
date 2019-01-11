@@ -59,46 +59,65 @@ contains
   ! note: array is assumed-shape and its size defines what we try to read
   ! --> MPI wrapper in the MPI parser module
   !-----------------------------------------------------------------------------
-  subroutine read_array_from_ascii_file(file, array, n_header)
-    implicit none
-    character(len=*), intent(in) :: file
-    integer, intent(in) :: n_header
-    real(kind=pr), intent(inout) :: array (1:,1:)
-    integer :: nlines, ncols, i, io_error
-    character(len=maxcolumns) :: dummy
-    character(len=16) :: fmt
-    character(len=3) :: ncols_str
+  subroutine read_array_from_ascii_file(file, array, n_header, user_separator)
+      implicit none
+      character(len=*), intent(in) :: file
+      integer, intent(in) :: n_header
+      real(kind=pr), intent(inout) :: array (1:,1:)
+      character(len=1), optional, intent(in) :: user_separator
+      integer :: nlines, ncols, i, io_error, k
+      character(len=maxcolumns) :: dummy
+      character(len=16) :: fmt
+      character(len=3) :: ncols_str
+      character(len=1) :: sep
 
-    ! check if the specified file exists
-    call check_file_exists( file )
+      ! check if the specified file exists
+      call check_file_exists( file )
 
-    nlines = size(array,1)
-    ncols = size(array,2)
+      nlines = size(array,1)
+      ncols = size(array,2)
 
-    write(*,'(80("-"))')
-    write(*,'("INFO: reading ",i8," lines with ",i8," colums from ",A)') nlines, ncols, file
-
-    ! set up format string
-    write(ncols_str,'(i3.3)') ncols
-    fmt = '('//ncols_str//'(es12.4,1x))'
-
-    io_error = 0
-    i = 0
-
-    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
-    do while (io_error==0)
-      ! read a line from file
-      read (14,'(A)',iostat=io_error) dummy
-      i = i + 1
-      ! if we're past the header AND the read worked (i.e. not end of file)
-      if (i > n_header .and. io_error==0) then
-        read(dummy,*) array(i-n_header,:)
+      if (present(user_separator)) then
+          sep = user_separator
+      else
+          sep = " "
       endif
-    enddo
-    close (14)
 
-    write(*,'("Done reading.")')
-    write(*,'(80("-"))')
+      write(*,'(80("-"))')
+      write(*,'("INFO: reading ",i8," lines with ",i8," colums from ",A)') nlines, ncols, file
+      write(*,'("INFO: separator is -->",A1,"<--")') sep
+
+      ! set up format string
+      write(ncols_str,'(i3.3)') ncols
+      fmt = '('//ncols_str//'(es12.4,1x))'
+
+      io_error = 0
+      i = 0
+
+      open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+      do while (io_error==0)
+          ! read a line from file
+          read (14,'(A)',iostat=io_error) dummy
+          i = i + 1
+
+          ! if we're past the header AND the read worked (i.e. not end of file)
+          if (i > n_header .and. io_error==0) then
+
+              k = count_seperators_in_line(dummy, sep)
+              if (k == ncols) then
+                  dummy = adjustl(dummy)
+                  read(dummy,*) array(i-n_header,:)
+              else
+                  write(*,*) "ERROR in file ",trim(adjustl(file))," line ", i, "has wrong number of columns, skip"
+                  ! this module is not MPI aware so abort is not available
+                  stop
+              endif
+          endif
+      enddo
+      close (14)
+
+      write(*,'("Done reading.")')
+      write(*,'(80("-"))')
   end subroutine read_array_from_ascii_file
 
 
@@ -106,61 +125,94 @@ contains
   ! count the number of lines in an ascii file, skip n_header lines
   ! --> MPI wrapper in the MPI parser module
   !-----------------------------------------------------------------------------
-  subroutine count_lines_in_ascii_file(file, num_lines, n_header)
-    implicit none
-    character(len=*), intent(in) :: file
-    integer, intent(out) :: num_lines
-    integer, intent(in) :: n_header
-    integer :: io_error, i
-    character(len=maxcolumns) :: dummy
+  subroutine count_lines_in_ascii_file(file, num_lines, n_header, user_separator)
+      implicit none
+      character(len=*), intent(in) :: file
+      integer, intent(out) :: num_lines
+      integer, intent(in) :: n_header
+      character(len=1), optional, intent(in) :: user_separator
+      integer :: io_error, i
+      character(len=maxcolumns) :: dummy
+      character(len=1) :: sep
 
-    ! check if the specified file exists
-    call check_file_exists( file )
+      ! check if the specified file exists
+      call check_file_exists( file )
 
-    ! count the lines
-    io_error = 0
-    i = 0
-    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
-    do while (io_error==0)
-      read (14,'(A)',iostat=io_error) dummy
-      if (io_error==0) i = i+1
-    enddo
-    close (14)
-    num_lines = i - n_header
+      if (present(user_separator)) then
+          sep = user_separator
+      else
+          sep = " "
+      endif
+
+      ! count the lines
+      io_error = 0
+      i = 0
+      open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+      do while (io_error==0)
+          read (14,'(A)',iostat=io_error) dummy
+          if (io_error==0) i = i+1
+      enddo
+      close (14)
+      num_lines = i - n_header
   end subroutine count_lines_in_ascii_file
 
 
-  subroutine count_cols_in_ascii_file(file, num_cols, n_header)
-    implicit none
-    character(len=*), intent(in) :: file
-    integer, intent(out) :: num_cols
-    integer, intent(in) :: n_header
-    integer :: io_error, i
-    character(len=maxcolumns) :: dummy
+  subroutine count_cols_in_ascii_file(file, num_cols, n_header, user_separator)
+      implicit none
+      character(len=*), intent(in) :: file
+      integer, intent(out) :: num_cols
+      integer, intent(in) :: n_header
+      character(len=1), optional, intent(in) :: user_separator
+      integer :: io_error, i
+      character(len=maxcolumns) :: dummy
+      character(len=1) :: sep
 
-    ! check if the specified file exists
-    call check_file_exists( file )
+      ! check if the specified file exists
+      call check_file_exists( file )
 
-    ! count the lines
-    io_error = 0
-    i = 0
+      if (present(user_separator)) then
+          sep = user_separator
+      else
+          sep = " "
+      endif
 
-    open(unit=14,file=trim(adjustl(file)),action='read',status='old')
-    do while (io_error==0)
-      read (14,'(A)',iostat=io_error) dummy
-      if (io_error==0 .and. i>n_header) exit
-      i=i+1
-    enddo
-    close (14)
+      ! count the lines
+      io_error = 0
+      i = 1
 
-    num_cols = 1
-    do i = 1, len_trim(adjustl(dummy))
-      ! count elements in the line by counting the separating spaces
-      if ( dummy(i:i) == " " ) then
-        num_cols = num_cols + 1
-      end if
-    enddo
+      ! just read first line....after the header
+      open(unit=14,file=trim(adjustl(file)),action='read',status='old')
+      do while (io_error==0)
+          read (14,'(A)',iostat=io_error) dummy
+          if (io_error==0 .and. i>n_header) exit
+          i = i+1
+      enddo
+      close (14)
+
+      num_cols = count_seperators_in_line(dummy, sep)
   end subroutine count_cols_in_ascii_file
+
+
+
+  integer function count_seperators_in_line( line, sep )
+      implicit none
+      CHARACTER(len=*), intent(in) :: line, sep
+      character(len=maxcolumns) :: dummy
+      integer :: num_cols, i
+
+      num_cols = 1
+      ! remove leading spaces
+      dummy = adjustl(line)
+
+      do i = 1, len_trim(dummy)
+          ! count elements in the dummy by counting the separators
+          if ( dummy(i:i) == sep(1:1) ) then
+              num_cols = num_cols + 1
+          end if
+      enddo
+
+      count_seperators_in_line = num_cols
+  end function
 
 
   !-------------------------------------------------------------------------------

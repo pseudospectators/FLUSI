@@ -11,7 +11,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
 	rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
 	noncircular_cylinder.f90 draw_flexible_plate.f90 \
-	runtime_backuping.f90 io_test.f90 POD.f90
+	runtime_backuping.f90 io_test.f90 POD.f90 post_force.f90
 
 ifndef NOHDF5
 # Case WITH HDF5 (all machines except earth simulator)
