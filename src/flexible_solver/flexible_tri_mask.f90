@@ -596,7 +596,7 @@ subroutine project_point_onto_triangle(point_projected,tri1,point,normal)
   point_projected(2) = (-a*b*point(1) + (a**2 + c**2)*point(2) - b*c*point(3) - d*b)/ &
                        (a**2 + b**2 + c**2)
 
-  point_projected(3) = (-a*c*point(1) - b*c*point(2) - (a**2 + b**2)*point(3) - d*c)/ &
+  point_projected(3) = (-a*c*point(1) - b*c*point(2) + (a**2 + b**2)*point(3) - d*c)/ &
                        (a**2 + b**2 + c**2)
 
 end subroutine
@@ -630,7 +630,7 @@ function interpolationPointTriangle(tri1,tri2,tri3,utri1,utri2,utri3,point,norma
   A = 0.5*sqrt(tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
 
   !Check if the projection of the point is inside the triangle
-  if (mpirank == 0) then
+
   if ((A1 + A2 + A3) > (A + 1.0d-15)) then
     write(*,*) "WARNING: The projection of the point may be outside of the triangle"
     write(*,*) A1, A2, A3
@@ -639,7 +639,7 @@ function interpolationPointTriangle(tri1,tri2,tri3,utri1,utri2,utri3,point,norma
     write(*,*) point
     write(*,*) point_projected
   endif
-endif
+
   interpolationPointTriangle(1:3) = (A1*utri1(1:3) + A2*utri2(1:3) + A3*utri3(1:3))/ &
                                     (A1 + A2 + A3)
 

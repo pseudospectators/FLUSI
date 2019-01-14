@@ -151,7 +151,8 @@ end program FLUSI
     time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
     time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
     time_scalar=0.d0
-    time_solid=0.d0; time_solid_ex=0.d0; time_solid_in=0.d0; time_solid_din=0.d0; time_solid_nls=0.d0;
+    time_solid=0.d0; time_solid_ex=0.d0; time_solid_in=0.d0; time_solid_din=0.d0;
+    time_solid_nls=0.d0; time_solid_LU =0.d0
     time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
     time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
     tslices=0.d0
@@ -466,6 +467,7 @@ end program FLUSI
      time_solid_ex = mpisum(time_solid_ex)
      time_solid_in = mpisum(time_solid_in)
      time_solid_nls = mpisum(time_solid_nls)
+     time_solid_LU = mpisum(time_solid_LU)
      time_rhs=mpisum(time_rhs)
      time_surf=mpisum(time_surf)
      time_p=mpisum(time_p)
@@ -524,6 +526,7 @@ if (mpirank/=0) return
     write(*,8) (time_solid_in),100.d0*(time_solid_in/t2),"internal forces"
     write(*,8) (time_solid_din),100.d0*(time_solid_din/t2),"derivative internal forces"
     write(*,8) (time_solid_nls),100.d0*(time_solid_nls/t2),"solving nonlinear system"
+    write(*,8) (time_solid_LU),100.d0*(time_solid_LU/t2),"LU decomposition"
     write(*,3)
     write(*,'("Integral walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
     write(*,'("Actual   walltime ",es12.4," (",i7," CPUh)")') t3, nint( t3*dble(mpisize)/3600.d0 )

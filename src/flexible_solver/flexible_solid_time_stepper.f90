@@ -339,6 +339,7 @@ integer, intent(in) :: np
 real(kind=pr), intent(inout) :: du(1:)
 real(kind=pr), allocatable :: y(:), m_array3D(:), c_array3D(:)
 real(kind=pr), allocatable :: F(:,:)
+real(kind=pr) :: t0
 integer :: i, j
 
 allocate(y(1:3*np),m_array3D(1:3*np),c_array3D(1:3*np))
@@ -360,7 +361,10 @@ do i=1,3*np
     enddo
 enddo
 
+t0 = MPI_wtime()
+
 call solve_linear_system_wing ( F, y, du(1:3*np) )
+time_solid_LU = time_solid_LU + MPI_wtime() - t0
 
 do i=1,3*np
 

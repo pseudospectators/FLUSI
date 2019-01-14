@@ -66,9 +66,11 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
               call pressure( nlk,workc(:,:,:,1) )
               ! transform it to phys space (note "press" has ghostpoints, cut them here)
               call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+              press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = &
+              press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
 
           endif
-          
+
           ! project the right hand side to the incompressible manifold
           call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
           ! for global performance measurement
