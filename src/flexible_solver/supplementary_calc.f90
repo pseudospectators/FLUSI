@@ -152,12 +152,21 @@ subroutine rotate_wing(wings)
 
   implicit none
   type(flexible_wing), intent(inout) :: wings
-  real(kind=pr), dimension(1:3,1:3) :: mat_Ry, mat_Rz
+  real(kind=pr), dimension(1:3,1:3) :: mat_Rx, mat_Ry, mat_Rz
   integer :: i
   real(kind=pr), dimension(1:3) :: u
 
+    call Rx(mat_Rx,wings%Anglewing_x)
     call Ry(mat_Ry,wings%Anglewing_y)
     call Rz(mat_Rz,wings%Anglewing_z)
+
+  ! Rotate wing around x axis
+  do i=1,wings%np
+    u = matmul(mat_Rx,(/wings%x(i), wings%y(i), wings%z(i)/))
+    wings%x(i) = u(1)
+    wings%y(i) = u(2)
+    wings%z(i) = u(3)
+  enddo
 
   ! Rotate wing around y axis
   do i=1,wings%np

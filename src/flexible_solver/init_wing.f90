@@ -37,6 +37,7 @@ subroutine init_wings ( fname, wings )
     ! this is position and motion protocoll
     !--------------------------------------------
     !rotation angles only used to determine the starting position of the wings
+    wings(i)%Anglewing_x = 0.d0
     wings(i)%Anglewing_y = 0.d0
     wings(i)%Anglewing_z = -pi/4
 
@@ -73,8 +74,6 @@ subroutine init_wings ( fname, wings )
     ! Reading mesh data from ASCII files
     call read_wing_mesh_data(wings(i), i)
 
-    call rotate_wing(wings(i))
-
 
     !-----------------------------------------------------------------------------
     ! read in parameters form ini file
@@ -104,6 +103,7 @@ subroutine init_wings ( fname, wings )
 
     call read_param_mpi(PARAMS,"Flexible_wing","damping",wings(i)%c0, 0.d0)
 
+    call read_param_mpi(PARAMS,"Flexible_wing","Rotation_angle_x",wings(i)%Anglewing_x, 0.d0)
     call read_param_mpi(PARAMS,"Flexible_wing","Rotation_angle_y",wings(i)%Anglewing_y, 0.d0)
     call read_param_mpi(PARAMS,"Flexible_wing","Rotation_angle_z",wings(i)%Anglewing_z, 0.d0)
 
@@ -117,6 +117,9 @@ subroutine init_wings ( fname, wings )
     call read_param_mpi(PARAMS,"Flexible_wing","tau",tau,0.0d0)
     ! clean ini file
     call clean_ini_file_mpi(PARAMS)
+
+
+    call rotate_wing(wings(i))
 
     !--------------------------------------------------------------------------
     ! Move the wing to the desired position X0
@@ -517,9 +520,17 @@ subroutine determine_boundary_points_from_origin(wings)
       wings%y_BC(-1,1) = wings%y0
       wings%z_BC(-1,1) = wings%z0
 
+      wings%x0_BC(-1,1) = wings%x_BC(-1,1)
+      wings%y0_BC(-1,1) = wings%y_BC(-1,1)
+      wings%z0_BC(-1,1) = wings%z_BC(-1,1)
+
       wings%x_BC(0,1) = (wings%x0 + wings%x(nint(wings%veins_bending_BC(1,2,1))))/2
       wings%y_BC(0,1) = (wings%y0 + wings%y(nint(wings%veins_bending_BC(1,2,1))))/2
       wings%z_BC(0,1) = (wings%z0 + wings%z(nint(wings%veins_bending_BC(1,2,1))))/2
+
+      wings%x0_BC(0,1) = wings%x_BC(0,1)
+      wings%y0_BC(0,1) = wings%y_BC(0,1)
+      wings%z0_BC(0,1) = wings%z_BC(0,1)
 
       wings%veins_extension_BC(0,4,1) = sqrt(((wings%x0 - wings%x(nint(wings%veins_bending_BC(1,2,1))))/2)**2 + &
                                              ((wings%y0 - wings%y(nint(wings%veins_bending_BC(1,2,1))))/2)**2 + &
@@ -548,9 +559,17 @@ subroutine determine_boundary_points_from_origin(wings)
         wings%y_BC(-1,i) = wings%y(nint(wings%veins_bending_BC(1,2,i))) - 2*delta(2)
         wings%z_BC(-1,i) = wings%z(nint(wings%veins_bending_BC(1,2,i))) - 2*delta(3)
 
+        wings%x0_BC(-1,i) = wings%x_BC(-1,i)
+        wings%y0_BC(-1,i) = wings%y_BC(-1,i)
+        wings%z0_BC(-1,i) = wings%z_BC(-1,i)
+
         wings%x_BC(0,i) = (wings%x_BC(-1,i) + wings%x(nint(wings%veins_bending_BC(1,2,i))))/2
         wings%y_BC(0,i) = (wings%y_BC(-1,i) + wings%y(nint(wings%veins_bending_BC(1,2,i))))/2
         wings%z_BC(0,i) = (wings%z_BC(-1,i) + wings%z(nint(wings%veins_bending_BC(1,2,i))))/2
+
+        wings%x0_BC(0,i) = wings%x_BC(0,i)
+        wings%y0_BC(0,i) = wings%y_BC(0,i)
+        wings%z0_BC(0,i) = wings%z_BC(0,i)
 
         ! Calculate initial lengths of springs connecting veins with the BC
         wings%veins_extension_BC(0,4,i) = sqrt((delta(1))**2 + (delta(2))**2 + (delta(3))**2)

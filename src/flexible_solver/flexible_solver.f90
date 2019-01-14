@@ -48,7 +48,7 @@ module flexible_model
     real(kind=pr),dimension(1:npmax) :: x,y,z
     real(kind=pr),dimension(1:npmax) :: vx,vy,vz
     real(kind=pr),dimension(1:6*npmax) :: du, u_new, u_old, u_oldold
-    real(kind=pr),dimension(-1:0,1:nVeins_BC) :: x_BC, y_BC, z_BC
+    real(kind=pr),dimension(-1:0,1:nVeins_BC) :: x_BC,y_BC,z_BC,x0_BC,y0_BC,z0_BC
     integer,dimension(1:nmmax,4) :: tri_elements
     real(kind=pr),dimension(1:nmmax) :: tri_element_areas
     real(kind=pr),dimension(1:nmmax,4) :: tri_element_normals
@@ -113,7 +113,7 @@ module flexible_model
     !real(kind=pr) :: E_kinetic, E_elastic
 
 
-    real(kind=pr) :: Anglewing_y, Anglewing_z
+    real(kind=pr) :: Anglewing_x, Anglewing_y, Anglewing_z
     ! we need the previous time step for the BDF solver
     real(kind=pr) :: dt_old
 

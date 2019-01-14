@@ -4,6 +4,7 @@
 !-------------------------------------------------------------------------------
 
 subroutine flexible_solid_time_step(time, dt0, dt1, it, wings)
+    use vars
     use mpi
     implicit none
 
@@ -11,6 +12,7 @@ subroutine flexible_solid_time_step(time, dt0, dt1, it, wings)
     integer,intent (in) :: it
     type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
     real(kind=pr) :: c1, c2, c3
+    real(kind=pr) :: t0
     integer :: i,itri
 
     ! select scheme
@@ -19,8 +21,11 @@ subroutine flexible_solid_time_step(time, dt0, dt1, it, wings)
         !call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
         call flexible_wing_motions ( time, wings )
 
+        t0 = MPI_wtime()
         ! Construct the external force vector
         call external_forces_construction(time,dt0,dt1, it,wings)
+        time_solid_ex = time_solid_ex + MPI_wtime() - t0
+
 
         ! EULER startup scheme
         ! compute position and velocity at new time step
@@ -33,9 +38,10 @@ subroutine flexible_solid_time_step(time, dt0, dt1, it, wings)
         !call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
         call flexible_wing_motions ( time, wings )
 
+        t0 = MPI_wtime()
         ! Construct the external force vector
-        !call calculate_normal_vectors_of_wing(it,wings)
         call external_forces_construction(time,dt0,dt1, it,wings)
+        time_solid_ex = time_solid_ex + MPI_wtime() - t0
 
         ! BDF2 scheme
         ! compute position and velocity at new time step
@@ -65,6 +71,8 @@ end subroutine
 
 subroutine flexible_solid_solver_euler(time, dt1, it, wings)
 
+    use vars
+
     implicit none
 
     real(kind=pr),intent(in) :: time, dt1
@@ -73,6 +81,7 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
     real(kind=pr) :: du, err, err_rel, coef=1.0
     integer :: i, iter, i_NAN, j_NAN, iJ,jJ,np
     logical :: iterate
+    real(kind=pr) :: t0
 
   do i=1,nWings
 
@@ -93,8 +102,10 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
       ! Get total number of mass points
       np = wings(i)%np
 
+      t0 = MPI_wtime()
       ! Calculate internal force vector from the new state vector u_new
       call internal_forces_construction(wings(i))
+      time_solid_in = time_solid_in + MPI_wtime() - t0
 
       if (Vector_isNAN(wings(i)%Fint(1:3*wings(i)%np))) then
         if (root) write(*,*) "FlexibleSolidSolver: Internal force vector contains NaNs"
@@ -104,20 +115,23 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wings)
       ! Calculate RHS vector
       call RHS_for_NR_method(dt1, dt1, it, wings(i))
 
+      t0 = MPI_wtime()
       ! Calculate the Jacobian matrix of the internal force vector
       call internal_forces_derivatives_construction(wings(i))
+      time_solid_din = time_solid_din + MPI_wtime() - t0
 
       if (Matrix_isNAN(wings(i)%FJ(1:3*wings(i)%np,1:3*wings(i)%np),i_NAN, j_NAN)) then
         if (root) write(*,*) "FlexibleSolidSolver: Jacobian matrix contains NaNs"
         call abort(9835,"The Jacobian matrix for the solid solver contains NaN..abort")
       endif
 
+      t0 = MPI_wtime()
       ! Solve for the step of NR method
       call solve_linear_system_using_schur_complement(wings(i)%du(1:6*np), np, &
                                                       wings(i)%FJ(1:3*np,1:3*np), &
                                                       wings(i)%m(1:np), wings(i)%c(1:np), &
                                                       dt1, wings(i)%RHS_a(1:3*np), wings(i)%RHS_b(1:3*np), coef)
-
+      time_solid_nls = time_solid_nls + MPI_wtime() - t0
 
       wings(i)%u_new(1:6*wings(i)%np) = wings(i)%u_new(1:6*wings(i)%np) - wings(i)%du(1:6*wings(i)%np)
       err            = dsqrt(sum(wings(i)%du**2))
@@ -151,6 +165,8 @@ end subroutine
 
 subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wings)
 
+    use vars
+
     implicit none
 
     real(kind=pr),intent(in) :: time, dt1, dt0
@@ -160,6 +176,7 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wings)
     real(kind=pr) :: du, err, err_rel
     integer :: i, iter, np
     logical :: iterate
+    real(kind=pr) :: t0
 
     ! Calculate the coefficient for time stepping scheme
     r = dt1/dt0
@@ -183,21 +200,26 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wings)
 
       iter = iter + 1
 
-
+      t0 = MPI_wtime()
       ! Calculate internal force vector from the new state vector u_new
       call internal_forces_construction(wings(i))
+      time_solid_in = time_solid_in + MPI_wtime() - t0
 
       ! Calculate RHS vector
       call RHS_for_NR_method(dt1, dt0, it, wings(i))
 
+      t0 = MPI_wtime()
       ! Calculate the Jacobian matrix of the internal force vector
       call internal_forces_derivatives_construction(wings(i))
+      time_solid_din = time_solid_din + MPI_wtime() - t0
 
+      t0 = MPI_wtime()
       ! Solve for the step of NR method
       call solve_linear_system_using_schur_complement(wings(i)%du(1:6*np), np, &
                                                       wings(i)%FJ(1:3*np,1:3*np), &
                                                       wings(i)%m(1:np), wings(i)%c(1:np), &
                                                       dt1, wings(i)%RHS_a(1:3*np), wings(i)%RHS_b(1:3*np), coef)
+      time_solid_nls = time_solid_nls + MPI_wtime() - t0
 
       wings(i)%u_new = wings(i)%u_new - wings(i)%du
       err            = dsqrt(sum(wings(i)%du**2))

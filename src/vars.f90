@@ -64,7 +64,8 @@ module vars
   real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u,tslices
   real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
   real(kind=pr),save :: time_sponge,time_scalar
-  real(kind=pr),save :: time_solid, time_drag, time_surf, time_LAPACK
+  real(kind=pr),save :: time_solid,time_solid_ex,time_solid_in,time_solid_din,time_solid_nls
+  real(kind=pr),save :: time_drag, time_surf, time_LAPACK
   real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar,tstart=0.0d0
 
   ! Variables set via the parameters file

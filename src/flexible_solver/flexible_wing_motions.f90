@@ -28,8 +28,8 @@ subroutine simple_harmonic_motion (time, wings)
   integer :: j
 
     do j=1,nVeins_BC
-      wings%z_BC(-1,j) = wings%z0 - 0.075/5*sin(5*pi*time)
-      wings%z_BC(0,j) = wings%z_BC(-1,j)
+      wings%z_BC(-1,j) = wings%z0_BC(-1,j) - 0.075/5*sin(5*pi*time)
+      wings%z_BC(0,j) = wings%z0_BC(0,j) - 0.075/5*sin(5*pi*time)
     enddo
 
 end subroutine

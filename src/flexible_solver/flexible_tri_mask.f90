@@ -182,6 +182,9 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
                 call smoothstep(mask(ix,iy,iz),unsigned_distance(ix,iy,iz),&
                                 wings(i)%t_wing,wings(i)%wing_smoothing)
 
+                !-- assign mask color
+                if (mask(ix,iy,iz) > 0.d0) mask_color(ix,iy,iz)=1
+
             enddo
           enddo
         enddo
