@@ -14,8 +14,44 @@ subroutine flexible_wing_motions ( time, wings )
     call simple_harmonic_motion (time, wings(i))
   case ("stationary")
     wings(i) = wings(i)
+  case ("revolving_Zimmerman")
+    call revolving_Zimmerman (time, wings(i))
   end select
   enddo
+
+end subroutine
+
+subroutine revolving_Zimmerman (time, wings)
+
+  implicit none
+
+  real(kind=pr),intent(in) :: time
+  type(flexible_wing), intent (inout) :: wings
+  integer :: j
+  real(kind=pr) :: phi_y
+  real(kind=pr),dimension(1:3,1:3) :: mat_Ry
+  real(kind=pr),dimension(1:3) :: u
+
+  phi_y = 5*pi*time
+
+  call Ry(mat_Ry,phi_y)
+
+    do j=1,nVeins_BC
+      u = matmul(mat_Ry,(/wings%x0_BC(0,j) - wings%x0, &
+                          wings%y0_BC(0,j) - wings%y0, &
+                          wings%z0_BC(0,j) - wings%z0/))
+      wings%x_BC(0,j) = u(1) + wings%x0
+      wings%y_BC(0,j) = u(2) + wings%y0
+      wings%z_BC(0,j) = u(3) + wings%z0
+
+      u = matmul(mat_Ry,(/wings%x0_BC(-1,j) - wings%x0, &
+                      wings%y0_BC(-1,j) - wings%y0, &
+                      wings%z0_BC(-1,j) - wings%z0/))
+      wings%x_BC(-1,j) = u(1) + wings%x0
+      wings%y_BC(-1,j) = u(2) + wings%y0
+      wings%z_BC(-1,j) = u(3) + wings%z0
+
+    enddo
 
 end subroutine
 
