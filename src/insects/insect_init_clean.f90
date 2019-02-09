@@ -62,7 +62,7 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   else
       periodic_insect = .false.
   endif
-  if (root) write(*,'("periodic_insect=",L)') periodic_insect
+  if (root) write(*,'("periodic_insect=",L1)') periodic_insect
 
   !-----------------------------------------------------------------------------
   ! read in parameters form ini file
