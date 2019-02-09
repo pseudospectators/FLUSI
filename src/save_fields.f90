@@ -170,7 +170,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalar
     call compute_mask_volume(volume)
     if ((mpirank==0).and.(volume<1.0d-10)) write(*,*) "WARNING: saving empty mask"
     call save_field_hdf5(time, 'mask_'//name, mask)
-    ! call save_field_hdf5(time,'color_'//name,dble(mask_color))
+    call save_field_hdf5(time,'color_'//name,dble(mask_color))
   endif
 
   !-----------------------------------------------------------------------------

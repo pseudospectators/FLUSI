@@ -9,6 +9,6 @@ module module_insects_integration_flusi_wabbit
 
 implicit none
 
-  logical :: avoid_drawing_static_body = .true.
+  logical, parameter :: grid_time_dependent = .false.
 
 end module module_insects_integration_flusi_wabbit
