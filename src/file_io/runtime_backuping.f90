@@ -1,11 +1,12 @@
 ! Write the restart file. nlk(...,0) and nlk(...,1) are saved, the
 ! time steps, and what else? FIXME: document what is saved.
 subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
-  work,scalars,scalars_rhs,Insect,beams)
+  work,scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   use module_helpers, only : check_file_exists
   implicit none
@@ -18,6 +19,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid), dimension(1), intent(in) :: beams
+  type(flexible_wing), dimension (1:nWings), intent (in) :: Wings
   type(diptera), intent(in) :: Insect
   character(len=1) :: scalar_id
   real(kind=pr) :: t1
@@ -164,6 +166,13 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   !-------------------------------------------------------------------------
   if((use_solid_model=="yes").and.(method=="fsi")) then
     call dump_solid_backup( time, beams, nbackup )
+  endif
+
+  !-------------------------------------------------------------------------
+  !-- backup flexible wing solver, if doing active FSI
+  !-------------------------------------------------------------------------
+  if((use_flexible_wing_model=="yes").and.(method=="fsi")) then
+    call dump_flexible_wing_backup( time, wings, nbackup )
   endif
 
   nbackup = 1 - nbackup
