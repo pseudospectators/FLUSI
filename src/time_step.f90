@@ -88,6 +88,13 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     endif
 
     !---------------------------------------------------------------------------
+    ! Save flexible wing model data, if using it
+    !---------------------------------------------------------------------------
+    !if (use_flexible_wing_model=="yes" .and. root) then
+    !  call SaveWingData( time, wings )
+    !endif
+
+    !---------------------------------------------------------------------------
     ! Output FIELDS DATA (after tsave time units, but not before tsave_first)
     !---------------------------------------------------------------------------
     if (time_for_output(time, dt1, it, tsave, 99999999, tmax, tsave_first)) then
@@ -102,7 +109,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! backups every "truntime" hours (precise to one time step)
     if (idobackup==1 .and. truntimenext<(MPI_wtime()-time_total)/3600.d0) then
       call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-      work(:,:,:,1),scalars,scalars_rhs,Insect,beams)
+      work(:,:,:,1),scalars,scalars_rhs,Insect,beams,wings)
       truntimenext = truntimenext+truntime
     endif
 
@@ -161,7 +168,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   if(idobackup==1) then
     if(root) write (*,*) "final backup..."
     call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-    work(:,:,:,1),scalars,scalars_rhs,Insect,beams)
+    work(:,:,:,1),scalars,scalars_rhs,Insect,beams,wings)
   endif
 
   if(root) write(*,'("Done time stepping; did nt=",i7," steps")') it-it_start

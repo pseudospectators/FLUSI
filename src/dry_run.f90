@@ -367,7 +367,7 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   ! initalize wings
   !-----------------------------------------------------------------------------
-  call init_wings( infile, Wings)
+  call init_wings( infile, Wings, dx)
 
   if (tsave == 0.d0) then
     if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
@@ -398,12 +398,13 @@ subroutine dry_run_flexible_wing()
 
   do while (time<tmax)
 
-    !
-    call flexible_wing_motions ( time, wings )
+    do i=1,nWings
+    call flexible_wing_motions ( time, wings(i) )
 
     !
-    call flexible_solid_time_step(time, tsave, tsave, it, wings)
+    call flexible_solid_time_step(time, tsave, tsave, it, wings(i))
 
+    enddo
     ! create the mask
     call create_mask(time,Insect,beams,wings)
 
@@ -414,7 +415,7 @@ subroutine dry_run_flexible_wing()
     ! Save data
     write(name,'(i6.6)') floor(time*1000.d0)
 
-    if(mpirank==0) then
+    if(mpirank==0 .and. modulo(it,20)==0) then
       write(*,'("Dry run flexible wing: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
       time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
     endif
@@ -427,9 +428,9 @@ subroutine dry_run_flexible_wing()
       call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
     endif
 
-    if (root) then
-      call SaveWingData( time, wings )
-    endif
+          if (root) then
+            call SaveWingData( time, wings )
+          endif
 
   enddo
 
