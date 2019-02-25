@@ -69,7 +69,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
     call get_command_argument(1,infile)
 
     if(mpirank==0) write(*,*) "Initializing flexible-wing solver and testing..."
-    call init_wings( infile,wings )
+    call init_wings( infile,wings,dx )
   endif
 
   !-----------------------------------------------------------------------------
