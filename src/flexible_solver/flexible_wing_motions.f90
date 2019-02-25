@@ -1,71 +1,69 @@
 !-------------------------------------------------------------------------------
 ! WRAPPER Motion protocoll wrapper of flexible wings
 !-------------------------------------------------------------------------------
-subroutine flexible_wing_motions ( time, wings )
+subroutine flexible_wing_motions ( time, wing )
   implicit none
 
   real(kind=pr),intent(in) :: time
-  type(flexible_wing), dimension (1:nWings), intent (inout) :: wings
+  type(flexible_wing), intent (inout) :: wing
   integer :: i
 
-  do i=1,nWings
-  select case(wings(i)%Motion)
+  select case(wing%Motion)
   case ("simple_harmonic")
-    call simple_harmonic_motion (time, wings(i))
+    call simple_harmonic_motion (time, wing)
   case ("stationary")
-    wings(i) = wings(i)
-  case ("revolving_Zimmerman")
-    call revolving_Zimmerman (time, wings(i))
+    continue
+  case ("revolving_wing")
+    continue
   end select
-  enddo
 
 end subroutine
 
-subroutine revolving_Zimmerman (time, wings)
+subroutine revolving_Zimmerman (time, wing)
 
   implicit none
 
   real(kind=pr),intent(in) :: time
-  type(flexible_wing), intent (inout) :: wings
+  type(flexible_wing), intent (inout) :: wing
   integer :: j
-  real(kind=pr) :: phi_y
+  real(kind=pr) :: phi_y, tau
   real(kind=pr),dimension(1:3,1:3) :: mat_Ry
   real(kind=pr),dimension(1:3) :: u
 
-  phi_y = 5*pi*time
+  tau = 0.4
+  phi_y = 2*pi*(tau*dexp(-time/tau) + time) - 2*pi*tau
 
   call Ry(mat_Ry,phi_y)
 
     do j=1,nVeins_BC
-      u = matmul(mat_Ry,(/wings%x0_BC(0,j) - wings%x0, &
-                          wings%y0_BC(0,j) - wings%y0, &
-                          wings%z0_BC(0,j) - wings%z0/))
-      wings%x_BC(0,j) = u(1) + wings%x0
-      wings%y_BC(0,j) = u(2) + wings%y0
-      wings%z_BC(0,j) = u(3) + wings%z0
+      u = matmul(mat_Ry,(/wing%x0_BC(0,j) - wing%x0, &
+                          wing%y0_BC(0,j) - wing%y0, &
+                          wing%z0_BC(0,j) - wing%z0/))
+      wing%x_BC(0,j) = u(1) + wing%x0
+      wing%y_BC(0,j) = u(2) + wing%y0
+      wing%z_BC(0,j) = u(3) + wing%z0
 
-      u = matmul(mat_Ry,(/wings%x0_BC(-1,j) - wings%x0, &
-                      wings%y0_BC(-1,j) - wings%y0, &
-                      wings%z0_BC(-1,j) - wings%z0/))
-      wings%x_BC(-1,j) = u(1) + wings%x0
-      wings%y_BC(-1,j) = u(2) + wings%y0
-      wings%z_BC(-1,j) = u(3) + wings%z0
-
+      u = matmul(mat_Ry,(/wing%x0_BC(-1,j) - wing%x0, &
+                      wing%y0_BC(-1,j) - wing%y0, &
+                      wing%z0_BC(-1,j) - wing%z0/))
+      wing%x_BC(-1,j) = u(1) + wing%x0
+      wing%y_BC(-1,j) = u(2) + wing%y0
+      wing%z_BC(-1,j) = u(3) + wing%z0
     enddo
 
 end subroutine
 
-subroutine simple_harmonic_motion (time, wings)
+subroutine simple_harmonic_motion (time, wing)
 
   implicit none
 
   real(kind=pr),intent(in) :: time
-  type(flexible_wing), intent (inout) :: wings
+  type(flexible_wing), intent (inout) :: wing
   integer :: j
 
     do j=1,nVeins_BC
-      wings%z_BC(-1,j) = wings%z0_BC(-1,j) - 0.075/5*sin(5*pi*time)
-      wings%z_BC(0,j) = wings%z0_BC(0,j) - 0.075/5*sin(5*pi*time)
+      wing%z_BC(-1,j) = wing%z0_BC(-1,j) - 0.075/5*sin(1*pi*time)
+      wing%z_BC(0,j) = wing%z0_BC(0,j) - 0.075/5*sin(1*pi*time)
     enddo
 
 end subroutine

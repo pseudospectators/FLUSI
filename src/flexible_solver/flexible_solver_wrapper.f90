@@ -15,7 +15,7 @@ subroutine FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
   real(kind=pr), intent (in) ::  dt0, dt1, time
   integer, intent (in) :: it
   real(kind=pr) :: t0
-  type(flexible_wing), dimension(1:nWings), intent (inout) ::    wings
+  type(flexible_wing), dimension(1:nWings), intent (inout) ::  wings
   integer :: i
   t0 = MPI_wtime()
 
@@ -25,13 +25,13 @@ subroutine FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
         ! the wings are released (now: active FSI), call IBES solvers
         !-------------------------------------------
         select case (TimeMethodFlexibleSolid)
-        case ("BDF2")
+        case ("BDF2","EI1")
             ! all implicit solvers are in one subroutine
-            call Flexible_solid_time_step(time, dt0, dt1, it, wings)
-!          case ("prescribed")
+            call Flexible_solid_time_step(time, dt0, dt1, it, wings(i))
+        case ("prescribed_wing")
             ! this is not a solver, but for passive FSI with prescribed deformation:
-!          call prescribed_beam (time, dt, wings(i))
-          case default
+            call prescribed_wing (time, wings(i))
+        case default
             call abort(723763,"FlexibleSolidSolver::invalid value of TimeMethodFlexibleSolid"//&
                  trim(adjustl(TimeMethodFlexibleSolid)))
         end select

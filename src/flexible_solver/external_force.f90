@@ -2,34 +2,29 @@
 ! Construct external force vector consists of gravity
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-subroutine external_forces_construction(time,dt0,dt1, it,Wings)
+subroutine external_forces_construction(time,dt0,dt1, it, wing)
 ! This is actually just for 1 wing
 use mpi
 implicit none
 
 real(kind=pr),intent(in) :: time,dt0,dt1
 integer,intent(in) :: it
-type(flexible_wing),dimension(1:nWings), intent(inout)  :: Wings
+type(flexible_wing), intent(inout)  :: Wing
 integer :: i, j, np
 
-do i=1,nWings
-
-  np = wings(i)%np
+  np = wing%np
   ! Initialize
-  wings(i)%Fext = 0.d0
+  wing%Fext = 0.d0
 
   ! Gravitational forces
-  call gravitational_forces_on_wing (wings(i))
+  call gravitational_forces_on_wing (wing)
 
   ! Forces from the fluid pressure field
-  if (activate_press_force=="yes") call pressure_forces_on_wing (wings(i))
+  if (activate_press_force=="yes") call pressure_forces_on_wing (wing)
 
   ! Fictitious forces appear when the reference frames of wings are non-inertial frame
-  !call fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wings(i))
+  !call fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wing)
 
-
-
-enddo
 
 end subroutine
 
@@ -57,7 +52,6 @@ subroutine pressure_forces_on_wing (wing)
 implicit none
 
 type(flexible_wing), intent (inout) :: wing
-integer :: j, np
 
   call transform_pressure_into_point_forces_per_node(wing)
 
@@ -266,18 +260,21 @@ subroutine transform_pressure_into_point_forces_per_triangle(wing)
   upside = 0.d0
   downside = 0.d0
 
+
   call calculate_wing_surfaces(upside(1:wing%ntri,1:3,1:3), &
-                               wing%u_new(1:np), &
-                               wing%u_new(np+1:2*np), &
-                               wing%u_new(2*np+1:3*np),   &
+                               !wing%u_new(1:np), &
+                               !wing%u_new(np+1:2*np), &
+                               !wing%u_new(2*np+1:3*np),   &
+                               wing%x(1:np),wing%y(1:np),wing%z(1:np), &
                                wing%t_wing, &
                                wing%tri_elements(1:wing%ntri,1:4), &
                                wing%tri_element_normals(1:wing%ntri,1:4),"upside")
 
   call calculate_wing_surfaces(downside(1:wing%ntri,1:3,1:3), &
-                               wing%u_new(1:np), &
-                               wing%u_new(np+1:2*np), &
-                               wing%u_new(2*np+1:3*np),   &
+                               !wing%u_new(1:np), &
+                               !wing%u_new(np+1:2*np), &
+                               !wing%u_new(2*np+1:3*np),   &
+                               wing%x(1:np),wing%y(1:np),wing%z(1:np), &
                                wing%t_wing, &
                                wing%tri_elements(1:wing%ntri,1:4), &
                                wing%tri_element_normals(1:wing%ntri,1:4),"downside")
@@ -397,17 +394,19 @@ subroutine transform_pressure_into_point_forces_per_node(wing)
   downside = 0.d0
 
   call calculate_wing_surfaces(upside(1:wing%ntri,1:3,1:3), &
-                               wing%u_new(1:np), &
-                               wing%u_new(np+1:2*np), &
-                               wing%u_new(2*np+1:3*np),   &
+                               !wing%u_new(1:np), &
+                               !wing%u_new(np+1:2*np), &
+                               !wing%u_new(2*np+1:3*np),   &
+                               wing%x(1:np),wing%y(1:np),wing%z(1:np), &
                                wing%t_wing, &
                                wing%tri_elements(1:wing%ntri,1:4), &
                                wing%tri_element_normals(1:wing%ntri,1:4),"upside")
 
   call calculate_wing_surfaces(downside(1:wing%ntri,1:3,1:3), &
-                               wing%u_new(1:np), &
-                               wing%u_new(np+1:2*np), &
-                               wing%u_new(2*np+1:3*np),   &
+                               !wing%u_new(1:np), &
+                               !wing%u_new(np+1:2*np), &
+                               !wing%u_new(2*np+1:3*np),   &
+                               wing%x(1:np),wing%y(1:np),wing%z(1:np), &
                                wing%t_wing, &
                                wing%tri_elements(1:wing%ntri,1:4), &
                                wing%tri_element_normals(1:wing%ntri,1:4),"downside")
@@ -484,7 +483,7 @@ subroutine distribute_concentrated_force_into_three_vertices(distributed_force,c
   tmp = cross(tri1-concentrated_force_position,tri2-concentrated_force_position)
   A3 = 0.5*sqrt(tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
 
-  tmp = cross(tri1,tri2)
+  tmp = cross(tri1-tri3,tri2-tri3)
   A = 0.5*sqrt(tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
 
   !Check if the projection of the centroid is inside the triangle

@@ -85,7 +85,7 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
 
 
     allocate(unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-    unsigned_distance = 100.d0 !assign the distance to be really far away
+    unsigned_distance = 1.d10 !assign the distance to be really far away
 
 
     do i = 1, nWings
@@ -307,7 +307,7 @@ subroutine calculate_unsigned_distance_and_us(distance,us,tri1,tri2,tri3,utri1,u
   s   = b*e - c*d
   t   = b*d - a*e
 
-  if (det < 1.0d-11) then
+  if (det < 1.0d-15) then
     distance = 9.0d9
     return
   endif
@@ -626,7 +626,7 @@ function interpolationPointTriangle(tri1,tri2,tri3,utri1,utri2,utri3,point,norma
   tmp = cross(tri1-point_projected,tri2-point_projected)
   A3 = 0.5*sqrt(tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
 
-  tmp = cross(tri1,tri2)
+  tmp = cross(tri1-tri3,tri2-tri3)
   A = 0.5*sqrt(tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
 
   !Check if the projection of the point is inside the triangle

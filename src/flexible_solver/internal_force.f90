@@ -57,6 +57,11 @@ wings%Fint = 0.d0
                              wings%veins_bending_BC(1:,:,j))
   end do
 
+  call length_calculation_wrapper(wings%u_new(1:np), &
+                          wings%u_new(np+1:2*np), &
+                          wings%u_new(2*np+1:3*np), &
+                          wings%vein_connectors(:,:))
+
   !Construct internal force vector
   do j=1,nMembranes
        call internal_extension_force(wings%Fint, &
@@ -75,7 +80,7 @@ wings%Fint = 0.d0
                                 wings%u_new(2*np+1:3*np), &
                                 wings%membrane_edge(:,:,j), &
                                 np, &
-                                wings%ke_me)
+                                wings%ke_me(:,j))
   enddo
 
   do j=1,nVeins
@@ -111,6 +116,10 @@ wings%Fint = 0.d0
 
   end do
 
+  call internal_bending_force(wings%Fint, &
+                              wings%u_new(1:np),wings%u_new(np+1:2*np),wings%u_new(2*np+1:3*np), &
+                              wings%vein_connectors(:,:), np, &
+                              wings%kby_c,wings%kbz_c)
 
 end subroutine
 

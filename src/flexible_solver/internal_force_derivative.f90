@@ -32,7 +32,7 @@ wings%FJ = 0.d0
                                   wings%u_new(2*np+1:3*np), &
                                   wings%membrane_edge(:,:,j), &
                                   wings%np, &
-                                  wings%ke_me)
+                                  wings%ke_me(:,j))
   enddo
 
   do j=1,nVeins
@@ -77,6 +77,14 @@ wings%FJ = 0.d0
                                      wings%kby_BC(:,j),wings%kbz_BC(:,j))
 
   end do
+
+  call internal_bending_force_derivative(wings%FJ, &
+                              wings%u_new(1:np), &
+                              wings%u_new(np+1:2*np), &
+                              wings%u_new(2*np+1:3*np), &
+                              wings%vein_connectors, &
+                              wings%np, &
+                              wings%kby_c,wings%kbz_c)
 
 end subroutine
 

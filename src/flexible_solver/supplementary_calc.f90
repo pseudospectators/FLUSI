@@ -148,40 +148,44 @@ subroutine Moving_boundary_point(wings)
       enddo
 end subroutine
 
-subroutine rotate_wing(wings)
+subroutine rotate_wing(wing)
 
   implicit none
-  type(flexible_wing), intent(inout) :: wings
+  type(flexible_wing), intent(inout) :: wing
   real(kind=pr), dimension(1:3,1:3) :: mat_Rx, mat_Ry, mat_Rz
   integer :: i
   real(kind=pr), dimension(1:3) :: u
 
-    call Rx(mat_Rx,wings%Anglewing_x)
-    call Ry(mat_Ry,wings%Anglewing_y)
-    call Rz(mat_Rz,wings%Anglewing_z)
 
-  ! Rotate wing around x axis
-  do i=1,wings%np
-    u = matmul(mat_Rx,(/wings%x(i), wings%y(i), wings%z(i)/))
-    wings%x(i) = u(1)
-    wings%y(i) = u(2)
-    wings%z(i) = u(3)
+  !The wing is rotated based on conventional Euler angles. It is then rotated in
+  !order: around z axis (yaw) first, then y axis (pitch) and finally x axis (roll)
+
+    call Rx(mat_Rx,wing%WingAngle_x)
+    call Ry(mat_Ry,wing%WingAngle_y)
+    call Rz(mat_Rz,wing%WingAngle_z)
+
+  ! Rotate wing around x  axis
+  do i=1,wing%np
+    u = matmul(mat_Rx,(/wing%x(i), wing%y(i), wing%z(i)/))
+    wing%x(i) = u(1)
+    wing%y(i) = u(2)
+    wing%z(i) = u(3)
   enddo
 
   ! Rotate wing around y axis
-  do i=1,wings%np
-    u = matmul(mat_Ry,(/wings%x(i), wings%y(i), wings%z(i)/))
-    wings%x(i) = u(1)
-    wings%y(i) = u(2)
-    wings%z(i) = u(3)
+  do i=1,wing%np
+    u = matmul(mat_Ry,(/wing%x(i), wing%y(i), wing%z(i)/))
+    wing%x(i) = u(1)
+    wing%y(i) = u(2)
+    wing%z(i) = u(3)
   enddo
 
   ! Rotate wing around z axis
-  do i=1,wings%np
-    u = matmul(mat_Rz,(/wings%x(i), wings%y(i), wings%z(i)/))
-    wings%x(i) = u(1)
-    wings%y(i) = u(2)
-    wings%z(i) = u(3)
+  do i=1,wing%np
+    u = matmul(mat_Rz,(/wing%x(i), wing%y(i), wing%z(i)/))
+    wing%x(i) = u(1)
+    wing%y(i) = u(2)
+    wing%z(i) = u(3)
   enddo
 
 end subroutine
