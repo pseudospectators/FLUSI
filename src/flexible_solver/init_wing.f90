@@ -64,7 +64,6 @@ subroutine init_wings ( fname, wings, dx_reference)
     wings(i)%Membranes_extension = 0.d0
     wings(i)%Membrane_edge = 0.d0
     wings(i)%m=0.d0
-    wings(i)%at_inertia=0.d0
     wings(i)%StartupStep = .true.
     wings(i)%dt_old = 0.d0
     wings(i)%press_upside = 0.d0
@@ -158,17 +157,12 @@ subroutine init_wings ( fname, wings, dx_reference)
     delta(2) = - wings(i)%y(1)
     delta(3) = - wings(i)%z(1)
 
-
-
-
-
-  
     wings(i)%x = wings(i)%x + wings(i)%x0 + delta(1) + 5.d-2! write(*,*) 'Max min of the wing'
     wings(i)%y = wings(i)%y + wings(i)%y0 + delta(2)
     wings(i)%z = wings(i)%z + wings(i)%z0 + delta(3)
 
    if (root) then
- write(*,*) maxval(wings(i)%x), minval(wings(i)%x)
+           write(*,*) maxval(wings(i)%x), minval(wings(i)%x)
 	         write(*,*) maxval(wings(i)%y), minval(wings(i)%y)
 	         write(*,*) maxval(wings(i)%z), minval(wings(i)%z)
     endif

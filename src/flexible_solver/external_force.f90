@@ -23,7 +23,7 @@ integer :: i, j, np
   if (activate_press_force=="yes") call pressure_forces_on_wing (wing)
 
   ! Fictitious forces appear when the reference frames of wings are non-inertial frame
-  !call fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wing)
+  call fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wing)
 
 
 end subroutine
@@ -504,31 +504,48 @@ subroutine distribute_concentrated_force_into_three_vertices(distributed_force,c
 end subroutine
 
 
-subroutine fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wings)
+subroutine fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wing)
 
 implicit none
 
 real(kind=pr),intent(in) :: time,dt0,dt1
 integer,intent(in) :: it
-type(flexible_wing), intent (inout) :: wings
+type(flexible_wing), intent (inout) :: wing
+real(kind=pr), dimension(1:3) :: Force_Coriolis, Force_centrifugal, Force_Euler
+real(kind=pr), allocatable :: x(:),y(:),z(:),vx(:),vy(:),vz(:)
 integer :: i,j, np
 
-  np = wings%np
+  np = wing%np
 
+  ! Allocate position and velocity array
+  allocate(x(1:np),y(1:np),z(1:np))
+  allocate(vx(1:np),vy(1:np),vz(1:np))
+
+  x = wing%u_new(0*np+1:1*np)
+  y = wing%u_new(1*np+1:2*np)
+  z = wing%u_new(2*np+1:3*np)
+  vx = wing%u_new(3*np+1:4*np)
+  vy = wing%u_new(4*np+1:5*np)
+  vz = wing%u_new(5*np+1:6*np)
+
+  ! Non-inertial forces due to translation
   do j=1,np
-    wings%Fext(j)        = wings%Fext(j) - wings%at_inertia(1)*wings%m(j)  !forces on the x-direction
-    wings%Fext(j + np)   = wings%Fext(j + np) - wings%at_inertia(2)*wings%m(j) !forces on the y-direction
-    wings%Fext(j + 2*np) = wings%Fext(j + 2*np) - wings%at_inertia(3)*wings%m(j) !forces on the z-direction
+    wing%Fext(j)        = wing%Fext(j)        - wing%at0(1)*wing%m(j) !forces on the x-direction
+    wing%Fext(j + np)   = wing%Fext(j + np)   - wing%at0(2)*wing%m(j) !forces on the y-direction
+    wing%Fext(j + 2*np) = wing%Fext(j + 2*np) - wing%at0(3)*wing%m(j) !forces on the z-direction
   enddo
 
-  !do i=1,nVeins_BC
-  !  j = nint(wings%veins_bending_BC(1,2,i))
-  !  if (it==0) write(*,*) j
-  !    wings%Fext(j)        = wings%Fext(j) - wings%at_inertia(1)*wings%m(j)  !forces on the x-direction
-  !    wings%Fext(j + np)   = wings%Fext(j + np) - wings%at_inertia(2)*wings%m(j) !forces on the y-direction
-  !    wings%Fext(j + 2*np) = wings%Fext(j + 2*np) - wings%at_inertia(3)*wings%m(j) !forces on the z-direction
+  ! Non-inertial forces due to rotation
+  do j=1,np
+    Force_Coriolis = - 2*wing%m(j)*cross(wing%vr0,(/vx(j), vy(j), vz(j)/))
+    Force_centrifugal = - wing%m(j)*cross(wing%vr0,cross(wing%vr0,(/x(j), y(j), z(j)/)))
+    Force_Euler = - wing%m(j)*cross(wing%ar0,(/x(j), y(j), z(j)/))
 
-  !enddo
+    wing%Fext(j)        = wing%Fext(j)        + Force_Coriolis(1) + Force_centrifugal(1) + Force_Euler(1) !forces on the x-direction
+    wing%Fext(j + np)   = wing%Fext(j + np)   + Force_Coriolis(2) + Force_centrifugal(2) + Force_Euler(2) !forces on the y-direction
+    wing%Fext(j + 2*np) = wing%Fext(j + 2*np) + Force_Coriolis(3) + Force_centrifugal(3) + Force_Euler(3) !forces on the z-direction
+  enddo
+
 
 
 end subroutine

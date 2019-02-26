@@ -15,6 +15,14 @@ subroutine flexible_wing_motions ( time, wing )
     continue
   case ("revolving_wing")
     continue
+  case ("harmonic_ocsillation")
+    wing%vt0(1) = 0.d0
+    wing%vt0(2) = 0.25*(1*pi)*cos(1*pi*time)
+    wing%vt0(3) = 0.d0
+
+    wing%at0(1) = 0.d0
+    wing%at0(2) = - 0.25*(1*pi)**2*sin(1*pi*time)
+    wing%at0(3) = 0.d0
   end select
 
 end subroutine
@@ -62,8 +70,8 @@ subroutine simple_harmonic_motion (time, wing)
   integer :: j
 
     do j=1,nVeins_BC
-      wing%z_BC(-1,j) = wing%z0_BC(-1,j) - 0.075/5*sin(1*pi*time)
-      wing%z_BC(0,j) = wing%z0_BC(0,j) - 0.075/5*sin(1*pi*time)
+      wing%z_BC(-1,j) = wing%z0_BC(-1,j) + 0.25*sin(1*pi*time)
+      wing%z_BC(0,j) = wing%z0_BC(0,j) + 0.25*sin(1*pi*time)
     enddo
 
 end subroutine
@@ -78,9 +86,9 @@ type(flexible_wing), dimension (1:nWings), intent(inout) :: wings
 integer :: i
 
 do i=1,nWings
-    wings(i)%at_inertia(1) = 0.d0
-    wings(i)%at_inertia(2) = 0.d0
-    wings(i)%at_inertia(3) = - 0*0.075/10*(10*pi)**2*sin(10*pi*time)
+    wings(i)%at0(1) = 0.d0
+    wings(i)%at0(2) = - 0.25*(1*pi)**2*sin(1*pi*time)
+    wings(i)%at0(3) = 0.d0
 enddo
 
 end subroutine
@@ -105,15 +113,15 @@ c3=(1+r)/(1+2*r)
 
 if (it==0) then
 
-  wings%x(1:np) = wings%x(1:np) + dt1**2*wings%at_inertia(1)
-  wings%y(1:np) = wings%y(1:np) + dt1**2*wings%at_inertia(2)
-  wings%z(1:np) = wings%z(1:np) + dt1**2*wings%at_inertia(3)
+  wings%x(1:np) = wings%x(1:np) + dt1*wings%vt0(1) !dt1**2*wings%at0(1)
+  wings%y(1:np) = wings%y(1:np) + dt1*wings%vt0(2)
+  wings%z(1:np) = wings%z(1:np) + dt1*wings%vt0(3)
 
 else
 
-  wings%x(1:np) = wings%x(1:np) + dt1**2*wings%at_inertia(1)
-  wings%y(1:np) = wings%y(1:np) + dt1**2*wings%at_inertia(2)
-  wings%z(1:np) = wings%z(1:np) + dt1**2*wings%at_inertia(3)
+  wings%x(1:np) = wings%x(1:np) + dt1*wings%vt0(1) !dt1**2*wings%at0(1)
+  wings%y(1:np) = wings%y(1:np) + dt1*wings%vt0(2)
+  wings%z(1:np) = wings%z(1:np) + dt1*wings%vt0(3)
 
 endif
 

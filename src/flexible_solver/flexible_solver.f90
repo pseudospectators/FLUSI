@@ -77,7 +77,7 @@ module flexible_model
     real(kind=pr),dimension(1:3*npmax) :: Fint, Fext !, Fint_old, Fext_old
     real(kind=pr),dimension(1:nmmax,3) :: press_upside, press_downside
     ! Internal force derivative matrix:
-    real(kind=pr),dimension(1:3*npmax,1:3*npmax) :: FJ
+    real(kind=pr),dimension(1:3*npmax,1:3*npmax) :: FJ, FJ_ext
     ! material properties:
     real(kind=pr),dimension(1:nVeins) :: EIy, EIz, kby0, kbz0, ke0_v
     real(kind=pr),dimension(1:nVeins_BC) :: EIy_BC, EIz_BC, kby0_BC, kbz0_BC, ke0_vBC
@@ -107,8 +107,6 @@ module flexible_model
     real(kind=pr),dimension(1:3) :: vt0, at0
     real(kind=pr),dimension(1:3) :: vr0, ar0
 
-    !
-    real(kind=pr),dimension(1:3) :: at_inertia
 
     ! grid and width in rigid direction:
     real(kind=pr) :: t_wing, wing_smoothing
