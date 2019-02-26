@@ -392,7 +392,8 @@ real(kind=pr), dimension(1:3) :: u, v, w
 integer :: j
 real(kind=pr) :: tau, vr
 
-if ((wing%Motion .eq. "stationary") .or. (wing%Motion .eq. "simple_harmonic")) then
+if ((wing%Motion .eq. "stationary") .or. (wing%Motion .eq. "simple_harmonic") &
+    .or. (wing%Motion .eq. "harmonic_ocsillation")) then
   wing%x(1:wing%np)  = wing%u_old(1:wing%np)
   wing%y(1:wing%np)  = wing%u_old(wing%np+1:2*wing%np)
   wing%z(1:wing%np)  = wing%u_old(2*wing%np+1:3*wing%np)

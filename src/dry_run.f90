@@ -253,6 +253,7 @@ subroutine dry_run_flexible_wing()
   !use helpers
   !use module_ini_files_parser_mpi
   implicit none
+  real(kind=pr)          :: t1,t2
   real(kind=pr)          :: time,memory,mem_field
   integer                :: it, i, j
   character(len=strlen)  :: infile, mode
@@ -278,7 +279,9 @@ subroutine dry_run_flexible_wing()
   time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
   time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
   time_scalar=0.d0
-  time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
+  time_solid=0.d0; time_solid_ex=0.d0; time_solid_in=0.d0; time_solid_din=0.d0;
+  time_solid_nls=0.d0; time_solid_LU =0.d0
+  time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
   time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
   tslices=0.d0
 
@@ -396,6 +399,7 @@ subroutine dry_run_flexible_wing()
     call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
   endif
 
+  t1 = MPI_wtime()
   do while (time<tmax)
 
     do i=1,nWings
@@ -433,11 +437,17 @@ subroutine dry_run_flexible_wing()
           endif
 
   enddo
+  t2 = MPI_wtime() - t1
 
   if(mpirank==0) then
     !write(*,'("total time ",es12.4)') time_total
     write(*,'("time for mask creation ",es12.4)') time_mask
   endif
+
+  !-------------------------
+  ! Show the breakdown of timing information
+  !-------------------------
+  call show_timings_dry_run(t2)
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory
@@ -452,3 +462,97 @@ subroutine dry_run_flexible_wing()
   ! release other memory
   call fft_free
 end subroutine dry_run_flexible_wing
+
+! Output information on where the algorithm spent the most time.
+subroutine show_timings_dry_run(t2)
+  use vars
+  use module_helpers
+  implicit none
+  real (kind=pr) :: t2, t3
+
+  3 format(80("-"))
+  8 format(es12.4," (",f5.1,"%) :: ",A)
+  t3 = t2
+  t2 = mpisum(t2)
+
+  time_fft = mpisum(time_fft)
+  time_ifft = mpisum(time_ifft)
+  time_mask = mpisum(time_mask)
+   time_fluid= mpisum(time_fluid)
+   time_integrals =mpisum(time_integrals)
+   time_save=mpisum(time_save)
+   time_bckp=mpisum(time_bckp)
+   tslices=mpisum(tslices)
+   time_hdf5=mpisum(time_hdf5)
+   time_vis=mpisum(time_vis)
+   time_solid=mpisum(time_solid)
+   time_solid_ex = mpisum(time_solid_ex)
+   time_solid_in = mpisum(time_solid_in)
+   time_solid_nls = mpisum(time_solid_nls)
+   time_solid_LU = mpisum(time_solid_LU)
+   time_rhs=mpisum(time_rhs)
+   time_surf=mpisum(time_surf)
+   time_p=mpisum(time_p)
+   time_nlk2=mpisum(time_nlk2)
+   time_nlk_scalar=mpisum(time_nlk_scalar)
+   time_scalar=mpisum(time_scalar)
+   time_u=mpisum(time_u)
+   time_vor=mpisum(time_vor)
+   time_sponge=mpisum(time_sponge)
+   time_curl=mpisum(time_curl)
+
+if (mpirank/=0) return
+
+  write(*,3)
+  write(*,'("*** Timings")')
+  write(*,3)
+  write(*,'("of the total time ",es12.4,", FLUSI spend ",es12.4," (",f5.1,"%) on FFTS")') &
+  t2, (time_fft)+(time_ifft),100.d0*((time_fft)+(time_ifft))/t2
+  write(*,3)
+  write(*,'("time stepping (top level tasks)")')
+
+  write(*,8) (time_mask), 100.d0*(time_mask)/t2, "create_mask"
+  write(*,8) (time_fluid), 100.d0*(time_fluid)/t2, "fluid time stepping"
+  write(*,8) (time_integrals), 100.d0*(time_integrals)/t2, "integrals"
+  write(*,8) (time_save), 100.d0*(time_save)/t2, "save fields"
+  write(*,8) (time_bckp), 100.d0*(time_bckp)/t2, "backuping"
+  write(*,8) (tslices), 100.d0*(tslices)/t2, "slicing"
+  write(*,3)
+  write(*,'("save fields:")')
+  write(*,8) (time_hdf5), 100.d0*(time_hdf5)/t2, "hdf5 disk dumping"
+  write(*,3)
+
+  write(*,'("Fluid time stepping:")')
+  write(*,8) (time_vis),100.d0*(time_vis/t2),"cal_vis"
+  write(*,8) (time_rhs),100.d0*(time_rhs/t2),"cal_nlk"
+  write(*,8) (time_solid),100.d0*(time_solid/t2),"solid  model"
+  write(*,8) (time_surf),100.d0*(time_surf/t2),"surface interpolation"
+  write(*,3)
+
+  write(*,'("Fluid right hand side:")')
+  write(*,8) (time_nlk2),100.d0*(time_nlk2/t2),"cal_nlk_fsi"
+  write(*,8) (time_p),100.d0*(time_p/t2),"pressure"
+  write(*,8) (time_nlk_scalar),100.d0*(time_nlk_scalar/t2),"scalar rhs"
+  write(*,8) (time_scalar),100.d0*(time_scalar/t2),"passive scalar"
+  write(*,3)
+
+  write(*,'("cal_nlk_fsi:")')
+  write(*,8) (time_u),100.d0*(time_u)/t2,"velocity"
+  write(*,8) (time_vor),100.d0*(time_vor)/t2,"vorticity"
+  write(*,8) (time_sponge),100.d0*(time_sponge)/t2,"sponge"
+  write(*,8) (time_curl),100.d0*(time_curl)/t2,"nonlinear term"
+  write(*,3)
+
+  write(*,'("Solid time stepping:")')
+  write(*,8) (time_solid_ex),100.d0*(time_solid_ex/t2),"external forces"
+  write(*,8) (time_solid_in),100.d0*(time_solid_in/t2),"internal forces"
+  write(*,8) (time_solid_din),100.d0*(time_solid_din/t2),"derivative internal forces"
+  write(*,8) (time_solid_nls),100.d0*(time_solid_nls/t2),"solving nonlinear system"
+  write(*,8) (time_solid_LU),100.d0*(time_solid_LU/t2),"LU decomposition"
+  write(*,3)
+  write(*,'("Integral walltime ",es12.4," (",i7," CPUh)")') t2, nint( t2*dble(mpisize)/3600.d0 )
+  write(*,'("Actual   walltime ",es12.4," (",i7," CPUh)")') t3, nint( t3*dble(mpisize)/3600.d0 )
+  write(*,3)
+  write(*,'(A)') 'Finalizing computation....'
+  write(*,3)
+end subroutine show_timings_dry_run
