@@ -913,6 +913,19 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
     enddo
   enddo
 
+  ! !!!!!!!!!!!!!!!!
+  ! call ifft( ink=nlk(:,:,:,2), outx=vort(:,:,:,2) )
+  ! call ifft( ink=nlk(:,:,:,3), outx=vort(:,:,:,3) )
+  ! call ifft( ink=nlk(:,:,:,4), outx=vort(:,:,:,4) )
+  !
+  ! call save_field_hdf5(time,"rhs1_000000",vort(:,:,:,2))
+  ! call save_field_hdf5(time,"rhs2_000000",vort(:,:,:,3))
+  ! call save_field_hdf5(time,"rhs3_000000",vort(:,:,:,4))
+  !
+  !
+  ! call abort(666,"at your service")
+  ! !!!!!!!!!!!!!!!!
+
 
   time_nlk = time_nlk + MPI_wtime() - t0
 end subroutine rhs_acm_2D

@@ -22,8 +22,8 @@ subroutine convert_to_wing_system(help)
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
   real(kind=pr) :: x_wing(1:3),x_glob(1:3),M_wing_r(1:3,1:3),M_wing_l(1:3,1:3),M_body(1:3,1:3)
-  real(kind=pr) :: u1,u2, x_body(1:3), u(1:3)
-  logical :: wing_system, vector
+  real(kind=pr) :: u1,u2, x_body(1:3), u(1:3), rot_rel_wing_w(1:3)
+  logical :: wing_system=.false., vector=.false., relative_velocity = .false.
 
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
@@ -39,7 +39,7 @@ subroutine convert_to_wing_system(help)
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "./flusi -p [--convert-to-wing-system|--convert-to-body-system] [--scalar|--vector] &
-    &PARAMS.ini input_0000.h5 output_0000.h5 [--left|--right] [-x=100:200 -y=256:512 -z30:990]"
+    &PARAMS.ini input_0000.h5 output_0000.h5 [--left|--right] [-x=100:200 -y=256:512 -z30:990] [--relative-velocity]"
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     write(*,*) "./flusi -p --convert-to-wing-system --scalar PARAMS.ini input_0000.h5 output_0000.h5 [--left|--right]"
     write(*,*) "./flusi -p --convert-to-body-system --scalar PARAMS.ini input_0000.h5 output_0000.h5"
@@ -145,32 +145,18 @@ subroutine convert_to_wing_system(help)
   enddo
   ! call fetch attributes (even though we knew the resolution in advance) since we
   ! want to know what time the data is at
-  call fetch_attributes(infile,nx,ny,nz,xl,yl,zl,time,nu,origin)
+  call fetch_attributes(infile, nx, ny, nz, xl, yl, zl, time, nu, origin)
 
   ! synchronize ghosts (required for interpolation)
   u_interp(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),:) = u_org
   call synchronize_ghosts( u_interp, nd )
 
-  ! check if user wants to go to body or wing coordinate system
-  call get_command_argument(2,infile)
-  if (infile == "--convert-to-wing-system") then
-      wing_system = .true.
-      if (root) write(*,*) "we convert to wing system"
-
-      ! which wing will be used, left or right? default is left wing
-      if (vector) call get_command_argument(11,whichwing)
-      if (.not. vector) call get_command_argument(7,whichwing)
-
-      if (root) write(*,*) "Chosen wing is: "//trim(adjustl(whichwing))
-  else
-      wing_system = .false.
-      if (root) write(*,*) "we convert to body system"
-  endif
-  if (root) write(*,'("OPERATING AT TIME=",es15.8)') time
-
   !-----------------------------------------------------------------------------
   ! fetch current motion state of the insect
   !-----------------------------------------------------------------------------
+  ! fetch insect state
+  call Update_Insect( time, Insect )
+
   if (Insect%BodyMotion == "free_flight") then
       if (root) write(*,*) "The insects body motion is free_flight, therefore we try to read the"
       if (root) write(*,*) "insect state vector from the file rigidsolidsolver.t"
@@ -215,21 +201,43 @@ subroutine convert_to_wing_system(help)
           read (infile(1:index(infile,':')-1) ,*) nz1
           read (infile(index(infile,':',.true.)+1:len_trim(infile)),*) nz2
       endif
+
+      if (index(infile,"--relative-velocity") /= 0) relative_velocity = .true.
+
+      if (index(infile,"--convert-to-wing-system") /= 0) wing_system = .true.
+
+      if (index(infile,"--convert-to-body-system") /= 0) wing_system = .false.
+
+      if (index(infile,"--left") /= 0 .or. index(infile,"--right") /= 0 ) then
+          whichwing = infile
+      endif
   enddo
 
   if (root) then
+      write(*,'(40("~+"))')
+      write(*,'("OPERATING AT TIME=",es15.8)') time
       write(*,*) "Computing on x=", nx1, nx2
       write(*,*) "Computing on y=", ny1, ny2
       write(*,*) "Computing on z=", nz1, nz2
+      write(*,*) "Relative velocity: ", relative_velocity
+      if (wing_system) then
+          write(*,*) "we convert to wing system"
+          write(*,*) "Chosen wing is: "//trim(adjustl(whichwing))
+      else
+          write(*,*) "we convert to body system"
+      endif
+      write(*,'(40("~+"))')
   endif
 
   do iz = nz1, nz2
       do iy = ny1, ny2
           do ix = nx1, nx2
               if (wing_system) then
-                  ! define the position in the wing coordinate system (we seek for u in this
+                  ! define the position in the wing coordinate system (we look for u in this
                   ! coordinate system, so our output matrix is to be understood in this)
                   x_wing = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl/2.0d0,yl/4.0d0,zl/2.0d0/)
+                  ! x_wing = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl/2.0d0,yl/2.0d0,zl/2.0d0/)
+
                   ! compute global coordinate
                   if (whichwing == "--right") then
                       x_glob = Insect%xc_body_g+ matmul(transpose(M_body), (matmul(transpose(M_wing_r),x_wing)+Insect%x_pivot_r_b) )
@@ -257,9 +265,11 @@ subroutine convert_to_wing_system(help)
                   (/dx,dy,dz/),u_interp(:,:,:,i), x_glob, periodic=.false.  )
               enddo
           enddo
+
           ! at this point, all procs have interpolated a value in u_buffer. most of them
           ! are -9.9E10, which means the CPU does not have the data required for interpolation
           call MPI_ALLREDUCE(u_buffer,u_buffer2,nx*nd,MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
+
           ! now, all CPU have the line in x-direction with the properly interpolated values. however,
           ! only one of them actually holds this data. NOw we note that in FLUSI, we never split
           ! the x-coordinate, so this direction is ALWAYS contiguous
@@ -279,23 +289,38 @@ subroutine convert_to_wing_system(help)
   ! for now, interpolation has been done, i.e. we rotated the camera. now, if we are dealing with a
   ! vector, this is not enough, since we do not only shift, but also rotate the individual vectors.
   ! this is done now:
+
   if (vector) then
       do iz = ra(3), rb(3)
           do iy = ra(2), rb(2)
               do ix = ra(1), rb(1)
+                  ! velocity in global coordinate system
                   u = (/u_org(ix,iy,iz,1), u_org(ix,iy,iz,2), u_org(ix,iy,iz,3)/)
+                  x_wing = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl/2.0d0,yl/4.0d0,zl/2.0d0/)
+
                   if (wing_system) then
-                      ! from global to wing system
+                      ! go to wing system
                       if (whichwing == "--right") then
                           u = matmul(M_wing_r, matmul(M_body,u))
+                          rot_rel_wing_w = Insect%rot_rel_wing_r_w
                       else
                           u = matmul(M_wing_l, matmul(M_body,u))
+                          rot_rel_wing_w = Insect%rot_rel_wing_l_w
+                      endif
+
+
+                      if (relative_velocity) then
+                          ! if applied to us, i.e. the input vector is the solid body velociy,
+                          ! then this line kills all velocity (plausibility test)
+                          u_org(ix,iy,iz,1:3) = u - cross(rot_rel_wing_w, x_wing)
+                      else
+                          u_org(ix,iy,iz,1:3) = u
                       endif
                   else
-                      ! from global to body system
-                      u = matmul(M_body, u)
+                      ! go to body system
+                      u_org(ix,iy,iz,1:3) = matmul(M_body, u)
                   endif
-                  u_org(ix,iy,iz,1:3) = u
+
               enddo
           enddo
       enddo
