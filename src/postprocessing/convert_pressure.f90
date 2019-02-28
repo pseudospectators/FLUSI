@@ -106,7 +106,8 @@ subroutine convert_pressure(help)
   if (fname_ini /= "") then
       call get_params(fname_ini, Insect, .true.)
       if (iMask == "Insect") then
-          call insect_init(time, fname_ini, Insect, .false., "", (/xl,yl,zl/), nu, dx)
+          call insect_init(time, fname_ini, Insect, .false., "", (/xl,yl,zl/), nu, &
+          dx, periodic=periodic)
       endif
   endif
 

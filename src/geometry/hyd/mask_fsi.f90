@@ -43,6 +43,10 @@ subroutine create_mask_fsi (time, Insect, beams ,wings)
           call draw_active_grid_winglets(time, Insect, xx0, ddx, mask, mask_color, us)
 
       case ("fractal_tree")
+          ! read in the fractal tree array. we cannot do this in Draw_fractal_tree anymore
+          ! since we have to take care of the possibility that some mpiranks might not call
+          ! Draw_fractal_tree
+          call fractal_tree_init()
           call Draw_fractal_tree(Insect, xx0, ddx, mask, mask_color, us)
 
       case ("floor_yz","floor_zy","flooryz","floorzy")

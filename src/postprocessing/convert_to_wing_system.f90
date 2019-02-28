@@ -133,7 +133,7 @@ subroutine convert_to_wing_system(help)
   endif
 
   ! initialize insect
-  call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx)
+  call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
 
   !*****************************************************************************
   ! main (active) part of this postprocessing tool
