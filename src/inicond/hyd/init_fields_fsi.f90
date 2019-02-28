@@ -114,7 +114,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         ! to have.
         call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
-        ! read dsired spectrum from file.
+        ! read desired spectrum from file.
         call count_lines_in_ascii_file_mpi(inicond_spectrum_file, k, n_header=0)
         ! read the array from file, two columns, one is k second is E(k)
         allocate(spec_array(0:k-1,1:2))
