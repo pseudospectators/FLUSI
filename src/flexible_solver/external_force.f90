@@ -23,7 +23,7 @@ integer :: i, j, np
   if (activate_press_force=="yes") call pressure_forces_on_wing (wing)
 
   ! Fictitious forces appear when the reference frames of wings are non-inertial frame
-  call fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wing)
+  if (activate_noninertial_force=="yes") call fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wing)
 
 
 end subroutine

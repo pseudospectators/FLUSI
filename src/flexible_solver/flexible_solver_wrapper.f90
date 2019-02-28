@@ -10,6 +10,7 @@
 subroutine FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
 
   use penalization ! mask array etc
+  use vars
 
   implicit none
   real(kind=pr), intent (in) ::  dt0, dt1, time
@@ -31,6 +32,15 @@ subroutine FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
         case ("prescribed_wing")
             ! this is not a solver, but for passive FSI with prescribed deformation:
             call prescribed_wing (time, wings(i))
+
+            if (time_for_output(time, dt1, it, 1.d-2, 99999999, 6.d0, 0.d0)) then
+              if (root) write(*,*) 'call save wing'
+              if (root) then
+              call external_forces_construction(time,dt0,dt1, it,wings(i))
+              call SaveWingData( time, wings )
+              endif
+            endif
+
         case default
             call abort(723763,"FlexibleSolidSolver::invalid value of TimeMethodFlexibleSolid"//&
                  trim(adjustl(TimeMethodFlexibleSolid)))

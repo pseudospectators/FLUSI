@@ -27,7 +27,7 @@ module flexible_model
   logical :: ActuallyBDF2
   character(len=strlen),save :: TimeMethodFlexibleSolid
   character(len=strlen),save :: use_flexible_wing_model
-  character(len=strlen),save :: activate_press_force, wing_interp
+  character(len=strlen),save :: activate_press_force,activate_noninertial_force,wing_interp
 
   ! this is a hack to avoid allocating/deallacting these arrays in every time
   ! step. turing fails with memory issues if done otherwise. 7 Aug 2014
