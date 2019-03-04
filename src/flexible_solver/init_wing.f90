@@ -82,7 +82,8 @@ subroutine init_wings ( fname, wings, dx_reference)
     wings(i)%vr0 = 0.d0
     wings(i)%ar0 = 0.d0
 
-    ! Reading mesh data from ASCII files
+    ! Reading mesh data from ASCII files and save them into the state vector of
+    ! the mass-spring model u_old
     call read_wing_mesh_data(wings(i), i)
 
 
@@ -108,9 +109,11 @@ subroutine init_wings ( fname, wings, dx_reference)
     call read_param_mpi(PARAMS,"Flexible_wing","ke_veins_with_BC",wings(i)%ke0_vBC)
     call read_param_mpi(PARAMS,"Flexible_wing","ke_membranes",wings(i)%ke0_m)
 
+    if (load_mass_from_file == 'no') then
     call read_param_mpi(PARAMS,"Flexible_wing","density_veins",wings(i)%rho_v)
     call read_param_mpi(PARAMS,"Flexible_wing","density_veins_with_BC",wings(i)%rho_vBC)
     call read_param_mpi(PARAMS,"Flexible_wing","density_membranes",wings(i)%rho_m)
+    endif
 
     call read_param_mpi(PARAMS,"Flexible_wing","damping",wings(i)%c0, 0.d0)
 
@@ -126,40 +129,21 @@ subroutine init_wings ( fname, wings, dx_reference)
     call read_param_mpi(PARAMS,"Flexible_wing","T_release",wings(i)%T_release,0.0d0)
     call read_param_mpi(PARAMS,"Flexible_wing","tau",wings(i)%tau,0.0d0)
     call read_param_mpi(PARAMS,"Flexible_wing","ControlPoint",wings(i)%ControlPoint,0)
+
+
     ! clean ini file
     call clean_ini_file_mpi(PARAMS)
 
-    call rotate_wing(wings(i))
     !--------------------------------------------------------------------------
     ! Move the wing to the desired position X0
     !--------------------------------------------------------------------------
-    !
-    !  <--2*delta--><-delta->
-    !  O-----O------X-------X---.....
-    !               |................
-    !               |.................
-    !               |................
-    !               x-----x----......
-    !
+    wings(i)%x(1:wings(i)%np) = wings(i)%u_old(1:wings(i)%np)
+    wings(i)%y(1:wings(i)%np) = wings(i)%u_old(wings(i)%np+1:2*wings(i)%np)
+    wings(i)%z(1:wings(i)%np) = wings(i)%u_old(2*wings(i)%np+1:3*wings(i)%np)
 
-    !delta(1) = wings(i)%x(nint(wings(i)%veins_bending_BC(1,3,1))) - &
-    !               wings(i)%x(nint(wings(i)%veins_bending_BC(1,2,1)))
-    !delta(2) = wings(i)%y(nint(wings(i)%veins_bending_BC(1,3,1))) - &
-    !               wings(i)%y(nint(wings(i)%veins_bending_BC(1,2,1)))
-    !delta(3) = wings(i)%z(nint(wings(i)%veins_bending_BC(1,3,1))) - &
-    !               wings(i)%z(nint(wings(i)%veins_bending_BC(1,2,1)))
+    call rotate_wing(wings(i))
 
-    !wings(i)%x = wings(i)%x + wings(i)%x0 + 2*delta(1)
-    !wings(i)%y = wings(i)%y + wings(i)%y0 + 2*delta(2)
-    !wings(i)%z = wings(i)%z + wings(i)%z0 + 2*delta(3)
-
-    delta(1) = - wings(i)%x(1)
-    delta(2) = - wings(i)%y(1)
-    delta(3) = - wings(i)%z(1)
-
-    wings(i)%x = wings(i)%x + wings(i)%x0 + delta(1) + 5.d-2! write(*,*) 'Max min of the wing'
-    wings(i)%y = wings(i)%y + wings(i)%y0 + delta(2)
-    wings(i)%z = wings(i)%z + wings(i)%z0 + delta(3)
+    call translate_wing(wings(i))
 
    if (root) then
            write(*,*) maxval(wings(i)%x), minval(wings(i)%x)
@@ -210,9 +194,6 @@ subroutine init_wings ( fname, wings, dx_reference)
     enddo
     deallocate(normal)
 
-    wings(i)%u_old(1:wings(i)%np)                 = wings(i)%x(1:wings(i)%np)
-    wings(i)%u_old(wings(i)%np+1:2*wings(i)%np)   = wings(i)%y(1:wings(i)%np)
-    wings(i)%u_old(2*wings(i)%np+1:3*wings(i)%np) = wings(i)%z(1:wings(i)%np)
 
 
     do j=1,nMembranes
@@ -278,9 +259,12 @@ subroutine init_wings ( fname, wings, dx_reference)
 
     do j=1,nMembranes
     wings(i)%ke_m(:,j) = wings(i)%ke0_m(j)
+
+      if (load_mass_from_file == 'no') then
       do ind=1,nint(maxval(wings(i)%membranes(:,1,j)))
           wings(i)%m(nint(wings(i)%membranes(ind,2,j))) = wings(i)%rho_m(j)
       enddo
+      endif
     enddo
 
     do j=1,nMembrane_edges
@@ -295,10 +279,11 @@ subroutine init_wings ( fname, wings, dx_reference)
       wings(i)%kby(:,j) = wings(i)%kby0(j)
       wings(i)%kbz(:,j) = wings(i)%kbz0(j)
       wings(i)%ke_v(:,j) = wings(i)%ke0_v(j)
-
+      if (load_mass_from_file == 'no') then
       do ind=1,nint(maxval(wings(i)%veins(:,1,j)))
           wings(i)%m(nint(wings(i)%veins(ind,2,j))) = wings(i)%rho_v(j)
       enddo
+      endif
     enddo
 
     do j=1,nVeins_BC
@@ -309,9 +294,11 @@ subroutine init_wings ( fname, wings, dx_reference)
       wings(i)%kby_BC(:,j) = wings(i)%kby0_BC(j)
       wings(i)%kbz_BC(:,j) = wings(i)%kbz0_BC(j)
       wings(i)%ke_vBC(:,j) = wings(i)%ke0_vBC(j)
+      if (load_mass_from_file == 'no') then
       do ind=1,nint(maxval(wings(i)%veins_BC(:,1,j)))
           wings(i)%m(nint(wings(i)%veins_BC(ind,2,j))) = wings(i)%rho_vBC(j)
       enddo
+      endif
     enddo
 
     !TODO: set stiffness according to which veins they connect
@@ -322,8 +309,8 @@ subroutine init_wings ( fname, wings, dx_reference)
       write(*,'(80("-"))')
       write(*,'("Setting up material properties for the wing number ",i2.2," with")') i
       write(frmt,'("(",i3.3,"(es12.4,1x))")') wings(i)%np
-      !write(*,*) "Mass points:"
-      !write(*,frmt) wings(i)%m(1:wings(i)%np)
+      write(*,*) "Mass points:"
+      write(*,frmt) wings(i)%m(1:wings(i)%np)
       do j=1,nVeins_BC
         write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%veins_bending_BC(:,1,j)))+2
         write(*,'("bending stiffness of y-direction bending springs of the vein with BC number ",i2.2,":")',advance='yes') j
@@ -349,11 +336,11 @@ subroutine init_wings ( fname, wings, dx_reference)
         !write(*,'("extension stiffness of extension springs of the membrane number ",i2.2,":")',advance='yes') j
         !write(*,frmt) wings(i)%ke_m(1:nint(maxval(wings(i)%membranes_extension(:,1,j))),j)
       !enddo
-        !write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%Vein_connectors(:,1)))
-        !write(*,*) "bending stiffness of y-direction bending springs of the vein connectors:"
-        !write(*,frmt) wings(i)%kby_c(1:nint(maxval(wings(i)%vein_connectors(:,1))))
-        !write(*,*) "bending stiffness of z-direction bending springs of the vein connectors:"
-        !write(*,frmt) wings(i)%kbz_c(1:nint(maxval(wings(i)%vein_connectors(:,1))))
+      !  write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%Vein_connectors(:,1)))
+      !  write(*,*) "bending stiffness of y-direction bending springs of the vein connectors:"
+      !  write(*,frmt) wings(i)%kby_c(1:nint(maxval(wings(i)%vein_connectors(:,1))))
+      !  write(*,*) "bending stiffness of z-direction bending springs of the vein connectors:"
+      !  write(*,frmt) wings(i)%kbz_c(1:nint(maxval(wings(i)%vein_connectors(:,1))))
 
     endif
 
@@ -384,7 +371,7 @@ subroutine read_wing_mesh_data(wing, i)
   type(flexible_wing), intent (inout) :: wing !for the ith wing
   character(len=strlen) :: data_file
   character(len=1)  :: wingstr
-  integer :: j
+  integer :: j, np
   real(kind=pr), allocatable :: tmp2D(:,:)
   real(kind=pr), allocatable :: tmp1D(:,:)
 
@@ -398,11 +385,12 @@ subroutine read_wing_mesh_data(wing, i)
 
         ! Saving number of points
         wing%np = nint(maxval(tmp2D(:,1)))
+        np = wing%np
 
         do j=1, nint(maxval(tmp2D(:,1)))
-          wing%x(j) = tmp2D(j,2)!*2*pi/xl*20
-          wing%z(j) = tmp2D(j,3)!*2*pi/yl*20
-          wing%y(j) = tmp2D(j,4)!*2*pi/zl
+          wing%u_old(j) = tmp2D(j,2)!*2*pi/xl*20
+          wing%u_old(j + np) = tmp2D(j,3)!*2*pi/yl*20
+          wing%u_old(j + 2*np) = tmp2D(j,4)!*2*pi/zl
         end do
 
         deallocate(tmp2D)
@@ -515,6 +503,19 @@ subroutine read_wing_mesh_data(wing, i)
 
         deallocate(tmp2D)
 
+      ! Read mass
+        if (load_mass_from_file == 'yes') then
+          data_file = 'mass'//wingstr//'.dat'
+          call  read_mesh_data_1D_array(data_file, tmp1D)
+
+          do j=1,int((size(tmp1D)))
+          wing%m(j) = tmp1D(j,1)
+          !if (root) write(*,*) tmp1D(j,1)
+          enddo
+
+          deallocate(tmp1D)
+      endif
+
 
 end subroutine read_wing_mesh_data
 
@@ -547,62 +548,65 @@ subroutine determine_boundary_points_from_origin(wing)
 
   implicit none
   type(flexible_wing), intent (inout) :: wing
-  integer :: i
+  integer :: i, np
   real(kind=pr), dimension(1:3) :: delta
+
+  np = wing%np
 
   ! Calculate the second boundary point for the Leading edge vein from the first
   ! point which is read from param file since the first point of the LE vein is
-  ! where we define the root of the wing (x0, y0, z0)
-      wing%x_BC(-1,1) = wing%x0
-      wing%y_BC(-1,1) = wing%y0
-      wing%z_BC(-1,1) = wing%z0
+  ! where we define the root of the wing at (0, 0, 0)
+      wing%x_BC(-1,1) = 0.d0
+      wing%y_BC(-1,1) = 0.d0
+      wing%z_BC(-1,1) = 0.d0
 
       wing%x0_BC(-1,1) = wing%x_BC(-1,1)
       wing%y0_BC(-1,1) = wing%y_BC(-1,1)
       wing%z0_BC(-1,1) = wing%z_BC(-1,1)
 
-      wing%x_BC(0,1) = (wing%x0 + wing%x(nint(wing%veins_bending_BC(1,2,1))))/2
-      wing%y_BC(0,1) = (wing%y0 + wing%y(nint(wing%veins_bending_BC(1,2,1))))/2
-      wing%z_BC(0,1) = (wing%z0 + wing%z(nint(wing%veins_bending_BC(1,2,1))))/2
+      wing%x_BC(0,1) = wing%u_old(nint(wing%veins_bending_BC(1,2,1)))/2
+      wing%y_BC(0,1) = wing%u_old(nint(wing%veins_bending_BC(1,2,1)) + np)/2
+      wing%z_BC(0,1) = wing%u_old(nint(wing%veins_bending_BC(1,2,1)) + 2*np)/2
 
       wing%x0_BC(0,1) = wing%x_BC(0,1)
       wing%y0_BC(0,1) = wing%y_BC(0,1)
       wing%z0_BC(0,1) = wing%z_BC(0,1)
 
-      wing%veins_extension_BC(0,4,1) = sqrt(((wing%x0 - wing%x(nint(wing%veins_bending_BC(1,2,1))))/2)**2 + &
-                                             ((wing%y0 - wing%y(nint(wing%veins_bending_BC(1,2,1))))/2)**2 + &
-                                             ((wing%z0 - wing%z(nint(wing%veins_bending_BC(1,2,1))))/2)**2)
+      wing%veins_extension_BC(0,4,1) = sqrt(((wing%u_old(nint(wing%veins_bending_BC(1,2,1))))/2)**2 + &
+                                            ((wing%u_old(nint(wing%veins_bending_BC(1,2,1)) + np))/2)**2 + &
+                                            ((wing%u_old(nint(wing%veins_bending_BC(1,2,1)) + 2*np))/2)**2)
 
       ! Calculate initial angles
-      call angle_calculation(wing%x_BC(0,1),wing%x(nint(wing%veins_bending_BC(1,2,1))), &
-                             wing%x(nint(wing%veins_bending_BC(1,3,1))), wing%y_BC(0,1),&
-                             wing%y(nint(wing%veins_bending_BC(1,2,1))),wing%y(nint(wing%veins_bending_BC(1,3,1))), &
-                             wing%z_BC(0,1),wing%z(nint(wing%veins_bending_BC(1,2,1))), &
-                             wing%z(nint(wing%veins_bending_BC(1,3,1))), &
+      call angle_calculation(wing%x_BC(0,1),wing%u_old(nint(wing%veins_bending_BC(1,2,1))), &
+                             wing%u_old(nint(wing%veins_bending_BC(1,3,1))), wing%y_BC(0,1),&
+                             wing%u_old(nint(wing%veins_bending_BC(1,2,1)) + np), &
+                             wing%u_old(nint(wing%veins_bending_BC(1,3,1)) + np), &
+                             wing%z_BC(0,1),wing%u_old(nint(wing%veins_bending_BC(1,2,1)) + 2*np), &
+                             wing%u_old(nint(wing%veins_bending_BC(1,3,1)) + 2*np), &
                              wing%veins_bending_BC(0,5,1),wing%veins_bending_BC(0,6,1))
 
 
   ! Calculate boundary for other veins
       do i=2,nVeins_BC
 
-        delta(1) = wing%x(nint(wing%veins_bending_BC(1,3,i))) - &
-                       wing%x(nint(wing%veins_bending_BC(1,2,i)))
-        delta(2) = wing%y(nint(wing%veins_bending_BC(1,3,i))) - &
-                       wing%y(nint(wing%veins_bending_BC(1,2,i)))
-        delta(3) = wing%z(nint(wing%veins_bending_BC(1,3,i))) - &
-                       wing%z(nint(wing%veins_bending_BC(1,2,i)))
+        delta(1) = wing%u_old(nint(wing%veins_bending_BC(1,3,i))) - &
+                       wing%u_old(nint(wing%veins_bending_BC(1,2,i)))
+        delta(2) = wing%u_old(nint(wing%veins_bending_BC(1,3,i)) + np) - &
+                       wing%u_old(nint(wing%veins_bending_BC(1,2,i)) + np)
+        delta(3) = wing%u_old(nint(wing%veins_bending_BC(1,3,i)) + 2*np) - &
+                       wing%u_old(nint(wing%veins_bending_BC(1,2,i)) + 2*np)
 
-        wing%x_BC(-1,i) = wing%x(nint(wing%veins_bending_BC(1,2,i))) - 2*delta(1)
-        wing%y_BC(-1,i) = wing%y(nint(wing%veins_bending_BC(1,2,i))) - 2*delta(2)
-        wing%z_BC(-1,i) = wing%z(nint(wing%veins_bending_BC(1,2,i))) - 2*delta(3)
+        wing%x_BC(-1,i) = wing%u_old(nint(wing%veins_bending_BC(1,2,i))) - 2*delta(1)
+        wing%y_BC(-1,i) = wing%u_old(nint(wing%veins_bending_BC(1,2,i)) + np) - 2*delta(2)
+        wing%z_BC(-1,i) = wing%u_old(nint(wing%veins_bending_BC(1,2,i)) + 2*np) - 2*delta(3)
 
         wing%x0_BC(-1,i) = wing%x_BC(-1,i)
         wing%y0_BC(-1,i) = wing%y_BC(-1,i)
         wing%z0_BC(-1,i) = wing%z_BC(-1,i)
 
-        wing%x_BC(0,i) = (wing%x_BC(-1,i) + wing%x(nint(wing%veins_bending_BC(1,2,i))))/2
-        wing%y_BC(0,i) = (wing%y_BC(-1,i) + wing%y(nint(wing%veins_bending_BC(1,2,i))))/2
-        wing%z_BC(0,i) = (wing%z_BC(-1,i) + wing%z(nint(wing%veins_bending_BC(1,2,i))))/2
+        wing%x_BC(0,i) = (wing%x_BC(-1,i) + wing%u_old(nint(wing%veins_bending_BC(1,2,i))))/2
+        wing%y_BC(0,i) = (wing%y_BC(-1,i) + wing%u_old(nint(wing%veins_bending_BC(1,2,i)) + np))/2
+        wing%z_BC(0,i) = (wing%z_BC(-1,i) + wing%u_old(nint(wing%veins_bending_BC(1,2,i)) + 2*np))/2
 
         wing%x0_BC(0,i) = wing%x_BC(0,i)
         wing%y0_BC(0,i) = wing%y_BC(0,i)
@@ -612,11 +616,12 @@ subroutine determine_boundary_points_from_origin(wing)
         wing%veins_extension_BC(0,4,i) = sqrt((delta(1))**2 + (delta(2))**2 + (delta(3))**2)
 
         ! Calculate initial angles
-        call angle_calculation(wing%x_BC(0,i),wing%x(nint(wing%veins_bending_BC(1,2,i))), &
-                               wing%x(nint(wing%veins_bending_BC(1,3,i))), wing%y_BC(0,i),&
-                               wing%y(nint(wing%veins_bending_BC(1,2,i))),wing%y(nint(wing%veins_bending_BC(1,3,i))), &
-                               wing%z_BC(0,i),wing%z(nint(wing%veins_bending_BC(1,2,i))), &
-                               wing%z(nint(wing%veins_bending_BC(1,3,i))), &
+        call angle_calculation(wing%x_BC(0,i),wing%u_old(nint(wing%veins_bending_BC(1,2,i))), &
+                               wing%u_old(nint(wing%veins_bending_BC(1,3,i))), wing%y_BC(0,i),&
+                               wing%u_old(nint(wing%veins_bending_BC(1,2,i)) + np),&
+                               wing%u_old(nint(wing%veins_bending_BC(1,3,i)) + np), &
+                               wing%z_BC(0,i),wing%u_old(nint(wing%veins_bending_BC(1,2,i)) + 2*np), &
+                               wing%u_old(nint(wing%veins_bending_BC(1,3,i)) + 2*np), &
                                wing%veins_bending_BC(0,5,i),wing%veins_bending_BC(0,6,i))
 
 

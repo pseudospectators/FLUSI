@@ -14,7 +14,7 @@ subroutine flexible_wing_motions ( time, wing )
   case ("stationary")
     continue
   case ("revolving_wing")
-    continue
+    call revolving_wing(time,wing)
   case ("harmonic_ocsillation")
     wing%vt0(1) = 0.d0
     wing%vt0(2) = 0.25*(1*pi)*cos(1*pi*time)
@@ -27,7 +27,7 @@ subroutine flexible_wing_motions ( time, wing )
 
 end subroutine
 
-subroutine revolving_Zimmerman (time, wing)
+subroutine revolving_wing (time, wing)
 
   implicit none
 
@@ -38,26 +38,15 @@ subroutine revolving_Zimmerman (time, wing)
   real(kind=pr),dimension(1:3,1:3) :: mat_Ry
   real(kind=pr),dimension(1:3) :: u
 
-  tau = 0.4
-  phi_y = 2*pi*(tau*dexp(-time/tau) + time) - 2*pi*tau
+  tau = 4.d-1
+  wing%vr0 = (/0.d0,0.d0,0.d0/)
+  wing%ar0 = (/0.d0,0.d0,0.d0/)
 
-  call Ry(mat_Ry,phi_y)
+  wing%WingAngle_z = -1.0d0*(tau*dexp(-time/tau) + time) + 1.0d0*tau
+  wing%vr0(3) = 1.0d0*(dexp(-time/tau) - 1)
+  wing%ar0(3) = -1.0d0/tau*dexp(-time/tau)
 
-    do j=1,nVeins_BC
-      u = matmul(mat_Ry,(/wing%x0_BC(0,j) - wing%x0, &
-                          wing%y0_BC(0,j) - wing%y0, &
-                          wing%z0_BC(0,j) - wing%z0/))
-      wing%x_BC(0,j) = u(1) + wing%x0
-      wing%y_BC(0,j) = u(2) + wing%y0
-      wing%z_BC(0,j) = u(3) + wing%z0
-
-      u = matmul(mat_Ry,(/wing%x0_BC(-1,j) - wing%x0, &
-                      wing%y0_BC(-1,j) - wing%y0, &
-                      wing%z0_BC(-1,j) - wing%z0/))
-      wing%x_BC(-1,j) = u(1) + wing%x0
-      wing%y_BC(-1,j) = u(2) + wing%y0
-      wing%z_BC(-1,j) = u(3) + wing%z0
-    enddo
+  wing%WingAngle_x = pi/4
 
 end subroutine
 

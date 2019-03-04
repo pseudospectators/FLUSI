@@ -2,12 +2,12 @@
 ! Construct external force vector consists of gravity
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-subroutine external_forces_construction(time,dt0,dt1, it, wing)
+subroutine external_forces_construction(time,it, wing)
 ! This is actually just for 1 wing
 use mpi
 implicit none
 
-real(kind=pr),intent(in) :: time,dt0,dt1
+real(kind=pr),intent(in) :: time
 integer,intent(in) :: it
 type(flexible_wing), intent(inout)  :: Wing
 integer :: i, j, np
@@ -23,7 +23,7 @@ integer :: i, j, np
   if (activate_press_force=="yes") call pressure_forces_on_wing (wing)
 
   ! Fictitious forces appear when the reference frames of wings are non-inertial frame
-  if (activate_noninertial_force=="yes") call fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wing)
+  if (activate_noninertial_force=="yes") call fictitious_forces_of_moving_reference_frame (time,it,wing)
 
 
 end subroutine
@@ -504,11 +504,11 @@ subroutine distribute_concentrated_force_into_three_vertices(distributed_force,c
 end subroutine
 
 
-subroutine fictitious_forces_of_moving_reference_frame (time,dt0,dt1,it,wing)
+subroutine fictitious_forces_of_moving_reference_frame (time,it,wing)
 
 implicit none
 
-real(kind=pr),intent(in) :: time,dt0,dt1
+real(kind=pr),intent(in) :: time
 integer,intent(in) :: it
 type(flexible_wing), intent (inout) :: wing
 real(kind=pr), dimension(1:3) :: Force_Coriolis, Force_centrifugal, Force_Euler
@@ -537,15 +537,16 @@ integer :: i,j, np
 
   ! Non-inertial forces due to rotation
   do j=1,np
-    Force_Coriolis = - 2*wing%m(j)*cross(wing%vr0,(/vx(j), vy(j), vz(j)/))
+    Force_Coriolis = 2*wing%m(j)*cross(wing%vr0,(/vx(j), vy(j), vz(j)/))
     Force_centrifugal = - wing%m(j)*cross(wing%vr0,cross(wing%vr0,(/x(j), y(j), z(j)/)))
-    Force_Euler = - wing%m(j)*cross(wing%ar0,(/x(j), y(j), z(j)/))
+    Force_Euler = wing%m(j)*cross(wing%ar0,(/x(j), y(j), z(j)/))
 
     wing%Fext(j)        = wing%Fext(j)        + Force_Coriolis(1) + Force_centrifugal(1) + Force_Euler(1) !forces on the x-direction
     wing%Fext(j + np)   = wing%Fext(j + np)   + Force_Coriolis(2) + Force_centrifugal(2) + Force_Euler(2) !forces on the y-direction
     wing%Fext(j + 2*np) = wing%Fext(j + 2*np) + Force_Coriolis(3) + Force_centrifugal(3) + Force_Euler(3) !forces on the z-direction
   enddo
 
-
+  deallocate(x,y,z)
+  deallocate(vx,vy,vz)
 
 end subroutine

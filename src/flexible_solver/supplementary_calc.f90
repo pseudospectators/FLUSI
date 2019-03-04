@@ -164,9 +164,9 @@ subroutine rotate_wing(wing)
     call Ry(mat_Ry,wing%WingAngle_y)
     call Rz(mat_Rz,wing%WingAngle_z)
 
-  ! Rotate wing around x  axis
+  ! Rotate wing around x axis
   do i=1,wing%np
-    u = matmul(mat_Rx,(/wing%x(i), wing%y(i), wing%z(i)/))
+    u = matmul(mat_Rx,(/wing%u_old(i), wing%u_old(i+wing%np), wing%u_old(i+2*wing%np)/))
     wing%x(i) = u(1)
     wing%y(i) = u(2)
     wing%z(i) = u(3)
@@ -186,6 +186,30 @@ subroutine rotate_wing(wing)
     wing%x(i) = u(1)
     wing%y(i) = u(2)
     wing%z(i) = u(3)
+  enddo
+
+end subroutine
+
+subroutine translate_wing(wing)
+
+  implicit none
+  type(flexible_wing), intent(inout) :: wing
+  integer :: j, np
+  real(kind=pr), dimension(1:3) :: u
+
+  np = wing%np
+
+  do j=1,np
+    wing%x(j) = wing%x(j) + wing%x0
+    wing%y(j) = wing%y(j) + wing%y0
+    wing%z(j) = wing%z(j) + wing%z0
+
+    u = cross((/wing%u_old(j),wing%u_old(j+wing%np),wing%u_old(j+2*wing%np)/)&
+              ,wing%vr0(1:3))
+
+    wing%vx(j) = wing%vt0(1) + wing%u_old(3*wing%np+j) + u(1)
+    wing%vy(j) = wing%vt0(2) + wing%u_old(4*wing%np+j) + u(2)
+    wing%vz(j) = wing%vt0(3) + wing%u_old(5*wing%np+j) + u(3)
   enddo
 
 end subroutine

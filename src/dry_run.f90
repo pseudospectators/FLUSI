@@ -403,7 +403,7 @@ subroutine dry_run_flexible_wing()
   do while (time<tmax)
 
     do i=1,nWings
-    call flexible_wing_motions ( time, wings(i) )
+    ! call flexible_wing_motions ( time, wings(i) )
 
     !
     call flexible_solid_time_step(time, tsave, tsave, it, wings(i))

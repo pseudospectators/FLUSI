@@ -31,12 +31,6 @@ subroutine flexible_solid_time_step(time, dt0, dt1, it, wing)
         !call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
         call flexible_wing_motions ( time, wing )
 
-        t0 = MPI_wtime()
-        ! Construct the external force vector
-        call external_forces_construction(time,dt0,dt1, it,wing)
-        time_solid_ex = time_solid_ex + MPI_wtime() - t0
-
-
         ! EULER startup scheme
         ! compute position and velocity at the first time step
         call flexible_solid_solver_euler(time, dt1, it, wing)
@@ -54,11 +48,6 @@ subroutine flexible_solid_time_step(time, dt0, dt1, it, wing)
         !call translation_acceleration_of_wing_plane (time,dt0,dt1,it,wings)
         call flexible_wing_motions ( time, wing )
 
-
-        t0 = MPI_wtime()
-        ! Construct the external force vector
-        call external_forces_construction(time,dt0,dt1, it,wing)
-        time_solid_ex = time_solid_ex + MPI_wtime() - t0
 
         ! BDF2 scheme
         ! compute position and velocity at new time step
@@ -116,6 +105,11 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wing)
       np = wing%np
 
       t0 = MPI_wtime()
+      ! Construct the external force vector
+      call external_forces_construction(time,it,wing)
+      time_solid_ex = time_solid_ex + MPI_wtime() - t0
+
+      t0 = MPI_wtime()
       ! Calculate internal force vector from the new state vector u_new
       call internal_forces_construction(wing)
       time_solid_in = time_solid_in + MPI_wtime() - t0
@@ -127,6 +121,11 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wing)
 
       ! Calculate RHS vector
       call RHS_for_NR_method(dt1, dt1, it, wing)
+
+      t0 = MPI_wtime()
+      ! Calculate the Jacobian matrix of the external force vector
+      call external_forces_derivatives_construction(wing)
+      time_solid_din = time_solid_din + MPI_wtime() - t0
 
       t0 = MPI_wtime()
       ! Calculate the Jacobian matrix of the internal force vector
@@ -141,7 +140,7 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wing)
       t0 = MPI_wtime()
       ! Solve for the step of NR method
       call solve_linear_system_using_schur_complement(wing%du(1:6*np), np, &
-                                                      wing%FJ(1:3*np,1:3*np), &
+                                                      wing%FJ(1:3*np,1:3*np),wing%FJ_ext(1:3*np,1:3*np), &
                                                       wing%m(1:np), wing%c(1:np), &
                                                       dt1, wing%RHS_a(1:3*np), wing%RHS_b(1:3*np), coef)
       time_solid_nls = time_solid_nls + MPI_wtime() - t0
@@ -211,14 +210,22 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wing)
       iter = iter + 1
 
       t0 = MPI_wtime()
+      ! Construct the external force vector
+      call external_forces_construction(time,it,wing)
+      time_solid_ex = time_solid_ex + MPI_wtime() - t0
 
-
+      t0 = MPI_wtime()
       ! Calculate internal force vector from the new state vector u_new
       call internal_forces_construction(wing)
       time_solid_in = time_solid_in + MPI_wtime() - t0
 
       ! Calculate RHS vector
       call RHS_for_NR_method(dt1, dt0, it, wing)
+
+      t0 = MPI_wtime()
+      ! Calculate the Jacobian matrix of the external force vector
+      call external_forces_derivatives_construction(wing)
+      time_solid_din = time_solid_din + MPI_wtime() - t0
 
       t0 = MPI_wtime()
       ! Calculate the Jacobian matrix of the internal force vector
@@ -228,7 +235,7 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wing)
       t0 = MPI_wtime()
       ! Solve for the step of NR method
       call solve_linear_system_using_schur_complement(wing%du(1:6*np), np, &
-                                                      wing%FJ(1:3*np,1:3*np), &
+                                                      wing%FJ(1:3*np,1:3*np),wing%FJ_ext(1:3*np,1:3*np), &
                                                       wing%m(1:np), wing%c(1:np), &
                                                       dt1, wing%RHS_a(1:3*np), wing%RHS_b(1:3*np), coef)
       time_solid_nls = time_solid_nls + MPI_wtime() - t0
@@ -313,7 +320,7 @@ subroutine RHS_for_NR_method(dt1, dt0, it, wing)
 
 end subroutine
 
-subroutine solve_linear_system_using_schur_complement(du,np,FJ,m,c,dt,a,b,coef)
+subroutine solve_linear_system_using_schur_complement(du,np,FJ,FJ_ext,m,c,dt,a,b,coef)
 
 ! This subroutine solves a linear system under the form
 !                 [    |      ] [    ]   [   ]
@@ -339,7 +346,7 @@ implicit none
 
 real(kind=pr), intent(in) :: dt, coef
 real(kind=pr), intent(in) :: m(1:), c(1:), a(1:), b(1:)
-real(kind=pr), intent(in) :: FJ(1:,1:)
+real(kind=pr), intent(in) :: FJ(1:,1:), FJ_ext(1:,1:)
 integer, intent(in) :: np
 real(kind=pr), intent(inout) :: du(1:)
 real(kind=pr), allocatable :: y(:), m_array3D(:), c_array3D(:)
@@ -358,10 +365,10 @@ c_array3D = (/c,c,c/)
 do i=1,3*np
     do j=1,3*np
       if (i .eq. j) then
-        F(i,i) = coef*dt*FJ(i,i) + (1/(coef*dt))*m_array3D(i) + c_array3D(i)
+        F(i,i) = coef*dt*(FJ(i,i)+FJ_ext(i,i)) + (1/(coef*dt))*m_array3D(i) + c_array3D(i)
           y(i) = a(i) + ((1/(coef*dt))*m_array3D(i) + c_array3D(i))*b(i)
       else
-        F(i,j) = coef*dt*FJ(i,j)
+        F(i,j) = coef*dt*(FJ(i,j)+FJ_ext(i,i))
       endif
     enddo
 enddo
@@ -401,32 +408,11 @@ if ((wing%Motion .eq. "stationary") .or. (wing%Motion .eq. "simple_harmonic") &
   wing%vy(1:wing%np) = wing%u_old(4*wing%np+1:5*wing%np)
   wing%vz(1:wing%np) = wing%u_old(5*wing%np+1:6*wing%np)
 elseif (wing%Motion .eq. "revolving_wing") then
-  tau = 0.4
-  wing%WingAngle_y = -1.0d0*(tau*dexp(-time/tau) + time) + 1.0d0*tau
-  vr = 1.0d0*(dexp(-time/tau) - 1.d0)
 
-  if (root) write(*,*) wing%WingAngle_y
+  call rotate_wing(wing)
 
-  call Ry(wing%RotationMat_y,wing%WingAngle_y)
+  call translate_wing(wing)
 
-  do j=1,wing%np
-    u = matmul(wing%RotationMat_y,(/wing%u_old(j) - wing%x0, &
-                                    wing%u_old(wing%np + j) -wing%y0, &
-                                    wing%u_old(2*wing%np + j) - wing%z0/))
-    wing%x(j) = u(1) + wing%x0
-    wing%y(j) = u(2) + wing%y0
-    wing%z(j) = u(3) + wing%z0
-
-    v = -cross((/0.d0,vr,0.d0/),u(1:3))
-
-    w = matmul(wing%RotationMat_y,(/wing%u_old(3*wing%np + j), &
-                                    wing%u_old(4*wing%np + j), &
-                                    wing%u_old(5*wing%np + j)/))
-
-    wing%vx(j) = v(1) + w(1)
-    wing%vy(j) = v(2) + w(2)
-    wing%vz(j) = v(3) + w(3)
-  enddo
 endif
 
 
