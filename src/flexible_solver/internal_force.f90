@@ -57,7 +57,7 @@ wings%Fint = 0.d0
                              wings%veins_bending_BC(1:,:,j))
   end do
 
-  call length_calculation_wrapper(wings%u_new(1:np), &
+  call angle_calculation_wrapper(wings%u_new(1:np), &
                           wings%u_new(np+1:2*np), &
                           wings%u_new(2*np+1:3*np), &
                           wings%vein_connectors(:,:))
@@ -118,7 +118,7 @@ wings%Fint = 0.d0
 
   call internal_bending_force(wings%Fint, &
                               wings%u_new(1:np),wings%u_new(np+1:2*np),wings%u_new(2*np+1:3*np), &
-                              wings%vein_connectors(:,:), np, &
+                              wings%vein_connectors(1:,1:), np, &
                               wings%kby_c,wings%kbz_c)
 
 end subroutine

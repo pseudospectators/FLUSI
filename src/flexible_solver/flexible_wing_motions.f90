@@ -42,11 +42,14 @@ subroutine revolving_wing (time, wing)
   wing%vr0 = (/0.d0,0.d0,0.d0/)
   wing%ar0 = (/0.d0,0.d0,0.d0/)
 
-  wing%WingAngle_z = -1.0d0*(tau*dexp(-time/tau) + time) + 1.0d0*tau
-  wing%vr0(3) = 1.0d0*(dexp(-time/tau) - 1)
-  wing%ar0(3) = -1.0d0/tau*dexp(-time/tau)
+  wing%WingAngle_x = pi/2
 
-  wing%WingAngle_x = pi/4
+  wing%vr0(2) = -1.0d0*(dexp(-time/tau) - 1)*dcos(pi/4)
+  wing%ar0(2) = 1.0d0/tau*dexp(-time/tau)*dcos(pi/4)
+
+  wing%WingAngle_z = -1.0d0*(tau*dexp(-time/tau) + time) + 1.0d0*tau
+  wing%vr0(3) = 1.0d0*(dexp(-time/tau) - 1)*dsin(pi/4)
+  wing%ar0(3) = -1.0d0/tau*dexp(-time/tau)*dsin(pi/4)
 
 end subroutine
 

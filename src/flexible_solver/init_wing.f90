@@ -253,6 +253,9 @@ subroutine init_wings ( fname, wings, dx_reference)
                            wings(i)%u_old(2*wings(i)%np+1:3*wings(i)%np), &
                            wings(i)%vein_connectors)
 
+        wings(i)%vein_connectors(1:,5) = wings(i)%vein_connectors(1:,7)
+        wings(i)%vein_connectors(1:,6) = wings(i)%vein_connectors(1:,8)
+
     !--------------------------------------------------------------------------
     ! Set up material properties
     !--------------------------------------------------------------------------
@@ -332,18 +335,18 @@ subroutine init_wings ( fname, wings, dx_reference)
         write(*,frmt) wings(i)%ke_v(1:nint(maxval(wings(i)%veins_extension(:,1,j))),j)
       enddo
       !do j=1,nMembranes
-        !write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%membranes_extension(:,1,j)))
-        !write(*,'("extension stiffness of extension springs of the membrane number ",i2.2,":")',advance='yes') j
-        !write(*,frmt) wings(i)%ke_m(1:nint(maxval(wings(i)%membranes_extension(:,1,j))),j)
+        !write(*,*) nint(maxval(wings(i)%membranes_extension(:,1,j)))
+      !  write(frmt,'("(",i6.6,"(es12.4,1x))")') nint(maxval(wings(i)%membranes_extension(:,1,j)))
+      !  write(*,'("extension stiffness of extension springs of the membrane number ",i2.2,":")',advance='yes') j
+      !  write(*,frmt) wings(i)%ke_m(1:nint(maxval(wings(i)%membranes_extension(:,1,j))),j)
       !enddo
-      !  write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%Vein_connectors(:,1)))
-      !  write(*,*) "bending stiffness of y-direction bending springs of the vein connectors:"
-      !  write(*,frmt) wings(i)%kby_c(1:nint(maxval(wings(i)%vein_connectors(:,1))))
-      !  write(*,*) "bending stiffness of z-direction bending springs of the vein connectors:"
-      !  write(*,frmt) wings(i)%kbz_c(1:nint(maxval(wings(i)%vein_connectors(:,1))))
+        write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%vein_connectors(:,1)))
+        write(*,*) "bending stiffness of y-direction bending springs of the vein connectors:"
+        write(*,frmt) wings(i)%kby_c(1:nint(maxval(wings(i)%vein_connectors(:,1))))
+        write(*,*) "bending stiffness of z-direction bending springs of the vein connectors:"
+        write(*,frmt) wings(i)%kbz_c(1:nint(maxval(wings(i)%vein_connectors(:,1))))
 
     endif
-
 
   enddo
 
@@ -432,8 +435,7 @@ subroutine read_wing_mesh_data(wing, i)
          data_file = 'vein_connectors'//wingstr//'.dat'
          call  read_mesh_data_2D_array(data_file, tmp2D)
 
-         !wing%veins_bending(1:int((size(tmp2D,DIM=1))*(1.0/nVeins)),1:8,1:nVeins) = &
-         !reshape(tmp2D,(/int((size(tmp2D,DIM=1))*(1.0/nVeins)),8,nVeins/))
+         wing%vein_connectors(1:int((size(tmp2D,DIM=1))),1:8) = tmp2D
 
          deallocate(tmp2D)
 
