@@ -35,21 +35,29 @@ subroutine revolving_wing (time, wing)
   type(flexible_wing), intent (inout) :: wing
   integer :: j
   real(kind=pr) :: phi_y, tau
-  real(kind=pr),dimension(1:3,1:3) :: mat_Ry
+  real(kind=pr),dimension(1:3,1:3) :: mat_Rx
   real(kind=pr),dimension(1:3) :: u
 
   tau = 4.d-1
   wing%vr0 = (/0.d0,0.d0,0.d0/)
   wing%ar0 = (/0.d0,0.d0,0.d0/)
 
-  wing%WingAngle_x = pi/2
+  wing%WingAngle_x = pi/4
 
-  wing%vr0(2) = -1.0d0*(dexp(-time/tau) - 1)*dcos(pi/4)
-  wing%ar0(2) = 1.0d0/tau*dexp(-time/tau)*dcos(pi/4)
+  !wing%vr0(2) = -1.0d0*(dexp(-time/tau) - 1)*dcos(pi/4)
+  !wing%ar0(2) = 1.0d0/tau*dexp(-time/tau)*dcos(pi/4)
 
   wing%WingAngle_z = -1.0d0*(tau*dexp(-time/tau) + time) + 1.0d0*tau
-  wing%vr0(3) = 1.0d0*(dexp(-time/tau) - 1)*dsin(pi/4)
-  wing%ar0(3) = -1.0d0/tau*dexp(-time/tau)*dsin(pi/4)
+  wing%vr0(3) = 1.0d0*(dexp(-time/tau) - 1)
+  wing%ar0(3) = -1.0d0/tau*dexp(-time/tau)
+
+  call Rx(mat_Rx,-wing%WingAngle_x)
+
+  ! Rotate angle velocity vector around x axis
+    wing%vr0 = matmul(mat_Rx,wing%vr0)
+    wing%ar0 = matmul(mat_Rx,wing%ar0)
+
+  if (root) write(*,*) wing%vr0
 
 end subroutine
 
