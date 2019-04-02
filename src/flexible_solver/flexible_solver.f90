@@ -12,12 +12,12 @@ module flexible_model
   ! module global variables
   !----------------------------------------------
   integer,parameter :: nWings = 1
-  integer,parameter :: nVeins = 1
-  integer,parameter :: nVeins_BC = 1
+  integer,parameter :: nVeins = 36
+  integer,parameter :: nVeins_BC = 5
   integer,parameter :: nMembranes = 1
-  integer,parameter :: nMembrane_edges = 1
+  integer,parameter :: nMembrane_edges = 10
   ! see "type solid" about nsmax 06 Aug 2014
-  integer,parameter :: npmax = 1000
+  integer,parameter :: npmax = 500
   integer,parameter :: nvmax = 2*npmax
   integer,parameter :: nmmax = 3*npmax
   ! TODO: move these into the solid model datastructure
@@ -27,7 +27,8 @@ module flexible_model
   logical :: ActuallyBDF2
   character(len=strlen),save :: TimeMethodFlexibleSolid
   character(len=strlen),save :: use_flexible_wing_model
-  character(len=strlen),save :: activate_press_force, wing_interp
+  character(len=strlen),save :: load_mass_from_file
+  character(len=strlen),save :: activate_press_force,activate_noninertial_force,wing_interp
 
   ! this is a hack to avoid allocating/deallacting these arrays in every time
   ! step. turing fails with memory issues if done otherwise. 7 Aug 2014
@@ -141,6 +142,7 @@ module flexible_model
  include "save_wing.f90"
  include "internal_force.f90"
  include "external_force.f90"
+ include "external_force_derivative.f90"
  include "internal_force_derivative.f90"
  include "flexible_wing_motions.f90"
  include "flexible_solver_wrapper.f90"

@@ -4,7 +4,7 @@ subroutine SaveWingData( time, wings )
   real (kind=pr), intent (in) :: time
   type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
   character(len=16) :: format_ns1
-  character(len=4)  :: ns1_string, ctrlpoint
+  character(len=3)  :: ns1_string, ctrlpoint
   character(len=1)  :: wingstr
 
   integer :: np,step,i
@@ -13,14 +13,16 @@ subroutine SaveWingData( time, wings )
   do i=1, nWings
     !-- for naming files..
     write (wingstr,'(i1)') i
-    write (ctrlpoint,'(i4)') wings(i)%ControlPoint
+    write (ctrlpoint,'(i3)') wings(i)%ControlPoint
 
     !Get total number of points
     np = wings(i)%np
 
     ! set up formats
-      write(ns1_string, '(I4)') np+1
+      write(ns1_string,'(i3)') np+1
       format_ns1 = '('//ns1_string//'(es15.8,1x))'
+
+      write(*,*) ns1_string, format_ns1
 
       !-- save control point data
       if (wings(i)%ControlPoint /= 0) then
@@ -37,7 +39,7 @@ subroutine SaveWingData( time, wings )
     endif
 
     open (14, file = 'wing_x'//wingstr//'.t', status = 'unknown',position='append')
-    write (14, format_ns1) time, wings(i)%x(1:np)
+    write (14, '(845(es15.8,1x))') time, wings(i)%x(1:np)
     close (14)
 
     open (14, file = 'wing_y'//wingstr//'.t', status = 'unknown',position='append')
@@ -58,6 +60,18 @@ subroutine SaveWingData( time, wings )
 
     open (14, file = 'wing_vz'//wingstr//'.t', status = 'unknown',position='append')
     write (14, format_ns1) time, wings(i)%vz(1:np)
+    close (14)
+
+    open (14, file = 'Fext_x'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%Fext(1:np)
+    close (14)
+
+    open (14, file = 'Fext_y'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%Fext(np+1:2*np)
+    close (14)
+
+    open (14, file = 'Fext_z'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%Fext(2*np+1:3*np)
     close (14)
 
   enddo
