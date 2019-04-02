@@ -31,6 +31,7 @@ subroutine save_field_hdf5(time,filename,field_out)
   character(len=strlen) :: fname,fname2
   integer, dimension(1:3) :: tmp
   real(kind=pr) :: t1, mbyte
+  integer :: mpicode
 
   t1 = MPI_wtime()
   ! check if the file name contains the suffix *.h5
@@ -48,7 +49,7 @@ subroutine save_field_hdf5(time,filename,field_out)
     trim(adjustl(fname)), trim(adjustl(get_dsetname(fname))), striding
   endif
 
-  if (striding<1) call abort(8881,"Striding value is bad, exit!")
+  if (striding<1) call abort(8881, "Striding value is bad, exit!")
 
   if (striding==1) then
     ! save the entire field to disk (no striding)
@@ -71,6 +72,11 @@ subroutine save_field_hdf5(time,filename,field_out)
   mbyte = dble(nx/striding)*dble(ny/striding)*dble(nz/striding)*4.d0/1024.0d0/1024.0d0
   if (root) write(*,'(".. wrote ",f9.2," MB in ",f9.2," s (",f9.2,"MB/s)")') &
   mbyte, t1, mbyte/t1
+
+  ! if the last thing the code does is writing, and afterwards an ABORT is called,
+  ! the writing may get interrupted. it is not a big performance loss, so here we have
+  ! a barrier.
+  call MPI_barrier(MPI_COMM_WORLD, mpicode)
 
 end subroutine save_field_hdf5
 
