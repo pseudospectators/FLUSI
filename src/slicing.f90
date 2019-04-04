@@ -50,7 +50,7 @@ subroutine save_slices( time, u )
       icache = icache + 1
   endif
 
-  tslices = tslices + MPI_wtime() - t1
+  call toc("slicing module", MPI_wtime() - t1)
 
 end subroutine save_slices
 

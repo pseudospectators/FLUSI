@@ -107,12 +107,12 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wing)
       t0 = MPI_wtime()
       ! Construct the external force vector
       call external_forces_construction(time,it,wing)
-      time_solid_ex = time_solid_ex + MPI_wtime() - t0
+      call toc("Flexible wing (external_forces_construction)", MPI_wtime() - t0)
 
       t0 = MPI_wtime()
       ! Calculate internal force vector from the new state vector u_new
       call internal_forces_construction(wing)
-      time_solid_in = time_solid_in + MPI_wtime() - t0
+      call toc("Flexible wing (internal_forces_construction)", MPI_wtime() - t0)
 
       if (Vector_isNAN(wing%Fint(1:3*wing%np))) then
         if (root) write(*,*) "FlexibleSolidSolver: Internal force vector contains NaNs"
@@ -125,12 +125,12 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wing)
       t0 = MPI_wtime()
       ! Calculate the Jacobian matrix of the external force vector
       call external_forces_derivatives_construction(wing)
-      time_solid_din = time_solid_din + MPI_wtime() - t0
+      call toc("Flexible wing (external_forces_derivatives_construction)", MPI_wtime() - t0)
 
       t0 = MPI_wtime()
       ! Calculate the Jacobian matrix of the internal force vector
       call internal_forces_derivatives_construction(wing)
-      time_solid_din = time_solid_din + MPI_wtime() - t0
+      call toc("Flexible wing (internal_forces_derivatives_construction)", MPI_wtime() - t0)
 
       if (Matrix_isNAN(wing%FJ(1:3*np,1:3*np),i_NAN, j_NAN)) then
         if (root) write(*,*) "FlexibleSolidSolver: Jacobian matrix contains NaNs"
@@ -143,7 +143,7 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wing)
                                                       wing%FJ(1:3*np,1:3*np),wing%FJ_ext(1:3*np,1:3*np), &
                                                       wing%m(1:np), wing%c(1:np), &
                                                       dt1, wing%RHS_a(1:3*np), wing%RHS_b(1:3*np), coef)
-      time_solid_nls = time_solid_nls + MPI_wtime() - t0
+      call toc("Flexible wing (solve_linear_system_using_schur_complement)", MPI_wtime() - t0)
 
       wing%u_new(1:6*wing%np) = wing%u_new(1:6*wing%np) - wing%du(1:6*wing%np)
       err            = dsqrt(sum(wing%du**2))
@@ -212,12 +212,13 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wing)
       t0 = MPI_wtime()
       ! Construct the external force vector
       call external_forces_construction(time,it,wing)
-      time_solid_ex = time_solid_ex + MPI_wtime() - t0
+      call toc("Flexible wing (external_forces_construction)", MPI_wtime() - t0)
+
 
       t0 = MPI_wtime()
       ! Calculate internal force vector from the new state vector u_new
       call internal_forces_construction(wing)
-      time_solid_in = time_solid_in + MPI_wtime() - t0
+      call toc("Flexible wing (internal_forces_construction)", MPI_wtime() - t0)
 
       ! Calculate RHS vector
       call RHS_for_NR_method(dt1, dt0, it, wing)
@@ -225,12 +226,12 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wing)
       t0 = MPI_wtime()
       ! Calculate the Jacobian matrix of the external force vector
       call external_forces_derivatives_construction(wing)
-      time_solid_din = time_solid_din + MPI_wtime() - t0
+      call toc("Flexible wing (external_forces_derivatives_construction)", MPI_wtime() - t0)
 
       t0 = MPI_wtime()
       ! Calculate the Jacobian matrix of the internal force vector
       call internal_forces_derivatives_construction(wing)
-      time_solid_din = time_solid_din + MPI_wtime() - t0
+      call toc("Flexible wing (internal_forces_derivatives_construction)", MPI_wtime() - t0)
 
       t0 = MPI_wtime()
       ! Solve for the step of NR method
@@ -238,7 +239,7 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wing)
                                                       wing%FJ(1:3*np,1:3*np),wing%FJ_ext(1:3*np,1:3*np), &
                                                       wing%m(1:np), wing%c(1:np), &
                                                       dt1, wing%RHS_a(1:3*np), wing%RHS_b(1:3*np), coef)
-      time_solid_nls = time_solid_nls + MPI_wtime() - t0
+      call toc("Flexible wing (solve_linear_system_using_schur_complement)", MPI_wtime() - t0)
 
       wing%u_new = wing%u_new - wing%du
       err            = dsqrt(sum(wing%du**2))
@@ -374,9 +375,8 @@ do i=1,3*np
 enddo
 
 t0 = MPI_wtime()
-
 call solve_linear_system_wing ( F, y, du(1:3*np) )
-time_solid_LU = time_solid_LU + MPI_wtime() - t0
+call toc("Flexible wing (solve_linear_system_wing)", MPI_wtime() - t0)
 
 do i=1,3*np
 

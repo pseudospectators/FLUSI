@@ -70,46 +70,46 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
 #endif
 
   ! Write the fluid backup field:
-  call ifft(work,ub(:,:,:,1))
+  call ifft(ub(:,:,:,1), work)
   call dump_field_backup(filename,work,"ux",time,dt0,dt1,n1,it)
-  call ifft(work,ub(:,:,:,2))
+  call ifft(ub(:,:,:,2), work)
   call dump_field_backup(filename,work,"uy",time,dt0,dt1,n1,it)
-  call ifft(work,ub(:,:,:,3))
+  call ifft(ub(:,:,:,3), work)
   call dump_field_backup(filename,work,"uz",time,dt0,dt1,n1,it)
   ! Write the fluid nonlinear term backup:
-  call ifft(work,nlk(:,:,:,1,0))
+  call ifft(nlk(:,:,:,1,0), work)
   call dump_field_backup(filename,work,"nlkx0",time,dt0,dt1,n1,it)
-  call ifft(work,nlk(:,:,:,2,0))
+  call ifft(nlk(:,:,:,2,0), work)
   call dump_field_backup(filename,work,"nlky0",time,dt0,dt1,n1,it)
-  call ifft(work,nlk(:,:,:,3,0))
+  call ifft(nlk(:,:,:,3,0), work)
   call dump_field_backup(filename,work,"nlkz0",time,dt0,dt1,n1,it)
-  call ifft(work,nlk(:,:,:,1,1))
+  call ifft(nlk(:,:,:,1,1), work)
   call dump_field_backup(filename,work,"nlkx1",time,dt0,dt1,n1,it)
-  call ifft(work,nlk(:,:,:,2,1))
+  call ifft(nlk(:,:,:,2,1), work)
   call dump_field_backup(filename,work,"nlky1",time,dt0,dt1,n1,it)
-  call ifft(work,nlk(:,:,:,3,1))
+  call ifft(nlk(:,:,:,3,1), work)
   call dump_field_backup(filename,work,"nlkz1",time,dt0,dt1,n1,it)
 
   if(method == "mhd") then
     ! Write the MHD backup field:
-    call ifft(work,ub(:,:,:,4))
+    call ifft(ub(:,:,:,4), work)
     call dump_field_backup(filename,work,"bx",time,dt0,dt1,n1,it)
-    call ifft(work,ub(:,:,:,5))
+    call ifft(ub(:,:,:,5), work)
     call dump_field_backup(filename,work,"by",time,dt0,dt1,n1,it)
-    call ifft(work,ub(:,:,:,6))
+    call ifft(ub(:,:,:,6), work)
     call dump_field_backup(filename,work,"bz",time,dt0,dt1,n1,it)
     ! Write the MHD backup field:
-    call ifft(work,nlk(:,:,:,4,0))
+    call ifft(nlk(:,:,:,4,0), work)
     call dump_field_backup(filename,work,"bnlkx0",time,dt0,dt1,n1,it)
-    call ifft(work,nlk(:,:,:,5,0))
+    call ifft(nlk(:,:,:,5,0), work)
     call dump_field_backup(filename,work,"bnlky0",time,dt0,dt1,n1,it)
-    call ifft(work,nlk(:,:,:,6,0))
+    call ifft(nlk(:,:,:,6,0), work)
     call dump_field_backup(filename,work,"bnlkz0",time,dt0,dt1,n1,it)
-    call ifft(work,nlk(:,:,:,4,1))
+    call ifft(nlk(:,:,:,4,1), work)
     call dump_field_backup(filename,work,"bnlkx1",time,dt0,dt1,n1,it)
-    call ifft(work,nlk(:,:,:,5,1))
+    call ifft(nlk(:,:,:,5,1), work)
     call dump_field_backup(filename,work,"bnlky1",time,dt0,dt1,n1,it)
-    call ifft(work,nlk(:,:,:,6,1))
+    call ifft(nlk(:,:,:,6,1), work)
     call dump_field_backup(filename,work,"bnlkz1",time,dt0,dt1,n1,it)
   endif
 
@@ -176,7 +176,7 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
   endif
 
   nbackup = 1 - nbackup
-  time_bckp=time_bckp + MPI_wtime() -t1 ! Performance diagnostic
+  call toc("IO (dump_runtime_backup)", MPI_wtime() - t1)
 
   if(mpirank == 0) then
     write(*,'(A)') "done writing backup."
@@ -272,45 +272,45 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   endif
   ! Read fluid backup field:
   call read_field_backup(filename,"ux",work)
-  call fft(uk(:,:,:,1),work)
+  call fft(work, uk(:,:,:,1))
   call read_field_backup(filename,"uy",work)
-  call fft(uk(:,:,:,2),work)
+  call fft(work, uk(:,:,:,2))
   call read_field_backup(filename,"uz",work)
-  call fft(uk(:,:,:,3),work)
+  call fft(work, uk(:,:,:,3))
   ! Read fluid nonlinear source term backup:
   call read_field_backup(filename,"nlkx0",work)
-  call fft(nlk(:,:,:,1,0),work)
+  call fft(work, nlk(:,:,:,1,0))
   call read_field_backup(filename,"nlky0",work)
-  call fft(nlk(:,:,:,2,0),work)
+  call fft(work, nlk(:,:,:,2,0))
   call read_field_backup(filename,"nlkz0",work)
-  call fft(nlk(:,:,:,3,0),work)
+  call fft(work, nlk(:,:,:,3,0))
   call read_field_backup(filename,"nlkx1",work)
-  call fft(nlk(:,:,:,1,1),work)
+  call fft(work, nlk(:,:,:,1,1))
   call read_field_backup(filename,"nlky1",work)
-  call fft(nlk(:,:,:,2,1),work)
+  call fft(work, nlk(:,:,:,2,1))
   call read_field_backup(filename,"nlkz1",work)
-  call fft(nlk(:,:,:,3,1),work)
+  call fft(work, nlk(:,:,:,3,1))
   if(method == "mhd") then
     ! Read MHD backup field:
     call read_field_backup(filename,"bx",work)
-    call fft(uk(:,:,:,4),work)
+    call fft(work, uk(:,:,:,4))
     call read_field_backup(filename,"by",work)
-    call fft(uk(:,:,:,5),work)
+    call fft(work, uk(:,:,:,5))
     call read_field_backup(filename,"bz",work)
-    call fft(uk(:,:,:,6),work)
+    call fft(work, uk(:,:,:,6))
     ! Read MHD nonlinear source term backup too:
     call read_field_backup(filename,"bnlkx0",work)
-    call fft(nlk(:,:,:,4,0),work)
+    call fft(work, nlk(:,:,:,4,0))
     call read_field_backup(filename,"bnlky0",work)
-    call fft(nlk(:,:,:,5,0),work)
+    call fft(work, nlk(:,:,:,5,0))
     call read_field_backup(filename,"bnlkz0",work)
-    call fft(nlk(:,:,:,6,0),work)
+    call fft(work, nlk(:,:,:,6,0))
     call read_field_backup(filename,"bnlkx1",work)
-    call fft(nlk(:,:,:,4,1),work)
+    call fft(work, nlk(:,:,:,4,1))
     call read_field_backup(filename,"bnlky1",work)
-    call fft(nlk(:,:,:,5,1),work)
+    call fft(work, nlk(:,:,:,5,1))
     call read_field_backup(filename,"bnlkz1",work)
-    call fft(nlk(:,:,:,6,1),work)
+    call fft(work, nlk(:,:,:,6,1))
   endif
 
 
@@ -326,11 +326,11 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
   !-- initialize runnning avg from file
   if((method=="fsi").and.(time_avg=="yes").and.(vel_avg=="yes")) then
     call read_field_backup(filename,"uavgx",work)
-    call fft ( inx=work , outk=uk_avg(:,:,:,1) )
+    call fft ( work, uk_avg(:,:,:,1) )
     call read_field_backup(filename,"uavgy",work)
-    call fft ( inx=work , outk=uk_avg(:,:,:,2) )
+    call fft ( work, uk_avg(:,:,:,2) )
     call read_field_backup(filename,"uavgz",work)
-    call fft ( inx=work , outk=uk_avg(:,:,:,3) )
+    call fft ( work, uk_avg(:,:,:,3) )
   endif
 
   if((method=="fsi").and.(time_avg=="yes").and.(ekin_avg=="yes")) then

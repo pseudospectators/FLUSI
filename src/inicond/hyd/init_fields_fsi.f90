@@ -82,7 +82,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
                 endif
             enddo
         enddo
-        call fft3 ( uk,vort )
+        call fft3(vort, uk)
 
     case("random-given-spectrum")
         if (root) write (*,*) "*** inicond: random field with given spectrum"
@@ -106,7 +106,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         ! bring this field to k-space an project it on the incompressible manifold.
         ! we end up with a velocity field which is random and div-free, but other than
         ! that has no remarkable property-
-        call fft3(inx=vort, outk=nlk(:,:,:,:,0) )
+        call fft3(vort, nlk(:,:,:,:,0))
         call Vorticity2Velocity(nlk(:,:,:,1:3,0), uk(:,:,:,1:3))
 
         ! step 3
@@ -154,7 +154,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
 
         ! check if our initial condition is indeed divergence-free
         call divergence( ink=uk, outk=workc(:,:,:,1) )
-        call ifft( ink=workc(:,:,:,1), outx=vort(:,:,:,1) )
+        call ifft( workc(:,:,:,1), vort(:,:,:,1) )
         ! vort(:,:,:,1) is now div in phys space
         maxdiv = fieldmax(vort(:,:,:,1))
 
@@ -242,8 +242,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         enddo
 
         ! enforce hermitian symmetry the lazy way
-        call ifft3(ink=uk,outx=vort)
-        call fft3(inx=vort,outk=uk)
+        call ifft3(uk, vort)
+        call fft3(vort, uk)
 
         ! we now renomalize the velocity, such that it has the given energy omega1
         ! which is set in the parameter file
@@ -262,8 +262,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
 
 
         ! check if our initial condition is indeed divergence-free
-        call divergence( ink=uk, outk=workc(:,:,:,1) )
-        call ifft( ink=workc(:,:,:,1), outx=vort(:,:,:,1) )
+        call divergence(ink=uk, outk=workc(:,:,:,1))
+        call ifft(workc(:,:,:,1), vort(:,:,:,1))
         ! vort(:,:,:,1) is now div in phys space
         maxdiv = fieldmax(vort(:,:,:,1))
         if(mpirank == 0) write(*,*) "Maximum divergence in field=", maxdiv
@@ -283,7 +283,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
                 vort(:,iy,iz,3) =-dcos( y ) * dsin( z )
             enddo
         enddo
-        call fft3 ( uk,vort )
+        call fft3(vort, uk)
 
     case("infile")
         !--------------------------------------------------
@@ -296,11 +296,11 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         call Read_Single_File ( file_ux, vort(:,:,:,1) )
         call Read_Single_File ( file_uy, vort(:,:,:,2) )
         call Read_Single_File ( file_uz, vort(:,:,:,3) )
-        call fft3 ( uk(:,:,:,1:3), vort(:,:,:,1:3) )
+        call fft3(vort(:,:,:,1:3), uk(:,:,:,1:3))
 
         if (equation=='artificial-compressibility') then
             call Read_Single_File ( file_p, vort(:,:,:,1) )
-            call fft( inx=vort(:,:,:,1), outk=uk(:,:,:,4) )
+            call fft(vort(:,:,:,1), uk(:,:,:,4))
         endif
 
         if (mpirank==0) write (*,*) "*** done reading infiles"
@@ -346,7 +346,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         rb(1)=nx-1
         if(mpirank==0) write(*,*) "Back to ", nx, ra, rb
 
-        call fft3(inx=vort,outk=uk)
+        call fft3(vort, uk)
 
     case("infile_perturbed")
         ! read velocity field from file, as is done in inicond="infile", but add a

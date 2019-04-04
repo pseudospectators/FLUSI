@@ -122,7 +122,7 @@ subroutine solve_linear_system_wing ( A, b, x )
     call abort(93, "Error in solve liner system (dgetrs)")
   endif
 
-  time_LAPACK = time_LAPACK + MPI_wtime() - t0
+  call toc("Flexible wing (solve_linear_system_wing)", MPI_wtime() - t0)
 
 end subroutine
 

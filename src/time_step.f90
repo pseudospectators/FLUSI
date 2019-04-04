@@ -7,6 +7,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   use flexible_model
   use module_insects
   use slicing
+
   implicit none
 
   integer :: inter
@@ -34,7 +35,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   logical :: continue_timestepping
-  t1=MPI_wtime()
+  t1 = MPI_wtime()
 
   ! first backup is in "truntime" hours
   truntimenext = truntime
@@ -54,8 +55,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   !-----------------------------------------------------------------------------
   if (root) write(*,*) "Start time-stepping...."
   do while ((time<tmax) .and. (it<=nt) .and. (continue_timestepping))
-    t4=MPI_wtime()
-    dt0=dt1
+    t4 = MPI_wtime()
+    dt0 = dt1
 
     !---------------------------------------------------------------------------
     ! advance fluid/B-field in time
@@ -70,8 +71,8 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     !---------------------------------------------------------------------------
     inter=n1 ; n1=n0 ; n0=inter
     ! Advance in time so that uk contains the evolved field at time 'time+dt1'
-    time=time + dt1
-    it=it + 1
+    time = time + dt1
+    it = it + 1
 
     !---------------------------------------------------------------------------
     ! Output of INTEGRALS after every tintegral time units or itdrag time steps
@@ -159,8 +160,14 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
       end select
     endif
 
-    if(root) call save_time_stepping_info (it,it_start,time,t2,t1,dt1,t4)
+    if (root) call save_time_stepping_info(time, dt1, it, t4)
+
+    ! timing module: sum the time for all time steps
+    call toc("MAIN (complete time stepping loop)", MPI_wtime()-t4)
+
+    call timing_next_timestep( it )
   enddo
+
 
   !-----------------------------------------------------------------------------
   ! save final backup so we can resume where we left
@@ -181,26 +188,16 @@ end subroutine time_step
 ! required when passing to higher resolution. This routine is called after every
 ! time step
 !-------------------------------------------------------------------------------
-subroutine save_time_stepping_info(it,it_start,time,t2,t1,dt1,t3)
+subroutine save_time_stepping_info(time, dt, it, wtime_start)
   use vars
   implicit none
 
-  integer,intent(inout) :: it ! current time step number
-  integer,intent(inout) :: it_start ! time step number when run started (nonzero if resuming a backup)
-  real(kind=pr),intent(inout) :: time
-  real(kind=pr),intent(inout) :: t2 ! t2 is time [sec] per time step, averaged
-  real(kind=pr),intent(inout) :: t1
-  real(kind=pr),intent(inout) :: dt1
-  real(kind=pr),intent(inout) :: t3
+  integer,intent(in) :: it ! current time step number
+  real(kind=pr),intent(in) :: time, dt
+  real(kind=pr),intent(in) :: wtime_start
 
-  ! t2 is time [sec] per time step, averaged
-  t2 = (MPI_wtime() - t1) / dble(it-it_start)
-  ! t3 is the time per time step, not averaged (on input, t3 is start point of
-  ! time step
-  t3 = MPI_wtime() - t3
-
-  open  (14,file='timestep.t',status='unknown',position='append')
-  write (14,'(i15,1x,es15.8,1x,3(es15.8,1x))') it,time,dt1,t2,t3
+  open  (14,file='timesteps_info.t',status='unknown',position='append')
+  write (14,'(2(g15.8,1x),i9,1x,g15.8,1x,i6)') time, MPI_wtime()-wtime_start, it, dt, mpisize
   close (14)
 
 end subroutine save_time_stepping_info
@@ -209,18 +206,20 @@ end subroutine save_time_stepping_info
 !-------------------------------------------------------------------------------
 ! Output how much time remains in the simulation.
 !-------------------------------------------------------------------------------
-subroutine are_we_there_yet(time,wtime_tstart,dt1)
+subroutine are_we_there_yet(time, wtime_tstart, dt1)
   use vars
   implicit none
 
-  real(kind=pr),intent(inout) :: time,wtime_tstart,dt1
+  real(kind=pr),intent(inout) :: time, wtime_tstart, dt1
   real(kind=pr):: time_left, t2
 
-  if(mpirank==0) then
+  if (mpirank==0) then
     ! compute the time elapsed since the time stepping started
     t2 = MPI_wtime() - wtime_tstart
+
     ! compute (estimated) remaining time
-    time_left = (tmax-time) * (t2/(time-tstart))
+    time_left = (tmax-time) * ( t2 / (time-tstart) )
+
     ! print information
     write(*,'("time left: ",i2,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",g10.2)') &
     floor(time_left/(24.d0*3600.d0))   ,&

@@ -503,8 +503,8 @@ subroutine ux_from_uyuz(help)
   call read_single_file ( fname_uy, u(:,:,:,2) )
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
-  call fft (uk(:,:,:,2),u(:,:,:,2))
-  call fft (uk(:,:,:,3),u(:,:,:,3))
+  call fft(u(:,:,:,2), uk(:,:,:,2))
+  call fft(u(:,:,:,3), uk(:,:,:,3))
 
   call dealias(uk(:,:,:,2))
   call dealias(uk(:,:,:,3))
@@ -527,7 +527,7 @@ subroutine ux_from_uyuz(help)
     enddo
   enddo
   call dealias(uk(:,:,:,1))
-  call ifft (u(:,:,:,1),uk(:,:,:,1))
+  call ifft(uk(:,:,:,1), u(:,:,:,1))
 
   ! call fft (inx=u(:,:,:,1),outk=uk(:,:,:,1))
   ! call ifft (u(:,:,:,1),uk(:,:,:,1))

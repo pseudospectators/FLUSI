@@ -61,7 +61,10 @@ subroutine FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
       !-- check if everything seems okay, if not show beam and abort
       !call show_beam_on_error( wings(i) )
   enddo
-  time_solid = time_solid + MPI_wtime() - t0
+
+  ! cpu timing
+  call toc("Flexible wing (FlexibleSolidSolverWrapper)", MPI_wtime() - t0)
+
 end subroutine FlexibleSolidSolverWrapper
 
 

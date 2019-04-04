@@ -180,9 +180,9 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   f2=f2*enorm
   f3=f3*enorm
 
-  call fft(fk1,f1)
-  call fft(fk2,f2)
-  call fft(fk3,f3)
+  call fft(f1, fk1)
+  call fft(f2, fk2)
+  call fft(f3, fk3)
 end subroutine perturbation
 
 
@@ -272,14 +272,14 @@ subroutine randgen3d(fk1,fk2,fk3,w)
   enddo
 
   ! Enforce Hermitian symmetry the lazy way:
-  call ifft(w,fk1)
-  call fft(fk1,w)
+  call ifft(fk1, w)
+  call fft(w, fk1)
 
-  call ifft(w,fk2)
-  call fft(fk2,w)
+  call ifft(fk2, w)
+  call fft(w, fk2)
 
-  call ifft(w,fk3)
-  call fft(fk3,w)
+  call ifft(fk3, w)
+  call fft(w, fk3)
 end subroutine randgen3d
 
 
@@ -344,8 +344,6 @@ subroutine init_taylorcouette_u(ubk,ub)
   us(:,:,:,3)=0.d0
 
   ! Transform velocity field to Fourier space:
-  do i=1,3
-    call fft(ubk(:,:,:,i),ub(:,:,:,i))
-  enddo
+  call fft3(ub, ubk)
 
 end subroutine init_taylorcouette_u

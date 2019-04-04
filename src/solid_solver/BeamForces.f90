@@ -75,7 +75,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
           write(*,'(80("-"))')
 
           write(*,*) testing//" Interpolation test, top surface:"
-          
+
           do ih=0,nh
               do is=0,ns-1
                   if (testing=="mask") then
@@ -156,7 +156,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
     enddo
   endif
 
-  time_surf = time_surf + MPI_wtime() - t0
+  call toc("SolidSolver (get_surface_pressure_jump)", MPI_wtime() - t0)
 end subroutine get_surface_pressure_jump
 
 

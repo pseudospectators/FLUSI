@@ -62,7 +62,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
 
-  t1=MPI_wtime()
+  t1 = MPI_wtime()
 
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
@@ -146,7 +146,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   endif
 
-  time_fluid=time_fluid + MPI_wtime() - t1
+  call toc('time step for fluid', MPI_wtime()-t1)
 end subroutine FluidTimestep
 
 
@@ -735,9 +735,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
 
   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
     !-- advance passive scalar (no integrating factor here!!)
-    t1 = MPI_wtime()
     scalars = scalars + dt1*scalars_rhs(:,:,:,:,n0)
-    time_scalar = time_scalar + MPI_wtime() - t1
   endif
 
   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
@@ -823,9 +821,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   !-- advance passive scalar in time
   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
     !-- advance passive scalar (no integrating factor here!!)
-    t1 = MPI_wtime()
     scalars = scalars + b10*scalars_rhs(:,:,:,:,n0) + b11*scalars_rhs(:,:,:,:,n1)
-    time_scalar = time_scalar + MPI_wtime() - t1
   endif
 end subroutine adamsbashforth
 
@@ -890,7 +886,7 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     call cal_unst_corrections ( time, dt0, Insect )
   endif
   call cal_drag ( time, u, Insect ) ! note u is OLD time level
-  time_drag = time_drag + MPI_wtime() - t1
+  call toc("FluidTimestep (AB2_rigid_solid::forces)", MPI_wtime()-t1)
 
   !---------------------------------------------------------------------------
   ! solve Newton's second law
