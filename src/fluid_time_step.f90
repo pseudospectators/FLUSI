@@ -146,7 +146,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   endif
 
-  call toc('time step for fluid', MPI_wtime()-t1)
+  call toc('FluidTimestep (wrapper)', MPI_wtime()-t1)
 end subroutine FluidTimestep
 
 
@@ -443,6 +443,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera),intent(inout)::Insect
   type(diptera)::Insect_dummy
+  real(kind=pr) :: t0
 
   ! useful error messages
   if (use_solid_model/="yes" .and. use_flexible_wing_model/="yes") then
@@ -458,6 +459,7 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   ! the right hand side only at the old time level. For a RungeKutta type solver,
   ! the mask has to be created at every sub-time step, the routine are more intertwined.
   !---------------------------------------------------------------------------
+  t0 = MPI_wtime()
   if(it == 0) then
     ! very first time step is euler explicit, as the previous right hand side (n-1)
     ! is not available
@@ -468,39 +470,43 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
     work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,Wings)
   endif
+  call toc("FluidTimestep (FSI_AB2_semiimplicit::fluid)", MPI_wtime()-t0)
 
   !---------------------------------------------------------------------------
   ! get forces at old/new time level
   !---------------------------------------------------------------------------
   if (use_solid_model=="yes") then
-    ! getting the pressure at the old time level is not always required
-    ! if (TimeMethodSolid /= "BDF2") then
-    call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
-    ! endif
+      t0 = MPI_wtime()
+      ! getting the pressure at the old time level is not always required
+      ! if (TimeMethodSolid /= "BDF2") then
+      call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
+      ! endif
 
-    ! note the fluid solver advances only the velocity field in fourier space, uk
-    ! and not the pressure field. "press" is in fact at the old time level (n) at
-    ! this point. So now we update "press" to be at the new time level (n+1) as well
-    ! NOTE: we can overwrite NLK(n1) since this is the one overwritten in the next call
-    call pressure_from_uk_use_existing_mask(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press,Insect)
-    call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
+      ! note the fluid solver advances only the velocity field in fourier space, uk
+      ! and not the pressure field. "press" is in fact at the old time level (n) at
+      ! this point. So now we update "press" to be at the new time level (n+1) as well
+      ! NOTE: we can overwrite NLK(n1) since this is the one overwritten in the next call
+      call pressure_from_uk_use_existing_mask(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press,Insect)
+      call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
+      call toc("FluidTimestep (FSI_AB2_semiimplicit::get_surface_pressure_jump)", MPI_wtime()-t0)
   endif
 
   !---------------------------------------------------------------------------
   ! get external forces at new time level
-  !
   !---------------------------------------------------------------------------
-
   if (use_flexible_wing_model=="yes") then
-    call get_pressure_on_wing_surfaces(wings,press)
+      t0 = MPI_wtime()
+      call get_pressure_on_wing_surfaces(wings,press)
+      call toc("FluidTimestep (FSI_AB2_semiimplicit::get_pressure_on_wing_surfaces)", MPI_wtime()-t0)
   endif
 
   !---------------------------------------------------------------------------
   ! advance solid model from (n) to (n+1)
   !---------------------------------------------------------------------------
-
+  t0 = MPI_wtime()
   if (use_solid_model=="yes")  call SolidSolverWrapper( time, dt1, beams )
   if (use_flexible_wing_model=="yes")  call FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
+  call toc("FluidTimestep (FSI_AB2_semiimplicit::advance solid model)", MPI_wtime()-t0)
 
 end subroutine FSI_AB2_semiimplicit
 

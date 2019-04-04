@@ -109,6 +109,7 @@ subroutine solve_linear_system_wing ( A, b, x )
   allocate(ipiv(1:nn))
 
   t0 = MPI_wtime()
+  
   call dgetrf( nn, nn, A , nn, ipiv, error )
   if (error .ne. 0) then
     write(*,*) "!!! mmCrutial: dgetrf error.", error ,nn

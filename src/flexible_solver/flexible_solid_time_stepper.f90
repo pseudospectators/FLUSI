@@ -374,9 +374,7 @@ do i=1,3*np
     enddo
 enddo
 
-t0 = MPI_wtime()
 call solve_linear_system_wing ( F, y, du(1:3*np) )
-call toc("Flexible wing (solve_linear_system_wing)", MPI_wtime() - t0)
 
 do i=1,3*np
 
