@@ -11,6 +11,12 @@ module penalization
   real(kind=8),allocatable,save :: us(:,:,:,:)  ! Velocity in solid
 end module penalization
 
+! Variables for the adjoint calculation
+module vars_adjoint
+  use vars
+  real(pr),dimension(:,:,:,:),allocatable :: u_forward
+  real(pr),dimension(:,:,:,:),allocatable :: u_forward_all
+end module vars_adjoint
 
 ! Variables for pseudospectral simnulations
 module vars
