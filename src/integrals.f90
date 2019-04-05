@@ -14,6 +14,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams,Wings)
   use solid_model
   use flexible_model
   use module_insects
+
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -28,7 +29,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams,Wings)
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1
 
-  t1=MPI_wtime()
+  t1 = MPI_wtime()
 
   select case(method)
   case("fsi")
@@ -39,7 +40,7 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams,Wings)
     call abort(1, "Error! Unknown method in write_integrals")
   end select
 
-  time_integrals = time_integrals + MPI_wtime()-t1
+  call toc("Statistics (wrapper)", MPI_wtime()-t1)
 end subroutine write_integrals
 
 
@@ -97,7 +98,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
     ! have to reconstruct the mask now. solids are also at time t
     if(iMoving==1) call create_mask(time, Insect, beams, Wings)
     call cal_drag (time, u, Insect)
-    time_drag = time_drag + MPI_wtime() - t3
+    call toc("Statistics (cal_drag)", MPI_wtime() - t3)
   endif
 
   !-----------------------------------------------------------------------------
@@ -270,7 +271,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
 
   ! Compute u and B to physical space
   do i=1,nd
-    call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+    call ifft(ubk(:,:,:,i), ub(:,:,:,i))
   enddo
 
   ! Compute the vorticity and store the result in the first three 3D
@@ -286,7 +287,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   ! Transform vorcitity and current density to physical space, store
   ! in wj
   do i=1,nd
-    call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+    call ifft(nlk(:,:,:,i), wj(:,:,:,i))
   enddo
 
   ! Compute the integral quantities and output to disk:
@@ -681,7 +682,7 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
     enddo
   enddo
 
-  call ifft(div,divk)
+  call ifft(divk, div)
 
   ! Find the local max
 

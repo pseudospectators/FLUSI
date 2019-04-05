@@ -41,7 +41,7 @@ subroutine FFT_unit_test ( u, uk )
       enddo
     enddo
   enddo
-  call fft ( inx=u, outk=uk )
+  call fft( inx=u, outk=uk )
   call ifft( ink=uk, outx=u )
 
   err = 0.d0
@@ -72,7 +72,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to fourier space
-    call fft ( uk, u )
+    call fft(u, uk)
 
     ! compute gradient
     do ix=ca(3), cb(3)
@@ -81,7 +81,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to x space
-    call ifft ( u, uk )
+    call ifft(uk, u)
 
     ! compute error
     err = 0.d0
@@ -112,7 +112,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to fourier space
-    call fft ( uk, u )
+    call fft(u, uk)
 
     ! compute gradient
     do iy=ca(2), cb(2)    ! ky : 0..ny/2-1 ,then, -ny/2..-1
@@ -121,7 +121,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to x space
-    call ifft ( u, uk )
+    call ifft(uk, u)
 
     ! compute error
     err = 0.d0
@@ -152,7 +152,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to fourier space
-    call fft ( uk, u )
+    call fft(u, uk)
 
     ! compute gradient
     do iz=ca(1),cb(1)  ! kz : 0..nz/2-1 ,then, -nz/2..-1
@@ -161,7 +161,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to x space
-    call ifft ( u, uk )
+    call ifft(uk, u)
 
     ! compute error
     err = 0.d0

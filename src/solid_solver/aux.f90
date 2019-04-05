@@ -31,7 +31,8 @@ subroutine Solve_linear_system ( A, b, x )
     call abort(93, "Error in solve liner system (dgetrs)")
   endif
 
-  time_LAPACK = time_LAPACK + MPI_wtime() - t0
+
+  call toc("SolidSolver (Solve_linear_system)", MPI_wtime()-t0)
 end subroutine
 
 ! ------------------------------------------------------------------------------

@@ -21,6 +21,10 @@ end module vars_adjoint
 ! Variables for pseudospectral simnulations
 module vars
   use mpi
+
+  ! include the new timing module code-wide so it can be used everywhere
+  use module_timing
+
   implicit none
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
@@ -65,15 +69,7 @@ module vars
 
   real(kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
 
-  ! Vabiables timing statistics.  Global to simplify syntax.
-  real(kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_nlk2
-  real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u,tslices
-  real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-  real(kind=pr),save :: time_sponge,time_scalar
-  real(kind=pr),save :: time_solid,time_solid_ex,time_solid_in,time_solid_din
-  real(kind=pr),save :: time_solid_nls,time_solid_LU
-  real(kind=pr),save :: time_drag, time_surf, time_LAPACK
-  real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar,tstart=0.0d0
+  real(kind=pr), save :: tstart=0.0d0, time_total
 
   ! Variables set via the parameters file
   real(kind=pr),save :: length, alpha_generic

@@ -50,7 +50,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
           ! compute source-terms, *not* divergence-free
           t1 = MPI_wtime()
           call cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc,Insect)
-          time_nlk2 = time_nlk2 + MPI_wtime() - t1
+          call toc("RHS (cal_nlk::cal_nlk_fsi)", MPI_wtime() - t1)
 
           t1 = MPI_wtime()
           ! if we compute active FSI (with flexible obstacles), we need the pressure
@@ -75,8 +75,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
 
           ! project the right hand side to the incompressible manifold
           call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-          ! for global performance measurement
-          time_p = time_p + MPI_wtime() - t1
+          call toc("RHS (cal_nlk::pressure)", MPI_wtime() - t1)
 
           !---------------------------------------------------------------------------
           ! passive scalar. the new module uses finite differences and evolves up to 9
@@ -86,7 +85,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
           if ((use_passive_scalar==1).and.(compute_scalar)) then
               call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
           endif
-          time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
+          call toc("RHS (cal_nlk::passive scalar)", MPI_wtime() - t1)
 
 
       case ("navier-stokes-adjoint")
@@ -139,7 +138,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
           else
               call rhs_acm_3D(time,it,nlk,uk,u,vort,work,workc,Insect)
           endif
-          time_nlk2 = time_nlk2 + MPI_wtime() - t1
+          call toc("RHS (ACM)", MPI_wtime() - t1)
 
 
       case default
@@ -154,10 +153,11 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
       call cal_nlk_mhd(nlk,uk,u,vort)
 
   case default
-      call abort(1,"Error! Unknown method in cal_nlk")
+      call abort(1, "Error! Unknown method in cal_nlk")
   end select
 
-  time_rhs = time_rhs + MPI_wtime() - t0
+  ! save timing
+  call toc( "RHS (WRAPPER)", MPI_wtime() - t0)
 end subroutine cal_nlk
 
 
@@ -225,7 +225,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   call ifft3 (outx=u, ink=uk)
-  time_u = time_u + MPI_wtime() - t1
+  call toc("RHS (cal_nlk_fsi::ifft3)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   !-- Compute vorticity
@@ -235,7 +235,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   call curl ( ink=uk, outk=nlk )
   ! transform it to physical space
   call ifft3 ( ink=nlk, outx=vort )
-  time_vor = time_vor + MPI_wtime() - t1
+  call toc("RHS (cal_nlk_fsi::curl+ifft3)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   ! compute time-averaged enstrophy Z_avg
@@ -256,7 +256,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   if (iVorticitySponge == "yes") then
     call vorticity_sponge( vort, work(:,:,:,1), workc, Insect )
   endif
-  time_sponge = time_sponge + MPI_wtime() - t1
+  call toc("RHS (cal_nlk_fsi::vorticity_sponge)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   !-- Non-Linear terms
@@ -296,7 +296,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   enddo
   ! to Fourier space
   call fft3( inx=vort,outk=nlk )
-  time_curl = time_curl + MPI_wtime() - t1
+  call toc("RHS (cal_nlk_fsi::nonlinear terms)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   ! add sponge term
@@ -305,7 +305,7 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   if (iVorticitySponge == "yes") then
     nlk(:,:,:,1:3) = nlk(:,:,:,1:3) + workc(:,:,:,1:3)
   endif
-  time_sponge = time_sponge + MPI_wtime() - t1
+  call toc("RHS (cal_nlk_fsi::vorticity_sponge)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   ! dynamic mean flow forcing (fix fluid mass manually, domain-independent)
@@ -371,7 +371,8 @@ subroutine cal_nlk_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   endif
 
 
-  time_nlk = time_nlk + MPI_wtime() - t0
+  ! save timing
+  call toc( "RHS (cal_nlk_fsi)", MPI_wtime() - t0)
 end subroutine cal_nlk_fsi
 
 
@@ -698,7 +699,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
 
   ! Transform u and B into physical space:
   do i=1,nd
-     call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+     call ifft(ubk(:,:,:,i), ub(:,:,:,i))
   enddo
 
   ! Compute us, the imposed penalty field:
@@ -717,7 +718,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! Transform vorcitity and current density to physical space, store
   ! in wj
   do i=1,nd
-     call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+     call ifft(nlk(:,:,:,i), wj(:,:,:,i))
   enddo
 
   ! Put the x-space version of the nonlinear source term in wj.
@@ -763,7 +764,7 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   ! Transform B to Fourier space.  Keep the first three fields free so
   ! that we can use it to store the penalization for the B field.
   do i=4,nd
-     call fft(nlk(:,:,:,i),wj(:,:,:,i))
+     call fft(wj(:,:,:,i), nlk(:,:,:,i))
   enddo
   ! NB: the last three sub-arrays of wj and the first three sub-arrays
   ! of nlk are free.
@@ -775,14 +776,14 @@ subroutine cal_nlk_mhd(nlk,ubk,ub,wj)
   if(iPenalization == 1) then
      do i=4,nd
         wj(:,:,:,4)=-(mask/eps)*(ub(:,:,:,i) - us(:,:,:,i))
-        call fft(nlk(:,:,:,1),wj(:,:,:,4))
+        call fft(wj(:,:,:,4), nlk(:,:,:,1))
         nlk(:,:,:,i)=nlk(:,:,:,i) + nlk(:,:,:,1)
      enddo
   endif
 
   ! Transform u source-term to Fourier space:
   do i=1,3
-     call fft(nlk(:,:,:,i),wj(:,:,:,i))
+     call fft(wj(:,:,:,i), nlk(:,:,:,i))
   enddo
 
   ! NB: wj is now completely free, and contains nothing useful.
@@ -837,7 +838,6 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
   real(kind=pr) :: kx, ky, kz, k2, eps_inv
   complex(kind=pr) :: imag   ! imaginary unit
   integer :: ix,iz,iy,mpicode
-  t0 = MPI_wtime()
 
   nlk = 0.0d0
   ! reset ux (we assume you deal with 2d flows...)
@@ -854,7 +854,6 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
   !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
   call ifft(outx=u(:,:,:,2), ink=uk(:,:,:,2))
   call ifft(outx=u(:,:,:,3), ink=uk(:,:,:,3))
 
@@ -879,11 +878,9 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
   call ifft(ink=workc(:,:,:,3), outx=work(:,:,:,3)) ! work3 = uz_dy
   call ifft(ink=workc(:,:,:,4), outx=work(:,:,:,4)) ! work4 = uz_dz
 
-  time_u = time_u + MPI_wtime() - t1
   !-----------------------------------------------------------------------------
   !-- Non-Linear terms
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
   do iz=ra(3),rb(3)
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
@@ -937,7 +934,6 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
   ! to Fourier space
   call fft( inx=vort(:,:,:,2),outk=nlk(:,:,:,2) )
   call fft( inx=vort(:,:,:,3),outk=nlk(:,:,:,3) )
-  time_curl = time_curl + MPI_wtime() - t1
 
   ! add remaining terms in fourier space (divergence, grad, laplace)
   imag = dcmplx(0.d0, 1.d0)
@@ -973,7 +969,8 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
   ! !!!!!!!!!!!!!!!!
 
 
-  time_nlk = time_nlk + MPI_wtime() - t0
+  ! save timing
+  call toc( "RHS (ACM 2D)", MPI_wtime() - t0)
 end subroutine rhs_acm_2D
 
 
@@ -1016,7 +1013,6 @@ subroutine rhs_acm_3D(time, it, nlk, uk, u, vort, work, workc, Insect)
   !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
   call ifft(outx=u(:,:,:,1), ink=uk(:,:,:,1))
   call ifft(outx=u(:,:,:,2), ink=uk(:,:,:,2))
   call ifft(outx=u(:,:,:,3), ink=uk(:,:,:,3))
@@ -1048,11 +1044,9 @@ subroutine rhs_acm_3D(time, it, nlk, uk, u, vort, work, workc, Insect)
       call ifft(ink=workc(:,:,:,i), outx=work(:,:,:,i))
   enddo
 
-  time_u = time_u + MPI_wtime() - t1
   !-----------------------------------------------------------------------------
   !-- Non-Linear terms
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
   do iz=ra(3),rb(3)
       do iy=ra(2),rb(2)
           do ix=ra(1),rb(1)
@@ -1140,7 +1134,8 @@ subroutine rhs_acm_3D(time, it, nlk, uk, u, vort, work, workc, Insect)
   enddo
 
 
-  time_nlk = time_nlk + MPI_wtime() - t0
+  ! save timing
+  call toc( "RHS (ACM 3D)", MPI_wtime() - t0)
 end subroutine rhs_acm_3D
 
 

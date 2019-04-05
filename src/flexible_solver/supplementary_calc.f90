@@ -109,6 +109,7 @@ subroutine solve_linear_system_wing ( A, b, x )
   allocate(ipiv(1:nn))
 
   t0 = MPI_wtime()
+  
   call dgetrf( nn, nn, A , nn, ipiv, error )
   if (error .ne. 0) then
     write(*,*) "!!! mmCrutial: dgetrf error.", error ,nn
@@ -122,7 +123,7 @@ subroutine solve_linear_system_wing ( A, b, x )
     call abort(93, "Error in solve liner system (dgetrs)")
   endif
 
-  time_LAPACK = time_LAPACK + MPI_wtime() - t0
+  call toc("Flexible wing (solve_linear_system_wing)", MPI_wtime() - t0)
 
 end subroutine
 

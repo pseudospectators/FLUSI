@@ -43,7 +43,7 @@ MFILES = vars.f90 module_helpers.f90 cof_p3dfft.f90 solid_solver.f90 flexible_so
 	interpolation.f90 basic_operators.f90 module_insects.f90 turbulent_inlet.f90 \
 	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
 	ini_files_parser_mpi.f90 wavelet_library.f90 module_insects_integration_flusi_wabbit.f90 \
-	krylov_time_stepper.f90
+	krylov_time_stepper.f90 module_timing.f90
 
 ifndef NOHDF5
 MFILES += hdf5_wrapper.f90 slicing.f90 stlreader.f90
@@ -202,7 +202,9 @@ mhd: mhd.f90 $(MOBJS) $(OBJS)
 
 # Compile modules (module dependency must be specified by hand in
 # Fortran). Objects are specified in MOBJS (module objects).
-$(OBJDIR)/vars.o: vars.f90
+$(OBJDIR)/vars.o: vars.f90 $(OBJDIR)/module_timing.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/module_timing.o: module_timing.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)

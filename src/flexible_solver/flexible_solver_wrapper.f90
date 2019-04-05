@@ -29,6 +29,7 @@ subroutine FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
         case ("BDF2","EI1")
             ! all implicit solvers are in one subroutine
             call Flexible_solid_time_step(time, dt0, dt1, it, wings(i))
+            
         case ("prescribed_wing")
             ! this is not a solver, but for passive FSI with prescribed deformation:
             call prescribed_wing (time, wings(i))
@@ -61,7 +62,10 @@ subroutine FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
       !-- check if everything seems okay, if not show beam and abort
       !call show_beam_on_error( wings(i) )
   enddo
-  time_solid = time_solid + MPI_wtime() - t0
+
+  ! cpu timing
+  call toc("Flexible wing (FlexibleSolidSolverWrapper)", MPI_wtime() - t0)
+
 end subroutine FlexibleSolidSolverWrapper
 
 

@@ -409,9 +409,9 @@ subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
 
   ! Compute gradient
 
-  call fft(ukx,ux)
-  call fft(uky,uy)
-  call fft(ukz,uz)
+  call fft(ux,ukx)
+  call fft(uy,uky)
+  call fft(uz,ukz)
 
   do ix=ca(3),cb(3)
      kx=wave_x(ix)
@@ -431,9 +431,9 @@ subroutine pseudosource(ux,uy,uz,ukx,uky,ukz,sx,sy,sz)
 
   ! call dealias(ukx,uky,ukz)
 
-  call ifft(sx,ukx)
-  call ifft(sy,uky)
-  call ifft(sz,ukz)
+  call ifft(ukx,sx)
+  call ifft(uky,sy)
+  call ifft(ukz,sz)
 
   ! Compute penalisation
   do iy=ra(2),rb(2)
@@ -600,13 +600,13 @@ subroutine smcnum_us_mhd()
         usz = usz +pseudodt*(s2z)
 
         ! Project onto the solenoidal manifold
-        call fft(uskx,usx)
-        call fft(usky,usy)
-        call fft(uskz,usz)
+        call fft(usx, uskx)
+        call fft(usy, usky)
+        call fft(usz, uskz)
         call div_field_nul(uskx,usky,uskz)
-        call ifft(usx,uskx)
-        call ifft(usy,usky)
-        call ifft(usz,uskz)
+        call ifft(uskx, usx)
+        call ifft(usky, usy)
+        call ifft(uskz, usz)
 
         ! output a sample bc point and what it should reach:
         ! ix=8

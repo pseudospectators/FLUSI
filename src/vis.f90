@@ -4,7 +4,7 @@
 !  is computed only if the time step changes. Is does rarely, because
 !  we round it to one digit.  also, dealiasing is done here (multiply
 !  aliased avenumbers by zero).
-!  Note the distinct fields 1..nf have different viscosities, which are stored 
+!  Note the distinct fields 1..nf have different viscosities, which are stored
 !  in the lin(1:nf) array
 subroutine cal_vis(dt,vis)
   use vars
@@ -22,7 +22,7 @@ subroutine cal_vis(dt,vis)
 
   kx_trunc=(2.d0/3.d0)*dble(nx/2-1)
   ky_trunc=(2.d0/3.d0)*dble(ny/2-1)
-  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)  
+  kz_trunc=(2.d0/3.d0)*dble(nz/2-1)
 
 #ifdef __SX__
   do i=1,nf
@@ -62,5 +62,5 @@ subroutine cal_vis(dt,vis)
   enddo
 #endif
 
-  time_vis=time_vis + MPI_wtime() - t1 
+  call toc("cal_vis", MPI_wtime() - t1)
 end subroutine cal_vis

@@ -30,7 +30,7 @@ module p3dfft_wrapper
 
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
-subroutine fft(outk,inx)
+subroutine fft(inx, outk)
     use mpi
     use p3dfft
     use vars ! For precision specficiation and array sizes
@@ -55,13 +55,14 @@ subroutine fft(outk,inx)
     norm = 1.d0 / dble(npoints)
     outk = outk * norm
 
-    time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
+    ! save timing
+    call toc( "FFT", MPI_wtime() - t1)
 end subroutine fft
 
 
 ! Compute the inverse FFT of the complex-valued 3D array ink and save the
 ! output in the real-valued 3D array outx.
-subroutine ifft(outx,ink)
+subroutine ifft(ink, outx)
     use mpi
     use p3dfft
     use vars ! For precision specficiation and array sizes
@@ -77,13 +78,14 @@ subroutine ifft(outx,ink)
     ! Compute backward FFT
     call p3dfft_btran_c2r(ink, outx, 'fff')
 
-    time_ifft  = time_ifft  + MPI_wtime() - t1
+    ! save timing
+    call toc( "iFFT", MPI_wtime() - t1)
 end subroutine ifft
 
 
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
-subroutine fft3(outk,inx)
+subroutine fft3(inx, outk)
     use mpi
     use p3dfft
     use vars ! For precision specficiation and array sizes
@@ -100,8 +102,6 @@ subroutine fft3(outk,inx)
       call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
     endif
 
-!    call p3dfft_ftran_r2c_many( inx, rs(1)*rs(2)*rs(3), outk, cs(1)*cs(2)*cs(3), 3, 'fff')
-! FIXME: p3dfft_ftran_r2c_many is unstable, use p3dfft_ftran_r2c
     call p3dfft_ftran_r2c(inx(:,:,:,1), outk(:,:,:,1), 'fff')
     call p3dfft_ftran_r2c(inx(:,:,:,2), outk(:,:,:,2), 'fff')
     call p3dfft_ftran_r2c(inx(:,:,:,3), outk(:,:,:,3), 'fff')
@@ -111,14 +111,15 @@ subroutine fft3(outk,inx)
     norm = 1.d0 / dble(npoints)
     outk = outk * norm
 
-    time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
+    ! save timing
+    call toc( "FFT", MPI_wtime() - t1)
 
 end subroutine fft3
 
 
 ! Compute the inverse FFT of the complex-valued 3D array ink and save the
 ! output in the real-valued 3D array outx.
-subroutine ifft3(outx,ink)
+subroutine ifft3(ink, outx)
     use mpi
     use p3dfft
     use vars ! For precision specficiation and array sizes
@@ -132,16 +133,15 @@ subroutine ifft3(outx,ink)
     t1 = MPI_wtime()
 
     if (using_p3dfft .eqv. .false.) then
-      call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
+      call abort(33343,'P3DFFT is not initialized, you cannot perform iFFTs')
     endif
 
-!    call p3dfft_btran_c2r_many( ink, cs(1)*cs(2)*cs(3), outx, rs(1)*rs(2)*rs(3), 3, 'fff')
-! FIXME: p3dfft_btran_c2r_many is unstable, use p3dfft_btran_c2r
     call p3dfft_btran_c2r(ink(:,:,:,1), outx(:,:,:,1), 'fff')
     call p3dfft_btran_c2r(ink(:,:,:,2), outx(:,:,:,2), 'fff')
     call p3dfft_btran_c2r(ink(:,:,:,3), outx(:,:,:,3), 'fff')
 
-    time_ifft  = time_ifft  + MPI_wtime() - t1
+    ! save timing
+    call toc( "iFFT", MPI_wtime() - t1)
 end subroutine ifft3
 
 

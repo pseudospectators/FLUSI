@@ -21,6 +21,7 @@ subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalars_rh
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
+
   t1 = MPI_wtime()
 
   select case(method)
@@ -32,7 +33,7 @@ subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalars_rh
     call abort(9,"Error! Unknown method in save_fields")
   end select
 
-  time_save=time_save + MPI_wtime() - t1 ! performance analysis
+  call toc("IO (save_fields to HDF5)", MPI_wtime() - t1)
 end subroutine save_fields
 
 
@@ -265,7 +266,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
   ! We need the velocity for saving the velocity and/or vorticity
   if(isaveVelocity == 1 .or. isaveVorticity == 1) then
     do i=1,3
-      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+      call ifft(ubk(:,:,:,i), ub(:,:,:,i))
     enddo
   endif
 
@@ -273,7 +274,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
   ! and/or current density
   if(isaveMagneticfield == 1  .or. isaveCurrent == 1) then
     do i=4,6
-      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+      call ifft(ubk(:,:,:,i), ub(:,:,:,i))
     enddo
   endif
 
@@ -291,7 +292,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
     nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
     ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
     do i=1,3
-      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+      call ifft(nlk(:,:,:,i), wj(:,:,:,i))
     enddo
     call save_field_hdf5(time,'vorx_'//name,wj(:,:,:,1))
     call save_field_hdf5(time,'vory_'//name,wj(:,:,:,2))
@@ -311,7 +312,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
     nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
     ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
     do i=4,6
-      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+      call ifft(nlk(:,:,:,i), wj(:,:,:,i))
     enddo
     call save_field_hdf5(time,'jx_'//name,wj(:,:,:,4))
     call save_field_hdf5(time,'jy_'//name,wj(:,:,:,5))
