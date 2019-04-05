@@ -92,43 +92,48 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
           ! compute source-terms, *not* divergence-free
           t1 = MPI_wtime()
           call cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc,Insect)
-          time_nlk2 = time_nlk2 + MPI_wtime() - t1
+          call toc("RHS (cal_nlk::cal_nlk_adjoint_fsi)", MPI_wtime() - t1)
 
           t1 = MPI_wtime()
           ! if we compute active FSI (with flexible obstacles), we need the pressure
-          if (use_solid_model=="yes") then
+          if (use_solid_model=="yes") & 
+              call abort(1,"Solid wing model is not yet implemented for the adjoint equation.")
+          !if (use_solid_model=="yes") then
 
-              call pressure( nlk,workc(:,:,:,1) )
-              ! transform it to phys space (note "press" has ghostpoints, cut them here)
-              call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+          !    call pressure( nlk,workc(:,:,:,1) )
+          !    ! transform it to phys space (note "press" has ghostpoints, cut them here)
+          !    call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
 
-          endif
+          !endif
 
           ! if we compute active FSI (with flexible obstacles), we need the pressure
-          if (use_flexible_wing_model=="yes") then
+          if (use_flexible_wing_model=="yes") &
+              call abort(1,"Flexible wing model is not yet implemented for the adjoint equation.")
+          !if (use_flexible_wing_model=="yes") then
 
-              call pressure( nlk,workc(:,:,:,1) )
-              ! transform it to phys space (note "press" has ghostpoints, cut them here)
-              call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
-              press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = &
-              press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+          !    call pressure( nlk,workc(:,:,:,1) )
+          !    ! transform it to phys space (note "press" has ghostpoints, cut them here)
+          !    call ifft( ink=workc(:,:,:,1), outx=press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) )
+          !    press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = &
+          !    press(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
 
-          endif
+          !endif
 
           ! project the right hand side to the incompressible manifold
           call add_grad_pressure(nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3))
-          ! for global performance measurement
-          time_p = time_p + MPI_wtime() - t1
+          call toc("RHS (cal_nlk::pressure)", MPI_wtime() - t1)
 
           !---------------------------------------------------------------------------
           ! passive scalar. the new module uses finite differences and evolves up to 9
           ! different colors. for FD, no work arrays are required.
           !---------------------------------------------------------------------------
-          t1 = MPI_wtime()
-          if ((use_passive_scalar==1).and.(compute_scalar)) then
-              call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
-          endif
-          time_nlk_scalar = time_nlk_scalar + MPI_wtime() - t1
+          if ((use_passive_scalar==1).and.(compute_scalar)) &
+                call abort(1,"Passive scalar is not yet implemented for the adjoint equation.")
+          !t1 = MPI_wtime()
+          !if ((use_passive_scalar==1).and.(compute_scalar)) then
+          !    call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
+          !endif
+          !call toc("RHS (cal_nlk::passive scalar)", MPI_wtime() - t1)
 
 
       case ("artificial-compressibility")
@@ -1169,7 +1174,7 @@ end subroutine rhs_acm_3D
 !
 ! DATE: April 05 2019
 !-------------------------------------------------------------------------------
-subroutine cal_nlk_adjoint_fsi(time,it,nlk_adj,uk_adj,u_adj,vort_adj,work,workc, Insect)
+subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   use mpi
   use p3dfft_wrapper
   use vars
@@ -1182,14 +1187,14 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk_adj,uk_adj,u_adj,vort_adj,work,workc,
 
   real(kind=pr),intent (in) :: time
   integer, intent(in) :: it
-  complex(kind=pr),intent(inout)::uk_adj(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
-  complex(kind=pr),intent(inout)::nlk_adj(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
-  real(kind=pr),intent(inout)::vort_adj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
-  real(kind=pr),intent(inout)::u_adj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   type(diptera),intent(inout) :: Insect
-  real(kind=pr) :: t0,t1,ux,uy,uz,ux_adj,uy_adj,uz_adj,vorx_adj,vory_adj,vorz_adj,chi,usx,usy,usz
+  real(kind=pr) :: t0,t1,ux,uy,uz,ux_forw,uy_forw,uz_forw,vorx,vory,vorz,chi,usx,usy,usz
   real(kind=pr) :: fx,fy,fz,fx1,fy1,fz1
   real(kind=pr) :: soft_startup, dt, eps_inv
   integer :: ix,iz,iy,mpicode
@@ -1204,28 +1209,28 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk_adj,uk_adj,u_adj,vort_adj,work,workc,
   !-- Calculate velocity in physical space
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
-  call ifft3 (outx=u_adj, ink=uk_adj)
-  time_u = time_u + MPI_wtime() - t1
+  call ifft3 (outx=u, ink=uk)
+  call toc("RHS (cal_nlk_fsi::ifft3)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   !-- Compute vorticity
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   ! nlk is temporarily used for vortk
-  call curl ( ink=uk_adj, outk=nlk_adj )
+  call curl ( ink=uk, outk=nlk )
   ! transform it to physical space
-  call ifft3 ( ink=nlk_adj, outx=vort_adj )
-  time_vor = time_vor + MPI_wtime() - t1
+  call ifft3 ( ink=nlk, outx=vort )
+  call toc("RHS (cal_nlk_fsi::curl+ifft3)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   ! compute time-averaged enstrophy Z_avg
   !-----------------------------------------------------------------------------
-  ! we do this here since we happen to have the vorticity and want to save FFTs
+  ! we do this here since we happen to have the voriticy and want to save FFTs
   if ((time_avg=="yes").and.(enstrophy_avg=="yes").and.(time>=tstart_avg)) then
     ! we need to know here what the time step will be
     call adjust_dt(time,u_forward,dt)
     ! compute incremental avg
-    Z_avg = ( (vort_adj(:,:,:,1)**2 + vort_adj(:,:,:,2)**2 + vort_adj(:,:,:,3)**2)*dt  &
+    Z_avg = ( (vort(:,:,:,1)**2 + vort(:,:,:,2)**2 + vort(:,:,:,3)**2)*dt  &
     + (time-tstart_avg)*Z_avg ) / ( (time-tstart_avg)+dt )
   endif
 
@@ -1234,9 +1239,9 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk_adj,uk_adj,u_adj,vort_adj,work,workc,
   !-----------------------------------------------------------------------------
   t1 = MPI_wtime()
   if (iVorticitySponge == "yes") then
-    call vorticity_sponge( vort_adj, work(:,:,:,1), workc, Insect )
+    call vorticity_sponge( vort, work(:,:,:,1), workc, Insect )
   endif
-  time_sponge = time_sponge + MPI_wtime() - t1
+  call toc("RHS (cal_nlk_fsi::vorticity_sponge)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   !-- Non-Linear terms
@@ -1246,50 +1251,47 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk_adj,uk_adj,u_adj,vort_adj,work,workc,
     do iy=ra(2),rb(2)
       do ix=ra(1),rb(1)
         ! local loop variables
-        ux   = u_forward(ix,iy,iz,1) !forward solution
-        uy   = u_forward(ix,iy,iz,2)
-        uz   = u_forward(ix,iy,iz,3)
-        ux_adj   = u_adj(ix,iy,iz,1) !forward solution
-        uy_adj   = u_adj(ix,iy,iz,2)
-        uz_adj   = u_adj(ix,iy,iz,3)
-        vorx_adj = vort_adj(ix,iy,iz,1) !adjoint vorticity
-        vory_adj = vort_adj(ix,iy,iz,2)
-        vorz_adj = vort_adj(ix,iy,iz,3)
+        ux   = u(ix,iy,iz,1)
+        uy   = u(ix,iy,iz,2)
+        uz_forw   = u_forward(ix,iy,iz,3)
+        ux_forw   = u_forward(ix,iy,iz,1)
+        uy_forw   = u_forward(ix,iy,iz,2)
+        uz   = u(ix,iy,iz,3)
+        vorx = vort(ix,iy,iz,1)
+        vory = vort(ix,iy,iz,2)
+        vorz = vort(ix,iy,iz,3)
 
         ! local variables for penalization. NEW: since 07/2018, we divide the mask
         ! by eps here AND ONLY HERE! it is much easier to understand then. there may be
         ! a very slight performance penalty if the obstacle does not move.
         chi = mask(ix,iy,iz) * eps_inv
-        usx = us(ix,iy,iz,1)
-        usy = us(ix,iy,iz,2)
-        usz = us(ix,iy,iz,3)
 
-!note (Sophie): chi*(u-us) is computed twice
         ! compute sum of penalty term while computing it
-        fx = fx + chi*(ux_adj-usx)
-        fy = fy + chi*(uy_adj-usy)
-        fz = fz + chi*(uz_adj-usz)
+        fx = fx + chi*ux
+        fy = fy + chi*uy
+        fz = fz + chi*uz
 
         ! we overwrite the vorticity with the NL terms in phys space
-        ! note this is indeed -(vor x u) (negative sign)
-        vort_adj(ix,iy,iz,1) = uy*vorz_adj - uz*vory_adj -chi*(ux_adj-usx)
-        vort_adj(ix,iy,iz,2) = uz*vorx_adj - ux*vorz_adj -chi*(uy_adj-usy)
-        vort_adj(ix,iy,iz,3) = ux*vory_adj - uy*vorx_adj -chi*(uz_adj-usz)
+        ! note this is +(vor x u) (positive sign! as opposed to the forward calculation)
+        vort(ix,iy,iz,1) = uz_forw*vory - uy_forw*vorz-chi*ux
+        vort(ix,iy,iz,2) = ux_forw*vorz - uz_forw*vorx-chi*uy
+        vort(ix,iy,iz,3) = uy_forw*vorx - ux_forw*vory-chi*uz
       enddo
     enddo
   enddo
   ! to Fourier space
-  call fft3( inx=vort_adj,outk=nlk_adj )
-  time_curl = time_curl + MPI_wtime() - t1
+  call fft3( inx=vort,outk=nlk )
+  call toc("RHS (cal_nlk_fsi::nonlinear terms)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   ! add sponge term
   !-----------------------------------------------------------------------------
-  t1 = MPI_wtime()
-  if (iVorticitySponge == "yes") then
-    nlk_adj(:,:,:,1:3) = nlk_adj(:,:,:,1:3) + workc(:,:,:,1:3)
-  endif
-  time_sponge = time_sponge + MPI_wtime() - t1
+  if (iVorticitySponge == "yes") call abort(1,"Vorticity sponge is not yet implemented for the adjoint equation.")
+  !t1 = MPI_wtime()
+  !if (iVorticitySponge == "yes") then
+  !  nlk(:,:,:,1:3) = nlk(:,:,:,1:3) + workc(:,:,:,1:3)
+  !endif
+  !call toc("RHS (cal_nlk_fsi::vorticity_sponge)", MPI_wtime() - t1)
 
   !-----------------------------------------------------------------------------
   ! dynamic mean flow forcing (fix fluid mass manually, domain-independent)
@@ -1300,63 +1302,72 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk_adj,uk_adj,u_adj,vort_adj,work,workc,
   ! the meanflow const until T_release_meanflow, then gently turning it on
   ! during the time tau_meanflow
   !-----------------------------------------------------------------------------
-  if(iMeanFlow_x=="dynamic".or.iMeanFlow_y=="dynamic".or.iMeanFlow_z=="dynamic") then
-    ! integral forces:
-    fx = fx*dx*dy*dz
-    fy = fy*dx*dy*dz
-    fz = fz*dx*dy*dz
-    call MPI_ALLREDUCE ( fx,fx1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( fy,fy1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
-    call MPI_ALLREDUCE ( fz,fz1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  if(iMeanFlow_x=="dynamic".or.iMeanFlow_y=="dynamic".or.iMeanFlow_z=="dynamic") &
+        call abort(1,"Dynamic mean flow is not yet implemented for the adjoint equation.")
+  !if(iMeanFlow_x=="dynamic".or.iMeanFlow_y=="dynamic".or.iMeanFlow_z=="dynamic") then
+  !  ! integral forces:
+  !  fx = fx*dx*dy*dz
+  !  fy = fy*dx*dy*dz
+  !  fz = fz*dx*dy*dz
+  !  call MPI_ALLREDUCE ( fx,fx1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  !  call MPI_ALLREDUCE ( fy,fy1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
+  !  call MPI_ALLREDUCE ( fz,fz1,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
-    ! startup conditioner (See vars.f90)
-    if (iMeanFlowStartupConditioner=="yes") then
-      soft_startup = startup_conditioner(time,T_release_meanflow,tau_meanflow)
-      fx1 = fx1*soft_startup
-      fy1 = fy1*soft_startup
-      fz1 = fz1*soft_startup
-    endif
+  !  ! startup conditioner (See vars.f90)
+  !  if (iMeanFlowStartupConditioner=="yes") then
+  !    soft_startup = startup_conditioner(time,T_release_meanflow,tau_meanflow)
+  !    fx1 = fx1*soft_startup
+  !    fy1 = fy1*soft_startup
+  !    fz1 = fz1*soft_startup
+  !  endif
 
-    ! fixing the fluid mass means modifying the zero mode of RHS term
-    if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-      if(iMeanFlow_x=="dynamic") nlk_adj(0,0,0,1) = -fx1 / m_fluid
-      if(iMeanFlow_y=="dynamic") nlk_adj(0,0,0,2) = -fy1 / m_fluid
-      if(iMeanFlow_z=="dynamic") nlk_adj(0,0,0,3) = -fz1 / m_fluid
-    endif
-  endif
+  !  ! fixing the fluid mass means modifying the zero mode of RHS term
+  !  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+  !    if(iMeanFlow_x=="dynamic") nlk(0,0,0,1) = -fx1 / m_fluid
+  !    if(iMeanFlow_y=="dynamic") nlk(0,0,0,2) = -fy1 / m_fluid
+  !    if(iMeanFlow_z=="dynamic") nlk(0,0,0,3) = -fz1 / m_fluid
+  !  endif
+  !endif
 
   !-----------------------------------------------------------------------------
   ! forcing that accelerates mean flow from rest to unity and keeps it there
   !-----------------------------------------------------------------------------
-  if(iMeanFlow_x=="accelerate_to_unity".or.iMeanFlow_y=="accelerate_to_unity".or.iMeanFlow_z=="accelerate_to_unity") then
-    if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
-      fx = max(0.d0,1.d0-dreal(uk_adj(0,0,0,1)))
-      fy = max(0.d0,1.d0-dreal(uk_adj(0,0,0,2)))
-      fz = max(0.d0,1.d0-dreal(uk_adj(0,0,0,3)))
-      if(iMeanFlow_x=="accelerate_to_unity") nlk_adj(0,0,0,1) = nlk_adj(0,0,0,1) + fx
-      if(iMeanFlow_y=="accelerate_to_unity") nlk_adj(0,0,0,2) = nlk_adj(0,0,0,2) + fy
-      if(iMeanFlow_z=="accelerate_to_unity") nlk_adj(0,0,0,3) = nlk_adj(0,0,0,3) + fz
-    endif
-  endif
+  if(iMeanFlow_x=="accelerate_to_unity".or.iMeanFlow_y=="accelerate_to_unity".or.iMeanFlow_z=="accelerate_to_unity") &
+        call abort(1,"Forcing the mean flow to unity is not yet implemented for the adjoint equation.")
+  !if(iMeanFlow_x=="accelerate_to_unity".or.iMeanFlow_y=="accelerate_to_unity".or.iMeanFlow_z=="accelerate_to_unity") then
+  !  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+  !    fx = max(0.d0,1.d0-dreal(uk(0,0,0,1)))
+  !    fy = max(0.d0,1.d0-dreal(uk(0,0,0,2)))
+  !    fz = max(0.d0,1.d0-dreal(uk(0,0,0,3)))
+  !    if(iMeanFlow_x=="accelerate_to_unity") nlk(0,0,0,1) = nlk(0,0,0,1) + fx
+  !    if(iMeanFlow_y=="accelerate_to_unity") nlk(0,0,0,2) = nlk(0,0,0,2) + fy
+  !    if(iMeanFlow_z=="accelerate_to_unity") nlk(0,0,0,3) = nlk(0,0,0,3) + fz
+  !  endif
+  !endif
 
   !---------------------------------------------------------------------------
   ! Add explicit diffusion term here, if RK4 is used (other time steppers have
   ! integrating factors and thus implicit diffusion)
   !---------------------------------------------------------------------------
   if (iTimeMethodFluid=="RK4" .or. iTimeMethodFluid=="krylov") then
-    call add_explicit_diffusion(uk_adj,nlk_adj)
+    call add_explicit_diffusion(uk,nlk)
   endif
 
   !-----------------------------------------------------------------------------
   ! Add forcing term for isotropic turbulence, if used
   !-----------------------------------------------------------------------------
-  if (forcing_type/="none") then
-    call add_forcing_term(time,uk_adj,nlk_adj,vort_adj)
-  endif
+  if (forcing_type/="none") &
+       call abort(1,"Then Forcing term for isotropic turbulence is not yet implemented in the adjoint equation.")
+  !if (forcing_type/="none") then
+  !  call add_forcing_term(time,uk,nlk,vort)
+  !endif
 
 
-  time_nlk = time_nlk + MPI_wtime() - t0
+  ! save timing
+  call toc( "RHS (cal_nlk_fsi)", MPI_wtime() - t0)
 end subroutine cal_nlk_adjoint_fsi
+
+
 
 
 

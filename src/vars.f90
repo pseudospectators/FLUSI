@@ -39,6 +39,7 @@ module vars
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
   character(len=strlen),save :: equation ! navier-stokes; artificial-compressibility
+  logical                    :: adjoint ! default: F; has to be set to T in parameter file if an adjoint calculation should be done
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
   integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD)
@@ -46,6 +47,7 @@ module vars
   integer,save :: ncw ! number of complex work arrays in workc
   integer,save :: ng  ! number of ghostpoints (if used)
   integer,save :: nrhs ! number of registers for right-hand sides
+
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize, mpirank

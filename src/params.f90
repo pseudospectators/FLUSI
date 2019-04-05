@@ -286,6 +286,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   ! Navier-stokes incompressible or artificial compressibility. both are discretized with
   ! Fourier. Default is Navier-Stokes. Does not affect MHD part of the code.
   call read_param_mpi(PARAMS,"FSI-equation","equation",equation, "navier-stokes")
+  call read_param_mpi(PARAMS,"FSI-equation","adjoint",adjoint, .false.)
 
   call read_param_mpi(PARAMS,"artificial-compressibility","c_0",c_0, 20.0_pr)
   call read_param_mpi(PARAMS,"artificial-compressibility","gamma_p",gamma_p, 0.0_pr)
