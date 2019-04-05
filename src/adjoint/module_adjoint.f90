@@ -30,7 +30,7 @@ contains
       case("test")
         call cal_objectiveFunctional_test()  
       case default 
-        call abort(1,"Please set a valid variable for 'case' in the Adjoint section. &
+        call abort(1904051545,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
     end select
 
@@ -46,7 +46,7 @@ contains
       case("test")
         call cal_adjointSourceTerm_test()  
       case default 
-        call abort(1,"Please set a valid variable for 'case' in the Adjoint section. &
+        call abort(1904051546,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
     end select
 
@@ -64,7 +64,7 @@ contains
       case("test")
         call cal_gradient_test()  
       case default 
-        call abort(1,"Please set a valid variable for 'case' in the Adjoint section. &
+        call abort(1904051547,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
     end select
 
@@ -84,7 +84,7 @@ contains
       case("test")
         call cal_forwardSourceTerm_test()  
       case default 
-        call abort(1,"Please set a valid variable for 'case' in the Adjoint section. &
+        call abort(1904051548,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
     end select
   end subroutine cal_forwardSourceTerm 

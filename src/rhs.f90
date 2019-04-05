@@ -97,7 +97,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
           t1 = MPI_wtime()
           ! if we compute active FSI (with flexible obstacles), we need the pressure
           if (use_solid_model=="yes") & 
-              call abort(1,"Solid wing model is not yet implemented for the adjoint equation.")
+              call abort(1904051538,"Solid wing model is not yet implemented for the adjoint equation.")
           !if (use_solid_model=="yes") then
 
           !    call pressure( nlk,workc(:,:,:,1) )
@@ -108,7 +108,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
 
           ! if we compute active FSI (with flexible obstacles), we need the pressure
           if (use_flexible_wing_model=="yes") &
-              call abort(1,"Flexible wing model is not yet implemented for the adjoint equation.")
+              call abort(1904051539,"Flexible wing model is not yet implemented for the adjoint equation.")
           !if (use_flexible_wing_model=="yes") then
 
           !    call pressure( nlk,workc(:,:,:,1) )
@@ -128,7 +128,7 @@ subroutine cal_nlk(time,it,nlk,uk,u,vort,work,workc,press,scalars,scalars_rhs,In
           ! different colors. for FD, no work arrays are required.
           !---------------------------------------------------------------------------
           if ((use_passive_scalar==1).and.(compute_scalar)) &
-                call abort(1,"Passive scalar is not yet implemented for the adjoint equation.")
+                call abort(1904051540,"Passive scalar is not yet implemented for the adjoint equation.")
           !t1 = MPI_wtime()
           !if ((use_passive_scalar==1).and.(compute_scalar)) then
           !    call cal_nlk_scalar(time,it,u,scalars,scalars_rhs)
@@ -1286,7 +1286,7 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   !-----------------------------------------------------------------------------
   ! add sponge term
   !-----------------------------------------------------------------------------
-  if (iVorticitySponge == "yes") call abort(1,"Vorticity sponge is not yet implemented for the adjoint equation.")
+  if (iVorticitySponge == "yes") call abort(1904051541,"Vorticity sponge is not yet implemented for the adjoint equation.")
   !t1 = MPI_wtime()
   !if (iVorticitySponge == "yes") then
   !  nlk(:,:,:,1:3) = nlk(:,:,:,1:3) + workc(:,:,:,1:3)
@@ -1303,7 +1303,7 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   ! during the time tau_meanflow
   !-----------------------------------------------------------------------------
   if(iMeanFlow_x=="dynamic".or.iMeanFlow_y=="dynamic".or.iMeanFlow_z=="dynamic") &
-        call abort(1,"Dynamic mean flow is not yet implemented for the adjoint equation.")
+        call abort(1904051542,"Dynamic mean flow is not yet implemented for the adjoint equation.")
   !if(iMeanFlow_x=="dynamic".or.iMeanFlow_y=="dynamic".or.iMeanFlow_z=="dynamic") then
   !  ! integral forces:
   !  fx = fx*dx*dy*dz
@@ -1333,7 +1333,7 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   ! forcing that accelerates mean flow from rest to unity and keeps it there
   !-----------------------------------------------------------------------------
   if(iMeanFlow_x=="accelerate_to_unity".or.iMeanFlow_y=="accelerate_to_unity".or.iMeanFlow_z=="accelerate_to_unity") &
-        call abort(1,"Forcing the mean flow to unity is not yet implemented for the adjoint equation.")
+        call abort(1904051543,"Forcing the mean flow to unity is not yet implemented for the adjoint equation.")
   !if(iMeanFlow_x=="accelerate_to_unity".or.iMeanFlow_y=="accelerate_to_unity".or.iMeanFlow_z=="accelerate_to_unity") then
   !  if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
   !    fx = max(0.d0,1.d0-dreal(uk(0,0,0,1)))
@@ -1357,7 +1357,7 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   ! Add forcing term for isotropic turbulence, if used
   !-----------------------------------------------------------------------------
   if (forcing_type/="none") &
-       call abort(1,"Then Forcing term for isotropic turbulence is not yet implemented in the adjoint equation.")
+       call abort(1904051544,"Then Forcing term for isotropic turbulence is not yet implemented in the adjoint equation.")
   !if (forcing_type/="none") then
   !  call add_forcing_term(time,uk,nlk,vort)
   !endif

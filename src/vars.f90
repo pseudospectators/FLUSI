@@ -13,7 +13,7 @@ end module penalization
 
 ! Variables for the adjoint calculation
 module vars_adjoint
-  real(kind=8),dimension(:,:,:,:),allocatable :: u_forward
+  real(kind=8),dimension(:,:,:,:),pointer     :: u_forward
   real(kind=8),dimension(:,:,:,:),allocatable :: u_forward_all
 end module vars_adjoint
 

@@ -395,10 +395,14 @@ end program FLUSI
         write(*,'("Penalization parameter C_eta=",es12.4," and K_eta=",es12.4)') eps, &
         sqrt(nu*eps)/dy
     endif
-
+    
     t1 = MPI_wtime()
     call time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
-    press,scalars,scalars_rhs,infile,Insect,beams,wings )
+                   press,scalars,scalars_rhs,infile,Insect,beams,wings )
+    if (adjoint) then
+      call time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
+                             press,scalars,scalars_rhs,infile,Insect,beams,wings )
+    endif
     t2 = MPI_wtime() - t1
 
     !-----------------------------------------------------------------------------
