@@ -13,9 +13,8 @@ end module penalization
 
 ! Variables for the adjoint calculation
 module vars_adjoint
-  use vars
-  real(pr),dimension(:,:,:,:),allocatable :: u_forward
-  real(pr),dimension(:,:,:,:),allocatable :: u_forward_all
+  real(kind=8),dimension(:,:,:,:),allocatable :: u_forward
+  real(kind=8),dimension(:,:,:,:),allocatable :: u_forward_all
 end module vars_adjoint
 
 ! Variables for pseudospectral simnulations
@@ -39,7 +38,6 @@ module vars
   ! Method variables set in the program file:
   character(len=strlen),save :: method ! mhd  or fsi
   character(len=strlen),save :: equation ! navier-stokes; artificial-compressibility
-  logical                    :: adjoint ! default: F; has to be set to T in parameter file if an adjoint calculation should be done
   integer,save :: nf  ! number of linear exponential fields (1 for HYD, 2 for MHD)
   integer,save :: nd  ! number of fields (3 for NS, 6 for MHD)
   integer,save :: neq ! number of fields in u-vector (3 for HYD, 6 for MHD)
@@ -48,6 +46,9 @@ module vars
   integer,save :: ng  ! number of ghostpoints (if used)
   integer,save :: nrhs ! number of registers for right-hand sides
 
+  ! Adjoint variables set while reading parameter file
+  logical               :: adjoint ! default: F; has to be set to T in parameter file if an adjoint calculation should be done
+  character(len=strlen) :: adjoint_case ! test or... 
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize, mpirank

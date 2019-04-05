@@ -43,7 +43,7 @@ MFILES = vars.f90 module_helpers.f90 cof_p3dfft.f90 solid_solver.f90 flexible_so
 	interpolation.f90 basic_operators.f90 module_insects.f90 turbulent_inlet.f90 \
 	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
 	ini_files_parser_mpi.f90 wavelet_library.f90 module_insects_integration_flusi_wabbit.f90 \
-	krylov_time_stepper.f90 module_timing.f90
+	krylov_time_stepper.f90 module_timing.f90 module_adjoint.f90
 
 ifndef NOHDF5
 MFILES += hdf5_wrapper.f90 slicing.f90 stlreader.f90
@@ -60,7 +60,7 @@ VPATH = src
 VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
 VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd:src/wavelets
 VPATH += :src/insects:src/solid_solver:src/postprocessing:src/file_io
-VPATH += :src/flexible_solver
+VPATH += :src/flexible_solver:src/adjoint
 
 # Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
@@ -258,6 +258,8 @@ $(OBJDIR)/krylov_time_stepper.o: krylov_time_stepper.f90 $(OBJDIR)/vars.o $(OBJD
 $(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o coherent_vortex_extraction.f90 FWT3_PO.f90 \
 	IWT3_PO.f90
 	$(FC) -Isrc/wavelets/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/module_adjoint.o: module_adjoint.f90 case_test.f90
+	$(FC) -Isrc/adjoint/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 
 # Compile remaining objects from Fortran files.
 $(OBJDIR)/%.o: %.f90 $(MOBJS)
