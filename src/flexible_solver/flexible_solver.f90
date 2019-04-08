@@ -12,7 +12,7 @@ module flexible_model
   ! module global variables
   !----------------------------------------------
   integer,parameter :: nWings = 1
-  integer,parameter :: nVeins = 36
+  integer,parameter :: nVeins = 38
   integer,parameter :: nVeins_BC = 5
   integer,parameter :: nMembranes = 1
   integer,parameter :: nMembrane_edges = 10

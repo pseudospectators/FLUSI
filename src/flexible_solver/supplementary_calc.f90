@@ -196,24 +196,114 @@ subroutine translate_wing(wing)
   implicit none
   type(flexible_wing), intent(inout) :: wing
   integer :: j, np
-  real(kind=pr), dimension(1:3) :: u
+  real(kind=pr), dimension(1:3) :: u,v
 
   np = wing%np
 
+  call rotate_vector_into_global_system(wing,wing%vr0)
+
   do j=1,np
+
+    u = cross((/wing%x(j),wing%y(j),wing%z(j)/)&
+              ,wing%vr0(1:3))
+
+
+    v(1) = wing%u_old(3*wing%np+j)
+    v(2) = wing%u_old(4*wing%np+j)
+    v(3) = wing%u_old(5*wing%np+j)
+
+    call rotate_vector_into_global_system(wing,v)
+
+    wing%vx(j) = wing%vt0(1) + v(1) + u(1)
+    wing%vy(j) = wing%vt0(2) + v(2) + u(2)
+    wing%vz(j) = wing%vt0(3) + v(3) + u(3)
+
     wing%x(j) = wing%x(j) + wing%x0
     wing%y(j) = wing%y(j) + wing%y0
     wing%z(j) = wing%z(j) + wing%z0
 
-    u = cross((/wing%u_old(j),wing%u_old(j+wing%np),wing%u_old(j+2*wing%np)/)&
-              ,wing%vr0(1:3))
-
-    wing%vx(j) = wing%vt0(1) + wing%u_old(3*wing%np+j) + u(1)
-    wing%vy(j) = wing%vt0(2) + wing%u_old(4*wing%np+j) + u(2)
-    wing%vz(j) = wing%vt0(3) + wing%u_old(5*wing%np+j) + u(3)
   enddo
 
 end subroutine
+
+subroutine rotate_vector_into_wing_system(wing,Vector)
+
+implicit none
+
+!real(kind=pr),intent(in) :: time
+type(flexible_wing), intent (inout) :: wing
+real(kind=pr), intent(inout) :: Vector(1:3)
+real(kind=pr), dimension(1:3,1:3) :: mat_Rx, mat_Ry, mat_Rz
+real(kind=pr), dimension(1:3) :: u
+
+
+!The wing is rotated based on conventional Euler angles. It is then rotated in
+!order: around z axis (yaw) first, then y axis (pitch) and finally x axis (roll)
+
+  call Rx(mat_Rx,-wing%WingAngle_x)
+  call Ry(mat_Ry,-wing%WingAngle_y)
+  call Rz(mat_Rz,-wing%WingAngle_z)
+
+! Rotate wing around x axis
+  u = matmul(mat_Rz,(/Vector(1), Vector(2), Vector(3)/))
+  Vector(1) = u(1)
+  Vector(2) = u(2)
+  Vector(3) = u(3)
+
+! Rotate wing around x axis
+  u = matmul(mat_Ry,(/Vector(1), Vector(2), Vector(3)/))
+  Vector(1) = u(1)
+  Vector(2) = u(2)
+  Vector(3) = u(3)
+
+! Rotate wing around x axis
+  u = matmul(mat_Rx,(/Vector(1), Vector(2), Vector(3)/))
+  Vector(1) = u(1)
+  Vector(2) = u(2)
+  Vector(3) = u(3)
+
+
+end subroutine
+
+subroutine rotate_vector_into_global_system(wing,Vector)
+
+implicit none
+
+!real(kind=pr),intent(in) :: time
+type(flexible_wing), intent (inout) :: wing
+real(kind=pr), intent(inout) :: Vector(1:3)
+real(kind=pr), dimension(1:3,1:3) :: mat_Rx, mat_Ry, mat_Rz
+real(kind=pr), dimension(1:3) :: u
+
+
+!The wing is rotated based on conventional Euler angles. It is then rotated in
+!order: around z axis (yaw) first, then y axis (pitch) and finally x axis (roll)
+
+  call Rx(mat_Rx,wing%WingAngle_x)
+  call Ry(mat_Ry,wing%WingAngle_y)
+  call Rz(mat_Rz,wing%WingAngle_z)
+
+! Rotate wing around x axis
+  u = matmul(mat_Rx,(/Vector(1), Vector(2), Vector(3)/))
+  Vector(1) = u(1)
+  Vector(2) = u(2)
+  Vector(3) = u(3)
+
+! Rotate wing around x axis
+  u = matmul(mat_Ry,(/Vector(1), Vector(2), Vector(3)/))
+  Vector(1) = u(1)
+  Vector(2) = u(2)
+  Vector(3) = u(3)
+
+! Rotate wing around x axis
+  u = matmul(mat_Rz,(/Vector(1), Vector(2), Vector(3)/))
+  Vector(1) = u(1)
+  Vector(2) = u(2)
+  Vector(3) = u(3)
+
+
+end subroutine
+
 
 logical function Vector_isNAN(f)
   real(kind=pr), intent(in) :: f(:)

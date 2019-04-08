@@ -153,10 +153,7 @@ subroutine flexible_solid_solver_euler(time, dt1, it, wing)
       ! convergence test
       if ( (((err<error_stop) .or. (err_rel<error_stop)).and.(iter>2))) then
         iterate = .false.
-        if (root) then
-          write(*,*) minval((/err, err_rel/))
-          write(*,*) iter
-        endif
+        
       endif
 
       ! emergency brake
@@ -248,10 +245,7 @@ subroutine flexible_solid_solver_BDF2(time, dt1, dt0, it, wing)
       ! convergence test
       if ( (((err<error_stop) .or. (err_rel<error_stop)).and.(iter>2))) then
         iterate = .false.
-        if (root) then
-          write(*,*) minval((/err, err_rel/))
-          write(*,*) iter
-        endif
+      
       endif
 
       ! emergency brake

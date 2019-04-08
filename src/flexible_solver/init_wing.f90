@@ -64,6 +64,7 @@ subroutine init_wings ( fname, wings, dx_reference)
     wings(i)%Membranes_extension = 0.d0
     wings(i)%Membrane_edge = 0.d0
     wings(i)%m=0.d0
+    wings(i)%c=0.d0
     wings(i)%StartupStep = .true.
     wings(i)%dt_old = 0.d0
     wings(i)%press_upside = 0.d0
@@ -262,6 +263,11 @@ subroutine init_wings ( fname, wings, dx_reference)
 
     do j=1,nMembranes
     wings(i)%ke_m(:,j) = wings(i)%ke0_m(j)
+      do ind=1,nint(maxval(wings(i)%membranes(:,1,j)))
+          wings(i)%c(nint(wings(i)%membranes(ind,2,j))) = 2.d-3
+      enddo
+
+
 
       if (load_mass_from_file == 'no') then
       do ind=1,nint(maxval(wings(i)%membranes(:,1,j)))
@@ -297,6 +303,10 @@ subroutine init_wings ( fname, wings, dx_reference)
       wings(i)%kby_BC(:,j) = wings(i)%kby0_BC(j)
       wings(i)%kbz_BC(:,j) = wings(i)%kbz0_BC(j)
       wings(i)%ke_vBC(:,j) = wings(i)%ke0_vBC(j)
+      wings(i)%kby_BC(-1,j) = 50.d0*wings(i)%kby_BC(1,j)
+      wings(i)%kby_BC(0,j) = 50.d0*wings(i)%kby_BC(1,j)
+      wings(i)%kbz_BC(-1,j) = 50.d0*wings(i)%kbz_BC(1,j)
+      wings(i)%kbz_BC(0,j) = 50.d0*wings(i)%kbz_BC(1,j)
       if (load_mass_from_file == 'no') then
       do ind=1,nint(maxval(wings(i)%veins_BC(:,1,j)))
           wings(i)%m(nint(wings(i)%veins_BC(ind,2,j))) = wings(i)%rho_vBC(j)
@@ -314,6 +324,8 @@ subroutine init_wings ( fname, wings, dx_reference)
       write(frmt,'("(",i3.3,"(es12.4,1x))")') wings(i)%np
       write(*,*) "Mass points:"
       write(*,frmt) wings(i)%m(1:wings(i)%np)
+      write(*,*) "Damping coeficients:"
+      write(*,frmt) wings(i)%c(1:wings(i)%np)
       do j=1,nVeins_BC
         write(frmt,'("(",i3.3,"(es12.4,1x))")') nint(maxval(wings(i)%veins_bending_BC(:,1,j)))+2
         write(*,'("bending stiffness of y-direction bending springs of the vein with BC number ",i2.2,":")',advance='yes') j
