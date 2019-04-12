@@ -164,8 +164,6 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
 
     ! timing module: sum the time for all time steps
     call toc("MAIN (complete time stepping loop)", MPI_wtime()-t4)
-
-    call timing_next_timestep( it )
   enddo
 
 
