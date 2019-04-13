@@ -8,9 +8,9 @@ module module_adjoint
 
   ! public functions
   public :: cal_objectiveFunctional
-  public :: cal_adjointSourceTerm
+  public :: add_adjointSourceTerm
   public :: cal_gradient
-  public :: cal_forwardSourceTerm
+  public :: add_forwardSourceTerm
 
 contains
 
@@ -23,12 +23,20 @@ contains
   !-------------------------------------------------------------------------------
   ! Wrapper for the calculation of the objective functional. 
   !-------------------------------------------------------------------------------
-  subroutine cal_objectiveFunctional()
+  subroutine cal_objectiveFunctional(ux,J,u0,time)
     implicit none
+    real(kind=pr),intent(in)           :: ux(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    real(kind=pr),intent(out)          :: J
+    real(kind=pr),intent(in), optional :: u0(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    real(kind=pr),intent(in), optional :: time
 
     select case (adjoint_case)
       case("test")
-        call cal_objectiveFunctional_test()  
+        if (.not.present(u0)) then
+          call abort(1904131314,"When the adjoint case is 'test' the ini condition is necessary &
+                     to calculate the objective functional.")
+        endif
+        call cal_objectiveFunctional_test(ux,J,u0)  
       case default 
         call abort(1904051545,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
@@ -39,36 +47,46 @@ contains
   !-------------------------------------------------------------------------------
   ! Wrapper for the calculation of the adjoint source term.
   !-------------------------------------------------------------------------------
-  subroutine cal_adjointSourceTerm()
+  subroutine add_adjointSourceTerm(rhsx,time)
     implicit none 
+    real(kind=pr),intent(inout)        :: rhsx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    real(kind=pr),intent(in), optional :: time
 
     select case (adjoint_case)
       case("test")
-        call cal_adjointSourceTerm_test()  
+        call add_adjointSourceTerm_test(rhsx)  
       case default 
         call abort(1904051546,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
     end select
 
 
-  end subroutine cal_adjointSourceTerm
+  end subroutine add_adjointSourceTerm
 
 
   !-------------------------------------------------------------------------------
   ! Wrapper for the calculation of the gradient. 
   !-------------------------------------------------------------------------------
-  subroutine cal_gradient()
+  subroutine cal_gradient(u_adj,gradient,time,i,j,k,ivar)
     implicit none
+    
+    real(kind=pr),intent(in)                             :: u_adj(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    real(kind=pr),dimension(:),allocatable,intent(inout) :: gradient
+    real(kind=pr),intent(in), optional                   :: time
+    integer      ,intent(in), optional                   :: i,j,k,ivar
+    
 
     select case (adjoint_case)
       case("test")
-        call cal_gradient_test()  
+        if (.not.present(i).or..not.present(j).or..not.present(k).or..not.present(ivar)) then
+          call abort(1904131343,"When the adjoint case is 'test' the position of the source term is necessary &
+                     to calculate the adjoint gradient.")
+        endif
+        call cal_gradient_test(u_adj,gradient,i,j,k,ivar)  
       case default 
         call abort(1904051547,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
     end select
-
-
 
   end subroutine cal_gradient
 
@@ -77,17 +95,21 @@ contains
   ! Wrapper for the calculation of the source term in the forward calculation.
   ! only needed for testing!!! 
   !-------------------------------------------------------------------------------
-  subroutine cal_forwardSourceTerm()
+  subroutine add_forwardSourceTerm(rhsx,eps,i,j,k,ivar)
     implicit none 
+    
+    real(kind=pr),intent(inout)        :: rhsx(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+    real(kind=pr),intent(in)           :: eps
+    integer      ,intent(in)           :: i,j,k,ivar
 
     select case (adjoint_case)
       case("test")
-        call cal_forwardSourceTerm_test()  
+        call cal_forwardSourceTerm_test(rhsx,eps,i,j,k,ivar)  
       case default 
         call abort(1904051548,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
     end select
-  end subroutine cal_forwardSourceTerm 
+  end subroutine add_forwardSourceTerm 
 
 
 end module module_adjoint

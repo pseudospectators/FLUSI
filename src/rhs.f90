@@ -1179,6 +1179,7 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   use p3dfft_wrapper
   use vars
   use vars_adjoint
+  use module_adjoint, only: add_adjointSourceTerm
   use module_insects
   use basic_operators
   use penalization ! mask array etc
@@ -1253,10 +1254,10 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
         ! local loop variables
         ux   = u(ix,iy,iz,1)
         uy   = u(ix,iy,iz,2)
-        uz_forw   = u_forward(ix,iy,iz,3)
+        uz   = u(ix,iy,iz,3)
         ux_forw   = u_forward(ix,iy,iz,1)
         uy_forw   = u_forward(ix,iy,iz,2)
-        uz   = u(ix,iy,iz,3)
+        uz_forw   = u_forward(ix,iy,iz,3)
         vorx = vort(ix,iy,iz,1)
         vory = vort(ix,iy,iz,2)
         vorz = vort(ix,iy,iz,3)
@@ -1279,6 +1280,9 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
       enddo
     enddo
   enddo
+  ! add adjoint source term
+  call add_adjointSourceTerm(vort)
+
   ! to Fourier space
   call fft3( inx=vort,outk=nlk )
   call toc("RHS (cal_nlk_fsi::nonlinear terms)", MPI_wtime() - t1)
