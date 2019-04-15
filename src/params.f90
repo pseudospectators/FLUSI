@@ -296,7 +296,10 @@ subroutine get_params_fsi(PARAMS,Insect)
   ! adjoint section 
   ! ---------------------------------------------------
   call read_param_mpi(PARAMS,"Adjoint","adjoint",adjoint,.false.)
-  call read_param_mpi(PARAMS,"Adjoint","case",adjoint_case,"test")
+  if (adjoint) then
+    call read_param_mpi(PARAMS,"Adjoint","case",adjoint_case,"test")
+    call read_param_mpi(PARAMS,"Adjoint","Tcheckpoint",adjoint_Tcheckpoint,Tmax)
+  endif
   
 
   ! ---------------------------------------------------

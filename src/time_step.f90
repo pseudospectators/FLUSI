@@ -49,6 +49,14 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams,Wings)
   endif
 
+  ! If an adjoint calculation is done afterwards, tmax reduces to the field output BEFORE the last output
+  if (adjoint) then
+    tmax = max(0._pr,tmax - tsave)
+!ToDo: only possible with fixed time step; calculate time step so that one tsave has an integer number of time steps
+! t_fixed = 
+! also: calculate number of checkpoints 
+  endif
+
 
   !-----------------------------------------------------------------------------
   ! Loop over time steps

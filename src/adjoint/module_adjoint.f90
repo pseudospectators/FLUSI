@@ -104,7 +104,7 @@ contains
 
     select case (adjoint_case)
       case("test")
-        call cal_forwardSourceTerm_test(rhsx,eps,i,j,k,ivar)  
+        call add_forwardSourceTerm_test(rhsx,eps,i,j,k,ivar)  
       case default 
         call abort(1904051548,"Please set a valid variable for 'case' in the Adjoint section. &
                Possible are: 'test' ") 
