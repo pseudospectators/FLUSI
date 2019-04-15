@@ -211,8 +211,6 @@ subroutine dry_run()
 
     it = it+1
     time = tstart + dble(it)*tsave
-
-    call timing_next_timestep( it )
   enddo
 
 
@@ -413,7 +411,6 @@ subroutine dry_run_flexible_wing()
       endif
 
       call toc("DryRun time step", MPI_wtime()-t1)
-      call timing_next_timestep( it )
   enddo
 
 

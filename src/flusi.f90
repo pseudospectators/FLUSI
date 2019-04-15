@@ -17,11 +17,6 @@ program FLUSI
   call MPI_COMM_SIZE (MPI_COMM_WORLD,mpisize,mpicode)
   call MPI_COMM_RANK (MPI_COMM_WORLD,mpirank,mpicode)
 
-  ! setup the timing module (we may remove this feature later, it is not very useful)
-  ! tell the timing module NOT to write one small ascii file per mpirank at the end
-  ! of every time step.
-  call setup_indiv_timings( .false. )
-  
   ! this helps displaying the walltime (in the global var time_total)
   time_total = MPI_wtime()
 
