@@ -49,11 +49,31 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams,Wings)
   endif
 
-  ! If an adjoint calculation is done afterwards, tmax reduces to the field output BEFORE the last output
+  ! If an adjoint calculation is done afterwards the following is initialized here:
+  ! 1. the time step is 'fixed' 
+  ! 2. tmax reduces to the field output BEFORE the last output
+  ! 3. the output is made lean, s.t. only the velocity is saved
   if (adjoint) then
+
+    !ser fixed time step 
+    call adjust_dt(time,u,dt0)
+    tSave = real(int((dt0*adjoint_iterCheckpoint)*1000._pr,4),pr)/1000._pr
+    dt_fixed = tSave/real(ceiling(tSave / dt0),pr)
+    intelligent_dt = "no"
+    naming = ""
+
+    !set tmax
     tmax = max(0._pr,tmax - tsave)
-!ToDo: only possible with fixed time step; calculate time step so that one tsave has an integer number of time steps
-! t_fixed = 
+
+    !set output variables => only lean output possible
+    iSaveVelocity     = 1
+    iSavePress        = 0
+    iSaveVorticity    = 0
+    iSaveMagVorticity = 0
+    iSaveMask         = 0
+    iSaveSolidVelocity= 0
+    time_avg          = "no"
+!ToDo: check: is u alread filled with values? 
 ! also: calculate number of checkpoints 
   endif
 

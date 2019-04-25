@@ -48,8 +48,9 @@ module vars
 
   ! Adjoint variables set while reading parameter file
   logical               :: adjoint ! default: F; has to be set to T in parameter file if an adjoint calculation should be done
+  logical               :: isCalculatingAdjoint=.false. !Flag for output 
   character(len=strlen) :: adjoint_case ! test or... 
-  real(kind=pr)         :: adjoint_Tcheckpoint
+  integer               :: adjoint_iterCheckpoint
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize, mpirank
