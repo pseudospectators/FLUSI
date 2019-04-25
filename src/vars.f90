@@ -13,8 +13,9 @@ end module penalization
 
 ! Variables for the adjoint calculation
 module vars_adjoint
-  real(kind=8),dimension(:,:,:,:),pointer     :: u_forward
-  real(kind=8),dimension(:,:,:,:),allocatable :: u_forward_all
+  real(kind=8),dimension(:,:,:,:)              ,pointer :: u_forward
+  real(kind=8),dimension(:,:,:,:,:),allocatable,target  :: u_forward_all
+  real(kind=8),dimension(:,:,:,:)  ,allocatable         :: u_adjoint
 end module vars_adjoint
 
 ! Variables for pseudospectral simnulations
@@ -51,6 +52,7 @@ module vars
   logical               :: isCalculatingAdjoint=.false. !Flag for output 
   character(len=strlen) :: adjoint_case ! test or... 
   integer               :: adjoint_iterCheckpoint
+  real(pr)              :: adjoint_absTmax !needed because tmax is used in another way
 
   ! MPI and p3dfft variables and parameters
   integer,save :: mpisize, mpirank

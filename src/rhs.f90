@@ -1178,7 +1178,7 @@ subroutine cal_nlk_adjoint_fsi(time,it,nlk,uk,u,vort,work,workc, Insect)
   use mpi
   use p3dfft_wrapper
   use vars
-  use vars_adjoint
+  use vars_adjoint,   only: u_forward
   use module_adjoint, only: add_adjointSourceTerm
   use module_insects
   use basic_operators

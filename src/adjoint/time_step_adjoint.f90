@@ -8,6 +8,8 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
   use module_insects
   use slicing
 
+  use vars_adjoint
+
   implicit none
 
   integer :: inter
@@ -35,150 +37,288 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   logical :: continue_timestepping
+  character(len=255) :: fileName
+
   t1 = MPI_wtime()
 
-  ! first backup is in "truntime" hours
-  truntimenext = truntime
-  continue_timestepping = .true.
-  it_start = it
 
-  ! After init, output integral quantities. (note we can overwrite only
-  ! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
-  if (index(inicond,'backup::')==0) then
-    if (root) write(*,*) "Initial output of integral quantities...."
-    call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams,Wings)
-  endif
+  !-----------------------------------------------------------------------------
+  ! ToDO Sophie: what is this? is this necessary?
+  !-----------------------------------------------------------------------------
+  !! first backup is in "truntime" hours
+  !truntimenext = truntime
+  !continue_timestepping = .true.
+  !it_start = it
+
+  !! After init, output integral quantities. (note we can overwrite only
+  !! nlk(:,:,:,:,n0) when retaking a backup) (if not resuming a backup)
+  !if (index(inicond,'backup::')==0) then
+  !  if (root) write(*,*) "Initial output of integral quantities...."
+  !  call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams,Wings)
+  !endif
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
+
+
 
 
   !-----------------------------------------------------------------------------
-  ! Loop over time steps
+  ! initialize adjoint checkpointing
   !-----------------------------------------------------------------------------
-  if (root) write(*,*) "Start time-stepping...."
-  do while ((time<tmax) .and. (it<=nt) .and. (continue_timestepping))
-    t4 = MPI_wtime()
-    dt0 = dt1
 
-    !---------------------------------------------------------------------------
-    ! advance fluid/B-field in time
-    !---------------------------------------------------------------------------
-    ! note: the array "vort" is a real work array and has neither input nor
-    ! output values after fluid time stepper
-    call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,explin,&
-         press,scalars,scalars_rhs,Insect,beams,Wings)
+  !allocate fields (were taken into account when the memory use was calculated while initializing) 
+  allocate(u_forward_all(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd,1:adjoint_iterCheckpoint))
+  allocate(u_adjoint(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
 
-    !---------------------------------------------------------------------------
-    ! time step done: advance iteration + time
-    !---------------------------------------------------------------------------
-    inter=n1 ; n1=n0 ; n0=inter
-    ! Advance in time so that uk contains the evolved field at time 'time+dt1'
-    time = time + dt1
-    it = it + 1
+  !initialize adjoint solution and save it
+  isCalculatingAdjoint = .true.
+  u_adjoint = 0._pr
+  call fft3( inx=u_adjoint,outk=uk)
+  call save_fields(adjoint_absTmax,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
+  isCalculatingAdjoint = .false.
 
-    !---------------------------------------------------------------------------
-    ! Output of INTEGRALS after every tintegral time units or itdrag time steps
-    !---------------------------------------------------------------------------
-    if (time_for_output(time, dt1, it, tintegral, itdrag, tmax, 0.d0)) then
-      call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams,Wings)
-    endif
+  tmax = tmax + tsave
 
-    !---------------------------------------------------------------------------
-    ! Save solid model data, if using it
-    !---------------------------------------------------------------------------
-    if (use_solid_model=="yes" .and. root .and. modulo(it,itbeam)==0) then
-      call SaveBeamData( time, beams )
-    endif
+  !-----------------------------------------------------------------------------
+  !-----------------------------------------------------------------------------
 
-    !---------------------------------------------------------------------------
-    ! Save flexible wing model data, if using it
-    !---------------------------------------------------------------------------
-    !if (use_flexible_wing_model=="yes" .and. root) then
-    !  call SaveWingData( time, wings )
-    !endif
 
-    !---------------------------------------------------------------------------
-    ! Output FIELDS DATA (after tsave time units, but not before tsave_first)
-    !---------------------------------------------------------------------------
-    if (time_for_output(time, dt1, it, tsave, 99999999, tmax, tsave_first)) then
-      ! Note: we can safely delete nlk(:,:,:,1:neq,n0). for RK2 it never matters,
-      ! and for AB2 this is the one to be overwritten in the next step. This frees
-      ! 3 complex arrays, which are then used in Dump_Runtime_Backup.
-      call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
-      call are_we_there_yet(time,t1,dt1)
-    endif
+  !-----------------------------------------------------------------------------
+  ! start checkpointing 
+  !-----------------------------------------------------------------------------
+  if (root) write(*,*) 
+  if (root) write(*,*) "Start checkpointing..."
+  if (root) write(*,*)
 
-    ! Backup if that's specified in the PARAMS.ini file. We try to do
-    ! backups every "truntime" hours (precise to one time step)
-    if (idobackup==1 .and. truntimenext<(MPI_wtime()-time_total)/3600.d0) then
-      call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-      work(:,:,:,1),scalars,scalars_rhs,Insect,beams,wings)
-      truntimenext = truntimenext+truntime
-    endif
+  do while (tstart-time < 1.d-14)
 
-    !---------------------------------------------------------------------------
-    ! save slices to hard disk
-    !---------------------------------------------------------------------------
-    if ((method=="fsi").and.(use_slicing=="yes")) then
-      if (time_for_output(time, dt1, it, tslice, itslice, 9.9d9, tslice_first)) then
-        call save_slices( time, u )
+    !-----------------------------------------------------------------------------
+    ! initialize forward calculation 
+    !-----------------------------------------------------------------------------
+    equation             = "navier-stokes"
+    isCalculatingAdjoint = .false.
+
+    !read in velocity from HDF5 file
+    if (mpirank==0) write (*,*) "Reading forward solution..."
+    write(fileName,'(i6.6)') nint(time*1000._pr)
+    call Read_Single_File ( "ux_"//trim(filename)//".h5", u(:,:,:,1) )
+    call Read_Single_File ( "uy_"//trim(filename)//".h5", u(:,:,:,2) )
+    call Read_Single_File ( "uz_"//trim(filename)//".h5", u(:,:,:,3) )
+    if (mpirank==0) write (*,*) "... done."
+    if (mpirank==0) write (*,*) 
+
+    call fft3( inx=u,outk=uk)
+
+    it = 0
+    !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
+
+    !-----------------------------------------------------------------------------
+    ! do forward calculation - loop over time steps 
+    !-----------------------------------------------------------------------------
+    if (root) write(*,*) "Start forward time-stepping...."
+    do while (tmax-time > 1.d-14) 
+      t4 = MPI_wtime()
+      dt0 = dt1
+
+
+      !---------------------------------------------------------------------------
+      ! advance fluid/B-field in time
+      !---------------------------------------------------------------------------
+      ! note: the array "vort" is a real work array and has neither input nor
+      ! output values after fluid time stepper
+      call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,explin,&
+           press,scalars,scalars_rhs,Insect,beams,Wings)
+
+      !---------------------------------------------------------------------------
+      ! save forward solution in array 
+      !---------------------------------------------------------------------------
+      if (it.gt.0) u_forward_all(:,:,:,:,it) = u(:,:,:,:)
+
+      !---------------------------------------------------------------------------
+      ! time step done: advance iteration + time
+      !---------------------------------------------------------------------------
+      inter=n1 ; n1=n0 ; n0=inter
+      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
+      time = time + dt1
+      it = it + 1
+
+
+      !!---------------------------------------------------------------------------
+      !! Output how much time remains
+      !!---------------------------------------------------------------------------
+      !if ((modulo(it,10)==0).or.(it==20)) then
+      !  call are_we_there_yet(time,t1,dt1)
+      !endif
+
+      !-------------------------------------------------
+      ! write backup if walltime is about to be exceeded
+      !-------------------------------------------------
+      if (wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+        if (root) write(*,*) "Out of walltime!"
+!ToDo: write backup, because it is not done later
       endif
-    endif
 
-    !---------------------------------------------------------------------------
-    ! Output how much time remains
-    !---------------------------------------------------------------------------
-    if ((modulo(it,10)==0).or.(it==20)) then
-      call are_we_there_yet(time,t1,dt1)
-    endif
+      !if (modulo(it,10)==0) then
+      !  ! fetch command from file
+      !  call runtime_control_command( command )
+      !  ! execute it
+      !  select case ( command )
+      !  case ("reload_params")
+      !    if (root) write (*,*) "runtime control: Reloading PARAMS file.."
+      !    ! read all parameters from the params.ini file
+      !    call get_params(params_file,Insect,.true.)
+      !    ! overwrite control file
+      !    if (root) call initialize_runtime_control_file()
+      !  case ("save_stop")
+      !    if (root) write (*,*) "runtime control: Safely stopping..."
+      !    continue_timestepping = .false. ! this will stop the time loop
+      !    ! overwrite control file
+      !    if (root) call initialize_runtime_control_file()
+      !  end select
+      !endif
 
-    !-------------------------------------------------
-    ! escape from loop if walltime is about to be exceeded
-    !-------------------------------------------------
-    if (wtimemax < (MPI_wtime()-time_total)/3600.d0) then
-      if (root) write(*,*) "Out of walltime!"
-      continue_timestepping=.false.
+      if (root) call save_time_stepping_info(time, dt1, it, t4)
+
+      ! timing module: sum the time for all time steps
+      call toc("MAIN (complete forwards time stepping loop)", MPI_wtime()-t4)
+
+      call timing_next_timestep( it )
+    enddo
+
+
+    !-----------------------------------------------
+    ! do final output if necessary 
+    !-----------------------------------------------
+    if (abs(time-adjoint_absTmax) < 1.d-14) then
+      call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
+    else
+      call ifft3 (outx=u, ink=uk)
     endif
 
     !-----------------------------------------------
-    ! Runtime remote control (every 10 time steps)
+    ! save last solution in u_forward_all 
     !-----------------------------------------------
-    if (modulo(it,10)==0) then
-      ! fetch command from file
-      call runtime_control_command( command )
-      ! execute it
-      select case ( command )
-      case ("reload_params")
-        if (root) write (*,*) "runtime control: Reloading PARAMS file.."
-        ! read all parameters from the params.ini file
-        call get_params(params_file,Insect,.true.)
-        ! overwrite control file
-        if (root) call initialize_runtime_control_file()
-      case ("save_stop")
-        if (root) write (*,*) "runtime control: Safely stopping..."
-        continue_timestepping = .false. ! this will stop the time loop
-        ! overwrite control file
-        if (root) call initialize_runtime_control_file()
-      end select
-    endif
+    u_forward_all(:,:,:,:,it) = u (:,:,:,:)   
 
-    if (root) call save_time_stepping_info(time, dt1, it, t4)
 
-    ! timing module: sum the time for all time steps
-    call toc("MAIN (complete time stepping loop)", MPI_wtime()-t4)
+    !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
 
-    call timing_next_timestep( it )
+
+    !-----------------------------------------------------------------------------
+    ! initialize backward calculation 
+    !-----------------------------------------------------------------------------
+    equation             = "navier-stokes-adjoint"
+    isCalculatingAdjoint = .true.
+
+    ! get start solution
+    call fft3( inx=u_adjoint,outk=uk)
+
+    !-----------------------------------------------------------------------------
+    !-----------------------------------------------------------------------------
+
+    !-----------------------------------------------------------------------------
+    ! do backward calculation - loop over time steps 
+    !-----------------------------------------------------------------------------
+    if (root) write(*,*) "Start backward time-stepping...."
+    do while (time>(tmax-tsave)) 
+      t4 = MPI_wtime()
+      dt0 = dt1
+
+      !---------------------------------------------------------------------------
+      ! set pointer to correct forward solution 
+      !---------------------------------------------------------------------------
+      u_forward (ra(1):,ra(2):,ra(3):,1:) => &
+        u_forward_all (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd,it) 
+
+      !---------------------------------------------------------------------------
+      ! advance fluid/B-field in time
+      !---------------------------------------------------------------------------
+      ! note: the array "vort" is a real work array and has neither input nor
+      ! output values after fluid time stepper
+      call fluidtimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,explin,&
+           press,scalars,scalars_rhs,Insect,beams,Wings)
+
+
+      !---------------------------------------------------------------------------
+      ! time step done: advance iteration + time
+      !---------------------------------------------------------------------------
+      inter=n1 ; n1=n0 ; n0=inter
+      ! Advance in time so that uk contains the evolved field at time 'time+dt1'
+      time = time - dt1
+      it = it - 1
+
+      !!---------------------------------------------------------------------------
+      !! Output how much time remains
+      !!---------------------------------------------------------------------------
+      !if ((modulo(it,10)==0).or.(it==20)) then
+      !  call are_we_there_yet(time,t1,dt1)
+      !endif
+
+      !-------------------------------------------------
+      ! write backup if walltime is about to be exceeded
+      !-------------------------------------------------
+      if (wtimemax < (MPI_wtime()-time_total)/3600.d0) then
+        if (root) write(*,*) "Out of walltime!"
+!ToDo: write backup, because it is not done later
+      endif
+
+      !if (modulo(it,10)==0) then
+      !  ! fetch command from file
+      !  call runtime_control_command( command )
+      !  ! execute it
+      !  select case ( command )
+      !  case ("reload_params")
+      !    if (root) write (*,*) "runtime control: Reloading PARAMS file.."
+      !    ! read all parameters from the params.ini file
+      !    call get_params(params_file,Insect,.true.)
+      !    ! overwrite control file
+      !    if (root) call initialize_runtime_control_file()
+      !  case ("save_stop")
+      !    if (root) write (*,*) "runtime control: Safely stopping..."
+      !    continue_timestepping = .false. ! this will stop the time loop
+      !    ! overwrite control file
+      !    if (root) call initialize_runtime_control_file()
+      !  end select
+      !endif
+
+      if (root) call save_time_stepping_info(time, dt1, it, t4)
+
+      ! timing module: sum the time for all time steps
+      call toc("MAIN (complete backwards time stepping loop)", MPI_wtime()-t4)
+
+      call timing_next_timestep( it )
+    enddo
+
+    !-----------------------------------------------
+    ! save adjoint solution 
+    !-----------------------------------------------
+    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
+   
+    u_adjoint = u
+
+
+    !-----------------------------------------------------------------------------
+    ! adjust endtimes 
+    !-----------------------------------------------------------------------------
+    tmax = time
+    time = max(tstart, time - tsave)
+
+  !-----------------------------------------------------------------------------
+  ! done with checkpointing 
+  !-----------------------------------------------------------------------------
   enddo
+  if (root) write(*,*) 
+  if (root) write(*,*) "...checkpointing done."
+  if (root) write(*,*)
 
-
-  !-----------------------------------------------------------------------------
-  ! save final backup so we can resume where we left
-  !-----------------------------------------------------------------------------
-  if(idobackup==1) then
-    if(root) write (*,*) "final backup..."
-    call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
-    work(:,:,:,1),scalars,scalars_rhs,Insect,beams,wings)
-  endif
-
-  if(root) write(*,'("Done time stepping; did nt=",i7," steps")') it-it_start
+  deallocate(u_forward_all)
+  deallocate(u_adjoint)
 end subroutine time_step_adjoint
 
 

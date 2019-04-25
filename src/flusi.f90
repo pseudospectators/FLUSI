@@ -117,6 +117,7 @@ end program FLUSI
   subroutine Start_Simulation()
     use mpi
     use vars
+    use vars_adjoint
     use p3dfft_wrapper
     use solid_model
     use flexible_model
@@ -338,6 +339,15 @@ end program FLUSI
       call init_turbulent_inlet ( )
     endif
 
+    !do test allocation of u_forward_all; it is deallocated here and then re-allocated 
+    !        in the checkpointing loop again, because it is not needed before.
+    if(adjoint) then
+      allocate(u_forward_all(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd,1:adjoint_iterCheckpoint))
+      memory = memory + dble(nd*adjoint_iterCheckpoint)*mem_field
+      allocate(u_adjoint(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd))
+      memory = memory + dble(nd)*mem_field
+    endif
+
     !-----------------------------------------------------------------------------
     ! show memory consumption for information
     !-----------------------------------------------------------------------------
@@ -349,6 +359,11 @@ end program FLUSI
       write(*,'("which is ",f7.1,"MB (",f4.1,"GB) per CPU")') &
       memory/(1.0d6)/dble(mpisize),memory/(1.0d9)/dble(mpisize)
       write(*,'(80("-"))')
+    endif
+
+    if(adjoint) then 
+      deallocate(u_forward_all)
+      deallocate(u_adjoint)
     endif
 
     !-----------------------------------------------------------------------------

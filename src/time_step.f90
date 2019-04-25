@@ -53,17 +53,21 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   ! 1. the time step is 'fixed' 
   ! 2. tmax reduces to the field output BEFORE the last output
   ! 3. the output is made lean, s.t. only the velocity is saved
-  if (adjoint) then
 
-    !ser fixed time step 
+  if (adjoint) then
+    adjoint_absTmax = tmax
+
+    !set fixed time step 
     call adjust_dt(time,u,dt0)
-    tSave = real(int((dt0*adjoint_iterCheckpoint)*1000._pr,4),pr)/1000._pr
+    tSave = min(real(int((dt0*adjoint_iterCheckpoint)*1000._pr,4),pr)/1000._pr,adjoint_absTmax)
+
     dt_fixed = tSave/real(ceiling(tSave / dt0),pr)
+    dt1     = dt_fixed
     intelligent_dt = "no"
     naming = ""
 
     !set tmax
-    tmax = max(0._pr,tmax - tsave)
+    tmax = adjoint_absTmax - tsave
 
     !set output variables => only lean output possible
     iSaveVelocity     = 1
