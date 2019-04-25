@@ -54,11 +54,11 @@ integer :: j, np
 
     !The force is calculated in the global coordinate system, we need to change it
     !back into the wing coordinate system
-    call rotate_force_vector_into_wing_system(time,wing,F_grav(j,1:3))
+    call rotate_vector_into_wing_system(wing,F_grav(j,1:3))
 
-    wing%Fext(1:np)        = F_grav(j,1) !forces on the x-direction
-    wing%Fext(np+1:2*np)   = F_grav(j,2) !forces on the y-direction
-    wing%Fext(2*np+1:3*np) = F_grav(j,3) !forces on the z-direction
+    wing%Fext(j)      = wing%Fext(j) + F_grav(j,1) !forces on the x-direction
+    wing%Fext(j+np)   = wing%Fext(j+np) + F_grav(j,2) !forces on the y-direction
+    wing%Fext(j+2*np) = wing%Fext(j+2*np) + F_grav(j,3) !forces on the z-direction
   enddo
 
 end subroutine
@@ -449,9 +449,9 @@ subroutine transform_pressure_into_point_forces_per_node(time,wing)
                              wing%tri_element_normals(itri,4)*wing%tri_element_normals(itri,1:3)
 
   ! Rotate the pressure forces in the global system back into the local wing system
-  call rotate_force_vector_into_wing_system(time,wing,point_forces(itri,1,1:3))
-  call rotate_force_vector_into_wing_system(time,wing,point_forces(itri,2,1:3))
-  call rotate_force_vector_into_wing_system(time,wing,point_forces(itri,3,1:3))
+  call rotate_vector_into_wing_system(wing,point_forces(itri,1,1:3))
+  call rotate_vector_into_wing_system(wing,point_forces(itri,2,1:3))
+  call rotate_vector_into_wing_system(wing,point_forces(itri,3,1:3))
 
   ! Update local pressure forces to the Fext vector for the mass spring solver
          wing%Fext(wing%tri_elements(itri,2)) = wing%Fext(wing%tri_elements(itri,2)) + point_forces(itri,1,1)
@@ -524,45 +524,6 @@ subroutine distribute_concentrated_force_into_three_vertices(distributed_force,c
   distributed_force(1,1:3) = - A1/A*normal(1:3)*concentrated_force*direction
   distributed_force(2,1:3) = - A2/A*normal(1:3)*concentrated_force*direction
   distributed_force(3,1:3) = - A3/A*normal(1:3)*concentrated_force*direction
-
-end subroutine
-
-subroutine rotate_force_vector_into_wing_system(time,wing,Force)
-
-implicit none
-
-real(kind=pr),intent(in) :: time
-type(flexible_wing), intent (inout) :: wing
-real(kind=pr), intent(inout) :: Force(1:3)
-real(kind=pr), dimension(1:3,1:3) :: mat_Rx, mat_Ry, mat_Rz
-real(kind=pr), dimension(1:3) :: u
-
-
-!The wing is rotated based on conventional Euler angles. It is then rotated in
-!order: around z axis (yaw) first, then y axis (pitch) and finally x axis (roll)
-
-  call Rx(mat_Rx,-wing%WingAngle_x)
-  call Ry(mat_Ry,-wing%WingAngle_y)
-  call Rz(mat_Rz,-wing%WingAngle_z)
-
-! Rotate wing around x axis
-  u = matmul(mat_Rx,(/Force(1), Force(2), Force(3)/))
-  Force(1) = u(1)
-  Force(2) = u(2)
-  Force(3) = u(3)
-
-! Rotate wing around x axis
-  u = matmul(mat_Ry,(/Force(1), Force(2), Force(3)/))
-  Force(1) = u(1)
-  Force(2) = u(2)
-  Force(3) = u(3)
-
-! Rotate wing around x axis
-  u = matmul(mat_Rz,(/Force(1), Force(2), Force(3)/))
-  Force(1) = u(1)
-  Force(2) = u(2)
-  Force(3) = u(3)
-
 
 end subroutine
 

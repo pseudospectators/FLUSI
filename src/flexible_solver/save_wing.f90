@@ -39,7 +39,7 @@ subroutine SaveWingData( time, wings )
     endif
 
     open (14, file = 'wing_x'//wingstr//'.t', status = 'unknown',position='append')
-    write (14, '(845(es15.8,1x))') time, wings(i)%x(1:np)
+    write (14, format_ns1) time, wings(i)%x(1:np)
     close (14)
 
     open (14, file = 'wing_y'//wingstr//'.t', status = 'unknown',position='append')
@@ -48,6 +48,30 @@ subroutine SaveWingData( time, wings )
 
     open (14, file = 'wing_z'//wingstr//'.t', status = 'unknown',position='append')
     write (14, format_ns1) time, wings(i)%z(1:np)
+    close (14)
+
+    open (14, file = 'wing_xrel'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%u_old(0*np+1:1*np)
+    close (14)
+
+    open (14, file = 'wing_yrel'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%u_old(1*np+1:2*np)
+    close (14)
+
+    open (14, file = 'wing_zrel'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%u_old(2*np+1:3*np)
+    close (14)
+
+    open (14, file = 'wing_vxrel'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%u_old(3*np+1:4*np)
+    close (14)
+
+    open (14, file = 'wing_vyrel'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%u_old(4*np+1:5*np)
+    close (14)
+
+    open (14, file = 'wing_vzrel'//wingstr//'.t', status = 'unknown',position='append')
+    write (14, format_ns1) time, wings(i)%u_old(5*np+1:6*np)
     close (14)
 
     open (14, file = 'wing_vx'//wingstr//'.t', status = 'unknown',position='append')

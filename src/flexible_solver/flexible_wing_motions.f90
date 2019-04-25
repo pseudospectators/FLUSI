@@ -57,7 +57,6 @@ subroutine revolving_wing (time, wing)
     wing%vr0 = matmul(mat_Rx,wing%vr0)
     wing%ar0 = matmul(mat_Rx,wing%ar0)
 
-  if (root) write(*,*) wing%vr0
 
 end subroutine
 
