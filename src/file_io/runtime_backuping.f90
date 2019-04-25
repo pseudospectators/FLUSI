@@ -125,6 +125,13 @@ subroutine dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,ub,nlk,&
     enddo
   endif
 
+  ! in the ACM case, pressure is a state variable and needs to be stored / read
+  ! when performing runtime backups
+  if ((method == "fsi") .and. (equation == "artificial-compressibility")) then
+      call ifft(ub(:,:,:,4), work)
+      call dump_field_backup(filename,work,"p",time,dt0,dt1,n1,it)
+  endif
+
   !-- initialize runnning avg from file
   if((method=="fsi").and.(time_avg=="yes").and.(vel_avg=="yes")) then
     call ifft ( outx=work , ink=uk_avg(:,:,:,1) )
@@ -311,6 +318,13 @@ subroutine read_runtime_backup(filename2,time,dt0,dt1,n1,it,uk,nlk,explin,work,s
     call fft(work, nlk(:,:,:,5,1))
     call read_field_backup(filename,"bnlkz1",work)
     call fft(work, nlk(:,:,:,6,1))
+  endif
+
+  ! in the ACM case, pressure is a state variable and needs to be stored / read
+  ! when performing runtime backups
+  if ((method == "fsi") .and. (equation == "artificial-compressibility")) then
+      call read_field_backup(filename, "p", work)
+      call fft(work, uk(:,:,:,4))
   endif
 
 

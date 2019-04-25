@@ -113,11 +113,11 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalar
   if (isaveVelocity == 1) then
     if (iSavePress==0) then
       ! the cal_nlk has not been called, and we need to do the IFFT
-      call ifft3(ink=uk(:,:,:,1:nd),outx=u(:,:,:,1:nd))
+      call ifft3(ink=uk(:,:,:,1:nd), outx=u(:,:,:,1:nd))
     endif
-    call save_field_hdf5(time,"ux_"//name,u(:,:,:,1))
-    call save_field_hdf5(time,"uy_"//name,u(:,:,:,2))
-    call save_field_hdf5(time,"uz_"//name,u(:,:,:,3))
+    call save_field_hdf5(time, "ux_"//name,u(:,:,:,1))
+    call save_field_hdf5(time, "uy_"//name,u(:,:,:,2))
+    call save_field_hdf5(time, "uz_"//name,u(:,:,:,3))
   endif
 
   !-----------------------------------------------------------------------------
