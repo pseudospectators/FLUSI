@@ -66,8 +66,9 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     intelligent_dt = "no"
     naming = ""
 
-    !set tmax
-    tmax = adjoint_absTmax - tsave
+    !set tmax and t_save_first
+    tmax         = adjoint_absTmax - tsave
+    tsave_first  = mod (adjoint_absTmax, tsave)
 
     !set output variables => only lean output possible
     iSaveVelocity     = 1

@@ -60,6 +60,9 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
   !-----------------------------------------------------------------------------
 
 
+  if (root) write(*,*) 
+  if (root) write(*,*) "Start checkpointing..."
+  if (root) write(*,*)
 
 
   !-----------------------------------------------------------------------------
@@ -86,11 +89,7 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
   !-----------------------------------------------------------------------------
   ! start checkpointing 
   !-----------------------------------------------------------------------------
-  if (root) write(*,*) 
-  if (root) write(*,*) "Start checkpointing..."
-  if (root) write(*,*)
-
-  do while (tstart-time < 1.d-14)
+  do while (time>tstart .or. .not.isCalculatingAdjoint)
 
     !-----------------------------------------------------------------------------
     ! initialize forward calculation 
@@ -117,10 +116,9 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
     ! do forward calculation - loop over time steps 
     !-----------------------------------------------------------------------------
     if (root) write(*,*) "Start forward time-stepping...."
-    do while (tmax-time > 1.d-14) 
+    do while (tmax > time) 
       t4 = MPI_wtime()
-      dt0 = dt1
-
+      dt0 = dt_fixed
 
       !---------------------------------------------------------------------------
       ! advance fluid/B-field in time
@@ -199,7 +197,7 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
     !-----------------------------------------------
     ! save last solution in u_forward_all 
     !-----------------------------------------------
-    u_forward_all(:,:,:,:,it) = u (:,:,:,:)   
+    if (it.gt.0) u_forward_all(:,:,:,:,it) = u (:,:,:,:)   
 
 
     !-----------------------------------------------------------------------------
@@ -228,13 +226,15 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
     if (root) write(*,*) "Start backward time-stepping...."
     do while (time>(tmax-tsave)) 
       t4 = MPI_wtime()
-      dt0 = dt1
+      dt0 = - dt_fixed
+
 
       !---------------------------------------------------------------------------
       ! set pointer to correct forward solution 
       !---------------------------------------------------------------------------
-      u_forward (ra(1):,ra(2):,ra(3):,1:) => &
-        u_forward_all (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd,it) 
+      u_forward => u_forward_all (ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd,it) 
+      u_forward(ra(1):,ra(2):,ra(3):,1:) => u_forward !has to be done this way, weird compiler bug? 
+
 
       !---------------------------------------------------------------------------
       ! advance fluid/B-field in time
@@ -250,8 +250,9 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
       !---------------------------------------------------------------------------
       inter=n1 ; n1=n0 ; n0=inter
       ! Advance in time so that uk contains the evolved field at time 'time+dt1'
-      time = time - dt1
+      time = time - dt_fixed
       it = it - 1
+
 
       !!---------------------------------------------------------------------------
       !! Output how much time remains
@@ -259,6 +260,7 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
       !if ((modulo(it,10)==0).or.(it==20)) then
       !  call are_we_there_yet(time,t1,dt1)
       !endif
+
 
       !-------------------------------------------------
       ! write backup if walltime is about to be exceeded
@@ -294,6 +296,7 @@ subroutine time_step_adjoint(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,expl
 
       call timing_next_timestep( it )
     enddo
+
 
     !-----------------------------------------------
     ! save adjoint solution 

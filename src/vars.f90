@@ -466,6 +466,8 @@ module vars
           (modulo(it,ifrequ)==0).or.(abs(time-tmax)<=1.0d-6)) then
         time_for_output = .true.
       endif
+    else if (adjoint) then
+      if (modulo(time-tfirst,tfrequ) < dt) time_for_output=.true. 
     else
       ! without intelligent time stepping, we save output when we're close enough
       if ( (modulo(time,tfrequ)<dt).or.(modulo(it,ifrequ)==0).or.(time==tmax) ) then
