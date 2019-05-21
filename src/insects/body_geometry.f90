@@ -162,8 +162,7 @@ subroutine draw_body_bumblebee( xx0, ddx, mask, mask_color, us, Insect)
                 x_body = matmul(M_body,x_glob)
 
                 ! ------------------------------------
-                ! approximation to mesh from Maeda
-                ! similar to Aono et al.
+                ! approximation to mesh
                 ! ------------------------------------
                 x = x_body(1)
                 y = x_body(2)
