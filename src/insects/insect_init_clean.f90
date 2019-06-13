@@ -71,6 +71,16 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   ! read in the complete ini file, from which we initialize the insect
   call read_ini_file_mpi(PARAMS, fname_ini, verbose=.true.)
 
+  ! determine whether the second pair of wings is present
+  call read_param_mpi(PARAMS,"Insects","LeftWing2",Insect%LeftWing2,"no")
+  call read_param_mpi(PARAMS,"Insects","RightWing2",Insect%RightWing2,"no")
+  if ( ( Insect%LeftWing2 == "yes" ) .or. ( Insect%RightWing2 == "yes" ) ) then
+    Insect%second_wing_pair = .true.
+  else
+    Insect%second_wing_pair = .false.
+  endif
+
+  ! read data for the first pair of wings
   call read_param_mpi(PARAMS,"Insects","WingShape",Insect%WingShape,"none")
   call read_param_mpi(PARAMS,"Insects","b_top",Insect%b_top, 0.d0)
   call read_param_mpi(PARAMS,"Insects","b_bot",Insect%b_bot, 0.d0)

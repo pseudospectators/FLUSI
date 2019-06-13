@@ -108,6 +108,12 @@ subroutine convert_pressure(help)
       if (iMask == "Insect") then
           call insect_init(time, fname_ini, Insect, .false., "", (/xl,yl,zl/), nu, &
           dx, periodic=periodic)
+          ! max color
+          if (Insect%second_wing_pair) then
+            endcolor = 5
+          else
+            endcolor = 3
+          endif
       endif
   endif
 

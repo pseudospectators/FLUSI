@@ -62,6 +62,16 @@ subroutine draw_insect_wings(time, xx0, ddx, mask, mask_color, us, Insect, delet
       Insect%M_body, Insect%M_wing_l, Insect%x_pivot_l_b, Insect%rot_rel_wing_l_w )
   endif
 
+  if (Insect%RightWing == "yes") then
+      call draw_wing(xx0, ddx, mask, mask_color, us, Insect, Insect%color_r2, &
+      Insect%M_body, Insect%M_wing_r2, Insect%x_pivot_r2_b, Insect%rot_rel_wing_r2_w )
+  endif
+
+  if (Insect%LeftWing == "yes") then
+      call draw_wing(xx0, ddx, mask, mask_color, us, Insect, Insect%color_l2, &
+      Insect%M_body, Insect%M_wing_l2, Insect%x_pivot_l2_b, Insect%rot_rel_wing_l2_w )
+  endif
+
   !-----------------------------------------------------------------------------
   ! stage II: add body motion to wing and bring us to global system
   !-----------------------------------------------------------------------------
@@ -77,7 +87,8 @@ subroutine draw_insect_wings(time, xx0, ddx, mask, mask_color, us, Insect, delet
 
               c = mask_color(ix,iy,iz)
               ! skip all parts that do not belong to the wings (ie they have a different color)
-              if (c==Insect%color_l .or. c==Insect%color_r) then
+              if (c==Insect%color_l .or. c==Insect%color_r .or. &
+                  c==Insect%color_l2 .or. c==Insect%color_r2 ) then
 
                   if (periodic_insect) x_glob = periodize_coordinate(x_glob, (/xl,yl,zl/))
                   x_body = matmul(Insect%M_body, x_glob)
@@ -170,10 +181,14 @@ subroutine draw_wing_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_
   real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
   integer :: ix,iy,iz
+  integer(kind=2) :: idw
   real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3)
   real(kind=rk) :: R, R0, R_tmp, zz0
   real(kind=rk) :: y_tmp, x_tmp, z_tmp, s, t
   real(kind=rk) :: v_tmp(1:3), mask_tmp, theta
+
+  !-- wing id number
+  idw = color_wing
 
   !-- define the wings fourier coeffients, but do that only once
   call Setup_Wing_Fourier_coefficients(Insect)

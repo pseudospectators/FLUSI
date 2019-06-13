@@ -134,6 +134,12 @@ subroutine convert_to_wing_system(help)
 
   ! initialize insect
   call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
+  ! max color
+  if (Insect%second_wing_pair) then
+    endcolor = 5
+  else
+    endcolor = 3
+  endif
 
   !*****************************************************************************
   ! main (active) part of this postprocessing tool
@@ -165,8 +171,8 @@ subroutine convert_to_wing_system(help)
   endif
 
   call BodyMotion (time, Insect)
-  call FlappingMotion_right (time, Insect)
-  call FlappingMotion_left (time, Insect)
+  call FlappingMotionWrap (time, Insect, "right")
+  call FlappingMotionWrap (time, Insect, "left")
   call StrokePlane (time, Insect)
   call body_rotation_matrix( Insect, M_body )
   call wing_right_rotation_matrix( Insect, M_wing_r )

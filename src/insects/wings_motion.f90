@@ -1,54 +1,61 @@
 !-------------------------------------------------------------------------------
-! WRAPPER Motion protocoll wrapper left wing
+! WRAPPER Motion protocol wrapper
 !-------------------------------------------------------------------------------
-subroutine FlappingMotion_left ( time, Insect )
+subroutine FlappingMotionWrap ( time, Insect, part_name )
   implicit none
 
   real(kind=rk),intent(in) :: time
   real(kind=rk),dimension(0:3)::ep
   type(diptera) :: Insect
+  character (len=*), intent(in) :: part_name
 
-  if (Insect%wing_fsi == "yes") then
-    !**********************************
-    !** Wing fsi model               **
-    !**********************************
-    ! the angles that we return here as postprocessing quantities for better
-    ! interpretation of the output. they are NOT used to compute the wing rotation
-    ! matrix, which is instead computed from the wing quaternion
-    ep = Insect%STATE(14:17)
-    Insect%phi_l   = atan2( 2.d0*ep(2)*ep(3)+2.d0*ep(0)*ep(1), ep(2)**2-ep(3)**2+ep(0)**2-ep(1)**2)
-    Insect%alpha_l = atan2(2.d0*ep(1)*ep(3)+2.d0*ep(0)*ep(2) , ep(1)**2+ep(0)**2-ep(3)**2-ep(2)**2 )
-    Insect%theta_l = -asin(2.d0*(ep(1)*ep(2)-ep(0)*ep(3)))
-    ! the time derivatives are not necessary and set to zero (the angular velocity
-    ! is computed dynamically from the eqns of motion)
-    Insect%phi_dt_l = 0.d0
-    Insect%alpha_dt_l = 0.d0
-    Insect%theta_dt_l = 0.d0
-  else
-    ! conventional model: all angles are prescribed (by fourier/hermite or others)
-    ! and can be evaluated for any time t. here, we return the 3 angles as well
-    ! as their time derivatives
-    call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
-    Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
-    Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
-  endif
-end subroutine FlappingMotion_left
+  select case ( part_name )
+  case ("left")  
+    if (Insect%wing_fsi == "yes") then
+      !**********************************
+      !** Wing fsi model               **
+      !**********************************
+      ! the angles that we return here as postprocessing quantities for better
+      ! interpretation of the output. they are NOT used to compute the wing rotation
+      ! matrix, which is instead computed from the wing quaternion
+      ep = Insect%STATE(14:17)
+      Insect%phi_l   = atan2( 2.d0*ep(2)*ep(3)+2.d0*ep(0)*ep(1), ep(2)**2-ep(3)**2+ep(0)**2-ep(1)**2)
+      Insect%alpha_l = atan2(2.d0*ep(1)*ep(3)+2.d0*ep(0)*ep(2) , ep(1)**2+ep(0)**2-ep(3)**2-ep(2)**2 )
+      Insect%theta_l = -asin(2.d0*(ep(1)*ep(2)-ep(0)*ep(3)))
+      ! the time derivatives are not necessary and set to zero (the angular velocity
+      ! is computed dynamically from the eqns of motion)
+      Insect%phi_dt_l = 0.d0
+      Insect%alpha_dt_l = 0.d0
+      Insect%theta_dt_l = 0.d0
+    else
+      ! conventional model: all angles are prescribed (by fourier/hermite or others)
+      ! and can be evaluated for any time t. here, we return the 3 angles as well
+      ! as their time derivatives
+      call FlappingMotion ( time, Insect, Insect%FlappingMotion_left, &
+      Insect%phi_l, Insect%alpha_l, Insect%theta_l, Insect%phi_dt_l,&
+      Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
+    endif
 
+  case ("right")
+      call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
+      Insect%phi_r, Insect%alpha_r, Insect%theta_r, Insect%phi_dt_r, &
+      Insect%alpha_dt_r, Insect%theta_dt_r, Insect%kine_wing_r )
 
-!-------------------------------------------------------------------------------
-! WARPPER Motion protocoll wrapper right wing
-!-------------------------------------------------------------------------------
-subroutine FlappingMotion_right ( time, Insect )
-  implicit none
+  case ("left2")  
+      call FlappingMotion ( time, Insect, Insect%FlappingMotion_left2, &
+      Insect%phi_l2, Insect%alpha_l2, Insect%theta_l2, Insect%phi_dt_l2,&
+      Insect%alpha_dt_l2, Insect%theta_dt_l2, Insect%kine_wing_l2 )
 
-  real(kind=rk), intent(in) :: time
-  type(diptera) :: Insect
+  case ("right2")
+      call FlappingMotion ( time, Insect, Insect%FlappingMotion_right2, &
+      Insect%phi_r2, Insect%alpha_r2, Insect%theta_r2, Insect%phi_dt_r2, &
+      Insect%alpha_dt_r2, Insect%theta_dt_r2, Insect%kine_wing_r2 )
 
-  call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
-  Insect%phi_r, Insect%alpha_r, Insect%theta_r, Insect%phi_dt_r, &
-  Insect%alpha_dt_r, Insect%theta_dt_r, Insect%kine_wing_r )
-end subroutine FlappingMotion_right
+  case default
+    call abort(77744, "not a valid wing identifier")
+  end select
 
+end subroutine FlappingMotionWrap
 
 
 !-------------------------------------------------------------------------------

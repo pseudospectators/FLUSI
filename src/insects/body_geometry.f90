@@ -359,7 +359,7 @@ subroutine draw_body_paratuposa_simple( xx0, ddx, mask, mask_color, us, Insect)
     integer(kind=2),intent(inout) :: mask_color(0:,0:,0:)
 
     integer :: ix,iy,iz,j
-    real(kind=rk) :: x,y,z,s,a_body,R,R0,R_tmp
+    real(kind=rk) :: x,y,z,s,a_body,bodylen,R,R0,R_tmp
     real(kind=rk) :: x_glob(1:3),x_body(1:3),x_head(1:3),xa(1:3),xb(1:3)
     real(kind=rk) :: rbc,thbc1,thbc2,x0bc,z0bc,xcs,zcs
     real(kind=rk) :: xx_head,zz_head,dx_head,dz_head,a_head
@@ -368,6 +368,9 @@ subroutine draw_body_paratuposa_simple( xx0, ddx, mask, mask_color, us, Insect)
     xmin_bbox,xmax_bbox,ymin_bbox,ymax_bbox,zmin_bbox,zmax_bbox
     real(kind=rk)   :: M_body(1:3,1:3)
     integer(kind=2) :: color_body
+
+    ! Body length relative to the wing length
+    bodylen = 0.84d0
 
     color_body = Insect%color_body
     M_body     = Insect%M_body
@@ -385,9 +388,9 @@ subroutine draw_body_paratuposa_simple( xx0, ddx, mask, mask_color, us, Insect)
                 ! ------------------------------------
                 ! approximation to mesh
                 ! ------------------------------------
-                x = x_body(1)
-                y = x_body(2)
-                z = x_body(3)
+                x = x_body(1)/bodylen
+                y = x_body(2)/bodylen
+                z = x_body(3)/bodylen
 
                 ! symmetry plane is xz
                 ! +x direction is forward
