@@ -1,16 +1,16 @@
 !-------------------------------------------------------------------------------
 ! WRAPPER Motion protocol wrapper
 !-------------------------------------------------------------------------------
-subroutine FlappingMotionWrap ( time, Insect, part_name )
+subroutine FlappingMotionWrap ( time, Insect, idw )
   implicit none
 
   real(kind=rk),intent(in) :: time
   real(kind=rk),dimension(0:3)::ep
   type(diptera) :: Insect
-  character (len=*), intent(in) :: part_name
+  integer(kind=2), intent(in) :: idw
 
-  select case ( part_name )
-  case ("left")  
+  select case ( idw )
+  case (1) !("left")  
     if (Insect%wing_fsi == "yes") then
       !**********************************
       !** Wing fsi model               **
@@ -36,17 +36,17 @@ subroutine FlappingMotionWrap ( time, Insect, part_name )
       Insect%alpha_dt_l, Insect%theta_dt_l, Insect%kine_wing_l )
     endif
 
-  case ("right")
+  case (2) !("right")
       call FlappingMotion ( time, Insect, Insect%FlappingMotion_right, &
       Insect%phi_r, Insect%alpha_r, Insect%theta_r, Insect%phi_dt_r, &
       Insect%alpha_dt_r, Insect%theta_dt_r, Insect%kine_wing_r )
 
-  case ("left2")  
+  case (3) !("left2")  
       call FlappingMotion ( time, Insect, Insect%FlappingMotion_left2, &
       Insect%phi_l2, Insect%alpha_l2, Insect%theta_l2, Insect%phi_dt_l2,&
       Insect%alpha_dt_l2, Insect%theta_dt_l2, Insect%kine_wing_l2 )
 
-  case ("right2")
+  case (4) !("right2")
       call FlappingMotion ( time, Insect, Insect%FlappingMotion_right2, &
       Insect%phi_r2, Insect%alpha_r2, Insect%theta_r2, Insect%phi_dt_r2, &
       Insect%alpha_dt_r2, Insect%theta_dt_r2, Insect%kine_wing_r2 )

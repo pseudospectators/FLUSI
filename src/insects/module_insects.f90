@@ -183,19 +183,19 @@ module module_insects
     ! R = a0/2 + SUM ( ai cos(2pi*i) + bi sin(2pi*i)  )
     ! to avoid compatibility issues, the array is of fixed size, although only
     ! the first nftt_wings entries will be used
-    real(kind=rk), dimension(1:nfft_max) :: ai_wings=0.d0, bi_wings=0.d0
-    real(kind=rk) :: a0_wings=0.d0
+    real(kind=rk), dimension(1:nfft_max,1:4) :: ai_wings=0.d0, bi_wings=0.d0
+    real(kind=rk), dimension(1:4) :: a0_wings=0.d0
     ! fill the R0(theta) array once, then only table-lookup instead of Fseries
-    real(kind=rk), dimension(1:25000) :: R0_table=0.d0
+    real(kind=rk), dimension(1:25000,1:4) :: R0_table=0.d0
     ! describes the origin of the wings system
-    real(kind=rk) :: xc=0.d0,yc=0.d0
+    real(kind=rk), dimension(1:4) :: xc=0.d0, yc=0.d0
     ! number of fft coefficients for wing geometry
-    integer :: nfft_wings=0
-    logical :: wingsetup_done = .false.
-    logical :: wings_radius_table_ready = .false.
+    integer, dimension(1:4) :: nfft_wings=0
+    logical, dimension(1:4) :: wingsetup_done = .false.
+    logical, dimension(1:4) :: wings_radius_table_ready = .false.
     ! wing bounding box (xmin, xmax, ymin, ymax, zmin, zmax)
-    real(kind=rk) :: wing_bounding_box(1:6) = 0.d0
-    ! wing inertia
+    real(kind=rk) :: wing_bounding_box(1:6,1:4) = 0.d0
+    ! wing inertia (TODO: adapt for 4 wings)
     real(kind=rk) :: Jxx=0.d0,Jyy=0.d0,Jzz=0.d0,Jxy=0.d0
     character(len=strlen) :: wing_thickness_distribution = "constant"
     character(len=strlen) :: pointcloudfile = "none"
@@ -221,11 +221,12 @@ module module_insects
     !-------------------------------------------------------------
     ! parameters that control shape of wings, body, and motion
     !-------------------------------------------------------------
-    character(len=strlen) :: WingShape="", BodyType="", BodyMotion="", HasDetails=""
+    character(len=strlen) :: WingShape(1:4)=["","","",""] ! left, right, 2nd left, 2nd right
+    character(len=strlen) :: BodyType="", BodyMotion="", HasDetails=""
     character(len=strlen) :: FlappingMotion_right="", FlappingMotion_left=""
     character(len=strlen) :: FlappingMotion_right2="", FlappingMotion_left2=""
     character(len=strlen) :: infile="", LeftWing="", RightWing=""
-    character(len=strlen) :: LeftWing2="", RightWing2=""
+    character(len=strlen) :: infile2="", LeftWing2="", RightWing2=""
     ! parameters for body:
     real(kind=rk) :: L_body=0.d0, b_body=0.d0, R_head=0.d0, R_eye=0.d0
     ! parameters for wing shape:
@@ -303,16 +304,21 @@ contains
       type(diptera),intent(inout) :: Insect
 
       logical, save :: first_call = .true.
+      integer(kind=2) :: idw
 
       !-----------------------------------------------------------------------------
       ! fetch current motion state
       !-----------------------------------------------------------------------------
       call BodyMotion (time, Insect)
-      call FlappingMotionWrap (time, Insect, "right")
-      call FlappingMotionWrap (time, Insect, "left")
+      idw = 1
+      call FlappingMotionWrap (time, Insect, idw)
+      idw = 2
+      call FlappingMotionWrap (time, Insect, idw)
       if (Insect%second_wing_pair) then
-        call FlappingMotionWrap (time, Insect, "right2")
-        call FlappingMotionWrap (time, Insect, "left2")
+        idw = 3
+        call FlappingMotionWrap (time, Insect, idw)
+        idw = 4
+        call FlappingMotionWrap (time, Insect, idw)
       endif
       call StrokePlane (time, Insect)
 
@@ -326,7 +332,7 @@ contains
           call wing_right2_rotation_matrix( Insect, Insect%M_wing_r2 )
           call wing_left2_rotation_matrix( Insect, Insect%M_wing_l2 )    
       endif
- 
+
       ! inverse of the body rotation matrices
       Insect%M_body_inv = transpose(Insect%M_body)
 
@@ -350,7 +356,7 @@ contains
 
       if (first_call) then
           ! print some important numbers, routine exectuted only once during a simulation
-          call print_insect_reynolds_numbers( Insect )
+      !    call print_insect_reynolds_numbers( Insect ) ! ERROR: this can only be called after wing shape initialization
           first_call = .false.
       endif
 
@@ -924,6 +930,7 @@ contains
     real(kind=rk) :: M_wing_r2(1:3,1:3), M_wing_l2(1:3,1:3)
     type(diptera) :: Insect2
     real(kind=rk) :: dt,t
+    integer(kind=2) :: idw
 
     dt = 1.0d-8
     Insect2 = Insect
@@ -933,11 +940,15 @@ contains
 
     ! fetch motion state at time+dt
     call BodyMotion (time+dt, Insect2)
-    call FlappingMotionWrap(time+dt, Insect2, "right")
-    call FlappingMotionWrap(time+dt, Insect2, "left")
+    idw = 1
+    call FlappingMotionWrap(time+dt, Insect2, idw)
+    idw = 2
+    call FlappingMotionWrap(time+dt, Insect2, idw)
     if (Insect%second_wing_pair) then
-      call FlappingMotionWrap(time+dt, Insect2, "right2")
-      call FlappingMotionWrap(time+dt, Insect2, "left2")
+      idw = 3
+      call FlappingMotionWrap(time+dt, Insect2, idw)
+      idw = 4
+      call FlappingMotionWrap(time+dt, Insect2, idw)
     endif
     call StrokePlane (time+dt, Insect2)
     call body_rotation_matrix( Insect2, M_body )
@@ -1194,11 +1205,12 @@ contains
   subroutine  print_insect_reynolds_numbers( Insect )
     implicit none
     type(diptera),intent(inout) :: Insect
-    type(diptera) :: Insect_copy
+    !type(diptera) :: Insect_copy ! commented out due to segmentation problems
     real(kind=rk) :: area, Re_f, Re
     real(kind=rk) :: time, dt
     real(kind=rk) :: phil_min, phil_max, phir_min, phir_max
     logical, save :: first_call = .true.
+    integer(kind=2) :: idw
 
     ! the second call is just a return statement
     if ( first_call .eqv. .false.) return
@@ -1206,7 +1218,8 @@ contains
     ! only root does this...
     if (root) then
       ! we need the wing area to compute the mean wing chord
-      call compute_wing_surface(Insect, area)
+      idw = 1 ! use the left wing area (idw=1)
+      call compute_wing_surface(Insect, idw, area) 
       write(*,'(50("~"))')
       write(*,'("Wing area is A=",g15.8)') area
       write(*,'("Mean chord length is c_m=",g15.8)') area/1.d0 ! note c_m = A/R but R=1
@@ -1216,7 +1229,7 @@ contains
         ! both wings). for safety, we make a copy of the insect, since the routines
         ! for the flapping motion write to this object, and we want to prevent any
         ! unwanted side effects
-        Insect_copy = Insect
+        !Insect_copy = Insect ! save the insect state
         time = 0.d0
         dt = 1.0d-3
         phil_min = 0.d0
@@ -1225,12 +1238,16 @@ contains
         phir_max = 0.d0
         ! we use only one stroke ( the first one )
         do while (time < 1.d0)
-          call FlappingMotionWrap ( time, Insect_copy, "left" )
-          call FlappingMotionWrap ( time, Insect_copy, "right" )
-          phil_min = min( phil_min, Insect_copy%phi_l )
-          phil_max = max( phil_max, Insect_copy%phi_l )
-          phir_min = min( phir_min, Insect_copy%phi_r )
-          phir_max = max( phir_max, Insect_copy%phi_r )
+          idw = 1
+          call FlappingMotionWrap ( time, Insect, idw )
+!!          call FlappingMotionWrap ( time, Insect_copy, idw )
+          idw = 2
+          call FlappingMotionWrap ( time, Insect, idw )
+!!          call FlappingMotionWrap ( time, Insect_copy, idw )
+          phil_min = min( phil_min, Insect%phi_l )
+          phil_max = max( phil_max, Insect%phi_l )
+          phir_min = min( phir_min, Insect%phi_r )
+          phir_max = max( phir_max, Insect%phi_r )
           time = time + dt
         end do
         write(*,'("All following quantities are based on the first stroke 0.0 <= t <= 1.0")')

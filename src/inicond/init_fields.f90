@@ -56,6 +56,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
         ! on the backup resuming, which we do here.
         call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
     else
+
         call insect_init(time, infile, Insect, .true., &
         inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu, dx, periodic=periodic)
     endif

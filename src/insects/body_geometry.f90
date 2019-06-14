@@ -627,6 +627,8 @@ subroutine draw_body_jerry( xx0, ddx, mask, mask_color, us, Insect)
     Insect%R_eye = 0.0625d0
     Insect%x_pivot_r_b =(/ 0.05d0, -0.2165d0, 0.d0 /)
     Insect%x_pivot_l_b =(/ 0.05d0, +0.2165d0, 0.d0 /)
+    Insect%x_pivot_r2_b =(/ 0.d0, -0.d0, 0.d0 /)
+    Insect%x_pivot_l2_b =(/ 0.d0, +0.d0, 0.d0 /)
     Insect%b_body = 0.1d0
     Insect%L_body = 1.0d0
     Insect%x_head = (/0.5d0*Insect%L_body,0.d0,0.d0 /)
