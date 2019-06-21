@@ -880,7 +880,7 @@ end function
 
 
 !---------------------------------------------------------------------------
-! compute wing surface for Fourier wings
+! compute wing surface area for Fourier wings
 !---------------------------------------------------------------------------
 ! from the Fourier series, we can directly compute the wing Area (surface)
 ! the aera is the double integral A = \int(0,2pi) \int(0,R(theta)) r dr dtheta
@@ -1419,6 +1419,7 @@ subroutine Setup_Wing_from_inifile( Insect, idw, fname )
   character(len=strlen) :: type_str
   integer :: a,b
   integer(kind=2), intent(in) :: idw ! wing id number
+  real(kind=rk) :: init_thickness
 
   if (root) then
     write(*,'(80("-"))')
@@ -1474,7 +1475,12 @@ subroutine Setup_Wing_from_inifile( Insect, idw, fname )
   if ( Insect%wing_thickness_distribution == "constant") then
       if (root) write(*,*) "Wing thickness is constant along the wing"
       ! wing thickness (NOTE: overwrites settings in other params file)
-      call read_param_mpi(ifile,"Wing","wing_thickness_value",Insect%WingThickness, 0.05d0)
+      if ( (Insect%WingThickness>0.0d0) .and. (Insect%WingThickness<1.0d0) ) then
+         init_thickness = Insect%WingThickness ! Use existing value if it is reasonable
+      else
+         init_thickness = 0.05d0 ! This is the defauls value otherwise, because we may not know dx here
+      endif
+      call read_param_mpi(ifile,"Wing","wing_thickness_value",Insect%WingThickness, init_thickness) 
 
   elseif ( Insect%wing_thickness_distribution == "variable") then
       if (root) write(*,*) "Wing thickness is variable, i.e. t = t(x,y)"
