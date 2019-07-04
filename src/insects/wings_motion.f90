@@ -272,9 +272,9 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     ! revolving wing kinematics. Similar to "revolving-set1", but phi(0)=0
     ttau = 0.4
     ! position angle (is directly given in radian)
-    ! we use PHI_DOT = 1 as normalization as well (since we have no frequency in this case)
-    phi = 1.d0*( ttau*dexp(-time/ttau) - ttau + time)
-    phi_dt = 1.d0*(1.d0-dexp(-time/ttau))
+    ! we use PHI_DOT = 2*pi as normalization
+    phi = 2.d0*pi*( ttau*dexp(-time/ttau) - ttau + time)
+    phi_dt = 2.d0*pi*(1.d0-dexp(-time/ttau))
     ! feathering angle is constant
     alpha = deg2rad(-45.d0)
     alpha_dt = 0.d0
@@ -286,9 +286,9 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     ! revolving wing kinematics. Opposite direction to "revolving-anticlock"
     ttau = 0.4
     ! position angle (is directly given in radian)
-    ! we use PHI_DOT = 1 as normalization as well (since we have no frequency in this case)
-    phi = -1.d0*( ttau*dexp(-time/ttau) - ttau + time)
-    phi_dt = -1.d0*(1.d0-dexp(-time/ttau))
+    ! we use PHI_DOT = 2*pi as normalization
+    phi = -2.d0*pi*( ttau*dexp(-time/ttau) - ttau + time)
+    phi_dt = -2.d0*pi*(1.d0-dexp(-time/ttau))
     ! feathering angle is constant
     alpha = deg2rad(45.d0)
     alpha_dt = 0.d0
