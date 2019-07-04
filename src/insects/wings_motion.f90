@@ -203,7 +203,7 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
       phi_dt = deg2rad(phi_dt)
       alpha_dt = deg2rad(alpha_dt)
       theta_dt = deg2rad(theta_dt)
-    case ("radiant","RADIANT","Radiant")
+    case ("radian","RADIAN","Radian","radiant","RADIANT","Radiant")
       ! if the file is already in radiants, do nothing and be happy!
     case default
       call abort(1718,"kinematics file does not appear to be valid, set units=degree or units=radiant")
@@ -255,14 +255,42 @@ subroutine FlappingMotion(time, Insect, protocoll, phi, alpha, theta, phi_dt, &
     ! revolving wing kinematics, pre-defined set. We fix alpha to 45deg and increase
     ! phi linearily with a short startup conditioner as suggested in [1]. The startup
     ! time is fixed to 0.4, which gives phi=31.35deg at the end of that interval
-    ! [3] D. Kolomenskiy, Y. Elimelech and K. Schneider. Leading-edge vortex shedding from rotating wings. Fluid Dyn. Res., 46, 031421, 2014.
+    ! [1] D. Kolomenskiy, Y. Elimelech and K. Schneider. Leading-edge vortex shedding from rotating wings. Fluid Dyn. Res., 46, 031421, 2014.
     ttau = 0.4
-    ! position angle (is directly given in radiant)
+    ! position angle (is directly given in radian)
     ! we use PHI_DOT = 1 as normalization as well (since we have no frequency in this case)
     phi = 1.d0*( ttau*dexp(-time/ttau) + time)
     phi_dt = 1.d0*(1.d0-dexp(-time/ttau))
     ! feathering angle is constant
     alpha = deg2rad(-45.d0)
+    alpha_dt = 0.d0
+    ! elevation angle is always zero
+    theta = 0.d0
+    theta_dt = 0.d0
+
+  case ("revolving-anticlock")
+    ! revolving wing kinematics. Similar to "revolving-set1", but phi(0)=0
+    ttau = 0.4
+    ! position angle (is directly given in radian)
+    ! we use PHI_DOT = 1 as normalization as well (since we have no frequency in this case)
+    phi = 1.d0*( ttau*dexp(-time/ttau) - ttau + time)
+    phi_dt = 1.d0*(1.d0-dexp(-time/ttau))
+    ! feathering angle is constant
+    alpha = deg2rad(-45.d0)
+    alpha_dt = 0.d0
+    ! elevation angle is always zero
+    theta = 0.d0
+    theta_dt = 0.d0
+
+  case ("revolving-clock")
+    ! revolving wing kinematics. Opposite direction to "revolving-anticlock"
+    ttau = 0.4
+    ! position angle (is directly given in radian)
+    ! we use PHI_DOT = 1 as normalization as well (since we have no frequency in this case)
+    phi = -1.d0*( ttau*dexp(-time/ttau) - ttau + time)
+    phi_dt = -1.d0*(1.d0-dexp(-time/ttau))
+    ! feathering angle is constant
+    alpha = deg2rad(45.d0)
     alpha_dt = 0.d0
     ! elevation angle is always zero
     theta = 0.d0
