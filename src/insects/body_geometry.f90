@@ -708,7 +708,7 @@ subroutine draw_body_sphere( xx0, ddx, mask, mask_color, us, Insect)
     M_body     = Insect%M_body
 
     x_head = Insect%xc_body_g
-    call drawsphere( x_head, 0.50d0, xx0, ddx, mask, mask_color, us, Insect, color_body )
+    call drawsphere( x_head, Insect%L_body/2.d0, xx0, ddx, mask, mask_color, us, Insect, color_body )
 
 end subroutine draw_body_sphere
 
