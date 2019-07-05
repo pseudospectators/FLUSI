@@ -129,6 +129,7 @@ module vars
 
   ! Boundary conditions:
   character(len=strlen),save :: iMask
+  integer(kind=2),save :: endcolor ! the highest color value used   
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
