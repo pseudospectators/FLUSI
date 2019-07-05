@@ -8,6 +8,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     use flexible_model
     use module_insects
     use basic_operators
+    use particles
     implicit none
 
     integer,intent (inout) :: n1,it,n0
@@ -735,6 +736,27 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         !--------------------------------------------------
         if (mpirank==0) write (*,*) "*** inicond: fluid at rest"
         uk=dcmplx(0.0d0,0.0d0)
+
+    case("orszag")
+     vort=0.d0
+     !vel=0.d0
+      do ix=ra(1),rb(1)
+         do iy=ra(2),rb(2)
+            do iz=ra(3),rb(3)
+               x=dble(ix)*xl/dble(nx)
+               y=dble(iy)*yl/dble(ny)
+               z=dble(iz)*zl/dble(nz) 
+               !vort(ix,iy,iz,1)= 2*dcos(y)*dcos(z)! vorticit            
+               vort(ix,iy,iz,2)=  -dcos(y)*dsin(z) ! vely
+               vort(ix,iy,iz,3)=   dsin(y)*dcos(z) ! velz
+            enddo
+         enddo
+      enddo
+
+      ! transform everything to fourier space
+      call fft3( inx=vort(:,:,:,1:3),outk=uk(:,:,:,1:3) )
+
+
 
     case default
         if(inicond(1:8) == "backup::") then
