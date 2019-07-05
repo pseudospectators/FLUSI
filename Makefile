@@ -12,6 +12,12 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
 	noncircular_cylinder.f90 draw_flexible_plate.f90 \
 	runtime_backuping.f90 io_test.f90 POD.f90 post_force.f90
+#-------------------- Benjamin ADD ---------------
+#FFILES += lagrangian.f90 lagrangian_migration.f90 params_lagrangian.f90 \
+#         init_lagrangian.f90 lagrangian_backup.f90 lagrangian_acc.f90
+#FFILES += test_mpi.f90
+#FFILES += lagrangian_migration.f90 init_lagrangian.f90
+#-------------------------------------------------
 
 ifndef NOHDF5
 # Case WITH HDF5 (all machines except earth simulator)
@@ -44,7 +50,9 @@ MFILES = vars.f90 module_helpers.f90 cof_p3dfft.f90 solid_solver.f90 flexible_so
 	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
 	ini_files_parser_mpi.f90 wavelet_library.f90 module_insects_integration_flusi_wabbit.f90 \
 	krylov_time_stepper.f90 module_timing.f90
-
+#-------------------- Benjamin ADD ---------------
+MFILES += particles.f90 qsort.f90
+#-------------------------------------------------
 ifndef NOHDF5
 MFILES += hdf5_wrapper.f90 slicing.f90 stlreader.f90
 else
@@ -61,6 +69,7 @@ VPATH += :src/inicond:src/inicond/hyd:src/inicond/mhd:src/inicond/scalar
 VPATH += :src/geometry:src/geometry/hyd:src/geometry/mhd:src/wavelets
 VPATH += :src/insects:src/solid_solver:src/postprocessing:src/file_io
 VPATH += :src/flexible_solver
+VPATH += :src/particles
 
 # Set the default compiler if it's not already set, make sure it's not F77.
 ifndef FC
@@ -247,8 +256,10 @@ $(OBJDIR)/hdf5_wrapper.o: hdf5_wrapper.f90 $(OBJDIR)/vars.o $(OBJDIR)/module_hel
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/passive_scalar.o: passive_scalar.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/ghostpoints.o $(OBJDIR)/module_helpers.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o $(OBJDIR)/module_insects.o $(OBJDIR)/solid_solver.o
+# Benjamin Modification ....
+$(OBJDIR)/params.o: params.f90 $(OBJDIR)/vars.o $(OBJDIR)/ini_files_parser.o $(OBJDIR)/module_insects.o $(OBJDIR)/solid_solver.o $(OBJDIR)/particles.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+# ....
 $(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o $(OBJDIR)/solid_solver.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o $(OBJDIR)/runtime_backuping.o
@@ -258,6 +269,18 @@ $(OBJDIR)/krylov_time_stepper.o: krylov_time_stepper.f90 $(OBJDIR)/vars.o $(OBJD
 $(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o coherent_vortex_extraction.f90 FWT3_PO.f90 \
 	IWT3_PO.f90
 	$(FC) -Isrc/wavelets/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+
+#-------------------- Benjamin ADD ------------------------------------------------------------------------------------------
+$(OBJDIR)/qsort.o: qsort.f90 $(OBJDIR)/vars.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/particles.o: particles.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/interpolation.o  $(OBJDIR)/qsort.o $(OBJDIR)/module_insects.o\
+    init_lagrangian.f90 lagrangian_acc.f90 lagrangian_backup.f90 lagrangian_migration.f90 params_lagrangian.f90 lagrangian.f90
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+#$(OBJDIR)/particles.o: particles.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o $(OBJDIR)/interpolation.o  $(OBJDIR)/qsort.o $(OBJDIR)/module_insects.o\
+#    lagrangian_acc.f90 lagrangian_backup.f90 params_lagrangian.f90 lagrangian.f90
+#	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+#----------------------------------------------------------------------------------------------------------------------------
+
 
 # Compile remaining objects from Fortran files.
 $(OBJDIR)/%.o: %.f90 $(MOBJS)
