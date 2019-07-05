@@ -7,6 +7,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   use flexible_model
   use module_insects
   use slicing
+  use particles
 
   implicit none
 
@@ -16,7 +17,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   ! runtime_backup1,2 - no backup
   integer :: it_start
   real(kind=pr),intent(inout) :: time,dt0,dt1
-  real(kind=pr) :: t1,t2,t3,t4
+  real(kind=pr) :: t1,t2,t3,t4,t5
   character(len=strlen)  :: command ! for runtime control
   character(len=strlen),intent(in)  :: params_file ! for runtime control
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -35,6 +36,15 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   logical :: continue_timestepping
+
+  ! Lagrangian part ----------------------------------------------
+  integer :: npart_loc=1, npos
+  integer :: it_lagr=0  ! counter for saving Particles file  
+  real(kind=pr), dimension(:,:), allocatable :: fpart    
+  integer :: fip
+  integer(8):: sizerec  
+  character(len=17) :: filename
+  ! ---------------------------------------------------------------
   t1 = MPI_wtime()
 
   ! first backup is in "truntime" hours
@@ -49,6 +59,28 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     call write_integrals(time,uk,u,vort,nlk(:,:,:,:,n0),work,scalars,Insect,beams,Wings)
   endif
 
+  ! -----------------------------------------------------------------------
+  ! Initialize particles part and open saving files --> Benjamin June 2019
+  if (use_lagrangian==1) then
+     if (nx==1) then
+        npos=2
+     else
+       npos=3
+     endif
+     n_lagr=1+npos+n_interp
+     if (mpirank==0) print*,'n_lagr=',n_lagr
+     allocate(fpart(npart_proc,n_lagr))
+     call init_lagrangian(fpart,npart_loc)
+     fip=111111
+     sizerec=16*(n_lagr+1)  
+     write(filename,'("PARTICLE_proc_",i3.3)') mpirank
+     OPEN(unit=fip+mpirank,file=filename,action="write",status="replace",form="unformatted",convert='LITTLE_ENDIAN')
+     
+     write(filename,'("NPART_proc_",i3.3)') mpirank      
+     OPEN(unit=fip*10+mpirank,file=filename,action="write",status="replace",form="formatted",convert='LITTLE_ENDIAN')   
+      
+  endif
+  ! -----------------------------------------------------------------------
 
   !-----------------------------------------------------------------------------
   ! Loop over time steps
@@ -73,6 +105,15 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! Advance in time so that uk contains the evolved field at time 'time+dt1'
     time = time + dt1
     it = it + 1
+
+     !---------------------------------------------------------------------------
+     ! Lagrangian part --> Benjamin June 2019  
+     if (use_lagrangian==1) then
+         t3=MPI_wtime()
+         call lagrangian(it,time,dt1,uk,u,fpart,npart_loc,it_lagr)         
+         !time_lagr=time_lagr + MPI_wtime() - t3
+     endif
+    !---------------------------------------------------------------------------
 
     !---------------------------------------------------------------------------
     ! Output of INTEGRALS after every tintegral time units or itdrag time steps
@@ -111,6 +152,11 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     if (idobackup==1 .and. truntimenext<(MPI_wtime()-time_total)/3600.d0) then
       call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
       work(:,:,:,1),scalars,scalars_rhs,Insect,beams,wings)
+
+      ! Lagrangian Backup --> Benjamin June 2019
+      if (use_lagrangian==1) then           
+         call save_lagrangian_backup(time,fpart,npart_loc,nbackup)   
+      endif
       truntimenext = truntimenext+truntime
     endif
 
@@ -174,6 +220,15 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     if(root) write (*,*) "final backup..."
     call dump_runtime_backup(time,dt0,dt1,n1,it,nbackup,uk,nlk,&
     work(:,:,:,1),scalars,scalars_rhs,Insect,beams,wings)
+
+    ! Lagrangian Backup --> Benjamin June 2019
+    if (use_lagrangian==1) then
+       CLOSE(fip)    
+       CLOSE(fip+mpirank)    
+       CLOSE(fip*10+mpirank)  
+         
+       call save_lagrangian_backup(time,fpart,npart_loc,nbackup)
+    endif 
   endif
 
   if(root) write(*,'("Done time stepping; did nt=",i7," steps")') it-it_start
@@ -219,7 +274,7 @@ subroutine are_we_there_yet(time, wtime_tstart, dt1)
     time_left = (tmax-time) * ( t2 / (time-tstart) )
 
     ! print information
-    write(*,'("time left: ",i2,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f4.1,"h dt=",es10.2,"s t=",g10.2)') &
+    write(*,'("time left: ",i2,"d ",i2,"h ",i2,"m ",i2,"s wtime=",f6.3,"h dt=",es10.2,"s t=",g10.4)') &
     floor(time_left/(24.d0*3600.d0))   ,&
     floor(mod(time_left,24.d0*3600.d0)/3600.d0),&
     floor(mod(time_left,3600.d0)/60.d0),&

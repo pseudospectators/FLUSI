@@ -51,6 +51,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalar
   use flexible_model
   use module_insects
   use penalization ! mask array etc
+  use particles
   implicit none
 
   real(kind=pr),intent(in) :: time
@@ -71,6 +72,8 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalar
   type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
+
+  real(kind=pr) :: acc(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
   ! set up base name for files. we can use either the physical time or the time step
   ! for this. If we use the time, and we have save_only_one_period == "yes", then
@@ -229,6 +232,16 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalar
       endif
     endif
   endif
+
+  !-------------------------
+  ! Lagrangian Acceleration
+  !-------------------------
+  if(isaveAcc == 1) then
+     call lagrangian_acc_flusi(uk,u,acc)
+     call save_field_hdf5(time,"alagx_"//name,acc(:,:,:,1))     
+     call save_field_hdf5(time,"alagy_"//name,acc(:,:,:,2))
+     call save_field_hdf5(time,"alagz_"//name,acc(:,:,:,3))   
+  endif 
 
   if (root) then
     write(*,*) " ...done saving!"

@@ -150,10 +150,19 @@ real(kind=pr) function trilinear_interp(x0, dx, field, x_target, periodic)
 
   if (periodic) then
     ! *** periodic case ***
+    if (size(field,1)<=1) then
+       ! linear interpolation for 2d simulations
+       ! Modif Benjamin June 2019
+       ix  = 0
+       ix1 = 0
+       xd=0.d0
+    endif
+    
     if ( (ix>=lbounds(1)).and.(ix<=ubounds(1)) ) then
       if ( (iy>=lbounds(2)).and.(iy<=ubounds(2)) ) then
         if ( (iz>=lbounds(3)).and.(iz<=ubounds(3)) ) then
-          ix1 = ix+1
+ 
+          !ix1 = ix+1
           iy1 = iy+1
           iz1 = iz+1
 
@@ -177,31 +186,61 @@ real(kind=pr) function trilinear_interp(x0, dx, field, x_target, periodic)
     endif
   else
     ! *** non-periodic case ***
-    if ( (ix>=lbounds(1)).and.(ix<ubounds(1)) ) then
-      if ( (iy>=lbounds(2)).and.(iy<ubounds(2)) ) then
-        if ( (iz>=lbounds(3)).and.(iz<ubounds(3)) ) then
-          ix1 = ix+1
-          iy1 = iy+1
-          iz1 = iz+1
 
-          c00 = field(ix,iy  ,iz )*(1.d0-xd)+field(ix1 ,iy  ,iz )*xd
-          c10 = field(ix,iy1 ,iz )*(1.d0-xd)+field(ix1 ,iy1 ,iz )*xd
-          c01 = field(ix,iy  ,iz1)*(1.d0-xd)+field(ix1 ,iy  ,iz1)*xd
-          c11 = field(ix,iy1 ,iz1)*(1.d0-xd)+field(ix1 ,iy1 ,iz1)*xd
+    if (size(field,1)<=1) then
+       ! linear interpolation for 2d simulations
+       ! Modif Benjamin June 2019
+       ix  = 0
+  
+       if ( (iy>=lbounds(2)).and.(iy<ubounds(2)) ) then
+          if ( (iz>=lbounds(3)).and.(iz<ubounds(3)) ) then
 
-          c0 = c00*(1.d0-yd) + c10*yd
-          c1 = c01*(1.d0-yd) + c11*yd
+              iy1 = iy+1
+              iz1 = iz+1
 
-          trilinear_interp = c0*(1.d0-zd)+c1*zd
-        endif
-      endif
-    endif
-  endif
+              c00 = field(ix,iy  ,iz )
+              c10 = field(ix,iy1 ,iz )
+              c01 = field(ix,iy  ,iz1)
+              c11 = field(ix,iy1 ,iz1)
 
-  ! with periodic it can work, but non-periodic not
-  if (size(field,1)<=1) then
-    call abort(9997111,"linear interpolation for 2d simulations currently not implemented...have fun")
-  end if
+              c0 = c00*(1.d0-yd) + c10*yd
+              c1 = c01*(1.d0-yd) + c11*yd
+
+             trilinear_interp = c0*(1.d0-zd)+c1*zd
+         endif
+       endif
+
+   else
+       ! linear interpolation for 3d simulations
+       if ( (ix>=lbounds(1)).and.(ix<ubounds(1)) ) then
+         if ( (iy>=lbounds(2)).and.(iy<ubounds(2)) ) then
+           if ( (iz>=lbounds(3)).and.(iz<ubounds(3)) ) then
+ 
+             ix1 = ix+1
+             iy1 = iy+1
+             iz1 = iz+1
+
+             c00 = field(ix,iy  ,iz )*(1.d0-xd)+field(ix1 ,iy  ,iz )*xd
+             c10 = field(ix,iy1 ,iz )*(1.d0-xd)+field(ix1 ,iy1 ,iz )*xd
+             c01 = field(ix,iy  ,iz1)*(1.d0-xd)+field(ix1 ,iy  ,iz1)*xd
+             c11 = field(ix,iy1 ,iz1)*(1.d0-xd)+field(ix1 ,iy1 ,iz1)*xd
+
+             c0 = c00*(1.d0-yd) + c10*yd
+             c1 = c01*(1.d0-yd) + c11*yd
+
+             trilinear_interp = c0*(1.d0-zd)+c1*zd
+            endif
+         endif
+       endif
+   endif
+
+endif
+
+! Modif Benjamin June 2019
+! with periodic it can work, but non-periodic not
+!  if (size(field,1)<=1) then
+!    call abort(9997111,"linear interpolation for 2d simulations currently not implemented...have fun")
+!  end if
 end function trilinear_interp
 
 

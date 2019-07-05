@@ -119,6 +119,7 @@ end program FLUSI
     use slicing
     use turbulent_inlet_module
     use penalization ! mask array etc
+    use particles ! using particles
     implicit none
     real(kind=pr)          :: t1,t2
     real(kind=pr)          :: time,dt0,dt1,memory, mem_field
@@ -188,6 +189,16 @@ end program FLUSI
       ! we dont need ghosts when not solving the solid model
       ng=0 ! zero ghost points
     endif
+
+    !-----------------------------------------------------------------------------------
+    ! Benjamin June 2019: RK2 sheme for particles evolution needs the ghost point system
+    ! for interpolating the velocity on the particles position
+    !----------------------------------------------------------------------------------
+    if (use_lagrangian==1) then
+      if (lagr_interp=='linear') ng=1*2 ! two ghost point
+      if (lagr_interp=='delta')  ng=3*2 ! six ghost points
+    endif
+
     ! for new passive scalars (with FD discretization) we do also need ghosts
     if (use_passive_scalar==1) then
       ! no less than 3 ghost points:
@@ -208,10 +219,15 @@ end program FLUSI
     !-----------------------------------------------------------------------------
     ! Initialize FFT (this also defines local array bounds for real and cmplx arrays)
     !-----------------------------------------------------------------------------
+    !call test_mpi() ! Benjamin TEST JUNE 2019
+    
     ! Initialize p3dfft
     call fft_initialize()
+
     ! Setup communicators used for ghost point update
     call setup_cart_groups()
+
+
 
     !-----------------------------------------------------------------------------
     ! Allocate memory:
@@ -377,6 +393,7 @@ end program FLUSI
 
     ! Print domain decomposition
     ! call print_domain_decomposition()
+    call print_domain_decomposition_mpi()
 
     if (use_slicing=="yes") then
       call slice_init(time)
@@ -470,48 +487,15 @@ subroutine initialize_time_series_files()
       "Momentx_unst","Momenty_unst","Momentz_unst",&
       "Aero_Power", "Inert power"
       close (14)
-      if (endcolor==5) then
-          open  (14,file='forces_part4.t',status='replace')
-          write (14,'(15(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
-          "Forcex_unst","Forcey_unst","Forcez_unst",&
-          "Momentx","Momenty","Momentz",&
-          "Momentx_unst","Momenty_unst","Momentz_unst",&
-          "Aero_Power", "Inert power"
-          close (14)
-          open  (14,file='forces_part5.t',status='replace')
-          write (14,'(15(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
-          "Forcex_unst","Forcey_unst","Forcez_unst",&
-          "Momentx","Momenty","Momentz",&
-          "Momentx_unst","Momenty_unst","Momentz_unst",&
-          "Aero_Power", "Inert power"
-          close (14)
-      endif
       open  (14,file='kinematics.t',status='replace')
-      if (endcolor==5) then
-        write (14,'(44(A15,1x))') "%          time","xc_body_g","yc_body_g","zc_body_g",&
-        "psi","beta","gamma","eta_stroke",&
-        "alpha_l","phi_l","theta_l",&
-        "alpha_r","phi_r","theta_r",&
-        "rot_l_w_x","rot_l_w_y","rot_l_w_z",&
-        "rot_r_w_x","rot_r_w_y","rot_r_w_z",&
-        "rot_dt_l_w_x","rot_dt_l_w_y","rot_dt_l_w_z",&
-        "rot_dt_r_w_x","rot_dt_r_w_y","rot_dt_r_w_z",&
-        "alpha_l2","phi_l2","theta_l2",&
-        "alpha_r2","phi_r2","theta_r2",&
-        "rot_l2_w_x","rot_l2_w_y","rot_l2_w_z",&
-        "rot_r2_w_x","rot_r2_w_y","rot_r2_w_z",&
-        "rot_dt_l2_w_x","rot_dt_l2_w_y","rot_dt_l2_w_z",&
-        "rot_dt_r2_w_x","rot_dt_r2_w_y","rot_dt_r2_w_z"
-      else
-        write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body_g","zc_body_g",&
-        "psi","beta","gamma","eta_stroke",&
-        "alpha_l","phi_l","theta_l",&
-        "alpha_r","phi_r","theta_r",&
-        "rot_l_w_x","rot_l_w_y","rot_l_w_z",&
-        "rot_r_w_x","rot_r_w_y","rot_r_w_z",&
-        "rot_dt_l_w_x","rot_dt_l_w_y","rot_dt_l_w_z",&
-        "rot_dt_r_w_x","rot_dt_r_w_y","rot_dt_r_w_z"
-      endif
+      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body_g","zc_body_g",&
+      "psi","beta","gamma","eta_stroke",&
+      "alpha_l","phi_l","theta_l",&
+      "alpha_r","phi_r","theta_r",&
+      "rot_l_w_x","rot_l_w_y","rot_l_w_z",&
+      "rot_r_w_x","rot_r_w_y","rot_r_w_z",&
+      "rot_dt_l_w_x","rot_dt_l_w_y","rot_dt_l_w_z",&
+      "rot_dt_r_w_x","rot_dt_r_w_y","rot_dt_r_w_z"
       close (14)
       open  (14,file='muscle.t',status='replace')
       close (14)
@@ -602,3 +586,25 @@ return
     call MPI_barrier (MPI_COMM_world, mpicode)
     close(14)
   end subroutine
+
+subroutine print_domain_decomposition_mpi()
+  use vars
+  use mpi
+  implicit none
+  integer :: mpicode
+  
+  
+  if (root) then
+     write(*,'(A)') '--------------------------------------'
+     write(*,'(A)') '*** Domain decomposition:'
+     write(*,'(A)') '--------------------------------------'
+  endif
+  call MPI_barrier (MPI_COMM_world, mpicode)
+  write (*,'("mpirank=",i5," x-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,&
+       &") k-space=(",i4,":",i4," |",i4,":",i4," |",i4,":",i4,")")') &
+       mpirank, ra(1),rb(1), ra(2),rb(2),ra(3),rb(3), ca(1),cb(1), ca(2),cb(2),ca(3),cb(3)
+  call MPI_barrier (MPI_COMM_world, mpicode)
+  if (root) then
+     write(*,'(A)') '--------------------------------------'
+  endif
+end subroutine 

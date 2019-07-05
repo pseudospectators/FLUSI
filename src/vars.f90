@@ -86,6 +86,7 @@ module vars
 
   ! Parameters to set which files are saved and how often:
   integer,save :: iSaveVelocity,iSaveVorticity,iSavePress,iSaveMask,iSaveMagVorticity
+  integer,save :: iSaveAcc
   integer,save :: iSaveMagneticField,iSaveCurrent,iSaveSolidVelocity
   integer,save :: striding=1,idobackup
   character(len=strlen),save :: backup_type = "one-file-backup"
@@ -127,8 +128,7 @@ module vars
   real(kind=pr),save :: omega1, nu_smoothing
 
   ! Boundary conditions:
-  character(len=strlen),save :: iMask   
-  integer(kind=2),save :: endcolor ! the highest color value used
+  character(len=strlen),save :: iMask
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions

@@ -206,7 +206,27 @@ subroutine fft_initialize
   !-- Set up dimensions. It is very important that mpidims(2) > mpidims(1)
   ! because P3Dfft crashes otherwise. This means a 1D decomposition is always
   ! along the z direction in real space.
-  if (nz>mpisize) then
+  
+  !if (nz>mpisize) then
+  !   mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
+  !   mpidims(2) = mpisize       ! 3rd index in real space.
+  !   decomposition="1D"
+  !else
+  !   mpidims(1) = 0
+  !   mpidims(2) = 0
+  !   call MPI_Dims_create(mpisize,nmpidims,mpidims,mpicode)
+  !   if(mpidims(1) > mpidims(2)) then
+  !      mpidims(1) = mpidims(2)
+  !      mpidims(2) = mpisize / mpidims(1)
+  !   endif
+  !   decomposition="2D"
+  !endif
+
+!!!!!!!!!!!!!!!!!!!! BENJAMIN July 2019!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+! The decompistion has been compatible with ng ghost needed for interpolation in
+! particles evolution
+!
+  if (dble(nz)/dble(mpisize)>1+ng) then
      mpidims(1) = 1             ! due to p3dfft, 1D decomposition is always the
      mpidims(2) = mpisize       ! 3rd index in real space.
      decomposition="1D"
@@ -218,8 +238,15 @@ subroutine fft_initialize
         mpidims(1) = mpidims(2)
         mpidims(2) = mpisize / mpidims(1)
      endif
+
+     if (dble(nz)/dble(mpidims(2))<1+ng)then
+        mpidims(2) = nz/3
+        mpidims(1) = mpisize / mpidims(2)
+     endif
+
      decomposition="2D"
   endif
+!!!!!!!!!!!!!!!!!!!! BENJAMIN !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
   if (root) write(*,'("mpidims= ",i3,1x,i3)') mpidims
   if (root) write(*,'("Using ",A," decomposition!")') trim(adjustl(decomposition))
@@ -227,6 +254,11 @@ subroutine fft_initialize
   !-- Check dimensions
   if(mpidims(1)*mpidims(2)/=mpisize) then
     call abort(33340,"wrong mpidims: change mpisize")
+  endif
+
+ !-- Check dimensions order
+  if(mpidims(1)>mpidims(2)) then
+    call abort(33341,"mpidims(1)>mpidims(2): max mpisize")
   endif
 
   !-- Initialize P3DFFT
@@ -253,7 +285,8 @@ subroutine fft_initialize
     gb(1)=0
   endif
 
-  if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
+  if ( rb(2)-ra(2)+1<(ng+1) .or. rb(3)-ra(3)+1<(ng+1) ) then ! BENJAMIN July 2019
+!  if ( rb(2)-ra(2)+1<2*ng .or. rb(3)-ra(3)+1<2*ng ) then
     if (mpirank==0) write(*,*) "Too many CPUs: the ghosts span more than one CPU"
     if (mpirank==0) write(*,*) "y", rb(2)-ra(2)+1, "z", rb(3)-ra(3)+1
     call abort(33341, "Too many CPUs: the ghosts span more than one CPU")

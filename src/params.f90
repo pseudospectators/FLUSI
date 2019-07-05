@@ -4,6 +4,7 @@ subroutine get_params(paramsfile,Insect,verbose)
   use vars
   use module_ini_files_parser_mpi
   use module_insects
+  use particles
   ! The file we read the PARAMS from
   character(len=strlen),intent(in) :: paramsfile
   ! print a copy of the parameters read or not?
@@ -30,7 +31,9 @@ subroutine get_params(paramsfile,Insect,verbose)
   case default
     call abort(1,"Error! Unknown method in get_params; stopping.")
   end select
-
+ 
+  ! Read vars for lagrangian part --> Benjamin June 2019
+  call get_params_lagrangian(PARAMS)
 
   if (mpirank==0 .and. verbose) then
     write (*,*) "*************************************************"
@@ -170,6 +173,7 @@ subroutine get_params_common(PARAMS)
   call read_param_mpi(PARAMS,"Saving","iSaveVorticity",iSaveVorticity, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveMagVorticity",iSaveMagVorticity, 0)
   call read_param_mpi(PARAMS,"Saving","iSaveMask",iSaveMask, 0)
+  call read_param_mpi(PARAMS,"Saving","iSaveAcc",iSaveAcc, 0)
   call read_param_mpi(PARAMS,"Saving","tsave",tsave, 9.d9)
   call read_param_mpi(PARAMS,"Saving","truntime",truntime, 1.d0)
   call read_param_mpi(PARAMS,"Saving","wtimemax",wtimemax, 8760.d0) ! 1 year
