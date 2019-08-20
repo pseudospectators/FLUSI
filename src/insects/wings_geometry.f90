@@ -317,6 +317,9 @@ subroutine draw_blade_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M
   !-- define the wings fourier coeffients, but do that only once
   call Setup_Wing_Fourier_coefficients(Insect,idw)
 
+  !-- reset the bounding box
+  Insect%wing_bounding_box(1:4,idw) = (/-1.0d0, 1.0d0, 0.0d0, 1.0d0/)
+
   !-- blade length
   rblade = Insect%yc(idw)
 
@@ -387,17 +390,6 @@ subroutine draw_blade_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M
                           if ((mask(ix,iy,iz) < mask_tmp).and.(mask_tmp>0.0)) then
                               mask(ix,iy,iz) = mask_tmp
                               mask_color(ix,iy,iz) = color_wing
-                              !------------------------------------------------
-                              ! solid body rotation
-                              ! Attention: the Matrix transpose(M) brings us back to the body
-                              ! coordinate system, not to the inertial frame. this is done in
-                              ! the main routine Draw_Insect
-                              !------------------------------------------------
-                              v_tmp(1) = rot_rel_wing_w(2)*x_wing(3)-rot_rel_wing_w(3)*x_wing(2)
-                              v_tmp(2) = rot_rel_wing_w(3)*x_wing(1)-rot_rel_wing_w(1)*x_wing(3)
-                              v_tmp(3) = rot_rel_wing_w(1)*x_wing(2)-rot_rel_wing_w(2)*x_wing(1)
-                              ! note we set this only if it is a part of the wing
-                              us(ix,iy,iz,1:3) = matmul(transpose(M_wing), v_tmp)
                           endif
                       endif
                   endif
@@ -975,12 +967,112 @@ subroutine draw_wing_bristled(xx0, ddx, mask, mask_color, us,Insect,color_wing,M
   integer(kind=2),intent(in) :: color_wing
   real(kind=rk),intent(in)::M_body(1:3,1:3),M_wing(1:3,1:3),x_pivot_b(1:3),rot_rel_wing_w(1:3)
 
-  ! Draw the membramous blade using Fourier series
+  integer :: ix,iy,iz,j,nbr
+  integer(kind=2) :: idw
+  real(kind=rk) :: x_body(1:3),x_wing(1:3),x(1:3),xa(1:3),xb(1:3)
+  real(kind=rk) :: s
+  real(kind=rk) :: x_tip(1:48),xbr_root(1:48),ybr_root(1:48),xbr_tip(1:48),ybr_tip(1:48),rbr(1:48)
+  real(kind=rk) :: v_tmp(1:3)
+
+  !-- wing id number: 1 = left, 2 = right, 3 = 2nd left, 4 = 2nd right
+  idw = color_wing-1
+
+  ! Draw the membranous blade using Fourier series
   call draw_blade_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M_body,M_wing,&
        x_pivot_b,rot_rel_wing_w)
     
   ! Draw the bristles
-  ! TODO
+  ! Number of bristles
+  nbr = 48
+  ! Bristle tips
+  ybr_tip = (/0.445714,0.463449,0.49588,0.479234,0.494364,0.556659,0.626631,0.698393,0.760178,0.816677,0.85612, &
+              0.892038,0.930911,0.962722,0.982195,0.989307,0.99465,0.999988,0.995924,0.985978,0.972488,0.954898, &
+              0.936123,0.914396,0.892084,0.871532,0.850387,0.808662,0.769876,0.732849,0.674625,0.617548,0.662877, &
+              0.634677,0.587077,0.504768,0.4436,0.380074,0.311247,0.259466,0.217655,0.197554,0.260187,0.236062, &
+              0.212523,0.188398,0.168389,0.148376/)
+  xbr_tip = (/0.141788,0.06678,0.000581,0.150033,0.288972,0.338283,0.361812,0.363654,0.346142,0.322175,0.295844, &
+              0.265406,0.222661,0.183426,0.13128,0.086153,0.044542,0.00762,-0.038106,-0.084424,-0.117852,-0.165938, &
+              -0.206991,-0.239256,-0.273866,-0.30437,-0.331359,-0.365405,-0.396517,-0.423524,-0.432971,-0.417798, &
+              -0.447639,-0.47698,-0.516895,-0.554507,-0.561026,-0.564031,-0.560595,-0.546588,-0.506778,-0.421221, &
+              -0.159718,-0.153299,-0.14512,-0.138701,-0.130518,-0.11999/)
+  ! Bristle roots
+  ybr_root = (/0.245961,0.275969,0.307151,0.553556,0.572956,0.59412,0.614697,0.634098,0.651735,0.66937,0.682306, &
+               0.694063,0.70347,0.711118,0.711121,0.70701,0.697018,0.687025,0.675857,0.664099,0.651754,0.639998, &
+               0.627068,0.617075,0.604732,0.592388,0.582396,0.568287,0.555942,0.541834,0.528309,0.514787,0.439526, &
+               0.426,0.414239,0.397773,0.384247,0.369543,0.355426,0.338368,0.318955,0.296013,0.271301,0.247763, &
+               0.225406,0.20599,0.190102,0.17539/)
+  xbr_root = (/-0.067707,-0.07412,-0.078773,-0.02397,-0.014569,-0.003993,0.00541,0.014811,0.023624,0.03361,0.038314, &
+               0.04419,0.048304,0.047726,0.045382,0.039515,0.03247,0.026596,0.019549,0.013674,0.007212,0.000164, &
+               -0.00923,-0.01569,-0.02391,-0.031545,-0.038591,-0.045641,-0.052103,-0.060326,-0.063859,-0.070323, &
+               -0.097961,-0.100907,-0.103852,-0.107975,-0.110921,-0.112111,-0.1133,-0.113906,-0.112756,-0.111611, &
+               -0.106364,-0.099358,-0.095867,-0.091787,-0.087116,-0.081858/)
+  ! Bristle radius
+  rbr(:) = 0.00125d0
+
+  ! Loop for all bristles
+  do j = 1,nbr
+    ! transform coordinates to global system. they are defined in the wing system
+    x_wing = (/xbr_root(j),ybr_root(j),0.0d0/)
+    x_body = matmul( transpose(M_wing), x_wing  ) + x_pivot_b
+    xa = matmul( transpose(M_body), x_body ) + Insect%xc_body_g
+
+    x_wing = (/xbr_tip(j),ybr_tip(j),0.0d0/)
+    x_body = matmul( transpose(M_wing), x_wing  ) + x_pivot_b
+    xb = matmul( transpose(M_body), x_body ) + Insect%xc_body_g
+
+    ! note input to draw_cylinder_new is in global coordinates
+    call draw_cylinder_new( xa, xb, rbr(j), xx0, ddx, mask, mask_color, us, Insect, color_wing)
+  enddo
+
+  ! Set the solid velocity
+  s = Insect%safety
+  do iz = g, size(mask,3)-1-g
+      x(3) = xx0(3) + dble(iz)*ddx(3) - Insect%xc_body_g(3)
+      do iy = g, size(mask,2)-1-g
+          x(2) = xx0(2)+dble(iy)*ddx(2) - Insect%xc_body_g(2)
+          do ix = g, size(mask,1)-1-g
+              x(1) = xx0(1)+dble(ix)*ddx(1) - Insect%xc_body_g(1)
+
+              !-- define the various coordinate systems we are going to use
+              if (periodic_insect) x = periodize_coordinate(x, (/xl,yl,zl/))
+              x_body = matmul(M_body,x)
+              x_wing = matmul(M_wing,x_body-x_pivot_b)
+
+              ! bounding box check: does this point lie within the bounding box? Note Insect%wing_bounding_box
+              ! is set in SET_WING_BOUNDING_BOX_FOURIER
+              if ( x_wing(1) >= Insect%wing_bounding_box(1,idw)-s .and. x_wing(1) <= Insect%wing_bounding_box(2,idw)+s) then
+                  if ( x_wing(2) >= Insect%wing_bounding_box(3,idw)-s .and. x_wing(2) <= Insect%wing_bounding_box(4,idw)+s) then
+                      if ( x_wing(3) >= Insect%wing_bounding_box(5,idw)-s .and. x_wing(3) <= Insect%wing_bounding_box(6,idw)+s) then
+                          !-----------------------------------------
+                          ! set new value for solid velocity us
+                          !-----------------------------------------
+                          if ( (mask(ix,iy,iz)>0.0).and.(mask_color(ix,iy,iz)==color_wing) ) then
+                              !------------------------------------------------
+                              ! solid body rotation
+                              ! Attention: the Matrix transpose(M) brings us back to the body
+                              ! coordinate system, not to the inertial frame. this is done in
+                              ! the main routine Draw_Insect
+                              !------------------------------------------------
+                              v_tmp(1) = rot_rel_wing_w(2)*x_wing(3)-rot_rel_wing_w(3)*x_wing(2)
+                              v_tmp(2) = rot_rel_wing_w(3)*x_wing(1)-rot_rel_wing_w(1)*x_wing(3)
+                              v_tmp(3) = rot_rel_wing_w(1)*x_wing(2)-rot_rel_wing_w(2)*x_wing(1)
+                              ! note we set this only if it is a part of the wing
+                              us(ix,iy,iz,1:3) = matmul(transpose(M_wing), v_tmp)
+                          endif
+                      endif
+                  endif
+              endif
+
+          enddo
+      enddo
+  enddo
+
+
+
+
+
+
+
 end subroutine draw_wing_bristled
 
 
