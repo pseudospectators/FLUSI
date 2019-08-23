@@ -1007,7 +1007,7 @@ subroutine draw_wing_bristled(xx0, ddx, mask, mask_color, us,Insect,color_wing,M
                -0.097961,-0.100907,-0.103852,-0.107975,-0.110921,-0.112111,-0.1133,-0.113906,-0.112756,-0.111611, &
                -0.106364,-0.099358,-0.095867,-0.091787,-0.087116,-0.081858/)
   ! Bristle radius
-  rbr(:) = 0.00125d0
+  rbr(:) = 0.00194d0
 
   ! Loop for all bristles
   do j = 1,nbr
