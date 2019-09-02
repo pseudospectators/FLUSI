@@ -44,9 +44,9 @@ subroutine fft(inx, outk)
       call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
     endif
 
-
     t1 = MPI_wtime()
     ! Compute forward FFT
+    outk = 0.0d0
     call p3dfft_ftran_r2c( inx, outk, 'fff')
 
     ! Normalize
@@ -102,6 +102,7 @@ subroutine fft3(inx, outk)
       call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
     endif
 
+    outk = 0.0d0
     call p3dfft_ftran_r2c(inx(:,:,:,1), outk(:,:,:,1), 'fff')
     call p3dfft_ftran_r2c(inx(:,:,:,2), outk(:,:,:,2), 'fff')
     call p3dfft_ftran_r2c(inx(:,:,:,3), outk(:,:,:,3), 'fff')
@@ -163,7 +164,7 @@ subroutine fft_initialize
   include 'fftw3.f'
 
   integer,parameter :: nmpidims = 2
-  integer :: mpicode,idir,L,n,ix,iy,iz
+  integer :: mpicode,idir,L,n,ix,iy,iz,nxc
   integer,dimension(1:3) :: ka,kb,ks,kat,kbt,kst
   logical,dimension(2) :: subcart
   real(kind=pr),dimension(:,:),allocatable :: f,ft
@@ -230,7 +231,20 @@ subroutine fft_initialize
   endif
 
   !-- Initialize P3DFFT
-  call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
+  if (iDealias==1) then
+    !-- Pruned fft for dealiasing. Only stable in the x direction (Why?)
+    nxc = ceiling((3.d0/4.d0)*dble(nx)) ! 3/4*nx is more likely an integer than 3/4*nx
+    if (nxc < 2) then ! Do not use pruned for small nx
+      nxc = nx
+    endif
+    call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD,nxc,ny,nz,overwrite=.false.)
+    if (mpirank==0) then
+      write(*,*) "Using pruned FFT"
+    endif
+  else
+    !-- No pruned if no dealiasing
+    call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD,overwrite=.false.)
+  endif
 
   !-- Get Cartesian topology info
   call p3dfft_get_mpi_info(mpitaskid,mpitasks,mpicommcart)

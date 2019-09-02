@@ -470,15 +470,48 @@ subroutine initialize_time_series_files()
       "Momentx_unst","Momenty_unst","Momentz_unst",&
       "Aero_Power", "Inert power"
       close (14)
+      if (endcolor==5) then
+          open  (14,file='forces_part4.t',status='replace')
+          write (14,'(15(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
+          "Forcex_unst","Forcey_unst","Forcez_unst",&
+          "Momentx","Momenty","Momentz",&
+          "Momentx_unst","Momenty_unst","Momentz_unst",&
+          "Aero_Power", "Inert power"
+          close (14)
+          open  (14,file='forces_part5.t',status='replace')
+          write (14,'(15(A15,1x))') "%          time","Forcex","Forcey","Forcez",&
+          "Forcex_unst","Forcey_unst","Forcez_unst",&
+          "Momentx","Momenty","Momentz",&
+          "Momentx_unst","Momenty_unst","Momentz_unst",&
+          "Aero_Power", "Inert power"
+          close (14)
+      endif
       open  (14,file='kinematics.t',status='replace')
-      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body_g","zc_body_g",&
-      "psi","beta","gamma","eta_stroke",&
-      "alpha_l","phi_l","theta_l",&
-      "alpha_r","phi_r","theta_r",&
-      "rot_l_w_x","rot_l_w_y","rot_l_w_z",&
-      "rot_r_w_x","rot_r_w_y","rot_r_w_z",&
-      "rot_dt_l_w_x","rot_dt_l_w_y","rot_dt_l_w_z",&
-      "rot_dt_r_w_x","rot_dt_r_w_y","rot_dt_r_w_z"
+      if (endcolor==5) then
+        write (14,'(44(A15,1x))') "%          time","xc_body_g","yc_body_g","zc_body_g",&
+        "psi","beta","gamma","eta_stroke",&
+        "alpha_l","phi_l","theta_l",&
+        "alpha_r","phi_r","theta_r",&
+        "rot_l_w_x","rot_l_w_y","rot_l_w_z",&
+        "rot_r_w_x","rot_r_w_y","rot_r_w_z",&
+        "rot_dt_l_w_x","rot_dt_l_w_y","rot_dt_l_w_z",&
+        "rot_dt_r_w_x","rot_dt_r_w_y","rot_dt_r_w_z",&
+        "alpha_l2","phi_l2","theta_l2",&
+        "alpha_r2","phi_r2","theta_r2",&
+        "rot_l2_w_x","rot_l2_w_y","rot_l2_w_z",&
+        "rot_r2_w_x","rot_r2_w_y","rot_r2_w_z",&
+        "rot_dt_l2_w_x","rot_dt_l2_w_y","rot_dt_l2_w_z",&
+        "rot_dt_r2_w_x","rot_dt_r2_w_y","rot_dt_r2_w_z"
+      else
+        write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body_g","zc_body_g",&
+        "psi","beta","gamma","eta_stroke",&
+        "alpha_l","phi_l","theta_l",&
+        "alpha_r","phi_r","theta_r",&
+        "rot_l_w_x","rot_l_w_y","rot_l_w_z",&
+        "rot_r_w_x","rot_r_w_y","rot_r_w_z",&
+        "rot_dt_l_w_x","rot_dt_l_w_y","rot_dt_l_w_z",&
+        "rot_dt_r_w_x","rot_dt_r_w_y","rot_dt_r_w_z"
+      endif
       close (14)
       open  (14,file='muscle.t',status='replace')
       close (14)

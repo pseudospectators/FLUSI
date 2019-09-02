@@ -22,8 +22,10 @@ subroutine convert_to_wing_system(help)
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
   real(kind=pr) :: x_wing(1:3),x_glob(1:3),M_wing_r(1:3,1:3),M_wing_l(1:3,1:3),M_body(1:3,1:3)
+  real(kind=pr) :: M_wing_r2(1:3,1:3),M_wing_l2(1:3,1:3)
   real(kind=pr) :: u1,u2, x_body(1:3), u(1:3), rot_rel_wing_w(1:3)
   logical :: wing_system=.false., vector=.false., relative_velocity = .false.
+  integer(kind=2) :: idw
 
   ! Set method information in vars module.
   method="fsi" ! We are doing fluid-structure interactions
@@ -134,6 +136,12 @@ subroutine convert_to_wing_system(help)
 
   ! initialize insect
   call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
+  ! max color
+  if (Insect%second_wing_pair) then
+    endcolor = 5
+  else
+    endcolor = 3
+  endif
 
   !*****************************************************************************
   ! main (active) part of this postprocessing tool
@@ -165,12 +173,24 @@ subroutine convert_to_wing_system(help)
   endif
 
   call BodyMotion (time, Insect)
-  call FlappingMotion_right (time, Insect)
-  call FlappingMotion_left (time, Insect)
+  idw = 1
+  call FlappingMotionWrap (time, Insect, idw)
+  idw = 2
+  call FlappingMotionWrap (time, Insect, idw)
+  if (Insect%second_wing_pair) then
+    idw = 3
+    call FlappingMotionWrap (time, Insect, idw)
+    idw = 4
+    call FlappingMotionWrap (time, Insect, idw)
+  endif
   call StrokePlane (time, Insect)
   call body_rotation_matrix( Insect, M_body )
   call wing_right_rotation_matrix( Insect, M_wing_r )
   call wing_left_rotation_matrix( Insect, M_wing_l )
+  if (Insect%second_wing_pair) then
+    call wing_right2_rotation_matrix( Insect, M_wing_r2 )
+    call wing_left2_rotation_matrix( Insect, M_wing_l2 )
+  endif
 
   u_org = -9.9d10
 
@@ -208,7 +228,8 @@ subroutine convert_to_wing_system(help)
 
       if (index(infile,"--convert-to-body-system") /= 0) wing_system = .false.
 
-      if (index(infile,"--left") /= 0 .or. index(infile,"--right") /= 0 ) then
+      if (index(infile,"--left") /= 0 .or. index(infile,"--right") /= 0 .or. &
+          index(infile,"--left2") /= 0 .or. index(infile,"--right2") /= 0) then
           whichwing = infile
       endif
   enddo
@@ -239,10 +260,18 @@ subroutine convert_to_wing_system(help)
                   ! x_wing = (/ dble(ix)*dx, dble(iy)*dy, dble(iz)*dz /) - (/xl/2.0d0,yl/2.0d0,zl/2.0d0/)
 
                   ! compute global coordinate
-                  if (whichwing == "--right") then
-                      x_glob = Insect%xc_body_g+ matmul(transpose(M_body), (matmul(transpose(M_wing_r),x_wing)+Insect%x_pivot_r_b) )
+                  if (whichwing == "--right2") then
+                      x_glob = Insect%xc_body_g+ matmul(transpose(M_body), &
+                                (matmul(transpose(M_wing_r2),x_wing)+Insect%x_pivot_r2_b) )
+                  elseif (whichwing == "--left2") then
+                      x_glob = Insect%xc_body_g+ matmul(transpose(M_body), &
+                                (matmul(transpose(M_wing_l2),x_wing)+Insect%x_pivot_l2_b) )
+                  elseif (whichwing == "--right") then
+                      x_glob = Insect%xc_body_g+ matmul(transpose(M_body), &
+                                (matmul(transpose(M_wing_r),x_wing)+Insect%x_pivot_r_b) )
                   else
-                      x_glob = Insect%xc_body_g+ matmul(transpose(M_body), (matmul(transpose(M_wing_l),x_wing)+Insect%x_pivot_l_b) )
+                      x_glob = Insect%xc_body_g+ matmul(transpose(M_body), &
+                                (matmul(transpose(M_wing_l),x_wing)+Insect%x_pivot_l_b) )
                   endif
               else
                   ! transform to body system
@@ -300,14 +329,19 @@ subroutine convert_to_wing_system(help)
 
                   if (wing_system) then
                       ! go to wing system
-                      if (whichwing == "--right") then
+                      if (whichwing == "--right2") then
+                          u = matmul(M_wing_r2, matmul(M_body,u))
+                          rot_rel_wing_w = Insect%rot_rel_wing_r2_w
+                      elseif (whichwing == "--left2") then
+                          u = matmul(M_wing_l2, matmul(M_body,u))
+                          rot_rel_wing_w = Insect%rot_rel_wing_l2_w 
+                      elseif (whichwing == "--right") then
                           u = matmul(M_wing_r, matmul(M_body,u))
                           rot_rel_wing_w = Insect%rot_rel_wing_r_w
                       else
                           u = matmul(M_wing_l, matmul(M_body,u))
                           rot_rel_wing_w = Insect%rot_rel_wing_l_w
                       endif
-
 
                       if (relative_velocity) then
                           ! if applied to us, i.e. the input vector is the solid body velociy,

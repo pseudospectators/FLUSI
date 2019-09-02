@@ -71,6 +71,10 @@ subroutine dry_run()
     Insect%BodyMotion = "command-line"
     Insect%FlappingMotion_left = "command-line-left"
     Insect%FlappingMotion_right = "command-line-right"
+    if (Insect%second_wing_pair) then
+      Insect%FlappingMotion_left2 = "command-line-left"
+      Insect%FlappingMotion_right2 = "command-line-right"
+    endif
     ! since the kinematics do not change in time (we have a single snapshot), we
     ! save only one file
     tmax = 0.d0
@@ -133,14 +137,31 @@ subroutine dry_run()
 
     if (root) then
       open  (14,file=Insect%kinematics_file, status='replace')
-      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
-      "psi","beta","gamma","eta_stroke",&
-      "alpha_l","phi_l","theta_l",&
-      "alpha_r","phi_r","theta_r",&
-      "rot_l_x","rot_l_y","rot_l_z",&
-      "rot_r_x","rot_r_y","rot_r_z",&
-      "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
-      "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+      if (Insect%second_wing_pair) then
+        write (14,'(44(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
+        "psi","beta","gamma","eta_stroke",&
+        "alpha_l","phi_l","theta_l",&
+        "alpha_r","phi_r","theta_r",&
+        "rot_l_x","rot_l_y","rot_l_z",&
+        "rot_r_x","rot_r_y","rot_r_z",&
+        "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
+        "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z",&
+        "alpha_l2","phi_l2","theta_l2",&
+        "alpha_r2","phi_r2","theta_r2",&
+        "rot_l2_x","rot_l2_y","rot_l2_z",&
+        "rot_r2_x","rot_r2_y","rot_r2_z",&
+        "rot_dt_l2_x","rot_dt_l2_y","rot_dt_l2_z",&
+        "rot_dt_r2_x","rot_dt_r2_y","rot_dt_r2_z"
+      else
+        write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
+        "psi","beta","gamma","eta_stroke",&
+        "alpha_l","phi_l","theta_l",&
+        "alpha_r","phi_r","theta_r",&
+        "rot_l_x","rot_l_y","rot_l_z",&
+        "rot_r_x","rot_r_y","rot_r_z",&
+        "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
+        "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+      endif
       close (14)
     endif
   endif

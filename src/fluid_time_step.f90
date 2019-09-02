@@ -187,7 +187,6 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_old_iterating
   real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa2, ROC1,ROC2, norm
   real(kind=pr)::omega_old, omega_new
-  type(diptera)::Insect_dummy
   integer :: inter
   logical :: iterate
   ROC1 = 0.d0
@@ -230,7 +229,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! create mask
     !---------------------------------------------------------------------------
-    call create_mask(time, Insect_dummy, beams,wings)
+    call create_mask(time, Insect, beams, wings)
 
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
@@ -442,7 +441,6 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  type(diptera)::Insect_dummy
   real(kind=pr) :: t0
 
   ! useful error messages

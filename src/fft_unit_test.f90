@@ -37,7 +37,8 @@ subroutine FFT_unit_test ( u, uk )
         x = dble(ix)*dx
         y = dble(iy)*dy
         z = dble(iz)*dz
-        u(ix,iy,iz) = dsin( y ) * dcos( z ) * dsin( x )
+        ! Only one Fourier mode. Modified for the use of pruned FFT.
+        u(ix,iy,iz) = dsin( y*2.d0*pi/yl ) * dcos( z*2.d0*pi/zl ) * dsin( x*2.d0*pi/xl )
       enddo
     enddo
   enddo
@@ -51,7 +52,7 @@ subroutine FFT_unit_test ( u, uk )
         x = dble(ix)*dx
         y = dble(iy)*dy
         z = dble(iz)*dz
-        err = err + (u(ix,iy,iz) - dsin( y ) * dcos( z ) * dsin( x ))**2
+        err = err + (u(ix,iy,iz) - dsin( y*2.d0*pi/yl ) * dcos( z*2.d0*pi/zl ) * dsin( x*2.d0*pi/xl ))**2
       enddo
     enddo
   enddo
