@@ -67,7 +67,6 @@ subroutine insect_init(time, fname_ini, Insect, resume_backup, fname_backup, box
   !-----------------------------------------------------------------------------
   ! read in parameters form ini file
   !-----------------------------------------------------------------------------
-
   ! read in the complete ini file, from which we initialize the insect
   call read_ini_file_mpi(PARAMS, fname_ini, verbose=.true.)
 

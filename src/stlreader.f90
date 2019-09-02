@@ -151,6 +151,7 @@ contains
     real(kind=pr), dimension(1:3,3*ntri) :: triangles
     character(len=*), intent(in) :: mode
     real(kind=pr), intent(inout) :: scale
+
     select case(mode)
     case ("--lx")
       scale = maxval(triangles(1,:))-minval(triangles(1,:))
@@ -286,10 +287,10 @@ contains
   s   = b*e - c*d
   t   = b*d - a*e
 
-  if (det < 1.0d-11) then
-    pointTriangleDistance = 9.0d9
-    return
-  endif
+  ! if (det < 1.0d-11) then
+  !   pointTriangleDistance = 9.0d9
+  !   return
+  ! endif
 
 
   ! write(*,'(12(es12.4,1x))') tri1,tri2,tri3,point
@@ -471,11 +472,11 @@ contains
   t = dot_product(DD,normal)
 
   !write(*,*) "WARNING CHANGED TO UNSIGNED DISTANCE!!"
-  ! if (t >= 0.d0) then
+  if (t >= 0.d0) then
     pointTriangleDistance = dsqrt(sqrDistance)
-  ! else
-  !   pointTriangleDistance = -dsqrt(sqrDistance)
-  ! endif
+  else
+    pointTriangleDistance = -dsqrt(sqrDistance)
+  endif
 
   end function
 
