@@ -121,7 +121,7 @@ ifdef NOHDF5
 PRE_FLAGS += -DNOHDF5
 endif
 FFLAGS += -module $(OBJDIR) # specify directory for modules.
-FFLAGS += -vec_report0
+#FFLAGS += -vec_report0
 # debug flags
 # FFLAGS+= -g -debug all -traceback -check all -CB
 endif
