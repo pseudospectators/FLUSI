@@ -355,7 +355,7 @@ subroutine draw_blade_fourier(xx0, ddx, mask, mask_color, us,Insect,color_wing,M
                           xte = Radius_Fourier(1.0d0-theta,Insect,idw)
 
                           !-- amplitude
-                          R0 = xle-xte
+                          R0 = 0.5*(xle-xte)
 
                           !-- get smooth rectangular function
                           R = dabs ( x_wing(1) - 0.5*(xte+xle) )
