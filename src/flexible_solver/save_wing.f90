@@ -22,8 +22,6 @@ subroutine SaveWingData( time, wings )
       write(ns1_string,'(i3)') np+1
       format_ns1 = '('//ns1_string//'(es15.8,1x))'
 
-      write(*,*) ns1_string, format_ns1
-
       !-- save control point data
       if (wings(i)%ControlPoint /= 0) then
       open  (14, file = 'wing_data'//wingstr//'_point'//ctrlpoint//'.t', status = 'unknown',position='append')
