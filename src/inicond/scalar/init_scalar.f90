@@ -49,6 +49,17 @@ subroutine init_passive_scalar(scalars,scalars_rhs,Insect,beams,Wings)
         enddo
       enddo
 
+  case("Kadoch2012")
+      !-- set half the domain to one
+      do iz = ra(3), rb(3)
+          z = dble(iz)*dz - 1.0_pr - length
+          do iy = ra(2), rb(2)
+              y = dble(iy)*dy - 1.0_pr - length
+
+              scalars(:,iy,iz,j) = cos(pi*z)*( cos(4.0_pr*pi*y) + cos(pi*y) )
+          enddo
+      enddo
+
     case("right_left_discontinuous")
       !---------------------------------------------------------------------------
       ! one half of the domain is 1, the other is 0, divided along y-axis

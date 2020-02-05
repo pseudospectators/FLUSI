@@ -38,6 +38,9 @@ subroutine create_mask_fsi (time, Insect, beams ,wings)
       select case (iMask)
       case ("oscillating_cylinder_2D")
           call oscillating_cylinder_2D(time)
+          
+      case ("rotating_cylinder")
+          call draw_rotating_cylinder(time)
 
       case ("active_grid")
           call draw_active_grid_winglets(time, Insect, xx0, ddx, mask, mask_color, us)
@@ -553,3 +556,59 @@ subroutine Draw_floor_yz()
   enddo
 
 end subroutine
+
+
+subroutine draw_rotating_cylinder(time)
+    use vars
+    use penalization
+    implicit none
+
+    real(kind=pr) :: time
+
+    ! auxiliary variables
+    real(kind=pr) :: x, y, r, h, dx_min, tmp, x00, y00, radius, frequ, alpha
+    ! loop variables
+    integer :: iy, iz
+
+
+    ! frequency of rotation is unity:
+    frequ = 1.0_pr
+    ! radius of rotation:
+    radius = 1.0_pr
+    alpha = 2.0_pr * pi * time * frequ
+    ! cylinder mid-point as a function of time:
+    x00 = x0 + dcos(alpha)*radius
+    y00 = y0 + dsin(alpha)*radius
+
+    ! reset everything
+    mask = 0.d0
+    mask_color = 0
+    us = 0.d0
+
+    h = 1.5_pr * dy
+
+    ! Note: this basic mask function is set on the ghost nodes as well.
+    do iz = ra(3), rb(3)
+        y = dble(iz) * dz
+        do iy = ra(2), rb(2)
+            x = dble(iy) * dy
+            ! distance from center of cylinder
+            r = dsqrt( (x-x00)*(x-x00) + (y-y00)*(y-y00) )
+
+            ! tmp = smoothstep(r, 0.5_pr, h)
+            call SmoothStep (tmp, r, 0.5_pr, h)
+
+            if (tmp >= mask(1,iy,iz) .and. tmp > 0.0_pr) then
+                ! mask function
+                mask(1,iy,iz) = tmp
+                ! usx (=y)
+                us(1,iy,iz,2) = -2.0_pr * pi * frequ * sin(alpha)
+                ! usy (=z)
+                us(1,iy,iz,3) = +2.0_pr * pi * frequ * cos(alpha)
+                ! color
+                mask_color(1,iy,iz) = 1
+            endif
+        end do
+    end do
+
+end subroutine draw_rotating_cylinder
