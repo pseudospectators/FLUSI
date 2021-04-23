@@ -381,7 +381,7 @@ subroutine dry_run_flexible_wing()
   it = 0
 
   ! create the startup mask function
-  call create_mask(time,Insect,beams,wings)
+  call create_mask_fsi(time,Insect,beams,wings)
 
   ! Save data
   write(name,'(i6.6)') floor(time*1000.d0)
@@ -405,7 +405,7 @@ subroutine dry_run_flexible_wing()
 
       enddo
       ! create the mask
-      call create_mask(time,Insect,beams,wings)
+      call create_mask_fsi(time,Insect,beams,wings)
 
 
       it = it+1

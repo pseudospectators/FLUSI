@@ -40,7 +40,6 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   use flexible_model
   use module_insects
   use basic_operators
-  use krylov_module
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -68,13 +67,10 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   select case(iTimeMethodFluid)
   case("RK2")
       call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   case("RK4")
       call RungeKutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
-  case("krylov")
-      call krylov(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   case("AB2")
       if(it == 0) then
           call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,&
@@ -515,12 +511,13 @@ end subroutine FSI_AB2_semiimplicit
 !-------------------------------------------------------------------------------
 ! FIXME: add documentation: which arguments are used for what?
 subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
-           scalars,scalars_rhs,Insect,beams)
+           scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
   use module_insects
+  use flexible_model
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -538,6 +535,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   integer::i
   type(solid),dimension(1:nbeams),intent(inout)::beams
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(diptera),intent(inout)::Insect
 
   if ((use_passive_scalar==1).and.(mpirank==1)) then
@@ -545,7 +543,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   endif
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call adjust_dt(time,u,dt1)
 
   !-- multiply the RHS with the viscosity, first the velocity
@@ -580,7 +578,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   endif
 
   !-- RHS using the euler velocity
-  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
 
   ! do the actual time step. note the minus sign.in the original formulation, it
   ! reads: u^n+1=u^n + dt/2*( N(u^n)*vis + N(u_euler) )
@@ -598,12 +596,13 @@ end subroutine rungekutta2
 
 ! RK4 scheme with EXPLICIT diffusion
 subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
-           scalars,scalars_rhs,Insect,beams)
+           scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
   use module_insects
+  use flexible_model
   use basic_operators
   implicit none
 
@@ -621,6 +620,7 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nbeams),intent(inout)::beams
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(diptera),intent(inout)::Insect
   integer::i
 
@@ -640,24 +640,24 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   nlk(:,:,:,:,4) = uk
 
   !-- FIRST runge kutta step
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call dealias(nlk(:,:,:,:,0))
   call adjust_dt(time,u,dt1)
 
 
   !-- SECOND runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,0)
-  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call dealias(nlk(:,:,:,:,1))
 
   !--THIRD runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,1)
-  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call dealias(nlk(:,:,:,:,2))
 
   !-- FOURTH runge kutta step
   uk = nlk(:,:,:,:,4) + dt1*nlk(:,:,:,:,2)
-  call cal_nlk(time+dt1,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time+dt1,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call dealias(nlk(:,:,:,:,3))
 
   !-- FINAL step
