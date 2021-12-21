@@ -303,8 +303,6 @@ subroutine dry_run_flexible_wing()
   ! get filename of PARAMS file from command line
   call get_command_argument(2,infile)
 
-  write(*,*) infile
-
   ! read all parameters from that file
   call get_params(infile,Insect,.true.)
 
@@ -314,7 +312,7 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   ! Checking
   !-----------------------------------------------------------------------------
-  if (iMask/="Flexible_wing") then
+  if ((iMask/="Flexible_wing") .and. (iMask/="Insect_with_Flexible_wings")) then
     call abort(476659, "dry-run-flexible-wing is used only for flexible wing model, &
     change iMask into Flexible_wing to continue")
   endif
@@ -365,7 +363,8 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   ! initalize wings
   !-----------------------------------------------------------------------------
-  call init_wings( infile, Wings, dx)
+  call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
+  call init_wings( infile, Wings, Insect, dx)
 
   if (tsave == 0.d0) then
     if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
@@ -381,12 +380,17 @@ subroutine dry_run_flexible_wing()
   it = 0
 
   ! create the startup mask function
-  call create_mask_fsi(time,Insect,beams,wings)
+  if (isaveMask == 1) then
+  call create_mask(time,Insect,beams,wings)
+  endif
 
   ! Save data
   write(name,'(i6.6)') floor(time*1000.d0)
 
+  if (isaveMask == 1) then
   call save_field_hdf5(time,'mask_'//name,mask)
+  endif
+
   !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
   if (isaveSolidVelocity == 1) then
       call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
@@ -396,44 +400,49 @@ subroutine dry_run_flexible_wing()
 
   do while (time<tmax)
       t1 = MPI_wtime()
+      
+          call FlexibleSolidSolverWrapper ( time, wings(1)%dt, wings(1)%dt, it, wings, Insect )
 
-      do i=1,nWings
-          ! call flexible_wing_motions ( time, wings(i) )
-
-          !
-          call flexible_solid_time_step(time, tsave, tsave, it, wings(i))
-
-      enddo
       ! create the mask
-      call create_mask_fsi(time,Insect,beams,wings)
-
+      if (isaveMask == 1) then
+      call create_mask(time,Insect,beams,wings)
+      endif
 
       it = it+1
-      time = tstart + dble(it)*tsave
+      time = tstart + dble(it)*wings(1)%dt
 
       ! Save data
       write(name,'(i6.6)') floor(time*1000.d0)
 
-      if(mpirank==0 .and. modulo(it,20)==0) then
+      if (modulo(time,tsave)<1.0e-15) then
+
+          if (root) then
           write(*,'("Dry run flexible wing: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
           time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
+          endif
+
+!      if (modulo(time,tsave)<1.0e-15) then
+      if (isaveMask == 1) then
+      call save_field_hdf5(time,'mask_'//name,mask)
       endif
 
-      call save_field_hdf5(time,'mask_'//name,mask)
       !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
       if (isaveSolidVelocity == 1) then
           call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
           call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
           call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
       endif
+      endif
 
       if (root) then
-          call SaveWingData( time, wings )
+          call SaveWingData( time, it, tsave, wings )
       endif
 
       call toc("DryRun time step", MPI_wtime()-t1)
   enddo
 
+  ! prints the profiling on screen
+  call summarize_profiling( MPI_COMM_WORLD )
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory

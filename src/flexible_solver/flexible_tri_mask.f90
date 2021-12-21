@@ -1,4 +1,4 @@
-! TO DO migrate this one into create_mask_fsi subroutine
+! TODO migrate this one into create_mask_fsi subroutine
 subroutine Draw_flexible_wing(time, wings, mask, mask_color, us)!, unsigned_distance)
 
   implicit none
@@ -10,9 +10,9 @@ subroutine Draw_flexible_wing(time, wings, mask, mask_color, us)!, unsigned_dist
   type(flexible_wing),dimension(1:nWings), intent(inout) :: wings
 
   ! initialize everything
-  mask = 0.d0
-  mask_color = 0
-  us = 0.d0
+ ! mask = 0.d0
+ ! mask_color = 0
+ ! us = 0.d0
 
   ! Create mask function and us field from triangular mesh
   call create_mask_from_triangular_mesh(wings,mask,us,mask_color)
@@ -78,7 +78,7 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
     integer :: ixmin, ixmax, iymin, iymax, izmin, izmax
     integer :: xmin, xmax, ymin, ymax, zmin, zmax
     integer, parameter :: safety = 2
-    real(kind=pr) :: x,y,z, distance
+    real(kind=pr) :: x,y,z, distance, mask_tmp
     real(kind=pr),dimension(1:3) :: velocity
 
     real(kind=pr),allocatable :: unsigned_distance(:,:,:)
@@ -167,23 +167,23 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
 
               if (distance < unsigned_distance(ix,iy,iz)) then
                   unsigned_distance(ix,iy,iz) = distance
-                  us(ix,iy,iz,1:3) = velocity
+
+                  call smoothstep(mask_tmp,unsigned_distance(ix,iy,iz),&
+                                  wings(i)%t_wing,wings(i)%wing_smoothing)
+
+                  if ((mask(ix,iy,iz) < mask_tmp).and.(mask_tmp>0.0)) then
+                    mask(ix,iy,iz) = mask_tmp
+
+                    if (wings(i)%ID == "left") then
+                      mask_color(ix,iy,iz) = 2 !color of left wing
+                    elseif (wings(i)%ID == "right") then
+                      mask_color(ix,iy,iz) = 3 !color of right wing
+                    endif
+
+                    us(ix,iy,iz,1:3) = velocity
+                  endif
+
               endif
-
-            enddo
-          enddo
-        enddo
-
-        ! Then we calculate mask function from unsigned distance
-        do iz = max(ra(3),zmin),min(rb(3),zmax)
-          do iy = max(ra(2),ymin),min(rb(2),ymax)
-            do ix = max(ra(1),xmin),min(rb(1),xmax)
-
-                call smoothstep(mask(ix,iy,iz),unsigned_distance(ix,iy,iz),&
-                                wings(i)%t_wing,wings(i)%wing_smoothing)
-
-                !-- assign mask color
-                if (mask(ix,iy,iz) > 0.d0) mask_color(ix,iy,iz)=1
 
             enddo
           enddo

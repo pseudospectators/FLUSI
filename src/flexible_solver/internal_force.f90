@@ -24,6 +24,11 @@ wings%Fint = 0.d0
                               wings%u_new(2*np+1:3*np),    &
                               wings%membranes_extension(:,:,j))
 
+      call length_calculation_wrapper(wings%u_new(1:np), &
+                              wings%u_new(np+1:2*np), &
+                              wings%u_new(2*np+1:3*np),    &
+                              wings%membranes_cross(:,:,j))
+
   enddo
 
   do j=1,nMembrane_edges
@@ -60,7 +65,7 @@ wings%Fint = 0.d0
   call angle_calculation_wrapper(wings%u_new(1:np), &
                           wings%u_new(np+1:2*np), &
                           wings%u_new(2*np+1:3*np), &
-                          wings%vein_connectors(:,:))
+                          wings%Joints(:,:))
 
   !Construct internal force vector
   do j=1,nMembranes
@@ -71,6 +76,14 @@ wings%Fint = 0.d0
                                      wings%membranes_extension(:,:,j), &
                                      np, &
                                      wings%ke_m(:,j))
+
+       call internal_extension_force(wings%Fint, &
+                                     wings%u_new(1:np), &
+                                     wings%u_new(np+1:2*np), &
+                                     wings%u_new(2*np+1:3*np), &
+                                     wings%membranes_cross(:,:,j), &
+                                     np, &
+                                     wings%ke_mc(:,j))
   enddo
 
   do j=1,nMembrane_edges
@@ -118,7 +131,7 @@ wings%Fint = 0.d0
 
   call internal_bending_force(wings%Fint, &
                               wings%u_new(1:np),wings%u_new(np+1:2*np),wings%u_new(2*np+1:3*np), &
-                              wings%vein_connectors(1:,1:), np, &
+                              wings%Joints(1:,1:), np, &
                               wings%kby_c,wings%kbz_c)
 
 end subroutine
@@ -495,6 +508,12 @@ endif
 Fx = kby*(theta - theta0)*(y2-y1)*idxy + kbz*(phi - phi0)*(z2-z1)*idxz
 
 Fy = - kby*(theta - theta0)*(x2-x1)*idxy
+
+!if ((theta > pi/2.0d0) .or. (theta<(-pi/2.0d0))) then
+!  Fy = 0.0d0
+!else
+!  Fy = - kby*(theta - theta0)*(x2-x1)*idxy
+!endif
 
 Fz = - kbz*(phi - phi0)*(x2-x1)*idxz
 

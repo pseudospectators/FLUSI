@@ -86,6 +86,13 @@ subroutine create_mask_fsi (time, Insect, beams ,wings)
           call Update_Insect( time, Insect )
           call Draw_Insect ( time, Insect, xx0, ddx, mask, mask_color, us)
 
+      case ("Insect_with_Flexible_wings")
+          call Update_Insect( time, Insect )
+          call Draw_insect( time, Insect, xx0, ddx, mask, mask_color, us)
+
+          call calculate_normal_vectors_of_wing(wings)
+          call Draw_flexible_wing(time, wings, mask, mask_color, us)
+
       case ("Flexible_wing")
           call calculate_normal_vectors_of_wing(wings)
           call Draw_flexible_wing(time, wings, mask, mask_color, us)

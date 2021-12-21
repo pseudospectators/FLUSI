@@ -2,13 +2,14 @@
 ! Construct external force vector consists of gravity
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-subroutine external_forces_construction(time,it, wing)
+subroutine external_forces_construction(time,it, wing, Insect)
 ! This is actually just for 1 wing
 use mpi
 implicit none
 
 real(kind=pr),intent(in) :: time
 integer,intent(in) :: it
+type(diptera), intent(inout) :: Insect
 type(flexible_wing), intent(inout)  :: Wing
 integer :: i, j, np
 
@@ -21,24 +22,28 @@ integer :: i, j, np
   ! for the solver. This is done by rotating the forces with an opposite angle
   ! of the wing_angles
   ! Gravitational forces
-  call gravitational_forces_on_wing (time,wing)
+  call gravitational_forces_on_wing (time,wing,Insect%M_body)
 
   ! Forces from the fluid pressure field
-  if (activate_press_force=="yes") call pressure_forces_on_wing (time,wing)
+  if (activate_press_force=="yes") call pressure_forces_on_wing (time,wing,Insect%M_body)
 
   ! These forces are already calculated in the local wing system
   ! Fictitious forces appear when the reference frames of wings are non-inertial frame
   if (activate_noninertial_force=="yes") call fictitious_forces_of_moving_reference_frame (time,it,wing)
 
+  !if (root) write(*,*) maxval(wing%Fext(1:np)), &
+  !                     maxval(wing%Fext(np+1:2*np)), &
+  !                     maxval(wing%Fext(2*np+1:3*np))
 
 end subroutine
 
-subroutine gravitational_forces_on_wing (time,wing)
+subroutine gravitational_forces_on_wing (time,wing,M_body)
 !Calculate the forces acting on ONE wing by the gravitational field
 
 implicit none
 
 real(kind=pr),intent(in) :: time
+real(kind=pr), intent(in) :: M_body(1:3,1:3)
 type(flexible_wing), intent (inout) :: wing
 real(kind=pr), allocatable :: F_grav(:,:)
 integer :: j, np
@@ -54,7 +59,7 @@ integer :: j, np
 
     !The force is calculated in the global coordinate system, we need to change it
     !back into the wing coordinate system
-    call rotate_vector_into_wing_system(wing,F_grav(j,1:3))
+    call rotate_vector_into_wing_system(wing,M_body,F_grav(j,1:3))
 
     wing%Fext(j)      = wing%Fext(j) + F_grav(j,1) !forces on the x-direction
     wing%Fext(j+np)   = wing%Fext(j+np) + F_grav(j,2) !forces on the y-direction
@@ -63,15 +68,69 @@ integer :: j, np
 
 end subroutine
 
-subroutine pressure_forces_on_wing (time,wing)
+subroutine fictitious_forces_of_moving_reference_frame (time,it,wing)
+
+implicit none
+
+real(kind=pr),intent(in) :: time
+integer,intent(in) :: it
+type(flexible_wing), intent (inout) :: wing
+real(kind=pr), dimension(1:3) :: Force_Coriolis, Force_centrifugal, Force_Euler
+real(kind=pr), allocatable :: x(:),y(:),z(:),vx(:),vy(:),vz(:)
+integer :: i,j, np
+
+  np = wing%np
+
+  ! Allocate position and velocity array
+  allocate(x(1:np),y(1:np),z(1:np))
+  allocate(vx(1:np),vy(1:np),vz(1:np))
+
+  x = wing%u_new(0*np+1:1*np)
+  y = wing%u_new(1*np+1:2*np)
+  z = wing%u_new(2*np+1:3*np)
+  vx = wing%u_new(3*np+1:4*np)
+  vy = wing%u_new(4*np+1:5*np)
+  vz = wing%u_new(5*np+1:6*np)
+
+  !if (root) write(*,*) "print info of wing:"
+  !if (root) write(*,*) wing%ID
+  !if (root) write(*,*) wing%vr0
+  !if (root) write(*,*) wing%ar0
+  !if (root) write(*,*) "----------------"
+
+  ! Non-inertial forces due to translation
+  do j=1,np
+    wing%Fext(j)        = wing%Fext(j)        - wing%at0(1)*wing%m(j) !forces on the x-direction
+    wing%Fext(j + np)   = wing%Fext(j + np)   - wing%at0(2)*wing%m(j) !forces on the y-direction
+    wing%Fext(j + 2*np) = wing%Fext(j + 2*np) - wing%at0(3)*wing%m(j) !forces on the z-direction
+  enddo
+
+  ! Non-inertial forces due to rotation
+  do j=1,np
+    Force_Coriolis = - 2*wing%m(j)*cross(wing%vr0,(/vx(j), vy(j), vz(j)/))
+    Force_centrifugal = - wing%m(j)*cross(wing%vr0,cross(wing%vr0,(/x(j), y(j), z(j)/)))
+    Force_Euler = - wing%m(j)*cross(wing%ar0,(/x(j), y(j), z(j)/))
+
+    wing%Fext(j)        = wing%Fext(j)        + Force_Coriolis(1) + Force_centrifugal(1) + Force_Euler(1) !forces on the x-direction
+    wing%Fext(j + np)   = wing%Fext(j + np)   + Force_Coriolis(2) + Force_centrifugal(2) + Force_Euler(2) !forces on the y-direction
+    wing%Fext(j + 2*np) = wing%Fext(j + 2*np) + Force_Coriolis(3) + Force_centrifugal(3) + Force_Euler(3) !forces on the z-direction
+  enddo
+
+  deallocate(x,y,z)
+  deallocate(vx,vy,vz)
+
+end subroutine
+
+subroutine pressure_forces_on_wing (time,wing,M_body)
 !Calculate the forces acting on ONE wing by the fluid pressure field
 
 implicit none
 
 real(kind=pr),intent(in) :: time
+real(kind=pr), intent(in) :: M_body(1:3,1:3)
 type(flexible_wing), intent (inout) :: wing
 
-  call transform_pressure_into_point_forces_per_node(time,wing)
+  call transform_pressure_into_point_forces_per_node(time,wing,M_body)
 
 end subroutine
 
@@ -146,8 +205,9 @@ enddo
 end subroutine
 
 subroutine calculate_wing_surfaces(surface,x,y,z,thickness,tri_elements,tri_element_normals,position)
-use mpi
+  use mpi
   implicit none
+
 
   real(kind=pr), intent (inout) :: surface(:,:,:)
   real(kind=pr), intent(in) :: x(:),y(:),z(:)
@@ -204,6 +264,7 @@ subroutine interpolate_pressure_on_wing_surfaces(press_surface,origin,grid_space
 
   use interpolation
   use mpi
+  use ghosts
 
   implicit none
 
@@ -214,11 +275,18 @@ subroutine interpolate_pressure_on_wing_surfaces(press_surface,origin,grid_space
   real(kind=pr), intent(in) :: surface(:,:,:)
   real(kind=pr), allocatable :: press_surface_local(:,:),p_surface(:,:)
   real(kind=pr) :: min_press, max_press
+  real(kind=pr) :: t0,t1
   integer, intent(in) :: ntri
   logical, intent(in) :: periodic
   integer :: itri, mpicode
+  real(kind=pr),dimension(1:3) :: x
 
   allocate(press_surface_local(1:ntri,1:3),p_surface(1:ntri,1:3))
+
+  ! surface pressure arrays:
+  !if(.not.allocated(p_surface)) allocate(p_surface(1:ntri,1:3))
+  !if(.not.allocated(press_surface_local)) allocate(press_surface_local(1:ntri,1:3))
+
 
   press_surface_local = 17.d0
   p_surface = 17.d0
@@ -226,33 +294,44 @@ subroutine interpolate_pressure_on_wing_surfaces(press_surface,origin,grid_space
   min_press = minval(pressure_field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))-1.d-6
   max_press = maxval(pressure_field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)))+1.d-6
 
+  call synchronize_ghosts (pressure_field )
+
+      t0 = MPI_wtime()
       do itri=1,ntri
 
+!          if (wing_interp == 'linear') then
 
-          !press_surface_local(itri,1) =  pressure_trilinear_interp(origin, grid_space, pressure_field,&
-          !                                                         surface(itri,1,1:3), periodic)
-          !press_surface_local(itri,2) =  pressure_trilinear_interp(origin, grid_space, pressure_field,&
-          !                                                         surface(itri,2,1:3), periodic)
-          !press_surface_local(itri,3) =  pressure_trilinear_interp(origin, grid_space, pressure_field,&
-          !                                                         surface(itri,3,1:3), periodic)
+ !           press_surface_local(itri,1) =  pressure_trilinear_interp(origin, grid_space, pressure_field,&
+  !                                                                   surface(itri,1,1:3), periodic)
+  !          press_surface_local(itri,2) =  pressure_trilinear_interp(origin, grid_space, pressure_field,&
+    !                                                                 surface(itri,2,1:3), periodic)
+   !         press_surface_local(itri,3) =  pressure_trilinear_interp(origin, grid_space, pressure_field,&
+    !                                                                 surface(itri,3,1:3), periodic)
 
-          call delta_interpolation( surface(itri,1,1:3), &
-                                    pressure_field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)), press_surface_local(itri,1))
-          call delta_interpolation( surface(itri,2,1:3), &
-                                    pressure_field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)), press_surface_local(itri,2))
-          call delta_interpolation( surface(itri,3,1:3), &
-                                    pressure_field(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3)), press_surface_local(itri,3))
+    !      elseif (wing_interp == 'delta') then
+            t1 = MPI_wtime()
+            x = surface(itri,1,1:3)
+            call delta_interpolation( x, pressure_field, press_surface_local(itri,1))
+            call toc("Flexible wing (pressure intern: delta interpolation first tri)", MPI_wtime() - t1)
+            t1 = MPI_wtime()
+            x = surface(itri,2,1:3)
+            call delta_interpolation( x, pressure_field, press_surface_local(itri,2))
+            call toc("Flexible wing (pressure intern: delta interpolation second tri)", MPI_wtime() - t1)
+            x = surface(itri,3,1:3)
+            call delta_interpolation( x, pressure_field, press_surface_local(itri,3))
 
+     !     endif
 
       enddo
+      call toc("Flexible wing (pressure intern: delta interpolation)", MPI_wtime() - t0)
 
+      t0 = MPI_wtime()
       call MPI_ALLREDUCE (press_surface_local,p_surface,size(press_surface_local),&
                        MPI_DOUBLE_PRECISION,MPI_MAX,MPI_COMM_WORLD,mpicode)
-
+      call toc("Flexible wing (pressure intern: MPI allreduce pressure)", MPI_wtime() - t0)
 
 
       press_surface = p_surface!press_surface_local!p_surface
-
 
 end subroutine
 
@@ -393,11 +472,12 @@ subroutine transform_pressure_into_point_forces_per_triangle(wing)
 
 end subroutine
 
-subroutine transform_pressure_into_point_forces_per_node(time,wing)
+subroutine transform_pressure_into_point_forces_per_node(time,wing,M_body)
 
   implicit none
 
   real(kind=pr),intent(in) :: time
+  real(kind=pr), intent(in) :: M_body(1:3,1:3)
   type(flexible_wing), intent (inout) :: wing
   real(kind=pr), allocatable :: upside(:,:,:), downside(:,:,:)
   real(kind=pr), allocatable :: point_forces(:,:,:)
@@ -449,9 +529,9 @@ subroutine transform_pressure_into_point_forces_per_node(time,wing)
                              wing%tri_element_normals(itri,4)*wing%tri_element_normals(itri,1:3)
 
   ! Rotate the pressure forces in the global system back into the local wing system
-  call rotate_vector_into_wing_system(wing,point_forces(itri,1,1:3))
-  call rotate_vector_into_wing_system(wing,point_forces(itri,2,1:3))
-  call rotate_vector_into_wing_system(wing,point_forces(itri,3,1:3))
+  call rotate_vector_into_wing_system(wing,M_body,point_forces(itri,1,1:3))
+  call rotate_vector_into_wing_system(wing,M_body,point_forces(itri,2,1:3))
+  call rotate_vector_into_wing_system(wing,M_body,point_forces(itri,3,1:3))
 
   ! Update local pressure forces to the Fext vector for the mass spring solver
          wing%Fext(wing%tri_elements(itri,2)) = wing%Fext(wing%tri_elements(itri,2)) + point_forces(itri,1,1)
@@ -524,52 +604,5 @@ subroutine distribute_concentrated_force_into_three_vertices(distributed_force,c
   distributed_force(1,1:3) = - A1/A*normal(1:3)*concentrated_force*direction
   distributed_force(2,1:3) = - A2/A*normal(1:3)*concentrated_force*direction
   distributed_force(3,1:3) = - A3/A*normal(1:3)*concentrated_force*direction
-
-end subroutine
-
-subroutine fictitious_forces_of_moving_reference_frame (time,it,wing)
-
-implicit none
-
-real(kind=pr),intent(in) :: time
-integer,intent(in) :: it
-type(flexible_wing), intent (inout) :: wing
-real(kind=pr), dimension(1:3) :: Force_Coriolis, Force_centrifugal, Force_Euler
-real(kind=pr), allocatable :: x(:),y(:),z(:),vx(:),vy(:),vz(:)
-integer :: i,j, np
-
-  np = wing%np
-
-  ! Allocate position and velocity array
-  allocate(x(1:np),y(1:np),z(1:np))
-  allocate(vx(1:np),vy(1:np),vz(1:np))
-
-  x = wing%u_new(0*np+1:1*np)
-  y = wing%u_new(1*np+1:2*np)
-  z = wing%u_new(2*np+1:3*np)
-  vx = wing%u_new(3*np+1:4*np)
-  vy = wing%u_new(4*np+1:5*np)
-  vz = wing%u_new(5*np+1:6*np)
-
-  ! Non-inertial forces due to translation
-  do j=1,np
-    wing%Fext(j)        = wing%Fext(j)        - wing%at0(1)*wing%m(j) !forces on the x-direction
-    wing%Fext(j + np)   = wing%Fext(j + np)   - wing%at0(2)*wing%m(j) !forces on the y-direction
-    wing%Fext(j + 2*np) = wing%Fext(j + 2*np) - wing%at0(3)*wing%m(j) !forces on the z-direction
-  enddo
-
-  ! Non-inertial forces due to rotation
-  do j=1,np
-    Force_Coriolis = - 2*wing%m(j)*cross((/vx(j), vy(j), vz(j)/),wing%vr0)
-    Force_centrifugal = - wing%m(j)*cross(wing%vr0,cross(wing%vr0,(/x(j), y(j), z(j)/)))
-    Force_Euler = - wing%m(j)*cross((/x(j), y(j), z(j)/),wing%ar0)
-
-    wing%Fext(j)        = wing%Fext(j)        + Force_Coriolis(1) + Force_centrifugal(1) + Force_Euler(1) !forces on the x-direction
-    wing%Fext(j + np)   = wing%Fext(j + np)   + Force_Coriolis(2) + Force_centrifugal(2) + Force_Euler(2) !forces on the y-direction
-    wing%Fext(j + 2*np) = wing%Fext(j + 2*np) + Force_Coriolis(3) + Force_centrifugal(3) + Force_Euler(3) !forces on the z-direction
-  enddo
-
-  deallocate(x,y,z)
-  deallocate(vx,vy,vz)
 
 end subroutine

@@ -92,7 +92,7 @@ subroutine time_step(time,dt0,dt1,n0,n1,it,u,uk,nlk,vort,work,workc,explin,&
     ! Save flexible wing model data, if using it
     !---------------------------------------------------------------------------
     if (use_flexible_wing_model=="yes" .and. root) then
-      call SaveWingData( time, wings )
+      call SaveWingData( time, it, dt1, wings )
     endif
 
     !---------------------------------------------------------------------------

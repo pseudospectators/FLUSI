@@ -127,7 +127,7 @@ subroutine cal_drag ( time, u, Insect )
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points
-        if (iMask=="Insect") then
+        if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
           if (color==Insect%color_l) then
             xlev = xlev - Insect%x_pivot_l_g(1)
             ylev = ylev - Insect%x_pivot_l_g(2)
@@ -282,7 +282,7 @@ subroutine cal_drag ( time, u, Insect )
         powerz = powerz + us(ix,iy,iz,3)*penalz(i)
       enddo
 
-      if (iMask=="Insect") then
+      if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
 !cdir shortloop
         do ix=ix_,min(ix_+blksz-1,rb(1))
           i = ix-ix_+1
@@ -385,7 +385,7 @@ subroutine cal_drag ( time, u, Insect )
   call MPI_ALLREDUCE ( u_residual,u_residual_glob,6,MPI_DOUBLE_PRECISION,MPI_MIN,MPI_COMM_WORLD,mpicode)
 
   ! the insects have forces on the wing and body separate
-  if (iMask=="Insect") then
+  if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
     do color = Insect%color_body, endcolor
       call MPI_ALLREDUCE (forcex(color),Insect%PartIntegrals(color)%Force(1),1,&
       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
@@ -414,7 +414,7 @@ subroutine cal_drag ( time, u, Insect )
   MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
 
   ! the insects have torques on the wing and body separate
-  if (iMask=="Insect") then
+  if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
     do color = Insect%color_body, endcolor
       call MPI_ALLREDUCE (torquex(color),Insect%PartIntegrals(color)%Torque(1),1,&
       MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,mpicode)
@@ -426,7 +426,7 @@ subroutine cal_drag ( time, u, Insect )
   endif
 
   ! compute aerodynamic power
-  if (iMask=="Insect") then
+  if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
     call aero_power (Insect,apowtotal)
     call inert_power(Insect,ipowtotal)
   endif
@@ -437,7 +437,7 @@ subroutine cal_drag ( time, u, Insect )
   ! have been computed ( call cal_unst_corrections first! )
   !---------------------------------------------------------------------------
   if(mpirank == 0) then
-    if (iMask=="Insect") then
+    if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
       ! Aerodynamic power is only computed for insects
       open(14,file='forces.t',status='unknown',position='append')
       write (14,'(15(es15.8,1x))') time, GlobalIntegrals%Force, &
@@ -608,7 +608,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     GlobalIntegrals%Force_unst(3) = sum(force_newz(1:5))-sum(force_oldz(1:5))
     GlobalIntegrals%Force_unst = GlobalIntegrals%Force_unst / dt
 
-    if (iMask=="Insect") then
+    if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
       ! for the insects, we save separately the WINGs and the BODY
       do color = Insect%color_body, endcolor
         Insect%PartIntegrals(color)%Force_unst(1) = force_newx(color)-force_oldx(color)
@@ -621,7 +621,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     ! we cannot compute the time derivative, because we lack the old value of the
     ! integral. As a hack, return zero.
     GlobalIntegrals%Force_unst = 0.d0
-    if (iMask=="Insect") then
+    if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
       do color = Insect%color_body, Insect%color_r
         Insect%PartIntegrals(color)%Force_unst = 0.d0
       enddo
@@ -667,7 +667,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points
-        if (iMask=="Insect") then
+        if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
           if (color==Insect%color_l) then
             xlev = xlev - Insect%x_pivot_l_g(1)
             ylev = ylev - Insect%x_pivot_l_g(2)
@@ -723,7 +723,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
 
         ! for insects, moment of the body is computed with respect to (x0,y0,z0)
         ! but for the wings it is computed with respect tot the pivot points
-        if (iMask=="Insect") then
+        if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
           if (color_(i)==Insect%color_l) then
             xlev = xlev - Insect%x_pivot_l_g(1)
             ylev = ylev - Insect%x_pivot_l_g(2)
@@ -797,7 +797,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     GlobalIntegrals%Torque_unst(2) = torque_newy0-torque_oldy0
     GlobalIntegrals%Torque_unst(3) = torque_newz0-torque_oldz0
     GlobalIntegrals%Torque_unst = GlobalIntegrals%Torque_unst / dt
-    if (iMask=="Insect") then
+    if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
       ! for the insects, we save separately the WINGs and the BODY
       do color = Insect%color_body, endcolor
         Insect%PartIntegrals(color)%Torque_unst(1) = torque_newx(color)-torque_oldx(color)
@@ -810,7 +810,7 @@ subroutine cal_unst_corrections ( time, dt, Insect )
     ! we cannot compute the time derivative, because we lack the old value of the
     ! integral. As a hack, return zero.
     GlobalIntegrals%Torque_unst = 0.d0
-    if (iMask=="Insect") then
+    if ((iMask=="Insect") .or. (iMask=="Insect_with_Flexible_wings")) then
       do color = Insect%color_body, endcolor
         Insect%PartIntegrals(color)%Torque_unst = 0.d0
       enddo

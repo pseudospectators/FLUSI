@@ -346,7 +346,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   call read_param_mpi(PARAMS,"Flexible_wing","wing_interp",wing_interp,"delta")
   call read_param_mpi(PARAMS,"Flexible_wing","activate_press_force",activate_press_force,"no")
   call read_param_mpi(PARAMS,"Flexible_wing","activate_noninertial_force",activate_noninertial_force,"no")
-  call read_param_mpi(PARAMS,"Flexible_wing","load_mass_from_file",load_mass_from_file,"no")
+  call read_param_mpi(PARAMS,"Flexible_wing","load_mass_from_file",load_mass_from_file,.false.)
 
   ! ----------------------------------------------------
   ! slice extraction

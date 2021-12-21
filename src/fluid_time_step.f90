@@ -400,7 +400,9 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   ! advance solid model from (n) to (n+1)
   !---------------------------------------------------------------------------
   if (use_solid_model=="yes")  call SolidSolverWrapper(time, dt1, beams)
-  if (use_flexible_wing_model=="yes")  call FlexibleSolidSolverWrapper (time, dt0, dt1, it, wings)
+  if (use_flexible_wing_model=="yes")  then
+    call FlexibleSolidSolverWrapper (time, dt0, dt1, it, wings, Insect)
+  endif
 
 end subroutine FSI_AB2_staggered
 
@@ -499,7 +501,9 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   !---------------------------------------------------------------------------
   t0 = MPI_wtime()
   if (use_solid_model=="yes")  call SolidSolverWrapper( time, dt1, beams )
-  if (use_flexible_wing_model=="yes")  call FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings )
+  if (use_flexible_wing_model=="yes")  then
+    call FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings, Insect )
+  endif
   call toc("FluidTimestep (FSI_AB2_semiimplicit::advance solid model)", MPI_wtime()-t0)
 
 end subroutine FSI_AB2_semiimplicit

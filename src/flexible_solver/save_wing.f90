@@ -1,10 +1,11 @@
-subroutine SaveWingData( time, wings )
+subroutine SaveWingData( time, it, dt1, wings )
   use vars
   implicit none
-  real (kind=pr), intent (in) :: time
+  real (kind=pr), intent (in) :: time, dt1
+  integer, intent(in) :: it
   type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
-  character(len=16) :: format_ns1
-  character(len=3)  :: ns1_string, ctrlpoint
+  character(len=20) :: format_ns1
+  character(len=4)  :: ns1_string, ctrlpoint
   character(len=1)  :: wingstr
 
   integer :: np,step,i
@@ -19,8 +20,9 @@ subroutine SaveWingData( time, wings )
     np = wings(i)%np
 
     ! set up formats
-      write(ns1_string,'(i3)') np+1
+      write(ns1_string,'(i4)') np+1
       format_ns1 = '('//ns1_string//'(es15.8,1x))'
+
 
       !-- save control point data
       if (wings(i)%ControlPoint /= 0) then
@@ -35,6 +37,8 @@ subroutine SaveWingData( time, wings )
         wings(i)%vz(wings(i)%ControlPoint)
       close (14)
     endif
+
+    if (wings(i)%save_lagrangian_data) then
 
     open (14, file = 'wing_x'//wingstr//'.t', status = 'unknown',position='append')
     write (14, format_ns1) time, wings(i)%x(1:np)
@@ -96,6 +100,12 @@ subroutine SaveWingData( time, wings )
     write (14, format_ns1) time, wings(i)%Fext(2*np+1:3*np)
     close (14)
 
+    endif
+
+    open (14, file='MSM_solver_info'//wingstr//'.t',status='unknown',position='append')
+    write(14,'(1(i6,1x),2(es15.8,1x),1(i15,1x),2(es15.8,1x))') it, time, dt1, wings(i)%iter, wings(i)%err_abs, wings(i)%err_rel
+    close(14)
+
   enddo
 
 
@@ -134,8 +144,8 @@ subroutine dump_flexible_wing_backup( time, wings, nbackup )
       write(14,*) wings(i)%x, wings(i)%y, wings(i)%z
       write(14,*) wings(i)%vx, wings(i)%vy, wings(i)%vz
       write(14,*) wings(i)%u_old, wings(i)%u_oldold
-      write(14,*) wings(i)%x0, wings(i)%y0, wings(i)%z0
-      write(14,*) wings(i)%WingAngle_x, wings(i)%WingAngle_y, wings(i)%WingAngle_z
+      write(14,*) wings(i)%x0, wings(i)%x_pivot_b, wings(i)%x_pivot_g
+      write(14,*) wings(i)%phi, wings(i)%alpha, wings(i)%theta
       write(14,*) wings(i)%vt0, wings(i)%at0
       write(14,*) wings(i)%vr0, wings(i)%ar0
       write(14,*) wings(i)%StartupStep
@@ -179,8 +189,8 @@ subroutine read_flexible_wing_backup( wings, filename )
       read(14,*) wings(i)%x, wings(i)%y, wings(i)%z
       read(14,*) wings(i)%vx, wings(i)%vy, wings(i)%vz
       read(14,*) wings(i)%u_old, wings(i)%u_oldold
-      read(14,*) wings(i)%x0, wings(i)%y0, wings(i)%z0
-      read(14,*) wings(i)%WingAngle_x, wings(i)%WingAngle_y, wings(i)%WingAngle_z
+      read(14,*) wings(i)%x0, wings(i)%x_pivot_b, wings(i)%x_pivot_g
+      read(14,*) wings(i)%phi, wings(i)%alpha, wings(i)%theta
       read(14,*) wings(i)%vt0, wings(i)%at0
       read(14,*) wings(i)%vr0, wings(i)%ar0
       read(14,*) wings(i)%StartupStep
@@ -201,11 +211,11 @@ subroutine read_flexible_wing_backup( wings, filename )
     call MPI_Bcast( wings(i)%u_old, 6*npmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_Bcast( wings(i)%u_oldold, 6*npmax, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_Bcast( wings(i)%x0, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-    call MPI_Bcast( wings(i)%y0, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-    call MPI_Bcast( wings(i)%z0, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-    call MPI_Bcast( wings(i)%WingAngle_x, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-    call MPI_Bcast( wings(i)%WingAngle_y, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
-    call MPI_Bcast( wings(i)%WingAngle_z, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( wings(i)%x_pivot_b, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( wings(i)%x_pivot_g, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( wings(i)%phi, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( wings(i)%alpha, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
+    call MPI_Bcast( wings(i)%theta, 1, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_Bcast( wings(i)%vt0, 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_Bcast( wings(i)%at0, 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )
     call MPI_Bcast( wings(i)%vr0, 3, MPI_DOUBLE_PRECISION, 0, MPI_COMM_WORLD, mpicode )

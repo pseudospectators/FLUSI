@@ -72,12 +72,33 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   !-----------------------------------------------------------------------------
   ! If module is in use, initialize also the flexible-wing solver
   !-----------------------------------------------------------------------------
-  if (iMask=="Flexible_wing".and.iPenalization==1) then
+  if (((iMask=="Flexible_wing").or.(iMask=="Insect_with_Flexible_wings")).and.iPenalization==1) then
     ! get filename of PARAMS file from command line
     call get_command_argument(1,infile)
 
+    ! since we couple the wing into the insect body, the insect module also needs
+    ! to be initialised
+    if(mpirank==0) write(*,*) "Initializing insect modle for FSI flexible wing simulation..."
+    if (index(inicond,'backup::') == 0) then
+        ! we need to do that now otherwise we cannot create the startup mask. it would be
+        ! nicer to initialize that in either in flusi.f90 or params.f90, but then it depends
+        ! on the backup resuming, which we do here.
+        call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
+    else
+        call insect_init(time, infile, Insect, .true., &
+        inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu, dx, periodic=periodic)
+    endif
+
     if(mpirank==0) write(*,*) "Initializing flexible-wing solver and testing..."
-    call init_wings( infile,wings,dx )
+    call init_wings( infile,wings,Insect,dx )
+
+    ! max color
+    if (Insect%second_wing_pair) then
+      endcolor = 5
+    else
+      endcolor = 3
+    endif
+
   endif
 
   !-----------------------------------------------------------------------------

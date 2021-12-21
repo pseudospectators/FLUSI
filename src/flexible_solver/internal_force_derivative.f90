@@ -3,88 +3,129 @@
 ! since we use implicit scheme for time stepping
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-subroutine internal_forces_derivatives_construction(Wings)
+subroutine internal_forces_derivatives_construction(FJ,wing,dt1)
 
-type(flexible_wing), intent(inout)  :: Wings
-integer :: np,j, ij
+type(flexible_wing), intent(inout)  :: wing
+real(kind=pr), intent(inout) :: FJ(1:,1:)
+real(kind=pr), intent(in) :: dt1
+real(kind=pr), allocatable :: ke_m(:,:), ke_mc(:,:), ke_me(:,:), ke_v(:,:), ke_vBC(:,:)
+real(kind=pr), allocatable :: kby(:,:), kbz(:,:), kby_BC(:,:), kbz_BC(:,:), kby_c(:), kbz_c(:)
+integer :: np,j
+
+
+if (.not.allocated(ke_m)) allocate(ke_m(size(wing%ke_m,DIM=1),size(wing%ke_m,DIM=2)))
+if (.not.allocated(ke_mc)) allocate(ke_mc(size(wing%ke_mc,DIM=1),size(wing%ke_mc,DIM=2)))
+if (.not.allocated(ke_me)) allocate(ke_me(size(wing%ke_me,DIM=1),size(wing%ke_me,DIM=2)))
+if (.not.allocated(ke_v)) allocate(ke_v(size(wing%ke_v,DIM=1),size(wing%ke_v,DIM=2)))
+if (.not.allocated(ke_vBC)) allocate(ke_vBC(size(wing%ke_vBC,DIM=1),size(wing%ke_vBC,DIM=2)))
+
+if (.not.allocated(kby)) allocate(kby(size(wing%kby,DIM=1),size(wing%kby,DIM=2)))
+if (.not.allocated(kbz)) allocate(kbz(size(wing%kbz,DIM=1),size(wing%kbz,DIM=2)))
+if (.not.allocated(kby_BC)) allocate(kby_BC(size(wing%kby_BC,DIM=1),size(wing%kby_BC,DIM=2)))
+if (.not.allocated(kbz_BC)) allocate(kbz_BC(size(wing%kbz_BC,DIM=1),size(wing%kbz_BC,DIM=2)))
+if (.not.allocated(kby_c)) allocate(kby_c(size(wing%kby_c,DIM=1)))
+if (.not.allocated(kbz_c)) allocate(kbz_c(size(wing%kbz_c,DIM=1)))
 
 ! Get the number of mass points for the sake of simplicity in coding
-np = wings%np
+np = wing%np
+!write(*,*) '------------'
+!write(*,*) wing%coef, dt1
+!write(*,*) '------------'
 
-! Initialize
-wings%FJ = 0.d0
+! Attention! The Jacobian matrix of force FJ already initialized in external force routine
+! wing%FJ = 0.d0
 
   !Construct internal force derivative matrix aka Jacobian matrix
   do j=1,nMembranes
-       call internal_extension_force_derivative(wings%FJ, &
-                                     wings%u_new(1:np), &
-                                     wings%u_new(np+1:2*np), &
-                                     wings%u_new(2*np+1:3*np), &
-                                     wings%membranes_extension(:,:,j), &
-                                     wings%np, &
-                                     wings%ke_m(:,j))
+       ke_m(:,j) = wing%coef*dt1*wing%ke_m(:,j)
+       ke_mc(:,j) = wing%coef*dt1*wing%ke_mc(:,j)
+
+       call internal_extension_force_derivative(FJ, &
+                                     wing%u_new(1:np), &
+                                     wing%u_new(np+1:2*np), &
+                                     wing%u_new(2*np+1:3*np), &
+                                     wing%membranes_extension(:,:,j), &
+                                     wing%np, ke_m(:,j))
+
+      call internal_extension_force_derivative(FJ, &
+                                    wing%u_new(1:np), &
+                                    wing%u_new(np+1:2*np), &
+                                    wing%u_new(2*np+1:3*np), &
+                                    wing%membranes_cross(:,:,j), &
+                                    wing%np, ke_mc(:,j))
   enddo
 
   do j=1,nMembrane_edges
-    call internal_extension_force_derivative(wings%FJ, &
-                                  wings%u_new(1:np), &
-                                  wings%u_new(np+1:2*np), &
-                                  wings%u_new(2*np+1:3*np), &
-                                  wings%membrane_edge(:,:,j), &
-                                  wings%np, &
-                                  wings%ke_me(:,j))
+    ke_me(:,j) = wing%coef*dt1*wing%ke_me(:,j)
+
+    call internal_extension_force_derivative(FJ, &
+                                  wing%u_new(1:np), &
+                                  wing%u_new(np+1:2*np), &
+                                  wing%u_new(2*np+1:3*np), &
+                                  wing%membrane_edge(:,:,j), &
+                                  wing%np, ke_me(:,j))
   enddo
 
   do j=1,nVeins
+      ke_v(:,j) = wing%coef*dt1*wing%ke_v(:,j)
+      kby(:,j) = wing%coef*dt1*wing%kby(:,j)
+      kbz(:,j) = wing%coef*dt1*wing%kbz(:,j)
+
+      call internal_extension_force_derivative(FJ, &
+                                    wing%u_new(1:np), &
+                                    wing%u_new(np+1:2*np), &
+                                    wing%u_new(2*np+1:3*np), &
+                                    wing%veins_extension(:,:,j), &
+                                    wing%np, ke_v(:,j))
 
 
-      call internal_extension_force_derivative(wings%FJ, &
-                                    wings%u_new(1:np), &
-                                    wings%u_new(np+1:2*np), &
-                                    wings%u_new(2*np+1:3*np), &
-                                    wings%veins_extension(:,:,j), &
-                                    wings%np, &
-                                    wings%ke_v(:,j))
-
-
-      call internal_bending_force_derivative(wings%FJ, &
-                                  wings%u_new(1:np), &
-                                  wings%u_new(np+1:2*np), &
-                                  wings%u_new(2*np+1:3*np), &
-                                  wings%veins_bending(:,:,j), &
-                                  wings%np, &
-                                  wings%kby(:,j),wings%kbz(:,j))
+      call internal_bending_force_derivative(FJ, &
+                                  wing%u_new(1:np), &
+                                  wing%u_new(np+1:2*np), &
+                                  wing%u_new(2*np+1:3*np), &
+                                  wing%veins_bending(:,:,j), &
+                                  wing%np, &
+                                  kby(:,j), &
+                                  kbz(:,j))
   enddo
 
   do j=1,nVeins_BC
-      call internal_extension_force_BC_derivative(wings%FJ, &
-                                       wings%u_new(1:np), &
-                                       wings%u_new(np+1:2*np), &
-                                       wings%u_new(2*np+1:3*np), &
-                                       wings%x_BC(0,j), wings%y_BC(0,j), wings%z_BC(0,j), &
-                                       wings%veins_extension_BC(:,:,j), &
-                                       wings%np, &
-                                       wings%ke_vBC(:,j))
+      ke_vBC(:,j) = wing%coef*dt1*wing%ke_vBC(:,j)
+      kby_BC(:,j) = wing%coef*dt1*wing%kby_BC(:,j)
+      kbz_BC(:,j) = wing%coef*dt1*wing%kbz_BC(:,j)
+
+      call internal_extension_force_BC_derivative(FJ, &
+                                       wing%u_new(1:np), &
+                                       wing%u_new(np+1:2*np), &
+                                       wing%u_new(2*np+1:3*np), &
+                                       wing%x_BC(0,j), wing%y_BC(0,j), wing%z_BC(0,j), &
+                                       wing%veins_extension_BC(:,:,j), &
+                                       wing%np, &
+                                       ke_vBC(:,j))
 
 
-      call internal_bending_force_BC_derivative(wings%FJ, &
-                                     wings%u_new(1:np), &
-                                     wings%u_new(np+1:2*np), &
-                                     wings%u_new(2*np+1:3*np), &
-                                     wings%x_BC(-1:0,j), wings%y_BC(-1:0,j), wings%z_BC(-1:0,j), &
-                                     wings%veins_bending_BC(:,:,j), &
-                                     wings%np, &
-                                     wings%kby_BC(:,j),wings%kbz_BC(:,j))
+      call internal_bending_force_BC_derivative(FJ, &
+                                     wing%u_new(1:np), &
+                                     wing%u_new(np+1:2*np), &
+                                     wing%u_new(2*np+1:3*np), &
+                                     wing%x_BC(-1:0,j), wing%y_BC(-1:0,j), wing%z_BC(-1:0,j), &
+                                     wing%veins_bending_BC(:,:,j), &
+                                     wing%np, &
+                                     kby_BC(:,j), &
+                                     kbz_BC(:,j))
 
   end do
 
-  call internal_bending_force_derivative(wings%FJ, &
-                              wings%u_new(1:np), &
-                              wings%u_new(np+1:2*np), &
-                              wings%u_new(2*np+1:3*np), &
-                              wings%vein_connectors, &
-                              wings%np, &
-                              wings%kby_c,wings%kbz_c)
+  kby_c = wing%coef*dt1*wing%kby_c
+  kbz_c = wing%coef*dt1*wing%kbz_c
+
+  call internal_bending_force_derivative(FJ, &
+                              wing%u_new(1:np), &
+                              wing%u_new(np+1:2*np), &
+                              wing%u_new(2*np+1:3*np), &
+                              wing%Joints, &
+                              wing%np, &
+                              kby_c, kbz_c)
 
 end subroutine
 

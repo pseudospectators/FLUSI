@@ -1,67 +1,61 @@
 !-------------------------------------------------------------------------------
 ! WRAPPER Motion protocoll wrapper of flexible wings
 !-------------------------------------------------------------------------------
-subroutine prescribed_wing ( time, wing )
+subroutine prescribed_wing ( time, wing , Insect)
   implicit none
 
   real(kind=pr),intent(in) :: time
+  type(diptera), intent(inout) :: Insect
   type(flexible_wing), intent (inout) :: wing
   integer :: i
 
 
   select case (wing%Motion)
-  case ("prescribed_revolving_wing")
-    call prescribed_revolving_wing (time, wing)
+  case ("revolving_wing","from_file")
+    call prescribed_wing_motion (time, wing, Insect)
   case ("stationary")
     continue
   end select
 end subroutine
 
-subroutine prescribed_revolving_wing (time, wing)
+subroutine prescribed_wing_motion (time, wing, Insect)
 
   implicit none
 
   real(kind=pr),intent(in) :: time
+  type(diptera), intent(inout) :: Insect
   type(flexible_wing), intent (inout) :: wing
-  integer :: j
+  integer :: j,i
   real(kind=pr),dimension(1:3,1:3) :: mat_Rx, mat_Ry
   real(kind=pr),dimension(1:3) :: u,v
-  real(kind=pr) :: tau,phi_z
+  !real(kind=pr) :: ttau, phi, phi_dt, alpha, alpha_dt, theta, theta_dt
 
-  !call Rx(mat_Rx,wing%WingAngle_x)
+  !-----------------------------------------------------------------------------
+  ! fetch current motion state
+  !-----------------------------------------------------------------------------
+  call BodyMotion (time, Insect)
+  call StrokePlane (time, Insect)
+  if (wing%ID == "left") then
+    call Flexible_wing_motions ( time, wing, Insect%kine_wing_l )
+  elseif (wing%ID == "right") then
+    call Flexible_wing_motions ( time, wing, Insect%kine_wing_r )
+  endif
 
-  !do j=1,wing%np
-  !  u = matmul(mat_Rx,(/wing%u_old(j) - wing%x0, &
-  !                      wing%u_old(wing%np + j) -wing%y0, &
-  !                      wing%u_old(2*wing%np + j) - wing%z0/))
-  !  wing%x(j) = u(1) + wing%x0
-  !  wing%y(j) = u(2) + wing%y0
-  !  wing%z(j) = u(3) + wing%z0
-  !enddo
+  !-----------------------------------------------------------------------------
+  ! define the rotation matrices to change between coordinate systems
+  !-----------------------------------------------------------------------------
+  call body_rotation_matrix( Insect, Insect%M_body )
+  Insect%M_body_inv = transpose(Insect%M_body)
+  call MSM_solver_rotation_matrix( Wing, wing%M_solver )
+  Wing%M_solver_inv = transpose(Wing%M_solver)
+  call flexible_wing_rotation_matrix( Wing, Insect, Wing%M_wing )
+  Wing%M_wing_inv = transpose(Wing%M_wing)
 
-  tau = 4.d-1
-  wing%vr0 = (/0.d0,0.d0,0.d0/)
+  ! rel+abs wing angular velocities in the w/b/g coordinate system
+  call flexible_wing_angular_velocities (time, Wing, Insect, Insect%M_body )
 
-  phi_z= -1.0d0*(tau*dexp(-time/tau) + time) + 1.0d0*tau
-  wing%vr0(3) = 1.0d0*(dexp(-time/tau) - 1)
+  call rotate_and_translate_wing_into_global_system(wing, Insect)
 
-  call Rz(mat_Ry,phi_z)
-
-  do j=1,wing%np
-    u = matmul(mat_Ry,(/wing%u_old(j) - wing%x0, &
-                        wing%u_old(wing%np + j) -wing%y0, &
-                        wing%u_old(2*wing%np + j) - wing%z0/))
-    !u = matmul(mat_Ry,(/wing%x(j) - wing%x0, &
-    !                    wing%y(j) -wing%y0, &
-    !                    wing%z(j) - wing%z0/))
-    wing%x(j) = u(1) + wing%x0
-    wing%y(j) = u(2) + wing%y0
-    wing%z(j) = u(3) + wing%z0
-
-    v = -cross(wing%vr0(1:3),u(1:3))
-    wing%vx(j) = v(1)
-    wing%vy(j) = v(2)
-    wing%vz(j) = v(3)
-enddo
+  call construct_total_velocity(wing,Insect%M_body,Insect%M_body_inv)
 
 end subroutine
