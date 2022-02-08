@@ -119,7 +119,7 @@ contains
             usy = us(ix,iy,iz,2)
             usz = us(ix,iy,iz,3)
 
-            chi = mask2(ix,iy,iz) 
+            chi = mask2(ix,iy,iz)
 
             ! penalized diffusion coefficient
             D = scalar_props(j)%kappa*(1.d0-chi) + scalar_props(j)%eps*chi
@@ -206,7 +206,9 @@ contains
 
     call add_scalar_source( time, scalars, scalars_rhs )
     deallocate(mask2)
-    time_nlk_scalar = time_scalar + MPI_wtime() - t1
+    
+    ! save timing
+    call toc( "Pasisve scalar (rhs)", MPI_wtime() - t1)
   end subroutine cal_nlk_scalar
 
 

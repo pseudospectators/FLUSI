@@ -15,6 +15,10 @@ end module penalization
 ! Variables for pseudospectral simnulations
 module vars
   use mpi
+
+  ! include the new timing module code-wide so it can be used everywhere
+  use module_timing
+
   implicit none
 
   character(len=1),save:: tab ! Fortran lacks a native tab, so we set one up.
@@ -59,13 +63,7 @@ module vars
 
   real(kind=pr),dimension(:),allocatable,save :: lin ! contains nu and eta
 
-  ! Vabiables timing statistics.  Global to simplify syntax.
-  real(kind=pr),save :: time_fft,time_ifft,time_vis,time_mask,time_nlk2
-  real(kind=pr),save :: time_vor,time_curl,time_p,time_nlk,time_u,tslices
-  real(kind=pr),save :: time_bckp,time_save,time_total,time_fluid,time_nlk_fft
-  real(kind=pr),save :: time_sponge,time_scalar
-  real(kind=pr),save :: time_solid, time_drag, time_surf, time_LAPACK
-  real(kind=pr),save :: time_hdf5,time_integrals,time_rhs,time_nlk_scalar,tstart=0.0d0
+  real(kind=pr), save :: tstart=0.0d0, time_total
 
   ! Variables set via the parameters file
   real(kind=pr),save :: length, alpha_generic
@@ -129,7 +127,8 @@ module vars
   real(kind=pr),save :: omega1, nu_smoothing
 
   ! Boundary conditions:
-  character(len=strlen),save :: iMask
+  character(len=strlen),save :: iMask   
+  integer(kind=2),save :: endcolor ! the highest color value used
   integer,save :: iMoving,iPenalization
   real(kind=pr),save :: eps
   real(kind=pr),save :: r1,r2,r3 ! Parameters for boundary conditions
@@ -184,6 +183,7 @@ module vars
 
   ! mean flow control
   real(kind=pr),save :: Uxmean,Uymean,Uzmean, m_fluid, umean_amplitude(1:3)
+  real(kind=pr),save :: umean_freq
   character(len=strlen),save :: iMeanFlow_x,iMeanFlow_y,iMeanFlow_z
   ! mean flow startup conditioner (if "dynamic" and mean flow at t=0 is not zero
   ! the forces are singular at the beginning. use the startup conditioner to

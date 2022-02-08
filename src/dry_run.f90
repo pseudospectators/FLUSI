@@ -28,16 +28,6 @@ subroutine dry_run()
   nd=3*nf ! The one field has three components.
   neq=nd  ! number of equations, can be higher than 3 if using passive scalar
 
-
-  ! initialize timing variables
-  time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
-  time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
-  time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
-  time_scalar=0.d0
-  time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
-  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
-  tslices=0.d0
-
   if (root) then
      write(*,'(A)') '--------------------------------------'
      write(*,'(A)') '  FLUSI--dry run'
@@ -81,6 +71,10 @@ subroutine dry_run()
     Insect%BodyMotion = "command-line"
     Insect%FlappingMotion_left = "command-line-left"
     Insect%FlappingMotion_right = "command-line-right"
+    if (Insect%second_wing_pair) then
+      Insect%FlappingMotion_left2 = "command-line-left"
+      Insect%FlappingMotion_right2 = "command-line-right"
+    endif
     ! since the kinematics do not change in time (we have a single snapshot), we
     ! save only one file
     tmax = 0.d0
@@ -129,7 +123,7 @@ subroutine dry_run()
   ! Load kinematics from file (Dmitry, 14 Nov 2013)
   if (iMask=="Insect") then
 
-    call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx)
+    call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
 
     ! If required, initialize rigid solid dynamics solver. Note that if the --post flag
     ! is set, the insect state is read from file, so we skip the initialization .
@@ -143,14 +137,31 @@ subroutine dry_run()
 
     if (root) then
       open  (14,file=Insect%kinematics_file, status='replace')
-      write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
-      "psi","beta","gamma","eta_stroke",&
-      "alpha_l","phi_l","theta_l",&
-      "alpha_r","phi_r","theta_r",&
-      "rot_l_x","rot_l_y","rot_l_z",&
-      "rot_r_x","rot_r_y","rot_r_z",&
-      "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
-      "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+      if (Insect%second_wing_pair) then
+        write (14,'(44(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
+        "psi","beta","gamma","eta_stroke",&
+        "alpha_l","phi_l","theta_l",&
+        "alpha_r","phi_r","theta_r",&
+        "rot_l_x","rot_l_y","rot_l_z",&
+        "rot_r_x","rot_r_y","rot_r_z",&
+        "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
+        "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z",&
+        "alpha_l2","phi_l2","theta_l2",&
+        "alpha_r2","phi_r2","theta_r2",&
+        "rot_l2_x","rot_l2_y","rot_l2_z",&
+        "rot_r2_x","rot_r2_y","rot_r2_z",&
+        "rot_dt_l2_x","rot_dt_l2_y","rot_dt_l2_z",&
+        "rot_dt_r2_x","rot_dt_r2_y","rot_dt_r2_z"
+      else
+        write (14,'(26(A15,1x))') "%          time","xc_body_g","yc_body","zc_body",&
+        "psi","beta","gamma","eta_stroke",&
+        "alpha_l","phi_l","theta_l",&
+        "alpha_r","phi_r","theta_r",&
+        "rot_l_x","rot_l_y","rot_l_z",&
+        "rot_r_x","rot_r_y","rot_r_z",&
+        "rot_dt_l_x","rot_dt_l_y","rot_dt_l_z",&
+        "rot_dt_r_x","rot_dt_r_y","rot_dt_r_z"
+      endif
       close (14)
     endif
   endif
@@ -223,9 +234,6 @@ subroutine dry_run()
     time = tstart + dble(it)*tsave
   enddo
 
-  if(mpirank==0) then
-    write(*,'("time for mask creation ",es12.4)') time_mask
-  endif
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory
@@ -253,6 +261,7 @@ subroutine dry_run_flexible_wing()
   !use helpers
   !use module_ini_files_parser_mpi
   implicit none
+  real(kind=pr)          :: t1,t2
   real(kind=pr)          :: time,memory,mem_field
   integer                :: it, i, j
   character(len=strlen)  :: infile, mode
@@ -262,7 +271,7 @@ subroutine dry_run_flexible_wing()
   ! this is the solid model beams:
   type(solid), dimension(1:nBeams) :: beams
   ! this is the wings we're using (object oriented)
-  type(Wing),dimension(1:nWings) :: Wings
+  type(flexible_wing),dimension(1:nWings) :: Wings
   logical :: exists
 
 
@@ -271,16 +280,6 @@ subroutine dry_run_flexible_wing()
   nf=1    ! We are evolving one field (that means 1 integrating factor)
   nd=3*nf ! The one field has three components.
   neq=nd  ! number of equations, can be higher than 3 if using passive scalar
-
-
-  ! initialize timing variables
-  time_fft=0.d0; time_ifft=0.d0; time_vis=0.d0; time_mask=0.d0; time_nlk2=0.d0
-  time_vor=0.d0; time_curl=0.d0; time_p=0.d0; time_nlk=0.d0; time_fluid=0.d0
-  time_bckp=0.d0; time_save=0.d0; time_total=MPI_wtime(); time_u=0.d0; time_sponge=0.d0
-  time_scalar=0.d0
-  time_solid=0.d0; time_drag=0.d0; time_surf=0.d0; time_LAPACK=0.d0
-  time_hdf5=0.d0; time_integrals=0.d0; time_rhs=0.d0; time_nlk_scalar=0.d0
-  tslices=0.d0
 
   if (root) then
      write(*,'(A)') '--------------------------------------'
@@ -296,7 +295,6 @@ subroutine dry_run_flexible_wing()
   endif
 
 
-
   !-----------------------------------------------------------------------------
   ! Read input parameters and mesh data
   !-----------------------------------------------------------------------------
@@ -304,8 +302,6 @@ subroutine dry_run_flexible_wing()
   if (root) write(*,'(A)') '*** info: Reading input data...'
   ! get filename of PARAMS file from command line
   call get_command_argument(2,infile)
-
-  write(*,*) infile
 
   ! read all parameters from that file
   call get_params(infile,Insect,.true.)
@@ -316,7 +312,7 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   ! Checking
   !-----------------------------------------------------------------------------
-  if (iMask/="Flexible_wing") then
+  if ((iMask/="Flexible_wing") .and. (iMask/="Insect_with_Flexible_wings")) then
     call abort(476659, "dry-run-flexible-wing is used only for flexible wing model, &
     change iMask into Flexible_wing to continue")
   endif
@@ -367,7 +363,8 @@ subroutine dry_run_flexible_wing()
   !-----------------------------------------------------------------------------
   ! initalize wings
   !-----------------------------------------------------------------------------
-  call init_wings( infile, Wings)
+  call insect_init( 0.d0, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
+  call init_wings( infile, Wings, Insect, dx)
 
   if (tsave == 0.d0) then
     if(mpirank==0) write(*,*) "Warning, tsave NOT set assuming 0.05d0!!!"
@@ -383,70 +380,74 @@ subroutine dry_run_flexible_wing()
   it = 0
 
   ! create the startup mask function
+  if (isaveMask == 1) then
   call create_mask(time,Insect,beams,wings)
+  endif
 
   ! Save data
   write(name,'(i6.6)') floor(time*1000.d0)
 
+  if (isaveMask == 1) then
   call save_field_hdf5(time,'mask_'//name,mask)
-  !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
-  if (isaveSolidVelocity == 1) then
-    call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
-    call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
-    call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
   endif
 
-  do while (time<tmax)
-
-    !
-    call flexible_wing_motions ( time, wings )
-
-    !
-    call flexible_solid_time_step(time, tsave, tsave, it, wings)
-
-    ! create the mask
-    call create_mask(time,Insect,beams,wings)
-
-
-    it = it+1
-    time = tstart + dble(it)*tsave
-
-    ! Save data
-    write(name,'(i6.6)') floor(time*1000.d0)
-
-    if(mpirank==0) then
-      write(*,'("Dry run flexible wing: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
-      time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
-    endif
-
-    call save_field_hdf5(time,'mask_'//name,mask)
-    !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
-    if (isaveSolidVelocity == 1) then
+  !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
+  if (isaveSolidVelocity == 1) then
       call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
       call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
       call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
-    endif
+  endif
 
-    if (root) then
-      call SaveWingData( time, wings )
-    endif
+  do while (time<tmax)
+      t1 = MPI_wtime()
 
+          call FlexibleSolidSolverWrapper ( time, wings(1)%dt, wings(1)%dt, it, wings, Insect )
+
+      ! create the mask
+      if (isaveMask == 1) then
+      call create_mask(time,Insect,beams,wings)
+      endif
+
+      it = it+1
+      time = tstart + dble(it)*wings(1)%dt
+
+      ! Save data
+      write(name,'(i6.6)') floor(time*1000.d0)
+
+!      if (modulo(time,tsave)<1.0e-15) then
+      if (time_for_output(time, wings(1)%dt, it, tsave, 99999999, tmax, 0.d0)) then
+
+          if (root) then
+          write(*,'("Dry run flexible wing: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
+          time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
+          endif
+
+          if (isaveMask == 1) then
+          call save_field_hdf5(time,'mask_'//name,mask)
+      endif
+
+      !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)
+      if (isaveSolidVelocity == 1) then
+          call save_field_hdf5(time,'usx_'//name,us(:,:,:,1))
+          call save_field_hdf5(time,'usy_'//name,us(:,:,:,2))
+          call save_field_hdf5(time,'usz_'//name,us(:,:,:,3))
+      endif
+      endif
+
+      if (root) then
+          call SaveWingData( time, it, tsave, wings )
+      endif
+
+      call toc("DryRun time step", MPI_wtime()-t1)
   enddo
 
-  if(mpirank==0) then
-    !write(*,'("total time ",es12.4)') time_total
-    write(*,'("time for mask creation ",es12.4)') time_mask
-  endif
+  ! prints the profiling on screen
+  call summarize_profiling( MPI_COMM_WORLD )
 
   !-----------------------------------------------------------------------------
   ! Deallocate memory
   !-----------------------------------------------------------------------------
   deallocate(us, mask, mask_color)
-
-  !if (iMask=="Insect") then
-    ! Clean insect
-  !  call insect_clean(Insect)
-  !endif
 
   ! release other memory
   call fft_free

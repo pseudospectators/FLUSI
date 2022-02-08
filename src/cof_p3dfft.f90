@@ -30,7 +30,7 @@ module p3dfft_wrapper
 
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
-subroutine fft(outk,inx)
+subroutine fft(inx, outk)
     use mpi
     use p3dfft
     use vars ! For precision specficiation and array sizes
@@ -44,9 +44,9 @@ subroutine fft(outk,inx)
       call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
     endif
 
-
     t1 = MPI_wtime()
     ! Compute forward FFT
+    outk = 0.0d0
     call p3dfft_ftran_r2c( inx, outk, 'fff')
 
     ! Normalize
@@ -55,13 +55,14 @@ subroutine fft(outk,inx)
     norm = 1.d0 / dble(npoints)
     outk = outk * norm
 
-    time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
+    ! save timing
+    call toc( "FFT", MPI_wtime() - t1)
 end subroutine fft
 
 
 ! Compute the inverse FFT of the complex-valued 3D array ink and save the
 ! output in the real-valued 3D array outx.
-subroutine ifft(outx,ink)
+subroutine ifft(ink, outx)
     use mpi
     use p3dfft
     use vars ! For precision specficiation and array sizes
@@ -77,13 +78,14 @@ subroutine ifft(outx,ink)
     ! Compute backward FFT
     call p3dfft_btran_c2r(ink, outx, 'fff')
 
-    time_ifft  = time_ifft  + MPI_wtime() - t1
+    ! save timing
+    call toc( "iFFT", MPI_wtime() - t1)
 end subroutine ifft
 
 
 ! Compute the FFT of the real-valued 3D array inx and save the output
 ! in the complex-valued 3D array outk.
-subroutine fft3(outk,inx)
+subroutine fft3(inx, outk)
     use mpi
     use p3dfft
     use vars ! For precision specficiation and array sizes
@@ -100,8 +102,7 @@ subroutine fft3(outk,inx)
       call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
     endif
 
-!    call p3dfft_ftran_r2c_many( inx, rs(1)*rs(2)*rs(3), outk, cs(1)*cs(2)*cs(3), 3, 'fff')
-! FIXME: p3dfft_ftran_r2c_many is unstable, use p3dfft_ftran_r2c
+    outk = 0.0d0
     call p3dfft_ftran_r2c(inx(:,:,:,1), outk(:,:,:,1), 'fff')
     call p3dfft_ftran_r2c(inx(:,:,:,2), outk(:,:,:,2), 'fff')
     call p3dfft_ftran_r2c(inx(:,:,:,3), outk(:,:,:,3), 'fff')
@@ -111,14 +112,15 @@ subroutine fft3(outk,inx)
     norm = 1.d0 / dble(npoints)
     outk = outk * norm
 
-    time_fft  = time_fft  + MPI_wtime() - t1  ! for global % of FFTS
+    ! save timing
+    call toc( "FFT", MPI_wtime() - t1)
 
 end subroutine fft3
 
 
 ! Compute the inverse FFT of the complex-valued 3D array ink and save the
 ! output in the real-valued 3D array outx.
-subroutine ifft3(outx,ink)
+subroutine ifft3(ink, outx)
     use mpi
     use p3dfft
     use vars ! For precision specficiation and array sizes
@@ -132,16 +134,15 @@ subroutine ifft3(outx,ink)
     t1 = MPI_wtime()
 
     if (using_p3dfft .eqv. .false.) then
-      call abort(33343,'P3DFFT is not initialized, you cannot perform FFTs')
+      call abort(33343,'P3DFFT is not initialized, you cannot perform iFFTs')
     endif
 
-!    call p3dfft_btran_c2r_many( ink, cs(1)*cs(2)*cs(3), outx, rs(1)*rs(2)*rs(3), 3, 'fff')
-! FIXME: p3dfft_btran_c2r_many is unstable, use p3dfft_btran_c2r
     call p3dfft_btran_c2r(ink(:,:,:,1), outx(:,:,:,1), 'fff')
     call p3dfft_btran_c2r(ink(:,:,:,2), outx(:,:,:,2), 'fff')
     call p3dfft_btran_c2r(ink(:,:,:,3), outx(:,:,:,3), 'fff')
 
-    time_ifft  = time_ifft  + MPI_wtime() - t1
+    ! save timing
+    call toc( "iFFT", MPI_wtime() - t1)
 end subroutine ifft3
 
 
@@ -163,7 +164,7 @@ subroutine fft_initialize
   include 'fftw3.f'
 
   integer,parameter :: nmpidims = 2
-  integer :: mpicode,idir,L,n,ix,iy,iz
+  integer :: mpicode,idir,L,n,ix,iy,iz,nxc
   integer,dimension(1:3) :: ka,kb,ks,kat,kbt,kst
   logical,dimension(2) :: subcart
   real(kind=pr),dimension(:,:),allocatable :: f,ft
@@ -230,7 +231,20 @@ subroutine fft_initialize
   endif
 
   !-- Initialize P3DFFT
-  call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD, overwrite=.false.)
+  if (iDealias==1) then
+    !-- Pruned fft for dealiasing. Only stable in the x direction (Why?)
+    nxc = ceiling((3.d0/4.d0)*dble(nx)) ! 3/4*nx is more likely an integer than 3/4*nx
+    if (nxc < 2) then ! Do not use pruned for small nx
+      nxc = nx
+    endif
+    call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD,nxc,ny,nz,overwrite=.false.)
+    if (mpirank==0) then
+      write(*,*) "Using pruned FFT"
+    endif
+  else
+    !-- No pruned if no dealiasing
+    call p3dfft_setup(mpidims,nx,ny,nz,MPI_COMM_WORLD,overwrite=.false.)
+  endif
 
   !-- Get Cartesian topology info
   call p3dfft_get_mpi_info(mpitaskid,mpitasks,mpicommcart)

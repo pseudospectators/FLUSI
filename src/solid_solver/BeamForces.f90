@@ -75,7 +75,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
           write(*,'(80("-"))')
 
           write(*,*) testing//" Interpolation test, top surface:"
-          
+
           do ih=0,nh
               do is=0,ns-1
                   if (testing=="mask") then
@@ -156,7 +156,7 @@ subroutine get_surface_pressure_jump (time, beam, p, testing, timelevel)
     enddo
   endif
 
-  time_surf = time_surf + MPI_wtime() - t0
+  call toc("SolidSolver (get_surface_pressure_jump)", MPI_wtime() - t0)
 end subroutine get_surface_pressure_jump
 
 
@@ -170,7 +170,7 @@ end subroutine get_surface_pressure_jump
 ! subroutine GET_SURFACE_PRESSURE_JUMP has an optional argument for this testing
 !
 !-------------------------------------------------------------------------------
-subroutine surface_interpolation_testing( time, beams, work )
+subroutine surface_interpolation_testing( time, Insect, beams, work )
     use mpi
     use vars
     use interpolation
@@ -184,10 +184,10 @@ subroutine surface_interpolation_testing( time, beams, work )
     real(kind=pr),intent(inout):: work(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
     integer :: ix,iy,iz
     real(kind=pr) :: x,y,z,fexact,fsync
-    type(diptera)::insectdummy
+    type(diptera),intent(inout)::Insect
 
     !-- create mask
-    call create_mask(time,insectdummy,beams)
+    call create_mask(time,Insect,beams)
     !-- copy mask in extended array (the one with ghost points)
     work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)) = mask
 

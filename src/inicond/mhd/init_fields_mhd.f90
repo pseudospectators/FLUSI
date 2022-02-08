@@ -50,7 +50,7 @@ subroutine init_fields_mhd(time,it,dt0,dt1,n0,n1,ubk,nlk,wj,explin)
 
      ! transform everything to fourier space
      do i = 1,nd
-        call fft(ubk(:,:,:,i),wj(:,:,:,i))
+        call fft(wj(:,:,:,i), ubk(:,:,:,i))
      enddo
 
   case default
@@ -104,7 +104,7 @@ complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   enddo
 
   do i=1,nd
-     call fft(ubk(:,:,:,i),ub(:,:,:,i))
+     call fft(ub(:,:,:,i), ubk(:,:,:,i))
   enddo
 end subroutine init_orszagtang
 
@@ -130,7 +130,7 @@ complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   wj(:,:,:,6)=6.d0
 
   do i=1,nd
-     call fft(ubk(:,:,:,i),wj(:,:,:,i))
+     call fft(wj(:,:,:,i), ubk(:,:,:,i))
   enddo
 end subroutine init_const
 
@@ -192,7 +192,7 @@ complex(kind=pr),intent(inout):: ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
   enddo
 
   do i=3,nd
-     call fft(ubk(:,:,:,i),ub(:,:,:,i))
+     call fft(ub(:,:,:,i), ubk(:,:,:,i))
   enddo
 end subroutine init_smc
 
@@ -228,9 +228,9 @@ complex(kind=pr),intent(inout)::ubk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nd)
      enddo
   enddo
 
-  call fft(ubk(:,:,:,4),ub(:,:,:,4))
-  call fft(ubk(:,:,:,5),ub(:,:,:,5))
-  call fft(ubk(:,:,:,6),ub(:,:,:,6))
+  call fft(ub(:,:,:,4), ubk(:,:,:,4))
+  call fft(ub(:,:,:,5), ubk(:,:,:,5))
+  call fft(ub(:,:,:,6), ubk(:,:,:,6))
 end subroutine init_smcnum
 
 

@@ -247,6 +247,7 @@ end subroutine get_params_common
 subroutine get_params_fsi(PARAMS,Insect)
   use module_ini_files_parser_mpi
   use vars
+  use flexible_model
   use module_insects
   implicit none
 
@@ -315,6 +316,7 @@ subroutine get_params_fsi(PARAMS,Insect)
   call read_param_mpi(PARAMS,"MeanFlow","ux",uxmean, 1.d0)
   call read_param_mpi(PARAMS,"MeanFlow","uy",uymean, 1.d0)
   call read_param_mpi(PARAMS,"MeanFlow","uz",uzmean, 1.d0)
+  call read_param_mpi(PARAMS,"MeanFlow","umean_freq",umean_freq, 0.d0)
   call read_param_mpi(PARAMS,"MeanFlow","iMeanFlowStartupConditioner",&
   iMeanFlowStartupConditioner,"no")
   call read_param_mpi(PARAMS,"MeanFlow","tau_meanflow",tau_meanflow, 0.d0)
@@ -336,6 +338,15 @@ subroutine get_params_fsi(PARAMS,Insect)
   ! ---------------------------------------------------
   call get_params_solid( PARAMS )
   call get_params_scalars( PARAMS )
+
+  ! ---------------------------------------------------
+  ! Activate the solver for flexible wings
+  ! ---------------------------------------------------
+  call read_param_mpi(PARAMS,"Flexible_wing","use_flexible_wing_model",use_flexible_wing_model,"no")
+  call read_param_mpi(PARAMS,"Flexible_wing","wing_interp",wing_interp,"delta")
+  call read_param_mpi(PARAMS,"Flexible_wing","activate_press_force",activate_press_force,"no")
+  call read_param_mpi(PARAMS,"Flexible_wing","activate_noninertial_force",activate_noninertial_force,"no")
+  call read_param_mpi(PARAMS,"Flexible_wing","load_mass_from_file",load_mass_from_file,.false.)
 
   ! ----------------------------------------------------
   ! slice extraction

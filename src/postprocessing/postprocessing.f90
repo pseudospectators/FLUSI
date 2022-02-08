@@ -37,6 +37,10 @@ subroutine postprocessing()
   ! check what to do
   !-----------------
   select case (postprocessing_mode)
+  case ("--force")
+      call post_force(help)
+  case ("--POD")
+      call POD(help)
   case ("--divergence")
     call post_div(help)
   case ("--flexible-wing-mask")
@@ -146,6 +150,7 @@ subroutine postprocessing()
       write(*,*) "--extract-subset"
       write(*,*) "--field-analysis"
       write(*,*) "--force-decomp"
+      write(*,*) "--force"
       write(*,*) "--flexible-wing-mask"
       write(*,*) "--gradient"
       write(*,*) "--hdf2bin"
@@ -156,6 +161,7 @@ subroutine postprocessing()
       write(*,*) "--mean-2D"
       write(*,*) "--mean-over-x-subdomain"
       write(*,*) "--p2Q"
+      write(*,*) "--POD"
       write(*,*) "--pointcloud2mask"
       write(*,*) "--pressure-force"
       write(*,*) "--pressure"
@@ -497,8 +503,8 @@ subroutine ux_from_uyuz(help)
   call read_single_file ( fname_uy, u(:,:,:,2) )
   call read_single_file ( fname_uz, u(:,:,:,3) )
 
-  call fft (uk(:,:,:,2),u(:,:,:,2))
-  call fft (uk(:,:,:,3),u(:,:,:,3))
+  call fft(u(:,:,:,2), uk(:,:,:,2))
+  call fft(u(:,:,:,3), uk(:,:,:,3))
 
   call dealias(uk(:,:,:,2))
   call dealias(uk(:,:,:,3))
@@ -521,7 +527,7 @@ subroutine ux_from_uyuz(help)
     enddo
   enddo
   call dealias(uk(:,:,:,1))
-  call ifft (u(:,:,:,1),uk(:,:,:,1))
+  call ifft(uk(:,:,:,1), u(:,:,:,1))
 
   ! call fft (inx=u(:,:,:,1),outk=uk(:,:,:,1))
   ! call ifft (u(:,:,:,1),uk(:,:,:,1))

@@ -1,10 +1,11 @@
 ! Wrapper for init_fields
 subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
-           press,scalars,scalars_rhs,Insect,beams)
+           press,scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -20,6 +21,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nBeams), intent(out) :: beams
   type(diptera),intent(inout)::Insect
   character(len=strlen) :: infile
@@ -32,7 +34,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   select case(method)
   case("fsi")
     call init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,&
-    workc,press,scalars,scalars_rhs,Insect,beams, work, u)
+    workc,press,scalars,scalars_rhs,Insect,beams,wings, work, u)
   case("mhd")
     call init_fields_mhd(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin)
   case default
@@ -52,11 +54,51 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
         ! we need to do that now otherwise we cannot create the startup mask. it would be
         ! nicer to initialize that in either in flusi.f90 or params.f90, but then it depends
         ! on the backup resuming, which we do here.
-        call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx)
+        call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
+    else
+
+        call insect_init(time, infile, Insect, .true., &
+        inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu, dx, periodic=periodic)
+    endif
+
+    ! max color
+    if (Insect%second_wing_pair) then
+      endcolor = 5
+    else
+      endcolor = 3
+    endif
+  endif
+
+  !-----------------------------------------------------------------------------
+  ! If module is in use, initialize also the flexible-wing solver
+  !-----------------------------------------------------------------------------
+  if (((iMask=="Flexible_wing").or.(iMask=="Insect_with_Flexible_wings")).and.iPenalization==1) then
+    ! get filename of PARAMS file from command line
+    call get_command_argument(1,infile)
+
+    ! since we couple the wing into the insect body, the insect module also needs
+    ! to be initialised
+    if(mpirank==0) write(*,*) "Initializing insect modle for FSI flexible wing simulation..."
+    if (index(inicond,'backup::') == 0) then
+        ! we need to do that now otherwise we cannot create the startup mask. it would be
+        ! nicer to initialize that in either in flusi.f90 or params.f90, but then it depends
+        ! on the backup resuming, which we do here.
+        call insect_init(time, infile, Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
     else
         call insect_init(time, infile, Insect, .true., &
-        inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu, dx)
+        inicond(9:23)//".rigidsolver", (/xl,yl,zl/), nu, dx, periodic=periodic)
     endif
+
+    if(mpirank==0) write(*,*) "Initializing flexible-wing solver and testing..."
+    call init_wings( infile,wings,Insect,dx )
+
+    ! max color
+    if (Insect%second_wing_pair) then
+      endcolor = 5
+    else
+      endcolor = 3
+    endif
+
   endif
 
   !-----------------------------------------------------------------------------
@@ -64,13 +106,13 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   !-----------------------------------------------------------------------------
   if (iPenalization==1) then
     if (mpirank==0) write(*,'("Creating startup mask...time=",es12.4)') time
-    call create_mask(time,Insect,beams)
+    call create_mask(time,Insect,beams,wings)
   endif
 
   !-----------------------------------------------------------------------------
   ! for artificial-compressibility we need to initialize the pressure as well.
   !-----------------------------------------------------------------------------
-  if (equation=="artificial-compressibility" .and. inicond/="infile") then
+  if (equation=="artificial-compressibility" .and. inicond/="infile" .and. index(inicond, "backup")==0) then
       select case (acm_inipressure)
       case('flusi-spectral')
           if (ng /= 0)  call abort(7726289,"acm no ghost nodes must be used (bounds compatibility!)!")
@@ -94,7 +136,7 @@ subroutine init_fields(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,explin,work,workc,&
   !-----------------------------------------------------------------------------
   if (index(inicond,'backup::')==0 .and. (time>=tsave_first)) then
     if (mpirank==0) write(*,*) "Saving initial conditions to disk..."
-    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,scalars,scalars_rhs,Insect,beams)
+    call save_fields(time,it,uk,u,vort,nlk(:,:,:,:,n0),work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   endif
 
   tstart = time
@@ -167,9 +209,9 @@ subroutine perturbation(fk1,fk2,fk3,f1,f2,f3,energy)
   f2=f2*enorm
   f3=f3*enorm
 
-  call fft(fk1,f1)
-  call fft(fk2,f2)
-  call fft(fk3,f3)
+  call fft(f1, fk1)
+  call fft(f2, fk2)
+  call fft(f3, fk3)
 end subroutine perturbation
 
 
@@ -259,14 +301,14 @@ subroutine randgen3d(fk1,fk2,fk3,w)
   enddo
 
   ! Enforce Hermitian symmetry the lazy way:
-  call ifft(w,fk1)
-  call fft(fk1,w)
+  call ifft(fk1, w)
+  call fft(w, fk1)
 
-  call ifft(w,fk2)
-  call fft(fk2,w)
+  call ifft(fk2, w)
+  call fft(w, fk2)
 
-  call ifft(w,fk3)
-  call fft(fk3,w)
+  call ifft(fk3, w)
+  call fft(w, fk3)
 end subroutine randgen3d
 
 
@@ -331,8 +373,6 @@ subroutine init_taylorcouette_u(ubk,ub)
   us(:,:,:,3)=0.d0
 
   ! Transform velocity field to Fourier space:
-  do i=1,3
-    call fft(ubk(:,:,:,i),ub(:,:,:,i))
-  enddo
+  call fft3(ub, ubk)
 
 end subroutine init_taylorcouette_u

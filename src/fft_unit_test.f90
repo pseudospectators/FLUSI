@@ -37,11 +37,12 @@ subroutine FFT_unit_test ( u, uk )
         x = dble(ix)*dx
         y = dble(iy)*dy
         z = dble(iz)*dz
-        u(ix,iy,iz) = dsin( y ) * dcos( z ) * dsin( x )
+        ! Only one Fourier mode. Modified for the use of pruned FFT.
+        u(ix,iy,iz) = dsin( y*2.d0*pi/yl ) * dcos( z*2.d0*pi/zl ) * dsin( x*2.d0*pi/xl )
       enddo
     enddo
   enddo
-  call fft ( inx=u, outk=uk )
+  call fft( inx=u, outk=uk )
   call ifft( ink=uk, outx=u )
 
   err = 0.d0
@@ -51,7 +52,7 @@ subroutine FFT_unit_test ( u, uk )
         x = dble(ix)*dx
         y = dble(iy)*dy
         z = dble(iz)*dz
-        err = err + (u(ix,iy,iz) - dsin( y ) * dcos( z ) * dsin( x ))**2
+        err = err + (u(ix,iy,iz) - dsin( y*2.d0*pi/yl ) * dcos( z*2.d0*pi/zl ) * dsin( x*2.d0*pi/xl ))**2
       enddo
     enddo
   enddo
@@ -72,7 +73,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to fourier space
-    call fft ( uk, u )
+    call fft(u, uk)
 
     ! compute gradient
     do ix=ca(3), cb(3)
@@ -81,7 +82,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to x space
-    call ifft ( u, uk )
+    call ifft(uk, u)
 
     ! compute error
     err = 0.d0
@@ -112,7 +113,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to fourier space
-    call fft ( uk, u )
+    call fft(u, uk)
 
     ! compute gradient
     do iy=ca(2), cb(2)    ! ky : 0..ny/2-1 ,then, -ny/2..-1
@@ -121,7 +122,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to x space
-    call ifft ( u, uk )
+    call ifft(uk, u)
 
     ! compute error
     err = 0.d0
@@ -152,7 +153,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to fourier space
-    call fft ( uk, u )
+    call fft(u, uk)
 
     ! compute gradient
     do iz=ca(1),cb(1)  ! kz : 0..nz/2-1 ,then, -nz/2..-1
@@ -161,7 +162,7 @@ subroutine FFT_unit_test ( u, uk )
     enddo
 
     ! to x space
-    call ifft ( u, uk )
+    call ifft(uk, u)
 
     ! compute error
     err = 0.d0

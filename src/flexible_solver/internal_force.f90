@@ -8,7 +8,7 @@ subroutine internal_forces_construction(Wings)
 
 implicit none
 
-type(Wing), intent(inout)  :: Wings
+type(flexible_wing), intent(inout)  :: Wings
 integer :: j, np, ind
 
 ! Get the number of mass points for the sake of simplicity in coding
@@ -24,12 +24,19 @@ wings%Fint = 0.d0
                               wings%u_new(2*np+1:3*np),    &
                               wings%membranes_extension(:,:,j))
 
+      call length_calculation_wrapper(wings%u_new(1:np), &
+                              wings%u_new(np+1:2*np), &
+                              wings%u_new(2*np+1:3*np),    &
+                              wings%membranes_cross(:,:,j))
+
   enddo
 
-  call length_calculation_wrapper(wings%u_new(1:np), &
-                          wings%u_new(np+1:2*np), &
-                          wings%u_new(2*np+1:3*np), &
-                          wings%membrane_edge(:,:))
+  do j=1,nMembrane_edges
+      call length_calculation_wrapper(wings%u_new(1:np), &
+                              wings%u_new(np+1:2*np), &
+                              wings%u_new(2*np+1:3*np), &
+                              wings%membrane_edge(:,:,j))
+  enddo
 
   do j=1,nVeins
 
@@ -55,6 +62,11 @@ wings%Fint = 0.d0
                              wings%veins_bending_BC(1:,:,j))
   end do
 
+  call angle_calculation_wrapper(wings%u_new(1:np), &
+                          wings%u_new(np+1:2*np), &
+                          wings%u_new(2*np+1:3*np), &
+                          wings%Joints(:,:))
+
   !Construct internal force vector
   do j=1,nMembranes
        call internal_extension_force(wings%Fint, &
@@ -64,15 +76,25 @@ wings%Fint = 0.d0
                                      wings%membranes_extension(:,:,j), &
                                      np, &
                                      wings%ke_m(:,j))
+
+       call internal_extension_force(wings%Fint, &
+                                     wings%u_new(1:np), &
+                                     wings%u_new(np+1:2*np), &
+                                     wings%u_new(2*np+1:3*np), &
+                                     wings%membranes_cross(:,:,j), &
+                                     np, &
+                                     wings%ke_mc(:,j))
   enddo
 
+  do j=1,nMembrane_edges
   call internal_extension_force(wings%Fint, &
                                 wings%u_new(1:np), &
                                 wings%u_new(np+1:2*np), &
                                 wings%u_new(2*np+1:3*np), &
-                                wings%membrane_edge, &
+                                wings%membrane_edge(:,:,j), &
                                 np, &
-                                wings%ke_me)
+                                wings%ke_me(:,j))
+  enddo
 
   do j=1,nVeins
       call internal_extension_force(wings%Fint, &
@@ -107,6 +129,10 @@ wings%Fint = 0.d0
 
   end do
 
+  call internal_bending_force(wings%Fint, &
+                              wings%u_new(1:np),wings%u_new(np+1:2*np),wings%u_new(2*np+1:3*np), &
+                              wings%Joints(1:,1:), np, &
+                              wings%kby_c,wings%kbz_c)
 
 end subroutine
 
@@ -482,6 +508,12 @@ endif
 Fx = kby*(theta - theta0)*(y2-y1)*idxy + kbz*(phi - phi0)*(z2-z1)*idxz
 
 Fy = - kby*(theta - theta0)*(x2-x1)*idxy
+
+!if ((theta > pi/2.0d0) .or. (theta<(-pi/2.0d0))) then
+!  Fy = 0.0d0
+!else
+!  Fy = - kby*(theta - theta0)*(x2-x1)*idxy
+!endif
 
 Fz = - kbz*(phi - phi0)*(x2-x1)*idxz
 

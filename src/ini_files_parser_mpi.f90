@@ -24,11 +24,12 @@ contains
   ! read an array from an ascii file (SERIAL version, to be executed only on root)
   ! note: array is assumed-shape and its size defines what we try to read
   !-----------------------------------------------------------------------------
-  subroutine read_array_from_ascii_file_mpi(file, array, n_header)
+  subroutine read_array_from_ascii_file_mpi(file, array, n_header, user_separator)
     implicit none
     character(len=*), intent(in) :: file
     integer, intent(in) :: n_header
     real(kind=pr), intent(inout) :: array (1:,1:)
+    character(len=1), optional, intent(in) :: user_separator
     integer :: nlines, ncols, mpicode, mpirank
 
     ! fetch my process id
@@ -41,7 +42,12 @@ contains
     ncols = size(array,2)
 
     ! only root reads from file...
-    if (mpirank==0) call read_array_from_ascii_file(file, array, n_header)
+    if (present(user_separator)) then
+        if (mpirank==0) call read_array_from_ascii_file(file, array, n_header, user_separator)
+    else
+        if (mpirank==0) call read_array_from_ascii_file(file, array, n_header)
+    endif
+
     ! ... then broadcast
     call MPI_BCAST(array,nlines*ncols,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpicode)
   end subroutine read_array_from_ascii_file_mpi
@@ -50,35 +56,48 @@ contains
   !-----------------------------------------------------------------------------
   ! count the number of lines in an ascii file, skip n_header lines
   !-----------------------------------------------------------------------------
-  subroutine count_lines_in_ascii_file_mpi(file, num_lines, n_header)
+  subroutine count_lines_in_ascii_file_mpi(file, num_lines, n_header, user_separator)
     implicit none
     character(len=*), intent(in) :: file
     integer, intent(out) :: num_lines
     integer, intent(in) :: n_header
+    character(len=1), optional, intent(in) :: user_separator
     integer :: mpicode, mpirank
 
     ! fetch my process id
     call MPI_Comm_rank(MPI_COMM_WORLD, mpirank, mpicode)
 
     ! only root reads from file...
-    if (mpirank==0) call count_lines_in_ascii_file(file, num_lines, n_header)
+    if (present(user_separator)) then
+        if (mpirank==0) call count_lines_in_ascii_file(file, num_lines, n_header, user_separator)
+    else
+        if (mpirank==0) call count_lines_in_ascii_file(file, num_lines, n_header)
+    endif
+
     ! ... then broadcast
     call MPI_BCAST(num_lines,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
   end subroutine count_lines_in_ascii_file_mpi
 
 
-  subroutine count_cols_in_ascii_file_mpi(file, num_cols, n_header)
+  subroutine count_cols_in_ascii_file_mpi(file, num_cols, n_header, user_separator)
     implicit none
     character(len=*), intent(in) :: file
     integer, intent(out) :: num_cols
     integer, intent(in) :: n_header
+    character(len=1), optional, intent(in) :: user_separator
     integer :: mpicode, mpirank
 
     ! fetch my process id
     call MPI_Comm_rank(MPI_COMM_WORLD, mpirank, mpicode)
 
     ! only root reads from file...
-    if (mpirank==0) call count_cols_in_ascii_file(file, num_cols, n_header)
+    if (present(user_separator)) then
+        if (mpirank==0) call count_cols_in_ascii_file(file, num_cols, n_header, user_separator)
+    else
+        if (mpirank==0) call count_cols_in_ascii_file(file, num_cols, n_header)
+    endif
+
+
     ! ... then broadcast
     call MPI_BCAST(num_cols,1,MPI_INTEGER,0,MPI_COMM_WORLD,mpicode)
   end subroutine count_cols_in_ascii_file_mpi

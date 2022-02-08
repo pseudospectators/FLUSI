@@ -1,10 +1,11 @@
 ! Set initial conditions for fsi code.
 subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
-    press,scalars,scalars_rhs,Insect,beams, work, u)
+    press,scalars,scalars_rhs,Insect,beams,wings, work, u)
     use module_ini_files_parser_mpi
     use vars
     use p3dfft_wrapper
     use solid_model
+    use flexible_model
     use module_insects
     use basic_operators
     implicit none
@@ -24,6 +25,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
 
     real(kind=pr),dimension(:,:,:),allocatable::tmp
+    type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
     type(solid),dimension(1:nBeams), intent(inout) :: beams
     type(diptera),intent(inout)::Insect
     integer :: ix,iy,iz, nxs,nys,nzs, nxb,nyb,nzb,k
@@ -80,7 +82,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
                 endif
             enddo
         enddo
-        call fft3 ( uk,vort )
+        call fft3(vort, uk)
 
     case("random-given-spectrum")
         if (root) write (*,*) "*** inicond: random field with given spectrum"
@@ -104,7 +106,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         ! bring this field to k-space an project it on the incompressible manifold.
         ! we end up with a velocity field which is random and div-free, but other than
         ! that has no remarkable property-
-        call fft3(inx=vort, outk=nlk(:,:,:,:,0) )
+        call fft3(vort, nlk(:,:,:,:,0))
         call Vorticity2Velocity(nlk(:,:,:,1:3,0), uk(:,:,:,1:3))
 
         ! step 3
@@ -112,7 +114,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         ! to have.
         call compute_spectrum( time,kvec,uk(:,:,:,1:3),S_Ekinx,S_Ekiny,S_Ekinz,S_Ekin )
 
-        ! read dsired spectrum from file.
+        ! read desired spectrum from file.
         call count_lines_in_ascii_file_mpi(inicond_spectrum_file, k, n_header=0)
         ! read the array from file, two columns, one is k second is E(k)
         allocate(spec_array(0:k-1,1:2))
@@ -152,7 +154,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
 
         ! check if our initial condition is indeed divergence-free
         call divergence( ink=uk, outk=workc(:,:,:,1) )
-        call ifft( ink=workc(:,:,:,1), outx=vort(:,:,:,1) )
+        call ifft( workc(:,:,:,1), vort(:,:,:,1) )
         ! vort(:,:,:,1) is now div in phys space
         maxdiv = fieldmax(vort(:,:,:,1))
 
@@ -240,8 +242,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         enddo
 
         ! enforce hermitian symmetry the lazy way
-        call ifft3(ink=uk,outx=vort)
-        call fft3(inx=vort,outk=uk)
+        call ifft3(uk, vort)
+        call fft3(vort, uk)
 
         ! we now renomalize the velocity, such that it has the given energy omega1
         ! which is set in the parameter file
@@ -260,8 +262,8 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
 
 
         ! check if our initial condition is indeed divergence-free
-        call divergence( ink=uk, outk=workc(:,:,:,1) )
-        call ifft( ink=workc(:,:,:,1), outx=vort(:,:,:,1) )
+        call divergence(ink=uk, outk=workc(:,:,:,1))
+        call ifft(workc(:,:,:,1), vort(:,:,:,1))
         ! vort(:,:,:,1) is now div in phys space
         maxdiv = fieldmax(vort(:,:,:,1))
         if(mpirank == 0) write(*,*) "Maximum divergence in field=", maxdiv
@@ -281,7 +283,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
                 vort(:,iy,iz,3) =-dcos( y ) * dsin( z )
             enddo
         enddo
-        call fft3 ( uk,vort )
+        call fft3(vort, uk)
 
     case("infile")
         !--------------------------------------------------
@@ -294,11 +296,11 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         call Read_Single_File ( file_ux, vort(:,:,:,1) )
         call Read_Single_File ( file_uy, vort(:,:,:,2) )
         call Read_Single_File ( file_uz, vort(:,:,:,3) )
-        call fft3 ( uk(:,:,:,1:3), vort(:,:,:,1:3) )
+        call fft3(vort(:,:,:,1:3), uk(:,:,:,1:3))
 
         if (equation=='artificial-compressibility') then
             call Read_Single_File ( file_p, vort(:,:,:,1) )
-            call fft( inx=vort(:,:,:,1), outk=uk(:,:,:,4) )
+            call fft(vort(:,:,:,1), uk(:,:,:,4))
         endif
 
         if (mpirank==0) write (*,*) "*** done reading infiles"
@@ -344,7 +346,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
         rb(1)=nx-1
         if(mpirank==0) write(*,*) "Back to ", nx, ra, rb
 
-        call fft3(inx=vort,outk=uk)
+        call fft3(vort, uk)
 
     case("infile_perturbed")
         ! read velocity field from file, as is done in inicond="infile", but add a
@@ -607,6 +609,53 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
 
         call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
 
+    case("turbulence-meanflow")
+        !--------------------------------------------------
+        ! random vorticity with mean flow
+        ! This case has two parameters read from ini file:
+        ! the maximum vorticity in each direction and the
+        ! smoothing parameter
+        !--------------------------------------------------
+        if (mpirank==0) write (*,*) "*** inicond: turbulence (random vorticity) initial condition"
+        call random_seed()
+        if (nx>1) then
+            do iz=ra(3), rb(3)
+                do iy=ra(2), rb(2)
+                    do ix=ra(1), rb(1)
+                        vort(ix,iy,iz,1)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                        vort(ix,iy,iz,2)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                        vort(ix,iy,iz,3)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                    end do
+                end do
+            end do
+        else
+            do iz=ra(3), rb(3)
+                do iy=ra(2), rb(2)
+                    vort(:,iy,iz,1)=omega1*(2.0d0*rand_nbr() - 1.d0)
+                    vort(:,iy,iz,2)=0.0d0
+                    vort(:,iy,iz,3)=0.0d0
+                end do
+            end do
+        end if
+
+        call cal_vis( nu_smoothing/nu, explin(:,:,:,1))
+        call fft3( inx=vort, outk=nlk(:,:,:,:,0) )
+        nlk(:,:,:,1,0)=nlk(:,:,:,1,0)*explin(:,:,:,1)
+        nlk(:,:,:,2,0)=nlk(:,:,:,2,0)*explin(:,:,:,1)
+        nlk(:,:,:,3,0)=nlk(:,:,:,3,0)*explin(:,:,:,1)
+        call ifft3( ink=nlk(:,:,:,:,0), outx=vort )
+
+        call Vorticity2Velocity_old(uk(:,:,:,1:3), nlk(:,:,:,1:3,0), vort(:,:,:,1:3))
+
+        ! append mean FLOW
+        if (ca(1) == 0 .and. ca(2) == 0 .and. ca(3) == 0) then
+          ! set mean flow to desired value
+          uk(0,0,0,1)=Uxmean
+          uk(0,0,0,2)=Uymean
+          uk(0,0,0,3)=Uzmean
+      endif
+
+
     case("half_HIT")
         ! this is a very specialized case. it reads a field from files, but the field
         ! is only half as long in the x-direction. it is then padded by itself (we
@@ -712,7 +761,7 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     if (use_solid_model=="yes") then
         if(mpirank==0) write(*,*) "Initializing solid solver and testing..."
         call init_beams( beams )
-        call surface_interpolation_testing( time, beams(1), press )
+        call surface_interpolation_testing( time, Insect, beams, press )
         call init_beams( beams )
     endif
 
@@ -721,8 +770,9 @@ subroutine init_fields_fsi(time,it,dt0,dt1,n0,n1,uk,nlk,vort,explin,workc,&
     !-----------------------------------------------------------------------------
     if ((use_passive_scalar==1).and.(index(inicond,"backup::")==0)) then
         ! only if not resuming a backup
-        call init_passive_scalar(scalars,scalars_rhs,Insect,beams)
+        call init_passive_scalar(scalars,scalars_rhs,Insect,beams,wings)
     endif
+
 
     !-----------------------------------------------------------------------------
     ! when computing running time avg, initialize (note that if we're resuming

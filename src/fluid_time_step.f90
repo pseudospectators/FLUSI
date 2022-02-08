@@ -32,14 +32,14 @@
 ! scalars       passive scalars at new time level
 !-------------------------------------------------------------------------------
 subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-  expvis,press,scalars,scalars_rhs,Insect,beams)
+  expvis,press,scalars,scalars_rhs,Insect,beams,Wings)
   use mpi
   use p3dfft_wrapper
   use vars
   use solid_model
+  use flexible_model
   use module_insects
   use basic_operators
-  use krylov_module
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -57,42 +57,40 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::nlk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq,0:nrhs-1)
   complex(kind=pr),intent(inout)::workc(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:ncw)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
 
-  t1=MPI_wtime()
+  t1 = MPI_wtime()
 
   ! Call fluid advancement subroutines.
   select case(iTimeMethodFluid)
   case("RK2")
       call RungeKutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   case("RK4")
       call RungeKutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
-  case("krylov")
-      call krylov(time,it,dt0,dt1,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   case("AB2")
       if(it == 0) then
           call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,&
-          workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+          workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,wings)
       else
           call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-          workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+          workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,wings)
       endif
   case ("AB2_rigid_solid")
       call AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   case("FSI_AB2_iteration")
       call FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   case("FSI_AB2_staggered")
       call FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   case("FSI_AB2_semiimplicit")
       call FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work, &
-      workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+      workc,expvis,press,scalars,scalars_rhs,Insect,beams,Wings)
   case default
       call abort(10001, "Error! iTimeMethodFluid unknown. Abort.")
   end select
@@ -144,7 +142,7 @@ subroutine FluidTimestep(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   endif
 
-  time_fluid=time_fluid + MPI_wtime() - t1
+  call toc('FluidTimestep (wrapper)', MPI_wtime()-t1)
 end subroutine FluidTimestep
 
 
@@ -155,11 +153,12 @@ end subroutine FluidTimestep
 ! adapted from the 2D codes (V12), based on the PhD thesis of von Scheven
 !-------------------------------------------------------------------------------
 subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-  workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+  workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -175,6 +174,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera),intent(inout)::Insect
 
@@ -183,7 +183,6 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   real(kind=pr),dimension(0:ns-1) :: deltap_new, deltap_old, bpress_old_iterating
   real(kind=pr)::bruch, upsilon_new, upsilon_old, kappa2, ROC1,ROC2, norm
   real(kind=pr)::omega_old, omega_new
-  type(diptera)::Insect_dummy
   integer :: inter
   logical :: iterate
   ROC1 = 0.d0
@@ -226,7 +225,7 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
     !---------------------------------------------------------------------------
     ! create mask
     !---------------------------------------------------------------------------
-    call create_mask(time, Insect_dummy, beams)
+    call create_mask(time, Insect, beams, wings)
 
     !---------------------------------------------------------------------------
     ! advance fluid to from (n) to (n+1)
@@ -242,10 +241,10 @@ subroutine FSI_AB2_iteration(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
 
     if(it == 0) then
       call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-      work,workc,expvis,press,scalars,scalars_rhs,inter,Insect,beams)
+      work,workc,expvis,press,scalars,scalars_rhs,inter,Insect,beams,wings)
     else
       call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-      work,workc,expvis,press,scalars,scalars_rhs,inter,Insect,beams)
+      work,workc,expvis,press,scalars,scalars_rhs,inter,Insect,beams,wings)
     endif
 
     !---------------------------------------------------------------------------
@@ -335,11 +334,12 @@ end subroutine FSI_AB2_iteration
 ! or stable.
 !-------------------------------------------------------------------------------
 subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
-  workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+  workc,expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -355,11 +355,12 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::expvis(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:nf)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera),intent(inout)::Insect
 
   ! useful error messages
-  if (use_solid_model/="yes") then
+  if (use_solid_model/="yes" .and. use_flexible_wing_model/="yes") then
     call abort(10003, "using FSI_AB2_staggered without solid model?")
   endif
 
@@ -374,22 +375,34 @@ subroutine FSI_AB2_staggered(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,&
   !---------------------------------------------------------------------------
   if(it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,wings)
   else
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,wings)
   endif
 
   !---------------------------------------------------------------------------
   ! get forces at old time level, since press is at t^n.
   ! save to both beam%pressure_new and beam%pressure_old
   !---------------------------------------------------------------------------
-  call get_surface_pressure_jump (time, beams(1), press)
+  if (use_solid_model=="yes") then
+    call get_surface_pressure_jump (time, beams(1), press)
+  endif
+
+  !---------------------------------------------------------------------------
+  ! get external forces at new time level
+  !---------------------------------------------------------------------------
+  if (use_flexible_wing_model=="yes") then
+    call get_pressure_on_wing_surfaces(wings,press)
+  endif
 
   !---------------------------------------------------------------------------
   ! advance solid model from (n) to (n+1)
   !---------------------------------------------------------------------------
-  call SolidSolverWrapper( time, dt1, beams )
+  if (use_solid_model=="yes")  call SolidSolverWrapper(time, dt1, beams)
+  if (use_flexible_wing_model=="yes")  then
+    call FlexibleSolidSolverWrapper (time, dt0, dt1, it, wings, Insect)
+  endif
 
 end subroutine FSI_AB2_staggered
 
@@ -402,11 +415,12 @@ end subroutine FSI_AB2_staggered
 ! FSI_AB2_staggered.
 !-------------------------------------------------------------------------------
 subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
-  work,workc,expvis,press,scalars,scalars_rhs,Insect,beams)
+  work,workc,expvis,press,scalars,scalars_rhs,Insect,beams,Wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -422,12 +436,13 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout) :: beams
   type(diptera),intent(inout)::Insect
-  type(diptera)::Insect_dummy
+  real(kind=pr) :: t0
 
   ! useful error messages
-  if (use_solid_model/="yes") then
+  if (use_solid_model/="yes" .and. use_flexible_wing_model/="yes") then
     call abort(10004, "using FSI_AB2_semiimplicit without solid model?")
   endif
 
@@ -440,36 +455,56 @@ subroutine FSI_AB2_semiimplicit(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,&
   ! the right hand side only at the old time level. For a RungeKutta type solver,
   ! the mask has to be created at every sub-time step, the routine are more intertwined.
   !---------------------------------------------------------------------------
+  t0 = MPI_wtime()
   if(it == 0) then
     ! very first time step is euler explicit, as the previous right hand side (n-1)
     ! is not available
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,Wings)
   else
     ! all other time steps use AB2
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,Wings)
   endif
+  call toc("FluidTimestep (FSI_AB2_semiimplicit::fluid)", MPI_wtime()-t0)
 
   !---------------------------------------------------------------------------
   ! get forces at old/new time level
   !---------------------------------------------------------------------------
-  ! getting the pressure at the old time level is not always required
-  ! if (TimeMethodSolid /= "BDF2") then
-    call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
-  ! endif
+  if (use_solid_model=="yes") then
+      t0 = MPI_wtime()
+      ! getting the pressure at the old time level is not always required
+      ! if (TimeMethodSolid /= "BDF2") then
+      call get_surface_pressure_jump (time, beams(1), press, timelevel="old")
+      ! endif
 
-  ! note the fluid solver advances only the velocity field in fourier space, uk
-  ! and not the pressure field. "press" is in fact at the old time level (n) at
-  ! this point. So now we update "press" to be at the new time level (n+1) as well
-  ! NOTE: we can overwrite NLK(n1) since this is the one overwritten in the next call
-  call pressure_from_uk_use_existing_mask(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press,Insect)
-  call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
+      ! note the fluid solver advances only the velocity field in fourier space, uk
+      ! and not the pressure field. "press" is in fact at the old time level (n) at
+      ! this point. So now we update "press" to be at the new time level (n+1) as well
+      ! NOTE: we can overwrite NLK(n1) since this is the one overwritten in the next call
+      call pressure_from_uk_use_existing_mask(time,u,uk,nlk(:,:,:,:,n1),vort,work,workc,press,Insect)
+      call get_surface_pressure_jump (time, beams(1), press, timelevel="new")
+      call toc("FluidTimestep (FSI_AB2_semiimplicit::get_surface_pressure_jump)", MPI_wtime()-t0)
+  endif
+
+  !---------------------------------------------------------------------------
+  ! get external forces at new time level
+  !---------------------------------------------------------------------------
+  if (use_flexible_wing_model=="yes") then
+      t0 = MPI_wtime()
+      call get_pressure_on_wing_surfaces(wings,press)
+      call toc("FluidTimestep (FSI_AB2_semiimplicit::get_pressure_on_wing_surfaces)", MPI_wtime()-t0)
+  endif
 
   !---------------------------------------------------------------------------
   ! advance solid model from (n) to (n+1)
   !---------------------------------------------------------------------------
-  call SolidSolverWrapper( time, dt1, beams )
+  t0 = MPI_wtime()
+  if (use_solid_model=="yes")  call SolidSolverWrapper( time, dt1, beams )
+  if (use_flexible_wing_model=="yes")  then
+    call FlexibleSolidSolverWrapper ( time, dt0, dt1, it, wings, Insect )
+  endif
+  call toc("FluidTimestep (FSI_AB2_semiimplicit::advance solid model)", MPI_wtime()-t0)
 
 end subroutine FSI_AB2_semiimplicit
 
@@ -480,12 +515,13 @@ end subroutine FSI_AB2_semiimplicit
 !-------------------------------------------------------------------------------
 ! FIXME: add documentation: which arguments are used for what?
 subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
-           scalars,scalars_rhs,Insect,beams)
+           scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
   use module_insects
+  use flexible_model
   implicit none
 
   real(kind=pr),intent(inout)::time,dt1,dt0
@@ -503,6 +539,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   integer::i
   type(solid),dimension(1:nbeams),intent(inout)::beams
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(diptera),intent(inout)::Insect
 
   if ((use_passive_scalar==1).and.(mpirank==1)) then
@@ -510,7 +547,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   endif
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing (for the euler step)
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call adjust_dt(time,u,dt1)
 
   !-- multiply the RHS with the viscosity, first the velocity
@@ -545,7 +582,7 @@ subroutine rungekutta2(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   endif
 
   !-- RHS using the euler velocity
-  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
 
   ! do the actual time step. note the minus sign.in the original formulation, it
   ! reads: u^n+1=u^n + dt/2*( N(u^n)*vis + N(u_euler) )
@@ -563,12 +600,13 @@ end subroutine rungekutta2
 
 ! RK4 scheme with EXPLICIT diffusion
 subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
-           scalars,scalars_rhs,Insect,beams)
+           scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
   use module_insects
+  use flexible_model
   use basic_operators
   implicit none
 
@@ -586,6 +624,7 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   type(solid),dimension(1:nbeams),intent(inout)::beams
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(diptera),intent(inout)::Insect
   integer::i
 
@@ -605,24 +644,24 @@ subroutine rungekutta4(time,it,dt0,dt1,u,uk,nlk,vort,work,workc,expvis,press,&
   nlk(:,:,:,:,4) = uk
 
   !-- FIRST runge kutta step
-  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time,it,nlk(:,:,:,:,0),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call dealias(nlk(:,:,:,:,0))
   call adjust_dt(time,u,dt1)
 
 
   !-- SECOND runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,0)
-  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,1),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call dealias(nlk(:,:,:,:,1))
 
   !--THIRD runge kutta step
   uk = nlk(:,:,:,:,4) + 0.5d0*dt1*nlk(:,:,:,:,1)
-  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time+0.5d0*dt1,it,nlk(:,:,:,:,2),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call dealias(nlk(:,:,:,:,2))
 
   !-- FOURTH runge kutta step
   uk = nlk(:,:,:,:,4) + dt1*nlk(:,:,:,:,2)
-  call cal_nlk(time+dt1,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams)
+  call cal_nlk(time+dt1,it,nlk(:,:,:,:,3),uk,u,vort,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   call dealias(nlk(:,:,:,:,3))
 
   !-- FINAL step
@@ -636,11 +675,12 @@ end subroutine rungekutta4
 
 ! Note this is not an optimized Euler. It only does things we need for AB2.
 subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
-  expvis,press,scalars,scalars_rhs,iter,Insect,beams)
+  expvis,press,scalars,scalars_rhs,iter,Insect,beams,wings)
   use mpi
   use p3dfft_wrapper
   use vars
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -659,6 +699,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
   real(kind=pr)::t1
@@ -666,7 +707,8 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,&
-               scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
+               scalars,scalars_rhs(:,:,:,:,n0),Insect,beams,wings)
+
   call adjust_dt(time,u,dt1)
 
   !-- Compute integrating factor, if necesssary
@@ -701,9 +743,7 @@ subroutine euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort,work,workc,&
 
   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
     !-- advance passive scalar (no integrating factor here!!)
-    t1 = MPI_wtime()
     scalars = scalars + dt1*scalars_rhs(:,:,:,:,n0)
-    time_scalar = time_scalar + MPI_wtime() - t1
   endif
 
   if (mpirank ==0) write(*,'(A)') "*** info: did startup euler............"
@@ -712,11 +752,12 @@ end subroutine euler_startup
 
 ! FIXME: add documentation: which arguments are used for what?
 subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-  expvis,press,scalars,scalars_rhs,iter,Insect,beams)
+  expvis,press,scalars,scalars_rhs,iter,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -735,6 +776,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   real(kind=pr),intent(inout)::press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
   real(kind=pr)::b10,b11,t1
@@ -742,7 +784,7 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
 
   !-- Calculate fourier coeffs of nonlinear rhs and forcing
   call cal_nlk(time,it,nlk(:,:,:,:,n0),uk,u,vort,work,workc,press,&
-               scalars,scalars_rhs(:,:,:,:,n0),Insect,beams)
+               scalars,scalars_rhs(:,:,:,:,n0),Insect,beams,wings)
   !-- calculate time step that will be made
   call adjust_dt(time,u,dt1)
   !--conceptually, the next line
@@ -787,20 +829,19 @@ subroutine adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   !-- advance passive scalar in time
   if ((method=="fsi").and.(use_passive_scalar==1).and.(compute_scalar)) then
     !-- advance passive scalar (no integrating factor here!!)
-    t1 = MPI_wtime()
     scalars = scalars + b10*scalars_rhs(:,:,:,:,n0) + b11*scalars_rhs(:,:,:,:,n1)
-    time_scalar = time_scalar + MPI_wtime() - t1
   endif
 end subroutine adamsbashforth
 
 
 ! time stepper for rigid soldi FSI, for example insect takeoff or falling sphere
 subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
-  expvis,press,scalars,scalars_rhs,Insect,beams)
+  expvis,press,scalars,scalars_rhs,Insect,beams,wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -820,6 +861,7 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   real(kind=pr),intent(inout) :: scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   real(kind=pr)::b10,b11,t1
   integer::i
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid),dimension(1:nbeams),intent(inout)::beams
   type(diptera),intent(inout)::Insect
 
@@ -838,10 +880,10 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
   !---------------------------------------------------------------------------
   if (it == 0) then
     call euler_startup(time,it,dt0,dt1,n0,u,uk,nlk,vort, &
-    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,wings)
   else
     call adamsbashforth(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort, &
-    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams)
+    work,workc,expvis,press,scalars,scalars_rhs,0,Insect,beams,wings)
   endif
 
   !---------------------------------------------------------------------------
@@ -852,7 +894,7 @@ subroutine AB2_rigid_solid(time,it,dt0,dt1,n0,n1,u,uk,nlk,vort,work,workc,&
     call cal_unst_corrections ( time, dt0, Insect )
   endif
   call cal_drag ( time, u, Insect ) ! note u is OLD time level
-  time_drag = time_drag + MPI_wtime() - t1
+  call toc("FluidTimestep (AB2_rigid_solid::forces)", MPI_wtime()-t1)
 
   !---------------------------------------------------------------------------
   ! solve Newton's second law
@@ -885,6 +927,8 @@ subroutine adjust_dt(time,u,dt1)
     integer::mpicode
     real(kind=pr), intent(out)::dt1
     real(kind=pr)::umax,t , t1,t2
+
+
 
     if (dt_fixed>0.0d0) then
         !-- fix the time step no matter what. the result may be unstable.
@@ -1041,9 +1085,9 @@ subroutine set_mean_flow(uk,time)
     ! sinusoidal forcing uses f=unity
     ! for some reason we overwrite uxmean later by the actual, current meanflow
     ! which means we cannot use uxmean for focing with sinusoidfal mean flow.
-    if (iMeanFlow_x=="sinusoidal") uk(0,0,0,1)=umean_amplitude(1)*dsin(2.d0*pi*time)
-    if (iMeanFlow_y=="sinusoidal") uk(0,0,0,2)=umean_amplitude(2)*dsin(2.d0*pi*time)
-    if (iMeanFlow_z=="sinusoidal") uk(0,0,0,3)=umean_amplitude(3)*dsin(2.d0*pi*time)
+    if (iMeanFlow_x=="sinusoidal") uk(0,0,0,1)=umean_amplitude(1)*dsin(2.d0*pi*umean_freq*time)
+    if (iMeanFlow_y=="sinusoidal") uk(0,0,0,2)=umean_amplitude(2)*dsin(2.d0*pi*umean_freq*time)
+    if (iMeanFlow_z=="sinusoidal") uk(0,0,0,3)=umean_amplitude(3)*dsin(2.d0*pi*umean_freq*time)
   endif
 end subroutine set_mean_flow
 

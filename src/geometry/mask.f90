@@ -11,7 +11,7 @@ subroutine create_mask(time,Insect,beams,wings)
 
   real(kind=pr), intent(in) :: time
 
-  type(wing), dimension(1:nWings), intent (inout) :: wings
+  type(flexible_wing), dimension(1:nWings), intent (inout) :: wings
 
   type(solid), dimension(1:nbeams), intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
@@ -27,7 +27,7 @@ subroutine create_mask(time,Insect,beams,wings)
   end select
 
   ! for global timing.
-  time_mask = time_mask + MPI_wtime() - t1
+  call toc("create_mask (main wrapper)", MPI_wtime() - t1)
 end subroutine create_mask
 
 

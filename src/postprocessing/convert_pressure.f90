@@ -104,8 +104,19 @@ subroutine convert_pressure(help)
   endif
 
   if (fname_ini /= "") then
-    call get_params(fname_ini, Insect, .true.)
+      call get_params(fname_ini, Insect, .true.)
+      if (iMask == "Insect") then
+          call insect_init(time, fname_ini, Insect, .false., "", (/xl,yl,zl/), nu, &
+          dx, periodic=periodic)
+          ! max color
+          if (Insect%second_wing_pair) then
+            endcolor = 5
+          else
+            endcolor = 3
+          endif
+      endif
   endif
+
 
   ! if the simulation was done using free-flight, we'd need to read rigidsolidsolver.t
   ! and interpolate the state vector etc (as done in --dry-run). TODO.

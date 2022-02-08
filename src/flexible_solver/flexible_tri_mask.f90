@@ -1,4 +1,4 @@
-! TO DO migrate this one into create_mask_fsi subroutine
+! TODO migrate this one into create_mask_fsi subroutine
 subroutine Draw_flexible_wing(time, wings, mask, mask_color, us)!, unsigned_distance)
 
   implicit none
@@ -7,12 +7,12 @@ subroutine Draw_flexible_wing(time, wings, mask, mask_color, us)!, unsigned_dist
   real(kind=pr),intent(inout)::mask(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
   real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
   integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-  type(wing),dimension(1:nWings), intent(inout) :: wings
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: wings
 
   ! initialize everything
-  mask = 0.d0
-  mask_color = 0
-  us = 0.d0
+ ! mask = 0.d0
+ ! mask_color = 0
+ ! us = 0.d0
 
   ! Create mask function and us field from triangular mesh
   call create_mask_from_triangular_mesh(wings,mask,us,mask_color)
@@ -21,6 +21,51 @@ subroutine Draw_flexible_wing(time, wings, mask, mask_color, us)!, unsigned_dist
 
 end subroutine Draw_flexible_wing
 
+subroutine calculate_normal_vectors_of_wing(wings)
+
+ implicit none
+
+ type(flexible_wing),dimension(1:nWings), intent(inout) :: wings
+ real(kind=pr),allocatable :: normal(:,:)
+ integer :: i, itri
+
+do i = 1, nWings
+
+allocate(normal(1:wings(i)%ntri,1:3))
+
+ do itri = 1, wings(i)%ntri
+
+
+
+   ! Calculate the normal vector of one triangle
+     normal(itri,1:3) = cross((/wings(i)%x(wings(i)%tri_elements(itri,2)) - &
+                              wings(i)%x(wings(i)%tri_elements(itri,3)),  &
+                              wings(i)%y(wings(i)%tri_elements(itri,2)) - &
+                              wings(i)%y(wings(i)%tri_elements(itri,3)),  &
+                              wings(i)%z(wings(i)%tri_elements(itri,2)) - &
+                              wings(i)%z(wings(i)%tri_elements(itri,3))/),&
+                            (/wings(i)%x(wings(i)%tri_elements(itri,3)) - &
+                              wings(i)%x(wings(i)%tri_elements(itri,4)),  &
+                              wings(i)%y(wings(i)%tri_elements(itri,3)) - &
+                              wings(i)%y(wings(i)%tri_elements(itri,4)),  &
+                              wings(i)%z(wings(i)%tri_elements(itri,3)) - &
+                              wings(i)%z(wings(i)%tri_elements(itri,4))/))
+
+     ! dimentionalized to get a unit vector
+     wings(i)%tri_element_normals(itri,1) = normal(itri,1)/norm2(normal(itri,1:3))
+     wings(i)%tri_element_normals(itri,2) = normal(itri,2)/norm2(normal(itri,1:3))
+     wings(i)%tri_element_normals(itri,3) = normal(itri,3)/norm2(normal(itri,1:3))
+
+  enddo
+
+deallocate(normal)
+
+enddo
+
+
+end subroutine
+
+
 subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
 
     implicit none
@@ -28,29 +73,30 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
     !real(kind=pr),intent(inout)::unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
     real(kind=pr),intent(inout)::us(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:neq)
     integer(kind=2),intent(inout)::mask_color(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3))
-    type(wing),dimension(1:nWings), intent(inout) :: wings
+    type(flexible_wing),dimension(1:nWings), intent(inout) :: wings
     integer :: ix, iy, iz, itri, i, j
     integer :: ixmin, ixmax, iymin, iymax, izmin, izmax
     integer :: xmin, xmax, ymin, ymax, zmin, zmax
     integer, parameter :: safety = 2
-    real(kind=pr) :: x,y,z, distance
+    real(kind=pr) :: x,y,z, distance, mask_tmp
     real(kind=pr),dimension(1:3) :: velocity
-    real(kind=pr),allocatable::unsigned_distance(:,:,:)
+
+    real(kind=pr),allocatable :: unsigned_distance(:,:,:)
+
 
     allocate(unsigned_distance(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
-    unsigned_distance = 100.d0 !assign the distance to be really far away
+    unsigned_distance = 1.d10 !assign the distance to be really far away
+
 
     do i = 1, nWings
 
-      !ntri = maxval(wings(i)%tri_elements(:,1))
-
-      !write(*,*) wings(i)%ntri
 
       ! outer loop over triangles. in every triangle we loop over the union of its
       ! bounding box with the local CPUS part of the mask array
       do itri = 1, wings(i)%ntri
 
-        ! determine bounding box for one triangle
+
+        ! Determine bounding box for one triangle
         ixmin = wings(i)%tri_elements(itri,&
                 minloc(wings(i)%x(wings(i)%tri_elements(itri,2:4)),DIM=1) + 1)
 
@@ -116,25 +162,28 @@ subroutine create_mask_from_triangular_mesh(wings,mask,us,mask_color)
                   (/wings(i)%vx(wings(i)%tri_elements(itri,4)),   &
                     wings(i)%vy(wings(i)%tri_elements(itri,4)),   &
                     wings(i)%vz(wings(i)%tri_elements(itri,4))/), &
-                  (/x,y,z/), (/0.0_pr,0.0_pr,1.0_pr/))
+                  (/x,y,z/), wings(i)%tri_element_normals(itri,1:3))
 
 
               if (distance < unsigned_distance(ix,iy,iz)) then
                   unsigned_distance(ix,iy,iz) = distance
-                  us(ix,iy,iz,1:3) = velocity
+
+                  call smoothstep(mask_tmp,unsigned_distance(ix,iy,iz),&
+                                  wings(i)%t_wing,wings(i)%wing_smoothing)
+
+                  if ((mask(ix,iy,iz) < mask_tmp).and.(mask_tmp>0.0)) then
+                    mask(ix,iy,iz) = mask_tmp
+
+                    if (wings(i)%ID == "left") then
+                      mask_color(ix,iy,iz) = 2 !color of left wing
+                    elseif (wings(i)%ID == "right") then
+                      mask_color(ix,iy,iz) = 3 !color of right wing
+                    endif
+
+                    us(ix,iy,iz,1:3) = velocity
+                  endif
+
               endif
-
-            enddo
-          enddo
-        enddo
-
-        ! Then we calculate mask function from unsigned distance
-        do iz = max(ra(3),zmin),min(rb(3),zmax)
-          do iy = max(ra(2),ymin),min(rb(2),ymax)
-            do ix = max(ra(1),xmin),min(rb(1),xmax)
-
-                call smoothstep(mask(ix,iy,iz),unsigned_distance(ix,iy,iz),&
-                                wings(i)%t_wing,wings(i)%wing_smoothing)
 
             enddo
           enddo
@@ -258,7 +307,7 @@ subroutine calculate_unsigned_distance_and_us(distance,us,tri1,tri2,tri3,utri1,u
   s   = b*e - c*d
   t   = b*d - a*e
 
-  if (det < 1.0d-11) then
+  if (det < 1.0d-15) then
     distance = 9.0d9
     return
   endif
@@ -541,13 +590,13 @@ subroutine project_point_onto_triangle(point_projected,tri1,point,normal)
   c = normal(3)
   d = - (a*tri1(1) + b*tri1(2) + c*tri1(3))
 
-  point_projected(1) = ((b**2 + c**2)*tri1(1) - a*b*tri1(2) - a*c*tri1(3) - d*a)/ &
+  point_projected(1) = ((b**2 + c**2)*point(1) - a*b*point(2) - a*c*point(3) - d*a)/ &
                        (a**2 + b**2 + c**2)
 
-  point_projected(2) = (-a*b*tri1(1) + (a**2 + c**2)*tri1(2) - b*c*tri1(3) - d*b)/ &
+  point_projected(2) = (-a*b*point(1) + (a**2 + c**2)*point(2) - b*c*point(3) - d*b)/ &
                        (a**2 + b**2 + c**2)
 
-  point_projected(3) = (-a*c*tri1(1) - b*c*tri1(2) - (a**2 + b**2)*tri1(3) - d*c)/ &
+  point_projected(3) = (-a*c*point(1) - b*c*point(2) + (a**2 + b**2)*point(3) - d*c)/ &
                        (a**2 + b**2 + c**2)
 
 end subroutine
@@ -577,20 +626,20 @@ function interpolationPointTriangle(tri1,tri2,tri3,utri1,utri2,utri3,point,norma
   tmp = cross(tri1-point_projected,tri2-point_projected)
   A3 = 0.5*sqrt(tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
 
-  tmp = cross(tri1,tri2)
+  tmp = cross(tri1-tri3,tri2-tri3)
   A = 0.5*sqrt(tmp(1)**2 + tmp(2)**2 + tmp(3)**2)
 
   !Check if the projection of the point is inside the triangle
-  if (mpirank == 0) then
+
   if ((A1 + A2 + A3) > (A + 1.0d-15)) then
-    write(*,*) "WARNING: The projection of the point may be out of the triangle"
+    write(*,*) "WARNING: The projection of the point may be outside of the triangle"
     write(*,*) A1, A2, A3
     write(*,*) A
     write(*,*) tri1, tri2, tri3
     write(*,*) point
     write(*,*) point_projected
   endif
-endif
+
   interpolationPointTriangle(1:3) = (A1*utri1(1:3) + A2*utri2(1:3) + A3*utri3(1:3))/ &
                                     (A1 + A2 + A3)
 

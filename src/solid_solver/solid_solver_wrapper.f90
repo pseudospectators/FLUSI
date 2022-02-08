@@ -74,7 +74,8 @@ subroutine SolidSolverWrapper ( time, dt, beams )
       !-- check if everything seems okay, if not show beam and abort
       call show_beam_on_error( beams(i) )
   enddo
-  time_solid = time_solid + MPI_wtime() - t0
+
+  call toc("SolidSolver (SolidSolverWrapper)", MPI_wtime() - t0)
 end subroutine SolidSolverWrapper
 
 

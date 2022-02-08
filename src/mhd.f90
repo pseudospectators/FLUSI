@@ -4,6 +4,7 @@ program mhd
   use vars
   use module_insects !TODO: MAKE MHD INDEPENDENT OF THIS
   use solid_model!TODO: MAKE MHD INDEPENDENT OF THIS
+  use flexible_model!TODO: MAKE MHD INDEPENDENT OF THIS
   use penalization ! mask array etc
   implicit none
 
@@ -40,6 +41,7 @@ program mhd
 
   ! this is a hack and will be removed later:
   type(diptera) :: dummy_insect
+  type(flexible_wing),dimension(1:nWings) :: dummy_wings
   type(solid), dimension(1:nBeams) :: dummy_beams
 
   ! Initialize MPI, get size and rank
@@ -156,7 +158,7 @@ program mhd
   ! Initialize vorticity or read values from a backup file
   if (mpirank == 0) write(*,*) "Set up initial conditions:"
   call init_fields(time,it,dt0,dt1,n0,n1,ub,ubk,nlk,wj,explin,work,workc,press,&
-       scalars,scalars_rhs,dummy_insect,dummy_beams)
+       scalars,scalars_rhs,dummy_insect,dummy_beams,dummy_wings)
 
   if (mpirank == 0) write(*,*) "Create mask variables:"
   call create_mask_mhd
@@ -165,7 +167,7 @@ program mhd
 
   if (mpirank == 0) write(*,*) "Start time-stepping:"
   call time_step(time,dt0,dt1,n0,n1,it,ub,ubk,nlk,wj,work,workc,explin,&
-       press,scalars,scalars_rhs,infile,dummy_insect,dummy_beams)
+       press,scalars,scalars_rhs,infile,dummy_insect,dummy_beams,dummy_wings)
   if (mpirank == 0) write(*,'(A)') 'Finished computation.'
 
   deallocate(ubk)

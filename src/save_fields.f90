@@ -1,7 +1,8 @@
 ! Wrapper for saving fields routine
-subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   use vars
   use solid_model
+  use flexible_model
   use module_insects
   implicit none
 
@@ -13,23 +14,26 @@ subroutine save_fields(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Inse
   real(kind=pr),intent(inout)::work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout)::u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1 ! diagnostic used for performance analysis.
+
   t1 = MPI_wtime()
 
   select case(method)
   case("fsi")
-    call save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+    call save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   case("mhd")
     call save_fields_mhd(time,uk,u,vort,nlk)
   case default
     call abort(9,"Error! Unknown method in save_fields")
   end select
 
-  time_save=time_save + MPI_wtime() - t1 ! performance analysis
+  call toc("IO (save_fields to HDF5)", MPI_wtime() - t1)
 end subroutine save_fields
 
 
@@ -39,11 +43,12 @@ end subroutine save_fields
 ! files.
 ! The latest version calls cal_nlk_fsi to avoid redudant code.
 !-------------------------------------------------------------------------------
-subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,Insect,beams)
+subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,press,scalars,scalars_rhs,Insect,beams,wings)
   use vars
   use p3dfft_wrapper
   use basic_operators
   use solid_model
+  use flexible_model
   use module_insects
   use penalization ! mask array etc
   implicit none
@@ -56,12 +61,14 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   real(kind=pr),intent(inout) :: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout) :: vort(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
   real(kind=pr),intent(inout) :: u(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nd)
+  real(kind=pr),intent(inout) :: press(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3))
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(inout)::scalars_rhs(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars,0:nrhs-1)
   real(kind=pr):: volume, t
   character(len=6) :: name
   character(len=7) :: scalar_name
   integer :: j
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
@@ -93,7 +100,7 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
 
   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
   ! ensure that the mask function is at the right time, if it is not constant
-  if (iMoving==1) call create_mask (time, Insect, beams)
+  if (iMoving==1) call create_mask (time, Insect, beams, wings)
   ! if we save the pressure, we must compute the right hand side now:
   if (isavePress==1 .and. equation/='artificial-compressibility') then
     call cal_nlk_fsi (time,0,nlk,uk,u,vort,work,workc,Insect)
@@ -106,24 +113,24 @@ subroutine save_fields_fsi(time,it,uk,u,vort,nlk,work,workc,scalars,scalars_rhs,
   if (isaveVelocity == 1) then
     if (iSavePress==0) then
       ! the cal_nlk has not been called, and we need to do the IFFT
-      call ifft3(ink=uk(:,:,:,1:nd),outx=u(:,:,:,1:nd))
+      call ifft3(ink=uk(:,:,:,1:nd), outx=u(:,:,:,1:nd))
     endif
-    call save_field_hdf5(time,"ux_"//name,u(:,:,:,1))
-    call save_field_hdf5(time,"uy_"//name,u(:,:,:,2))
-    call save_field_hdf5(time,"uz_"//name,u(:,:,:,3))
+    call save_field_hdf5(time, "ux_"//name,u(:,:,:,1))
+    call save_field_hdf5(time, "uy_"//name,u(:,:,:,2))
+    call save_field_hdf5(time, "uz_"//name,u(:,:,:,3))
   endif
 
   !-----------------------------------------------------------------------------
   ! Pressure
   !-----------------------------------------------------------------------------
   if (isavePress == 1 .and. equation/="artificial-compressibility") then
-    ! compute pressure (remember NLK is *not* divergence free)
-    call pressure( nlk,workc(:,:,:,1) )
-    ! total pressure in x-space
-    call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
-    ! get actuall pressure (we're in the rotational formulation)
-    work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
-    call save_field_hdf5(time,'p_'//name,work(:,:,:,1))
+      ! compute pressure (remember NLK is *not* divergence free)
+      call pressure( nlk,workc(:,:,:,1) )
+      ! total pressure in x-space
+      call ifft( ink=workc(:,:,:,1), outx=work(:,:,:,1) )
+      ! get actuall pressure (we're in the rotational formulation)
+      work(:,:,:,1) = work(:,:,:,1) - 0.5d0*( u(:,:,:,1)**2 + u(:,:,:,2)**2 + u(:,:,:,3)**2 )
+      call save_field_hdf5(time,'p_'//name,work(:,:,:,1))
 
   elseif (isavePress == 1 .and. equation=="artificial-compressibility") then
     call ifft( ink=uk(:,:,:,4), outx=work(:,:,:,1) )
@@ -259,7 +266,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
   ! We need the velocity for saving the velocity and/or vorticity
   if(isaveVelocity == 1 .or. isaveVorticity == 1) then
     do i=1,3
-      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+      call ifft(ubk(:,:,:,i), ub(:,:,:,i))
     enddo
   endif
 
@@ -267,7 +274,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
   ! and/or current density
   if(isaveMagneticfield == 1  .or. isaveCurrent == 1) then
     do i=4,6
-      call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+      call ifft(ubk(:,:,:,i), ub(:,:,:,i))
     enddo
   endif
 
@@ -285,7 +292,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
     nlk(:,:,:,1),nlk(:,:,:,2),nlk(:,:,:,3),&
     ubk(:,:,:,1),ubk(:,:,:,2),ubk(:,:,:,3))
     do i=1,3
-      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+      call ifft(nlk(:,:,:,i), wj(:,:,:,i))
     enddo
     call save_field_hdf5(time,'vorx_'//name,wj(:,:,:,1))
     call save_field_hdf5(time,'vory_'//name,wj(:,:,:,2))
@@ -305,7 +312,7 @@ subroutine save_fields_mhd(time,ubk,ub,wj,nlk)
     nlk(:,:,:,4),nlk(:,:,:,5),nlk(:,:,:,6),&
     ubk(:,:,:,4),ubk(:,:,:,5),ubk(:,:,:,6))
     do i=4,6
-      call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+      call ifft(nlk(:,:,:,i), wj(:,:,:,i))
     enddo
     call save_field_hdf5(time,'jx_'//name,wj(:,:,:,4))
     call save_field_hdf5(time,'jy_'//name,wj(:,:,:,5))

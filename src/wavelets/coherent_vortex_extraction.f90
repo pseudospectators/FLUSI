@@ -34,8 +34,9 @@ subroutine coherent_scalar_extraction( wavelet, maxiter, u_tot, u_coh, u_inc )
   if (mpirank==0) write(*,*) 'performing forward FWT of total field...'
   ! we set the minimum level to 1, but if the grid becomes odd-sized, we stop
   ! the wavelet transform, so Jmin is dictated also by FWT3_PO
-  Jmin = 1
+  Jmin = 0
   call FWT3_PO(u_tot, wc, wavelet, Jmin, nc)
+  ! call IWT3_PO(wc, u_coh, wavelet, Jmin, nc)
 
   ! the initial guess for the incoherent part is the entire signal itself
   ! (surely an overestimate)
@@ -58,7 +59,7 @@ subroutine coherent_scalar_extraction( wavelet, maxiter, u_tot, u_coh, u_inc )
       Z = sum( u_inc**2 ) / 2.d0
       Z = mpisum( Z )
       Z = Z / (dble(nx)*dble(ny)*dble(nz))
-      threshold_this = sqrt( (4.d0/3.d0) * Z * log( (dble(nx)*dble(ny)*dble(nz)) ) )
+      threshold_this = sqrt( 4.d0 * Z * log( (dble(nx)*dble(ny)*dble(nz)) ) )
 
       ! apply the threshold, i.e. delete wavelet coefficients smaller than thresh_corr
       ! then inverse transform yields the coherent signal. substract this

@@ -8,11 +8,13 @@
 ! Output:
 !       all output is done directly to hard disk in the *.t files
 !-------------------------------------------------------------------------------
-subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
+subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams,Wings)
   use mpi
   use vars
   use solid_model
+  use flexible_model
   use module_insects
+
   implicit none
 
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
@@ -22,32 +24,34 @@ subroutine write_integrals(time,uk,u,vort,nlk,work,scalars,Insect,beams)
   real(kind=pr),intent(inout):: work(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3),1:nrw)
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   real(kind=pr),intent(in):: time
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
   real(kind=pr) :: t1
 
-  t1=MPI_wtime()
+  t1 = MPI_wtime()
 
   select case(method)
   case("fsi")
-    call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),scalars,Insect,beams)
+    call write_integrals_fsi(time,uk,u,vort,nlk,work(:,:,:,1),scalars,Insect,beams,Wings)
   case("mhd")
     call write_integrals_mhd(time,uk,u,vort,nlk,work(:,:,:,1))
   case default
     call abort(1, "Error! Unknown method in write_integrals")
   end select
 
-  time_integrals = time_integrals + MPI_wtime()-t1
+  call toc("Statistics (wrapper)", MPI_wtime()-t1)
 end subroutine write_integrals
 
 
 ! fsi version of writing integral quantities to disk
-subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beams)
+subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beams,Wings)
   use mpi
   use vars
   use p3dfft_wrapper
   use basic_operators
   use solid_model
+  use flexible_model
   use module_insects
   use penalization ! mask array etc
   implicit none
@@ -59,6 +63,7 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
   real(kind=pr),intent(inout)::scalars(ga(1):gb(1),ga(2):gb(2),ga(3):gb(3),1:n_scalars)
   complex(kind=pr),intent(inout)::uk(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
   complex(kind=pr),intent(inout)::work3c(ca(1):cb(1),ca(2):cb(2),ca(3):cb(3),1:neq)
+  type(flexible_wing),dimension(1:nWings), intent(inout) :: Wings
   type(solid), dimension(1:nBeams),intent(inout) :: beams
   type(diptera), intent(inout) :: Insect
 
@@ -91,9 +96,9 @@ subroutine write_integrals_fsi(time,uk,u,work3r,work3c,work1,scalars,Insect,beam
     ! to compute the forces, we need the mask at time t. not we cannot suppose
     ! that mask after fluidtimestep is at time t, it is rather at t-dt, thus we
     ! have to reconstruct the mask now. solids are also at time t
-    if(iMoving==1) call create_mask(time, Insect, beams)
+    if(iMoving==1) call create_mask(time, Insect, beams, Wings)
     call cal_drag (time, u, Insect)
-    time_drag = time_drag + MPI_wtime() - t3
+    call toc("Statistics (cal_drag)", MPI_wtime() - t3)
   endif
 
   !-----------------------------------------------------------------------------
@@ -266,7 +271,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
 
   ! Compute u and B to physical space
   do i=1,nd
-    call ifft(ub(:,:,:,i),ubk(:,:,:,i))
+    call ifft(ubk(:,:,:,i), ub(:,:,:,i))
   enddo
 
   ! Compute the vorticity and store the result in the first three 3D
@@ -282,7 +287,7 @@ subroutine write_integrals_mhd(time,ubk,ub,wj,nlk,work)
   ! Transform vorcitity and current density to physical space, store
   ! in wj
   do i=1,nd
-    call ifft(wj(:,:,:,i),nlk(:,:,:,i))
+    call ifft(nlk(:,:,:,i), wj(:,:,:,i))
   enddo
 
   ! Compute the integral quantities and output to disk:
@@ -677,7 +682,7 @@ subroutine compute_max_div(maxdiv,fk1,fk2,fk3,f1,f2,f3,div,divk)
     enddo
   enddo
 
-  call ifft(div,divk)
+  call ifft(divk, div)
 
   ! Find the local max
 

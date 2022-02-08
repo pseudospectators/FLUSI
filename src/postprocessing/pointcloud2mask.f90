@@ -13,7 +13,7 @@ subroutine pointcloud2mask(help)
   real(kind=pr) :: time, d0, smoothing
   type(inifile) :: PARAMS
   integer :: ntri, matrixlines, matrixcols, safety
-
+  type(diptera) :: Insect
 
   if (help.and.root) then
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -37,6 +37,8 @@ subroutine pointcloud2mask(help)
     write(*,*) "! to a point is d = sqrt( (x-xp)**2+(y-yp)**2+(z-zp)**2) but it may be handy to make the mask thicker"
     write(*,*) "! i.e. compute d = d-d0 and then compute the mask function mask(d). This was used in uCT data handling"
     write(*,*) "! in order to use an existing segmentation as a mask for the original data."
+    write(*,*) "! "
+    write(*,*) "! "
     write(*,*) "! "
     write(*,*) "! NOTE: we compute the mask ONLY near the surface, NOT in the interior of the body."
     write(*,*) "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -111,6 +113,12 @@ subroutine pointcloud2mask(help)
   origin = 0.0d0
 
   if (mode == "--minimal-domain") then
+
+      ! There is several solutions now:
+      ! - keep the resolution specified in the call and adjust nx,ny,nz
+      ! - keep the number of points in the call and end up with dx /= dy /= dz
+      ! - keep the number of points the same in the best sampled direction, then adjust the other two resolutions accordingly.
+      ! right now, we're doing (c)
     if (root) write(*,*) "As you set --minimal-domain, I will ignore xl,yl,zl and create"
     if (root) write(*,*) "the smallest possible cube that contains your pointcloud. I will use"
     if (root) write(*,*) "the same resolution you specified in the call."
@@ -121,6 +129,8 @@ subroutine pointcloud2mask(help)
     xl = maxval(points(:,1))-origin(1) + dble(safety)*dx
     yl = maxval(points(:,2))-origin(2) + dble(safety)*dx
     zl = maxval(points(:,3))-origin(3) + dble(safety)*dx
+
+    dx = minval( (/xl/dble(nx), yl/dble(ny), zl/dble(nz)/) )
 
     nx = nint(xl/dx)
     ny = nint(yl/dx)
@@ -161,6 +171,9 @@ subroutine pointcloud2mask(help)
   ng = 0
   ! initialize code and domain decomposition, but do not use FFTs
   call decomposition_initialize()
+
+  call insect_init( 0.d0, "params_template_fsi.ini", Insect, .false., "", (/xl,yl,zl/), nu, dx, periodic=periodic)
+
 
 
   ! smoothing for mask function:

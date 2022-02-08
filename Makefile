@@ -11,7 +11,7 @@ FFILES = rhs.f90 vis.f90 fluid_time_step.f90 init_fields.f90 \
 	sponge.f90 fft_unit_test.f90 draw_plate.f90 draw_sphere.f90 \
 	rotation_matrices.f90 add_channel.f90 add_cavity.f90 init_scalar.f90 dry_run.f90 \
 	noncircular_cylinder.f90 draw_flexible_plate.f90 \
-	runtime_backuping.f90 io_test.f90
+	runtime_backuping.f90 io_test.f90 POD.f90 post_force.f90
 
 ifndef NOHDF5
 # Case WITH HDF5 (all machines except earth simulator)
@@ -31,6 +31,11 @@ else
 # Case WITHOUT Hdf
 FFILES += flusi_nohdf5_interface.f90 postprocessing_nohdf5.f90
 endif
+
+ifdef SUPERLU
+FFILES += test_superlu.f90
+endif
+
 # Object and module directory:
 OBJDIR=obj
 OBJS := $(FFILES:%.f90=$(OBJDIR)/%.o)
@@ -43,7 +48,7 @@ MFILES = vars.f90 module_helpers.f90 cof_p3dfft.f90 solid_solver.f90 flexible_so
 	interpolation.f90 basic_operators.f90 module_insects.f90 turbulent_inlet.f90 \
 	ghostpoints.f90 passive_scalar.f90 ini_files_parser.f90 \
 	ini_files_parser_mpi.f90 wavelet_library.f90 module_insects_integration_flusi_wabbit.f90 \
-	krylov_time_stepper.f90
+	module_timing.f90
 
 ifndef NOHDF5
 MFILES += hdf5_wrapper.f90 slicing.f90 stlreader.f90
@@ -52,6 +57,14 @@ MFILES += slicing_nohdf5.f90
 endif
 
 MOBJS := $(MFILES:%.f90=$(OBJDIR)/%.o)
+
+#--------------------------------------------------------------
+# Files in C used for super_lu library:
+#--------------------------------------------------------------
+ifdef SUPERLU
+CFILES = c_fortran_dgssv.c
+COBJS := $(CFILES:%.c=$(OBJDIR)/%.o)
+endif
 
 #--------------------------------------------------------------
 # Source code directories (colon-separated):
@@ -73,6 +86,10 @@ ifeq ($(FC),sxf90)
 FC = sxmpif90
 endif
 
+ifndef CC
+CC = gcc
+endif
+
 #-------------------------------------------------------------------------------
 # SX compiler
 #-------------------------------------------------------------------------------
@@ -86,6 +103,10 @@ PPFLAG =
 # the DNOHDF5 flag disables all HDF5 compilation (if present)
 ifdef NOHDF5
 PRE_FLAGS=-DNOHDF5
+endif
+
+ifdef SUPERLU
+PRE_FLAGS += -DSUPERLU
 endif
 
 # Note that shell $(FC) makes an error on FC system and should be bypassed
@@ -102,11 +123,17 @@ FFLAGS += -J$(OBJDIR) # specify directory for modules.
 #FFLAGS += -pedantic
 PPFLAG= -cpp #preprocessor flag
 # Debug flags for gfortran:
-FFLAGS += -Wuninitialized -fimplicit-none -fbounds-check -g -ggdb -fbacktrace
+#FFLAGS += -Wuninitialized -fimplicit-none -fbounds-check -g -ggdb -fbacktrace
 FFLAGS += -O3
+# Debug flags for gcc:
+CFLAGS += -DNDEBUG -DPRNTlevel=0 -DDEBUGlevel=0
+CFLAGS += -O
 #FFLAGS += -ffpe-trap=zero,overflow,underflow -ffree-line-length-none -fbacktrace
 ifdef NOHDF5
 PRE_FLAGS=-DNOHDF5
+endif
+ifdef SUPERLU
+PRE_FLAGS += -DSUPERLU
 endif
 endif
 
@@ -120,8 +147,11 @@ PRE_FLAGS= -DIFORT # define the IFORT variable
 ifdef NOHDF5
 PRE_FLAGS += -DNOHDF5
 endif
+ifdef SUPERLU
+PRE_FLAGS += -DSUPERLU
+endif
 FFLAGS += -module $(OBJDIR) # specify directory for modules.
-FFLAGS += -vec_report0
+#FFLAGS += -vec_report0
 # debug flags
 # FFLAGS+= -g -debug all -traceback -check all -CB
 endif
@@ -136,6 +166,9 @@ PRE_FLAGS = -WF,-DTURING
 # this defines the TURING with the IBM compiler
 ifdef NOHDF5
 PRE_FLAGS:=$(PRE_FLAGS),-DNOHDF5
+endif
+ifdef SUPERLU
+PRE_FLAGS:=$(PRE_FLAGS),-DSUPERLU
 endif
 PPFLAG=-qsuffix=cpp=f90  #preprocessor flag
 endif
@@ -156,6 +189,13 @@ P3DFFT_INC = $(P3DFFT_ROOT)/include
 # HDF_ROOT is set in environment.
 HDF_LIB = $(HDF_ROOT)/lib
 HDF_INC = $(HDF_ROOT)/include
+
+# SuperLU
+ifdef SUPERLU
+SUPERLU_LIB = $(SUPERLU_ROOT)/build/SRC/libsuperlu.a
+SUPERLUBLAS_LIB = $(SUPERLU_ROOT)/build/CBLAS/libblas.a
+SUPERLU_SRC = $(SUPERLU_ROOT)/SRC
+endif
 
 # Common build flags
 LDFLAGS = -L$(P3DFFT_LIB) -lp3dfft -L$(FFT_LIB) -lfftw3
@@ -188,21 +228,27 @@ ifndef NOHDF5
 FFLAGS += -I$(HDF_INC)
 endif
 
-
+# Super_LU compile flags
+ifdef SUPERLU
+LDFLAGS += $(SUPERLU_LIB) $(SUPERLUBLAS_LIB)
+CFLAGS += -I$(SUPERLU_SRC)
+endif
 
 # Both programs are compiled by default.
 all: directories $(PROGRAMS)
 
 # Compile main programs, with dependencies.
-flusi: flusi.f90 $(MOBJS) $(OBJS)
+flusi: flusi.f90 $(MOBJS) $(COBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
-mhd: mhd.f90 $(MOBJS) $(OBJS)
+mhd: mhd.f90 $(MOBJS) $(COBJS) $(OBJS)
 	$(FC) $(FFLAGS) -o $@ $^ $(LDFLAGS)
 
 # Compile modules (module dependency must be specified by hand in
 # Fortran). Objects are specified in MOBJS (module objects).
-$(OBJDIR)/vars.o: vars.f90
+$(OBJDIR)/vars.o: vars.f90 $(OBJDIR)/module_timing.o
+	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+$(OBJDIR)/module_timing.o: module_timing.f90
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/cof_p3dfft.o: cof_p3dfft.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
@@ -217,10 +263,21 @@ $(OBJDIR)/solid_solver.o: solid_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpola
 	mouvement.f90 integrate_position.f90 init_beam.f90 save_beam.f90 BeamForces.f90 plate_geometry.f90 aux.f90 \
 	prescribed_beam.f90 solid_solver_wrapper.f90 $(OBJDIR)/ghostpoints.o
 	$(FC) -Isrc/solid_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+
+ifdef SUPERLU
 $(OBJDIR)/flexible_solver.o: flexible_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/module_helpers.o \
 	flexible_tri_mask.f90 internal_force.f90 internal_force_derivative.f90 \
-	init_wing.f90 flexible_solver_wrapper.f90
+	init_wing.f90 flexible_solver_wrapper.f90 flexible_solid_time_stepper_superlu.f90 \
+	supplementary_calc.f90 save_wing.f90
 	$(FC) -Isrc/flexible_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+else
+$(OBJDIR)/flexible_solver.o: flexible_solver.f90 $(OBJDIR)/vars.o  $(OBJDIR)/interpolation.o $(OBJDIR)/basic_operators.o $(OBJDIR)/module_helpers.o \
+	flexible_tri_mask.f90 internal_force.f90 internal_force_derivative.f90 \
+	init_wing.f90 flexible_solver_wrapper.f90 flexible_solid_time_stepper.f90 \
+	supplementary_calc.f90 save_wing.f90
+	$(FC) -Isrc/flexible_solver/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+endif
+
 $(OBJDIR)/ghostpoints.o: ghostpoints.f90 $(OBJDIR)/vars.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/interpolation.o: interpolation.f90 $(OBJDIR)/vars.o $(OBJDIR)/basic_operators.o
@@ -251,11 +308,15 @@ $(OBJDIR)/runtime_backuping.o: runtime_backuping.f90 $(OBJDIR)/vars.o $(OBJDIR)/
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/io_test.o: io_test.f90 $(OBJDIR)/vars.o $(OBJDIR)/runtime_backuping.o
 	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
-$(OBJDIR)/krylov_time_stepper.o: krylov_time_stepper.f90 $(OBJDIR)/vars.o $(OBJDIR)/module_helpers.o $(OBJDIR)/module_insects_integration_flusi_wabbit.o $(OBJDIR)/solid_solver.o
-	$(FC) $(FFLAGS) -c -o $@ $< $(LDFLAGS)
 $(OBJDIR)/wavelet_library.o: wavelet_library.f90 $(OBJDIR)/vars.o $(OBJDIR)/cof_p3dfft.o coherent_vortex_extraction.f90 FWT3_PO.f90 \
 	IWT3_PO.f90
 	$(FC) -Isrc/wavelets/ $(FFLAGS) -c -o $@ $< $(LDFLAGS)
+
+# Compile remaining C objects from Fortran files for SuperLU.
+ifdef SUPERLU
+$(OBJDIR)/c_fortran_dgssv.o: c_fortran_dgssv.c
+		$(CC) $(CFLAGS) -c -o $@ $< $(VERBOSE)
+endif
 
 # Compile remaining objects from Fortran files.
 $(OBJDIR)/%.o: %.f90 $(MOBJS)
