@@ -400,7 +400,7 @@ subroutine dry_run_flexible_wing()
 
   do while (time<tmax)
       t1 = MPI_wtime()
-      
+
           call FlexibleSolidSolverWrapper ( time, wings(1)%dt, wings(1)%dt, it, wings, Insect )
 
       ! create the mask
@@ -414,16 +414,16 @@ subroutine dry_run_flexible_wing()
       ! Save data
       write(name,'(i6.6)') floor(time*1000.d0)
 
-      if (modulo(time,tsave)<1.0e-15) then
+!      if (modulo(time,tsave)<1.0e-15) then
+      if (time_for_output(time, wings(1)%dt, it, tsave, 99999999, tmax, 0.d0)) then
 
           if (root) then
           write(*,'("Dry run flexible wing: Saving data, time= ",es12.4,1x," flags= ",5(i1)," name=",A)') &
           time,isaveVelocity,isaveVorticity,isavePress,isaveMask,isaveSolidVelocity,name
           endif
 
-!      if (modulo(time,tsave)<1.0e-15) then
-      if (isaveMask == 1) then
-      call save_field_hdf5(time,'mask_'//name,mask)
+          if (isaveMask == 1) then
+          call save_field_hdf5(time,'mask_'//name,mask)
       endif
 
       !call save_field_hdf5(time,'unsigned_distance_'//name,unsigned_distance)

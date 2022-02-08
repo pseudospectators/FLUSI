@@ -10,7 +10,7 @@ subroutine init_wings ( fname, wings, Insect, dx_reference)
   type(flexible_wing), dimension (1:nWings), intent (inout) :: Wings
   real(kind=pr), intent(in) :: dx_reference
   character(len=strlen) :: filename
-  real(kind=pr) :: alpha, time, stiff_coof
+  real(kind=pr) :: alpha, time, stiff_coef
   real(kind=pr) :: delta(1:3)
   real(kind=pr), dimension(1:3) :: u
   real(kind=pr), allocatable :: normal(:,:)
@@ -151,8 +151,8 @@ subroutine init_wings ( fname, wings, Insect, dx_reference)
       call read_param_mpi(PARAMS,"Flexible_wing","OptJoint_stiffness",wings(i)%k_OptJoints)
     endif
 
-    !HACK: to change the stiffness of all veins by a factor of stiff_coof
-    call read_param_mpi(PARAMS,"Flexible_wing","stiff_coof",wings(i)%stiff_coof, 1.0d0)
+    !HACK: to change the stiffness of all veins by a factor of stiff_coef
+    call read_param_mpi(PARAMS,"Flexible_wing","stiff_coef",wings(i)%stiff_coef, 1.0d0)
 
     call read_param_mpi(PARAMS,"Flexible_wing","ke_veins",wings(i)%ke0_v)
     call read_param_mpi(PARAMS,"Flexible_wing","ke_veins_with_BC",wings(i)%ke0_vBC)
@@ -389,8 +389,8 @@ subroutine init_wings ( fname, wings, Insect, dx_reference)
         call calculate_flexural_rigidity_from_Young_modulus(j,wings(i)%kby(:,j), wings(i)%kbz(:,j), &
           wings(i)%E, wings(i)%d_veins(:,j), wings(i)%middle_point_indices(j), wings(i)%veins_extension(1:,:,j))
       else
-        call convert_flexural_rigidity_into_spring_stiffness(wings(i)%EIy(j)*wings(i)%stiff_coof, &
-                                                          wings(i)%EIz(j)*wings(i)%stiff_coof,  &
+        call convert_flexural_rigidity_into_spring_stiffness(wings(i)%EIy(j)*wings(i)%stiff_coef, &
+                                                          wings(i)%EIz(j)*wings(i)%stiff_coef,  &
                                                           wings(i)%kby0(j), wings(i)%kbz0(j), &
                                                           wings(i)%veins_extension(:,:,j))
 
@@ -416,8 +416,8 @@ subroutine init_wings ( fname, wings, Insect, dx_reference)
         call calculate_flexural_rigidity_from_Young_modulus(j,wings(i)%kby_BC(1:,j), wings(i)%kbz_BC(1:,j), &
           wings(i)%E, wings(i)%d_veins_BC(:,j), wings(i)%middle_point_indices_BC(j), wings(i)%veins_extension_BC(1:,:,j))
       else
-        call convert_flexural_rigidity_into_spring_stiffness(wings(i)%EIy_BC(j)*wings(i)%stiff_coof, &
-                                                          wings(i)%EIz_BC(j)*wings(i)%stiff_coof,  &
+        call convert_flexural_rigidity_into_spring_stiffness(wings(i)%EIy_BC(j)*wings(i)%stiff_coef, &
+                                                          wings(i)%EIz_BC(j)*wings(i)%stiff_coef,  &
                                                           wings(i)%kby0_BC(j), wings(i)%kbz0_BC(j), &
                                                           wings(i)%veins_extension_BC(1:,:,j))
 

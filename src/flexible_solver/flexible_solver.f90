@@ -96,7 +96,7 @@ module flexible_model
     real(kind=pr),dimension(1:nVeins) :: middle_point_indices
     real(kind=pr),dimension(1:3,1:nVeins_BC) :: d_veins_BC
     real(kind=pr),dimension(1:nVeins_BC) :: middle_point_indices_BC
-    real(kind=pr) :: E, stiff_coof
+    real(kind=pr) :: E, stiff_coef
     real(kind=pr),dimension(1:nVeins) :: rho_v
     real(kind=pr),dimension(1:nVeins_BC) :: rho_vBC
     real(kind=pr),dimension(1:nMembranes) :: rho_m, ke0_m, ke0_mc
