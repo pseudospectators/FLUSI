@@ -792,6 +792,7 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
   real(kind=pr) :: kx, ky, kz, k2, eps_inv
   complex(kind=pr) :: imag   ! imaginary unit
   integer :: ix,iz,iy,mpicode
+  real(kind=pr), allocatable, save, dimension(:,:,:) :: vv_dy, vw_dz, wv_dy, ww_dz
 
   nlk = 0.0d0
   ! reset ux (we assume you deal with 2d flows...)
@@ -805,11 +806,92 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
 
   eps_inv = 1.0_pr / eps
 
+  if (.not. allocated(vv_dy)) then
+    allocate(vv_dy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+    allocate(vw_dz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+    allocate(wv_dy(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+    allocate(ww_dz(ra(1):rb(1),ra(2):rb(2),ra(3):rb(3)))
+  endif
+
   !-----------------------------------------------------------------------------
   !-- Calculate velocity in physical space
   !-----------------------------------------------------------------------------
   call ifft(outx=u(:,:,:,2), ink=uk(:,:,:,2))
   call ifft(outx=u(:,:,:,3), ink=uk(:,:,:,3))
+
+  ! derivative terms for divergence form as required for the skew-symmetric formulation of the NL term
+
+  ! -------------- vv_dy ----------------------------
+  vv_dy = u(:,:,:,2)*u(:,:,:,2) ! in x-space
+  call fft(inx=vv_dy, outk=workc(:,:,:,1)) ! k-space
+
+  imag = dcmplx(0.d0,1.d0)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           workc(iz,iy,ix,1) = imag*ky*workc(iz,iy,ix,1) ! work1 = vv_dy k-space
+       enddo
+    enddo
+  enddo 
+
+  call ifft(ink=workc(:,:,:,1), outx=vv_dy)
+
+  ! -------------- vw_dz ----------------------------
+  vw_dz = u(:,:,:,2)*u(:,:,:,3) ! in x-space
+  call fft(inx=vw_dz, outk=workc(:,:,:,1)) ! k-space
+
+  imag = dcmplx(0.d0,1.d0)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           workc(iz,iy,ix,1) = imag*kz*workc(iz,iy,ix,1) ! work1 = vw_dz k-space
+       enddo
+    enddo
+  enddo 
+
+  call ifft(ink=workc(:,:,:,1), outx=vw_dz)
+
+  ! -------------- wv_dy ----------------------------
+  wv_dy = u(:,:,:,3)*u(:,:,:,2) ! in x-space
+  call fft(inx=wv_dy, outk=workc(:,:,:,1)) ! k-space
+
+  imag = dcmplx(0.d0,1.d0)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           workc(iz,iy,ix,1) = imag*ky*workc(iz,iy,ix,1) ! work1 = wv_dy k-space
+       enddo
+    enddo
+  enddo 
+
+  call ifft(ink=workc(:,:,:,1), outx=wv_dy)
+
+  ! -------------- ww_dz ----------------------------
+  ww_dz = u(:,:,:,3)*u(:,:,:,3) ! in x-space
+  call fft(inx=ww_dz, outk=workc(:,:,:,1)) ! k-space
+
+  imag = dcmplx(0.d0,1.d0)
+  do ix=ca(3),cb(3)
+     kx=wave_x(ix)
+     do iy=ca(2),cb(2)
+        ky=wave_y(iy)
+        do iz=ca(1),cb(1)
+           kz=wave_z(iz)
+           workc(iz,iy,ix,1) = imag*kz*workc(iz,iy,ix,1) ! work1 = ww_dz k-space
+       enddo
+    enddo
+  enddo 
+
+  call ifft(ink=workc(:,:,:,1), outx=ww_dz)
 
   ! derivatives (requires for non-linear term in convection formulation)
   imag = dcmplx(0.d0,1.d0)
@@ -855,8 +937,11 @@ subroutine rhs_acm_2D(time, it, nlk, uk, u, vort, work, workc, Insect)
 
         ! we overwrite the vorticity with the NL terms in phys space
         ! note this is indeed -(vor x u) (negative sign)
-        vort(ix,iy,iz,2) = -uy*uy_dy -uz*uy_dz -chi*(uy-usy)
-        vort(ix,iy,iz,3) = -uy*uz_dy -uz*uz_dz -chi*(uz-usz)
+        ! vort(ix,iy,iz,2) = -uy*uy_dy -uz*uy_dz -chi*(uy-usy)
+        ! vort(ix,iy,iz,3) = -uy*uz_dy -uz*uz_dz -chi*(uz-usz)
+
+        vort(ix,iy,iz,2) = -0.5_pr*(vv_dy(ix,iy,iz) + vw_dz(ix,iy,iz)   + uy*uy_dy + uz*uy_dz ) -chi*(uy-usy)
+        vort(ix,iy,iz,3) = -0.5_pr*(wv_dy(ix,iy,iz) + ww_dz(ix,iy,iz)   + uy*uz_dy + uz*uz_dz ) -chi*(uz-usz)     
       enddo
     enddo
   enddo
